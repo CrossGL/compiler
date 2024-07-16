@@ -17,18 +17,19 @@ enum class TokenType {
 struct Token {
     TokenType type;
     std::string value;
+    Token(TokenType t,std::string v){type=t;value=v;}
 };
 
 class Lexer {
 public:
     Lexer(const std::string &source);
-    std::vector<Token> tokenize();
+    std::vector<Token> getTokens();
 private:
     std::string source;
     size_t index;
     char currentChar();
 
-    void advance();
+    int advance();
     void skipWhitespace();
     Token number();
     Token identifier();
