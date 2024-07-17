@@ -80,6 +80,9 @@
 				</MakeCommands>
 			</Target>
 		</Build>
+		<Unit filename="D:/CrossGL Compiler/compiler/Token.cpp">
+			<Option target="compiler"/>
+		</Unit>
 		<Unit filename="D:/CrossGL Compiler/compiler/lexer.cpp">
 			<Option target="compiler"/>
 		</Unit>

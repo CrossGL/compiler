@@ -8,6 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
+  "D:/CrossGL Compiler/compiler/Token.cpp" "D:/CrossGL Compiler/compiler/cmake-build-debug/CMakeFiles/compiler.dir/Token.cpp.obj"
   "D:/CrossGL Compiler/compiler/lexer.cpp" "D:/CrossGL Compiler/compiler/cmake-build-debug/CMakeFiles/compiler.dir/lexer.cpp.obj"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
