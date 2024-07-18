@@ -3,6 +3,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -19,16 +20,18 @@ struct Token {
     std::string value;
 };
 
+static void printTokenDebugInfo (Token& token);
+
 class Lexer {
 public:
-    Lexer(const std::string &source);
+    explicit Lexer(const std::string &source);
     std::vector<Token> tokenize();
 private:
     std::string source;
     size_t index;
     char currentChar();
 
-    void advance();
+    inline void advance();
     void skipWhitespace();
     Token number();
     Token identifier();
