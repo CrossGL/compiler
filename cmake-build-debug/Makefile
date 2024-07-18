@@ -128,30 +128,6 @@ compiler/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\compiler.dir\build.make CMakeFiles/compiler.dir/build
 .PHONY : compiler/fast
 
-Token.obj: Token.cpp.obj
-.PHONY : Token.obj
-
-# target to build an object file
-Token.cpp.obj:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\compiler.dir\build.make CMakeFiles/compiler.dir/Token.cpp.obj
-.PHONY : Token.cpp.obj
-
-Token.i: Token.cpp.i
-.PHONY : Token.i
-
-# target to preprocess a source file
-Token.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\compiler.dir\build.make CMakeFiles/compiler.dir/Token.cpp.i
-.PHONY : Token.cpp.i
-
-Token.s: Token.cpp.s
-.PHONY : Token.s
-
-# target to generate assembly for a file
-Token.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles\compiler.dir\build.make CMakeFiles/compiler.dir/Token.cpp.s
-.PHONY : Token.cpp.s
-
 lexer.obj: lexer.cpp.obj
 .PHONY : lexer.obj
 
@@ -185,9 +161,6 @@ help:
 	@echo ... edit_cache
 	@echo ... rebuild_cache
 	@echo ... compiler
-	@echo ... Token.obj
-	@echo ... Token.i
-	@echo ... Token.s
 	@echo ... lexer.obj
 	@echo ... lexer.i
 	@echo ... lexer.s

@@ -1,5 +1,4 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/compiler.dir/Token.cpp.obj"
   "CMakeFiles/compiler.dir/lexer.cpp.obj"
   "compiler.exe"
   "compiler.exe.manifest"
