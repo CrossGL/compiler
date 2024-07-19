@@ -4,6 +4,7 @@ project(compiler VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_executable(compiler lexer.cpp
-        Token.cpp
-)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+add_subdirectory(lib)
+add_subdirectory(tools)
