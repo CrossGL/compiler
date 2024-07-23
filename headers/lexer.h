@@ -29,7 +29,7 @@ private:
     size_t index;
     char currentChar();
 
-    int advance();
+    bool advance();
     void skipWhitespace();
     Token number();
     Token identifier();
