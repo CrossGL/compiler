@@ -1,6 +1,6 @@
 #include "../headers/lexer.h"
 
-bool isaplhanum(char c){return isdigit(c) or isalpha(c);}
+bool isaplhanum(char c){return isdigit(c) or isalpha(c) or c=='_';} // supports Normal Identifier, along with '_'
 
 Lexer::Lexer(const std::string &source)
 {
@@ -13,7 +13,7 @@ char Lexer::currentChar()
     return source[index];
 }
 
-int Lexer::advance()
+bool Lexer::advance()
 {
     if (index > source.length() - 1)
         return 0;
@@ -50,13 +50,14 @@ Token Lexer::identifier()
     {
         vname += currentChar();
         advance();
-    } while (isaplhanum(currentChar())); // we should also add the support for _underscore
+    } while (isaplhanum(currentChar()));
 
     return Token(TokenType::IDENTIFIER, vname);
 }
 
 std::vector<Token> Lexer::getTokens()
 {
+    std::string singleOperators = "+-/*=;(),{}";
 
     std::vector<Token> tokens;
     do
@@ -65,12 +66,12 @@ std::vector<Token> Lexer::getTokens()
         if (currentChar() == ' ')
             skipWhitespace();
         if (currentChar() == '\0')
-            tokens.push_back(Token(TokenType::END_OF_FILE, "\0"));
+            tokens.push_back(Token(TokenType::END_OF_FILE, "EOF"));
         if (isalpha(currentChar()))
             tokens.push_back(identifier());
         if (isdigit(currentChar()))
             tokens.push_back(number());
-        if (currentChar() == '+' or currentChar() == '-' or currentChar() == '/' or currentChar() == '*' or currentChar() == '=' or currentChar() == ';' or currentChar() == '(' or currentChar() == ')' or currentChar() == ',')
+        if (singleOperators.find(currentChar()) != singleOperators.npos)
         {
             std::string s = "";
             s += currentChar();
