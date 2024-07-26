@@ -31,9 +31,11 @@ private:
 
     bool advance();
     void skipWhitespace();
+    char peekAhead();
     Token number();
     Token identifier();
     Token symbol();
+
 };
 
 #endif // LEXER_H

@@ -2,7 +2,7 @@
 #include "../headers/lexer.h"
 
 int main(){
-    Lexer lex("shader main{\nBuffer x = 0;\n Vertex{\n Frag_Color=vec4(10,20,30,10);\n}\n}\nint mix(vec3 x,vec3 y){\nreturn sin(x,y);}\nFragment{\nvoid driver(){}}");
+    Lexer lex("x<<3;x>>3;x<=3;x=3;x>=3;x==5;x!=2;x&&2;x||20;x~20;x--;Shader main{position = vec3(1,1,2);}");
     std::vector<Token> types = lex.getTokens();
 
     std::cout<<"size of the tokens: "<<types.size()<<std::endl;
