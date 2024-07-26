@@ -4,7 +4,12 @@
 #include <string>
 #include <vector>
 
-enum class TokenType { IDENTIFIER, KEYWORD, NUMBER, SYMBOL, END_OF_FILE };
+enum class TokenType { IDENTIFIER,
+                       KEYWORD,
+                       NUMBER,
+                       SYMBOL,
+                       DATATYPE,
+                       END_OF_FILE };
 
 struct Token {
   TokenType type;

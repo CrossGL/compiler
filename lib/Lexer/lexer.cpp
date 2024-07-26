@@ -1,6 +1,20 @@
 #include "lexer.h"
 
-bool isaplhanum(char c) { return isdigit(c) or isalpha(c); }
+namespace self {
+  // For better documentation
+  bool isaplhanum(char c) { return isdigit(c) or isalpha(c); }
+  bool isKeywordCheck(const std::string& string) {
+    if(string == "int" || string == "float" || string == "bool" ||
+       string == "vec2" || string == "vec3" || string == "vec4" ||
+       string == "mat2" || string == "mat3" || string == "mat4" ||
+       string == "sampler2D" || string == "sampler3D" || string == "shader"
+       )
+      return true;
+    return false;
+  }
+
+}
+
 
 Lexer::Lexer(const std::string &source) {
   this->source = source;
@@ -34,19 +48,19 @@ Token Lexer::number() {
   return Token(TokenType::NUMBER, num);
 }
 
+
 Token Lexer::identifier() {
   std::string vname = "";
   do {
     vname += currentChar();
     advance();
-  } while (isaplhanum(
-      currentChar())); // we should also add the support for _underscore
-
+  } while (self::isaplhanum(
+      currentChar()) || currentChar() == '_'); // Underscore support added
+  if(self::isKeywordCheck(vname)) return Token(TokenType::KEYWORD, vname);
   return Token(TokenType::IDENTIFIER, vname);
 }
 
 std::vector<Token> Lexer::getTokens() {
-
   std::vector<Token> tokens;
   do {
 
