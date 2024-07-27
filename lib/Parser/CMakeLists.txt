@@ -1,2 +1,3 @@
 add_library(CrossGL-Parser STATIC
-        parser.cpp)
+        parser.cpp
+        ../Custom-Namespaces/XGLUtils.cpp)

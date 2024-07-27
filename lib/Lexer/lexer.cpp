@@ -1,20 +1,5 @@
 #include "lexer.h"
-
-namespace XGLUtils {
-  // For better documentation
-  bool isaplhanum(char c) { return isdigit(c) or isalpha(c); }
-  bool isKeywordCheck(const std::string& string) {
-    if(string == "int" || string == "float" || string == "bool" ||
-       string == "vec2" || string == "vec3" || string == "vec4" ||
-       string == "mat2" || string == "mat3" || string == "mat4" ||
-       string == "sampler2D" || string == "sampler3D" || string == "shader" ||
-       string == "void" || string == "return"
-       )
-      return true;
-    return false;
-  }
-
-}
+#include "XGLUtils.h"
 
 
 Lexer::Lexer(const std::string &source) {
