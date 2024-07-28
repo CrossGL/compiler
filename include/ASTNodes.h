@@ -1,5 +1,6 @@
 #ifndef ASTNODES_H
 #define ASTNODES_H
+#include <string>
 
 class ASTNode {
 public:
@@ -9,6 +10,19 @@ public:
 
 class Expr : public ASTNode {};
 class Stmt : public ASTNode {};
+
+class Variable : public Expr {
+public:
+    std::string name;
+    explicit Variable(std::string  name);
+};
+
+class NumericLiteral : public Expr {
+public:
+    int value;
+    explicit NumericLiteral(int value);
+};
+
 
 
 #endif
