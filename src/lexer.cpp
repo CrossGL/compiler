@@ -38,7 +38,7 @@ Token Lexer::number()
     {
         num += currentChar();
         advance();
-    } while (isdigit(currentChar()));
+    } while (isdigit(currentChar()) or currentChar() == '.'); // if the string has more than 1 '.' that should raise an error in the parser.
 
     return Token(TokenType::NUMBER, num);
 }
