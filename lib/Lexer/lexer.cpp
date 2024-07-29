@@ -1,6 +1,6 @@
 #include "lexer.h"
+#include "XGLUtils.h"
 
-bool isaplhanum(char c) { return isdigit(c) or isalpha(c); }
 
 Lexer::Lexer(const std::string &source) {
   this->source = source;
@@ -24,36 +24,36 @@ void Lexer::skipWhitespace() {
 }
 
 Token Lexer::number() {
-  std::string num = "";
+  std::string num;
 
   do {
     num += currentChar();
     advance();
   } while (isdigit(currentChar()));
 
-  return Token(TokenType::NUMBER, num);
+  return {TokenType::NUMBER, num};
 }
 
+
 Token Lexer::identifier() {
-  std::string vname = "";
+  std::string vname;
   do {
     vname += currentChar();
     advance();
-  } while (isaplhanum(
-      currentChar())); // we should also add the support for _underscore
-
-  return Token(TokenType::IDENTIFIER, vname);
+  } while (XGLUtils::isaplhanum(
+      currentChar()) || currentChar() == '_'); // Underscore support added
+  if(XGLUtils::isKeywordCheck(vname)) return {TokenType::KEYWORD, vname};
+  return {TokenType::IDENTIFIER, vname};
 }
 
 std::vector<Token> Lexer::getTokens() {
-
   std::vector<Token> tokens;
   do {
 
     if (currentChar() == ' ')
       skipWhitespace();
     if (currentChar() == '\0')
-      tokens.push_back(Token(TokenType::END_OF_FILE, "\0"));
+      tokens.emplace_back(TokenType::END_OF_FILE, "\0");
     if (isalpha(currentChar()))
       tokens.push_back(identifier());
     if (isdigit(currentChar()))
@@ -61,9 +61,9 @@ std::vector<Token> Lexer::getTokens() {
     if (currentChar() == '+' or currentChar() == '-' or currentChar() == '/' or
         currentChar() == '*' or currentChar() == '=' or currentChar() == ';' or
         currentChar() == '(' or currentChar() == ')' or currentChar() == ',') {
-      std::string s = "";
+      std::string s;
       s += currentChar();
-      tokens.push_back(Token(TokenType::SYMBOL, s));
+      tokens.emplace_back(TokenType::SYMBOL, s);
     }
   } while (advance());
 

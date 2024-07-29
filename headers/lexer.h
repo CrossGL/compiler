@@ -11,6 +11,8 @@ enum class TokenType {
     KEYWORD,
     NUMBER,
     SYMBOL,
+    FUNCTIONCALL,
+    DATATYPE,
     END_OF_FILE
 };
 
@@ -32,6 +34,7 @@ private:
     bool advance();
     void skipWhitespace();
     Token number();
+    Token datatype();
     Token identifier();
     Token symbol();
 };
