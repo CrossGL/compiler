@@ -33,10 +33,12 @@ private:
 
     bool advance();
     void skipWhitespace();
+    char peekAhead();
     Token number();
     Token datatype();
     Token identifier();
     Token symbol();
+
 };
 
 #endif // LEXER_H

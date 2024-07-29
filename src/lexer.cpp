@@ -1,6 +1,6 @@
 #include "../headers/lexer.h"
 
-bool isaplhanum(char c){return isdigit(c) or isalpha(c) or c=='_';} // supports Normal Identifier, along with '_'
+bool isaplhanum(char c) { return isdigit(c) or isalpha(c) or c == '_'; } // supports Normal Identifier, along with '_'
 
 Lexer::Lexer(const std::string &source)
 {
@@ -38,7 +38,7 @@ Token Lexer::number()
     {
         num += currentChar();
         advance();
-    } while (isdigit(currentChar()));
+    } while (isdigit(currentChar()) or currentChar() == '.'); // if the string has more than 1 '.' that should raise an error in the parser.
 
     return Token(TokenType::NUMBER, num);
 }
@@ -54,10 +54,15 @@ Token Lexer::identifier()
 
     return Token(TokenType::IDENTIFIER, vname);
 }
-
+char Lexer::peekAhead()
+{
+    if (index != source.length() - 1)
+        return source[index + 1];
+    return '\0';
+}
 std::vector<Token> Lexer::getTokens()
 {
-    std::string singleOperators = "+-/*=;(),{}";
+    std::string singleOperators = "+-/*=;(),{}&~><!|%";
 
     std::vector<Token> tokens;
     do
@@ -65,8 +70,6 @@ std::vector<Token> Lexer::getTokens()
 
         if (currentChar() == ' ')
             skipWhitespace();
-        if (currentChar() == '\0')
-            tokens.push_back(Token(TokenType::END_OF_FILE, "EOF"));
         if (isalpha(currentChar()))
             tokens.push_back(identifier());
         if (isdigit(currentChar()))
@@ -75,9 +78,18 @@ std::vector<Token> Lexer::getTokens()
         {
             std::string s = "";
             s += currentChar();
+
+            //lets check if the operator is continued ahead or has a '=' symbol ahead
+            if (peekAhead() == s[0] or peekAhead() == '=')
+            { 
+                advance();
+                s += currentChar();
+            }
+
             tokens.push_back(Token(TokenType::SYMBOL, s));
         }
     } while (advance());
 
+    tokens.push_back(Token(TokenType::END_OF_FILE, "EOF"));
     return tokens;
 }
