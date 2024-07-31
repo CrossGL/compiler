@@ -9,3 +9,5 @@
 - Assignment Operations - TODO
 - Other needs ... - TODO
 - using VISITOR pattern to start incorporating LLVM in the project.
+- Recursive descend (Top-Down Parser) type would be used!
+- 
