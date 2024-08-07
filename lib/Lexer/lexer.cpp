@@ -1,7 +1,6 @@
 #include "lexer.h"
 #include "XGLUtils.h"
 
-
 Lexer::Lexer(const std::string &source) {
   this->source = source;
   index = 0;
@@ -34,15 +33,15 @@ Token Lexer::number() {
   return {TokenType::NUMBER, num};
 }
 
-
 Token Lexer::identifier() {
   std::string vname;
   do {
     vname += currentChar();
     advance();
-  } while (XGLUtils::isaplhanum(
-      currentChar()) || currentChar() == '_'); // Underscore support added
-  if(XGLUtils::isKeywordCheck(vname)) return {TokenType::KEYWORD, vname};
+  } while (XGLUtils::isaplhanum(currentChar()) ||
+           currentChar() == '_'); // Underscore support added
+  if (XGLUtils::isKeywordCheck(vname))
+    return {TokenType::KEYWORD, vname};
   return {TokenType::IDENTIFIER, vname};
 }
 

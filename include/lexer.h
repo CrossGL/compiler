@@ -5,16 +5,19 @@
 #include <utility>
 #include <vector>
 
-enum class TokenType { IDENTIFIER,
-                       KEYWORD,
-                       NUMBER,
-                       SYMBOL,
-                       DATATYPE,
-                       END_OF_FILE };
-
-inline std::vector<const std::string> keywords = { "int", "float", "bool", "vec2", "vec3", "vec4", "mat2", "mat3", "mat4",
-                                       "sampler2D", "sampler3D", "shader", "void", "return", "samplerCube", "uint"
+enum class TokenType {
+  IDENTIFIER,
+  KEYWORD,
+  NUMBER,
+  SYMBOL,
+  DATATYPE,
+  END_OF_FILE
 };
+
+inline std::vector<const std::string> keywords = {
+    "int",  "float",  "bool",        "vec2",      "vec3",      "vec4",
+    "mat2", "mat3",   "mat4",        "sampler2D", "sampler3D", "shader",
+    "void", "return", "samplerCube", "uint"};
 
 struct Token {
   TokenType type;
