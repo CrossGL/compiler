@@ -7,7 +7,7 @@ int main() {
   std::vector<Token> types = lex.getTokens();
 
   std::cout << "size of the tokens: " << types.size() << std::endl;
-  for (auto it : types) {
+  for (const auto& it : types) {
     std::cout << it.value << " ";
   }
   std::cout << "\n";
