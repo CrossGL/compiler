@@ -5,6 +5,9 @@
 namespace XGLUtils {
     static inline bool isaplhanum(char c);
     static bool isKeywordCheck(const std::string& word);
+    // Namespace for custom Cross GL exceptions
+    namespace XGLException{};
+
 
 };
 
