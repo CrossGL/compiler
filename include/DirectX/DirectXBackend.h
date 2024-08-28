@@ -1,7 +1,3 @@
-//
-// Created by noman on 8/23/24.
-//
-
 #ifndef DIRECTXBACKEND_H
 #define DIRECTXBACKEND_H
 

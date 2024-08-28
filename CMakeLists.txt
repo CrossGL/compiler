@@ -1,45 +1,24 @@
-cmake_minimum_required(VERSION 3.16)
-project(CrossGL LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.13)
+project(MyMLIRProject)
 
-# Enable C++17 standard
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED YES)
+# Set LLVM_DIR to your LLVM installation path
+list(APPEND CMAKE_PREFIX_PATH "path/to/llvm")
 
-# Find MLIR
+find_package(LLVM REQUIRED CONFIG)
 find_package(MLIR REQUIRED CONFIG)
 
-# Include directories
-include_directories(${CMAKE_SOURCE_DIR}/include)
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-# Add source files
-set(SOURCES
-        include/CrossGL/CrossGL.cpp
-        include/CrossGL/CrossGLDialect.cpp
-        include/CrossGL/CrossGLOps.cpp
-        "include/Cross GL/CrossGL.h"
-        "include/Cross GL/CrossDLDialect.cpp"
-        "include/Cross GL/CrossDLDialect.h"
-        "include/Cross GL/CrossGLOps.cpp"
-        "include/Cross GL/CrossGLOps.h"
-        "include/Cross GL/CrossGL.cpp"
-        tests/crossgl-tests.cpp
-        include/DirectX/DirectXBackend.cpp
-        include/DirectX/DirectXBackend.h
-        include/Metal/MetalBackend.cpp
-        include/Metal/MetalBackend.h
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
+
+include_directories(${LLVM_INCLUDE_DIRS})
+separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+add_definitions(${LLVM_DEFINITIONS_LIST})
+
+include_directories(${MLIR_INCLUDE_DIRS})
+link_directories(${MLIR_LIBRARY_DIR})
+
+set(CORE_SOURCES
+        
 )
-
-# Add backend source files
-list(APPEND SOURCES
-        include/DirectX/DirectXBackend.cpp
-        include/Metal/MetalBackend.cpp
-)
-
-# Define the main executable
-add_executable(CrossGL ${SOURCES} include/CrossGL/main.cpp)
-
-# Link MLIR libraries
-target_link_libraries(CrossGL PRIVATE MLIR)
-
-# Add the test directory
-add_subdirectory(tests)
