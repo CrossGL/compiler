@@ -9,4 +9,6 @@
 ```
 
 ## Eager run 
+```bash
 ./eager_run.sh # This will not install MLIR and will only compile the CrossGL MLIR dialect
+```
