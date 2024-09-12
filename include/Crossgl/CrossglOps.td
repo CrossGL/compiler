@@ -91,7 +91,7 @@ def MultiplyOp : Crossgl_Op<"multiply",
         [ Pure, DeclareOpInterfaceMethods<ShapeInterfaceOpInterface>]> {
     let summary = "element-wise multiplication operation";
     let description = [{
-         The "multiplication" operation performs element-wise multiplication between two tensores.
+         The "multiplication" operation performs element-wise multiplication between two tensors.
          The shapes of the tensor operands are expected to match.
     }];
 
@@ -108,7 +108,21 @@ def MultiplyOp : Crossgl_Op<"multiply",
 
 def DivideOp : Crossgl_Op<"divide",
         [ Pure, DeclareOpInterfaceMethods<ShapeInterfaceopInterface>]> {
-    let summary = ""
+    let summary = "element-wise division operation";
+    let description = [{
+        The "division" operation performs element-wise division between teo tensors.
+        The shapes of the tensor operands are expected to match.
+
+    }];
+
+    let arguments = (ins F64Tensor:$lhs , F64Tensor:$rhs);
+    let results = (outs F64Tensor);
+
+    let hasCustomAssemblyFormat = 1;
+
+    let builders = [
+        opbuilder<{ins "Value":$lhs, "Value":$rhs)>
+    ];
 
 }
 
