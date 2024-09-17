@@ -217,6 +217,12 @@ private:
         global.getType(), globalPtr, mlir::ArrayRef<mlir::Value>({cst0, cst0}));
   }
 };
+
+class AddOpLowering : public mlir::ConversionPattern {
+public:
+  explicit AddOpLowering(mlir::MLIRContext* context) : mlir::ConversionPattern(crossgl::AddOp::getOperationName, 1, context)
+};
+
 } 
 
 namespace {

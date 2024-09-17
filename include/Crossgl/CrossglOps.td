@@ -2,6 +2,7 @@
 #define CrossGL_OPS
 
 include "CrossglDialect.td"
+include "CrossglTypes.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def ConstantOp : Crossgl_Op<"constant", [Pure]> {
@@ -125,6 +126,24 @@ def DivideOp : Crossgl_Op<"divide",
     ];
 
 }
+
+def MatmulOp : Crossgl_Op<"matmul",
+        [ Pure ] > {
+    let summary = "matrix-multiplication operation";
+    let description = [{
+        The "matmul" operation performs dot product of two matrices.
+    }];
+
+    let arguments = (ins Crossgl_MatrixType:$lhs, Crossgl_MatrixType:$rhs);
+    let results = (outs Crossgl_MatrixType:$result);
+
+
+    let verifier = [{
+        auto lhsType = $lhs.get
+    }
+    ]
+
+        }
 
 
 #endif 
