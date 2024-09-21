@@ -7,7 +7,7 @@ dependencies for building MLIR: `Visual Studio 17 2022`, `Python`, `CMake`, `Git
 ```
 make sure to run `build-mlir.bat` before running the `build.bat` script
 ```shell
-.\build.bat # complies and executes crossgl-opt target, which generates LLVM IR -> build\bin\print.ll 
+.\build.bat # complies and executes crossgl-opt target, generates LLVM IR -> build\bin\print.ll 
 ```
 
 ## Lazy run 
