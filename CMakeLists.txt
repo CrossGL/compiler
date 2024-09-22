@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.13.4)
+cmake_minimum_required(VERSION 3.16)
+
+project(mlir-hello LANGUAGES CXX C)
 
 if(POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW)
@@ -12,8 +14,6 @@ endif()
 if(POLICY CMP0077)
   cmake_policy(SET CMP0077 NEW)
 endif()
-
-project(mlir-hello LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
 
@@ -42,5 +42,6 @@ add_definitions(${LLVM_DEFINITIONS})
 
 add_subdirectory(include)
 add_subdirectory(lib)
+
 #add_subdirectory(test)
 add_subdirectory(crossgl-opt)

@@ -2,7 +2,6 @@
 #define CrossGL_OPS
 
 include "CrossglDialect.td"
-include "CrossglTypes.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def ConstantOp : Crossgl_Op<"constant", [Pure]> {
@@ -52,7 +51,7 @@ def WorldOp : Crossgl_Op<"world", [Pure]> {
 }
 
 def AddOp : Crossgl_Op<"add",
-    [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
+    [Pure]> {
     let summary = "element-wise addition operation";
     let description = [{
         The "add" operation performs element-wise addition between two tensors.
@@ -70,7 +69,7 @@ def AddOp : Crossgl_Op<"add",
 }
 
 def SubtractOp : Crossgl_Op<"subtract",
-        [Pure, DeclareOpInterfaceMethods<ShapeInferenceopInterface>]>{
+        [Pure]>{
     let summary = "element-wise subtraction operation";
     let description = [{
         The "subtract" operation performs element-wise subtraction between two tensors.
@@ -89,7 +88,7 @@ def SubtractOp : Crossgl_Op<"subtract",
 }
 
 def MultiplyOp : Crossgl_Op<"multiply",
-        [ Pure, DeclareOpInterfaceMethods<ShapeInterfaceOpInterface>]> {
+        [ Pure]> {
     let summary = "element-wise multiplication operation";
     let description = [{
          The "multiplication" operation performs element-wise multiplication between two tensors.
@@ -108,7 +107,7 @@ def MultiplyOp : Crossgl_Op<"multiply",
 }
 
 def DivideOp : Crossgl_Op<"divide",
-        [ Pure, DeclareOpInterfaceMethods<ShapeInterfaceopInterface>]> {
+        [ Pure]> {
     let summary = "element-wise division operation";
     let description = [{
         The "division" operation performs element-wise division between teo tensors.
@@ -127,23 +126,20 @@ def DivideOp : Crossgl_Op<"divide",
 
 }
 
-def MatmulOp : Crossgl_Op<"matmul",
-        [ Pure ] > {
-    let summary = "matrix-multiplication operation";
-    let description = [{
-        The "matmul" operation performs dot product of two matrices.
-    }];
-
-    let arguments = (ins Crossgl_MatrixType:$lhs, Crossgl_MatrixType:$rhs);
-    let results = (outs Crossgl_MatrixType:$result);
 
 
-    let verifier = [{
-        auto lhsType = $lhs.get
-    }
-    ]
 
-        }
+
+
+
+
+
+
+
+
+
+
+
 
 
 #endif 

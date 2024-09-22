@@ -18,8 +18,6 @@ def Crossgl_Dialect : Dialect {
 class Crossgl_Op<string mnemonic, list<Trait> traits = []> :
         Op<Crossgl_Dialect, mnemonic, traits>;
 
-class Crossgl_Type<string mnemonic> :
-        Type<Crossgl_Dialect, mnemonic>;
 
 
 #endif //CROSSGL_DIALECT
