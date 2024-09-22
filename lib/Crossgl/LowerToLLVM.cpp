@@ -220,10 +220,29 @@ private:
 
 class AddOpLowering : public mlir::ConversionPattern {
 public:
-  explicit AddOpLowering(mlir::MLIRContext* context) : mlir::ConversionPattern(crossgl::AddOp::getOperationName, 1, context)
+  explicit AddOpLowering(mlir::MLIRContext *context)
+      :  mlir::ConversionPattern(crossgl::AddOp::getOperationName(), 1, context) {}
+
+  mlir::LogicalResult
+  matchAndRewrite(mlir::Operation* op, mlir::ArrayRef<mlir::Value> operands, mlir::ConversionPatternRewriter& rewriter)
+  const override {
+
+    mlir::Value lhs = operands[0];
+    mlir::Value rhs = operands[1];
+
+    auto loc = op->getLoc();
+
+    mlir::Value result = rewriter.create<mlir::FAddOp>(loc, lhs, rhs);
+    rewriter.replaceOp(op, result);
+
+    return mlir::success();
+
+  }
+
+
 };
 
-} 
+
 
 namespace {
 class CrossglToLLVMLoweringPass

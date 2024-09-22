@@ -50,13 +50,12 @@ def WorldOp : Crossgl_Op<"world", [Pure]> {
     }];
 }
 
-def AddOp : Crossgl_Op<"add",
-    [Pure]> {
+def AddOp : Crossgl_Op<"add", [Pure]> {
     let summary = "element-wise addition operation";
     let description = [{
         The "add" operation performs element-wise addition between two tensors.
         The shapes of the tensor operands are expected to match.
-  }];
+    }];
 
     let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
     let results = (outs F64Tensor);
@@ -64,12 +63,11 @@ def AddOp : Crossgl_Op<"add",
     let hasCustomAssemblyFormat = 1;
 
     let builders = [
-    OpBuilder<(ins "Value":$lhs, "Value":$rhs)>
-  ];
+        OpBuilder<(ins "Value": $lhs, "Value": $rhs)>
+    ];
 }
 
-def SubtractOp : Crossgl_Op<"subtract",
-        [Pure]>{
+def SubtractOp : Crossgl_Op<"subtract",[Pure]>{
     let summary = "element-wise subtraction operation";
     let description = [{
         The "subtract" operation performs element-wise subtraction between two tensors.
@@ -82,7 +80,7 @@ def SubtractOp : Crossgl_Op<"subtract",
     let hasCustomAssemblyFormat = 1;
 
     let builders = [
-        OpBuilder<{ins "Value": $lhs, "Value":$rhs)>
+        OpBuilder<(ins "Value": $lhs, "Value": $rhs)>
     ];
 
 }
@@ -101,7 +99,7 @@ def MultiplyOp : Crossgl_Op<"multiply",
     let hasCustomAssemblyFormat = 1;
 
     let builders = [
-        OpBuilder<{ins "Value":$lhs, "Value":$rhs)>
+        OpBuilder<(ins "Value": $lhs, "Value": $rhs)>
     ];
 
 }
@@ -121,7 +119,7 @@ def DivideOp : Crossgl_Op<"divide",
     let hasCustomAssemblyFormat = 1;
 
     let builders = [
-        opbuilder<{ins "Value":$lhs, "Value":$rhs)>
+        OpBuilder<(ins "Value": $lhs, "Value": $rhs)>
     ];
 
 }
