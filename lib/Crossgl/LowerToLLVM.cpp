@@ -255,9 +255,49 @@ public:
           auto loc = op->getLoc();
           mlir::Value isGreater = rewriter.create<mlir::CmpFOp>(loc, mlir::arith::CmpFPredicate::OGT, lhs, rhs);
 
+          mlir::Value result = rewriter.create<mlir::FSubOp>(loc, isGreater,
+
+
+    }
+
 
 
 };
+
+class MultiplyOpLowering : public mlir::ConversionPattern {
+
+public:
+      explicit MultiplyOpLowering(mlir::MLIRContext *context)
+          :  mlir::ConversionPattern(crossgl::MultiplyOp::getOperationName(), 1, context) {}
+
+      mlir::LogicalResult
+      matchAndRewrite(mlir::Operation* op, mlir::ArrayRef<mlir::Value> operands , mlir::ConversionPatternRewriter& rewriter)
+      const override {
+
+            mlir::Value lhs = operands[0];
+            mlir::Value rhs = operands[1];
+
+            auto loc = op->getLoc();
+            mlir::Type lhsType = lhs.getType();
+            mlir::Type rhsType = rhs.getType();
+
+            mlir::Value product;
+            if(lhsType.isF32() || lhsType.isF64() || rhsType.isF32() || rhsType.isF64()) {
+                    product = rewriter.create<mlir::arith::MulFOp>(loc, lhs, rhs);
+            } else {
+                    product = rewriter.create<mlir::arith::MulIOp>(loc, lhs, rhs);
+            }
+
+            rewriter.replaceOp(op, product);
+
+            return mlir::success();
+      }
+
+
+};
+
+
+
 
 
 
