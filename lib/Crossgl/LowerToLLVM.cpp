@@ -238,6 +238,23 @@ public:
     return mlir::success();
 
   }
+};
+
+class SubtractOpLowering : public mlir::ConversionPattern {
+public:
+    explicit SubtractOpLowering(mlir::MLIRContext *context)
+    	: mlir::ConversionPattern(crossgl::SubtractOp::getOperationName(), 1, context) {}
+
+    mlir::LogicalResult
+    matchAndRewrite(mlir::Operation* op, mlir::ArrayRef<mlir::Value> operands, mlir::ConversionPatternRewriter& rewriter)
+    const override {
+
+          mlir::Value lhs = operands[0];
+          mlir::Value rhs = operands[1];
+
+          auto loc = op->getLoc();
+          mlir::Value isGreater = rewriter.create<mlir::CmpFOp>(loc, mlir::arith::CmpFPredicate::OGT, lhs, rhs);
+
 
 
 };
