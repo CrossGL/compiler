@@ -255,8 +255,7 @@ public:
           auto loc = op->getLoc();
           mlir::Value isGreater = rewriter.create<mlir::CmpFOp>(loc, mlir::arith::CmpFPredicate::OGT, lhs, rhs);
 
-          mlir::Value result = rewriter.create<mlir::FSubOp>(loc, isGreater,
-
+          return mlir::success();
 
     }
 
@@ -294,6 +293,23 @@ public:
       }
 
 
+};
+
+class DivisionOpLowering : public mlir::ConversionPattern {
+public:
+      explicit DivisionOpLowering(mlir::MLIRContext *context)
+          : mlir::ConversionPattern(crossgl::DivideOp::getOperationName(), 1, context) {}
+
+      mlir::LogicalResult
+      matchAndRewrite(mlir::Operation* op, mlir::ArrayRef<mlir::Value> operands, mlir::ConversionPatternRewriter& rewriter){
+
+           mlir::Value lhs = operands[0];
+           mlir::Value rhs = operands[1];
+
+           auto loc = op->getLoc();
+
+           return mlir::success();
+      }
 };
 
 
