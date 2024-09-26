@@ -232,7 +232,7 @@ public:
 
     auto loc = op->getLoc();
 
-    mlir::Value result = rewriter.create<mlir::FAddOp>(loc, lhs, rhs);
+    mlir::Value result = rewriter.create<mlir::LLVM::FAddOp>(loc, lhs, rhs);
     rewriter.replaceOp(op, result);
 
     return mlir::success();
@@ -253,7 +253,7 @@ public:
           mlir::Value rhs = operands[1];
 
           auto loc = op->getLoc();
-          mlir::Value isGreater = rewriter.create<mlir::CmpFOp>(loc, mlir::arith::CmpFPredicate::OGT, lhs, rhs);
+          mlir::Value isGreater = rewriter.create<mlir::arith::CmpFOp>(loc, mlir::arith::CmpFPredicate::OGT, lhs, rhs);
 
           return mlir::success();
 
