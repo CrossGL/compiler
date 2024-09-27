@@ -1,7 +1,9 @@
 # Compiler 
 
 ## Windows
-dependencies for building MLIR: `Visual Studio 17 2022`, `Python`, `CMake`, `Git`
+dependencies for building MLIR: `Visual Studio 17 2022`, `Python`, `CMake`, `Git`  
+
+run the batch files using the `x64 Native Tools Command Prompt for VS 2022` provided by Visual Studio
 ```shell
 .\build-mlir.bat # builds thirdparty\llvm-project
 ```
