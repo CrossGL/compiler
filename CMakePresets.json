@@ -8,7 +8,7 @@
 
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/thirdparty/llvm-project/build/lib/cmake"
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/thirdparty/llvm-project/install"
             }
         },
         {
