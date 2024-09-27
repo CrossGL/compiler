@@ -50,4 +50,94 @@ def WorldOp : Crossgl_Op<"world", [Pure]> {
     }];
 }
 
+def AddOp : Crossgl_Op<"add", [Pure]> {
+    let summary = "element-wise addition operation";
+    let description = [{
+        The "add" operation performs element-wise addition between two tensors.
+        The shapes of the tensor operands are expected to match.
+    }];
+
+    let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
+    let results = (outs F64Tensor);
+
+    let hasCustomAssemblyFormat = 1;
+
+    let builders = [
+        OpBuilder<(ins "Value": $lhs, "Value": $rhs)>
+    ];
+}
+
+def SubtractOp : Crossgl_Op<"subtract",[Pure]>{
+    let summary = "element-wise subtraction operation";
+    let description = [{
+        The "subtract" operation performs element-wise subtraction between two tensors.
+        The shapes of the tensor operands are expected to match.
+    }];
+
+    let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
+    let results = (outs F64Tensor);
+
+    let hasCustomAssemblyFormat = 1;
+
+    let builders = [
+        OpBuilder<(ins "Value": $lhs, "Value": $rhs)>
+    ];
+
+}
+
+def MultiplyOp : Crossgl_Op<"multiply",
+        [ Pure]> {
+    let summary = "element-wise multiplication operation";
+    let description = [{
+         The "multiplication" operation performs element-wise multiplication between two tensors.
+         The shapes of the tensor operands are expected to match.
+    }];
+
+    let arguments = (ins F64Tensor:$lhs , F64Tensor:$rhs);
+    let results = (outs F64Tensor);
+
+    let hasCustomAssemblyFormat = 1;
+
+    let builders = [
+        OpBuilder<(ins "Value": $lhs, "Value": $rhs)>
+    ];
+
+}
+
+def DivideOp : Crossgl_Op<"divide",
+        [ Pure]> {
+    let summary = "element-wise division operation";
+    let description = [{
+        The "division" operation performs element-wise division between teo tensors.
+        The shapes of the tensor operands are expected to match.
+
+    }];
+
+    let arguments = (ins F64Tensor:$lhs , F64Tensor:$rhs);
+    let results = (outs F64Tensor);
+
+    let hasCustomAssemblyFormat = 1;
+
+    let builders = [
+        OpBuilder<(ins "Value": $lhs, "Value": $rhs)>
+    ];
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #endif 
