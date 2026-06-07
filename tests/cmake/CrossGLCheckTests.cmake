@@ -2498,6 +2498,16 @@ add_test(NAME cglc_check_top_level_function_signature_parameter_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=3|location.column=9"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=top-level function list function 'utility' signature mismatch|message=previous signature 'float(float)'|message=current signature 'float(vec2)'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_duplicate_function_parameter_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DUPLICATE_FUNCTION_PARAMETER_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.duplicate-function-parameter
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=3|location.column=35"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=stage 'compute' function list function 'helper' contains duplicate parameter 'value'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_declaration_initializer_type_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

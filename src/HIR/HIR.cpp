@@ -153,6 +153,26 @@ void validateUserFunctionSignatureConsistency(
   }
 }
 
+void validateUserFunctionParameterNames(const std::vector<FunctionDecl> &functions,
+                                        const std::string &scopeLabel,
+                                        DiagnosticEngine &diagnostics) {
+  for (const FunctionDecl &function : functions) {
+    std::set<std::string> parameterNames;
+    for (const Parameter &parameter : function.parameters) {
+      if (parameter.name.empty()) {
+        continue;
+      }
+      if (!parameterNames.insert(parameter.name).second) {
+        diagnostics.error(
+            "sema.duplicate-function-parameter",
+            scopeLabel + " function '" + function.name +
+                "' contains duplicate parameter '" + parameter.name + "'",
+            parameter.location);
+      }
+    }
+  }
+}
+
 void addComputeInvocationBuiltinTypes(
     std::unordered_map<std::string, HIRType> &variables,
     std::string_view stage) {
@@ -5199,6 +5219,8 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
       collectUserFunctionSignatures(module.functions);
   validateUserFunctionSignatureConsistency(
       module.functions, "top-level function list", diagnostics);
+  validateUserFunctionParameterNames(module.functions, "top-level function list",
+                                     diagnostics);
 
   std::unordered_map<std::string, bool> topLevelFunctions;
   for (const FunctionDecl &function : module.functions) {
@@ -5364,6 +5386,9 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
     const UserFunctionSignatureMap stageFunctionSignatures =
         collectUserFunctionSignatures(stage.functions);
     validateUserFunctionSignatureConsistency(
+        stage.functions, "stage '" + stage.stage + "' function list",
+        diagnostics);
+    validateUserFunctionParameterNames(
         stage.functions, "stage '" + stage.stage + "' function list",
         diagnostics);
     for (const auto &[name, signature] : stageFunctionSignatures) {
