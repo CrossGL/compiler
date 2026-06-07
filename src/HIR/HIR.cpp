@@ -62,6 +62,41 @@ HIRType convertType(const TypeRef &type) {
   return HIRType{type.name, type.arraySize, type.location};
 }
 
+struct UserFunctionSignature {
+  HIRType returnType;
+  std::vector<HIRParameter> parameters;
+  SourceLocation nameSpan;
+};
+
+using UserFunctionSignatureMap =
+    std::unordered_map<std::string, UserFunctionSignature>;
+
+const UserFunctionSignatureMap &emptyUserFunctionSignatures() {
+  static const UserFunctionSignatureMap signatures;
+  return signatures;
+}
+
+UserFunctionSignature makeUserFunctionSignature(const FunctionDecl &function) {
+  UserFunctionSignature signature;
+  signature.returnType = convertType(function.returnType);
+  signature.nameSpan = function.location;
+  for (const Parameter &parameter : function.parameters) {
+    signature.parameters.push_back(
+        HIRParameter{convertType(parameter.type), parameter.name,
+                     parameter.location});
+  }
+  return signature;
+}
+
+UserFunctionSignatureMap
+collectUserFunctionSignatures(const std::vector<FunctionDecl> &functions) {
+  UserFunctionSignatureMap signatures;
+  for (const FunctionDecl &function : functions) {
+    signatures.emplace(function.name, makeUserFunctionSignature(function));
+  }
+  return signatures;
+}
+
 void addComputeInvocationBuiltinTypes(
     std::unordered_map<std::string, HIRType> &variables,
     std::string_view stage) {
@@ -764,9 +799,12 @@ public:
                    const std::set<std::string> &knownTypeNames,
                    const std::unordered_map<std::string, HIRStruct> &structs,
                    const std::unordered_map<std::string, HIRType> &variables,
-                   DiagnosticEngine *diagnostics = nullptr)
+                   DiagnosticEngine *diagnostics = nullptr,
+                   const UserFunctionSignatureMap &functionSignatures =
+                       emptyUserFunctionSignatures())
       : tokens_(std::move(tokens)), knownTypeNames_(knownTypeNames),
-        structs_(structs), variables_(variables), diagnostics_(diagnostics) {}
+        structs_(structs), variables_(variables),
+        functionSignatures_(functionSignatures), diagnostics_(diagnostics) {}
 
   HIRExpression parse() {
     HIRExpression expression = parseConditional();
@@ -1072,7 +1110,7 @@ private:
         }
         HIRExpression indexExpression =
             ExpressionParser(std::move(indexTokens), knownTypeNames_, structs_,
-                             variables_, diagnostics_)
+                             variables_, diagnostics_, functionSignatures_)
                 .parse();
         if (failed_ || indexExpression.kind == HIRExpressionKind::Empty) {
           failed_ = true;
@@ -1095,7 +1133,8 @@ private:
               collectUntilTopLevelCommaOr(TokenKind::RParen);
           HIRExpression argument =
               ExpressionParser(std::move(argumentTokens), knownTypeNames_,
-                               structs_, variables_, diagnostics_)
+                               structs_, variables_, diagnostics_,
+                               functionSignatures_)
                   .parse();
           if (failed_ || argument.kind == HIRExpressionKind::Empty) {
             failed_ = true;
@@ -1293,6 +1332,14 @@ private:
                                         callee.location)) {
       return *intrinsicType;
     }
+    if (kind == HIRExpressionKind::Call) {
+      auto function = functionSignatures_.find(callee.value);
+      if (function != functionSignatures_.end()) {
+        HIRType returnType = function->second.returnType;
+        returnType.location = callee.location;
+        return returnType;
+      }
+    }
     return {};
   }
 
@@ -1324,6 +1371,7 @@ private:
   const std::set<std::string> &knownTypeNames_;
   const std::unordered_map<std::string, HIRStruct> &structs_;
   const std::unordered_map<std::string, HIRType> &variables_;
+  const UserFunctionSignatureMap &functionSignatures_;
   DiagnosticEngine *diagnostics_ = nullptr;
   std::size_t index_ = 0;
   bool failed_ = false;
@@ -1565,10 +1613,13 @@ public:
              const std::unordered_map<std::string, HIRStruct> &structs,
              std::unordered_map<std::string, HIRType> variables,
              DiagnosticEngine &diagnostics,
-             std::set<std::string> mutableLocals = {})
+             std::set<std::string> mutableLocals = {},
+             const UserFunctionSignatureMap &functionSignatures =
+                 emptyUserFunctionSignatures())
       : tokens_(tokens), knownTypeNames_(knownTypeNames), structs_(structs),
         variables_(std::move(variables)), diagnostics_(diagnostics),
-        mutableLocals_(std::move(mutableLocals)) {}
+        mutableLocals_(std::move(mutableLocals)),
+        functionSignatures_(functionSignatures) {}
 
   std::vector<HIRStatement> parse() {
     std::vector<HIRStatement> statements;
@@ -2961,7 +3012,7 @@ private:
     std::vector<Token> bodyTokens(tokens.begin() + static_cast<std::ptrdiff_t>(begin),
                                   tokens.begin() + static_cast<std::ptrdiff_t>(end));
     return BodyParser(bodyTokens, knownTypeNames_, structs_, variables_,
-                      diagnostics_, mutableLocals_)
+                      diagnostics_, mutableLocals_, functionSignatures_)
         .parse();
   }
 
@@ -2999,7 +3050,7 @@ private:
     std::vector<Token> expressionTokens(tokens.begin() + static_cast<std::ptrdiff_t>(begin),
                                         tokens.begin() + static_cast<std::ptrdiff_t>(end));
     return ExpressionParser(std::move(expressionTokens), knownTypeNames_, structs_,
-                            variables_, &diagnostics_)
+                            variables_, &diagnostics_, functionSignatures_)
         .parse();
   }
 
@@ -3009,6 +3060,7 @@ private:
   std::unordered_map<std::string, HIRType> variables_;
   DiagnosticEngine &diagnostics_;
   std::set<std::string> mutableLocals_;
+  const UserFunctionSignatureMap &functionSignatures_;
   std::size_t index_ = 0;
 };
 
@@ -3073,9 +3125,11 @@ HIRExpression parseExpressionTokens(
     const std::vector<Token> &tokens, const std::set<std::string> &knownTypeNames,
     const std::unordered_map<std::string, HIRStruct> &structs,
     const std::unordered_map<std::string, HIRType> &variables,
-    DiagnosticEngine *diagnostics = nullptr) {
+    DiagnosticEngine *diagnostics = nullptr,
+    const UserFunctionSignatureMap &functionSignatures =
+        emptyUserFunctionSignatures()) {
   return ExpressionParser(tokens, knownTypeNames, structs, variables,
-                          diagnostics)
+                          diagnostics, functionSignatures)
       .parse();
 }
 
@@ -3138,7 +3192,8 @@ HIRFunction convertFunction(
     std::string_view stage,
     const std::unordered_map<std::string, HIRType> &constantTypes,
     const std::unordered_map<std::string, HIRType> &cbufferFieldTypes,
-    DiagnosticEngine &diagnostics) {
+    DiagnosticEngine &diagnostics,
+    const UserFunctionSignatureMap &functionSignatures) {
   HIRFunction hir;
   hir.returnType = convertType(function.returnType);
   hir.name = function.name;
@@ -3166,7 +3221,7 @@ HIRFunction convertFunction(
 
   hir.body =
       BodyParser(function.bodyTokens, knownTypeNames, structs,
-                 std::move(variables), diagnostics)
+                 std::move(variables), diagnostics, {}, functionSignatures)
           .parse();
   return hir;
 }
@@ -4174,6 +4229,59 @@ void validateIntrinsicCallExpression(const HIRExpression &expression,
   }
 }
 
+std::string formatFunctionArgumentCount(std::size_t count) {
+  return count == 1 ? "exactly 1 argument"
+                    : "exactly " + std::to_string(count) + " arguments";
+}
+
+bool sameFunctionArgumentType(const HIRType &expected, const HIRType &actual) {
+  if (expected.name.empty() || actual.name.empty()) {
+    return true;
+  }
+  return sameType(stripTypeQualifier(expected), stripTypeQualifier(actual));
+}
+
+void validateUserFunctionCallExpression(
+    const HIRExpression &expression,
+    const UserFunctionSignatureMap &functionSignatures,
+    DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Call &&
+      !isWorkgroupBarrierCallName(expression.value) &&
+      !isImageAccessCallName(expression.value) &&
+      lookupHIRIntrinsicSignatures(expression.value).empty()) {
+    auto function = functionSignatures.find(expression.value);
+    if (function != functionSignatures.end()) {
+      const std::vector<HIRParameter> &parameters =
+          function->second.parameters;
+      if (expression.children.size() != parameters.size()) {
+        diagnostics.error(
+            "sema.function-call-arity",
+            "function call '" + expression.value + "' expects " +
+                formatFunctionArgumentCount(parameters.size()) + ", got " +
+                std::to_string(expression.children.size()),
+            expression.location);
+      } else {
+        for (std::size_t index = 0; index < parameters.size(); ++index) {
+          const HIRType &expected = parameters[index].type;
+          const HIRType &actual = expression.children[index].type;
+          if (!sameFunctionArgumentType(expected, actual)) {
+            diagnostics.error(
+                "sema.function-call-argument-type",
+                "function call '" + expression.value + "' argument " +
+                    std::to_string(index) + " expects '" + formatType(expected) +
+                    "', got '" + formatType(actual) + "'",
+                expression.children[index].location);
+          }
+        }
+      }
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateUserFunctionCallExpression(child, functionSignatures, diagnostics);
+  }
+}
+
 void validateScalarConstructorExpression(const HIRExpression &expression,
                                          DiagnosticEngine &diagnostics) {
   if (expression.kind == HIRExpressionKind::Constructor &&
@@ -4451,7 +4559,9 @@ void validateExpressionSemantics(const HIRExpression &expression,
                                  std::string_view stage,
                                  const std::unordered_map<std::string, HIRResource>
                                      &resources,
-                                 DiagnosticEngine &diagnostics) {
+                                 DiagnosticEngine &diagnostics,
+                                 const UserFunctionSignatureMap &functionSignatures =
+                                     emptyUserFunctionSignatures()) {
   validateTextureSampleExpression(expression, stage, diagnostics);
   validateTextureCompareExpression(expression, stage, diagnostics);
   validateImageAccessExpression(expression, resources, diagnostics);
@@ -4461,6 +4571,7 @@ void validateExpressionSemantics(const HIRExpression &expression,
   validateBinaryOperatorExpression(expression, diagnostics);
   validateSelectExpression(expression, diagnostics);
   validateIntrinsicCallExpression(expression, diagnostics);
+  validateUserFunctionCallExpression(expression, functionSignatures, diagnostics);
   validateScalarConstructorExpression(expression, diagnostics);
   validateNonUniformIndexExpression(expression, resources, diagnostics);
   validateAtomicReadModifyWriteExpression(expression, diagnostics);
@@ -4507,39 +4618,48 @@ void validateStatementSemantics(const HIRStatement &statement,
                                 const std::unordered_map<std::string, HIRResource>
                                     &resources,
                                 DiagnosticEngine &diagnostics,
+                                const UserFunctionSignatureMap &functionSignatures =
+                                    emptyUserFunctionSignatures(),
                                 std::size_t loopDepth = 0) {
   validateControlTransferStatement(statement, stage, loopDepth, diagnostics);
   validateAtomicReadModifyWriteValueUse(statement, diagnostics);
-  validateExpressionSemantics(statement.target, stage, resources, diagnostics);
-  validateExpressionSemantics(statement.value, stage, resources, diagnostics);
+  validateExpressionSemantics(statement.target, stage, resources, diagnostics,
+                              functionSignatures);
+  validateExpressionSemantics(statement.value, stage, resources, diagnostics,
+                              functionSignatures);
   for (const HIRStatement &initializer : statement.initializer) {
     validateStatementSemantics(initializer, stage, resources, diagnostics,
-                               loopDepth);
+                               functionSignatures, loopDepth);
   }
   for (const HIRStatement &update : statement.update) {
-    validateStatementSemantics(update, stage, resources, diagnostics, loopDepth);
+    validateStatementSemantics(update, stage, resources, diagnostics,
+                               functionSignatures, loopDepth);
   }
   const std::size_t childLoopDepth =
       statement.kind == HIRStatementKind::For ? loopDepth + 1 : loopDepth;
   for (const HIRStatement &child : statement.body) {
     validateStatementSemantics(child, stage, resources, diagnostics,
-                               childLoopDepth);
+                               functionSignatures, childLoopDepth);
   }
   for (const HIRStatement &child : statement.elseBody) {
-    validateStatementSemantics(child, stage, resources, diagnostics, loopDepth);
+    validateStatementSemantics(child, stage, resources, diagnostics,
+                               functionSignatures, loopDepth);
   }
 }
 
 void validateFunctionExpressions(const HIRFunction &function,
                                  std::string_view stage,
                                  const std::vector<HIRResource> &resources,
-                                 DiagnosticEngine &diagnostics) {
+                                 DiagnosticEngine &diagnostics,
+                                 const UserFunctionSignatureMap &functionSignatures =
+                                     emptyUserFunctionSignatures()) {
   std::unordered_map<std::string, HIRResource> resourceMap;
   for (const HIRResource &resource : resources) {
     resourceMap[resource.name] = resource;
   }
   for (const HIRStatement &statement : function.body) {
-    validateStatementSemantics(statement, stage, resourceMap, diagnostics);
+    validateStatementSemantics(statement, stage, resourceMap, diagnostics,
+                               functionSignatures);
   }
 }
 
@@ -4922,6 +5042,9 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
   const std::unordered_map<std::string, HIRType> cbufferFieldTypes =
       collectCBufferFieldTypes(module.cbuffers, diagnostics);
 
+  const UserFunctionSignatureMap topLevelFunctionSignatures =
+      collectUserFunctionSignatures(module.functions);
+
   std::unordered_map<std::string, bool> topLevelFunctions;
   for (const FunctionDecl &function : module.functions) {
     const bool hasBody = !function.bodyTokens.empty();
@@ -4934,14 +5057,16 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
     topLevelFunctions[function.name] = topLevelFunctions[function.name] || hasBody;
     HIRFunction hirFunction =
         convertFunction(function, knownTypeNames, structMap, {}, "",
-                        constantTypes, cbufferFieldTypes, diagnostics);
+                        constantTypes, cbufferFieldTypes, diagnostics,
+                        topLevelFunctionSignatures);
     validateFunctionLocalArrayDeclarations(
         hirFunction, "function '" + function.name + "'", constantTypes,
         constantValues, diagnostics);
     validateFunctionTypes(hirFunction, structNames, diagnostics,
                           "function '" + function.name + "'",
                           function.returnType.location);
-    validateFunctionExpressions(hirFunction, "", {}, diagnostics);
+    validateFunctionExpressions(hirFunction, "", {}, diagnostics,
+                                topLevelFunctionSignatures);
     hir.functions.push_back(std::move(hirFunction));
   }
 
@@ -5079,6 +5204,14 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
       hirStage.resources.push_back(std::move(hirResource));
     }
 
+    UserFunctionSignatureMap visibleFunctionSignatures =
+        topLevelFunctionSignatures;
+    const UserFunctionSignatureMap stageFunctionSignatures =
+        collectUserFunctionSignatures(stage.functions);
+    for (const auto &[name, signature] : stageFunctionSignatures) {
+      visibleFunctionSignatures[name] = signature;
+    }
+
     std::unordered_map<std::string, bool> stageFunctions;
     for (const FunctionDecl &function : stage.functions) {
       const bool hasBody = !function.bodyTokens.empty();
@@ -5093,7 +5226,7 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
       HIRFunction hirFunction =
           convertFunction(function, knownTypeNames, structMap, hirStage.resources,
                           stage.stage, constantTypes, cbufferFieldTypes,
-                          diagnostics);
+                          diagnostics, visibleFunctionSignatures);
       validateFunctionLocalArrayDeclarations(
           hirFunction,
           "stage '" + stage.stage + "' function '" + function.name + "'",
@@ -5102,7 +5235,7 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
                             "stage function '" + function.name + "'",
                             function.returnType.location);
       validateFunctionExpressions(hirFunction, stage.stage, hirStage.resources,
-                                  diagnostics);
+                                  diagnostics, visibleFunctionSignatures);
       if (function.name == "main" && hirStage.entryPointName.empty()) {
         hirStage.entryPointName = function.name;
       }

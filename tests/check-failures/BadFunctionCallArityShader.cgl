@@ -1,0 +1,11 @@
+shader BadFunctionCallArityShader {
+  compute {
+    float identity(float value) {
+      return value;
+    }
+    void main() {
+      float result = identity();
+      return;
+    }
+  }
+}

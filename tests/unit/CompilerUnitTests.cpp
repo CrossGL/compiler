@@ -9095,8 +9095,9 @@ shader HelperFunctionReachabilityShader {
                                                         "result");
   expect(resultDeclaration != nullptr &&
              resultDeclaration->value.kind == crossgl::HIRExpressionKind::Call &&
-             resultDeclaration->value.value == "usedHelper",
-         "HIR optimizer preserves same-stage helper call expressions");
+             resultDeclaration->value.value == "usedHelper" &&
+             resultDeclaration->value.type.name == "float",
+         "HIR optimizer preserves typed same-stage helper call expressions");
 }
 
 void testHIRArrayArgumentHelperCallSideEffectsPass() {
@@ -44497,17 +44498,12 @@ shader MetalFunctionCallArityShader {
 }
 )";
 
-  std::optional<crossgl::HIRModule> arityHir = parseHIR(aritySource);
-  expect(arityHir.has_value(), "Metal helper-call arity source builds HIR");
-  if (arityHir.has_value()) {
-    crossgl::DiagnosticEngine arityDiagnostics;
-    expect(!crossgl::metalNativeBackendSupported(*arityHir, arityDiagnostics),
-           "Metal helper-call arity mismatch fails native support preflight");
-    expect(hasDiagnosticMessage(arityDiagnostics.diagnostics(),
-                                "metal.function-call-arity", "expects 2"),
-           "Metal helper-call arity diagnostic reports expected argument "
-           "count before source emission");
-  }
+  const std::vector<crossgl::Diagnostic> arityDiagnostics =
+      collectDiagnostics(aritySource);
+  expect(hasDiagnosticMessage(arityDiagnostics, "sema.function-call-arity",
+                              "expects exactly 2 arguments"),
+         "source helper-call arity diagnostic reports expected argument count "
+         "before backend preflight");
 
   constexpr std::string_view dynamicNestedReadSource = R"(
 shader MetalDynamicNestedFunctionParameterArrayReadShader {

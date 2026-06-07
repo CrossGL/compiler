@@ -475,7 +475,7 @@ add_test(NAME cglc_check_fn_style_function_hir_calls
     -DINPUT=${CROSSGL_FN_STYLE_FUNCTION_SHADER}
     -DSTAGE=hir
     -DMODE=dump-stage
-    "-DMUST_CONTAIN=decl float base = scale\\(values\\[1\\], 2\\.0\\)[^\n]*\n      expr writeValue\\(0, base\\)"
+    "-DMUST_CONTAIN=decl float base = scale\\(values\\[1\\], 2\\.0\\) : float[^\n]*\n      expr writeValue\\(0, base\\) : void"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_numeric_float_literals
   COMMAND cglc check
@@ -2457,6 +2457,26 @@ add_test(NAME cglc_check_intrinsic_compatibility_failure
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=39"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=intrinsic call 'dot' argument 1 expects a floating-point vector with width 2|message=got 'vec3'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_function_call_arity_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_FUNCTION_CALL_ARITY_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.function-call-arity
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=22"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function call 'identity' expects exactly 1 argument, got 0"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_function_call_argument_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_FUNCTION_CALL_ARGUMENT_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.function-call-argument-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=30"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function call 'identity' argument 0 expects 'vec2', got 'float'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_INCREMENT_DECREMENT_OPERAND_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadIncrementDecrementOperandShader.cgl)
 add_test(NAME cglc_check_increment_decrement_operand_failure
