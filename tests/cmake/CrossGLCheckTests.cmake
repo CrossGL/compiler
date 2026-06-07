@@ -1852,16 +1852,12 @@ crossgl_add_native_v0_unsupported_failure(
   5
   7
   "message=match/pattern control statements|message=native v0")
-add_test(NAME cglc_check_unsupported_switch_fallthrough_backend_failure
-  COMMAND ${CMAKE_COMMAND}
-    -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchShader.cgl
-    -DSTAGE=backend
-    -DTARGET=metal
-    -DMODE=dump-stage-failure
-    -DEXPECTED_DIAGNOSTIC=opt.hir-raw-statement-backend-input
-    "-DEXPECTED_STDERR_FRAGMENT=raw statement must be lowered to structured HIR"
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_switch_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchShader.cgl
+  7
+  7
+  "message=restricted switch/case/default statements|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_for_in_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedForInShader.cgl

@@ -1067,6 +1067,20 @@
       "notes": "Ray miss stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
     },
     {
+      "id": "native-v0-unsupported.switch-restricted-form",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchShader.cgl",
+      "fixture_sha256": "c732d7b7c2854004ddbdd3ceda76d747d5233d026e4622695d7a7f7ae3cd4dc3",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_switch_failure"
+      ],
+      "notes": "Fallthrough and grouped switch/case/default forms are outside the restricted native v0 switch subset."
+    },
+    {
       "id": "native-v0-unsupported.tessellation-stage",
       "feature_group": "known-native-v0-unsupported",
       "language_category": "native-v0",

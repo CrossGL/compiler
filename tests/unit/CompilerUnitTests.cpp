@@ -16480,27 +16480,18 @@ shader SwitchControlFlowShader {
          "lowered switch control flow optimizes without diagnostics");
 }
 
-void testSwitchRestrictedBoundaryHIR() {
-  auto expectRawSwitchBackendBoundary = [](std::string_view source,
-                                           std::string_view description) {
-    std::optional<crossgl::HIRModule> hir = parseHIR(source);
-    expect(hir.has_value(), std::string(description) + " source preserves HIR");
-    if (!hir) {
-      return;
-    }
-
-    const std::string hirText = crossgl::printHIR(*hir);
-    expect(hirText.find("raw switch") != std::string::npos,
-           std::string(description) + " remains a raw HIR boundary");
-
-    crossgl::DiagnosticEngine diagnostics;
-    (void)crossgl::runHIRPassPipeline(*hir, diagnostics);
-    expect(hasDiagnosticCode(diagnostics.diagnostics(),
-                             "opt.hir-raw-statement-backend-input"),
-           std::string(description) + " is rejected before backend input");
+void testSwitchRestrictedBoundaryDiagnostics() {
+  auto expectUnsupportedSwitchDiagnostic = [](std::string_view source,
+                                              std::string_view description) {
+    const std::vector<crossgl::Diagnostic> diagnostics =
+        collectDiagnostics(source);
+    expect(hasDiagnosticCodeAndMessage(
+               diagnostics, "spec.unsupported-for-native-v0",
+               "restricted switch/case/default statements"),
+           std::string(description) + " is rejected by native-v0 diagnostics");
   };
 
-  expectRawSwitchBackendBoundary(R"(
+  expectUnsupportedSwitchDiagnostic(R"(
 shader SwitchFallthroughBoundaryShader {
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -16519,9 +16510,9 @@ shader SwitchFallthroughBoundaryShader {
   }
 }
 )",
-                                "unsupported switch fallthrough");
+                                    "unsupported switch fallthrough");
 
-  expectRawSwitchBackendBoundary(R"(
+  expectUnsupportedSwitchDiagnostic(R"(
 shader SwitchGroupedLabelsBoundaryShader {
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -16542,9 +16533,9 @@ shader SwitchGroupedLabelsBoundaryShader {
   }
 }
 )",
-                                "unsupported switch grouped labels");
+                                    "unsupported switch grouped labels");
 
-  expectRawSwitchBackendBoundary(R"(
+  expectUnsupportedSwitchDiagnostic(R"(
 shader SwitchIncompatibleLabelBoundaryShader {
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -16564,9 +16555,9 @@ shader SwitchIncompatibleLabelBoundaryShader {
   }
 }
 )",
-                                "unsupported switch incompatible case label");
+                                    "unsupported switch incompatible case label");
 
-  expectRawSwitchBackendBoundary(R"(
+  expectUnsupportedSwitchDiagnostic(R"(
 shader SwitchNonTerminalBreakBoundaryShader {
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -16586,7 +16577,7 @@ shader SwitchNonTerminalBreakBoundaryShader {
   }
 }
 )",
-                                "unsupported switch non-terminal break");
+                                    "unsupported switch non-terminal break");
 
   constexpr std::string_view nestedLoopBreakSource = R"(
 shader SwitchNestedLoopBreakShader {
@@ -49961,7 +49952,7 @@ int main() {
   testCompileRequestLogicalSourceRemapAPI();
   testDebugSourceLocationsUseGenericPathSeparators();
   testSwitchControlFlowHIR();
-  testSwitchRestrictedBoundaryHIR();
+  testSwitchRestrictedBoundaryDiagnostics();
   testTargetCapabilityRegistry();
   testTargetCapabilityInventoryParity();
   testTargetLegalizationFacade();

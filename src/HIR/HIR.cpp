@@ -2018,7 +2018,8 @@ private:
   HIRStatement parseSwitchStatement(HIRStatement statement,
                                     const std::vector<Token> &tokens) {
     if (tokens.size() < 6) {
-      return makeRawFallback(std::move(statement));
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
     }
 
     const std::optional<ControlConditionSpan> selectorSpan =
@@ -2026,7 +2027,8 @@ private:
     if (!selectorSpan.has_value() ||
         hasUnsupportedExpressionToken(tokens, selectorSpan->begin,
                                       selectorSpan->end)) {
-      return makeRawFallback(std::move(statement));
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
     }
     std::size_t bodyBegin = selectorSpan->bodyBegin;
     while (bodyBegin < tokens.size() &&
@@ -2034,25 +2036,29 @@ private:
       ++bodyBegin;
     }
     if (bodyBegin >= tokens.size() || tokens[bodyBegin].kind != TokenKind::LBrace) {
-      return makeRawFallback(std::move(statement));
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
     }
     const std::optional<std::size_t> bodyClose =
         findMatching(tokens, bodyBegin, TokenKind::LBrace, TokenKind::RBrace);
     if (!bodyClose.has_value() || *bodyClose + 1 != tokens.size()) {
-      return makeRawFallback(std::move(statement));
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
     }
 
     std::optional<std::vector<SwitchSection>> sections =
         parseSwitchSections(tokens, bodyBegin + 1, *bodyClose);
     if (!sections.has_value() || sections->empty()) {
-      return makeRawFallback(std::move(statement));
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
     }
 
     HIRExpression selector =
         parseExpression(tokens, selectorSpan->begin, selectorSpan->end);
     if (!isSwitchComparableType(selector.type) ||
         !switchLabelsMatchSelector(selector.type, *sections)) {
-      return makeRawFallback(std::move(statement));
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
     }
 
     const std::unordered_map<std::string, HIRType> outerVariables = variables_;
@@ -2074,7 +2080,8 @@ private:
     if (!lowered.has_value() || lowered->empty()) {
       variables_ = outerVariables;
       mutableLocals_ = outerMutableLocals;
-      return makeRawFallback(std::move(statement));
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
     }
 
     statement.kind = HIRStatementKind::Block;
@@ -2084,6 +2091,19 @@ private:
     mutableLocals_ = outerMutableLocals;
     statement.rawTokens.clear();
     return statement;
+  }
+
+  HIRStatement makeUnsupportedSwitchFallback(HIRStatement statement,
+                                             SourceLocation location) {
+    diagnostics_.error(
+        "spec.unsupported-for-native-v0",
+        "CrossTL/CrossGL native v0 only supports restricted "
+        "switch/case/default statements with case labels compatible with the "
+        "scalar selector, an optional trailing default, and a terminal break "
+        "in every case; "
+        "fallthrough and grouped labels are not supported",
+        std::move(location));
+    return makeRawFallback(std::move(statement));
   }
 
   HIRExpression makeGroupedExpression(HIRExpression expression) const {

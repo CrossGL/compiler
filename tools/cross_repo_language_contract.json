@@ -623,6 +623,29 @@
           }
         },
         {
+          "id": "compiler/tests/check-failures/BadUnsupportedSwitchShader.cgl",
+          "classification": "spec.unsupported-for-native-v0",
+          "feature": "control_flow_and_statements",
+          "spec_refs": [
+            "/ast/statementNodes",
+            "/ast/classes"
+          ],
+          "root": "compiler",
+          "path": "tests/check-failures/BadUnsupportedSwitchShader.cgl",
+          "source_sha256": "c732d7b7c2854004ddbdd3ceda76d747d5233d026e4622695d7a7f7ae3cd4dc3",
+          "reason": "CrossTL accepts switch/case/default statements, but native compiler v0 only lowers restricted non-fallthrough scalar switch forms.",
+          "translator": {
+            "status": "accepts",
+            "ast_sha256": "7585e70c640a45d183a3187ed671c06b411fd3aa2adfbd3d2e26a1b4a63682ab"
+          },
+          "compiler": {
+            "status": "rejects",
+            "diagnostic_substrings": [
+              "spec.unsupported-for-native-v0"
+            ]
+          }
+        },
+        {
           "id": "compiler/tests/check-failures/BadUnsupportedForInShader.cgl",
           "classification": "spec.unsupported-for-native-v0",
           "feature": "control_flow_and_statements",
