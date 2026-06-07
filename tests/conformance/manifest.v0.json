@@ -423,6 +423,22 @@
       "notes": "Function-body colon-style local variables lower to canonical HIR local declarations."
     },
     {
+      "id": "control-flow.do-while-loop",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/DoWhileComputeShader.cgl",
+      "fixture_sha256": "6194f5d1643d7c566def1bf93856b96d14a69809b1b3bc16c9bf968cad318c48",
+      "evidence_tests": [
+        "cglc_check_do_while_compute",
+        "cglc_check_do_while_hir_condition",
+        "cglc_check_do_while_hir_continue_rewrite",
+        "cglc_check_do_while_hir_trailing_condition_break"
+      ],
+      "notes": "Covers do-while lowering into structured HIR with continue rewrite and a trailing condition break."
+    },
+    {
       "id": "control-flow.for-increment-decrement",
       "feature_group": "control-flow",
       "language_category": "statements",

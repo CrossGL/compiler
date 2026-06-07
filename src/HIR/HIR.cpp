@@ -1644,6 +1644,10 @@ private:
       return parseWhileStatement(std::move(statement), tokens);
     }
 
+    if (tokens.front().kind == TokenKind::Identifier && tokens.front().text == "do") {
+      return parseDoWhileStatement(std::move(statement), tokens);
+    }
+
     if (tokens.front().kind == TokenKind::Identifier && tokens.front().text == "loop") {
       return parseLoopStatement(std::move(statement), tokens);
     }
@@ -1885,6 +1889,50 @@ private:
     return statement;
   }
 
+  HIRStatement parseDoWhileStatement(HIRStatement statement,
+                                     const std::vector<Token> &tokens) {
+    statement.kind = HIRStatementKind::For;
+    if (tokens.size() < 5 || tokens[1].kind != TokenKind::LBrace) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    const std::optional<std::size_t> bodyClose =
+        findMatching(tokens, 1, TokenKind::LBrace, TokenKind::RBrace);
+    if (!bodyClose.has_value() || *bodyClose + 1 >= tokens.size()) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    std::vector<Token> conditionTokens(
+        tokens.begin() + static_cast<std::ptrdiff_t>(*bodyClose + 1),
+        tokens.end());
+    if (conditionTokens.empty() ||
+        conditionTokens.front().kind != TokenKind::Identifier ||
+        conditionTokens.front().text != "while") {
+      return makeRawFallback(std::move(statement));
+    }
+
+    const std::optional<ControlConditionSpan> condition =
+        parseControlConditionSpan(conditionTokens);
+    if (!condition.has_value() || condition->bodyBegin != conditionTokens.size()) {
+      return makeRawFallback(std::move(statement));
+    }
+    if (hasUnsupportedExpressionToken(conditionTokens, condition->begin,
+                                      condition->end)) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    const HIRExpression conditionExpression =
+        parseExpression(conditionTokens, condition->begin, condition->end);
+    statement.value = makeBoolLiteral("true", tokens.front().location);
+    statement.body = parseStatementBody(tokens, 1, *bodyClose + 1);
+    rewriteDoWhileContinues(statement.body, conditionExpression);
+    statement.body.push_back(
+        makeConditionBreakStatement(conditionExpression,
+                                    conditionTokens.front().location));
+    statement.rawTokens.clear();
+    return statement;
+  }
+
   HIRStatement parseIfStatement(HIRStatement statement,
                                 const std::vector<Token> &tokens) {
     statement.kind = HIRStatementKind::If;
@@ -1958,6 +2006,79 @@ private:
     statement.body = parseStatementBody(tokens, 1, tokens.size());
     statement.rawTokens.clear();
     return statement;
+  }
+
+  HIRExpression makeGroupedExpression(HIRExpression expression) const {
+    HIRExpression group;
+    group.kind = HIRExpressionKind::Group;
+    group.type = expression.type;
+    group.location = expression.location;
+    group.children.push_back(std::move(expression));
+    return group;
+  }
+
+  HIRExpression makeNegatedCondition(HIRExpression condition,
+                                     SourceLocation location) const {
+    HIRExpression negated;
+    negated.kind = HIRExpressionKind::Unary;
+    negated.value = "!";
+    negated.type = makeType("bool");
+    negated.location = std::move(location);
+    negated.children.push_back(makeGroupedExpression(std::move(condition)));
+    return negated;
+  }
+
+  HIRStatement makeBreakStatement(SourceLocation location) const {
+    HIRStatement statement;
+    statement.kind = HIRStatementKind::Break;
+    statement.location = std::move(location);
+    return statement;
+  }
+
+  HIRStatement makeContinueStatement(SourceLocation location) const {
+    HIRStatement statement;
+    statement.kind = HIRStatementKind::Continue;
+    statement.location = std::move(location);
+    return statement;
+  }
+
+  HIRStatement makeConditionBreakStatement(HIRExpression condition,
+                                           SourceLocation location) const {
+    HIRStatement statement;
+    statement.kind = HIRStatementKind::If;
+    statement.location = location;
+    statement.value = makeNegatedCondition(std::move(condition), location);
+    statement.body.push_back(makeBreakStatement(std::move(location)));
+    return statement;
+  }
+
+  HIRStatement makeDoWhileContinueReplacement(const HIRExpression &condition,
+                                              SourceLocation location) const {
+    HIRStatement block;
+    block.kind = HIRStatementKind::Block;
+    block.location = location;
+    block.body.push_back(makeConditionBreakStatement(condition, location));
+    block.body.push_back(makeContinueStatement(std::move(location)));
+    return block;
+  }
+
+  void rewriteDoWhileContinues(std::vector<HIRStatement> &body,
+                               const HIRExpression &condition) const {
+    for (HIRStatement &statement : body) {
+      if (statement.kind == HIRStatementKind::Continue) {
+        statement = makeDoWhileContinueReplacement(condition, statement.location);
+        continue;
+      }
+      if (statement.kind == HIRStatementKind::For) {
+        continue;
+      }
+      if (statement.kind == HIRStatementKind::Block) {
+        rewriteDoWhileContinues(statement.body, condition);
+      } else if (statement.kind == HIRStatementKind::If) {
+        rewriteDoWhileContinues(statement.body, condition);
+        rewriteDoWhileContinues(statement.elseBody, condition);
+      }
+    }
   }
 
   std::optional<ControlConditionSpan>

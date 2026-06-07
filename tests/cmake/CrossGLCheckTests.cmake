@@ -655,6 +655,32 @@ add_test(NAME cglc_check_for_omitted_condition_with_update_hir
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_while_compute
   COMMAND cglc check ${CROSSGL_WHILE_COMPUTE_SHADER})
+add_test(NAME cglc_check_do_while_compute
+  COMMAND cglc check ${CROSSGL_DO_WHILE_COMPUTE_SHADER})
+add_test(NAME cglc_check_do_while_hir_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for true : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_do_while_hir_continue_rewrite
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=if value < 2 : bool[^\n]*\n          block[^\n]*\n            if value >= 4 : bool[^\n]*\n              break[^\n]*\n            continue"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_do_while_hir_trailing_condition_break
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=assign total : float = total \\+ float\\(value\\) : float[^\n]*\n        if value >= 4 : bool[^\n]*\n          break"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForIncrementDecrementHIRShader.cgl)
 add_test(NAME cglc_check_for_increment_decrement_hir
   COMMAND cglc check ${CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER})
@@ -1813,12 +1839,6 @@ crossgl_add_native_v0_unsupported_failure(
   5
   7
   "message=switch/case/default statements|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_do_while_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedDoWhileShader.cgl
-  5
-  7
-  "message=do while statements|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_for_in_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedForInShader.cgl

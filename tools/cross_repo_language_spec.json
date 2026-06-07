@@ -45,9 +45,9 @@
   "contract_manifest": {
     "path": "tools/cross_repo_language_contract.json",
     "schema": 1,
-    "contract_count": 151,
+    "contract_count": 152,
     "accepted_feature_group_count": 8,
-    "negative_case_count": 25,
+    "negative_case_count": 24,
     "hash_fields": [
       "source_sha256",
       "translator_ast_sha256",
@@ -73,7 +73,7 @@
           "sha256": "152cf6b2e0bc796255b316b7413c18a68ff8228cf6ba5c5801aa3bac8db4e135"
         }
       ],
-      "fixture_count": 14,
+      "fixture_count": 15,
       "fixtures": [
         {
           "id": "compiler/tests/fixtures/IfComputeShader.cgl",
@@ -152,6 +152,12 @@
           "source_sha256": "dd61bafecf825fa88ee0dddcd6670f39af62b1425d00909c3f4d971724badcb3",
           "translator_ast_sha256": "d4b899250a72193b35e1da3eea50d74d46f4981b6f353e7ea109ea1028797d6f",
           "compiler_hir_sha256": "e99db3f71bba9b81a622aa8f8d9b0f219b6e5dd173cb5b101bac0279c47e8445"
+        },
+        {
+          "id": "compiler/tests/fixtures/DoWhileComputeShader.cgl",
+          "source_sha256": "6194f5d1643d7c566def1bf93856b96d14a69809b1b3bc16c9bf968cad318c48",
+          "translator_ast_sha256": "7d260b3dcb2eceae246422852907b554056efbdf39aacafe67104db3e0b36167",
+          "compiler_hir_sha256": "923a302b244bef03db859f0f97fc32b819dc88ce96952c80aea0073cc930f1f3"
         },
         {
           "id": "compiler/tests/fixtures/NonParenthesizedControlFlowShader.cgl",
@@ -1081,26 +1087,6 @@
       "translator": {
         "status": "accepts",
         "ast_sha256": "33ca89fc13caad15c5fbc6ce770b8e3bd0087763a9b1d77ddb52e4b958fbccc9"
-      },
-      "compiler": {
-        "status": "rejects",
-        "diagnostic_substrings": [
-          "spec.unsupported-for-native-v0"
-        ]
-      }
-    },
-    {
-      "id": "compiler/tests/check-failures/BadUnsupportedDoWhileShader.cgl",
-      "group": "spec_unsupported_for_native_v0",
-      "classification": "spec.unsupported-for-native-v0",
-      "feature_group": "control_flow_and_statements",
-      "reason": "CrossTL accepts do-while statements, but native compiler v0 only lowers for and while loops.",
-      "root": "compiler",
-      "path": "tests/check-failures/BadUnsupportedDoWhileShader.cgl",
-      "source_sha256": "bb7648643e9201e2a3f215dbfca2bb1ae6749e2bc4826cdc26b9ebf8f754e988",
-      "translator": {
-        "status": "accepts",
-        "ast_sha256": "0855bd769dfa0e95a95d8d2274b9d76411d9a644ec2e98b7e5380b107c407526"
       },
       "compiler": {
         "status": "rejects",

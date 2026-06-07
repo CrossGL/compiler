@@ -101,6 +101,7 @@
         "compiler/tests/fixtures/NestedForComputeShader.cgl",
         "compiler/tests/fixtures/LoopComputeShader.cgl",
         "compiler/tests/fixtures/WhileComputeShader.cgl",
+        "compiler/tests/fixtures/DoWhileComputeShader.cgl",
         "compiler/tests/fixtures/NonParenthesizedControlFlowShader.cgl"
       ]
     },
@@ -644,29 +645,6 @@
           }
         },
         {
-          "id": "compiler/tests/check-failures/BadUnsupportedDoWhileShader.cgl",
-          "classification": "spec.unsupported-for-native-v0",
-          "feature": "control_flow_and_statements",
-          "spec_refs": [
-            "/ast/statementNodes",
-            "/ast/classes"
-          ],
-          "root": "compiler",
-          "path": "tests/check-failures/BadUnsupportedDoWhileShader.cgl",
-          "source_sha256": "bb7648643e9201e2a3f215dbfca2bb1ae6749e2bc4826cdc26b9ebf8f754e988",
-          "reason": "CrossTL accepts do-while statements, but native compiler v0 only lowers for and while loops.",
-          "translator": {
-            "status": "accepts",
-            "ast_sha256": "0855bd769dfa0e95a95d8d2274b9d76411d9a644ec2e98b7e5380b107c407526"
-          },
-          "compiler": {
-            "status": "rejects",
-            "diagnostic_substrings": [
-              "spec.unsupported-for-native-v0"
-            ]
-          }
-        },
-        {
           "id": "compiler/tests/check-failures/BadUnsupportedForInShader.cgl",
           "classification": "spec.unsupported-for-native-v0",
           "feature": "control_flow_and_statements",
@@ -829,6 +807,11 @@
       "source_sha256": "957b15961a13796fd760155e0e59497c6339926409e0331448e76564d0e010c4",
       "translator_ast_sha256": "0f00b579f6bb5d8080610c28ca96a59ebf503b948406988aa54aabce0a4f729b",
       "compiler_hir_sha256": "cbf584e7deaa95af3e9e3b3f84a5d0f1f150d3b0e96fe857aa94853273db0d81"
+    },
+    "compiler/tests/fixtures/DoWhileComputeShader.cgl": {
+      "source_sha256": "6194f5d1643d7c566def1bf93856b96d14a69809b1b3bc16c9bf968cad318c48",
+      "translator_ast_sha256": "7d260b3dcb2eceae246422852907b554056efbdf39aacafe67104db3e0b36167",
+      "compiler_hir_sha256": "923a302b244bef03db859f0f97fc32b819dc88ce96952c80aea0073cc930f1f3"
     },
     "compiler/tests/fixtures/FloatEqualityNegationBackendShader.cgl": {
       "source_sha256": "1c61b0443bed839dbead9eba746ad884c5bb6de94aaf3a166e4d98125fbd0240",

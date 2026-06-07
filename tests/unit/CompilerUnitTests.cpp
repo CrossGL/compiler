@@ -26142,6 +26142,89 @@ shader WhileControlFlowShader {
          "for statement");
 }
 
+void testDoWhileControlFlowHIR() {
+  constexpr std::string_view source = R"(
+shader DoWhileControlFlowShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    void main() {
+      int value = 0;
+      float total = 0.0;
+      do {
+        value = value + 1;
+        if (value < 2) {
+          continue;
+        }
+        total += float(value);
+      } while (value < 4);
+      values[0] = total;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "do-while control-flow source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  const std::vector<crossgl::HIRStatement> &body =
+      hir->stages.front().functions.front().body;
+  expect(body.size() == 5,
+         "do-while body preserves declarations, lowered loop, store, and return");
+  const crossgl::HIRStatement &loop = body[2];
+  expect(loop.kind == crossgl::HIRStatementKind::For,
+         "do-while lowers into the existing HIR loop statement kind");
+  expect(loop.initializer.empty() && loop.update.empty() &&
+             loop.updateTokens.empty(),
+         "do-while HIR loop has no initializer or header update");
+  expect(loop.value.kind == crossgl::HIRExpressionKind::Literal &&
+             loop.value.value == "true" && loop.value.type.name == "bool",
+         "do-while HIR loop uses an unconditional header condition");
+  expect(loop.body.size() == 4,
+         "do-while HIR loop preserves body and trailing condition break");
+
+  expect(loop.body[0].kind == crossgl::HIRStatementKind::Assignment &&
+             loop.body[0].target.value == "value",
+         "do-while HIR loop preserves the body update before the condition");
+  expect(loop.body[1].kind == crossgl::HIRStatementKind::If &&
+             loop.body[1].body.size() == 1 &&
+             loop.body[1].body.front().kind == crossgl::HIRStatementKind::Block,
+         "do-while HIR rewrites continue through an explicit block");
+  const crossgl::HIRStatement &continueBlock = loop.body[1].body.front();
+  expect(continueBlock.body.size() == 2 &&
+             continueBlock.body[0].kind == crossgl::HIRStatementKind::If &&
+             continueBlock.body[0].body.size() == 1 &&
+             continueBlock.body[0].body.front().kind ==
+                 crossgl::HIRStatementKind::Break &&
+             continueBlock.body[1].kind == crossgl::HIRStatementKind::Continue,
+         "do-while continue rewrite checks the trailing condition before continuing");
+  expect(loop.body[2].kind == crossgl::HIRStatementKind::Assignment &&
+             loop.body[2].target.value == "total",
+         "do-while HIR keeps body work before the trailing condition check");
+  expect(loop.body[3].kind == crossgl::HIRStatementKind::If &&
+             loop.body[3].body.size() == 1 &&
+             loop.body[3].body.front().kind == crossgl::HIRStatementKind::Break,
+         "do-while HIR appends the condition break at the loop tail");
+
+  const std::string hirText = crossgl::printHIR(*hir);
+  const std::size_t bodyUpdate =
+      hirText.find("assign value : int = value + 1 : int");
+  const std::size_t continueRewrite = hirText.find("continue");
+  const std::size_t bodyWork =
+      hirText.find("assign total : float = total + float(value) : float");
+  const std::size_t tailBreak = hirText.rfind("break");
+  expect(bodyUpdate != std::string::npos &&
+             continueRewrite != std::string::npos &&
+             bodyWork != std::string::npos && tailBreak != std::string::npos &&
+             bodyUpdate < continueRewrite && continueRewrite < bodyWork &&
+             bodyWork < tailBreak,
+         "do-while HIR text preserves body-before-condition ordering");
+}
+
 void testHIRControlTransferStatements() {
   constexpr std::string_view source = R"(
 shader HIRControlTransferShader {
@@ -49714,6 +49797,7 @@ int main() {
   testStorageImageHIRABI();
   testStorageImageAccessQualifiers();
   testWhileControlFlowHIR();
+  testDoWhileControlFlowHIR();
   testHIRControlTransferStatements();
   testHIRControlTransferDiagnostics();
   testMetalParsedForUpdateRenderingFallback();

@@ -238,9 +238,6 @@ std::string unsupportedPatternControlForm(std::string_view text) {
   if (text == "switch" || text == "case" || text == "default") {
     return "switch/case/default statements";
   }
-  if (text == "do") {
-    return "do while statements";
-  }
   return std::string(text) + " statements";
 }
 
@@ -1493,8 +1490,7 @@ void Parser::diagnoseUnsupportedFunctionBodyForms(
     }
 
     if (token.text == "match" || token.text == "switch" ||
-        token.text == "case" || token.text == "default" ||
-        token.text == "do") {
+        token.text == "case" || token.text == "default") {
       diagnoseUnsupportedNativeV0(unsupportedPatternControlForm(token.text),
                                   token.location);
       return;

@@ -1,6 +1,7 @@
 add_test(NAME cglc_dump_backend_metal
   COMMAND cglc dump-ir ${CROSSGL_SIMPLE_SHADER} --stage backend --target metal)
 set(CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX [=[for \(; true; \) \{.*for \(; value < 4; \) \{.*for \(int i = 0; true; i\+\+\) \{]=])
+set(CROSSGL_SOURCE_DO_WHILE_LOWERING_REGEX [=[for \(; true; \) \{.*value = value \+ 1;.*if \(value < 2\) \{.*if \(value >= 4\) \{.*break;.*continue;.*total = total \+ float\(value\);.*if \(value >= 4\) \{.*break;]=])
 add_test(NAME cglc_dump_backend_metal_for_omitted_header
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -8,6 +9,14 @@ add_test(NAME cglc_dump_backend_metal_for_omitted_header
     -DTARGET=metal
     -DMODE=dump-backend
     "-DMUST_CONTAIN=${CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_metal_do_while_lowering
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_DO_WHILE_LOWERING_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_METAL_FLOAT_EQUALITY_NEGATION_REGEX [=[bool equalityNegationFloat = \(dynamicFloat != 31\.0\);.*bool inequalityNegationFloat = \(dynamicFloat == 32\.0\);]=])
 add_test(NAME cglc_dump_backend_metal_float_equality_negation
@@ -263,6 +272,14 @@ add_test(NAME cglc_dump_backend_vulkan_for_omitted_header_debug_projection
     -DMODE=dump-backend
     "-DMUST_CONTAIN=crossgl.for condition \"true\"[^\n]*\n        crossgl.assign \"value\" = \"value \\+ 1\"[^\n]*\n.*crossgl.for condition \"value < 4\"[^\n]*\n        crossgl.assign \"value\" = \"value \\+ 1\"[^\n]*\n.*crossgl.for condition \"true\" update \"i\\+\\+\""
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_vulkan_do_while_debug_projection
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DTARGET=vulkan
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=crossgl.for condition \"true\"[^\n]*\n        crossgl.assign \"value\" = \"value \\+ 1\"[^\n]*\n        crossgl.if condition \"value < 2\"[^\n]*\n.*crossgl.if condition \"value >= 4\"[^\n]*\n              crossgl.break[^\n]*\n.*crossgl.continue[^\n]*\n.*crossgl.assign \"total\" = \"total \\+ float\\(value\\)\"[^\n]*\n        crossgl.if condition \"value >= 4\""
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_vulkan_resources
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -489,6 +506,14 @@ add_test(NAME cglc_dump_backend_directx_for_omitted_header
     -DTARGET=directx
     -DMODE=dump-backend
     "-DMUST_CONTAIN=${CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_directx_do_while_lowering
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_DO_WHILE_LOWERING_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_FLOAT_EQUALITY_NEGATION_REGEX [=[bool equalityNegationFloat = \(dynamicFloat != 31\.0\);.*bool inequalityNegationFloat = \(dynamicFloat == 32\.0\);]=])
 add_test(NAME cglc_dump_backend_directx_float_equality_negation
@@ -861,6 +886,14 @@ add_test(NAME cglc_dump_backend_opengl_for_omitted_header
     -DTARGET=opengl
     -DMODE=dump-backend
     "-DMUST_CONTAIN=${CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_opengl_do_while_lowering
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_DO_WHILE_LOWERING_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_OPENGL_FLOAT_EQUALITY_NEGATION_REGEX [=[bool equalityNegationFloat = \(dynamicFloat != 31\.0\);.*bool inequalityNegationFloat = \(dynamicFloat == 32\.0\);]=])
 add_test(NAME cglc_dump_backend_opengl_float_equality_negation
