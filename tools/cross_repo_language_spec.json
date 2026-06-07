@@ -11,7 +11,7 @@
     "id": "crosstl-frontend-language-spec-v0",
     "path": "docs/language/crosstl-frontend-language-spec-v0.json",
     "schema_version": 0,
-    "sha256": "af09d3f978ede64e95fdf9670d977724a40497ddfaea586c7cef0303fa0b8abf",
+    "sha256": "65091fc357206d5c9292fedd636cd9af2c3fef79782068fc4b526916214e1f43",
     "authority_references": [
       {
         "id": "authority.pr720-merged-reference",
@@ -38,7 +38,7 @@
       },
       {
         "path": "crosstl/translator/validation.py",
-        "sha256": "a05fa68e4dd910b6dc05be44e0d5293b6887b6eca2b29218f27e9a08bdf5ddf2"
+        "sha256": "f49c538761a15773144141a311fb7ed4b33c6d647bf4d573589d50d90c7c6820"
       }
     ]
   },
@@ -152,7 +152,7 @@
         },
         {
           "ref": "/source/files",
-          "sha256": "fca09ce8e6f22197c6286f5e880d2020f9437cd6de2bcfae640511ed20b48784"
+          "sha256": "42f18ead7662f45c7da6fb18bfb18acb95c01f970a6bec0a5b6541da9b0cb4fe"
         }
       ],
       "fixture_count": 8,
@@ -440,7 +440,7 @@
       "snapshot_ref_seals": [
         {
           "ref": "/language/resources",
-          "sha256": "bcedb3a056053d5f5a107c2ecb79ded662e476bcdc8ae4e4b3e9fe3b1c220972"
+          "sha256": "aabf264fb147cc037542aa10869b39af6ddb2571028e9f1e2aee2dd7f4e2dbbc"
         },
         {
           "ref": "/language/qualifiers",
