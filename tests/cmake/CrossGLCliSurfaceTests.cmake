@@ -141,8 +141,10 @@ file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_CHECK_MANIFEST}"
     },
     {
       \"id\": \"fn-style\",
-      \"path\": \"tests/fixtures/FnStyleFunctionShader.cgl\"
-    }
+      \"path\": \"tests/fixtures/FnStyleFunctionShader.cgl\",
+      \"logicalPath\": \"translator/snapshots/FnStyleFunctionShader.cgl\"
+    },
+    \"tests/fixtures/MinimalComputeShader.cgl\"
   ]
 }
 ")
@@ -170,6 +172,52 @@ file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BUILD_MANIFEST}"
       \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-fn-style.cglb\",
       \"debugIR\": true
     }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_UNKNOWN_TOP_LEVEL_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-unknown-top-level.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_UNKNOWN_TOP_LEVEL_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"cacheKey\": \"not-part-of-v1\",
+  \"sources\": [
+    \"tests/fixtures/SimpleShader.cgl\"
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_UNKNOWN_SOURCE_FIELD_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-unknown-source-field.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_UNKNOWN_SOURCE_FIELD_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"backend\": \"directx\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_BAD_DEFAULT_TYPE_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-bad-default-type.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BAD_DEFAULT_TYPE_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"defaults\": {
+    \"debugIR\": \"true\"
+  },
+  \"sources\": [
+    \"tests/fixtures/SimpleShader.cgl\"
   ]
 }
 ")
@@ -270,10 +318,12 @@ crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_success_contract
     --diagnostics-json
   STDOUT_CONTAINS
     "\"kind\": \"crossgl.sourceBatchResult\""
-    "\"entryCount\": 2"
+    "\"entryCount\": 3"
     "\"id\": \"simple\""
     "\"logicalInput\": \"translator/snapshots/SimpleShader.cgl\""
     "\"id\": \"fn-style\""
+    "\"logicalInput\": \"translator/snapshots/FnStyleFunctionShader.cgl\""
+    "\"id\": \"source-2\""
     "\"success\": true"
     "\"diagnostics\": []")
 
@@ -282,6 +332,39 @@ crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_missing_path_fails
   ARGS check --source-manifest
   STDERR_CONTAINS
     "--source-manifest requires a path")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_unknown_top_level_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_UNKNOWN_TOP_LEVEL_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest has unexpected property 'cacheKey'"
+  STDERR_CONTAINS
+    "source batch manifest has unexpected property 'cacheKey'")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_unknown_source_field_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_UNKNOWN_SOURCE_FIELD_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[0] has unexpected property 'backend'"
+  STDERR_CONTAINS
+    "source batch manifest sources[0] has unexpected property 'backend'")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_bad_default_type_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_BAD_DEFAULT_TYPE_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest defaults.debugIR must be a boolean"
+  STDERR_CONTAINS
+    "source batch manifest defaults.debugIR must be a boolean")
 
 crossgl_add_cli_surface_test(cglc_cli_check_missing_input_diagnostics_json
   EXPECTED_RESULT 1
@@ -531,11 +614,11 @@ crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_success_contract
   EXPECTED_RESULT 0
   ARGS
     build --source-batch ${CROSSGL_CLI_SOURCE_BATCH_BUILD_MANIFEST}
-    --target directx
   STDOUT_CONTAINS
     "built "
     "cglc-cli-batch-storage.cglb"
     "cglc-cli-batch-fn-style.cglb"
+    "for directx"
     "batch build passed: 2 sources")
 
 crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_output_option_fails

@@ -493,6 +493,153 @@ void sourceBatchManifestError(crossgl::DiagnosticEngine &diagnostics,
                     std::move(message), cliSourceLocation(path));
 }
 
+struct SourceBatchJsonMember {
+  std::string key;
+};
+
+std::optional<std::vector<SourceBatchJsonMember>>
+collectSourceBatchJsonObjectMembers(std::string_view object) {
+  std::vector<SourceBatchJsonMember> members;
+  std::size_t position = 0;
+  crossgl::skipWhitespace(object, position);
+  if (position >= object.size() || object[position] != '{') {
+    return std::nullopt;
+  }
+  ++position;
+  crossgl::skipWhitespace(object, position);
+  if (position < object.size() && object[position] == '}') {
+    ++position;
+    crossgl::skipWhitespace(object, position);
+    return position == object.size()
+               ? std::optional<std::vector<SourceBatchJsonMember>>(
+                     std::move(members))
+               : std::nullopt;
+  }
+  while (position < object.size()) {
+    std::string key;
+    if (!crossgl::parseJsonString(object, position, key)) {
+      return std::nullopt;
+    }
+    crossgl::skipWhitespace(object, position);
+    if (position >= object.size() || object[position] != ':') {
+      return std::nullopt;
+    }
+    ++position;
+    crossgl::skipWhitespace(object, position);
+    if (!crossgl::skipJsonValue(object, position)) {
+      return std::nullopt;
+    }
+    members.push_back({std::move(key)});
+    crossgl::skipWhitespace(object, position);
+    if (position < object.size() && object[position] == ',') {
+      ++position;
+      crossgl::skipWhitespace(object, position);
+      continue;
+    }
+    if (position < object.size() && object[position] == '}') {
+      ++position;
+      crossgl::skipWhitespace(object, position);
+      return position == object.size()
+                 ? std::optional<std::vector<SourceBatchJsonMember>>(
+                       std::move(members))
+                 : std::nullopt;
+    }
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+bool sourceBatchMemberAllowed(
+    std::string_view key, std::initializer_list<std::string_view> allowed) {
+  for (std::string_view candidate : allowed) {
+    if (key == candidate) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool validateSourceBatchAllowedMembers(
+    std::string_view object, std::initializer_list<std::string_view> allowed,
+    std::string_view context, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  std::optional<std::vector<SourceBatchJsonMember>> members =
+      collectSourceBatchJsonObjectMembers(object);
+  if (!members) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) +
+                                 " must be a valid JSON object");
+    return false;
+  }
+  for (const SourceBatchJsonMember &member : *members) {
+    if (!sourceBatchMemberAllowed(member.key, allowed)) {
+      sourceBatchManifestError(diagnostics, manifestPath,
+                               std::string(context) +
+                                   " has unexpected property '" + member.key +
+                                   "'");
+      return false;
+    }
+  }
+  return true;
+}
+
+bool parseSourceBatchStringMemberValue(std::string_view valueText,
+                                       std::string &value) {
+  std::size_t position = 0;
+  if (!crossgl::parseJsonString(valueText, position, value)) {
+    return false;
+  }
+  crossgl::skipWhitespace(valueText, position);
+  return position == valueText.size();
+}
+
+bool parseOptionalSourceBatchStringMember(
+    std::string_view object, std::string_view key, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics, std::optional<std::string> &value,
+    bool requireNonEmpty = true) {
+  const std::optional<std::string_view> valueText =
+      crossgl::findObjectMemberValue(object, key);
+  if (!valueText) {
+    return true;
+  }
+  std::string parsed;
+  if (!parseSourceBatchStringMemberValue(*valueText, parsed)) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + "." + std::string(key) +
+                                 " must be a string");
+    return false;
+  }
+  if (requireNonEmpty && parsed.empty()) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + "." + std::string(key) +
+                                 " must be a non-empty string");
+    return false;
+  }
+  value = std::move(parsed);
+  return true;
+}
+
+bool parseOptionalSourceBatchBoolMember(
+    std::string_view object, std::string_view key, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics, std::optional<bool> &value) {
+  const std::optional<std::string_view> valueText =
+      crossgl::findObjectMemberValue(object, key);
+  if (!valueText) {
+    return true;
+  }
+  const std::optional<bool> parsed = crossgl::parseBool(*valueText);
+  if (!parsed) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + "." + std::string(key) +
+                                 " must be a boolean");
+    return false;
+  }
+  value = *parsed;
+  return true;
+}
+
 std::filesystem::path resolveManifestPath(const std::filesystem::path &base,
                                           const std::filesystem::path &path) {
   if (path.is_absolute()) {
@@ -537,8 +684,18 @@ bool parseSourceBatchDefaults(std::string_view defaultsText,
                              "source batch manifest defaults must be an object");
     return false;
   }
-  if (std::optional<std::string> target =
-          crossgl::objectStringMember(defaultsText, "target")) {
+  if (!validateSourceBatchAllowedMembers(
+          defaultsText, {"target", "optLevel", "debugIR"},
+          "source batch manifest defaults", manifestPath, diagnostics)) {
+    return false;
+  }
+  std::optional<std::string> target;
+  if (!parseOptionalSourceBatchStringMember(
+          defaultsText, "target", "source batch manifest defaults",
+          manifestPath, diagnostics, target)) {
+    return false;
+  }
+  if (target) {
     if (std::optional<crossgl::TargetKind> parsed =
             parseManifestTarget(*target, manifestPath, diagnostics)) {
       defaults.target = *parsed;
@@ -546,8 +703,13 @@ bool parseSourceBatchDefaults(std::string_view defaultsText,
       return false;
     }
   }
-  if (std::optional<std::string> optLevel =
-          crossgl::objectStringMember(defaultsText, "optLevel")) {
+  std::optional<std::string> optLevel;
+  if (!parseOptionalSourceBatchStringMember(
+          defaultsText, "optLevel", "source batch manifest defaults",
+          manifestPath, diagnostics, optLevel)) {
+    return false;
+  }
+  if (optLevel) {
     if (std::optional<crossgl::OptimizationLevel> parsed =
             parseManifestOptimizationLevel(*optLevel, manifestPath,
                                            diagnostics)) {
@@ -556,8 +718,13 @@ bool parseSourceBatchDefaults(std::string_view defaultsText,
       return false;
     }
   }
-  if (std::optional<bool> debugIR =
-          crossgl::objectBoolMember(defaultsText, "debugIR")) {
+  std::optional<bool> debugIR;
+  if (!parseOptionalSourceBatchBoolMember(
+          defaultsText, "debugIR", "source batch manifest defaults",
+          manifestPath, diagnostics, debugIR)) {
+    return false;
+  }
+  if (debugIR) {
     defaults.debugIR = *debugIR;
   }
   return true;
@@ -577,8 +744,21 @@ parseSourceBatchEntryObject(std::string_view entryText,
     return std::nullopt;
   }
 
-  std::optional<std::string> path =
-      crossgl::objectStringMember(entryText, "path");
+  const std::string context =
+      "source batch manifest sources[" + std::to_string(sourceIndex) + "]";
+  if (!validateSourceBatchAllowedMembers(
+          entryText,
+          {"id", "path", "logicalInput", "logicalPath", "output",
+           "sourceRemap", "target", "optLevel", "debugIR"},
+          context, manifestPath, diagnostics)) {
+    return std::nullopt;
+  }
+
+  std::optional<std::string> path;
+  if (!parseOptionalSourceBatchStringMember(entryText, "path", context,
+                                            manifestPath, diagnostics, path)) {
+    return std::nullopt;
+  }
   if (!path || path->empty()) {
     sourceBatchManifestError(
         diagnostics, manifestPath,
@@ -588,26 +768,57 @@ parseSourceBatchEntryObject(std::string_view entryText,
   }
 
   SourceBatchEntry entry;
-  entry.id = crossgl::objectStringMember(entryText, "id")
-                 .value_or("source-" + std::to_string(sourceIndex));
-  entry.path = resolveManifestPath(root, *path);
-  if (std::optional<std::string> logicalInput =
-          crossgl::objectStringMember(entryText, "logicalInput")) {
-    entry.logicalInput = std::filesystem::path(*logicalInput);
-  } else if (std::optional<std::string> logicalPath =
-                 crossgl::objectStringMember(entryText, "logicalPath")) {
-    entry.logicalInput = std::filesystem::path(*logicalPath);
+  std::optional<std::string> id;
+  if (!parseOptionalSourceBatchStringMember(entryText, "id", context,
+                                            manifestPath, diagnostics, id)) {
+    return std::nullopt;
   }
-  if (std::optional<std::string> output =
-          crossgl::objectStringMember(entryText, "output")) {
+  entry.id = id.value_or("source-" + std::to_string(sourceIndex));
+  entry.path = resolveManifestPath(root, *path);
+  std::optional<std::string> logicalInput;
+  if (!parseOptionalSourceBatchStringMember(entryText, "logicalInput", context,
+                                            manifestPath, diagnostics,
+                                            logicalInput)) {
+    return std::nullopt;
+  }
+  if (logicalInput) {
+    entry.logicalInput = std::filesystem::path(*logicalInput);
+  } else {
+    std::optional<std::string> logicalPath;
+    if (!parseOptionalSourceBatchStringMember(entryText, "logicalPath", context,
+                                              manifestPath, diagnostics,
+                                              logicalPath)) {
+      return std::nullopt;
+    }
+    if (logicalPath) {
+      entry.logicalInput = std::filesystem::path(*logicalPath);
+    }
+  }
+  std::optional<std::string> output;
+  if (!parseOptionalSourceBatchStringMember(entryText, "output", context,
+                                            manifestPath, diagnostics,
+                                            output)) {
+    return std::nullopt;
+  }
+  if (output) {
     entry.output = resolveManifestPath(root, *output);
   }
-  if (std::optional<std::string> sourceRemap =
-          crossgl::objectStringMember(entryText, "sourceRemap")) {
+  std::optional<std::string> sourceRemap;
+  if (!parseOptionalSourceBatchStringMember(entryText, "sourceRemap", context,
+                                            manifestPath, diagnostics,
+                                            sourceRemap)) {
+    return std::nullopt;
+  }
+  if (sourceRemap) {
     entry.sourceRemap = resolveManifestPath(root, *sourceRemap);
   }
-  if (std::optional<std::string> target =
-          crossgl::objectStringMember(entryText, "target")) {
+  std::optional<std::string> target;
+  if (!parseOptionalSourceBatchStringMember(entryText, "target", context,
+                                            manifestPath, diagnostics,
+                                            target)) {
+    return std::nullopt;
+  }
+  if (target) {
     std::optional<crossgl::TargetKind> parsed =
         parseManifestTarget(*target, manifestPath, diagnostics);
     if (!parsed) {
@@ -615,8 +826,13 @@ parseSourceBatchEntryObject(std::string_view entryText,
     }
     entry.target = *parsed;
   }
-  if (std::optional<std::string> optLevel =
-          crossgl::objectStringMember(entryText, "optLevel")) {
+  std::optional<std::string> optLevel;
+  if (!parseOptionalSourceBatchStringMember(entryText, "optLevel", context,
+                                            manifestPath, diagnostics,
+                                            optLevel)) {
+    return std::nullopt;
+  }
+  if (optLevel) {
     std::optional<crossgl::OptimizationLevel> parsed =
         parseManifestOptimizationLevel(*optLevel, manifestPath, diagnostics);
     if (!parsed) {
@@ -624,8 +840,12 @@ parseSourceBatchEntryObject(std::string_view entryText,
     }
     entry.optimizationLevel = *parsed;
   }
-  if (std::optional<bool> debugIR =
-          crossgl::objectBoolMember(entryText, "debugIR")) {
+  std::optional<bool> debugIR;
+  if (!parseOptionalSourceBatchBoolMember(entryText, "debugIR", context,
+                                          manifestPath, diagnostics, debugIR)) {
+    return std::nullopt;
+  }
+  if (debugIR) {
     entry.debugIR = *debugIR;
   }
   return entry;
@@ -731,6 +951,11 @@ loadSourceBatchManifest(const std::filesystem::path &manifestPath,
                                  duplicate->path + "'");
     return std::nullopt;
   }
+  if (!validateSourceBatchAllowedMembers(
+          *document, {"schemaVersion", "kind", "root", "defaults", "sources"},
+          "source batch manifest", manifestPath, diagnostics)) {
+    return std::nullopt;
+  }
 
   const std::optional<std::uintmax_t> schemaVersion =
       crossgl::objectUnsignedMember(*document, "schemaVersion");
@@ -740,8 +965,12 @@ loadSourceBatchManifest(const std::filesystem::path &manifestPath,
         "source batch manifest requires schemaVersion 1");
     return std::nullopt;
   }
-  const std::optional<std::string> kind =
-      crossgl::objectStringMember(*document, "kind");
+  std::optional<std::string> kind;
+  if (!parseOptionalSourceBatchStringMember(*document, "kind",
+                                            "source batch manifest",
+                                            manifestPath, diagnostics, kind)) {
+    return std::nullopt;
+  }
   if (!kind || *kind != "crossgl.sourceBatchManifest") {
     sourceBatchManifestError(
         diagnostics, manifestPath,
@@ -755,8 +984,13 @@ loadSourceBatchManifest(const std::filesystem::path &manifestPath,
   if (manifest.root.empty()) {
     manifest.root = ".";
   }
-  if (std::optional<std::string> root =
-          crossgl::objectStringMember(*document, "root")) {
+  std::optional<std::string> root;
+  if (!parseOptionalSourceBatchStringMember(*document, "root",
+                                            "source batch manifest",
+                                            manifestPath, diagnostics, root)) {
+    return std::nullopt;
+  }
+  if (root) {
     manifest.root = resolveManifestPath(manifest.root, *root);
   } else {
     manifest.root = manifest.root.lexically_normal();
