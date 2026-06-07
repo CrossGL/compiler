@@ -2056,7 +2056,8 @@ private:
     HIRExpression selector =
         parseExpression(tokens, selectorSpan->begin, selectorSpan->end);
     if (!isSwitchComparableType(selector.type) ||
-        !switchLabelsMatchSelector(selector.type, *sections)) {
+        !switchLabelsMatchSelector(selector.type, *sections) ||
+        hasDuplicateSwitchCaseLabels(*sections)) {
       return makeUnsupportedSwitchFallback(std::move(statement),
                                            tokens.front().location);
     }
@@ -2183,6 +2184,42 @@ private:
       }
     }
     return true;
+  }
+
+  std::optional<std::string> canonicalSwitchCaseLabelKey(
+      const HIRExpression &label) const {
+    const std::optional<FoldedHIRScalar> folded =
+        foldHIRScalarExpression(label, HIRScalarConstantMap{});
+    if (!folded.has_value()) {
+      return std::nullopt;
+    }
+
+    const HIRType labelType = stripTypeQualifier(label.type);
+    std::optional<std::string> foldedText =
+        formatFoldedHIRScalarForType(*folded, labelType);
+    if (!foldedText.has_value()) {
+      return std::nullopt;
+    }
+    return formatType(labelType) + ":" + *foldedText;
+  }
+
+  bool hasDuplicateSwitchCaseLabels(
+      const std::vector<SwitchSection> &sections) const {
+    std::set<std::string> labels;
+    for (const SwitchSection &section : sections) {
+      if (section.isDefault) {
+        continue;
+      }
+      std::optional<std::string> key =
+          canonicalSwitchCaseLabelKey(section.label);
+      if (!key.has_value()) {
+        continue;
+      }
+      if (!labels.insert(*key).second) {
+        return true;
+      }
+    }
+    return false;
   }
 
   HIRStatement makeConditionBreakStatement(HIRExpression condition,

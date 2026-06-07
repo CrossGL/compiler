@@ -1067,6 +1067,20 @@
       "notes": "Ray miss stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
     },
     {
+      "id": "native-v0-unsupported.switch-duplicate-case-label",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchDuplicateCaseLabelShader.cgl",
+      "fixture_sha256": "73d31e431b27f020836728437424594286c86e82ea52c327e1ef434a9713c39f",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_switch_duplicate_case_label_failure"
+      ],
+      "notes": "Duplicate folded scalar switch case labels are outside the restricted native v0 switch subset."
+    },
+    {
       "id": "native-v0-unsupported.switch-grouped-labels",
       "feature_group": "known-native-v0-unsupported",
       "language_category": "native-v0",

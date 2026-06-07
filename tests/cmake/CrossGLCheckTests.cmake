@@ -1859,6 +1859,12 @@ crossgl_add_native_v0_unsupported_failure(
   7
   "message=restricted switch/case/default statements|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_switch_duplicate_case_label_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchDuplicateCaseLabelShader.cgl
+  7
+  7
+  "message=restricted switch/case/default statements|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_switch_grouped_labels_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchGroupedLabelsShader.cgl
   7

@@ -16558,6 +16558,31 @@ shader SwitchIncompatibleLabelBoundaryShader {
                                     "unsupported switch incompatible case label");
 
   expectUnsupportedSwitchDiagnostic(R"(
+shader SwitchDuplicateCaseLabelBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 0:
+          values[1] = 1;
+          break;
+        case 0:
+          values[1] = 2;
+          break;
+        default:
+          values[1] = 3;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                    "unsupported switch duplicate case label");
+
+  expectUnsupportedSwitchDiagnostic(R"(
 shader SwitchNonTerminalBreakBoundaryShader {
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;

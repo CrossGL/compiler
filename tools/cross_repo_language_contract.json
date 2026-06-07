@@ -646,6 +646,29 @@
           }
         },
         {
+          "id": "compiler/tests/check-failures/BadUnsupportedSwitchDuplicateCaseLabelShader.cgl",
+          "classification": "spec.unsupported-for-native-v0",
+          "feature": "control_flow_and_statements",
+          "spec_refs": [
+            "/ast/statementNodes",
+            "/ast/classes"
+          ],
+          "root": "compiler",
+          "path": "tests/check-failures/BadUnsupportedSwitchDuplicateCaseLabelShader.cgl",
+          "source_sha256": "73d31e431b27f020836728437424594286c86e82ea52c327e1ef434a9713c39f",
+          "reason": "CrossTL accepts duplicate switch case labels, but native compiler v0 rejects duplicate folded scalar labels to avoid silently shadowing later cases.",
+          "translator": {
+            "status": "accepts",
+            "ast_sha256": "17c17451f6ac458c06f4ea9be25c44217cba461db78de44d4d2615eb5a95ffde"
+          },
+          "compiler": {
+            "status": "rejects",
+            "diagnostic_substrings": [
+              "spec.unsupported-for-native-v0"
+            ]
+          }
+        },
+        {
           "id": "compiler/tests/check-failures/BadUnsupportedSwitchGroupedLabelsShader.cgl",
           "classification": "spec.unsupported-for-native-v0",
           "feature": "control_flow_and_statements",
