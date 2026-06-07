@@ -1,0 +1,11 @@
+shader BadMissingReturnValueShader {
+  compute {
+    float helper() {
+      return;
+    }
+
+    void main() {
+      return;
+    }
+  }
+}

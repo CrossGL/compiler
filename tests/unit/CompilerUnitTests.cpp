@@ -8804,7 +8804,7 @@ void testHIRRawFallbackClearsPartialParsedFields() {
 void testHIRParsedStatementLocationWithoutRawTokens() {
   constexpr std::string_view source = R"(shader ParsedReturnLocationShader {
   compute {
-    int main() {
+    void main() {
       return;
     }
   }
@@ -8817,6 +8817,10 @@ void testHIRParsedStatementLocationWithoutRawTokens() {
     return;
   }
 
+  // Source semantics now rejects `int main() { return; }`; mutate the parsed HIR
+  // to keep verifier diagnostic-location coverage on the structured statement.
+  hir->stages.front().functions.front().returnType =
+      crossgl::HIRType{"int", std::nullopt};
   const crossgl::HIRFunction &function = hir->stages.front().functions.front();
   expect(function.body.size() == 1,
          "parsed statement location test has one return statement");

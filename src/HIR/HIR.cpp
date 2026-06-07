@@ -4613,15 +4613,61 @@ void validateControlTransferStatement(const HIRStatement &statement,
   }
 }
 
+void validateReturnStatementSemantics(
+    const HIRStatement &statement, const HIRType &returnType,
+    const std::set<std::string> &structNames, DiagnosticEngine &diagnostics) {
+  if (statement.kind != HIRStatementKind::Return || returnType.name.empty()) {
+    return;
+  }
+
+  const bool hasValue = statement.value.kind != HIRExpressionKind::Empty;
+  if (isVoidType(returnType)) {
+    if (hasValue) {
+      diagnostics.error("sema.return-type",
+                        "return statement in void function must not return a "
+                        "value",
+                        statement.value.location);
+    }
+    return;
+  }
+
+  if (!isKnownType(returnType, structNames)) {
+    return;
+  }
+  if (!hasValue) {
+    diagnostics.error("sema.return-type",
+                      "return statement must return type '" +
+                          formatType(returnType) + "'",
+                      statement.location);
+    return;
+  }
+
+  HIRType expected = stripTypeQualifier(returnType);
+  HIRType actual = stripTypeQualifier(statement.value.type);
+  if (actual.name.empty() || !isKnownType(actual, structNames) ||
+      !shouldDiagnoseTypeMismatch(expected, actual)) {
+    return;
+  }
+  diagnostics.error("sema.return-type",
+                    "return statement must return type '" +
+                        formatType(returnType) + "', got '" +
+                        formatType(statement.value.type) + "'",
+                    statement.value.location);
+}
+
 void validateStatementSemantics(const HIRStatement &statement,
                                 std::string_view stage,
                                 const std::unordered_map<std::string, HIRResource>
                                     &resources,
                                 DiagnosticEngine &diagnostics,
+                                const HIRType &returnType,
+                                const std::set<std::string> &structNames,
                                 const UserFunctionSignatureMap &functionSignatures =
                                     emptyUserFunctionSignatures(),
                                 std::size_t loopDepth = 0) {
   validateControlTransferStatement(statement, stage, loopDepth, diagnostics);
+  validateReturnStatementSemantics(statement, returnType, structNames,
+                                   diagnostics);
   validateAtomicReadModifyWriteValueUse(statement, diagnostics);
   validateExpressionSemantics(statement.target, stage, resources, diagnostics,
                               functionSignatures);
@@ -4629,21 +4675,25 @@ void validateStatementSemantics(const HIRStatement &statement,
                               functionSignatures);
   for (const HIRStatement &initializer : statement.initializer) {
     validateStatementSemantics(initializer, stage, resources, diagnostics,
-                               functionSignatures, loopDepth);
+                               returnType, structNames, functionSignatures,
+                               loopDepth);
   }
   for (const HIRStatement &update : statement.update) {
     validateStatementSemantics(update, stage, resources, diagnostics,
-                               functionSignatures, loopDepth);
+                               returnType, structNames, functionSignatures,
+                               loopDepth);
   }
   const std::size_t childLoopDepth =
       statement.kind == HIRStatementKind::For ? loopDepth + 1 : loopDepth;
   for (const HIRStatement &child : statement.body) {
     validateStatementSemantics(child, stage, resources, diagnostics,
-                               functionSignatures, childLoopDepth);
+                               returnType, structNames, functionSignatures,
+                               childLoopDepth);
   }
   for (const HIRStatement &child : statement.elseBody) {
     validateStatementSemantics(child, stage, resources, diagnostics,
-                               functionSignatures, loopDepth);
+                               returnType, structNames, functionSignatures,
+                               loopDepth);
   }
 }
 
@@ -4651,6 +4701,7 @@ void validateFunctionExpressions(const HIRFunction &function,
                                  std::string_view stage,
                                  const std::vector<HIRResource> &resources,
                                  DiagnosticEngine &diagnostics,
+                                 const std::set<std::string> &structNames,
                                  const UserFunctionSignatureMap &functionSignatures =
                                      emptyUserFunctionSignatures()) {
   std::unordered_map<std::string, HIRResource> resourceMap;
@@ -4659,6 +4710,7 @@ void validateFunctionExpressions(const HIRFunction &function,
   }
   for (const HIRStatement &statement : function.body) {
     validateStatementSemantics(statement, stage, resourceMap, diagnostics,
+                               function.returnType, structNames,
                                functionSignatures);
   }
 }
@@ -5065,7 +5117,7 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
     validateFunctionTypes(hirFunction, structNames, diagnostics,
                           "function '" + function.name + "'",
                           function.returnType.location);
-    validateFunctionExpressions(hirFunction, "", {}, diagnostics,
+    validateFunctionExpressions(hirFunction, "", {}, diagnostics, structNames,
                                 topLevelFunctionSignatures);
     hir.functions.push_back(std::move(hirFunction));
   }
@@ -5235,7 +5287,8 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
                             "stage function '" + function.name + "'",
                             function.returnType.location);
       validateFunctionExpressions(hirFunction, stage.stage, hirStage.resources,
-                                  diagnostics, visibleFunctionSignatures);
+                                  diagnostics, structNames,
+                                  visibleFunctionSignatures);
       if (function.name == "main" && hirStage.entryPointName.empty()) {
         hirStage.entryPointName = function.name;
       }
