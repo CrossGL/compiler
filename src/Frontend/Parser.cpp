@@ -1492,7 +1492,7 @@ void Parser::diagnoseUnsupportedFunctionBodyForms(
 
     if (token.text == "match" || token.text == "switch" ||
         token.text == "case" || token.text == "default" ||
-        token.text == "loop" || token.text == "do") {
+        token.text == "do") {
       diagnoseUnsupportedNativeV0(unsupportedPatternControlForm(token.text),
                                   token.location);
       return;

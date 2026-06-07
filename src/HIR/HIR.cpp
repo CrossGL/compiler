@@ -49,6 +49,15 @@ bool isWorkgroupBarrierCallName(std::string_view name) {
   return name == "workgroupBarrier" || name == "barrier";
 }
 
+HIRExpression makeBoolLiteral(std::string value, SourceLocation location) {
+  HIRExpression literal;
+  literal.kind = HIRExpressionKind::Literal;
+  literal.value = std::move(value);
+  literal.location = std::move(location);
+  literal.type = makeType("bool");
+  return literal;
+}
+
 HIRType convertType(const TypeRef &type) {
   return HIRType{type.name, type.arraySize, type.location};
 }
@@ -1546,7 +1555,8 @@ private:
     const bool controlBlock =
         index_ < tokens_.size() && tokens_[index_].kind == TokenKind::Identifier &&
         (tokens_[index_].text == "if" || tokens_[index_].text == "for" ||
-         tokens_[index_].text == "while" || tokens_[index_].text == "switch");
+         tokens_[index_].text == "while" || tokens_[index_].text == "loop" ||
+         tokens_[index_].text == "switch");
     const bool standaloneBlock =
         index_ < tokens_.size() && tokens_[index_].kind == TokenKind::LBrace;
 
@@ -1632,6 +1642,10 @@ private:
 
     if (tokens.front().kind == TokenKind::Identifier && tokens.front().text == "while") {
       return parseWhileStatement(std::move(statement), tokens);
+    }
+
+    if (tokens.front().kind == TokenKind::Identifier && tokens.front().text == "loop") {
+      return parseLoopStatement(std::move(statement), tokens);
     }
 
     if (tokens.front().kind == TokenKind::Identifier &&
@@ -1919,6 +1933,24 @@ private:
         statement.elseBody = parseStatementBody(tokens, elseBegin, tokens.size());
       }
     }
+    statement.rawTokens.clear();
+    return statement;
+  }
+
+  HIRStatement parseLoopStatement(HIRStatement statement,
+                                  const std::vector<Token> &tokens) {
+    statement.kind = HIRStatementKind::For;
+    if (tokens.size() < 2 || tokens[1].kind != TokenKind::LBrace) {
+      return makeRawFallback(std::move(statement));
+    }
+    const std::optional<std::size_t> bodyClose =
+        findMatching(tokens, 1, TokenKind::LBrace, TokenKind::RBrace);
+    if (!bodyClose.has_value() || *bodyClose + 1 != tokens.size()) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    statement.value = makeBoolLiteral("true", tokens.front().location);
+    statement.body = parseStatementBody(tokens, 1, tokens.size());
     statement.rawTokens.clear();
     return statement;
   }

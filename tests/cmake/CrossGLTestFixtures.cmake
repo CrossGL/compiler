@@ -169,6 +169,7 @@ set(CROSSGL_MINIMAL_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/Mi
 set(CROSSGL_SCALAR_EXPRESSION_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ScalarExpressionComputeShader.cgl)
 set(CROSSGL_COLON_VAR_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ColonVarComputeShader.cgl)
 set(CROSSGL_LET_MUT_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/LetMutComputeShader.cgl)
+set(CROSSGL_LOOP_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/LoopComputeShader.cgl)
 set(CROSSGL_FN_STYLE_FUNCTION_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/FnStyleFunctionShader.cgl)
 set(CROSSGL_ARITHMETIC_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ArithmeticComputeShader.cgl)
 set(CROSSGL_INTRINSIC_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/IntrinsicComputeShader.cgl)

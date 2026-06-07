@@ -98,6 +98,7 @@
         "compiler/tests/fixtures/ForDynamicStrideComputeShader.cgl",
         "compiler/tests/fixtures/ForFoldedUpdateComputeShader.cgl",
         "compiler/tests/fixtures/NestedForComputeShader.cgl",
+        "compiler/tests/fixtures/LoopComputeShader.cgl",
         "compiler/tests/fixtures/WhileComputeShader.cgl",
         "compiler/tests/fixtures/NonParenthesizedControlFlowShader.cgl"
       ]
@@ -641,29 +642,6 @@
           }
         },
         {
-          "id": "compiler/tests/check-failures/BadUnsupportedLoopShader.cgl",
-          "classification": "spec.unsupported-for-native-v0",
-          "feature": "control_flow_and_statements",
-          "spec_refs": [
-            "/ast/statementNodes",
-            "/ast/classes"
-          ],
-          "root": "compiler",
-          "path": "tests/check-failures/BadUnsupportedLoopShader.cgl",
-          "source_sha256": "57b288bb377a2d6a66cb2105dc1d4e9f8562ce432e72c83b5854ab42a4adcad2",
-          "reason": "CrossTL accepts loop statements, but native compiler v0 only lowers for and while loops.",
-          "translator": {
-            "status": "accepts",
-            "ast_sha256": "ce48594e10ed6d1a8abf118bb985730facd0b476016b46942e5fdac6fc857933"
-          },
-          "compiler": {
-            "status": "rejects",
-            "diagnostic_substrings": [
-              "spec.unsupported-for-native-v0"
-            ]
-          }
-        },
-        {
           "id": "compiler/tests/check-failures/BadUnsupportedDoWhileShader.cgl",
           "classification": "spec.unsupported-for-native-v0",
           "feature": "control_flow_and_statements",
@@ -919,6 +897,11 @@
       "source_sha256": "3f8ba65174f7b15e4bccf2d0f8d68e72c08763b86159b261a1a703b078e4fab2",
       "translator_ast_sha256": "6431108161b5789978b7147cec748b49c57620104974bc1a9cbdf052fea7ecdf",
       "compiler_hir_sha256": "a8eaf5c198b61829baebfd1966084279fae1bca0f60ff625bdfd6ac686440b6c"
+    },
+    "compiler/tests/fixtures/LoopComputeShader.cgl": {
+      "source_sha256": "72b09eae287eeffae6088b81f39cdee61e2278a8d795345e13ddacb868663558",
+      "translator_ast_sha256": "858d20096720e299754a3b263241e390928505884b38f1e76d5a7c8ad0a1842a",
+      "compiler_hir_sha256": "f7c3b6021fc91b9efc02db97c92a72b3a4587d5637bd441db4eed9d079aaad41"
     },
     "compiler/tests/fixtures/MetalMultiSetResourceShader.cgl": {
       "source_sha256": "0c910356a4db1c2017dc981180a61c6752bd6899a19af6d1ef6343d9c79a90d2",

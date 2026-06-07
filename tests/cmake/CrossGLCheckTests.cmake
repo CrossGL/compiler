@@ -740,6 +740,24 @@ add_test(NAME cglc_check_let_mut_hir_update
     -DMODE=dump-stage
     "-DMUST_CONTAIN=assign value : int = value \\+ 1 : int"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_loop_compute
+  COMMAND cglc check ${CROSSGL_LOOP_COMPUTE_SHADER})
+add_test(NAME cglc_check_loop_hir_lowered_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LOOP_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for true : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_loop_hir_control_transfer
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LOOP_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=if value >= 4 : bool[^\n]*\n          break[^\n]*\n        if value == 2 : bool[^\n]*\n          continue"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_HIR_CONTROL_TRANSFER_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/HIRControlTransferShader.cgl)
 add_test(NAME cglc_check_hir_control_transfer_explicit_statements
   COMMAND ${CMAKE_COMMAND}
@@ -1758,12 +1776,6 @@ crossgl_add_native_v0_unsupported_failure(
   5
   7
   "message=switch/case/default statements|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_loop_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedLoopShader.cgl
-  5
-  7
-  "message=loop statements|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_do_while_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedDoWhileShader.cgl
