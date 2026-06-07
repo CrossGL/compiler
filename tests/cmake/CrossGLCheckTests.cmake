@@ -22,6 +22,17 @@ add_test(NAME cglc_check_resource_register_layout_alias_hir_canonical_binding
     -DMODE=dump-stage
     "-DMUST_CONTAIN=${CROSSGL_RESOURCE_REGISTER_ALIAS_HIR_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_resource_location_layout_alias
+  COMMAND cglc check ${CROSSGL_RESOURCE_LOCATION_ALIAS_SHADER})
+set(CROSSGL_RESOURCE_LOCATION_ALIAS_HIR_REGEX [=[resource uniform Params materialParams set 1 binding 2.*resource buffer float\* values set 0 binding 0]=])
+add_test(NAME cglc_check_resource_location_layout_alias_hir_canonical_set
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_RESOURCE_LOCATION_ALIAS_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=${CROSSGL_RESOURCE_LOCATION_ALIAS_HIR_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_resource_arrays
   COMMAND cglc check ${CROSSGL_RESOURCE_ARRAY_SHADER})
 add_test(NAME cglc_check_resource_array_access
@@ -1918,15 +1929,15 @@ add_test(NAME cglc_check_mixed_void_parameter_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=3|location.column=15"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=void parameter list must be exactly 'void'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_check_unsupported_native_v0_resource_metadata_alias_failure
+add_test(NAME cglc_check_duplicate_location_alias_resource_binding_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_CHECK_FAILURE_UNSUPPORTED_RESOURCE_METADATA_ALIAS_SHADER}
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DUPLICATE_LOCATION_ALIAS_RESOURCE_BINDING_SHADER}
     -DMODE=check-failure
     -DEXPECTED_DIAGNOSTIC=sema.duplicate-resource-binding
-    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=warning|diagnostics.0.code=parse.unsupported-resource-layout-key|diagnostics.0.location.line=6|diagnostics.0.location.column=12|diagnostics.1.severity=error|diagnostics.1.code=sema.duplicate-resource-binding|diagnostics.1.location.line=7|diagnostics.1.location.column=21"
-    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=unsupported resource layout key 'location'|diagnostics.1.message=duplicate resource binding 0|diagnostics.1.message=set 0|diagnostics.1.message=stage 'compute'"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=error|diagnostics.0.code=sema.duplicate-resource-binding|diagnostics.0.location.line=7|diagnostics.0.location.column=21"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=duplicate resource binding 0|diagnostics.0.message=set 0|diagnostics.0.message=stage 'compute'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_conflicting_register_binding_failure
   COMMAND ${CMAKE_COMMAND}

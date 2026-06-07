@@ -92,6 +92,19 @@ add_test(NAME cglc_build_directx_resource_register_layout_alias_source_package
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|workgroupSizes=1"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=materialParams.sourceType=Params|materialParams.hlslType=ConstantBuffer<Params>|materialParams.bindingClass=constant-buffer|materialParams.descriptorType=CBV|materialParams.argumentIndex=2|materialParams.set=1|materialParams.binding=2|fallbackParams.sourceType=Params|fallbackParams.hlslType=ConstantBuffer<Params>|fallbackParams.bindingClass=constant-buffer|fallbackParams.descriptorType=CBV|fallbackParams.argumentIndex=3|fallbackParams.set=1|fallbackParams.binding=3|values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_resource_location_layout_alias_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_RESOURCE_LOCATION_ALIAS_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-resource-location-alias-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/ResourceLocationAliasShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=register(b2, space1)"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=ResourceLocationAliasShader|nativeBinary=backend/directx/ResourceLocationAliasShader.dxil|resources.0.name=materialParams|resources.0.kind=uniform|resources.0.type=Params|resources.0.set=1|resources.0.binding=2|resources.1.name=values|resources.1.kind=buffer|resources.1.type=float*|resources.1.set=0|resources.1.binding=0"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=materialParams.sourceType=Params|materialParams.hlslType=ConstantBuffer<Params>|materialParams.bindingClass=constant-buffer|materialParams.descriptorType=CBV|materialParams.argumentIndex=2|materialParams.set=1|materialParams.binding=2|values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_source_package_fake_dxc_success
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

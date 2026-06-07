@@ -115,6 +115,7 @@
         "compiler/tests/fixtures/ResourceShader.cgl",
         "compiler/tests/fixtures/ResourceGroupAliasShader.cgl",
         "compiler/tests/fixtures/ResourceRegisterAliasShader.cgl",
+        "compiler/tests/fixtures/ResourceLocationAliasShader.cgl",
         "compiler/tests/fixtures/ResourceArrayShader.cgl",
         "compiler/tests/fixtures/ResourceArrayAccessShader.cgl",
         "compiler/tests/fixtures/StorageBufferComputeShader.cgl",
@@ -998,6 +999,11 @@
       "source_sha256": "4e9cb30903a730cc50eb9fb1e59fdfe06e3e928bdca9e848271c6c6e183224d5",
       "translator_ast_sha256": "c702f1929a688706ad1d3b9a15f5f22bafb1ed9cfd4eb66a9e8106903c0f3e34",
       "compiler_hir_sha256": "08a3a3e3144b736bacf52f33f42aafc5106593acbcdcbd7211beac5a99199c19"
+    },
+    "compiler/tests/fixtures/ResourceLocationAliasShader.cgl": {
+      "source_sha256": "178255643cf42491e75b61014dec1937d0238baddafc83f4e9edd0bebf467018",
+      "translator_ast_sha256": "96cc03582a9acbacd0a94ae70589db04ec8f594d7333ffdb22949e9962c8a7a5",
+      "compiler_hir_sha256": "6e641fc1a8c3175372872f7a5188ee7dd6d5dc448798465e40f824f1976355a2"
     },
     "compiler/tests/fixtures/ResourceRegisterAliasShader.cgl": {
       "source_sha256": "20bff827368baad7de80692f43b5cd308f46e8f9834a7c4b88316def006936bd",

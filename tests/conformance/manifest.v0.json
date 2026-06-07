@@ -1036,20 +1036,6 @@
       "notes": "Ray miss stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
     },
     {
-      "id": "native-v0-unsupported.resource-metadata-alias",
-      "feature_group": "known-native-v0-unsupported",
-      "language_category": "native-v0",
-      "status": "unsupported",
-      "command_profile": "unsupported-native-v0-check",
-      "fixture": "tests/check-failures/BadUnsupportedResourceMetadataAliasShader.cgl",
-      "fixture_sha256": "1c7526fc09e2a4fbc3b9ad4c59d89fc0b09024159c81ef7fb8d0513cb48b1eab",
-      "expected_diagnostic": "parse.unsupported-resource-layout-key",
-      "evidence_tests": [
-        "cglc_check_unsupported_native_v0_resource_metadata_alias_failure"
-      ],
-      "notes": "Broader CrossTL metadata entries such as resource location remain frontend-unsupported for native-v0 unless accepted parser/HIR evidence promotes them."
-    },
-    {
       "id": "native-v0-unsupported.tessellation-stage",
       "feature_group": "known-native-v0-unsupported",
       "language_category": "native-v0",
@@ -1197,6 +1183,33 @@
         "cglc_build_directx_resource_group_layout_alias_source_package"
       ],
       "notes": "Covers canonical group-to-set metadata in DirectX source-package reflection and register space lowering."
+    },
+    {
+      "id": "resources.location-layout-alias",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/ResourceLocationAliasShader.cgl",
+      "fixture_sha256": "178255643cf42491e75b61014dec1937d0238baddafc83f4e9edd0bebf467018",
+      "evidence_tests": [
+        "cglc_check_resource_location_layout_alias_hir_canonical_set"
+      ],
+      "notes": "Covers CrossTL layout(location = N, ...) resource metadata canonicalized to resource set N in native-v0 HIR."
+    },
+    {
+      "id": "resources.location-layout-alias-directx-source-package",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/ResourceLocationAliasShader.cgl",
+      "fixture_sha256": "178255643cf42491e75b61014dec1937d0238baddafc83f4e9edd0bebf467018",
+      "evidence_tests": [
+        "cglc_build_directx_resource_location_layout_alias_source_package"
+      ],
+      "notes": "Covers canonical location-to-set metadata in DirectX source-package reflection and register space lowering."
     },
     {
       "id": "resources.metal-multi-set",

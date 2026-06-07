@@ -45,7 +45,7 @@
   "contract_manifest": {
     "path": "tools/cross_repo_language_contract.json",
     "schema": 1,
-    "contract_count": 150,
+    "contract_count": 151,
     "accepted_feature_group_count": 8,
     "negative_case_count": 25,
     "hash_fields": [
@@ -475,7 +475,7 @@
           "sha256": "313320a0295ff536f534f1fd9bfd08012e9652c3df38f84c86330725b7f7033f"
         }
       ],
-      "fixture_count": 11,
+      "fixture_count": 12,
       "fixtures": [
         {
           "id": "compiler/tests/fixtures/ResourceShader.cgl",
@@ -494,6 +494,12 @@
           "source_sha256": "20bff827368baad7de80692f43b5cd308f46e8f9834a7c4b88316def006936bd",
           "translator_ast_sha256": "8afde10d326e05355fa43ecb3d504585bb85b587175f5b3264cd77e542dbcee3",
           "compiler_hir_sha256": "a3fcef7eb38287aabf359114130fe50434303bf4a8e7f78a7ac0a91db4b14aaf"
+        },
+        {
+          "id": "compiler/tests/fixtures/ResourceLocationAliasShader.cgl",
+          "source_sha256": "178255643cf42491e75b61014dec1937d0238baddafc83f4e9edd0bebf467018",
+          "translator_ast_sha256": "96cc03582a9acbacd0a94ae70589db04ec8f594d7333ffdb22949e9962c8a7a5",
+          "compiler_hir_sha256": "6e641fc1a8c3175372872f7a5188ee7dd6d5dc448798465e40f824f1976355a2"
         },
         {
           "id": "compiler/tests/fixtures/ResourceArrayShader.cgl",

@@ -1,4 +1,4 @@
-shader BadUnsupportedResourceMetadataAlias {
+shader BadDuplicateLocationAliasResourceBinding {
   struct Params {
     float value;
   }

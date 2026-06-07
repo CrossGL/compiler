@@ -1025,15 +1025,17 @@ std::optional<ResourceLayoutDecl> Parser::parseResourceLayout() {
 
     const std::string value = joinTokenText(valueTokens);
     const std::optional<std::size_t> parsedValue = parseSizeLiteral(value);
-    if (key == "set" || key == "group") {
+    if (key == "set" || key == "group" || key == "location") {
       if (parsedValue.has_value()) {
         layout.set = *parsedValue;
         if (!valueTokens.empty()) {
           layout.setSpan = sourceSpan(keyLocation, valueTokens.back().location);
         }
       } else {
+        const std::string label = key == "location" ? "location" : "set";
         diagnostics_.error("parse.invalid-resource-set",
-                           "resource layout set must be a non-negative integer",
+                           "resource layout " + label +
+                               " must be a non-negative integer",
                            keyLocation);
       }
     } else if (key == "binding" || key == "register") {
