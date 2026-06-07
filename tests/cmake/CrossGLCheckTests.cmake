@@ -2407,7 +2407,7 @@ add_test(NAME cglc_check_increment_decrement_expression_failure
     -DMODE=check-failure
     -DEXPECTED_DIAGNOSTIC=sema.increment-decrement-update-form
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
-    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=16"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=23"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=increment/decrement is only defined as a standalone update|message=expression-valued uses are not defined"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_WHILE_CONDITION_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadWhileConditionShader.cgl)
