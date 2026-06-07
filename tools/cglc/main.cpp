@@ -41,6 +41,8 @@ void printUsage() {
       << "  cglc check <input.cgl> [--opt-level O0|O1|O2] "
          "[--logical-input <path>] [--source-remap <remap.json>] "
          "[--diagnostics-json]\n"
+      << "  cglc check --source-manifest <sources.json> "
+         "[--opt-level O0|O1|O2] [--diagnostics-json]\n"
       << "  cglc explain-targets <input.cgl> [--logical-input <path>]\n"
       << "  cglc language-feature-report <input.cgl> [--root <repo>]\n"
       << "  cglc dump-ir <input.cgl> --stage "
@@ -77,6 +79,9 @@ void printUsage() {
          "--output <out.cglb> [--opt-level O0|O1|O2] [--debug-ir] "
          "[--logical-input <path>] [--source-remap <remap.json>] "
          "[--diagnostics-json]\n"
+      << "  cglc build --source-manifest <sources.json> "
+         "[--target auto|metal|vulkan|directx|opengl] "
+         "[--opt-level O0|O1|O2] [--debug-ir] [--diagnostics-json]\n"
       << "  cglc package inspect <out.cglb> --json\n"
       << "  cglc package verify <out.cglb> [--source <input.cgl>] [--json]\n"
       << "  cglc package recover <package-or-sidecar.cglb> --list [--json]\n"
@@ -154,16 +159,6 @@ bool isDeferredSourceBatchManifestFlag(std::string_view name) {
          name == "--source-batch" || name == "--batch" || name == "--manifest";
 }
 
-std::optional<std::string>
-deferredSourceBatchManifestFlag(const std::vector<std::string> &args) {
-  for (const std::string &arg : args) {
-    if (isDeferredSourceBatchManifestFlag(arg)) {
-      return arg;
-    }
-  }
-  return std::nullopt;
-}
-
 bool isSourceInputCommand(std::string_view command) {
   return command == "doctor" || command == "check" ||
          command == "explain-targets" ||
@@ -171,18 +166,49 @@ bool isSourceInputCommand(std::string_view command) {
          command == "build";
 }
 
-int rejectDeferredSourceBatchManifestFlag(
-    const std::vector<std::string> &args) {
-  const std::optional<std::string> flag =
-      deferredSourceBatchManifestFlag(args);
-  if (!flag) {
-    return 0;
+struct SourceBatchManifestFlag {
+  bool present = false;
+  bool valid = true;
+  std::string flag;
+  std::filesystem::path path;
+  std::size_t flagIndex = 0;
+  std::size_t valueIndex = 0;
+};
+
+SourceBatchManifestFlag
+parseSourceBatchManifestFlag(const std::vector<std::string> &args) {
+  SourceBatchManifestFlag parsed;
+  for (std::size_t index = 0; index < args.size(); ++index) {
+    if (!isDeferredSourceBatchManifestFlag(args[index])) {
+      continue;
+    }
+    if (parsed.present) {
+      parsed.valid = false;
+      parsed.flag = args[index];
+      std::cerr << "error: source manifest mode accepts exactly one batch "
+                   "manifest flag\n";
+      return parsed;
+    }
+    parsed.present = true;
+    parsed.flag = args[index];
+    parsed.flagIndex = index;
+    if (index + 1 >= args.size() || args[index + 1].empty() ||
+        args[index + 1][0] == '-') {
+      parsed.valid = false;
+      std::cerr << "error: " << parsed.flag << " requires a path\n";
+      return parsed;
+    }
+    parsed.valueIndex = index + 1;
+    parsed.path = args[index + 1];
   }
-  std::cerr
-      << "error: " << *flag
-      << " is reserved for compiler batch source manifest mode; cglc v0 "
-         "is per-input. Invoke cglc once per source or orchestrate source "
-         "manifests outside the compiler.\n";
+  return parsed;
+}
+
+int rejectUnsupportedSourceBatchManifestCommand(std::string_view command,
+                                                std::string_view flag) {
+  std::cerr << "error: " << flag << " source manifest mode is supported for "
+            << "check and build; " << command
+            << " must still be invoked per source in this compiler version\n";
   return 2;
 }
 
@@ -402,6 +428,750 @@ void printDiagnostics(const std::vector<crossgl::Diagnostic> &diagnostics) {
     std::cerr << ": " << crossgl::toString(diagnostic.severity) << " "
               << diagnostic.code << ": " << diagnostic.message << "\n";
   }
+}
+
+struct SourceBatchDefaults {
+  crossgl::TargetKind target = crossgl::TargetKind::Auto;
+  crossgl::OptimizationLevel optimizationLevel = crossgl::OptimizationLevel::O1;
+  bool debugIR = false;
+};
+
+struct SourceBatchEntry {
+  std::string id;
+  std::filesystem::path path;
+  std::optional<std::filesystem::path> logicalInput;
+  std::optional<std::filesystem::path> output;
+  std::optional<crossgl::TargetKind> target;
+  std::optional<crossgl::OptimizationLevel> optimizationLevel;
+  std::optional<bool> debugIR;
+  std::optional<std::filesystem::path> sourceRemap;
+};
+
+struct SourceBatchManifest {
+  std::filesystem::path path;
+  std::filesystem::path root;
+  SourceBatchDefaults defaults;
+  std::vector<SourceBatchEntry> sources;
+};
+
+struct SourceBatchEntryResult {
+  std::string id;
+  std::filesystem::path inputPath;
+  std::optional<std::filesystem::path> logicalInputPath;
+  std::optional<std::filesystem::path> outputPath;
+  std::optional<std::filesystem::path> artifactPath;
+  crossgl::TargetKind target = crossgl::TargetKind::Auto;
+  bool success = false;
+};
+
+std::optional<std::string>
+readTextDocument(const std::filesystem::path &path,
+                 crossgl::DiagnosticEngine &diagnostics) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    diagnostics.error("io.read-failed",
+                      "failed to read '" + path.string() + "'",
+                      cliSourceLocation(path));
+    return std::nullopt;
+  }
+
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  if (input.bad()) {
+    diagnostics.error("io.read-failed",
+                      "failed to read '" + path.string() + "'",
+                      cliSourceLocation(path));
+    return std::nullopt;
+  }
+  return buffer.str();
+}
+
+void sourceBatchManifestError(crossgl::DiagnosticEngine &diagnostics,
+                              const std::filesystem::path &path,
+                              std::string message) {
+  diagnostics.error("project.source-batch.invalid-manifest",
+                    std::move(message), cliSourceLocation(path));
+}
+
+std::filesystem::path resolveManifestPath(const std::filesystem::path &base,
+                                          const std::filesystem::path &path) {
+  if (path.is_absolute()) {
+    return path.lexically_normal();
+  }
+  return (base / path).lexically_normal();
+}
+
+std::optional<crossgl::TargetKind>
+parseManifestTarget(std::string_view value,
+                    const std::filesystem::path &manifestPath,
+                    crossgl::DiagnosticEngine &diagnostics) {
+  try {
+    return crossgl::targetFromString(value);
+  } catch (const std::exception &error) {
+    sourceBatchManifestError(diagnostics, manifestPath, error.what());
+    return std::nullopt;
+  }
+}
+
+std::optional<crossgl::OptimizationLevel>
+parseManifestOptimizationLevel(std::string_view value,
+                               const std::filesystem::path &manifestPath,
+                               crossgl::DiagnosticEngine &diagnostics) {
+  if (std::optional<crossgl::OptimizationLevel> level =
+          crossgl::parseOptimizationLevel(value)) {
+    return *level;
+  }
+  sourceBatchManifestError(
+      diagnostics, manifestPath,
+      "unknown optimization level '" + std::string(value) +
+          "'; expected O0, O1, or O2");
+  return std::nullopt;
+}
+
+bool parseSourceBatchDefaults(std::string_view defaultsText,
+                              SourceBatchDefaults &defaults,
+                              const std::filesystem::path &manifestPath,
+                              crossgl::DiagnosticEngine &diagnostics) {
+  if (!crossgl::isJsonObjectDocument(defaultsText)) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             "source batch manifest defaults must be an object");
+    return false;
+  }
+  if (std::optional<std::string> target =
+          crossgl::objectStringMember(defaultsText, "target")) {
+    if (std::optional<crossgl::TargetKind> parsed =
+            parseManifestTarget(*target, manifestPath, diagnostics)) {
+      defaults.target = *parsed;
+    } else {
+      return false;
+    }
+  }
+  if (std::optional<std::string> optLevel =
+          crossgl::objectStringMember(defaultsText, "optLevel")) {
+    if (std::optional<crossgl::OptimizationLevel> parsed =
+            parseManifestOptimizationLevel(*optLevel, manifestPath,
+                                           diagnostics)) {
+      defaults.optimizationLevel = *parsed;
+    } else {
+      return false;
+    }
+  }
+  if (std::optional<bool> debugIR =
+          crossgl::objectBoolMember(defaultsText, "debugIR")) {
+    defaults.debugIR = *debugIR;
+  }
+  return true;
+}
+
+std::optional<SourceBatchEntry>
+parseSourceBatchEntryObject(std::string_view entryText,
+                            std::size_t sourceIndex,
+                            const std::filesystem::path &root,
+                            const std::filesystem::path &manifestPath,
+                            crossgl::DiagnosticEngine &diagnostics) {
+  if (!crossgl::isJsonObjectDocument(entryText)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        "source batch manifest sources[" + std::to_string(sourceIndex) +
+            "] must be an object or string");
+    return std::nullopt;
+  }
+
+  std::optional<std::string> path =
+      crossgl::objectStringMember(entryText, "path");
+  if (!path || path->empty()) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        "source batch manifest sources[" + std::to_string(sourceIndex) +
+            "] requires a non-empty path");
+    return std::nullopt;
+  }
+
+  SourceBatchEntry entry;
+  entry.id = crossgl::objectStringMember(entryText, "id")
+                 .value_or("source-" + std::to_string(sourceIndex));
+  entry.path = resolveManifestPath(root, *path);
+  if (std::optional<std::string> logicalInput =
+          crossgl::objectStringMember(entryText, "logicalInput")) {
+    entry.logicalInput = std::filesystem::path(*logicalInput);
+  } else if (std::optional<std::string> logicalPath =
+                 crossgl::objectStringMember(entryText, "logicalPath")) {
+    entry.logicalInput = std::filesystem::path(*logicalPath);
+  }
+  if (std::optional<std::string> output =
+          crossgl::objectStringMember(entryText, "output")) {
+    entry.output = resolveManifestPath(root, *output);
+  }
+  if (std::optional<std::string> sourceRemap =
+          crossgl::objectStringMember(entryText, "sourceRemap")) {
+    entry.sourceRemap = resolveManifestPath(root, *sourceRemap);
+  }
+  if (std::optional<std::string> target =
+          crossgl::objectStringMember(entryText, "target")) {
+    std::optional<crossgl::TargetKind> parsed =
+        parseManifestTarget(*target, manifestPath, diagnostics);
+    if (!parsed) {
+      return std::nullopt;
+    }
+    entry.target = *parsed;
+  }
+  if (std::optional<std::string> optLevel =
+          crossgl::objectStringMember(entryText, "optLevel")) {
+    std::optional<crossgl::OptimizationLevel> parsed =
+        parseManifestOptimizationLevel(*optLevel, manifestPath, diagnostics);
+    if (!parsed) {
+      return std::nullopt;
+    }
+    entry.optimizationLevel = *parsed;
+  }
+  if (std::optional<bool> debugIR =
+          crossgl::objectBoolMember(entryText, "debugIR")) {
+    entry.debugIR = *debugIR;
+  }
+  return entry;
+}
+
+bool parseSourceBatchSources(std::string_view sourcesText,
+                             SourceBatchManifest &manifest,
+                             crossgl::DiagnosticEngine &diagnostics) {
+  std::size_t position = 0;
+  crossgl::skipWhitespace(sourcesText, position);
+  if (position >= sourcesText.size() || sourcesText[position] != '[') {
+    sourceBatchManifestError(diagnostics, manifest.path,
+                             "source batch manifest sources must be an array");
+    return false;
+  }
+  ++position;
+  crossgl::skipWhitespace(sourcesText, position);
+  if (position < sourcesText.size() && sourcesText[position] == ']') {
+    sourceBatchManifestError(
+        diagnostics, manifest.path,
+        "source batch manifest sources array must contain at least one source");
+    return false;
+  }
+
+  std::size_t sourceIndex = 0;
+  while (position < sourcesText.size()) {
+    crossgl::skipWhitespace(sourcesText, position);
+    const std::size_t valueBegin = position;
+    if (position < sourcesText.size() && sourcesText[position] == '"') {
+      std::string path;
+      if (!crossgl::parseJsonString(sourcesText, position, path) ||
+          path.empty()) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            "source batch manifest sources[" + std::to_string(sourceIndex) +
+                "] must be a non-empty string path");
+        return false;
+      }
+      SourceBatchEntry entry;
+      entry.id = "source-" + std::to_string(sourceIndex);
+      entry.path = resolveManifestPath(manifest.root, path);
+      manifest.sources.push_back(std::move(entry));
+    } else {
+      if (!crossgl::skipJsonValue(sourcesText, position)) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            "source batch manifest sources[" + std::to_string(sourceIndex) +
+                "] is not valid JSON");
+        return false;
+      }
+      std::string_view entryText =
+          sourcesText.substr(valueBegin, position - valueBegin);
+      std::optional<SourceBatchEntry> entry = parseSourceBatchEntryObject(
+          entryText, sourceIndex, manifest.root, manifest.path, diagnostics);
+      if (!entry) {
+        return false;
+      }
+      manifest.sources.push_back(std::move(*entry));
+    }
+
+    ++sourceIndex;
+    crossgl::skipWhitespace(sourcesText, position);
+    if (position < sourcesText.size() && sourcesText[position] == ',') {
+      ++position;
+      continue;
+    }
+    if (position < sourcesText.size() && sourcesText[position] == ']') {
+      ++position;
+      crossgl::skipWhitespace(sourcesText, position);
+      if (position == sourcesText.size()) {
+        return true;
+      }
+    }
+    sourceBatchManifestError(diagnostics, manifest.path,
+                             "source batch manifest sources array is malformed");
+    return false;
+  }
+
+  sourceBatchManifestError(diagnostics, manifest.path,
+                           "source batch manifest sources array is malformed");
+  return false;
+}
+
+std::optional<SourceBatchManifest>
+loadSourceBatchManifest(const std::filesystem::path &manifestPath,
+                        crossgl::DiagnosticEngine &diagnostics) {
+  std::optional<std::string> document =
+      readTextDocument(manifestPath, diagnostics);
+  if (!document) {
+    return std::nullopt;
+  }
+
+  if (!crossgl::isJsonObjectDocument(*document)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        "source batch manifest must be a JSON object document");
+    return std::nullopt;
+  }
+  if (std::optional<crossgl::DuplicateJsonKey> duplicate =
+          crossgl::findDuplicateJsonKey(*document)) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             "source batch manifest contains duplicate key '" +
+                                 duplicate->path + "'");
+    return std::nullopt;
+  }
+
+  const std::optional<std::uintmax_t> schemaVersion =
+      crossgl::objectUnsignedMember(*document, "schemaVersion");
+  if (!schemaVersion || *schemaVersion != 1) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        "source batch manifest requires schemaVersion 1");
+    return std::nullopt;
+  }
+  const std::optional<std::string> kind =
+      crossgl::objectStringMember(*document, "kind");
+  if (!kind || *kind != "crossgl.sourceBatchManifest") {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        "source batch manifest kind must be crossgl.sourceBatchManifest");
+    return std::nullopt;
+  }
+
+  SourceBatchManifest manifest;
+  manifest.path = manifestPath;
+  manifest.root = manifestPath.parent_path();
+  if (manifest.root.empty()) {
+    manifest.root = ".";
+  }
+  if (std::optional<std::string> root =
+          crossgl::objectStringMember(*document, "root")) {
+    manifest.root = resolveManifestPath(manifest.root, *root);
+  } else {
+    manifest.root = manifest.root.lexically_normal();
+  }
+
+  if (std::optional<std::string_view> defaults =
+          crossgl::findObjectMemberValue(*document, "defaults")) {
+    if (!parseSourceBatchDefaults(*defaults, manifest.defaults, manifestPath,
+                                  diagnostics)) {
+      return std::nullopt;
+    }
+  }
+
+  std::optional<std::string_view> sources =
+      crossgl::findObjectMemberValue(*document, "sources");
+  if (!sources) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             "source batch manifest requires sources array");
+    return std::nullopt;
+  }
+  if (!parseSourceBatchSources(*sources, manifest, diagnostics)) {
+    return std::nullopt;
+  }
+  return manifest;
+}
+
+void appendDiagnostics(std::vector<crossgl::Diagnostic> &target,
+                       const std::vector<crossgl::Diagnostic> &source) {
+  target.insert(target.end(), source.begin(), source.end());
+}
+
+std::vector<crossgl::Diagnostic> loadAndValidateSourceRemapDiagnostics(
+    const std::filesystem::path &sourceRemapPath,
+    const std::filesystem::path &compilerInputPath,
+    std::optional<crossgl::SourceRemap> &sourceRemap) {
+  crossgl::DiagnosticEngine remapDiagnostics;
+  sourceRemap = crossgl::loadSourceRemap(sourceRemapPath, remapDiagnostics);
+  if (!sourceRemap) {
+    return remapDiagnostics.diagnostics();
+  }
+  (void)crossgl::validateSourceRemapGeneratedFile(
+      *sourceRemap, compilerInputPath, remapDiagnostics,
+      cliSourceLocation(sourceRemapPath));
+  return remapDiagnostics.diagnostics();
+}
+
+bool hasErrorDiagnostics(const std::vector<crossgl::Diagnostic> &diagnostics) {
+  for (const crossgl::Diagnostic &diagnostic : diagnostics) {
+    if (diagnostic.severity == crossgl::DiagnosticSeverity::Error) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool sourceBatchSucceeded(
+    const std::vector<SourceBatchEntryResult> &entries,
+    const std::vector<crossgl::Diagnostic> &diagnostics) {
+  if (hasErrorDiagnostics(diagnostics)) {
+    return false;
+  }
+  for (const SourceBatchEntryResult &entry : entries) {
+    if (!entry.success) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::string sourceBatchResultJson(
+    const SourceBatchManifest &manifest,
+    const std::vector<SourceBatchEntryResult> &entries,
+    const std::vector<crossgl::Diagnostic> &diagnostics) {
+  const bool success = sourceBatchSucceeded(entries, diagnostics);
+  std::ostringstream out;
+  out << "{\n"
+      << "  \"schemaVersion\": 1,\n"
+      << "  \"kind\": \"crossgl.sourceBatchResult\",\n"
+      << "  \"manifest\": \""
+      << crossgl::escapeJson(manifest.path.lexically_normal().generic_string())
+      << "\",\n"
+      << "  \"success\": " << (success ? "true" : "false") << ",\n"
+      << "  \"entryCount\": " << entries.size() << ",\n"
+      << "  \"entries\": [\n";
+  for (std::size_t index = 0; index < entries.size(); ++index) {
+    const SourceBatchEntryResult &entry = entries[index];
+    out << "    {\n"
+        << "      \"id\": \"" << crossgl::escapeJson(entry.id) << "\",\n"
+        << "      \"path\": \""
+        << crossgl::escapeJson(entry.inputPath.generic_string()) << "\",\n";
+    if (entry.logicalInputPath) {
+      out << "      \"logicalInput\": \""
+          << crossgl::escapeJson(entry.logicalInputPath->generic_string())
+          << "\",\n";
+    }
+    if (entry.outputPath) {
+      out << "      \"output\": \""
+          << crossgl::escapeJson(entry.outputPath->generic_string())
+          << "\",\n";
+    }
+    if (entry.artifactPath) {
+      out << "      \"artifact\": \""
+          << crossgl::escapeJson(entry.artifactPath->generic_string())
+          << "\",\n";
+    }
+    out << "      \"target\": \"" << crossgl::targetName(entry.target)
+        << "\",\n"
+        << "      \"success\": " << (entry.success ? "true" : "false")
+        << "\n"
+        << "    }";
+    if (index + 1 < entries.size()) {
+      out << ",";
+    }
+    out << "\n";
+  }
+  out << "  ],\n"
+      << "  \"diagnosticReport\": "
+      << crossgl::diagnosticsToJson(diagnostics) << "}\n";
+  return out.str();
+}
+
+int validateSourceBatchCommandArgs(const std::vector<std::string> &args,
+                                   const SourceBatchManifestFlag &manifestFlag,
+                                   std::string_view command) {
+  for (std::size_t index = 1; index < args.size(); ++index) {
+    if (index == manifestFlag.flagIndex) {
+      ++index;
+      continue;
+    }
+    const std::string &arg = args[index];
+    if (arg == "--diagnostics-json") {
+      continue;
+    }
+    if (arg == "--opt-level") {
+      if (index + 1 >= args.size() || args[index + 1].empty() ||
+          args[index + 1][0] == '-') {
+        std::cerr << "error: --opt-level requires O0, O1, or O2\n";
+        return 2;
+      }
+      ++index;
+      continue;
+    }
+    if (command == "build" && arg == "--target") {
+      if (index + 1 >= args.size() || args[index + 1].empty() ||
+          args[index + 1][0] == '-') {
+        std::cerr << "error: --target requires a target name\n";
+        return 2;
+      }
+      ++index;
+      continue;
+    }
+    if (command == "build" && arg == "--debug-ir") {
+      continue;
+    }
+    if (arg == "--logical-input" || arg == "--source-remap" ||
+        arg == "--output") {
+      std::cerr << "error: " << arg
+                << " is per-source in source manifest mode; set it on each "
+                   "sources[] entry instead\n";
+      return 2;
+    }
+    if (!arg.empty() && arg[0] == '-') {
+      std::cerr << "error: unknown " << command
+                << " source manifest option: " << arg << "\n";
+      return 2;
+    }
+    std::cerr << "error: " << command
+              << " source manifest mode does not accept positional input "
+                 "paths\n";
+    return 2;
+  }
+  return 0;
+}
+
+std::optional<crossgl::OptimizationLevel>
+sourceBatchOptimizationOverride(const std::vector<std::string> &args) {
+  if (!hasArg(args, "--opt-level")) {
+    return std::nullopt;
+  }
+  return optimizationLevelArg(args);
+}
+
+std::optional<crossgl::TargetKind>
+sourceBatchTargetOverride(const std::vector<std::string> &args) {
+  if (!hasArg(args, "--target")) {
+    return std::nullopt;
+  }
+  return crossgl::targetFromString(argValue(args, "--target"));
+}
+
+crossgl::OptimizationLevel resolveSourceBatchOptimizationLevel(
+    const SourceBatchEntry &entry,
+    const std::optional<crossgl::OptimizationLevel> &commandOverride,
+    const SourceBatchDefaults &defaults) {
+  if (entry.optimizationLevel) {
+    return *entry.optimizationLevel;
+  }
+  if (commandOverride) {
+    return *commandOverride;
+  }
+  return defaults.optimizationLevel;
+}
+
+crossgl::TargetKind
+resolveSourceBatchTarget(const SourceBatchEntry &entry,
+                         const std::optional<crossgl::TargetKind> &commandOverride,
+                         const SourceBatchDefaults &defaults) {
+  if (entry.target) {
+    return *entry.target;
+  }
+  if (commandOverride) {
+    return *commandOverride;
+  }
+  return defaults.target;
+}
+
+bool resolveSourceBatchDebugIR(const SourceBatchEntry &entry,
+                               bool commandDebugIR,
+                               const SourceBatchDefaults &defaults) {
+  if (entry.debugIR) {
+    return *entry.debugIR;
+  }
+  if (commandDebugIR) {
+    return true;
+  }
+  return defaults.debugIR;
+}
+
+int commandCheckSourceBatch(const std::vector<std::string> &args,
+                            const SourceBatchManifestFlag &manifestFlag) {
+  if (const int status =
+          validateSourceBatchCommandArgs(args, manifestFlag, "check")) {
+    return status;
+  }
+  const bool diagnosticsJson = hasArg(args, "--diagnostics-json");
+  std::optional<crossgl::OptimizationLevel> optimizationOverride;
+  try {
+    optimizationOverride = sourceBatchOptimizationOverride(args);
+  } catch (const std::exception &error) {
+    std::cerr << "error: " << error.what() << "\n";
+    return 2;
+  }
+
+  crossgl::DiagnosticEngine manifestDiagnostics;
+  std::optional<SourceBatchManifest> manifest =
+      loadSourceBatchManifest(manifestFlag.path, manifestDiagnostics);
+  if (!manifest) {
+    printDiagnostics(manifestDiagnostics.diagnostics());
+    if (diagnosticsJson) {
+      std::cout << crossgl::diagnosticsToJson(manifestDiagnostics.diagnostics());
+    }
+    return 1;
+  }
+
+  std::vector<crossgl::Diagnostic> allDiagnostics;
+  std::vector<SourceBatchEntryResult> entryResults;
+  for (const SourceBatchEntry &entry : manifest->sources) {
+    SourceBatchEntryResult entryResult;
+    entryResult.id = entry.id;
+    entryResult.inputPath = entry.path;
+    entryResult.logicalInputPath = entry.logicalInput;
+    entryResult.target =
+        resolveSourceBatchTarget(entry, std::nullopt, manifest->defaults);
+
+    crossgl::DiagnosticEngine diagnostics;
+    crossgl::CompilerModuleOptions options;
+    options.optimizationLevel = resolveSourceBatchOptimizationLevel(
+        entry, optimizationOverride, manifest->defaults);
+    options.validateBackendInput = false;
+    if (entry.logicalInput) {
+      options.logicalPath = *entry.logicalInput;
+    }
+    (void)crossgl::loadCompilerModule(entry.path, diagnostics, options);
+    std::vector<crossgl::Diagnostic> entryDiagnostics =
+        diagnostics.diagnostics();
+
+    if (entry.sourceRemap) {
+      std::optional<crossgl::SourceRemap> sourceRemap;
+      const std::filesystem::path compilerInputPath =
+          entry.logicalInput.value_or(entry.path);
+      std::vector<crossgl::Diagnostic> remapDiagnostics =
+          loadAndValidateSourceRemapDiagnostics(*entry.sourceRemap,
+                                                compilerInputPath, sourceRemap);
+      if (hasErrorDiagnostics(remapDiagnostics)) {
+        entryDiagnostics = std::move(remapDiagnostics);
+      } else if (sourceRemap) {
+        entryDiagnostics =
+            crossgl::diagnosticsWithOriginalSourceLocations(entryDiagnostics,
+                                                            *sourceRemap);
+        appendDiagnostics(entryDiagnostics, remapDiagnostics);
+      }
+    }
+
+    entryResult.success = !hasErrorDiagnostics(entryDiagnostics);
+    appendDiagnostics(allDiagnostics, entryDiagnostics);
+    entryResults.push_back(std::move(entryResult));
+  }
+
+  printDiagnostics(allDiagnostics);
+  if (diagnosticsJson) {
+    std::cout << sourceBatchResultJson(*manifest, entryResults, allDiagnostics);
+  } else if (sourceBatchSucceeded(entryResults, allDiagnostics)) {
+    for (const SourceBatchEntryResult &entry : entryResults) {
+      std::cout << "check passed: " << entry.inputPath.string() << "\n";
+    }
+    std::cout << "batch check passed: " << entryResults.size()
+              << " sources from " << manifest->path.string() << "\n";
+  }
+  return sourceBatchSucceeded(entryResults, allDiagnostics) ? 0 : 1;
+}
+
+int commandBuildSourceBatch(const std::vector<std::string> &args,
+                            const SourceBatchManifestFlag &manifestFlag) {
+  if (const int status =
+          validateSourceBatchCommandArgs(args, manifestFlag, "build")) {
+    return status;
+  }
+  const bool diagnosticsJson = hasArg(args, "--diagnostics-json");
+  std::optional<crossgl::OptimizationLevel> optimizationOverride;
+  std::optional<crossgl::TargetKind> targetOverride;
+  try {
+    optimizationOverride = sourceBatchOptimizationOverride(args);
+    targetOverride = sourceBatchTargetOverride(args);
+  } catch (const std::exception &error) {
+    std::cerr << "error: " << error.what() << "\n";
+    return 2;
+  }
+
+  crossgl::DiagnosticEngine manifestDiagnostics;
+  std::optional<SourceBatchManifest> manifest =
+      loadSourceBatchManifest(manifestFlag.path, manifestDiagnostics);
+  if (!manifest) {
+    printDiagnostics(manifestDiagnostics.diagnostics());
+    if (diagnosticsJson) {
+      std::cout << crossgl::diagnosticsToJson(manifestDiagnostics.diagnostics());
+    }
+    return 1;
+  }
+
+  std::vector<crossgl::Diagnostic> allDiagnostics;
+  std::vector<SourceBatchEntryResult> entryResults;
+  for (std::size_t index = 0; index < manifest->sources.size(); ++index) {
+    const SourceBatchEntry &entry = manifest->sources[index];
+    SourceBatchEntryResult entryResult;
+    entryResult.id = entry.id;
+    entryResult.inputPath = entry.path;
+    entryResult.logicalInputPath = entry.logicalInput;
+    entryResult.outputPath = entry.output;
+    entryResult.target =
+        resolveSourceBatchTarget(entry, targetOverride, manifest->defaults);
+
+    if (!entry.output) {
+      crossgl::DiagnosticEngine diagnostics;
+      sourceBatchManifestError(
+          diagnostics, manifest->path,
+          "source batch manifest sources[" + std::to_string(index) +
+              "] requires output for build");
+      appendDiagnostics(allDiagnostics, diagnostics.diagnostics());
+      entryResults.push_back(std::move(entryResult));
+      continue;
+    }
+
+    crossgl::CompileRequest request;
+    request.inputPath = entry.path;
+    request.outputPath = *entry.output;
+    request.target = entryResult.target;
+    request.optimizationLevel = resolveSourceBatchOptimizationLevel(
+        entry, optimizationOverride, manifest->defaults);
+    request.debugIR =
+        resolveSourceBatchDebugIR(entry, hasArg(args, "--debug-ir"),
+                                  manifest->defaults);
+    if (entry.logicalInput) {
+      request.logicalInputPath = *entry.logicalInput;
+    }
+
+    if (entry.sourceRemap) {
+      std::optional<crossgl::SourceRemap> sourceRemap;
+      const std::filesystem::path compilerInputPath =
+          entry.logicalInput.value_or(entry.path);
+      std::vector<crossgl::Diagnostic> remapDiagnostics =
+          loadAndValidateSourceRemapDiagnostics(*entry.sourceRemap,
+                                                compilerInputPath, sourceRemap);
+      if (hasErrorDiagnostics(remapDiagnostics)) {
+        appendDiagnostics(allDiagnostics, remapDiagnostics);
+        entryResults.push_back(std::move(entryResult));
+        continue;
+      }
+      appendDiagnostics(allDiagnostics, remapDiagnostics);
+      if (sourceRemap) {
+        request.sourceRemap = std::move(*sourceRemap);
+      }
+    }
+
+    crossgl::CompileResult result = crossgl::compile(request);
+    entryResult.success = result.success;
+    entryResult.artifactPath = result.artifactPath;
+    entryResult.target = result.resolvedTarget;
+    appendDiagnostics(allDiagnostics, result.diagnostics);
+    entryResults.push_back(std::move(entryResult));
+  }
+
+  printDiagnostics(allDiagnostics);
+  if (diagnosticsJson) {
+    std::cout << sourceBatchResultJson(*manifest, entryResults, allDiagnostics);
+  } else if (sourceBatchSucceeded(entryResults, allDiagnostics)) {
+    for (const SourceBatchEntryResult &entry : entryResults) {
+      if (entry.artifactPath) {
+        std::cout << "built " << entry.artifactPath->string() << " for "
+                  << crossgl::targetName(entry.target) << "\n";
+      }
+    }
+    std::cout << "batch build passed: " << entryResults.size()
+              << " sources from " << manifest->path.string() << "\n";
+  }
+  return sourceBatchSucceeded(entryResults, allDiagnostics) ? 0 : 1;
 }
 
 std::string packageReleaseUploadFingerprint(
@@ -671,6 +1441,15 @@ int commandTargets() {
 }
 
 int commandCheck(const std::vector<std::string> &args) {
+  const SourceBatchManifestFlag manifestFlag =
+      parseSourceBatchManifestFlag(args);
+  if (manifestFlag.present) {
+    if (!manifestFlag.valid) {
+      return 2;
+    }
+    return commandCheckSourceBatch(args, manifestFlag);
+  }
+
   const std::string inputPath = firstNonFlagArg(args);
   if (inputPath.empty()) {
     printUsage();
@@ -986,6 +1765,15 @@ int commandDumpIR(const std::vector<std::string> &args) {
 }
 
 int commandBuild(const std::vector<std::string> &args) {
+  const SourceBatchManifestFlag manifestFlag =
+      parseSourceBatchManifestFlag(args);
+  if (manifestFlag.present) {
+    if (!manifestFlag.valid) {
+      return 2;
+    }
+    return commandBuildSourceBatch(args, manifestFlag);
+  }
+
   if (args.size() < 2) {
     printUsage();
     return 2;
@@ -2839,10 +3627,16 @@ int main(int argc, char **argv) {
 
   try {
     if (isSourceInputCommand(command)) {
-      const int batchManifestStatus =
-          rejectDeferredSourceBatchManifestFlag(commandArgs);
-      if (batchManifestStatus != 0) {
-        return batchManifestStatus;
+      const SourceBatchManifestFlag manifestFlag =
+          parseSourceBatchManifestFlag(commandArgs);
+      if (manifestFlag.present) {
+        if (!manifestFlag.valid) {
+          return 2;
+        }
+        if (command != "check" && command != "build") {
+          return rejectUnsupportedSourceBatchManifestCommand(command,
+                                                            manifestFlag.flag);
+        }
       }
     }
     if (command == "doctor") {

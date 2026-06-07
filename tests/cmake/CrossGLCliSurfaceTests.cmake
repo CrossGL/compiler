@@ -122,6 +122,58 @@ if(CROSSGL_PYTHON3)
 ]=])
 endif()
 
+set(CROSSGL_CLI_SOURCE_BATCH_CHECK_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-check.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_CHECK_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"defaults\": {
+    \"target\": \"auto\",
+    \"optLevel\": \"O1\"
+  },
+  \"sources\": [
+    {
+      \"id\": \"simple\",
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"logicalInput\": \"translator/snapshots/SimpleShader.cgl\"
+    },
+    {
+      \"id\": \"fn-style\",
+      \"path\": \"tests/fixtures/FnStyleFunctionShader.cgl\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_BUILD_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-build.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BUILD_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"defaults\": {
+    \"target\": \"directx\",
+    \"optLevel\": \"O1\"
+  },
+  \"sources\": [
+    {
+      \"id\": \"storage\",
+      \"path\": \"tests/fixtures/StorageBufferComputeShader.cgl\",
+      \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-storage.cglb\"
+    },
+    {
+      \"id\": \"fn-style\",
+      \"path\": \"tests/fixtures/FnStyleFunctionShader.cgl\",
+      \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-fn-style.cglb\",
+      \"debugIR\": true
+    }
+  ]
+}
+")
+
 function(crossgl_append_cli_surface_defines out_var prefix)
   set(defines)
   set(index 0)
@@ -212,12 +264,24 @@ crossgl_add_cli_surface_test(cglc_cli_check_diagnostics_json_success_contract
     "\"schemaVersion\": 1"
     "\"diagnostics\": []")
 
-crossgl_add_cli_surface_test(cglc_cli_check_batch_manifest_deferred
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_success_contract
+  EXPECTED_RESULT 0
+  ARGS check --source-manifest ${CROSSGL_CLI_SOURCE_BATCH_CHECK_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"kind\": \"crossgl.sourceBatchResult\""
+    "\"entryCount\": 2"
+    "\"id\": \"simple\""
+    "\"logicalInput\": \"translator/snapshots/SimpleShader.cgl\""
+    "\"id\": \"fn-style\""
+    "\"success\": true"
+    "\"diagnostics\": []")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_missing_path_fails
   EXPECTED_RESULT 2
-  ARGS check ${CROSSGL_SIMPLE_SHADER} --source-manifest repo-sources.json
+  ARGS check --source-manifest
   STDERR_CONTAINS
-    "--source-manifest is reserved for compiler batch source manifest mode"
-    "cglc v0 is per-input")
+    "--source-manifest requires a path")
 
 crossgl_add_cli_surface_test(cglc_cli_check_missing_input_diagnostics_json
   EXPECTED_RESULT 1
@@ -361,8 +425,8 @@ crossgl_add_cli_surface_test(cglc_cli_dump_ir_batch_manifest_deferred
   ARGS dump-ir ${CROSSGL_SIMPLE_SHADER} --stage hir
     --batch-manifest repo-sources.json
   STDERR_CONTAINS
-    "--batch-manifest is reserved for compiler batch source manifest mode"
-    "cglc v0 is per-input")
+    "--batch-manifest source manifest mode is supported for check and build"
+    "dump-ir must still be invoked per source")
 
 crossgl_add_cli_surface_test(cglc_cli_explain_targets_json_contract
   EXPECTED_RESULT 0
@@ -376,8 +440,8 @@ crossgl_add_cli_surface_test(cglc_cli_explain_targets_batch_manifest_deferred
   EXPECTED_RESULT 2
   ARGS explain-targets ${CROSSGL_SIMPLE_SHADER} --manifest repo-sources.json
   STDERR_CONTAINS
-    "--manifest is reserved for compiler batch source manifest mode"
-    "cglc v0 is per-input")
+    "--manifest source manifest mode is supported for check and build"
+    "explain-targets must still be invoked per source")
 
 if(CROSSGL_PYTHON3)
   crossgl_add_cli_surface_test(cglc_cli_explain_targets_logical_input_diagnostics
@@ -420,17 +484,16 @@ crossgl_add_cli_surface_test(cglc_cli_doctor_batch_manifest_deferred
   EXPECTED_RESULT 2
   ARGS doctor ${CROSSGL_SIMPLE_SHADER} --batch repo-sources.json
   STDERR_CONTAINS
-    "--batch is reserved for compiler batch source manifest mode"
-    "cglc v0 is per-input")
+    "--batch source manifest mode is supported for check and build"
+    "doctor must still be invoked per source")
 
 crossgl_add_cli_surface_test(cglc_cli_language_feature_report_batch_manifest_deferred
   EXPECTED_RESULT 2
   ARGS language-feature-report ${CROSSGL_SIMPLE_SHADER}
     --batch-manifest crosstl-project-portability-report.json
   STDERR_CONTAINS
-    "--batch-manifest is reserved for compiler batch source manifest mode"
-    "cglc v0 is per-input"
-    "orchestrate source manifests outside the compiler")
+    "--batch-manifest source manifest mode is supported for check and build"
+    "language-feature-report must still be invoked per source")
 
 crossgl_add_cli_surface_test(cglc_cli_build_directx_source_package_success_contract
   EXPECTED_RESULT 0
@@ -464,16 +527,24 @@ crossgl_add_cli_surface_test(cglc_cli_build_missing_input_fails
     "Usage:"
     "cglc build <input.cgl>")
 
-crossgl_add_cli_surface_test(cglc_cli_build_batch_manifest_deferred
+crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_success_contract
+  EXPECTED_RESULT 0
+  ARGS
+    build --source-batch ${CROSSGL_CLI_SOURCE_BATCH_BUILD_MANIFEST}
+    --target directx
+  STDOUT_CONTAINS
+    "built "
+    "cglc-cli-batch-storage.cglb"
+    "cglc-cli-batch-fn-style.cglb"
+    "batch build passed: 2 sources")
+
+crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_output_option_fails
   EXPECTED_RESULT 2
   ARGS
-    build ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
-    --target directx
-    --output ${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-build-batch-deferred.cglb
-    --source-batch repo-sources.json
+    build --source-batch ${CROSSGL_CLI_SOURCE_BATCH_BUILD_MANIFEST}
+    --output ${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-build-batch-output.cglb
   STDERR_CONTAINS
-    "--source-batch is reserved for compiler batch source manifest mode"
-    "cglc v0 is per-input")
+    "--output is per-source in source manifest mode")
 
 crossgl_add_cli_surface_test(cglc_cli_build_source_remap_logical_input_mismatch
   EXPECTED_RESULT 1
