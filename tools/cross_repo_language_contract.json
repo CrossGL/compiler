@@ -58,6 +58,7 @@
         "/ast/classes"
       ],
       "fixtures": [
+        "compiler/tests/fixtures/FnStyleFunctionShader.cgl",
         "compiler/tests/fixtures/MinimalComputeShader.cgl",
         "compiler/tests/fixtures/SimpleShader.cgl",
         "translator/examples/graphics/SimpleShader.cgl",
@@ -467,29 +468,6 @@
           "translator": {
             "status": "accepts",
             "ast_sha256": "3650bf8929bcac20c50d879fc0b768a07dd456f91bc689877ff355f55759056e"
-          },
-          "compiler": {
-            "status": "rejects",
-            "diagnostic_substrings": [
-              "spec.unsupported-for-native-v0"
-            ]
-          }
-        },
-        {
-          "id": "compiler/tests/check-failures/BadUnsupportedFnStyleShader.cgl",
-          "classification": "spec.unsupported-for-native-v0",
-          "feature": "module_stages_and_entry_points",
-          "spec_refs": [
-            "/lexical/tokens",
-            "/ast/classes"
-          ],
-          "root": "compiler",
-          "path": "tests/check-failures/BadUnsupportedFnStyleShader.cgl",
-          "source_sha256": "5c2b22e1860c6b0a4b41612ec88fbac0b95a29a41b08b1e8fdeab23c1e544c14",
-          "reason": "CrossTL accepts fn-style declarations, but native compiler v0 only accepts C-style function declarations.",
-          "translator": {
-            "status": "accepts",
-            "ast_sha256": "64848b91448bf4b4beb498fb5d983882f027e0d437aad90d5fda51c62b3885c4"
           },
           "compiler": {
             "status": "rejects",
@@ -943,6 +921,11 @@
       "source_sha256": "1c61b0443bed839dbead9eba746ad884c5bb6de94aaf3a166e4d98125fbd0240",
       "translator_ast_sha256": "2f507647f6517e64f409ccd84d1e32b92c7406da666089864c33a612d8818567",
       "compiler_hir_sha256": "e45f3f55cc1eb25fa3ff8e4319a07040bbca6a8948b8d24f752108323cb00303"
+    },
+    "compiler/tests/fixtures/FnStyleFunctionShader.cgl": {
+      "source_sha256": "f30b3bd0e13a0b7e06f87eb3c0d9a03188f018c7a7b1be7cc24702204ccaa46c",
+      "translator_ast_sha256": "aa0307a043fe016ff62782c093af5300035c46af5cd3fe5ab6efefb2fb56eed8",
+      "compiler_hir_sha256": "b6df979c7b6a4f2d1165400d56678cde2378ea1689f7b26bf7d7afe5585fbff2"
     },
     "compiler/tests/fixtures/ForComputeShader.cgl": {
       "source_sha256": "0d44539472320cb452aef43ef154092869e0cbd7d11eaf4894c984743dd1799d",

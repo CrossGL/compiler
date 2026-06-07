@@ -45,9 +45,9 @@
   "contract_manifest": {
     "path": "tools/cross_repo_language_contract.json",
     "schema": 1,
-    "contract_count": 145,
+    "contract_count": 146,
     "accepted_feature_group_count": 8,
-    "negative_case_count": 30,
+    "negative_case_count": 29,
     "hash_fields": [
       "source_sha256",
       "translator_ast_sha256",
@@ -394,8 +394,14 @@
           "sha256": "16086c3ab2ed33a5d99b9e60005c06715eb0b9931bbceeb67a12102d759606f4"
         }
       ],
-      "fixture_count": 4,
+      "fixture_count": 5,
       "fixtures": [
+        {
+          "id": "compiler/tests/fixtures/FnStyleFunctionShader.cgl",
+          "source_sha256": "f30b3bd0e13a0b7e06f87eb3c0d9a03188f018c7a7b1be7cc24702204ccaa46c",
+          "translator_ast_sha256": "aa0307a043fe016ff62782c093af5300035c46af5cd3fe5ab6efefb2fb56eed8",
+          "compiler_hir_sha256": "b6df979c7b6a4f2d1165400d56678cde2378ea1689f7b26bf7d7afe5585fbff2"
+        },
         {
           "id": "compiler/tests/fixtures/MinimalComputeShader.cgl",
           "source_sha256": "1a1427f1cd9e0f21d1e05ac1ac5a94043b36ade5af52aff14bfc39566e4b9433",
@@ -903,26 +909,6 @@
       "translator": {
         "status": "accepts",
         "ast_sha256": "3650bf8929bcac20c50d879fc0b768a07dd456f91bc689877ff355f55759056e"
-      },
-      "compiler": {
-        "status": "rejects",
-        "diagnostic_substrings": [
-          "spec.unsupported-for-native-v0"
-        ]
-      }
-    },
-    {
-      "id": "compiler/tests/check-failures/BadUnsupportedFnStyleShader.cgl",
-      "group": "spec_unsupported_for_native_v0",
-      "classification": "spec.unsupported-for-native-v0",
-      "feature_group": "module_stages_and_entry_points",
-      "reason": "CrossTL accepts fn-style declarations, but native compiler v0 only accepts C-style function declarations.",
-      "root": "compiler",
-      "path": "tests/check-failures/BadUnsupportedFnStyleShader.cgl",
-      "source_sha256": "5c2b22e1860c6b0a4b41612ec88fbac0b95a29a41b08b1e8fdeab23c1e544c14",
-      "translator": {
-        "status": "accepts",
-        "ast_sha256": "64848b91448bf4b4beb498fb5d983882f027e0d437aad90d5fda51c62b3885c4"
       },
       "compiler": {
         "status": "rejects",

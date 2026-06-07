@@ -59,6 +59,10 @@ bool isVarToken(const Token &token) {
          (token.kind == TokenKind::Identifier && token.text == "var");
 }
 
+bool isFnToken(const Token &token) {
+  return token.kind == TokenKind::Identifier && token.text == "fn";
+}
+
 bool isVarResourceStart(const Token &token, const Token &next) {
   return isVarToken(token) && isOperatorToken(next, "<");
 }
@@ -209,9 +213,6 @@ std::optional<std::string> unsupportedShaderItemForm(const Token &token) {
   const std::string &text = token.text;
   if (isUnsupportedExtendedStageName(text)) {
     return "stage '" + text + "'";
-  }
-  if (text == "fn") {
-    return "fn-style function declarations";
   }
   if (isUnsupportedImportName(text)) {
     return "source import declarations";
@@ -674,6 +675,10 @@ std::optional<ConstantDecl> Parser::parseConstant() {
 }
 
 std::optional<FunctionDecl> Parser::parseFunction() {
+  if (isFnToken(current())) {
+    return parseFnStyleFunction();
+  }
+
   auto returnType = parseType();
   if (!returnType || !check(TokenKind::Identifier)) {
     synchronize();
@@ -704,6 +709,59 @@ std::optional<FunctionDecl> Parser::parseFunction() {
       function.returnType = std::move(*trailingReturn);
     }
   }
+  if (match(TokenKind::Semicolon)) {
+    return function;
+  }
+  function.bodyTokens = parseBalancedBody();
+  diagnoseUnsupportedFunctionBodyForms(function.bodyTokens);
+  return function;
+}
+
+std::optional<FunctionDecl> Parser::parseFnStyleFunction() {
+  expect(TokenKind::Identifier, "expected 'fn'");
+
+  if (!check(TokenKind::Identifier)) {
+    diagnostics_.error("parse.expected-function-name",
+                       "expected function name after 'fn'",
+                       current().location);
+    synchronize();
+    return std::nullopt;
+  }
+
+  FunctionDecl function;
+  function.name = current().text;
+  function.location = current().location;
+  advance();
+
+  if (check(TokenKind::Operator) && current().text == "<") {
+    diagnoseUnsupportedNativeV0("generic function declarations",
+                                current().location);
+    skipDeclarationOrBlock();
+    return std::nullopt;
+  }
+
+  expect(TokenKind::LParen, "expected '(' after function name");
+  function.parameters = parseParameters(/*allowColonStyle=*/true);
+  expect(TokenKind::RParen, "expected ')' after parameters");
+
+  if (!(check(TokenKind::Operator) && current().text == "-" &&
+        peek().kind == TokenKind::Operator && peek().text == ">")) {
+    diagnostics_.error("parse.expected-token",
+                       "expected '->' after fn-style parameters",
+                       current().location);
+    skipDeclarationOrBlock();
+    return std::nullopt;
+  }
+
+  advance();
+  advance();
+  auto returnType = parseType();
+  if (!returnType) {
+    synchronize();
+    return std::nullopt;
+  }
+  function.returnType = std::move(*returnType);
+
   if (match(TokenKind::Semicolon)) {
     return function;
   }
@@ -1085,7 +1143,7 @@ std::optional<WorkgroupSizeDecl> Parser::parseStageLayout() {
   return layout;
 }
 
-std::vector<Parameter> Parser::parseParameters() {
+std::vector<Parameter> Parser::parseParameters(bool allowColonStyle) {
   std::vector<Parameter> parameters;
   auto rejectInvalidVoidParameter = [&](SourceLocation location) {
     diagnostics_.error("parse.invalid-void-parameter",
@@ -1107,6 +1165,32 @@ std::vector<Parameter> Parser::parseParameters() {
         rejectInvalidVoidParameter(voidLocation);
         return parameters;
       }
+    }
+
+    if (allowColonStyle && isNameToken(current().kind) &&
+        peek().kind == TokenKind::Colon) {
+      Parameter parameter;
+      parameter.name = current().text;
+      parameter.location = current().location;
+      advance();
+      expect(TokenKind::Colon, "expected ':' after parameter name");
+      auto type = parseType();
+      if (!type) {
+        synchronize();
+        break;
+      }
+      if (type->name == "void") {
+        rejectInvalidVoidParameter(type->location);
+        return parameters;
+      }
+      parameter.type = std::move(*type);
+      parseArrayDeclaratorSuffix(parameter.type,
+                                 "expected ']' after parameter array size");
+      parameters.push_back(std::move(parameter));
+      if (!match(TokenKind::Comma)) {
+        break;
+      }
+      continue;
     }
 
     auto type = parseType();
@@ -1238,6 +1322,10 @@ std::optional<StageDecl> Parser::parseStage() {
 }
 
 bool Parser::looksLikeFunction() const {
+  if (isFnToken(current()) && peek().kind == TokenKind::Identifier &&
+      peek(2).kind == TokenKind::LParen) {
+    return true;
+  }
   return (current().kind == TokenKind::Identifier ||
           current().kind == TokenKind::KeywordUniform ||
           current().kind == TokenKind::KeywordBuffer ||

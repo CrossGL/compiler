@@ -32,10 +32,11 @@ private:
   void skipGenericClause();
   std::optional<ConstantDecl> parseConstant();
   std::optional<FunctionDecl> parseFunction();
+  std::optional<FunctionDecl> parseFnStyleFunction();
   std::optional<ResourceDecl> parseResource(std::optional<ResourceLayoutDecl> layout = std::nullopt);
   std::optional<ResourceLayoutDecl> parseResourceLayout();
   std::optional<WorkgroupSizeDecl> parseStageLayout();
-  std::vector<Parameter> parseParameters();
+  std::vector<Parameter> parseParameters(bool allowColonStyle = false);
   void parseArrayDeclaratorSuffix(TypeRef &type, std::string_view message);
   std::vector<Token> parseBalancedBody();
   void diagnoseUnsupportedFunctionBodyForms(const std::vector<Token> &tokens);

@@ -36,12 +36,6 @@ UNSUPPORTED_NATIVE_V0_CASES = (
         ("stage 'geometry'", "native v0"),
     ),
     DiagnosticCase(
-        "unsupported-fn-style",
-        Path("tests/check-failures/BadUnsupportedFnStyleShader.cgl"),
-        "fn",
-        ("fn-style function declarations", "native v0"),
-    ),
-    DiagnosticCase(
         "unsupported-enum",
         Path("tests/check-failures/BadUnsupportedEnumShader.cgl"),
         "enum",

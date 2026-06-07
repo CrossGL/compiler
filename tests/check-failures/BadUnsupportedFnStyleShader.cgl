@@ -1,7 +1,0 @@
-shader BadUnsupportedFnStyle {
-  compute {
-    fn main() -> void {
-      return;
-    }
-  }
-}

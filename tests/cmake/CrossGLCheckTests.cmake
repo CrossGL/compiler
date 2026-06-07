@@ -448,6 +448,24 @@ add_test(NAME cglc_check_colon_var_compute_hir_canonical_declaration
     -DMODE=dump-stage
     "-DMUST_CONTAIN=decl float base = values\\[1\\] : float[^\n]*\n      decl float scaled = base \\* 2\\.0 : float"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_fn_style_function
+  COMMAND cglc check ${CROSSGL_FN_STYLE_FUNCTION_SHADER})
+add_test(NAME cglc_check_fn_style_function_hir_signatures
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FN_STYLE_FUNCTION_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=fn scale\\(float value, float factor\\) -> float[^\n]*\n      return value \\* factor : float[^\n]*\n    fn writeValue\\(int index, float value\\) -> void[^\n]*\n      assign values\\[index\\] : float = value : float[^\n]*\n      return[^\n]*\n    fn main\\(\\) -> void"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_fn_style_function_hir_calls
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FN_STYLE_FUNCTION_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=decl float base = scale\\(values\\[1\\], 2\\.0\\)[^\n]*\n      expr writeValue\\(0, base\\)"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_numeric_float_literals
   COMMAND cglc check
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/NumericFloatLiteralShader.cgl)
@@ -1634,12 +1652,6 @@ crossgl_add_native_v0_unsupported_failure(
   2
   3
   "message=stage 'geometry'|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_fn_style_failure
-  ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_FN_STYLE_SHADER}
-  3
-  5
-  "message=fn-style function declarations|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_enum_failure
   ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_ENUM_SHADER}

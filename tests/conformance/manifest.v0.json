@@ -218,6 +218,20 @@
       "notes": "Existing OpenGL source-package evidence for compute invocation builtin lowering."
     },
     {
+      "id": "compute-basics.fn-style-function-declarations",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/FnStyleFunctionShader.cgl",
+      "fixture_sha256": "f30b3bd0e13a0b7e06f87eb3c0d9a03188f018c7a7b1be7cc24702204ccaa46c",
+      "evidence_tests": [
+        "cglc_check_fn_style_function_hir_calls",
+        "cglc_check_fn_style_function_hir_signatures"
+      ],
+      "notes": "CrossTL-style fn declarations with trailing return types and colon-style parameters lower to canonical HIR functions."
+    },
+    {
       "id": "compute-basics.intrinsic-calls",
       "feature_group": "compute-basics",
       "language_category": "compute",
@@ -852,20 +866,6 @@
         "cglc_check_unsupported_native_v0_extended_stage_failure"
       ],
       "notes": "Extended CrossTL stage spellings are outside the native v0 accepted surface unless a future target-specific package row names them."
-    },
-    {
-      "id": "native-v0-unsupported.fn-style-declaration",
-      "feature_group": "known-native-v0-unsupported",
-      "language_category": "native-v0",
-      "status": "unsupported",
-      "command_profile": "unsupported-native-v0-check",
-      "fixture": "tests/check-failures/BadUnsupportedFnStyleShader.cgl",
-      "fixture_sha256": "5c2b22e1860c6b0a4b41612ec88fbac0b95a29a41b08b1e8fdeab23c1e544c14",
-      "expected_diagnostic": "spec.unsupported-for-native-v0",
-      "evidence_tests": [
-        "cglc_check_unsupported_native_v0_fn_style_failure"
-      ],
-      "notes": "Rust-style fn declarations are outside the native v0 accepted surface."
     },
     {
       "id": "native-v0-unsupported.generic-declaration",

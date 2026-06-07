@@ -308,7 +308,6 @@
         "known-native-v0-unsupported"
       ],
       "conformance_entries": [
-        "native-v0-unsupported.fn-style-declaration",
         "native-v0-unsupported.var-address-space"
       ],
       "coverage": [
