@@ -2478,6 +2478,26 @@ add_test(NAME cglc_check_function_call_argument_type_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=30"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function call 'identity' argument 0 expects 'vec2', got 'float'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_function_signature_return_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_FUNCTION_SIGNATURE_RETURN_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.function-signature-mismatch
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=9"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=stage 'compute' function list function 'helper' signature mismatch|message=previous signature 'float(float)'|message=current signature 'int(float)'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_top_level_function_signature_parameter_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_TOP_LEVEL_FUNCTION_SIGNATURE_PARAMETER_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.function-signature-mismatch
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=3|location.column=9"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=top-level function list function 'utility' signature mismatch|message=previous signature 'float(float)'|message=current signature 'float(vec2)'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_declaration_initializer_type_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

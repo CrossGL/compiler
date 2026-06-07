@@ -97,6 +97,62 @@ collectUserFunctionSignatures(const std::vector<FunctionDecl> &functions) {
   return signatures;
 }
 
+bool sameUserFunctionSignatureType(const HIRType &left, const HIRType &right) {
+  return sameType(stripTypeQualifier(left), stripTypeQualifier(right));
+}
+
+bool sameUserFunctionSignature(const UserFunctionSignature &left,
+                               const UserFunctionSignature &right) {
+  if (!sameUserFunctionSignatureType(left.returnType, right.returnType) ||
+      left.parameters.size() != right.parameters.size()) {
+    return false;
+  }
+  for (std::size_t index = 0; index < left.parameters.size(); ++index) {
+    if (!sameUserFunctionSignatureType(left.parameters[index].type,
+                                       right.parameters[index].type)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::string formatUserFunctionSignature(const UserFunctionSignature &signature) {
+  std::ostringstream stream;
+  stream << formatType(signature.returnType) << "(";
+  for (std::size_t index = 0; index < signature.parameters.size(); ++index) {
+    if (index != 0) {
+      stream << ", ";
+    }
+    stream << formatType(signature.parameters[index].type);
+  }
+  stream << ")";
+  return stream.str();
+}
+
+void validateUserFunctionSignatureConsistency(
+    const std::vector<FunctionDecl> &functions, const std::string &scopeLabel,
+    DiagnosticEngine &diagnostics) {
+  UserFunctionSignatureMap signatures;
+  for (const FunctionDecl &function : functions) {
+    if (function.name.empty() || function.returnType.name.empty()) {
+      continue;
+    }
+    UserFunctionSignature signature = makeUserFunctionSignature(function);
+    const auto [existing, inserted] =
+        signatures.emplace(function.name, signature);
+    if (!inserted && !sameUserFunctionSignature(existing->second, signature)) {
+      diagnostics.error(
+          "sema.function-signature-mismatch",
+          scopeLabel + " function '" + function.name +
+              "' signature mismatch: previous signature '" +
+              formatUserFunctionSignature(existing->second) +
+              "', current signature '" + formatUserFunctionSignature(signature) +
+              "'",
+          function.location);
+    }
+  }
+}
+
 void addComputeInvocationBuiltinTypes(
     std::unordered_map<std::string, HIRType> &variables,
     std::string_view stage) {
@@ -5141,6 +5197,8 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
 
   const UserFunctionSignatureMap topLevelFunctionSignatures =
       collectUserFunctionSignatures(module.functions);
+  validateUserFunctionSignatureConsistency(
+      module.functions, "top-level function list", diagnostics);
 
   std::unordered_map<std::string, bool> topLevelFunctions;
   for (const FunctionDecl &function : module.functions) {
@@ -5305,6 +5363,9 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
         topLevelFunctionSignatures;
     const UserFunctionSignatureMap stageFunctionSignatures =
         collectUserFunctionSignatures(stage.functions);
+    validateUserFunctionSignatureConsistency(
+        stage.functions, "stage '" + stage.stage + "' function list",
+        diagnostics);
     for (const auto &[name, signature] : stageFunctionSignatures) {
       visibleFunctionSignatures[name] = signature;
     }
