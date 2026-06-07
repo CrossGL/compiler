@@ -899,6 +899,20 @@
       "notes": "Extended CrossTL stage spellings are outside the native v0 accepted surface unless a future target-specific package row names them."
     },
     {
+      "id": "native-v0-unsupported.for-in-loop",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedForInShader.cgl",
+      "fixture_sha256": "a28b68c84ae7d6169f1a7f37adf42be09ecda4d268bc66f5609053583d9e238b",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_for_in_failure"
+      ],
+      "notes": "For-in loop statements are outside the native v0 accepted surface; native v0 currently supports C-style for loops."
+    },
+    {
       "id": "native-v0-unsupported.generic-declaration",
       "feature_group": "known-native-v0-unsupported",
       "language_category": "native-v0",
@@ -953,6 +967,20 @@
         "cglc_check_unsupported_native_v0_line_splicing_preprocessor_failure"
       ],
       "notes": "Backslash-newline physical line splicing remains translator/importer tolerance, not native-v0 shared .cgl syntax."
+    },
+    {
+      "id": "native-v0-unsupported.malformed-for-header",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadMalformedForHeaderShader.cgl",
+      "fixture_sha256": "b94a30699e5f76d0503f547a165c5048ec4d24fd4f86272b818c5873d0b01af8",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_malformed_for_header_failure"
+      ],
+      "notes": "Malformed/incomplete C-style for headers are outside the native v0 accepted control-flow surface."
     },
     {
       "id": "native-v0-unsupported.match-pattern-control",

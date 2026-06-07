@@ -314,6 +314,26 @@ crossgl_add_python_script_test(
   ARGS
     --self-test)
 crossgl_add_required_python_test(
+  NAME cglc_hir_verifier_v0_coverage_compile
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    -m
+    py_compile
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hir_verifier_v0_coverage.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_support_matrix_evidence.py")
+crossgl_add_python_script_test(
+  NAME cglc_hir_verifier_v0_coverage_self_test
+  SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hir_verifier_v0_coverage.py
+  ARGS
+    --self-test)
+crossgl_add_python_script_test(
+  NAME cglc_hir_verifier_v0_coverage
+  SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hir_verifier_v0_coverage.py
+  ARGS
+    --root ${CMAKE_CURRENT_SOURCE_DIR}
+    --build-dir ${CMAKE_BINARY_DIR}
+    --ctest-config $<CONFIG>)
+crossgl_add_required_python_test(
   NAME cglc_release_provenance_manifest_compile
   COMMAND
     "${CROSSGL_PYTHON3}"
