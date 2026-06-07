@@ -5829,6 +5829,22 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
     result.children.push_back(std::move(falseValue));
     return result;
   };
+  auto call = [&](std::string name, crossgl::HIRType expressionType,
+                  std::vector<crossgl::HIRExpression> arguments) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::Call, std::move(name),
+                   std::move(expressionType));
+    result.children = std::move(arguments);
+    return result;
+  };
+  auto functionSignature = [&](std::string name, crossgl::HIRType returnType,
+                               std::vector<crossgl::HIRParameter> parameters) {
+    crossgl::HIRFunction function;
+    function.name = std::move(name);
+    function.returnType = std::move(returnType);
+    function.parameters = std::move(parameters);
+    return function;
+  };
   auto expressionStatement = [](crossgl::HIRExpression value) {
     crossgl::HIRStatement statement;
     statement.kind = crossgl::HIRStatementKind::Expression;
@@ -6066,6 +6082,48 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
   expectInvalidTypedSymbol(
       std::move(mismatchedReturnModule), "opt.hir-return-type",
       "HIR typed-symbol validation diagnoses return type mismatches");
+
+  crossgl::HIRModule userCallArityModule = simpleModule();
+  userCallArityModule.functions.push_back(functionSignature(
+      "scale", type("float"),
+      {crossgl::HIRParameter{type("float"), "value"}}));
+  crossgl::HIRFunction &userCallArityMain =
+      userCallArityModule.stages.front().functions.front();
+  userCallArityMain.returnType = type("void");
+  userCallArityMain.body.push_back(
+      expressionStatement(call("scale", type("float"), {})));
+  expectInvalidTypedSymbol(
+      std::move(userCallArityModule), "opt.hir-function-call-arity",
+      "HIR typed-symbol validation diagnoses user function call arity "
+      "mismatches");
+
+  crossgl::HIRModule userCallArgumentTypeModule = simpleModule();
+  userCallArgumentTypeModule.stages.front().functions.push_back(
+      functionSignature("identity", type("vec2"),
+                        {crossgl::HIRParameter{type("vec2"), "value"}}));
+  crossgl::HIRFunction &userCallArgumentTypeMain =
+      userCallArgumentTypeModule.stages.front().functions.front();
+  userCallArgumentTypeMain.returnType = type("void");
+  userCallArgumentTypeMain.body.push_back(expressionStatement(
+      call("identity", type("vec2"), {literal("1.0", type("float"))})));
+  expectInvalidTypedSymbol(
+      std::move(userCallArgumentTypeModule),
+      "opt.hir-function-call-argument-type",
+      "HIR typed-symbol validation diagnoses user function call argument type "
+      "mismatches");
+
+  crossgl::HIRModule userCallResultTypeModule = simpleModule();
+  userCallResultTypeModule.stages.front().functions.push_back(
+      functionSignature("helper", type("float"), {}));
+  crossgl::HIRFunction &userCallResultTypeMain =
+      userCallResultTypeModule.stages.front().functions.front();
+  userCallResultTypeMain.returnType = type("void");
+  userCallResultTypeMain.body.push_back(
+      expressionStatement(call("helper", type("int"), {})));
+  expectInvalidTypedSymbol(
+      std::move(userCallResultTypeModule), "opt.hir-function-call-type",
+      "HIR typed-symbol validation diagnoses user function call result type "
+      "mismatches");
 
   crossgl::HIRExpression missingMember =
       expression(crossgl::HIRExpressionKind::MemberAccess, "missing",

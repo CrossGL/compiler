@@ -1184,12 +1184,37 @@ bool validateHIRBackendInput(HIRModule &module,
 
 using HIRSymbolTable = std::unordered_map<std::string, HIRType>;
 
+struct HIRFunctionSignature {
+  HIRType returnType;
+  std::vector<HIRParameter> parameters;
+};
+
+using HIRFunctionSignatureMap =
+    std::unordered_map<std::string, HIRFunctionSignature>;
+
 struct HIRTypedSymbolContext {
   std::set<std::string> structNames;
   std::unordered_map<std::string, HIRStruct> structs;
   HIRSymbolTable constants;
   HIRSymbolTable globalCBufferFields;
+  HIRFunctionSignatureMap functionSignatures;
 };
+
+HIRFunctionSignature makeHIRFunctionSignature(const HIRFunction &function) {
+  HIRFunctionSignature signature;
+  signature.returnType = function.returnType;
+  signature.parameters = function.parameters;
+  return signature;
+}
+
+void addHIRFunctionSignatures(HIRFunctionSignatureMap &signatures,
+                              const std::vector<HIRFunction> &functions) {
+  for (const HIRFunction &function : functions) {
+    if (!function.name.empty()) {
+      signatures[function.name] = makeHIRFunctionSignature(function);
+    }
+  }
+}
 
 std::optional<HIRType>
 hirExpressionEffectiveType(const HIRExpression &expression,
@@ -1679,6 +1704,70 @@ void validateHIRIntrinsicArgumentTypes(
                     location);
 }
 
+std::string formatHIRFunctionArgumentCount(std::size_t count) {
+  return count == 1 ? "exactly 1 argument"
+                    : "exactly " + std::to_string(count) + " arguments";
+}
+
+bool shouldValidateHIRUserFunctionCall(
+    const HIRExpression &expression,
+    const HIRTypedSymbolContext &typedContext) {
+  if (expression.kind != HIRExpressionKind::Call || expression.value.empty()) {
+    return false;
+  }
+  if (!lookupHIRIntrinsicSignatures(expression.value).empty() ||
+      isHIRImageAccessBuiltinCall(expression.value)) {
+    return false;
+  }
+  const HIRType calleeType{expression.value, std::nullopt,
+                           expression.location};
+  return !isKnownType(calleeType, typedContext.structNames);
+}
+
+void validateHIRUserFunctionCall(
+    const HIRExpression &expression, const std::string &context,
+    const HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
+    DiagnosticEngine &diagnostics) {
+  if (!shouldValidateHIRUserFunctionCall(expression, typedContext)) {
+    return;
+  }
+  const auto function = typedContext.functionSignatures.find(expression.value);
+  if (function == typedContext.functionSignatures.end()) {
+    return;
+  }
+
+  const HIRFunctionSignature &signature = function->second;
+  if (expression.children.size() != signature.parameters.size()) {
+    diagnostics.error(
+        "opt.hir-function-call-arity",
+        "HIR " + context + " call '" + expression.value + "' expects " +
+            formatHIRFunctionArgumentCount(signature.parameters.size()) +
+            ", got " + std::to_string(expression.children.size()),
+        expression.location);
+    return;
+  }
+
+  for (std::size_t index = 0; index < signature.parameters.size(); ++index) {
+    const HIRType &expected = signature.parameters[index].type;
+    const std::optional<HIRType> actual =
+        hirExpressionEffectiveType(expression.children[index], symbols);
+    if (!actual.has_value() ||
+        !shouldDiagnoseExactHIRTypeMismatch(expected, *actual, typedContext)) {
+      continue;
+    }
+    diagnostics.error(
+        "opt.hir-function-call-argument-type",
+        "HIR " + context + " call '" + expression.value + "' argument " +
+            std::to_string(index) + " expects '" + formatType(expected) +
+            "', got '" + formatType(*actual) + "'",
+        expression.children[index].location);
+  }
+
+  reportHIRExpressionResultTypeMismatch(
+      expression, signature.returnType, context,
+      "opt.hir-function-call-type", typedContext, diagnostics);
+}
+
 bool isHIRAtomicReadModifyWriteCallName(std::string_view name) {
   return isHIRAtomicIntegerReadModifyWriteIntrinsic(name);
 }
@@ -2014,6 +2103,8 @@ void validateHIRExpressionTypedSymbols(
   validateHIRIntrinsicArity(expression, context, diagnostics);
   validateHIRIntrinsicArgumentTypes(expression, context, symbols, typedContext,
                                     diagnostics);
+  validateHIRUserFunctionCall(expression, context, symbols, typedContext,
+                              diagnostics);
   validateHIRAtomicReadModifyWriteLValue(expression, context, symbols,
                                         diagnostics);
   validateHIRCallCalleeType(expression, context, typedContext, diagnostics);
@@ -2263,6 +2354,7 @@ HIRTypedSymbolContext collectHIRTypedSymbolContext(const HIRModule &module) {
       context.constants[constant.name] = constant.type;
     }
   }
+  addHIRFunctionSignatures(context.functionSignatures, module.functions);
   for (const HIRStage &stage : module.stages) {
     for (const HIRResource &resource : stage.resources) {
       if (resource.kind != HIRResourceKind::Uniform) {
@@ -2456,10 +2548,14 @@ bool validateHIRTypedSymbols(HIRModule &module, DiagnosticEngine &diagnostics) {
       validateHIRResourceTypedSymbols(resource, stageLabel, typedContext,
                                       diagnostics);
     }
+    HIRTypedSymbolContext stageTypedContext = typedContext;
+    addHIRFunctionSignatures(stageTypedContext.functionSignatures,
+                             stage.functions);
     for (const HIRFunction &function : stage.functions) {
       validateHIRFunctionTypedSymbols(
-          function, stageHIRSymbolsForFunction(function, stage, typedContext),
-          typedContext, diagnostics, "stage '" + stageLabel + "'");
+          function,
+          stageHIRSymbolsForFunction(function, stage, stageTypedContext),
+          stageTypedContext, diagnostics, "stage '" + stageLabel + "'");
     }
   }
 
