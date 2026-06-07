@@ -17427,12 +17427,28 @@ shader ComputeInvocationBuiltinShader {
     const std::string mismatchSource =
         "shader Bad" + std::string(expected.localName) +
         "BuiltinShader { compute { layout(local_size_x = 1, local_size_y = "
-        "1, local_size_z = 1) in; void main() { uvec2 bad = " +
+        "1, local_size_z = 1) in; void main() { uvec3 bad = " +
         std::string(expected.sourceName) + "; return; } } }";
     std::optional<crossgl::HIRModule> mismatchHir = parseHIR(mismatchSource);
     expect(mismatchHir.has_value(),
            label + " mismatch fixture builds parseable HIR");
     if (mismatchHir) {
+      crossgl::HIRStatement *badDeclaration = nullptr;
+      for (crossgl::HIRStatement &statement :
+           mismatchHir->stages.front().functions.front().body) {
+        if (statement.kind == crossgl::HIRStatementKind::Declaration &&
+            statement.name == "bad") {
+          badDeclaration = &statement;
+          break;
+        }
+      }
+      expect(badDeclaration != nullptr,
+             label + " mismatch fixture exposes a mutable HIR declaration");
+      if (!badDeclaration) {
+        continue;
+      }
+      badDeclaration->declaredType.name = "uvec2";
+
       crossgl::DiagnosticEngine mismatchDiagnostics;
       (void)crossgl::runHIRPassPipeline(*mismatchHir, mismatchDiagnostics);
       expect(hasDiagnosticCode(mismatchDiagnostics.diagnostics(),
@@ -44069,8 +44085,7 @@ shader StructAggregateFieldComputeShader {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
     layout(set = 0, binding = 0) buffer Particle* particles;
     void main() {
-      float unsupported = particles[0].transform;
-      particles[1].mass = unsupported;
+      particles[1].transform = particles[0].transform;
       return;
     }
   }

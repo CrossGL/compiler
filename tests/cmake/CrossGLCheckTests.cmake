@@ -2173,10 +2173,10 @@ add_test(NAME cglc_check_storage_image_value_use_failure
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_CHECK_FAILURE_STORAGE_IMAGE_VALUE_USE_SHADER}
     -DMODE=check-failure
-    -DEXPECTED_DIAGNOSTIC=opt.hir-declaration-type
+    -DEXPECTED_DIAGNOSTIC=sema.declaration-type
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=8|location.column=21"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=initializer expects type 'vec4'|message=got 'void'"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=declaration initializer for 'stored' must be type 'vec4', got 'void'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_storage_image_read_write_access_failure
   COMMAND ${CMAKE_COMMAND}
@@ -2477,6 +2477,26 @@ add_test(NAME cglc_check_function_call_argument_type_failure
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=30"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function call 'identity' argument 0 expects 'vec2', got 'float'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_declaration_initializer_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DECLARATION_INITIALIZER_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.declaration-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=19"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=declaration initializer for 'value' must be type 'int', got 'bool'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_assignment_value_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_ASSIGNMENT_VALUE_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=15"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment RHS must be type 'int', got 'bool'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_void_return_value_failure
   COMMAND ${CMAKE_COMMAND}

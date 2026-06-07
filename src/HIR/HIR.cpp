@@ -4642,8 +4642,8 @@ void validateReturnStatementSemantics(
     return;
   }
 
-  HIRType expected = stripTypeQualifier(returnType);
-  HIRType actual = stripTypeQualifier(statement.value.type);
+  const HIRType expected = stripTypeQualifier(returnType);
+  const HIRType actual = stripTypeQualifier(statement.value.type);
   if (actual.name.empty() || !isKnownType(actual, structNames) ||
       !shouldDiagnoseTypeMismatch(expected, actual)) {
     return;
@@ -4653,6 +4653,50 @@ void validateReturnStatementSemantics(
                         formatType(returnType) + "', got '" +
                         formatType(statement.value.type) + "'",
                     statement.value.location);
+}
+
+bool shouldDiagnoseStatementValueTypeMismatch(
+    const HIRType &expectedType, const HIRType &actualType,
+    const std::set<std::string> &structNames) {
+  const HIRType expected = stripTypeQualifier(expectedType);
+  const HIRType actual = stripTypeQualifier(actualType);
+  if (expected.name.empty() || actual.name.empty()) {
+    return false;
+  }
+  if (!isKnownType(expected, structNames) || !isKnownType(actual, structNames)) {
+    return false;
+  }
+  return shouldDiagnoseTypeMismatch(expected, actual);
+}
+
+void validateStatementValueTypeSemantics(
+    const HIRStatement &statement, const std::set<std::string> &structNames,
+    DiagnosticEngine &diagnostics) {
+  if (statement.value.kind == HIRExpressionKind::Empty) {
+    return;
+  }
+
+  if (statement.kind == HIRStatementKind::Declaration &&
+      shouldDiagnoseStatementValueTypeMismatch(
+          statement.declaredType, statement.value.type, structNames)) {
+    diagnostics.error("sema.declaration-type",
+                      "declaration initializer for '" + statement.name +
+                          "' must be type '" +
+                          formatType(statement.declaredType) + "', got '" +
+                          formatType(statement.value.type) + "'",
+                      statement.value.location);
+    return;
+  }
+
+  if (statement.kind == HIRStatementKind::Assignment &&
+      shouldDiagnoseStatementValueTypeMismatch(
+          statement.target.type, statement.value.type, structNames)) {
+    diagnostics.error("sema.assignment-type",
+                      "assignment RHS must be type '" +
+                          formatType(statement.target.type) + "', got '" +
+                          formatType(statement.value.type) + "'",
+                      statement.value.location);
+  }
 }
 
 void validateStatementSemantics(const HIRStatement &statement,
@@ -4673,6 +4717,7 @@ void validateStatementSemantics(const HIRStatement &statement,
                               functionSignatures);
   validateExpressionSemantics(statement.value, stage, resources, diagnostics,
                               functionSignatures);
+  validateStatementValueTypeSemantics(statement, structNames, diagnostics);
   for (const HIRStatement &initializer : statement.initializer) {
     validateStatementSemantics(initializer, stage, resources, diagnostics,
                                returnType, structNames, functionSignatures,
