@@ -389,6 +389,16 @@ bool isSelectBranchOperandPair(const HIRType &left, const HIRType &right) {
          (isScalarNumericType(left) && isScalarNumericType(right));
 }
 
+std::vector<HIRType>
+expressionTypes(const std::vector<HIRExpression> &expressions) {
+  std::vector<HIRType> types;
+  types.reserve(expressions.size());
+  for (const HIRExpression &expression : expressions) {
+    types.push_back(expression.type);
+  }
+  return types;
+}
+
 bool isFloatScalarType(const HIRType &type) {
   return !type.arraySize.has_value() && baseTypeName(type) == "float";
 }
@@ -4125,6 +4135,45 @@ void validateSelectExpression(const HIRExpression &expression,
   }
 }
 
+void validateIntrinsicCallExpression(const HIRExpression &expression,
+                                     DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Call) {
+    const auto signatures = lookupHIRIntrinsicSignatures(expression.value);
+    if (!signatures.empty() &&
+        !isHIRAtomicIntegerReadModifyWriteIntrinsic(expression.value)) {
+      if (!acceptsHIRIntrinsicArity(signatures, expression.children.size())) {
+        diagnostics.error(
+            "sema.intrinsic-arity",
+            "intrinsic call '" + expression.value + "' expects " +
+                formatHIRIntrinsicArityExpectation(signatures) + ", got " +
+                std::to_string(expression.children.size()),
+            expression.location);
+      } else {
+        const std::optional<HIRIntrinsicArgumentTypeIssue> issue =
+            findHIRIntrinsicArgumentTypeIssue(
+                signatures, expressionTypes(expression.children));
+        if (issue.has_value()) {
+          const SourceLocation location =
+              issue->argumentIndex < expression.children.size()
+                  ? expression.children[issue->argumentIndex].location
+                  : expression.location;
+          diagnostics.error(
+              "sema.intrinsic-argument-type",
+              "intrinsic call '" + expression.value + "' argument " +
+                  std::to_string(issue->argumentIndex) + " expects " +
+                  issue->expectation + ", got '" +
+                  formatType(issue->actualType) + "'",
+              location);
+        }
+      }
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateIntrinsicCallExpression(child, diagnostics);
+  }
+}
+
 void validateScalarConstructorExpression(const HIRExpression &expression,
                                          DiagnosticEngine &diagnostics) {
   if (expression.kind == HIRExpressionKind::Constructor &&
@@ -4411,6 +4460,7 @@ void validateExpressionSemantics(const HIRExpression &expression,
   validateUnaryOperatorExpression(expression, diagnostics);
   validateBinaryOperatorExpression(expression, diagnostics);
   validateSelectExpression(expression, diagnostics);
+  validateIntrinsicCallExpression(expression, diagnostics);
   validateScalarConstructorExpression(expression, diagnostics);
   validateNonUniformIndexExpression(expression, resources, diagnostics);
   validateAtomicReadModifyWriteExpression(expression, diagnostics);

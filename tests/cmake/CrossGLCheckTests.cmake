@@ -2428,6 +2428,36 @@ add_test(NAME cglc_check_select_branch_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=30"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=select branches must have compatible scalar, vector, or matrix value types|message=vec2 and vec3"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_intrinsic_arity_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INTRINSIC_ARITY_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.intrinsic-arity
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=19"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=intrinsic call 'dot' expects exactly 2 arguments, got 1"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_intrinsic_argument_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INTRINSIC_ARGUMENT_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.intrinsic-argument-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=23"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=intrinsic call 'sin' argument 0 expects a floating-point scalar or vector type|message=got 'bool'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_intrinsic_compatibility_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INTRINSIC_COMPATIBILITY_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.intrinsic-argument-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=39"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=intrinsic call 'dot' argument 1 expects a floating-point vector with width 2|message=got 'vec3'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_INCREMENT_DECREMENT_OPERAND_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadIncrementDecrementOperandShader.cgl)
 add_test(NAME cglc_check_increment_decrement_operand_failure
   COMMAND ${CMAKE_COMMAND}
