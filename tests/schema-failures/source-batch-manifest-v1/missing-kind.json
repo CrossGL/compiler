@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    "tests/fixtures/SimpleShader.cgl"
+  ]
+}
