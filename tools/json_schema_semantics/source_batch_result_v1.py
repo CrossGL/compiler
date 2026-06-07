@@ -26,8 +26,8 @@ def validate_semantics(instance):
     has_error_diagnostic = any(
         diagnostic["severity"] == "error" for diagnostic in diagnostics
     )
-    expected_success = (
-        not has_error_diagnostic and all(entry["success"] for entry in entries)
+    expected_success = not has_error_diagnostic and all(
+        entry["success"] for entry in entries
     )
     add_equal_error(
         errors,
