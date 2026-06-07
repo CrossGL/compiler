@@ -45,7 +45,7 @@
   "contract_manifest": {
     "path": "tools/cross_repo_language_contract.json",
     "schema": 1,
-    "contract_count": 149,
+    "contract_count": 150,
     "accepted_feature_group_count": 8,
     "negative_case_count": 25,
     "hash_fields": [
@@ -73,7 +73,7 @@
           "sha256": "152cf6b2e0bc796255b316b7413c18a68ff8228cf6ba5c5801aa3bac8db4e135"
         }
       ],
-      "fixture_count": 13,
+      "fixture_count": 14,
       "fixtures": [
         {
           "id": "compiler/tests/fixtures/IfComputeShader.cgl",
@@ -128,6 +128,12 @@
           "source_sha256": "d461efeeeafd69cea78258d0580ad28329748a2db7d328149c7957a50fdc054f",
           "translator_ast_sha256": "47d68f387f81bd4d80b7a7036d0d025e1c9317e0539d1af7a13d56dbf596a290",
           "compiler_hir_sha256": "5e1b1f30ab3db66d9f654cca5a27852e9df19ccecacb58ef48c5b77a370351dc"
+        },
+        {
+          "id": "compiler/tests/fixtures/ForOmittedHeaderComputeShader.cgl",
+          "source_sha256": "d5c3467901ac50694a4db5b11bbd983701cee947e197490dcbdd65f87ed80533",
+          "translator_ast_sha256": "9a7fdd0bd5ea07be8968a204f342dc8beb9f488fd4c2d38726fce1624dd93571",
+          "compiler_hir_sha256": "2db50104e0ac3345ecf9f653b9e8ff182ba51cdc05211f5fe380b4abdf36f29d"
         },
         {
           "id": "compiler/tests/fixtures/NestedForComputeShader.cgl",

@@ -1,5 +1,14 @@
 add_test(NAME cglc_dump_backend_metal
   COMMAND cglc dump-ir ${CROSSGL_SIMPLE_SHADER} --stage backend --target metal)
+set(CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX [=[for \(; true; \) \{.*for \(; value < 4; \) \{.*for \(int i = 0; true; i\+\+\) \{]=])
+add_test(NAME cglc_dump_backend_metal_for_omitted_header
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_METAL_FLOAT_EQUALITY_NEGATION_REGEX [=[bool equalityNegationFloat = \(dynamicFloat != 31\.0\);.*bool inequalityNegationFloat = \(dynamicFloat == 32\.0\);]=])
 add_test(NAME cglc_dump_backend_metal_float_equality_negation
   COMMAND ${CMAKE_COMMAND}
@@ -246,6 +255,14 @@ add_test(NAME cglc_dump_backend_metal_atomic_bitwise_lowering
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_vulkan
   COMMAND cglc dump-ir ${CROSSGL_SIMPLE_SHADER} --stage backend --target vulkan)
+add_test(NAME cglc_dump_backend_vulkan_for_omitted_header_debug_projection
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DTARGET=vulkan
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=crossgl.for condition \"true\"[^\n]*\n        crossgl.assign \"value\" = \"value \\+ 1\"[^\n]*\n.*crossgl.for condition \"value < 4\"[^\n]*\n        crossgl.assign \"value\" = \"value \\+ 1\"[^\n]*\n.*crossgl.for condition \"true\" update \"i\\+\\+\""
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_vulkan_resources
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -465,6 +482,14 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
 endif()
 add_test(NAME cglc_dump_backend_directx
   COMMAND cglc dump-ir ${CROSSGL_SIMPLE_SHADER} --stage backend --target directx)
+add_test(NAME cglc_dump_backend_directx_for_omitted_header
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_FLOAT_EQUALITY_NEGATION_REGEX [=[bool equalityNegationFloat = \(dynamicFloat != 31\.0\);.*bool inequalityNegationFloat = \(dynamicFloat == 32\.0\);]=])
 add_test(NAME cglc_dump_backend_directx_float_equality_negation
   COMMAND ${CMAKE_COMMAND}
@@ -829,6 +854,14 @@ add_test(NAME cglc_dump_backend_directx_atomic_bitwise_groupshared_capture
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_opengl
   COMMAND cglc dump-ir ${CROSSGL_SIMPLE_SHADER} --stage backend --target opengl)
+add_test(NAME cglc_dump_backend_opengl_for_omitted_header
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_OPENGL_FLOAT_EQUALITY_NEGATION_REGEX [=[bool equalityNegationFloat = \(dynamicFloat != 31\.0\);.*bool inequalityNegationFloat = \(dynamicFloat == 32\.0\);]=])
 add_test(NAME cglc_dump_backend_opengl_float_equality_negation
   COMMAND ${CMAKE_COMMAND}

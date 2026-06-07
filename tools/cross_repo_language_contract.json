@@ -97,6 +97,7 @@
         "compiler/tests/fixtures/ForStrideComputeShader.cgl",
         "compiler/tests/fixtures/ForDynamicStrideComputeShader.cgl",
         "compiler/tests/fixtures/ForFoldedUpdateComputeShader.cgl",
+        "compiler/tests/fixtures/ForOmittedHeaderComputeShader.cgl",
         "compiler/tests/fixtures/NestedForComputeShader.cgl",
         "compiler/tests/fixtures/LoopComputeShader.cgl",
         "compiler/tests/fixtures/WhileComputeShader.cgl",
@@ -857,6 +858,11 @@
       "source_sha256": "d461efeeeafd69cea78258d0580ad28329748a2db7d328149c7957a50fdc054f",
       "translator_ast_sha256": "47d68f387f81bd4d80b7a7036d0d025e1c9317e0539d1af7a13d56dbf596a290",
       "compiler_hir_sha256": "5e1b1f30ab3db66d9f654cca5a27852e9df19ccecacb58ef48c5b77a370351dc"
+    },
+    "compiler/tests/fixtures/ForOmittedHeaderComputeShader.cgl": {
+      "source_sha256": "d5c3467901ac50694a4db5b11bbd983701cee947e197490dcbdd65f87ed80533",
+      "translator_ast_sha256": "9a7fdd0bd5ea07be8968a204f342dc8beb9f488fd4c2d38726fce1624dd93571",
+      "compiler_hir_sha256": "2db50104e0ac3345ecf9f653b9e8ff182ba51cdc05211f5fe380b4abdf36f29d"
     },
     "compiler/tests/fixtures/ForStrideComputeShader.cgl": {
       "source_sha256": "7786bcc65381ba9e9d1c3f81517b343fa505374955376eb70ee18d36a6653dda",

@@ -188,6 +188,7 @@ set(CROSSGL_NESTED_FOR_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
 set(CROSSGL_FOR_DYNAMIC_STRIDE_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ForDynamicStrideComputeShader.cgl)
 set(CROSSGL_FOR_CONSTANT_STRIDE_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ForConstantStrideComputeShader.cgl)
 set(CROSSGL_FOR_FOLDED_UPDATE_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ForFoldedUpdateComputeShader.cgl)
+set(CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ForOmittedHeaderComputeShader.cgl)
 set(CROSSGL_WHILE_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/WhileComputeShader.cgl)
 set(CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/NonParenthesizedControlFlowShader.cgl)
 set(CROSSGL_SCALAR_CONSTRUCTOR_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ScalarConstructorComputeShader.cgl)

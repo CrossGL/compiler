@@ -616,6 +616,32 @@ add_test(NAME cglc_check_for_folded_update_compute_hir_simplified_update
     -DMODE=dump-stage
     "-DMUST_CONTAIN=for i < 8 : bool[^\n]*\n        init decl int i = 0 : int[^\n]*\n        update assign i : int = i \\+ \\(3\\) : int"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_for_omitted_header_compute
+  COMMAND cglc check ${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER})
+add_test(NAME cglc_check_for_empty_condition_hir_true
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for true : bool[^\n]*\n        assign value : int = value \\+ 1 : int[^\n]*\n        if value >= 2 : bool[^\n]*\n          break"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_for_omitted_init_update_hir
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for value < 4 : bool[^\n]*\n        assign value : int = value \\+ 1 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_for_omitted_condition_with_update_hir
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for true : bool update i\\+\\+[^\n]*\n        init decl int i = 0 : int[^\n]*\n        update assign i : int = i \\+ 1 : int[^\n]*\n        if i >= 2 : bool[^\n]*\n          break"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_while_compute
   COMMAND cglc check ${CROSSGL_WHILE_COMPUTE_SHADER})
 set(CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForIncrementDecrementHIRShader.cgl)

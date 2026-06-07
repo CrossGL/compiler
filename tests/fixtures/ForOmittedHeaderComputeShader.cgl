@@ -1,0 +1,27 @@
+shader ForOmittedHeaderComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+
+    void main() {
+      let mut value = int(values[0]);
+      for (; ; ) {
+        value++;
+        if value >= 2 {
+          break;
+        }
+      }
+      for (; value < 4; ) {
+        value++;
+      }
+      for (int i = 0; ; i++) {
+        if i >= 2 {
+          break;
+        }
+        values[i] = value;
+      }
+      values[0] = value;
+      return;
+    }
+  }
+}
