@@ -157,6 +157,15 @@ crossgl_add_required_python_test(
     --instance
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-batch-manifest-v1-basic.json")
 crossgl_add_required_python_test(
+  NAME cglc_source_batch_result_v1_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-batch-result-v1-basic.json")
+crossgl_add_required_python_test(
   NAME cglc_diagnostics_v1_project_json_schema
   COMMAND
     "${CROSSGL_PYTHON3}"
