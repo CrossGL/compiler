@@ -5817,6 +5817,18 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
     result.children.push_back(std::move(right));
     return result;
   };
+  auto select = [&](crossgl::HIRExpression condition,
+                    crossgl::HIRExpression trueValue,
+                    crossgl::HIRExpression falseValue,
+                    crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::Select, "?",
+                   std::move(expressionType));
+    result.children.push_back(std::move(condition));
+    result.children.push_back(std::move(trueValue));
+    result.children.push_back(std::move(falseValue));
+    return result;
+  };
   auto expressionStatement = [](crossgl::HIRExpression value) {
     crossgl::HIRStatement statement;
     statement.kind = crossgl::HIRStatementKind::Expression;
@@ -5997,6 +6009,34 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
           type("int")))),
       "opt.hir-binary-operand-type",
       "HIR typed-symbol validation diagnoses non-numeric arithmetic operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(binary(
+          "<", literal("0.0", type("vec2")), literal("1.0", type("vec2")),
+          type("bool")))),
+      "opt.hir-comparison-operand-type",
+      "HIR typed-symbol validation diagnoses non-scalar comparison operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(binary(
+          "==", identifier("colorMap", type("sampler2D")),
+          identifier("colorMap", type("sampler2D")), type("bool")))),
+      "opt.hir-equality-operand-type",
+      "HIR typed-symbol validation diagnoses resource equality operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(select(
+          literal("1", type("int")), literal("1.0", type("float")),
+          literal("0.0", type("float")), type("float")))),
+      "opt.hir-select-condition-type",
+      "HIR typed-symbol validation diagnoses non-bool select conditions");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(select(
+          literal("true", type("bool")), literal("0.0", type("vec2")),
+          literal("0.0", type("vec3")), type("vec2")))),
+      "opt.hir-select-branch-type",
+      "HIR typed-symbol validation diagnoses incompatible select branches");
 
   expectInvalidTypedSymbol(
       moduleWithVoidStageStatement(declaration(

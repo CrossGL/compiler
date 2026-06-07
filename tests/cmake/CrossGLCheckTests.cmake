@@ -2388,6 +2388,46 @@ add_test(NAME cglc_check_scalar_bool_arithmetic_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=19"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=arithmetic operator '+' requires numeric scalar, vector, or matrix operands|message=int + bool"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_relational_operand_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_RELATIONAL_OPERAND_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.comparison-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=6|location.column=23"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=comparison operator '<' requires scalar numeric operands|message=vec2 < vec2"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_equality_operand_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_EQUALITY_OPERAND_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.equality-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=27"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=equality operator '==' requires scalar bool operands or scalar numeric operands|message=sampler2D == sampler2D"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_select_condition_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SELECT_CONDITION_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.select-condition-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=21"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=select condition must be scalar bool|message=got 'int'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_select_branch_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SELECT_BRANCH_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.select-branch-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=30"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=select branches must have compatible scalar, vector, or matrix value types|message=vec2 and vec3"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_INCREMENT_DECREMENT_OPERAND_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadIncrementDecrementOperandShader.cgl)
 add_test(NAME cglc_check_increment_decrement_operand_failure
   COMMAND ${CMAKE_COMMAND}

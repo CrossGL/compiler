@@ -1804,6 +1804,37 @@ bool isHIRArithmeticBinaryOperator(std::string_view op) {
   return op == "+" || op == "-" || op == "*" || op == "/" || op == "%";
 }
 
+bool isHIRRelationalBinaryOperator(std::string_view op) {
+  return op == "<" || op == "<=" || op == ">" || op == ">=";
+}
+
+bool isHIREqualityBinaryOperator(std::string_view op) {
+  return op == "==" || op == "!=";
+}
+
+bool isHIREqualityOperandPair(const HIRType &left, const HIRType &right) {
+  return (isScalarBoolType(left) && isScalarBoolType(right)) ||
+         (isHIRScalarNumericType(left) && isHIRScalarNumericType(right));
+}
+
+bool isHIRSelectBranchOperandType(const HIRType &type) {
+  if (type.name.empty() || type.arraySize.has_value() || isVoidType(type)) {
+    return false;
+  }
+  const std::string name = baseTypeName(type);
+  return isScalarBoolType(type) || isHIRScalarNumericType(type) ||
+         isHIRNumericVectorTypeName(name) || isMatrixType(name);
+}
+
+bool isHIRSelectBranchOperandPair(const HIRType &left, const HIRType &right) {
+  if (!isHIRSelectBranchOperandType(left) ||
+      !isHIRSelectBranchOperandType(right)) {
+    return false;
+  }
+  return sameType(left, right) ||
+         (isHIRScalarNumericType(left) && isHIRScalarNumericType(right));
+}
+
 void validateHIRUnaryOperatorOperandTypes(const HIRExpression &expression,
                                           const std::string &context,
                                           const HIRSymbolTable &symbols,
@@ -1871,6 +1902,60 @@ void validateHIRBinaryOperatorOperandTypes(const HIRExpression &expression,
                           formatType(*leftType) + " " + expression.value + " " +
                           formatType(*rightType) + "'",
                       expression.location);
+  } else if (isHIRRelationalBinaryOperator(expression.value) &&
+             (!isHIRScalarNumericType(*leftType) ||
+              !isHIRScalarNumericType(*rightType))) {
+    diagnostics.error("opt.hir-comparison-operand-type",
+                      "HIR " + context + " comparison operator '" +
+                          expression.value +
+                          "' requires scalar numeric operands, got '" +
+                          formatType(*leftType) + " " + expression.value + " " +
+                          formatType(*rightType) + "'",
+                      expression.location);
+  } else if (isHIREqualityBinaryOperator(expression.value) &&
+             !isHIREqualityOperandPair(*leftType, *rightType)) {
+    diagnostics.error("opt.hir-equality-operand-type",
+                      "HIR " + context + " equality operator '" +
+                          expression.value +
+                          "' requires scalar bool operands or scalar numeric operands, got '" +
+                          formatType(*leftType) + " " + expression.value + " " +
+                          formatType(*rightType) + "'",
+                      expression.location);
+  }
+}
+
+void validateHIRSelectOperandTypes(const HIRExpression &expression,
+                                   const std::string &context,
+                                   const HIRSymbolTable &symbols,
+                                   DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::Select ||
+      expression.children.size() != 3) {
+    return;
+  }
+
+  const std::optional<HIRType> conditionType =
+      hirExpressionEffectiveType(expression.children[0], symbols);
+  if (conditionType.has_value() && !isScalarBoolType(*conditionType)) {
+    diagnostics.error("opt.hir-select-condition-type",
+                      "HIR " + context +
+                          " select condition must be scalar bool, got '" +
+                          formatType(*conditionType) + "'",
+                      expression.children[0].location);
+  }
+
+  const std::optional<HIRType> trueType =
+      hirExpressionEffectiveType(expression.children[1], symbols);
+  const std::optional<HIRType> falseType =
+      hirExpressionEffectiveType(expression.children[2], symbols);
+  if (trueType.has_value() && falseType.has_value() &&
+      !isHIRSelectBranchOperandPair(*trueType, *falseType)) {
+    diagnostics.error("opt.hir-select-branch-type",
+                      "HIR " + context +
+                          " select branches must have compatible scalar, vector, "
+                          "or matrix value types, got '" +
+                          formatType(*trueType) + " and " +
+                          formatType(*falseType) + "'",
+                      expression.location);
   }
 }
 
@@ -1934,6 +2019,7 @@ void validateHIRExpressionTypedSymbols(
   validateHIRCallCalleeType(expression, context, typedContext, diagnostics);
   validateHIRUnaryOperatorOperandTypes(expression, context, symbols, diagnostics);
   validateHIRBinaryOperatorOperandTypes(expression, context, symbols, diagnostics);
+  validateHIRSelectOperandTypes(expression, context, symbols, diagnostics);
   validateHIRTextureSampleTypedExpression(expression, context, symbols,
                                           typedContext, diagnostics);
   validateHIRTextureCompareTypedExpression(expression, context, symbols,

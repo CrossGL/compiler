@@ -1,0 +1,9 @@
+shader BadSelectConditionShader {
+  compute {
+    void main() {
+      int condition = 1;
+      float value = condition ? 1.0 : 0.0;
+      return;
+    }
+  }
+}

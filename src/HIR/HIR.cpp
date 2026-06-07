@@ -359,6 +359,36 @@ bool isArithmeticOperandType(const HIRType &type) {
   return isScalarNumericType(type) || isNumericAggregateType(type);
 }
 
+bool isRelationalBinaryOperator(std::string_view op) {
+  return op == "<" || op == "<=" || op == ">" || op == ">=";
+}
+
+bool isEqualityBinaryOperator(std::string_view op) {
+  return op == "==" || op == "!=";
+}
+
+bool isEqualityOperandPair(const HIRType &left, const HIRType &right) {
+  return (isScalarBoolType(left) && isScalarBoolType(right)) ||
+         (isScalarNumericType(left) && isScalarNumericType(right));
+}
+
+bool isSelectBranchOperandType(const HIRType &type) {
+  if (type.name.empty() || type.arraySize.has_value() || isVoidType(type)) {
+    return false;
+  }
+  const std::string name = baseTypeName(type);
+  return isScalarBoolType(type) || isScalarNumericType(type) ||
+         isNumericVectorTypeName(name) || isMatrixType(name);
+}
+
+bool isSelectBranchOperandPair(const HIRType &left, const HIRType &right) {
+  if (!isSelectBranchOperandType(left) || !isSelectBranchOperandType(right)) {
+    return false;
+  }
+  return sameType(left, right) ||
+         (isScalarNumericType(left) && isScalarNumericType(right));
+}
+
 bool isFloatScalarType(const HIRType &type) {
   return !type.arraySize.has_value() && baseTypeName(type) == "float";
 }
@@ -4038,11 +4068,60 @@ void validateBinaryOperatorExpression(const HIRExpression &expression,
                             formatType(left) + " " + expression.value + " " +
                             formatType(right) + "'",
                         expression.location);
+    } else if (isRelationalBinaryOperator(expression.value) &&
+               !left.name.empty() && !right.name.empty() &&
+               (!isScalarNumericType(left) || !isScalarNumericType(right))) {
+      diagnostics.error("sema.comparison-operand-type",
+                        "comparison operator '" + expression.value +
+                            "' requires scalar numeric operands, got '" +
+                            formatType(left) + " " + expression.value + " " +
+                            formatType(right) + "'",
+                        expression.location);
+    } else if (isEqualityBinaryOperator(expression.value) &&
+               !left.name.empty() && !right.name.empty() &&
+               !isEqualityOperandPair(left, right)) {
+      diagnostics.error("sema.equality-operand-type",
+                        "equality operator '" + expression.value +
+                            "' requires scalar bool operands or scalar numeric operands, got '" +
+                            formatType(left) + " " + expression.value + " " +
+                            formatType(right) + "'",
+                        expression.location);
     }
   }
 
   for (const HIRExpression &child : expression.children) {
     validateBinaryOperatorExpression(child, diagnostics);
+  }
+}
+
+void validateSelectExpression(const HIRExpression &expression,
+                              DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Select &&
+      expression.children.size() == 3) {
+    const HIRExpression &condition = expression.children[0];
+    const HIRExpression &trueValue = expression.children[1];
+    const HIRExpression &falseValue = expression.children[2];
+
+    if (!condition.type.name.empty() && !isScalarBoolType(condition.type)) {
+      diagnostics.error("sema.select-condition-type",
+                        "select condition must be scalar bool, got '" +
+                            formatType(condition.type) + "'",
+                        condition.location);
+    }
+
+    if (!trueValue.type.name.empty() && !falseValue.type.name.empty() &&
+        !isSelectBranchOperandPair(trueValue.type, falseValue.type)) {
+      diagnostics.error("sema.select-branch-type",
+                        "select branches must have compatible scalar, vector, "
+                        "or matrix value types, got '" +
+                            formatType(trueValue.type) + " and " +
+                            formatType(falseValue.type) + "'",
+                        expression.location);
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateSelectExpression(child, diagnostics);
   }
 }
 
@@ -4331,6 +4410,7 @@ void validateExpressionSemantics(const HIRExpression &expression,
   validateVectorScalarArithmeticExpression(expression, diagnostics);
   validateUnaryOperatorExpression(expression, diagnostics);
   validateBinaryOperatorExpression(expression, diagnostics);
+  validateSelectExpression(expression, diagnostics);
   validateScalarConstructorExpression(expression, diagnostics);
   validateNonUniformIndexExpression(expression, resources, diagnostics);
   validateAtomicReadModifyWriteExpression(expression, diagnostics);
