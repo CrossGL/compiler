@@ -5799,6 +5799,24 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
     return expression(crossgl::HIRExpressionKind::Identifier,
                       std::move(value), std::move(expressionType));
   };
+  auto unary = [&](std::string op, crossgl::HIRExpression operand,
+                   crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::Unary, std::move(op),
+                   std::move(expressionType));
+    result.children.push_back(std::move(operand));
+    return result;
+  };
+  auto binary = [&](std::string op, crossgl::HIRExpression left,
+                    crossgl::HIRExpression right,
+                    crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::Binary, std::move(op),
+                   std::move(expressionType));
+    result.children.push_back(std::move(left));
+    result.children.push_back(std::move(right));
+    return result;
+  };
   auto expressionStatement = [](crossgl::HIRExpression value) {
     crossgl::HIRStatement statement;
     statement.kind = crossgl::HIRStatementKind::Expression;
@@ -5959,6 +5977,26 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       moduleWithVoidStageStatement(std::move(intCondition)),
       "opt.hir-condition-type",
       "HIR typed-symbol validation diagnoses non-bool if conditions");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(unary(
+          "!", literal("1", type("int")), type("bool")))),
+      "opt.hir-logical-operand-type",
+      "HIR typed-symbol validation diagnoses non-bool logical-not operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(binary(
+          "&&", literal("1", type("int")), literal("true", type("bool")),
+          type("bool")))),
+      "opt.hir-logical-operand-type",
+      "HIR typed-symbol validation diagnoses non-bool logical binary operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(binary(
+          "+", literal("1", type("int")), literal("true", type("bool")),
+          type("int")))),
+      "opt.hir-binary-operand-type",
+      "HIR typed-symbol validation diagnoses non-numeric arithmetic operands");
 
   expectInvalidTypedSymbol(
       moduleWithVoidStageStatement(declaration(

@@ -1782,6 +1782,98 @@ void validateHIRCallCalleeType(const HIRExpression &expression,
                     expression.location);
 }
 
+bool isHIRNumericVectorTypeName(std::string_view name) {
+  return name == "vec2" || name == "vec3" || name == "vec4" ||
+         name == "ivec2" || name == "ivec3" || name == "ivec4" ||
+         name == "uvec2" || name == "uvec3" || name == "uvec4";
+}
+
+bool isHIRNumericAggregateType(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string name = baseTypeName(type);
+  return isHIRNumericVectorTypeName(name) || isMatrixType(name);
+}
+
+bool isHIRArithmeticOperandType(const HIRType &type) {
+  return isHIRScalarNumericType(type) || isHIRNumericAggregateType(type);
+}
+
+bool isHIRArithmeticBinaryOperator(std::string_view op) {
+  return op == "+" || op == "-" || op == "*" || op == "/" || op == "%";
+}
+
+void validateHIRUnaryOperatorOperandTypes(const HIRExpression &expression,
+                                          const std::string &context,
+                                          const HIRSymbolTable &symbols,
+                                          DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::Unary ||
+      expression.children.size() != 1) {
+    return;
+  }
+
+  const HIRExpression &operand = expression.children.front();
+  const std::optional<HIRType> operandType =
+      hirExpressionEffectiveType(operand, symbols);
+  if (!operandType.has_value()) {
+    return;
+  }
+
+  if (expression.value == "!" && !isScalarBoolType(*operandType)) {
+    diagnostics.error("opt.hir-logical-operand-type",
+                      "HIR " + context +
+                          " unary operator '!' requires a scalar bool operand, got '" +
+                          formatType(*operandType) + "'",
+                      operand.location);
+  } else if ((expression.value == "+" || expression.value == "-") &&
+             !isHIRArithmeticOperandType(*operandType)) {
+    diagnostics.error("opt.hir-unary-operand-type",
+                      "HIR " + context + " unary operator '" + expression.value +
+                          "' requires a numeric scalar, vector, or matrix operand, got '" +
+                          formatType(*operandType) + "'",
+                      operand.location);
+  }
+}
+
+void validateHIRBinaryOperatorOperandTypes(const HIRExpression &expression,
+                                           const std::string &context,
+                                           const HIRSymbolTable &symbols,
+                                           DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::Binary ||
+      expression.children.size() != 2) {
+    return;
+  }
+
+  const std::optional<HIRType> leftType =
+      hirExpressionEffectiveType(expression.children[0], symbols);
+  const std::optional<HIRType> rightType =
+      hirExpressionEffectiveType(expression.children[1], symbols);
+  if (!leftType.has_value() || !rightType.has_value()) {
+    return;
+  }
+
+  if ((expression.value == "&&" || expression.value == "||") &&
+      (!isScalarBoolType(*leftType) || !isScalarBoolType(*rightType))) {
+    diagnostics.error("opt.hir-logical-operand-type",
+                      "HIR " + context + " logical operator '" + expression.value +
+                          "' requires scalar bool operands, got '" +
+                          formatType(*leftType) + " " + expression.value + " " +
+                          formatType(*rightType) + "'",
+                      expression.location);
+  } else if (isHIRArithmeticBinaryOperator(expression.value) &&
+             (!isHIRArithmeticOperandType(*leftType) ||
+              !isHIRArithmeticOperandType(*rightType))) {
+    diagnostics.error("opt.hir-binary-operand-type",
+                      "HIR " + context + " arithmetic operator '" +
+                          expression.value +
+                          "' requires numeric scalar, vector, or matrix operands, got '" +
+                          formatType(*leftType) + " " + expression.value + " " +
+                          formatType(*rightType) + "'",
+                      expression.location);
+  }
+}
+
 void validateHIRExpressionTypedSymbols(
     const HIRExpression &expression, const std::string &context,
     const HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
@@ -1840,6 +1932,8 @@ void validateHIRExpressionTypedSymbols(
   validateHIRAtomicReadModifyWriteLValue(expression, context, symbols,
                                         diagnostics);
   validateHIRCallCalleeType(expression, context, typedContext, diagnostics);
+  validateHIRUnaryOperatorOperandTypes(expression, context, symbols, diagnostics);
+  validateHIRBinaryOperatorOperandTypes(expression, context, symbols, diagnostics);
   validateHIRTextureSampleTypedExpression(expression, context, symbols,
                                           typedContext, diagnostics);
   validateHIRTextureCompareTypedExpression(expression, context, symbols,

@@ -341,6 +341,24 @@ bool isScalarNumericType(const HIRType &type) {
           baseTypeName(type) == "uint");
 }
 
+bool isNumericVectorTypeName(std::string_view name) {
+  return name == "vec2" || name == "vec3" || name == "vec4" ||
+         name == "ivec2" || name == "ivec3" || name == "ivec4" ||
+         name == "uvec2" || name == "uvec3" || name == "uvec4";
+}
+
+bool isNumericAggregateType(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string name = baseTypeName(type);
+  return isNumericVectorTypeName(name) || isMatrixType(name);
+}
+
+bool isArithmeticOperandType(const HIRType &type) {
+  return isScalarNumericType(type) || isNumericAggregateType(type);
+}
+
 bool isFloatScalarType(const HIRType &type) {
   return !type.arraySize.has_value() && baseTypeName(type) == "float";
 }
@@ -385,7 +403,7 @@ bool isFloatVectorType(const HIRType &type) {
 }
 
 bool isArithmeticBinaryOperator(std::string_view op) {
-  return op == "+" || op == "-" || op == "*" || op == "/";
+  return op == "+" || op == "-" || op == "*" || op == "/" || op == "%";
 }
 
 HIRType inferTextureSampleType(const std::vector<HIRExpression> &arguments,
@@ -3972,6 +3990,62 @@ void validateVectorScalarArithmeticExpression(const HIRExpression &expression,
   }
 }
 
+void validateUnaryOperatorExpression(const HIRExpression &expression,
+                                     DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Unary && expression.children.size() == 1) {
+    const HIRExpression &operand = expression.children.front();
+    if (expression.value == "!" && !operand.type.name.empty() &&
+        !isScalarBoolType(operand.type)) {
+      diagnostics.error("sema.logical-operand-type",
+                        "logical not operator requires a scalar bool operand, got '" +
+                            formatType(operand.type) + "'",
+                        operand.location);
+    } else if ((expression.value == "+" || expression.value == "-") &&
+               !operand.type.name.empty() && !isArithmeticOperandType(operand.type)) {
+      diagnostics.error("sema.unary-operand-type",
+                        "unary operator '" + expression.value +
+                            "' requires a numeric scalar, vector, or matrix operand, got '" +
+                            formatType(operand.type) + "'",
+                        operand.location);
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateUnaryOperatorExpression(child, diagnostics);
+  }
+}
+
+void validateBinaryOperatorExpression(const HIRExpression &expression,
+                                      DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Binary && expression.children.size() == 2) {
+    const HIRType &left = expression.children[0].type;
+    const HIRType &right = expression.children[1].type;
+    if ((expression.value == "&&" || expression.value == "||") &&
+        !left.name.empty() && !right.name.empty() &&
+        (!isScalarBoolType(left) || !isScalarBoolType(right))) {
+      diagnostics.error("sema.logical-operand-type",
+                        "logical operator '" + expression.value +
+                            "' requires scalar bool operands, got '" +
+                            formatType(left) + " " + expression.value + " " +
+                            formatType(right) + "'",
+                        expression.location);
+    } else if (isArithmeticBinaryOperator(expression.value) &&
+               !left.name.empty() && !right.name.empty() &&
+               (!isArithmeticOperandType(left) || !isArithmeticOperandType(right))) {
+      diagnostics.error("sema.binary-operand-type",
+                        "arithmetic operator '" + expression.value +
+                            "' requires numeric scalar, vector, or matrix operands, got '" +
+                            formatType(left) + " " + expression.value + " " +
+                            formatType(right) + "'",
+                        expression.location);
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateBinaryOperatorExpression(child, diagnostics);
+  }
+}
+
 void validateScalarConstructorExpression(const HIRExpression &expression,
                                          DiagnosticEngine &diagnostics) {
   if (expression.kind == HIRExpressionKind::Constructor &&
@@ -4255,6 +4329,8 @@ void validateExpressionSemantics(const HIRExpression &expression,
   validateImageAccessExpression(expression, resources, diagnostics);
   validateVectorSwizzleExpression(expression, diagnostics);
   validateVectorScalarArithmeticExpression(expression, diagnostics);
+  validateUnaryOperatorExpression(expression, diagnostics);
+  validateBinaryOperatorExpression(expression, diagnostics);
   validateScalarConstructorExpression(expression, diagnostics);
   validateNonUniformIndexExpression(expression, resources, diagnostics);
   validateAtomicReadModifyWriteExpression(expression, diagnostics);

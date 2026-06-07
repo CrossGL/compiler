@@ -2358,6 +2358,36 @@ add_test(NAME cglc_check_scalar_constructor_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=25"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=scalar numeric constructor 'float'|message=requires a scalar numeric operand|message=got 'vec4'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_logical_not_operand_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_LOGICAL_NOT_OPERAND_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.logical-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=19"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=logical not operator requires a scalar bool operand|message=got 'int'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_logical_binary_operand_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_LOGICAL_BINARY_OPERAND_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.logical-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=20"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=logical operator '&&' requires scalar bool operands|message=int && bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_scalar_bool_arithmetic_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SCALAR_BOOL_ARITHMETIC_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.binary-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=19"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=arithmetic operator '+' requires numeric scalar, vector, or matrix operands|message=int + bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_INCREMENT_DECREMENT_OPERAND_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadIncrementDecrementOperandShader.cgl)
 add_test(NAME cglc_check_increment_decrement_operand_failure
   COMMAND ${CMAKE_COMMAND}
@@ -2366,7 +2396,7 @@ add_test(NAME cglc_check_increment_decrement_operand_failure
     -DMODE=check-failure
     -DEXPECTED_DIAGNOSTIC=sema.increment-decrement-operand
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
-    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=7"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=increment/decrement updates require a scalar numeric local variable operand|message=got 'vec2'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_INCREMENT_DECREMENT_EXPRESSION_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadIncrementDecrementExpressionShader.cgl)
@@ -2377,7 +2407,7 @@ add_test(NAME cglc_check_increment_decrement_expression_failure
     -DMODE=check-failure
     -DEXPECTED_DIAGNOSTIC=sema.increment-decrement-update-form
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
-    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=16"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=increment/decrement is only defined as a standalone update|message=expression-valued uses are not defined"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_WHILE_CONDITION_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadWhileConditionShader.cgl)
@@ -2390,6 +2420,16 @@ add_test(NAME cglc_check_while_condition_failure
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=6|location.column=14"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=condition must be scalar bool|message=got 'int'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_do_while_condition_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DO_WHILE_CONDITION_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.logical-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=logical not operator requires a scalar bool operand|message=got 'int'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_unresolved_array_size_failure
   COMMAND ${CMAKE_COMMAND}
