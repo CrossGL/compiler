@@ -1,0 +1,1 @@
+$.diagnostics[0].message: expected string length >= 1, got 0

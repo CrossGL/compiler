@@ -1,0 +1,108 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "metal",
+    "targetProfile": {
+      "target": "metal",
+      "profile": "metal.v0.native",
+      "packageMode": "native"
+    },
+    "packageMode": "native",
+    "packageDecisionProvenance": "native-package-available",
+    "supportStatus": "native",
+    "moduleSupported": true,
+    "requiredCapabilities": [
+      "metal.backend.msl-lowering",
+      "metal.package.native-artifact"
+    ],
+    "missingCapabilities": [],
+    "toolRequirements": {
+      "requiredToolIds": [
+        "metal.toolchain.xcrun-metal",
+        "metal.toolchain.xcrun-metallib"
+      ],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
+        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib",
+        "target-legalization.v1.metal.tool-requirements.present"
+      ],
+      "records": [
+        {
+          "id": "metal.toolchain.xcrun-metal",
+          "kind": "toolchain",
+          "name": "xcrun-metal",
+          "status": "required",
+          "target": "metal",
+          "evidenceIds": [
+            "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal"
+          ]
+        },
+        {
+          "id": "metal.toolchain.xcrun-metallib",
+          "kind": "toolchain",
+          "name": "xcrun-metallib",
+          "status": "required",
+          "target": "metal",
+          "evidenceIds": [
+            "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib"
+          ]
+        }
+      ],
+      "optionalNativeToolStatus": "not-required"
+    },
+    "diagnostics": [],
+    "rewrites": [
+      {
+        "id": "descriptor-set-normalization",
+        "order": 0,
+        "status": "not-required",
+        "description": "No target-aware rewrite is required for this fixture.",
+        "evidenceIds": [
+          "target-legalization.v1.metal.rewrite.not-required"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "complete",
+      "facts": [
+        {
+          "id": "entry-point.compute-main",
+          "kind": "entry-point",
+          "status": "provided",
+          "target": "metal",
+          "evidenceIds": [
+            "target-legalization.v1.metal.abi.entry-point"
+          ]
+        }
+      ],
+      "evidenceIds": [
+        "target-legalization.v1.metal.abi.entry-point"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.metal.resource-bindings.empty"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.metal.abi.entry-point",
+      "target-legalization.v1.metal.decision",
+      "target-legalization.v1.metal.package-mode.native",
+      "target-legalization.v1.metal.package-provenance.native-package-available",
+      "target-legalization.v1.metal.resource-bindings.empty",
+      "target-legalization.v1.metal.rewrite.not-required",
+      "target-legalization.v1.metal.state.legalized",
+      "target-legalization.v1.metal.support.native",
+      "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
+      "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib",
+      "target-legalization.v1.metal.tool-requirements.present"
+    ]
+  }
+}

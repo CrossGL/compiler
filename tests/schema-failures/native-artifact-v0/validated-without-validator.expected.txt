@@ -1,0 +1,1 @@
+$.toolchainProvenance.tools: validated artifacts require a validator tool role

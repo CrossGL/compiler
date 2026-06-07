@@ -1,0 +1,1 @@
+$.targets[0].packageAdmission.packageArtifactRequirementsSource: expected constant 'tools/package_target_contracts.json', got 'stale-source'

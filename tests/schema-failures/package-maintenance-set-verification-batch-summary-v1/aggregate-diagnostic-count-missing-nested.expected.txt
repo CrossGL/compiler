@@ -1,0 +1,1 @@
+$.diagnosticCodeCounts: expected diagnostic code count total 0, got 1; $.diagnosticCounts.error: expected aggregate count to include nested verification diagnostics

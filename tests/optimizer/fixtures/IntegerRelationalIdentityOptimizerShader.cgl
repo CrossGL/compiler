@@ -1,0 +1,51 @@
+shader IntegerRelationalIdentityOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer uint* unsignedValues;
+    layout(set = 0, binding = 2) buffer float* floatValues;
+
+    int unknownInt(int value) {
+      return value + 1;
+    }
+
+    void main() {
+      int dynamicIndex = values[0];
+      uint unsignedIndex = unsignedValues[0];
+      float floatBase = floatValues[0];
+
+      bool selfLessInt = dynamicIndex < dynamicIndex;
+      bool selfLessEqualInt = dynamicIndex <= dynamicIndex;
+      bool selfGreaterInt = dynamicIndex > dynamicIndex;
+      bool selfGreaterEqualInt = dynamicIndex >= dynamicIndex;
+      bool unsignedSelfLess = unsignedIndex < unsignedIndex;
+      bool unsignedSelfGreaterEqual = unsignedIndex >= unsignedIndex;
+      bool selfLessUnknown = unknownInt(dynamicIndex) < unknownInt(dynamicIndex);
+      bool floatSelfLessEqual = floatBase <= floatBase;
+      bool negLessInt = !(dynamicIndex < 1);
+      bool negLessEqualInt = !(dynamicIndex <= 2);
+      bool negGreaterInt = !(dynamicIndex > 3);
+      bool negGreaterEqualInt = !(dynamicIndex >= 4);
+      bool negUnsignedLess = !(unsignedIndex < 5u);
+      bool negUnknownLess = !(unknownInt(dynamicIndex) < dynamicIndex);
+      bool negFloatLessEqual = !(floatBase <= floatBase);
+
+      values[1] = selfLessInt ? 1 : 0;
+      values[2] = selfLessEqualInt ? 1 : 0;
+      values[3] = selfGreaterInt ? 1 : 0;
+      values[4] = selfGreaterEqualInt ? 1 : 0;
+      unsignedValues[1] = unsignedSelfLess ? 1u : 0u;
+      unsignedValues[2] = unsignedSelfGreaterEqual ? 1u : 0u;
+      values[5] = selfLessUnknown ? 1 : 0;
+      values[6] = floatSelfLessEqual ? 1 : 0;
+      values[7] = negLessInt ? 1 : 0;
+      values[8] = negLessEqualInt ? 1 : 0;
+      values[9] = negGreaterInt ? 1 : 0;
+      values[10] = negGreaterEqualInt ? 1 : 0;
+      unsignedValues[3] = negUnsignedLess ? 1u : 0u;
+      values[11] = negUnknownLess ? 1 : 0;
+      values[12] = negFloatLessEqual ? 1 : 0;
+      return;
+    }
+  }
+}

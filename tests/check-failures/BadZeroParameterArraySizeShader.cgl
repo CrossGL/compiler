@@ -1,0 +1,7 @@
+shader BadZeroParameterArraySizeShader {
+  compute {
+    void main(float weights[0]) {
+      return;
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.languageFeatureReport",
+  "module": {
+    "moduleId": "ResourceShader",
+    "sourcePath": "C:\\tmp\\ResourceShader.cgl",
+    "sourceSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "stageEntryPoints": []
+  },
+  "language": {
+    "family": "CrossGL",
+    "version": "v0",
+    "nativeProfile": "native-v0",
+    "compatibilityContract": "tools/cross_repo_language_contract.json"
+  },
+  "crossTLSnapshotSeal": {
+    "snapshotId": "crosstl-frontend-language-spec-v0",
+    "snapshotPath": "docs/language/crosstl-frontend-language-spec-v0.json",
+    "snapshotSha256": "7d19829365f76febad6313cf309d514d26ee8b1e3698110d576ac843f0419a04",
+    "snapshotSchemaVersion": 0
+  },
+  "compatibilityBucketSummary": {
+    "cross-tl-inventory-only": 0,
+    "accepted-source": 0,
+    "package-supported": 0,
+    "compatibility-only": 0,
+    "spec.unsupported-for-native-v0": 0,
+    "spec.deprecated": 0,
+    "spec.error": 0,
+    "target.unsupported": 0
+  },
+  "targetFeatureGates": [],
+  "resourceMemoryLayoutFeatures": {
+    "resources": [],
+    "memory": [],
+    "layout": []
+  },
+  "facts": {
+    "unsupported": [],
+    "deprecated": [],
+    "error": []
+  },
+  "evidence": [],
+  "generation": {
+    "tool": "schema-fixture",
+    "mode": "report-only",
+    "command": [
+      "not-emitted-by-cglc"
+    ]
+  }
+}

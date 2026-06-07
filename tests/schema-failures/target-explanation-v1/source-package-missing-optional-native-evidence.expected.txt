@@ -1,0 +1,1 @@
+$.targets[0].requiredCapabilities: source-package fallback requires optional native evidence 'directx.backend.native-dxil-package'

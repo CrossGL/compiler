@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "compiler": {
+    "name": "CrossGL-Compiler",
+    "version": "0.1.0",
+    "llvmVersion": "unknown"
+  },
+  "module": "SemanticFixture",
+  "target": "directx",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "c0b5df7fb74ceef746570777efdfdfa48f1bc21077c21d6fea75c09c0b3268e0"
+  },
+  "artifacts": {
+    "backendSource": "out/backend/directx/SemanticFixture.hlsl",
+    "nativeBinary": "out/backend/directx/SemanticFixture.dxil",
+    "nativeProfile": "out/backend/directx/SemanticFixture.profile.json",
+    "nativeBinaryStatus": "emitted"
+  }
+}

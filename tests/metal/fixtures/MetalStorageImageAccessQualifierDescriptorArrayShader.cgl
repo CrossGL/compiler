@@ -1,0 +1,41 @@
+shader MetalStorageImageAccessQualifierDescriptorArrayShader {
+  const int IMAGE_COUNT = 2;
+  const int ATLAS_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 4, local_size_y = 4, local_size_z = 1) in;
+    layout(set = 0, binding = 0) readonly uniform image2D readColorImages[IMAGE_COUNT];
+    layout(set = 0, binding = 2) writeonly uniform image2D writeColorImages[IMAGE_COUNT];
+    layout(set = 0, binding = 4) readwrite uniform image2D readWriteColorImages[IMAGE_COUNT];
+    layout(set = 0, binding = 6) readonly uniform image2DArray readColorAtlases[ATLAS_COUNT];
+    layout(set = 0, binding = 8) writeonly uniform image2DArray writeColorAtlases[ATLAS_COUNT];
+    layout(set = 0, binding = 10) readwrite uniform image2DArray readWriteColorAtlases[ATLAS_COUNT];
+    layout(set = 0, binding = 12) buffer int* coordinates;
+
+    void main() {
+      ivec2 pixel = ivec2(coordinates[0], coordinates[1]);
+      int layer = coordinates[2];
+      int imageDescriptor = coordinates[3];
+      int atlasDescriptor = coordinates[4];
+      ivec3 atlasPixel = ivec3(pixel, layer);
+
+      vec4 color = imageLoad(readColorImages[imageDescriptor], pixel);
+      imageStore(writeColorImages[imageDescriptor], pixel, color);
+
+      vec4 readWriteColor =
+          imageLoad(readWriteColorImages[imageDescriptor], pixel);
+      imageStore(readWriteColorImages[imageDescriptor], pixel,
+                 readWriteColor + color);
+
+      vec4 atlasColor =
+          imageLoad(readColorAtlases[atlasDescriptor], atlasPixel);
+      imageStore(writeColorAtlases[atlasDescriptor], atlasPixel, atlasColor);
+
+      vec4 readWriteAtlasColor =
+          imageLoad(readWriteColorAtlases[atlasDescriptor], atlasPixel);
+      imageStore(readWriteColorAtlases[atlasDescriptor], atlasPixel,
+                 readWriteAtlasColor + atlasColor);
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.validationDiagnostics: failed artifacts require diagnostics

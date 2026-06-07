@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "action": "promote",
+  "sidecarPath": "build/.SemanticFixture.cglb.staging-1-0",
+  "requestedPath": "build/SemanticFixture.cglb",
+  "backupPath": null,
+  "success": false,
+  "replacedExisting": false,
+  "message": null,
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "package.verify.invalid-json",
+      "message": "package manifest is not valid JSON",
+      "location": {
+        "file": "manifest.json",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 10,
+        "endLine": 1,
+        "endColumn": 11,
+        "endOffset": 10
+      }
+    }
+  ]
+}

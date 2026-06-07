@@ -1,0 +1,1 @@
+$.result.targetProfile.profile: expected 'directx.v0.source-package'

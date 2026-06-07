@@ -1,0 +1,22 @@
+shader OpenGLLocalFunctionParameterArrayWriteShader {
+  const int COUNT = 3;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float rewriteLocal(float weights[COUNT], int index) {
+      weights[index] = weights[0] + 2.0;
+      return weights[index];
+    }
+
+    void main() {
+      float weights[COUNT];
+      weights[0] = values[0];
+      weights[1] = 0.0;
+      weights[2] = 0.0;
+      values[1] = rewriteLocal(weights, 1);
+      return;
+    }
+  }
+}

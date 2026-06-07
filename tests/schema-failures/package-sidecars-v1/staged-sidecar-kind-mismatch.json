@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "build/.SemanticFixture.cglb.staging-beta-1",
+  "requestedExists": false,
+  "publication": {
+    "state": "staged",
+    "requestedPath": "build/SemanticFixture.cglb",
+    "sidecarKind": "previous",
+    "sidecarToken": "beta",
+    "sidecarAttempt": 1,
+    "siblingSidecarCount": 0,
+    "siblingSidecars": []
+  }
+}

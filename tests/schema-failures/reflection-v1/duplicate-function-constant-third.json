@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [],
+  "structs": [],
+  "resources": [],
+  "targetResourceBindings": [],
+  "pushConstants": [],
+  "functionConstants": [
+    {
+      "name": "A",
+      "type": "bool",
+      "value": "true"
+    },
+    {
+      "name": "B",
+      "type": "int",
+      "value": "1"
+    },
+    {
+      "name": "A",
+      "type": "bool",
+      "value": "false"
+    }
+  ],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

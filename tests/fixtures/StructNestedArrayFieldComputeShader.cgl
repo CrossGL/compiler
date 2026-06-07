@@ -1,0 +1,19 @@
+shader StructNestedArrayFieldComputeShader {
+  struct Transform {
+    vec3 position;
+    float weight;
+  }
+  struct Particle {
+    Transform history[2];
+    float mass;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    void main() {
+      vec3 previous = particles[0].history[1].position;
+      particles[1].history[0].position = previous;
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.records[1].stagedPath: expected staged path to end with destinationPath

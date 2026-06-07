@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "values0",
+      "kind": "buffer",
+      "type": "float",
+      "set": 0,
+      "binding": 0
+    },
+    {
+      "stage": "compute",
+      "name": "values1",
+      "kind": "buffer",
+      "type": "float",
+      "set": 1,
+      "binding": 1
+    },
+    {
+      "stage": "compute",
+      "name": "values2",
+      "kind": "buffer",
+      "type": "float",
+      "set": 2,
+      "binding": 2
+    },
+    {
+      "stage": "compute",
+      "name": "values3",
+      "kind": "buffer",
+      "type": "float",
+      "set": 3,
+      "binding": 3
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values0",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav",
+      "set": 0,
+      "binding": 0
+    },
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values1",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav",
+      "set": 1,
+      "binding": 1
+    },
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values2",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav",
+      "set": 2,
+      "binding": 2
+    },
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values3",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav",
+      "set": 4,
+      "binding": 3
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

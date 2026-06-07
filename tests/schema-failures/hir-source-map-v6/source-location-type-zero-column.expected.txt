@@ -1,0 +1,1 @@
+$.hirSourceLocations.types[0].location.column: expected > 0

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "directx",
+  "binaryKind": "directx.dxil",
+  "artifactPath": "backend/directx/SimpleShader.unvalidated.dxil",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "7272727272727272727272727272727272727272727272727272727272727272"
+  },
+  "sizeBytes": 8704,
+  "sourcePath": "backend/directx/SimpleShader.hlsl",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "7373737373737373737373737373737373737373737373737373737373737373"
+  },
+  "toolchainProvenance": {
+    "producer": "cglc package build",
+    "tools": [
+      {
+        "name": "dxc",
+        "role": "compiler",
+        "version": "fixture",
+        "executable": "dxc",
+        "resolvedExecutable": "",
+        "executableSource": "direct",
+        "versionProbeStatus": "succeeded"
+      }
+    ],
+    "invocation": {
+      "commandLineSha256": "7474747474747474747474747474747474747474747474747474747474747474",
+      "environmentSha256": "7575757575757575757575757575757575757575757575757575757575757575"
+    }
+  },
+  "optimizationLevel": "O3",
+  "validationStatus": "not-run",
+  "nativeBinaryStatus": "emitted",
+  "validationDiagnostics": []
+}

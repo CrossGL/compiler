@@ -1,0 +1,1 @@
+$.toolchain.tools[0].probeStatus: expected unavailable probeStatus 'unavailable', got 'failed'

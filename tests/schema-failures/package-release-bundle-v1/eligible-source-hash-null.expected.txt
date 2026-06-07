@@ -1,0 +1,1 @@
+$.packages[0].sourceHash: release eligible bundle requires sourceHash

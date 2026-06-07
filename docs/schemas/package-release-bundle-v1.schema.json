@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-release-bundle-v1.schema.json",
+  "title": "CrossGL Package Release Bundle JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "bundlePath",
+    "promotionManifestPath",
+    "summaryPath",
+    "batchPath",
+    "status",
+    "releaseEligible",
+    "blockerCount",
+    "blockers",
+    "packageCount",
+    "artifactCount",
+    "existingArtifactCount",
+    "missingArtifactCount",
+    "totalArtifactBytes",
+    "packages"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "bundlePath": {
+      "type": "string"
+    },
+    "promotionManifestPath": {
+      "type": "string"
+    },
+    "summaryPath": {
+      "type": "string"
+    },
+    "batchPath": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "eligible",
+        "blocked"
+      ]
+    },
+    "releaseEligible": {
+      "type": "boolean"
+    },
+    "blockerCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/blocker"
+      }
+    },
+    "packageCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "artifactCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "existingArtifactCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "missingArtifactCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "totalArtifactBytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/package"
+      }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "count"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullableSha256": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableSize": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sourceHash": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm",
+            "value"
+          ],
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "const": "sha256"
+            },
+            "value": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nativeBinaryStatus": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "planned",
+            "emitted",
+            "validated"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "packageArtifactRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "packageMode",
+        "requiredPathArtifacts",
+        "requiresNativeBinaryStatus",
+        "allowsPlannedNativeBinary",
+        "allowsPlannedNativeSourceEvidence"
+      ],
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": [
+            "metal",
+            "vulkan",
+            "directx",
+            "opengl"
+          ]
+        },
+        "packageMode": {
+          "type": "string",
+          "enum": [
+            "native",
+            "source-package"
+          ]
+        },
+        "requiredPathArtifacts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "backendSource",
+              "backendAssembly",
+              "intermediate",
+              "nativeBinary"
+            ]
+          }
+        },
+        "requiresNativeBinaryStatus": {
+          "type": "boolean"
+        },
+        "allowsPlannedNativeBinary": {
+          "type": "boolean"
+        },
+        "allowsPlannedNativeSourceEvidence": {
+          "type": "boolean"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "path",
+        "exists",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nullableSize"
+        },
+        "sha256": {
+          "$ref": "#/$defs/nullableSha256"
+        }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packagePath",
+        "module",
+        "target",
+        "sourceHash",
+        "nativeBinaryStatus",
+        "packageArtifactRequirements",
+        "artifactCount",
+        "existingArtifactCount",
+        "missingArtifactCount",
+        "totalArtifactBytes",
+        "artifacts"
+      ],
+      "properties": {
+        "packagePath": {
+          "type": "string"
+        },
+        "module": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "enum": [
+            "metal",
+            "vulkan",
+            "directx",
+            "opengl"
+          ]
+        },
+        "sourceHash": {
+          "$ref": "#/$defs/sourceHash"
+        },
+        "nativeBinaryStatus": {
+          "$ref": "#/$defs/nativeBinaryStatus"
+        },
+        "packageArtifactRequirements": {
+          "$ref": "#/$defs/packageArtifactRequirements"
+        },
+        "artifactCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "existingArtifactCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "missingArtifactCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "totalArtifactBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        }
+      }
+    }
+  }
+}

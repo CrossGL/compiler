@@ -1,0 +1,1 @@
+$.resources[0].arrayDimensions[0].source: fixed arrays require source

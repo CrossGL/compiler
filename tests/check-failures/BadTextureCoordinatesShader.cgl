@@ -1,0 +1,10 @@
+shader BadTextureCoordinatesShader {
+  compute {
+    uniform sampler2D colorMap;
+    sampler linearSampler;
+    void main() {
+      vec4 color = texture(colorMap, linearSampler, vec3(0.25, 0.5, 0.75));
+      return;
+    }
+  }
+}

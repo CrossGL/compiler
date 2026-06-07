@@ -1,0 +1,28 @@
+shader SamplerCubeFamilyOnlyNonUniformCompareLodManualDescriptorArrayShader {
+  const int RAW_SAMPLER_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) buffer int* descriptors;
+    layout(set = 0, binding = 2) uniform samplerCubeShadow shadowCube;
+    layout(set = 0, binding = 4) uniform samplerCubeArrayShadow shadowCubeArray;
+    layout(set = 0, binding = 9) sampler rawShadowSamplers[RAW_SAMPLER_COUNT];
+
+    void main() {
+      int descriptor = descriptors[0];
+      float cubeVisibility =
+          textureCompareLodManual(shadowCube,
+                                  rawShadowSamplers[nonuniform(descriptor)],
+                                  vec3(0.0, 1.0, 0.0), 0.5, 1.0,
+                                  greater_equal);
+      float cubeArrayVisibility =
+          textureCompareLodManual(shadowCubeArray,
+                                  rawShadowSamplers[nonuniform(descriptor)],
+                                  vec4(0.0, 1.0, 0.0, 2.0), 0.75, 3.0,
+                                  greater);
+      values[0] = cubeVisibility + cubeArrayVisibility;
+      return;
+    }
+  }
+}

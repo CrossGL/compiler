@@ -1,0 +1,1 @@
+$.artifacts.nativeBinary: expected profile artifact path 'backend/vulkan/SemanticFixture.spv'

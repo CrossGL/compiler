@@ -1,0 +1,1 @@
+$.targetFeatureGates[0].evidenceIds: expected legalization evidence id 'target-contract:vulkan.package-support'

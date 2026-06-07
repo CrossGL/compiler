@@ -1,0 +1,21 @@
+shader ComputeBuiltinOptimizerBoundaryHIRShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 2, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer uint* ids;
+    layout(set = 0, binding = 1) buffer float* values;
+
+    void main() {
+      uint globalX = gl_GlobalInvocationID.x;
+      uint localY = gl_LocalInvocationID.y;
+      uint groupZ = gl_WorkGroupID.z;
+      uint deadGlobalLocal = gl_GlobalInvocationID.y + gl_LocalInvocationID.z;
+      float deadFloatLocal = float(gl_WorkGroupID.x) + values[0];
+
+      ids[0] = globalX + localY;
+      ids[1] = gl_WorkGroupID.x + gl_LocalInvocationID.x;
+      values[2] = float(groupZ + gl_GlobalInvocationID.z);
+      values[3] = values[1] + float(gl_WorkGroupID.y);
+      return;
+    }
+  }
+}

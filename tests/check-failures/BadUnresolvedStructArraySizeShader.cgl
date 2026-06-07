@@ -1,0 +1,11 @@
+shader BadUnresolvedStructArraySizeShader {
+  struct Particle {
+    float weights[WEIGHT_COUNT];
+  }
+  compute {
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    void main() {
+      return;
+    }
+  }
+}

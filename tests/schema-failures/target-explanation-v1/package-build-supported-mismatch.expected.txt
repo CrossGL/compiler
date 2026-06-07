@@ -1,0 +1,1 @@
+$.targets[0].packageBuildSupported: expected package mode support False, got True

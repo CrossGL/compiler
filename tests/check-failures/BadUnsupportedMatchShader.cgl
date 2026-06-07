@@ -1,0 +1,11 @@
+shader BadUnsupportedMatch {
+  compute {
+    void main() {
+      int value = 0;
+      match (value) {
+        case 0:
+          return;
+      }
+    }
+  }
+}

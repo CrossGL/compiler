@@ -1,0 +1,8 @@
+shader BadTextureOperandShader {
+  compute {
+    void main() {
+      vec4 color = texture(1.0, vec2(0.5, 0.5));
+      return;
+    }
+  }
+}

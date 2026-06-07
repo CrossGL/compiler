@@ -1,0 +1,9 @@
+shader BadUnsupportedColonVar {
+  compute {
+    var value: float = 1.0;
+
+    void main() {
+      return;
+    }
+  }
+}

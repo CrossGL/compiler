@@ -1,0 +1,12 @@
+shader BadDuplicateFieldShader {
+  struct Params {
+    float value;
+    int value;
+  }
+
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.sidecarPath: expected normalized '/' path separators

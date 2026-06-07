@@ -1,0 +1,1 @@
+$.crossTLSnapshotSeal.snapshotSha256: expected committed CrossTL snapshot SHA-256

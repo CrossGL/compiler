@@ -1,0 +1,8 @@
+shader BadUnsupportedLetMut {
+  compute {
+    void main() {
+      let mut value = 0;
+      return;
+    }
+  }
+}

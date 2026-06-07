@@ -1,0 +1,62 @@
+shader StorageImageConstantsOptimizerBoundaryShader {
+  const int IMAGE_COUNT = 2;
+  const int FOLDED_SLOT = IMAGE_COUNT - 1;
+  const int COORD_OFFSET = FOLDED_SLOT + 1;
+  const int SIGNED_PAYLOAD = COORD_OFFSET - 1;
+
+  compute {
+    layout(local_size_x = 4, local_size_y = 4, local_size_z = 2) in;
+    layout(set = 0, binding = 0) uniform image2D colorImage;
+    layout(set = 0, binding = 1) uniform image2D colorImages[IMAGE_COUNT];
+    layout(set = 0, binding = 2) uniform uimage2DArray maskAtlases[IMAGE_COUNT];
+    layout(set = 0, binding = 3, format = r32i) readwrite uniform iimage2D signedCounters;
+    layout(set = 0, binding = 4, format = r32ui) readwrite uniform uimage2DArray unsignedAtlases[IMAGE_COUNT];
+    layout(set = 0, binding = 5) buffer int* slots;
+    layout(set = 0, binding = 6) buffer int* signedResults;
+    layout(set = 0, binding = 7) buffer uint* unsignedResults;
+
+    void main() {
+      ivec2 pixel = ivec2(int(gl_GlobalInvocationID.x),
+                          int(gl_GlobalInvocationID.y));
+      int layer = int(gl_GlobalInvocationID.z);
+      int dynamicSlot = slots[0];
+      ivec2 foldedPixel = pixel + ivec2(COORD_OFFSET - 1, FOLDED_SLOT - 1);
+      vec4 seed = vec4(1.0, 0.0, 0.0, 1.0);
+      int deadCoordinate = (COORD_OFFSET - 1) + dynamicSlot;
+      int deadPayload = SIGNED_PAYLOAD + 9;
+
+      imageStore(colorImage, foldedPixel, seed);
+      vec4 scalarColor = imageLoad(colorImage,
+                                   pixel + ivec2(COORD_OFFSET - 1,
+                                                 FOLDED_SLOT - 1));
+      imageLoad(colorImage, pixel + ivec2(COORD_OFFSET - 1, FOLDED_SLOT - 1));
+      imageStore(colorImages[FOLDED_SLOT], foldedPixel, scalarColor);
+
+      uvec4 atlas = imageLoad(maskAtlases[dynamicSlot + (FOLDED_SLOT - 1)],
+                              ivec3(pixel, layer + (COORD_OFFSET - 1)));
+      imageStore(maskAtlases[IMAGE_COUNT - 1],
+                 ivec3(pixel, layer + (COORD_OFFSET - 1)), atlas);
+
+      int old = imageAtomicAdd(signedCounters, foldedPixel,
+                               SIGNED_PAYLOAD + (FOLDED_SLOT - 1));
+      int exchanged = imageAtomicExchange(signedCounters,
+                                          pixel + ivec2(COORD_OFFSET - 1, 0),
+                                          old + (COORD_OFFSET - 1));
+      imageAtomicXor(signedCounters, foldedPixel,
+                     exchanged + (FOLDED_SLOT - 1));
+
+      uint unsignedOld =
+          imageAtomicAdd(unsignedAtlases[FOLDED_SLOT],
+                         ivec3(pixel, layer + (COORD_OFFSET - 1)),
+                         uint(1.0 + 0.0));
+      imageAtomicExchange(unsignedAtlases[dynamicSlot + (FOLDED_SLOT - 1)],
+                          ivec3(pixel, layer + (COORD_OFFSET - 1)),
+                          unsignedOld + uint(1.0 - 1.0));
+
+      signedResults[0] = old + exchanged + (FOLDED_SLOT - 1);
+      unsignedResults[0] = unsignedOld;
+      int deadTail = deadCoordinate + deadPayload;
+      return;
+    }
+  }
+}

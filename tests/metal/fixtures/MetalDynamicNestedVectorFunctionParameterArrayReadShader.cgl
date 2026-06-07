@@ -1,0 +1,24 @@
+shader MetalDynamicNestedVectorFunctionParameterArrayReadShader {
+  const int ROWS = 2;
+  const int COLS = 3;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) buffer int* indices;
+
+    vec4 readGrid(vec4 grid[ROWS][COLS], int row, int col) {
+      return grid[row][col];
+    }
+
+    void main() {
+      vec4 grid[ROWS][COLS];
+      grid[0][0] = values[0];
+      grid[1][2] = values[1];
+      int row = indices[0];
+      int col = indices[1];
+      values[2] = readGrid(grid, row, col);
+      return;
+    }
+  }
+}

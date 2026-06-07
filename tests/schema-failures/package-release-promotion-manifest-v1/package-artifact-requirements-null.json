@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "summaryPath": "build/package-release-summary.json",
+  "manifestPath": "build/package-release-promotion-manifest.json",
+  "batchPath": "build/package-release-verification-batch.json",
+  "status": "eligible",
+  "releaseEligible": true,
+  "blockerCount": 0,
+  "blockers": [],
+  "packageCount": 1,
+  "packages": [
+    {
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "nativeBinaryStatus": null,
+      "packageArtifactRequirements": null,
+      "artifactCount": 1,
+      "artifacts": [
+        {
+          "name": "nativeBinary",
+          "path": "packages/basic/artifacts/basic.metallib",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "summaryPath": "build/package-release-summary.json",
+    "batchPath": "build/package-release-verification-batch.json",
+    "success": true,
+    "matches": true,
+    "releaseEligible": true,
+    "verificationCount": 1,
+    "matchedCount": 1,
+    "mismatchedCount": 0,
+    "failedCount": 0,
+    "scannedPackageCount": 1,
+    "setPackageCount": 1,
+    "missingFromSetCount": 0,
+    "extraInSetCount": 0,
+    "diagnosticCounts": {
+      "note": 0,
+      "warning": 0,
+      "error": 0
+    }
+  },
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  }
+}

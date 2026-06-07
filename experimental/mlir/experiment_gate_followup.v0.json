@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-mlir-experiment-gate-followup",
+  "status": "report-only",
+  "decisionId": "crossgl-v0-mlir-llvm-toolchain-decision",
+  "decisionRecord": "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+  "scope": "v0 MLIR/LLVM experiment graduation gate",
+  "hirBoundary": {
+    "canonicalSemanticIr": "C++ HIR",
+    "productionLinked": false,
+    "packageAuthority": [
+      "manifest.json",
+      "reflection.json",
+      "diagnostics.json",
+      "ir/debug-metadata.json",
+      "ir/hir-source-map.json",
+      "nativeBinary"
+    ],
+    "mustPreserve": [
+      "source_locations",
+      "source_map_debug_contracts",
+      "typed_hir_facts",
+      "stage_entry_points",
+      "resource_bindings",
+      "workgroup_size",
+      "target_legalization_facts",
+      "package_artifact_contracts"
+    ]
+  },
+  "mlirDialectUse": {
+    "allowedWhen": [
+      "input_is_verified_cxx_hir",
+      "hir_dialect_uses_canonical_hir_catalog_names",
+      "source_locations_and_resource_facts_are_preserved",
+      "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON",
+      "MLIR_FOUND=TRUE",
+      "production_targets_do_not_depend_on_mlir"
+    ],
+    "allowedDialects": [
+      "hir",
+      "func",
+      "arith",
+      "scf",
+      "gpu",
+      "spirv"
+    ],
+    "blockedUse": [
+      "source_parser_rewrite",
+      "canonical_shader_ir_replacement",
+      "package_schema_change_without_verifier",
+      "backend_native_binary_gate_bypass",
+      "metal_directx_opengl_forced_through_spirv"
+    ]
+  },
+  "llvmIrEmission": {
+    "canonicalShaderIr": false,
+    "allowedWhen": [
+      "target_owned_or_toolchain_owned_artifact",
+      "hir_and_target_legalization_preserve_shader_abi_facts",
+      "reflection_diagnostics_and_source_maps_do_not_recover_facts_from_llvm_ir",
+      "toolchain_identity_is_recorded",
+      "package_verifier_can_fail_closed"
+    ],
+    "blockedUse": [
+      "canonical_crossgl_shader_ir",
+      "target_support_decision_source",
+      "resource_binding_truth",
+      "source_diagnostic_truth",
+      "package_metadata_truth"
+    ]
+  },
+  "releaseBehaviorGate": {
+    "status": "blocked-until-production-proposal",
+    "normalReleaseBehaviorAllowed": false,
+    "pseudoMlirMaySatisfyGate": false,
+    "requiresProductionProposal": true,
+    "requiresNativeBackendParity": true,
+    "requiresSourceMapDebugParity": true,
+    "requiredEvidence": [
+      "written_target_decision",
+      "native_backend_parity_by_target",
+      "source_map_debug_contract_parity",
+      "package_manifest_reflection_diagnostics_parity",
+      "package_verifier_fail_closed",
+      "mlir_enabled_and_disabled_ci_coverage",
+      "direct_backend_release_path_remains_available"
+    ],
+    "preserveContracts": [
+      "manifest.json",
+      "reflection.json",
+      "diagnostics.json",
+      "ir/debug-metadata.json",
+      "ir/hir-source-map.json",
+      "nativeBinary"
+    ],
+    "nativeBackendTargets": [
+      "metal",
+      "vulkan",
+      "directx",
+      "opengl"
+    ],
+    "releaseAuthority": "C++ HIR, target legalization, and direct native backend package gates remain release authority until a production proposal is accepted."
+  },
+  "graduationStages": [
+    {
+      "id": "report_only",
+      "requiredEvidence": [
+        "decision_record",
+        "experiment_manifest",
+        "fixture_inventory",
+        "manifest_checker",
+        "default_off_gate"
+      ],
+      "productionImpact": "none"
+    },
+    {
+      "id": "compile_gated_scaffold",
+      "requiredEvidence": [
+        "crossgl_mlir_experiment_object_target",
+        "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON",
+        "MLIR_FOUND=TRUE",
+        "crossgl_compiler_excludes_experimental_sources"
+      ],
+      "productionImpact": "none"
+    },
+    {
+      "id": "dialect_verifier_parity",
+      "requiredEvidence": [
+        "real_hir_mlir_dialect",
+        "hir_ops_match_canonical_hir_catalog",
+        "mlir_verifier_accepts_named_fixtures",
+        "hir_fact_inventory_matches_lowered_ops",
+        "optional_tool_skip_when_mlir_unavailable"
+      ],
+      "productionImpact": "optional_developer_test_only"
+    },
+    {
+      "id": "hir_parity_reports",
+      "requiredEvidence": [
+        "source_location_parity",
+        "type_resource_entry_point_workgroup_parity",
+        "debug_metadata_parity",
+        "diagnostic_parity"
+      ],
+      "productionImpact": "optional_artifact_report_only"
+    },
+    {
+      "id": "backend_experiment",
+      "requiredEvidence": [
+        "target_specific_written_scope",
+        "same_backend_native_binary_gate_as_direct_backend",
+        "package_manifest_reflection_diagnostics_match_or_versioned",
+        "direct_backend_remains_available"
+      ],
+      "productionImpact": "optional_target_experiment"
+    },
+    {
+      "id": "production_proposal",
+      "requiredEvidence": [
+        "written_target_decision",
+        "package_verifier_updates",
+        "mlir_enabled_and_disabled_ci_coverage",
+        "no_regression_in_existing_packages"
+      ],
+      "productionImpact": "explicit_follow_up_pr_required"
+    }
+  ],
+  "nativeBinaryGoals": [
+    {
+      "target": "metal",
+      "authority": "direct backend-native package path",
+      "binaryArtifact": ".metallib",
+      "mlirGraduationRequirement": "written target decision plus package verifier evidence"
+    },
+    {
+      "target": "vulkan",
+      "authority": "direct SPIR-V package path",
+      "binaryArtifact": ".spv",
+      "mlirGraduationRequirement": "same spirv-as and spirv-val gate as direct backend"
+    },
+    {
+      "target": "directx",
+      "authority": "HLSL source package with optional DXIL toolchain output",
+      "binaryArtifact": "DXIL when dxc is available",
+      "mlirGraduationRequirement": "target toolchain evidence and package verifier coverage"
+    },
+    {
+      "target": "opengl",
+      "authority": "GLSL source package with optional validation",
+      "binaryArtifact": "none for v0 portable package claims",
+      "mlirGraduationRequirement": "no forced SPIR-V common path without a written target decision"
+    }
+  ]
+}

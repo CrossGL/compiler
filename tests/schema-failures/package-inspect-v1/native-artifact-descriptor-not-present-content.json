@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "SemanticFixture.cglb",
+  "packageFormat": "directory",
+  "summary": {
+    "module": "SemanticFixture",
+    "target": "vulkan",
+    "nativeBinaryStatus": null,
+    "artifactCount": 2,
+    "debugArtifactsPresent": false
+  },
+  "rootFiles": [
+    {
+      "name": "manifest",
+      "path": "manifest.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "reflection",
+      "path": "reflection.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "diagnostics",
+      "path": "diagnostics.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "backendAssembly",
+      "path": "backend/vulkan/SemanticFixture.spvasm",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "backendAssembly"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "nativeBinary",
+      "path": "backend/vulkan/SemanticFixture.spv",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "nativeBinary"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "manifest": {
+    "module": "SemanticFixture",
+    "target": "vulkan",
+    "artifacts": {
+      "backendAssembly": "backend/vulkan/SemanticFixture.spvasm",
+      "nativeBinary": "backend/vulkan/SemanticFixture.spv"
+    }
+  },
+  "reflection": {
+    "module": "SemanticFixture",
+    "target": "vulkan"
+  },
+  "diagnostics": {
+    "schemaVersion": 1
+  },
+  "nativeArtifactDescriptor": {
+    "artifactPresent": false,
+    "descriptorExists": false,
+    "health": "not-present",
+    "path": null,
+    "schemaVersion": null,
+    "kind": null,
+    "contractVersion": null,
+    "target": "vulkan",
+    "binaryKind": null,
+    "sourcePath": null,
+    "sourceHash": null,
+    "artifactPath": null,
+    "artifactHash": null,
+    "sizeBytes": null,
+    "optimizationLevel": null,
+    "validationStatus": null,
+    "nativeBinaryStatus": null,
+    "checks": {
+      "descriptorIdentityMatchesContract": null,
+      "targetMatchesPackage": null,
+      "nativeBinaryStatusMatchesPackage": null,
+      "sourcePathMatchesManifest": null,
+      "sourceHashMatchesFile": null,
+      "artifactPathMatchesManifest": null,
+      "artifactHashMatchesFile": null,
+      "sizeBytesMatchesFile": null,
+      "validationStatusMatchesNativeStatus": null
+    }
+  }
+}

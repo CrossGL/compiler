@@ -1,0 +1,2142 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-mlir-source-resource-catalog-v0",
+  "status": "report-only-derived-from-hir-source-resource-facts",
+  "scope": "fixture-limited MLIR source-location and resource preservation evidence",
+  "generation": {
+    "deterministic": true,
+    "derivedFrom": [
+      "experimental/mlir/boundary_inventory.v0.json",
+      "experimental/mlir/fixture_inventory.json",
+      "experimental/mlir/experiment_manifest.json",
+      "experimental/mlir/op_type_catalog.v0.json"
+    ],
+    "optionalMlirToolingRequired": false,
+    "productionLinked": false,
+    "normalBuildRequired": false,
+    "separatesPseudoMlir": true
+  },
+  "sourceMapDebugContract": {
+    "debugMetadataSchemaVersion": 11,
+    "hirSourceMapSchemaVersion": 7,
+    "requiredFacts": [
+      "manifest.artifacts.debugMetadata",
+      "manifest.artifacts.hirSourceMap",
+      "ir/debug-metadata.json",
+      "ir/hir-source-map.json",
+      "debugMetadata.schemaVersion=11",
+      "hirSourceMap.schemaVersion=7",
+      "debugMetadata.hirSourceLocations",
+      "hirSourceMap.hirSourceLocations",
+      "hirSourceMap.categoryCounts",
+      "hirSourceMap.filters.activeCount=0",
+      "hirSourceMap.pagination.activeCount=0",
+      "hirSourceMap.records.enabled=false"
+    ],
+    "recordsCombinedInSourceMap": false
+  },
+  "resourceContract": {
+    "targetIndependentMetadataField": "resourceFacts.targetIndependentResourceMetadata",
+    "resourceFieldModeValues": [
+      "empty-resource-facts",
+      "single-storage-buffer-binding"
+    ],
+    "resourceBoundFixtures": [
+      "tests/fixtures/IfComputeShader.cgl",
+      "tests/fixtures/StorageBufferComputeShader.cgl"
+    ],
+    "resourceFreeFixtures": [
+      "tests/fixtures/MinimalComputeShader.cgl",
+      "tests/fixtures/ScalarExpressionComputeShader.cgl"
+    ]
+  },
+  "catalogConsistency": {
+    "opTypeCatalog": {
+      "path": "experimental/mlir/op_type_catalog.v0.json",
+      "kind": "crossgl-mlir-op-type-catalog-v0",
+      "status": "report-only-derived-from-hir-facts"
+    },
+    "fixtureUniverse": {
+      "sourceResourceFixtures": [
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl"
+      ],
+      "opTypeCatalogFixtures": [
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl"
+      ],
+      "missingFromOpTypeCatalog": [],
+      "missingFromSourceResourceCatalog": [],
+      "matches": true
+    },
+    "targetIndependentTypeFacts": {
+      "sourceResourceFacts": [
+        "assignment_expression_result_types",
+        "binary_expression_result_types",
+        "bool_scalar",
+        "branch_condition_bool",
+        "comparison_expression_result_type",
+        "constructor_cast_expression",
+        "float_pointer_storage_buffer",
+        "float_scalar",
+        "int_scalar",
+        "scalar_literals",
+        "storage_buffer_element_type",
+        "unary_expression_result_types",
+        "void_entry_point"
+      ],
+      "opTypeCatalogFacts": [
+        "assignment_expression_result_types",
+        "binary_expression_result_types",
+        "bool_scalar",
+        "branch_condition_bool",
+        "comparison_expression_result_type",
+        "constructor_cast_expression",
+        "float_pointer_storage_buffer",
+        "float_scalar",
+        "int_scalar",
+        "scalar_literals",
+        "storage_buffer_element_type",
+        "unary_expression_result_types",
+        "void_entry_point"
+      ],
+      "missingFromOpTypeCatalog": [],
+      "missingFromSourceResourceCatalog": [],
+      "matches": true
+    },
+    "operationFixtureCoverage": {
+      "operationCount": 14,
+      "fixtureCoverageRowCount": 39,
+      "referencedFixtures": [
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl"
+      ],
+      "fixturesOutsideSourceResourceCatalog": [],
+      "sourceResourceFixturesWithoutOperationCoverage": [],
+      "missingRequiredFactRows": [],
+      "matches": true
+    }
+  },
+  "parityCoverageMatrix": {
+    "status": "covered",
+    "dimensions": [
+      {
+        "name": "sourceLocations",
+        "fixtureCount": 4,
+        "coveredFixtureCount": 4,
+        "missingFixtureCount": 0,
+        "requiredForEveryFixture": true
+      },
+      {
+        "name": "entryPointIdentity",
+        "fixtureCount": 4,
+        "coveredFixtureCount": 4,
+        "missingFixtureCount": 0,
+        "requiredForEveryFixture": true
+      },
+      {
+        "name": "resources",
+        "fixtureCount": 4,
+        "coveredFixtureCount": 4,
+        "missingFixtureCount": 0,
+        "requiredForEveryFixture": true
+      },
+      {
+        "name": "targetIndependentResourceMetadata",
+        "fixtureCount": 4,
+        "coveredFixtureCount": 4,
+        "missingFixtureCount": 0,
+        "requiredForEveryFixture": true
+      },
+      {
+        "name": "sourceResourceEntrypointPreservation",
+        "fixtureCount": 4,
+        "coveredFixtureCount": 4,
+        "missingFixtureCount": 0,
+        "requiredForEveryFixture": true
+      },
+      {
+        "name": "sourceMapDebugPreservation",
+        "fixtureCount": 4,
+        "coveredFixtureCount": 4,
+        "missingFixtureCount": 0,
+        "requiredForEveryFixture": true
+      }
+    ],
+    "fixtures": [
+      {
+        "path": "tests/fixtures/IfComputeShader.cgl",
+        "status": "covered",
+        "dimensions": {
+          "sourceLocations": {
+            "covered": true,
+            "requiredFieldCount": 13,
+            "manifestFieldCount": 13,
+            "missingManifestFields": []
+          },
+          "entryPointIdentity": {
+            "covered": true,
+            "requiredFieldCount": 7,
+            "manifestFieldCount": 7,
+            "missingManifestFields": []
+          },
+          "resources": {
+            "covered": true,
+            "requiredFieldCount": 16,
+            "manifestFieldCount": 16,
+            "missingManifestFields": []
+          },
+          "targetIndependentResourceMetadata": {
+            "covered": true,
+            "requiredFieldCount": 11,
+            "manifestFieldCount": 11,
+            "missingManifestFields": []
+          },
+          "sourceResourceEntrypointPreservation": {
+            "covered": true,
+            "requiredFieldCount": 36,
+            "manifestFieldCount": 36,
+            "missingManifestFields": []
+          },
+          "sourceMapDebugPreservation": {
+            "covered": true,
+            "requiredFieldCount": 37,
+            "manifestFieldCount": 37,
+            "missingManifestFields": []
+          }
+        }
+      },
+      {
+        "path": "tests/fixtures/MinimalComputeShader.cgl",
+        "status": "covered",
+        "dimensions": {
+          "sourceLocations": {
+            "covered": true,
+            "requiredFieldCount": 6,
+            "manifestFieldCount": 6,
+            "missingManifestFields": []
+          },
+          "entryPointIdentity": {
+            "covered": true,
+            "requiredFieldCount": 7,
+            "manifestFieldCount": 7,
+            "missingManifestFields": []
+          },
+          "resources": {
+            "covered": true,
+            "requiredFieldCount": 6,
+            "manifestFieldCount": 6,
+            "missingManifestFields": []
+          },
+          "targetIndependentResourceMetadata": {
+            "covered": true,
+            "requiredFieldCount": 1,
+            "manifestFieldCount": 1,
+            "missingManifestFields": []
+          },
+          "sourceResourceEntrypointPreservation": {
+            "covered": true,
+            "requiredFieldCount": 16,
+            "manifestFieldCount": 16,
+            "missingManifestFields": []
+          },
+          "sourceMapDebugPreservation": {
+            "covered": true,
+            "requiredFieldCount": 23,
+            "manifestFieldCount": 23,
+            "missingManifestFields": []
+          }
+        }
+      },
+      {
+        "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "status": "covered",
+        "dimensions": {
+          "sourceLocations": {
+            "covered": true,
+            "requiredFieldCount": 8,
+            "manifestFieldCount": 8,
+            "missingManifestFields": []
+          },
+          "entryPointIdentity": {
+            "covered": true,
+            "requiredFieldCount": 7,
+            "manifestFieldCount": 7,
+            "missingManifestFields": []
+          },
+          "resources": {
+            "covered": true,
+            "requiredFieldCount": 6,
+            "manifestFieldCount": 6,
+            "missingManifestFields": []
+          },
+          "targetIndependentResourceMetadata": {
+            "covered": true,
+            "requiredFieldCount": 1,
+            "manifestFieldCount": 1,
+            "missingManifestFields": []
+          },
+          "sourceResourceEntrypointPreservation": {
+            "covered": true,
+            "requiredFieldCount": 16,
+            "manifestFieldCount": 16,
+            "missingManifestFields": []
+          },
+          "sourceMapDebugPreservation": {
+            "covered": true,
+            "requiredFieldCount": 32,
+            "manifestFieldCount": 32,
+            "missingManifestFields": []
+          }
+        }
+      },
+      {
+        "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+        "status": "covered",
+        "dimensions": {
+          "sourceLocations": {
+            "covered": true,
+            "requiredFieldCount": 10,
+            "manifestFieldCount": 10,
+            "missingManifestFields": []
+          },
+          "entryPointIdentity": {
+            "covered": true,
+            "requiredFieldCount": 7,
+            "manifestFieldCount": 7,
+            "missingManifestFields": []
+          },
+          "resources": {
+            "covered": true,
+            "requiredFieldCount": 16,
+            "manifestFieldCount": 16,
+            "missingManifestFields": []
+          },
+          "targetIndependentResourceMetadata": {
+            "covered": true,
+            "requiredFieldCount": 11,
+            "manifestFieldCount": 11,
+            "missingManifestFields": []
+          },
+          "sourceResourceEntrypointPreservation": {
+            "covered": true,
+            "requiredFieldCount": 36,
+            "manifestFieldCount": 36,
+            "missingManifestFields": []
+          },
+          "sourceMapDebugPreservation": {
+            "covered": true,
+            "requiredFieldCount": 31,
+            "manifestFieldCount": 31,
+            "missingManifestFields": []
+          }
+        }
+      }
+    ]
+  },
+  "fixtures": [
+    {
+      "path": "tests/fixtures/IfComputeShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "single-structured-if-else",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "single-storage-buffer-binding",
+      "entryPointIdentity": {
+        "requiredFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "manifestFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "missingManifestFields": []
+      },
+      "sourceLocations": {
+        "inventoryFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "storage_buffer_read",
+          "if_statement",
+          "then_block_assignment",
+          "else_block_assignment",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "manifestFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "storage_buffer_read",
+          "if_statement",
+          "then_block_assignment",
+          "else_block_assignment",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "requiredByBoundary": [
+          "compute_stage",
+          "else_block_assignment",
+          "entry_point",
+          "if_statement",
+          "layout_local_size",
+          "local_variable_declarations",
+          "return_statement",
+          "shader_module",
+          "source_file",
+          "storage_buffer_declaration",
+          "storage_buffer_read",
+          "storage_buffer_write",
+          "then_block_assignment"
+        ],
+        "missingFromManifest": []
+      },
+      "targetIndependentTypeFacts": {
+        "inventoryFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "comparison_expression_result_type",
+          "branch_condition_bool",
+          "assignment_expression_result_types",
+          "unary_expression_result_types"
+        ],
+        "manifestFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "comparison_expression_result_type",
+          "branch_condition_bool",
+          "assignment_expression_result_types",
+          "unary_expression_result_types"
+        ],
+        "missingFromManifest": []
+      },
+      "sourceMapDebugFacts": {
+        "requiredContractFacts": [
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false"
+        ],
+        "manifestFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.storage_buffer_read",
+          "sourceLocationFacts.if_statement",
+          "sourceLocationFacts.then_block_assignment",
+          "sourceLocationFacts.else_block_assignment",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.float_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.comparison_expression_result_type",
+          "typeFacts.branch_condition_bool",
+          "typeFacts.assignment_expression_result_types",
+          "typeFacts.unary_expression_result_types",
+          "resourceFacts.localSize"
+        ],
+        "missingRequiredContractFacts": []
+      },
+      "resourceFacts": {
+        "localSize": [
+          1,
+          1,
+          1
+        ],
+        "manifestFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "descriptors": [
+          {
+            "stage": "compute",
+            "name": "values",
+            "kind": "storageBuffer",
+            "set": 0,
+            "binding": 0
+          }
+        ],
+        "storageBuffers": [
+          {
+            "name": "values",
+            "type": "float*",
+            "elementType": "float",
+            "addressSpace": "storage",
+            "writeAccess": true
+          }
+        ],
+        "emptyCollections": [
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "missingManifestFields": []
+      },
+      "targetIndependentResourceMetadata": {
+        "manifestFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "records": [
+          {
+            "stage": "compute",
+            "name": "values",
+            "kind": "storageBuffer",
+            "sourceType": "float*",
+            "elementType": "float",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 0,
+            "targetIndependent": true
+          }
+        ],
+        "missingManifestFields": []
+      },
+      "sourceResourceEntrypointPreservation": {
+        "requiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "sourceEntrypointFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "manifestRequiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "missingManifestFields": []
+      },
+      "parityEvidence": {
+        "entryPointRequirementFields": [
+          "stage",
+          "entryPoint",
+          "resourceFacts.localSize"
+        ],
+        "sourceLocationRequirementFields": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "storage_buffer_read",
+          "if_statement",
+          "then_block_assignment",
+          "else_block_assignment",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "typeFactRequirementFields": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "comparison_expression_result_type",
+          "branch_condition_bool",
+          "assignment_expression_result_types",
+          "unary_expression_result_types"
+        ],
+        "sourceMapDebugRequirementFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.storage_buffer_read",
+          "sourceLocationFacts.if_statement",
+          "sourceLocationFacts.then_block_assignment",
+          "sourceLocationFacts.else_block_assignment",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.float_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.comparison_expression_result_type",
+          "typeFacts.branch_condition_bool",
+          "typeFacts.assignment_expression_result_types",
+          "typeFacts.unary_expression_result_types",
+          "resourceFacts.localSize"
+        ],
+        "resourceRequirementFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataRequirementFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "reportFields": {
+          "sourceFile": [
+            "path",
+            "sourceLocationFacts.source_file"
+          ],
+          "entryPoint": [
+            "stage",
+            "entryPoint"
+          ],
+          "entryPointIdentity": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ],
+          "workgroupSize": [
+            "resourceFacts.localSize",
+            "sourceLocationFacts.layout_local_size"
+          ],
+          "resourceBindings": [
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ],
+          "targetIndependentResourceMetadata": [
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "typeFacts": [
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.float_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.comparison_expression_result_type",
+            "typeFacts.branch_condition_bool",
+            "typeFacts.assignment_expression_result_types",
+            "typeFacts.unary_expression_result_types"
+          ],
+          "sourceMapDebugPreservation": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.if_statement",
+            "sourceLocationFacts.then_block_assignment",
+            "sourceLocationFacts.else_block_assignment",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.float_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.comparison_expression_result_type",
+            "typeFacts.branch_condition_bool",
+            "typeFacts.assignment_expression_result_types",
+            "typeFacts.unary_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        }
+      }
+    },
+    {
+      "path": "tests/fixtures/MinimalComputeShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "minimal-compute-entry",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "empty-resource-facts",
+      "entryPointIdentity": {
+        "requiredFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "manifestFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "missingManifestFields": []
+      },
+      "sourceLocations": {
+        "inventoryFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "return_statement"
+        ],
+        "manifestFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "return_statement"
+        ],
+        "requiredByBoundary": [
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "return_statement",
+          "shader_module",
+          "source_file"
+        ],
+        "missingFromManifest": []
+      },
+      "targetIndependentTypeFacts": {
+        "inventoryFacts": [
+          "void_entry_point"
+        ],
+        "manifestFacts": [
+          "void_entry_point"
+        ],
+        "missingFromManifest": []
+      },
+      "sourceMapDebugFacts": {
+        "requiredContractFacts": [
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false"
+        ],
+        "manifestFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "missingRequiredContractFacts": []
+      },
+      "resourceFacts": {
+        "localSize": [
+          1,
+          1,
+          1
+        ],
+        "manifestFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "descriptors": [],
+        "storageBuffers": [],
+        "emptyCollections": [
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "missingManifestFields": []
+      },
+      "targetIndependentResourceMetadata": {
+        "manifestFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "records": [],
+        "missingManifestFields": []
+      },
+      "sourceResourceEntrypointPreservation": {
+        "requiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "sourceEntrypointFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "manifestRequiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "missingManifestFields": []
+      },
+      "parityEvidence": {
+        "entryPointRequirementFields": [
+          "stage",
+          "entryPoint",
+          "resourceFacts.localSize"
+        ],
+        "sourceLocationRequirementFields": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "return_statement"
+        ],
+        "typeFactRequirementFields": [
+          "void_entry_point"
+        ],
+        "sourceMapDebugRequirementFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceRequirementFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataRequirementFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "reportFields": {
+          "sourceFile": [
+            "path",
+            "sourceLocationFacts.source_file"
+          ],
+          "entryPoint": [
+            "stage",
+            "entryPoint"
+          ],
+          "entryPointIdentity": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ],
+          "workgroupSize": [
+            "resourceFacts.localSize",
+            "sourceLocationFacts.layout_local_size"
+          ],
+          "resourceBindings": [
+            "resourceFacts.descriptors",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ],
+          "targetIndependentResourceMetadata": [
+            "resourceFacts.targetIndependentResourceMetadata"
+          ],
+          "typeFacts": [
+            "typeFacts.void_entry_point"
+          ],
+          "sourceMapDebugPreservation": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "resourceFacts.localSize"
+          ]
+        }
+      }
+    },
+    {
+      "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "straight-line-scalar-expressions",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "empty-resource-facts",
+      "entryPointIdentity": {
+        "requiredFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "manifestFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "missingManifestFields": []
+      },
+      "sourceLocations": {
+        "inventoryFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "return_statement"
+        ],
+        "manifestFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "return_statement"
+        ],
+        "requiredByBoundary": [
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "local_variable_declarations",
+          "return_statement",
+          "scalar_expression_statements",
+          "shader_module",
+          "source_file"
+        ],
+        "missingFromManifest": []
+      },
+      "targetIndependentTypeFacts": {
+        "inventoryFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "int_scalar",
+          "bool_scalar",
+          "scalar_literals",
+          "constructor_cast_expression",
+          "binary_expression_result_types",
+          "comparison_expression_result_type"
+        ],
+        "manifestFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "int_scalar",
+          "bool_scalar",
+          "scalar_literals",
+          "constructor_cast_expression",
+          "binary_expression_result_types",
+          "comparison_expression_result_type"
+        ],
+        "missingFromManifest": []
+      },
+      "sourceMapDebugFacts": {
+        "requiredContractFacts": [
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false"
+        ],
+        "manifestFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.int_scalar",
+          "typeFacts.bool_scalar",
+          "typeFacts.scalar_literals",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.binary_expression_result_types",
+          "typeFacts.comparison_expression_result_type",
+          "resourceFacts.localSize"
+        ],
+        "missingRequiredContractFacts": []
+      },
+      "resourceFacts": {
+        "localSize": [
+          1,
+          1,
+          1
+        ],
+        "manifestFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "descriptors": [],
+        "storageBuffers": [],
+        "emptyCollections": [
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "missingManifestFields": []
+      },
+      "targetIndependentResourceMetadata": {
+        "manifestFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "records": [],
+        "missingManifestFields": []
+      },
+      "sourceResourceEntrypointPreservation": {
+        "requiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "sourceEntrypointFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "manifestRequiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "missingManifestFields": []
+      },
+      "parityEvidence": {
+        "entryPointRequirementFields": [
+          "stage",
+          "entryPoint",
+          "resourceFacts.localSize"
+        ],
+        "sourceLocationRequirementFields": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "return_statement"
+        ],
+        "typeFactRequirementFields": [
+          "void_entry_point",
+          "float_scalar",
+          "int_scalar",
+          "bool_scalar",
+          "scalar_literals",
+          "constructor_cast_expression",
+          "binary_expression_result_types",
+          "comparison_expression_result_type"
+        ],
+        "sourceMapDebugRequirementFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.int_scalar",
+          "typeFacts.bool_scalar",
+          "typeFacts.scalar_literals",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.binary_expression_result_types",
+          "typeFacts.comparison_expression_result_type",
+          "resourceFacts.localSize"
+        ],
+        "resourceRequirementFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataRequirementFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "reportFields": {
+          "sourceFile": [
+            "path",
+            "sourceLocationFacts.source_file"
+          ],
+          "entryPoint": [
+            "stage",
+            "entryPoint"
+          ],
+          "entryPointIdentity": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ],
+          "workgroupSize": [
+            "resourceFacts.localSize",
+            "sourceLocationFacts.layout_local_size"
+          ],
+          "resourceBindings": [
+            "resourceFacts.descriptors",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ],
+          "targetIndependentResourceMetadata": [
+            "resourceFacts.targetIndependentResourceMetadata"
+          ],
+          "typeFacts": [
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.int_scalar",
+            "typeFacts.bool_scalar",
+            "typeFacts.scalar_literals",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.binary_expression_result_types",
+            "typeFacts.comparison_expression_result_type"
+          ],
+          "sourceMapDebugPreservation": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.int_scalar",
+            "typeFacts.bool_scalar",
+            "typeFacts.scalar_literals",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.binary_expression_result_types",
+            "typeFacts.comparison_expression_result_type",
+            "resourceFacts.localSize"
+          ]
+        }
+      }
+    },
+    {
+      "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "single-storage-buffer-resource",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "single-storage-buffer-binding",
+      "entryPointIdentity": {
+        "requiredFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "manifestFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "missingManifestFields": []
+      },
+      "sourceLocations": {
+        "inventoryFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "manifestFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "requiredByBoundary": [
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "local_variable_declarations",
+          "return_statement",
+          "shader_module",
+          "source_file",
+          "storage_buffer_declaration",
+          "storage_buffer_write"
+        ],
+        "missingFromManifest": []
+      },
+      "targetIndependentTypeFacts": {
+        "inventoryFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "binary_expression_result_types"
+        ],
+        "manifestFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "binary_expression_result_types"
+        ],
+        "missingFromManifest": []
+      },
+      "sourceMapDebugFacts": {
+        "requiredContractFacts": [
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false"
+        ],
+        "manifestFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.float_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.binary_expression_result_types",
+          "resourceFacts.localSize"
+        ],
+        "missingRequiredContractFacts": []
+      },
+      "resourceFacts": {
+        "localSize": [
+          1,
+          1,
+          1
+        ],
+        "manifestFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "descriptors": [
+          {
+            "stage": "compute",
+            "name": "values",
+            "kind": "storageBuffer",
+            "set": 0,
+            "binding": 0
+          }
+        ],
+        "storageBuffers": [
+          {
+            "name": "values",
+            "type": "float*",
+            "elementType": "float",
+            "addressSpace": "storage",
+            "writeAccess": true
+          }
+        ],
+        "emptyCollections": [
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "missingManifestFields": []
+      },
+      "targetIndependentResourceMetadata": {
+        "manifestFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "records": [
+          {
+            "stage": "compute",
+            "name": "values",
+            "kind": "storageBuffer",
+            "sourceType": "float*",
+            "elementType": "float",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 0,
+            "targetIndependent": true
+          }
+        ],
+        "missingManifestFields": []
+      },
+      "sourceResourceEntrypointPreservation": {
+        "requiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "sourceEntrypointFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "manifestRequiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "missingManifestFields": []
+      },
+      "parityEvidence": {
+        "entryPointRequirementFields": [
+          "stage",
+          "entryPoint",
+          "resourceFacts.localSize"
+        ],
+        "sourceLocationRequirementFields": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "typeFactRequirementFields": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "binary_expression_result_types"
+        ],
+        "sourceMapDebugRequirementFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.float_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.binary_expression_result_types",
+          "resourceFacts.localSize"
+        ],
+        "resourceRequirementFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataRequirementFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "reportFields": {
+          "sourceFile": [
+            "path",
+            "sourceLocationFacts.source_file"
+          ],
+          "entryPoint": [
+            "stage",
+            "entryPoint"
+          ],
+          "entryPointIdentity": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ],
+          "workgroupSize": [
+            "resourceFacts.localSize",
+            "sourceLocationFacts.layout_local_size"
+          ],
+          "resourceBindings": [
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ],
+          "targetIndependentResourceMetadata": [
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "typeFacts": [
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.float_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.binary_expression_result_types"
+          ],
+          "sourceMapDebugPreservation": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.float_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.binary_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        }
+      }
+    }
+  ],
+  "coverageSummary": {
+    "fixtureCount": 4,
+    "resourceBoundFixtureCount": 2,
+    "resourceFreeFixtureCount": 2,
+    "targetIndependentTypeFactCount": 13,
+    "targetIndependentTypeFacts": [
+      "assignment_expression_result_types",
+      "binary_expression_result_types",
+      "bool_scalar",
+      "branch_condition_bool",
+      "comparison_expression_result_type",
+      "constructor_cast_expression",
+      "float_pointer_storage_buffer",
+      "float_scalar",
+      "int_scalar",
+      "scalar_literals",
+      "storage_buffer_element_type",
+      "unary_expression_result_types",
+      "void_entry_point"
+    ],
+    "fixtures": [
+      "tests/fixtures/IfComputeShader.cgl",
+      "tests/fixtures/MinimalComputeShader.cgl",
+      "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/fixtures/StorageBufferComputeShader.cgl"
+    ]
+  }
+}

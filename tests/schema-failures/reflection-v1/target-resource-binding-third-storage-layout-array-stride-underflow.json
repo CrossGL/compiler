@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "values",
+      "kind": "buffer",
+      "type": "float"
+    },
+    {
+      "stage": "compute",
+      "name": "weights",
+      "kind": "buffer",
+      "type": "float"
+    },
+    {
+      "stage": "compute",
+      "name": "shadowMap",
+      "kind": "buffer",
+      "type": "float"
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav"
+    },
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "weights",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav"
+    },
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "shadowMap",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav",
+      "storageBufferLayout": {
+        "elementType": "float4",
+        "elementSizeBytes": 16,
+        "arrayStrideBytes": 8,
+        "layout": "std430",
+        "alignmentBytes": 16,
+        "supportsScalarLayout": true,
+        "fields": []
+      }
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

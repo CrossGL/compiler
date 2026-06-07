@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "generatedFile": "generated/from-translator.cgl",
+  "mappings": [
+    {
+      "generated": {
+        "file": "generated/from-translator.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 100000,
+        "endLine": 1000,
+        "endColumn": 1,
+        "endOffset": 100000
+      },
+      "original": {
+        "file": "shaders/original.crossgl",
+        "line": 40,
+        "column": 1,
+        "offset": 900,
+        "length": 100000,
+        "endLine": 1039,
+        "endColumn": 1,
+        "endOffset": 100900
+      }
+    }
+  ]
+}

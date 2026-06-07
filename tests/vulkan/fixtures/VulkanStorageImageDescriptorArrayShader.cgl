@@ -1,0 +1,31 @@
+shader VulkanStorageImageDescriptorArrayShader {
+  const int BASE_MASK_COUNT = 1;
+  const int MASK_COUNT = BASE_MASK_COUNT + 1;
+  const int LAST_MASK = MASK_COUNT - 1;
+
+  compute {
+    layout(local_size_x = 2, local_size_y = 2, local_size_z = 1) in;
+
+    layout(set = 0, binding = 0) uniform image2D colorImages[2];
+    layout(set = 0, binding = 1) uniform iimage2D labelImages[2];
+    layout(set = 0, binding = 2) uniform uimage2DArray maskAtlases[MASK_COUNT];
+
+    void main() {
+      ivec2 pixel = ivec2(0, 0);
+      int colorIndex = 1;
+      int labelIndex = 0;
+      int maskIndex = LAST_MASK;
+      ivec3 atlasPixel = ivec3(pixel, 0);
+
+      vec4 color = imageLoad(colorImages[colorIndex], pixel);
+      imageStore(colorImages[0], pixel, color);
+
+      ivec4 label = imageLoad(labelImages[labelIndex], pixel);
+      imageStore(labelImages[1], pixel, label);
+
+      uvec4 mask = imageLoad(maskAtlases[maskIndex], atlasPixel);
+      imageStore(maskAtlases[LAST_MASK], atlasPixel, mask);
+      return;
+    }
+  }
+}

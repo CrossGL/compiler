@@ -1,0 +1,9 @@
+shader BadTextureSamplerOperandShader {
+  compute {
+    uniform sampler2D colorMap;
+    void main() {
+      vec4 color = texture(colorMap, vec2(0.5, 0.5), vec2(0.25, 0.75));
+      return;
+    }
+  }
+}

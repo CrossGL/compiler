@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "directx",
+  "binaryKind": "directx.dxil",
+  "sourcePath": "backend/directx/SourceFreeDirectXEmittedDxilRuntimeExample.hlsl",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "2c66060dad1206aefc4d551609df9f6f3d72ab4f2e14c140bd7bd56741727cc4"
+  },
+  "artifactPath": "backend/directx/SourceFreeDirectXEmittedDxilRuntimeExample.dxil",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "dba3c188e179bfea1ccf34cfc9e024eb9d1b35d08d51c80c1a6e47b50d4c65ec"
+  },
+  "sizeBytes": 165,
+  "toolchainProvenance": {
+    "producer": "runtime.examples.source_free_loader",
+    "tools": []
+  },
+  "optimizationLevel": "unknown",
+  "optimizationEvidence": {
+    "requestedLevel": "unknown",
+    "effectiveLevel": "unknown",
+    "policy": "metadata-only",
+    "status": "metadata-only",
+    "evidenceSource": {
+      "kind": "descriptor"
+    }
+  },
+  "validationStatus": "not-run",
+  "nativeBinaryStatus": "emitted",
+  "validationDiagnostics": []
+}

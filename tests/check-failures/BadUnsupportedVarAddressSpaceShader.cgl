@@ -1,0 +1,8 @@
+shader BadUnsupportedVarAddressSpace {
+  compute {
+    var<storage> scratch: array<int, 4>;
+    void main() {
+      return;
+    }
+  }
+}

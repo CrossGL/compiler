@@ -1,0 +1,7 @@
+shader BadBreakOutsideLoopShader {
+  compute {
+    void main() {
+      break;
+    }
+  }
+}

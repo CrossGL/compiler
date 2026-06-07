@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "module": "LegacyVulkanProfile",
+  "target": "vulkan",
+  "api": "vulkan",
+  "profile": {
+    "name": "vulkan-prototype",
+    "vulkanVersion": "1.2",
+    "spirvVersion": "1.0"
+  },
+  "generator": "CrossGL Vulkan prototype backend",
+  "artifacts": {
+    "backendAssembly": "backend/vulkan/LegacyVulkanProfile.spvasm",
+    "nativeBinary": "backend/vulkan/LegacyVulkanProfile.spv"
+  },
+  "debug": {
+    "binaryFormat": "SPIR-V",
+    "assemblyFormat": "SPIR-V assembly",
+    "validationTargetEnv": "vulkan1.2",
+    "optimization": {
+      "tool": "spirv-opt",
+      "policy": "use-when-available",
+      "level": "-O",
+      "status": "skipped-tool-missing"
+    }
+  }
+}

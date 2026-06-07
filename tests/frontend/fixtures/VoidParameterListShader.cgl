@@ -1,0 +1,14 @@
+shader VoidParameterListShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+    float helper(void) {
+      return 1.0;
+    }
+
+    void main(void) {
+      float value = helper();
+      return;
+    }
+  }
+}

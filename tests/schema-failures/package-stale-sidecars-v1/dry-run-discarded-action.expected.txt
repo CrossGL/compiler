@@ -1,0 +1,1 @@
+$.candidates[0].action: dry run must only report would-discard

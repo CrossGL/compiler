@@ -1,0 +1,1 @@
+$.targetCapabilities.summaries[0].requiredCapabilityGroups: expected flat capability list length 1, got 0

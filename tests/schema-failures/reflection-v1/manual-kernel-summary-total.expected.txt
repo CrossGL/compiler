@@ -1,0 +1,1 @@
+$.manualTextureCompareKernelSummary.totalCount: expected $.manualTextureCompareKernels length 0, got 1

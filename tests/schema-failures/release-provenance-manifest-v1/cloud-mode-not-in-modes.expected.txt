@@ -1,0 +1,1 @@
+$.cloudUpload.mode: must be included in modes

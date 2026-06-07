@@ -1,0 +1,1 @@
+$.verifications[0].diagnostics[0].code: expected non-empty diagnostic code

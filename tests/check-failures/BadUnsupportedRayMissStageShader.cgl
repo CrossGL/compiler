@@ -1,0 +1,7 @@
+shader BadUnsupportedRayMissStage {
+  ray_miss {
+    void main() {
+      return;
+    }
+  }
+}

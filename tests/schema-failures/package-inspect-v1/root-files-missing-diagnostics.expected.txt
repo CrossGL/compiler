@@ -1,0 +1,1 @@
+$.rootFiles: expected root file records ['diagnostics', 'manifest', 'reflection'], got ['manifest', 'reflection']

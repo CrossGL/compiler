@@ -1,0 +1,1 @@
+$.artifacts.backendAssembly: expected profile artifact path 'backend/vulkan/SemanticFixture.spvasm'

@@ -1,0 +1,46 @@
+shader MetalAtomicExchangeShader {
+  const int GROUP_SIZE = 4;
+
+  struct CompatCounters {
+    int active_count;
+    uint spawn_count;
+  }
+
+  compute {
+    layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer atomic<int>* counters;
+    layout(set = 0, binding = 1) buffer atomic<uint>* unsignedCounters;
+    layout(set = 0, binding = 2) buffer CompatCounters compatCounters;
+    layout(set = 0, binding = 3) buffer int* values;
+    layout(set = 0, binding = 4) buffer uint* unsignedValues;
+    var<workgroup> tile: atomic<int>[GROUP_SIZE];
+    var<workgroup> unsignedTile: atomic<uint>[GROUP_SIZE];
+
+    void main() {
+      uint index = gl_LocalInvocationID.x;
+      uint globalIndex = gl_GlobalInvocationID.x;
+      int value = values[index];
+      uint unsignedValue = globalIndex + 1u;
+
+      atomicExchange(counters[index], value);
+      atomicExchange(unsignedCounters[index], unsignedValue);
+      atomicExchange(tile[index], value);
+      atomicExchange(unsignedTile[index], unsignedValue);
+
+      int oldStorage = atomicExchange(counters[index], 1);
+      oldStorage = atomicExchange(counters[index], value);
+      uint oldUnsigned = atomicExchange(unsignedCounters[index], unsignedValue);
+
+      int oldShared = atomicExchange(tile[index], value);
+      uint oldSharedU = atomicExchange(unsignedTile[index], unsignedValue);
+
+      int oldCompat = atomicExchange(compatCounters.active_count, 1);
+      uint oldCompatU = atomicExchange(compatCounters.spawn_count,
+                                       unsignedValue);
+
+      values[index] = oldStorage + oldShared + oldCompat;
+      unsignedValues[index] = oldUnsigned + oldSharedU + oldCompatU;
+      return;
+    }
+  }
+}

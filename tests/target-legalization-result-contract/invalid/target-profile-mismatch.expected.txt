@@ -1,0 +1,1 @@
+$.result.targetProfile.target: expected 'directx'

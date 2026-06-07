@@ -1,0 +1,73 @@
+minimum_pre_commit_version: "3.5.0"
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: pretty-format-json
+        args: [--autofix, --no-sort-keys]
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.15
+    hooks:
+      - id: ruff-check
+        name: ruff critical Python checks
+        args:
+          - --select=E9,F63,F7,F82
+          - --target-version=py311
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: cglc-cmake-configure
+        name: CrossGL CMake configure
+        entry: cmake -S . -B build/pre-commit -DCMAKE_BUILD_TYPE=Debug -DCROSSGL_REQUIRE_PYTHON_TESTS=ON
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+
+      - id: cglc-ctest-registration-metadata
+        name: CrossGL CTest registration metadata
+        entry: python tools/check_ctest_registration.py --root . --build-dir build/pre-commit --metadata-only
+        language: python
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+
+      - id: cglc-cmake-build
+        name: CrossGL CMake build
+        entry: cmake --build build/pre-commit --config Debug --parallel
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+
+      - id: cglc-ctest
+        name: CrossGL CTest suite
+        entry: ctest --test-dir build/pre-commit --output-on-failure -C Debug --parallel
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]

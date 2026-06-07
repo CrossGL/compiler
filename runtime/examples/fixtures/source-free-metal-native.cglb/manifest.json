@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "compiler": {
+    "name": "CrossGL-Compiler",
+    "version": "runtime-example",
+    "llvmVersion": "not-found"
+  },
+  "module": "SourceFreeMetalRuntimeExample",
+  "target": "metal",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "artifacts": {
+    "backendSource": "backend/metal/SourceFreeMetalRuntimeExample.metal",
+    "intermediate": "backend/metal/SourceFreeMetalRuntimeExample.air",
+    "nativeBinary": "backend/metal/SourceFreeMetalRuntimeExample.metallib"
+  }
+}

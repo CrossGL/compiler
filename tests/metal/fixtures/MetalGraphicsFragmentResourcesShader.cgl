@@ -1,0 +1,45 @@
+shader MetalGraphicsFragmentResourcesShader {
+    struct MeshVertex {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct RasterPayload {
+        vec4 clipPosition;
+        vec2 uv;
+    }
+
+    struct FragmentPayload {
+        vec2 uv;
+    }
+
+    struct TintParams {
+        vec4 tint;
+    }
+
+    struct ColorTarget {
+        vec4 color;
+    }
+
+    vertex {
+        RasterPayload main(MeshVertex input) {
+            RasterPayload output;
+            output.clipPosition = vec4(input.position, 1.0);
+            output.uv = input.texCoord;
+            return output;
+        }
+    }
+
+    fragment {
+        layout(set = 0, binding = 1) uniform TintParams params;
+        layout(set = 0, binding = 2) uniform sampler2D colorMap;
+        layout(set = 0, binding = 3) sampler linearSampler;
+
+        ColorTarget main(FragmentPayload input) {
+            ColorTarget output;
+            vec4 sampled = texture(colorMap, linearSampler, input.uv);
+            output.color = sampled * params.tint;
+            return output;
+        }
+    }
+}

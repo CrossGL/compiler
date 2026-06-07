@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "compiler": {
+    "name": "CrossGL-Compiler",
+    "version": "runtime-example",
+    "llvmVersion": "not-found"
+  },
+  "module": "SourceFreeVulkanRuntimeExample",
+  "target": "vulkan",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "artifacts": {
+    "backendAssembly": "backend/vulkan/SourceFreeVulkanRuntimeExample.spvasm",
+    "nativeBinary": "backend/vulkan/SourceFreeVulkanRuntimeExample.spv",
+    "nativeArtifactDescriptor": "backend/vulkan/SourceFreeVulkanRuntimeExample.native-artifact.json",
+    "nativeProfile": "backend/vulkan/SourceFreeVulkanRuntimeExample.profile.json"
+  }
+}

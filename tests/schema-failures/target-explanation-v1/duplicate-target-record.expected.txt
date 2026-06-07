@@ -1,0 +1,1 @@
+$.targets: duplicate target record 'metal'

@@ -1,0 +1,50 @@
+shader PureIntrinsicConstantFoldingShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* results;
+
+    void main() {
+      vec3 foldedClamp = clamp(vec3(-2.0, 0.5, 4.0),
+                               vec3(-1.0, 0.25, 1.0),
+                               vec3(1.0, 0.75, 3.0));
+      vec3 foldedScalarClamp = clamp(vec3(-3.0, 0.5, 2.0), -1.0, 1.0);
+      vec3 foldedFloor = floor(vec3(1.75, -1.25, 3.0));
+      vec3 foldedCeil = ceil(vec3(1.25, -1.75, 3.0));
+      vec3 foldedCross = cross(vec3(1.0, 2.0, 3.0),
+                               vec3(4.0, 5.0, 6.0));
+      float foldedDistance = distance(vec3(1.0, 2.0, 3.0),
+                                      vec3(1.0, 6.0, 6.0));
+      float foldedScalarNormalize = normalize(-4.0);
+      vec3 foldedVectorNormalize = normalize(vec3(0.0, -2.0, 0.0));
+      float foldedScalarReflect = reflect(2.0, 1.0);
+      vec3 foldedVectorReflect = reflect(vec3(1.0, -1.0, 0.0),
+                                         vec3(0.0, 1.0, 0.0));
+
+      results[0] = foldedClamp.x;
+      results[1] = foldedClamp.y;
+      results[2] = foldedClamp.z;
+      results[3] = foldedScalarClamp.x;
+      results[4] = foldedScalarClamp.y;
+      results[5] = foldedScalarClamp.z;
+      results[6] = foldedFloor.x;
+      results[7] = foldedFloor.y;
+      results[8] = foldedFloor.z;
+      results[9] = foldedCeil.x;
+      results[10] = foldedCeil.y;
+      results[11] = foldedCeil.z;
+      results[12] = foldedCross.x;
+      results[13] = foldedCross.y;
+      results[14] = foldedCross.z;
+      results[15] = foldedDistance;
+      results[16] = foldedScalarNormalize;
+      results[17] = foldedVectorNormalize.x;
+      results[18] = foldedVectorNormalize.y;
+      results[19] = foldedVectorNormalize.z;
+      results[20] = foldedScalarReflect;
+      results[21] = foldedVectorReflect.x;
+      results[22] = foldedVectorReflect.y;
+      results[23] = foldedVectorReflect.z;
+      return;
+    }
+  }
+}

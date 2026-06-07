@@ -1,0 +1,1 @@
+$.targetResourceBindings[2].arrayElementCount: expected array dimension product 2, got 3

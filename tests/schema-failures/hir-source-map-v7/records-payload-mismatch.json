@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 7,
+  "filters": {
+    "activeCount": 0
+  },
+  "pagination": {
+    "activeCount": 0,
+    "expressionOffset": 0,
+    "typeOffset": 0,
+    "statementOffset": 0,
+    "expressionTotalCount": 1,
+    "expressionEmittedCount": 1,
+    "expressionHasMore": false,
+    "expressionNextOffset": 1,
+    "typeTotalCount": 1,
+    "typeEmittedCount": 1,
+    "typeHasMore": false,
+    "typeNextOffset": 1,
+    "statementTotalCount": 1,
+    "statementEmittedCount": 1,
+    "statementHasMore": false,
+    "statementNextOffset": 1
+  },
+  "categoryCounts": {
+    "expressionTotalCount": 1,
+    "typeTotalCount": 1,
+    "statementTotalCount": 1,
+    "recordTotalCount": 3,
+    "expressionKinds": [
+      {
+        "name": "literal",
+        "count": 1
+      }
+    ],
+    "statementKinds": [
+      {
+        "name": "decl",
+        "count": 1
+      }
+    ],
+    "typeOwnerKinds": [
+      {
+        "name": "expression",
+        "count": 1
+      }
+    ]
+  },
+  "records": {
+    "enabled": true,
+    "activeCount": 1,
+    "offset": 0,
+    "totalCount": 3,
+    "emittedCount": 3,
+    "hasMore": false,
+    "nextOffset": 3,
+    "items": [
+      {
+        "cursor": 0,
+        "recordKind": "type",
+        "type": {
+          "index": 0,
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "function": "main",
+          "ownerKind": "expression",
+          "ownerName": "value",
+          "type": "float",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 1,
+            "column": 1,
+            "offset": 0,
+            "length": 3,
+            "endLine": 1,
+            "endColumn": 4,
+            "endOffset": 3
+          }
+        }
+      },
+      {
+        "cursor": 1,
+        "recordKind": "statement",
+        "statement": {
+          "index": 0,
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "function": "main",
+          "statementKind": "decl",
+          "name": "wrong",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 2,
+            "column": 1,
+            "offset": 4,
+            "length": 3,
+            "endLine": 2,
+            "endColumn": 4,
+            "endOffset": 7
+          }
+        }
+      },
+      {
+        "cursor": 2,
+        "recordKind": "expression",
+        "expression": {
+          "index": 0,
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "function": "main",
+          "statementKind": "decl",
+          "kind": "literal",
+          "value": "1.0",
+          "type": "float",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 3,
+            "column": 1,
+            "offset": 8,
+            "length": 3,
+            "endLine": 3,
+            "endColumn": 4,
+            "endOffset": 11
+          }
+        }
+      }
+    ]
+  },
+  "hirSourceLocations": {
+    "expressionCount": 1,
+    "expressionWithLocationCount": 1,
+    "typeCount": 1,
+    "typeWithLocationCount": 1,
+    "statementCount": 1,
+    "statementWithLocationCount": 1,
+    "expressions": [
+      {
+        "index": 0,
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "function": "main",
+        "statementKind": "decl",
+        "kind": "literal",
+        "value": "1.0",
+        "type": "float",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 3,
+          "column": 1,
+          "offset": 8,
+          "length": 3,
+          "endLine": 3,
+          "endColumn": 4,
+          "endOffset": 11
+        }
+      }
+    ],
+    "types": [
+      {
+        "index": 0,
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "function": "main",
+        "ownerKind": "expression",
+        "ownerName": "value",
+        "type": "float",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 3,
+          "endLine": 1,
+          "endColumn": 4,
+          "endOffset": 3
+        }
+      }
+    ],
+    "statements": [
+      {
+        "index": 0,
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "function": "main",
+        "statementKind": "decl",
+        "name": "value",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 2,
+          "column": 1,
+          "offset": 4,
+          "length": 3,
+          "endLine": 2,
+          "endColumn": 4,
+          "endOffset": 7
+        }
+      }
+    ]
+  }
+}

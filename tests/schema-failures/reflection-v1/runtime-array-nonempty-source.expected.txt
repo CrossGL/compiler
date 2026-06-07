@@ -1,0 +1,1 @@
+$.resources[0].arrayDimensions[0].source: runtime arrays use empty source

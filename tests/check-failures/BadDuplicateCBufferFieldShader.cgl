@@ -1,0 +1,15 @@
+shader BadDuplicateCBufferFieldShader {
+  cbuffer FrameParams {
+    float value;
+  }
+
+  cbuffer DrawParams {
+    int value;
+  }
+
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

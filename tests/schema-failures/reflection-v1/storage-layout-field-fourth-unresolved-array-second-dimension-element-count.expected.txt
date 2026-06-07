@@ -1,0 +1,1 @@
+$.targetResourceBindings[0].storageBufferLayout.fields[3].arrayDimensions[1].elementCount: unresolved arrays must omit elementCount

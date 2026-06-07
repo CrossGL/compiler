@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "schema": 1,
+  "kind": "crossgl-crosstl-shared-feature-spec",
+  "description": "Invalid fixture missing the propagated PR720 authority reference.",
+  "document": {
+    "id": "fixture",
+    "path": "tools/cross_repo_language_spec.json"
+  },
+  "source_language_snapshot": {
+    "id": "crosstl-frontend-language-spec-v0",
+    "path": "docs/language/crosstl-frontend-language-spec-v0.json",
+    "schema_version": 0,
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "source_files": [
+      {
+        "path": "crosstl/translator/lexer.py",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  },
+  "contract_manifest": {
+    "path": "tools/cross_repo_language_contract.json",
+    "schema": 1,
+    "contract_count": 1,
+    "accepted_feature_group_count": 1,
+    "negative_case_count": 1,
+    "hash_fields": [
+      "source_sha256",
+      "translator_ast_sha256",
+      "compiler_hir_sha256"
+    ]
+  },
+  "feature_groups": [
+    {
+      "id": "fixture_group",
+      "status": "accepted-source",
+      "description": "Fixture group.",
+      "snapshot_refs": [
+        "/lexical/tokens"
+      ],
+      "snapshot_ref_seals": [
+        {
+          "ref": "/lexical/tokens",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "fixture_count": 1,
+      "fixtures": [
+        {
+          "id": "compiler/tests/fixtures/Fixture.cgl",
+          "source_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "translator_ast_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "compiler_hir_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ]
+    }
+  ],
+  "negative_cases": [
+    {
+      "id": "compiler/tests/check-failures/Fixture.cgl",
+      "group": "spec_error",
+      "classification": "spec.error",
+      "feature_group": "fixture_group",
+      "reason": "Fixture negative case.",
+      "root": "compiler",
+      "path": "tests/check-failures/Fixture.cgl",
+      "source_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "fixture"
+        ]
+      }
+    }
+  ]
+}

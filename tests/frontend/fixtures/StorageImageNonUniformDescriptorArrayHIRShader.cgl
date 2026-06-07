@@ -1,0 +1,25 @@
+shader StorageImageNonUniformDescriptorArrayHIRShader {
+  compute {
+    layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImages[2];
+    layout(set = 0, binding = 1) uniform uimage2DArray maskAtlases[2];
+    layout(set = 0, binding = 2) buffer int* slots;
+    layout(set = 0, binding = 3) buffer vec4* colors;
+    layout(set = 0, binding = 4) buffer uvec4* masks;
+
+    void main() {
+      uint index = gl_GlobalInvocationID.x;
+      int slot = slots[index];
+      ivec2 pixel = ivec2(int(gl_GlobalInvocationID.x),
+                          int(gl_GlobalInvocationID.y));
+      ivec3 coords = ivec3(pixel, slot);
+      vec4 color = imageLoad(colorImages[nonuniform(slot)], pixel);
+      uvec4 value = imageLoad(maskAtlases[nonuniform(slot)], coords);
+      imageStore(colorImages[nonuniform(slot)], pixel, color);
+      imageStore(maskAtlases[nonuniform(slot)], coords, value);
+      colors[index] = color;
+      masks[index] = value;
+      return;
+    }
+  }
+}

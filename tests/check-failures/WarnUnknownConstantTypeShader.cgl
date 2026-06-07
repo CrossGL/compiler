@@ -1,0 +1,9 @@
+shader WarnUnknownConstantTypeShader {
+  const Nope VALUE = 1;
+
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

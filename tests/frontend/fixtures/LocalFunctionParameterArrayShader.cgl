@@ -1,0 +1,17 @@
+shader LocalFunctionParameterArrayShader {
+  const int COUNT = 4;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+    float readWeight(float values[COUNT], int index) {
+      return values[index];
+    }
+
+    void main(float scale) {
+      float weights[COUNT];
+      float first = readWeight(weights, 0) * scale;
+      return;
+    }
+  }
+}

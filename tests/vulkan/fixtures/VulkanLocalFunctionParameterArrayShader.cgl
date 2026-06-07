@@ -1,0 +1,24 @@
+shader VulkanLocalFunctionParameterArrayShader {
+  const int COUNT = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float readWeight(float weights[COUNT]) {
+      float value = weights[1];
+      return value;
+    }
+
+    float forwardWeight(float weights[COUNT]) {
+      return readWeight(weights);
+    }
+
+    void main() {
+      float weights[COUNT];
+      float value = forwardWeight(weights);
+      values[0] = value;
+      return;
+    }
+  }
+}

@@ -1,0 +1,43 @@
+shader StorageImageHIRShader {
+  compute {
+    layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImage;
+    layout(set = 0, binding = 1) uniform image2DArray colorAtlas;
+    layout(set = 0, binding = 2) uniform iimage2D labelImage;
+    layout(set = 0, binding = 3) uniform iimage2DArray labelAtlas;
+    layout(set = 0, binding = 4) uniform uimage2D maskImage;
+    layout(set = 0, binding = 5) uniform uimage2DArray maskAtlas;
+    layout(set = 0, binding = 6) buffer vec4* colors;
+    layout(set = 0, binding = 7) buffer ivec4* labels;
+    layout(set = 0, binding = 8) buffer uvec4* masks;
+    layout(set = 0, binding = 9) buffer int* layers;
+
+    void main() {
+      uint index = gl_GlobalInvocationID.x;
+      int x = int(gl_GlobalInvocationID.x);
+      int y = int(gl_GlobalInvocationID.y);
+      int layer = layers[index];
+      ivec2 pixel = ivec2(x, y);
+      ivec3 arrayPixel = ivec3(pixel, layer);
+
+      vec4 color2D = imageLoad(colorImage, pixel);
+      vec4 colorArray = imageLoad(colorAtlas, arrayPixel);
+      ivec4 label2D = imageLoad(labelImage, pixel);
+      ivec4 labelArray = imageLoad(labelAtlas, arrayPixel);
+      uvec4 mask2D = imageLoad(maskImage, pixel);
+      uvec4 maskArray = imageLoad(maskAtlas, arrayPixel);
+
+      imageStore(colorImage, pixel, color2D);
+      imageStore(colorAtlas, arrayPixel, colorArray);
+      imageStore(labelImage, pixel, label2D);
+      imageStore(labelAtlas, arrayPixel, labelArray);
+      imageStore(maskImage, pixel, mask2D);
+      imageStore(maskAtlas, arrayPixel, maskArray);
+
+      colors[index] = color2D + colorArray;
+      labels[index] = label2D + labelArray;
+      masks[index] = mask2D + maskArray;
+      return;
+    }
+  }
+}

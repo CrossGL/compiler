@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[1].weightsZeroSum: expected static-zero-sum zero-sum flag True, got False

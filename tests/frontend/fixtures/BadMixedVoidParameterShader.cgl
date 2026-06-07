@@ -1,0 +1,7 @@
+shader BadMixedVoidParameterShader {
+  compute {
+    void main(void, int x) {
+      return;
+    }
+  }
+}

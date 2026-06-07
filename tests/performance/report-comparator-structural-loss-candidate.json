@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "tool": "benchmark_performance_corpus",
+  "corpusVersion": "milestone6-smoke-v1",
+  "baselinePolicy": {
+    "comparisonWindow": {
+      "sampleCount": 5,
+      "unit": "elapsedNs",
+      "warmupCount": 1
+    },
+    "hostClass": "linux-x86_64",
+    "hostLabel": "ci-linux-x86_64-pool-a",
+    "optLevel": "O2",
+    "targetProfile": "crossgl-milestone6-smoke",
+    "toolchainClass": "crossgl-cglc-fixture",
+    "toolchainLabel": "cglc",
+    "toolchainVersion": "0.6.0-fixture"
+  },
+  "metadata": {
+    "runtimeEnvironment": {
+      "machine": "x86_64",
+      "platform": "Linux-fixture",
+      "pythonExecutable": "/usr/bin/python3",
+      "pythonImplementation": "CPython",
+      "pythonVersion": "3.11.0",
+      "system": "Linux",
+      "systemRelease": "fixture"
+    }
+  },
+  "config": {
+    "profiles": [
+      "release"
+    ],
+    "targets": [
+      "directx"
+    ],
+    "commandProfiles": [
+      "release"
+    ]
+  },
+  "cases": [
+    {
+      "case": "storage-buffer-compute::directx::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "fixtureCategory": "storage-buffers",
+      "fixtureName": "storage-buffer-compute",
+      "optLevel": "O2",
+      "profile": "release",
+      "target": "directx",
+      "skipped": false,
+      "skipReason": null,
+      "unavailableTools": [],
+      "timing": {
+        "elapsedNs": 90
+      }
+    },
+    {
+      "case": "nested-control-flow::directx::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "fixtureCategory": "control-flow",
+      "fixtureName": "nested-control-flow",
+      "optLevel": "O2",
+      "profile": "release",
+      "target": "directx",
+      "skipped": false,
+      "skipReason": null,
+      "unavailableTools": [],
+      "timing": {
+        "elapsedNs": 180
+      }
+    }
+  ],
+  "summary": {
+    "caseCount": 2,
+    "skippedCount": 0,
+    "timedCaseCount": 2,
+    "unavailableToolCount": 0,
+    "commandProfiles": [
+      "release"
+    ],
+    "caseCountByCommandProfile": {
+      "release": 2
+    },
+    "caseCategories": [
+      "control-flow",
+      "storage-buffers"
+    ],
+    "caseCountByCategory": {
+      "control-flow": 1,
+      "storage-buffers": 1
+    },
+    "caseCountByProfile": {
+      "release": 2
+    },
+    "caseCountByTarget": {
+      "directx": 2
+    },
+    "optLevels": [
+      "O2"
+    ],
+    "caseCountByOptLevel": {
+      "O2": 2
+    }
+  },
+  "toolAvailability": {
+    "cglc": {
+      "available": true,
+      "class": "crossgl-cglc-fixture",
+      "status": "available",
+      "version": "0.6.0-fixture"
+    }
+  }
+}

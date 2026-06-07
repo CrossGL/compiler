@@ -1,0 +1,1 @@
+$.artifacts: debugMetadata and hirSourceMap must be emitted together

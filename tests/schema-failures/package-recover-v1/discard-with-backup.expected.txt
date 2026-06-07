@@ -1,0 +1,1 @@
+$.backupPath: discard recovery must not create a backup

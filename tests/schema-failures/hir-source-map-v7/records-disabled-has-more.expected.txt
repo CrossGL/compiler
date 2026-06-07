@@ -1,0 +1,1 @@
+$.records.hasMore: expected disabled record stream hasMore False, got True

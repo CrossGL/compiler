@@ -1,0 +1,23 @@
+shader DirectXUniformBufferDescriptorArrayShader {
+  const int LIGHT_COUNT = 2;
+
+  struct Light {
+    vec4 color;
+    vec4 offset;
+    float intensity;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform Light lights[LIGHT_COUNT];
+    layout(set = 0, binding = 1) buffer vec4* values;
+
+    void main() {
+      int slot = int(gl_GlobalInvocationID.x);
+      vec4 color = lights[nonuniform(slot)].color;
+      float intensity = lights[slot].intensity;
+      values[0] = color * intensity + lights[1].offset;
+      return;
+    }
+  }
+}

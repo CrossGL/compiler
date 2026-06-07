@@ -1,0 +1,36 @@
+shader MetalStorageImageShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 4, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImage;
+    layout(set = 0, binding = 1) uniform iimage2D labelImage;
+    layout(set = 0, binding = 2) uniform uimage2D maskImage;
+    layout(set = 0, binding = 3) uniform image2DArray colorAtlas;
+    layout(set = 0, binding = 4) uniform iimage2DArray labelAtlas;
+    layout(set = 0, binding = 5) uniform uimage2DArray maskAtlas;
+    layout(set = 0, binding = 6) buffer int* coordinates;
+
+    void main() {
+      ivec2 pixel = ivec2(coordinates[0], coordinates[1]);
+      int layer = coordinates[2];
+
+      vec4 color = imageLoad(colorImage, pixel);
+      imageStore(colorImage, pixel, color);
+
+      ivec4 label = imageLoad(labelImage, pixel);
+      imageStore(labelImage, pixel, label);
+
+      uvec4 mask = imageLoad(maskImage, pixel);
+      imageStore(maskImage, pixel, mask);
+
+      vec4 atlasColor = imageLoad(colorAtlas, ivec3(pixel, layer));
+      imageStore(colorAtlas, ivec3(pixel, layer), atlasColor);
+
+      ivec4 atlasLabel = imageLoad(labelAtlas, ivec3(pixel, layer));
+      imageStore(labelAtlas, ivec3(pixel, layer), atlasLabel);
+
+      uvec4 atlasMask = imageLoad(maskAtlas, ivec3(pixel, layer));
+      imageStore(maskAtlas, ivec3(pixel, layer), atlasMask);
+      return;
+    }
+  }
+}

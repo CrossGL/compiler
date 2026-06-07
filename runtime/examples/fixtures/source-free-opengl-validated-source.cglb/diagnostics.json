@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "severity": "note",
+      "code": "runtime.example.opengl.validated_source.fixture",
+      "message": "source-free validated OpenGL source-package runtime fixture"
+    }
+  ]
+}

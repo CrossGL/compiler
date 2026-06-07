@@ -1,0 +1,19 @@
+shader MetalStructStorageBufferDescriptorArrayShader {
+  struct Particle {
+    vec3 position;
+    float mass;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 1) buffer Particle* particles[3];
+    layout(set = 0, binding = 2) buffer float* totals;
+
+    void main() {
+      float mass = particles[2][0].mass;
+      particles[0][1].position = particles[1][0].position;
+      totals[0] = mass + particles[0][1].mass;
+      return;
+    }
+  }
+}

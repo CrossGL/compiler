@@ -1,0 +1,1 @@
+$.targetFeatureGates[1]: duplicate target feature gate identity target='vulkan', packageMode='native', gateId='target.resource-arrays'; first seen at $.targetFeatureGates[0]

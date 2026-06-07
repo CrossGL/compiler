@@ -1,0 +1,87 @@
+{
+  "description": "Report-only Milestone 6 threshold proposals grouped by fixture category and benchmark profile. These proposals do not fail the comparison in v0.",
+  "enforcement": {
+    "enforced": false,
+    "exitStatusAffected": false,
+    "failureMode": "report-only",
+    "hardFail": false,
+    "mode": "report-only",
+    "policy": "Timing thresholds are emitted as report-only observations. They are not enforced, do not affect comparator exit status, and cannot become release blockers without explicit owner approval.",
+    "releaseBlocker": false,
+    "releaseBlockerPolicy": "Timing advisory thresholds are report-only and are not release blockers without explicit owner approval."
+  },
+  "evidencePolicy": {
+    "metadataComparabilityPolicy": "Timing threshold claims require matching recognized host, toolchain, target-profile, optimization, comparison-window, and skipped-tool metadata on both reports. Metadata drift is advisory context only; it never changes comparator exit status.",
+    "minimumSampleCount": 2,
+    "policy": "Timing threshold claims require repeated baseline and candidate samples and comparable baseline-policy metadata, with explicit timed-case fixtureName, target, profile, and optLevel identity. Cases without at least two samples on both sides, pairs with missing/drifting metadata, or timed cases that rely on inferred identity are reported as timing observations, but threshold-exceeded claims are withheld.",
+    "requiresComparableMetadata": true,
+    "requiresExplicitTimedCaseIdentity": true,
+    "requiresRepeatedBaselineAndCandidateSamples": true
+  },
+  "failurePolicy": "report-only; advisory timing threshold observations never change comparator exit status",
+  "kind": "advisory-threshold-policy",
+  "mode": "report-only",
+  "name": "milestone6",
+  "releaseBlockerPolicy": "Timing advisory thresholds are report-only and are not release blockers without explicit owner approval.",
+  "ruleCount": 8,
+  "rules": [
+    {
+      "category": "storage-buffers",
+      "label": "release storage buffer compile lane",
+      "maxRegressionPercent": 12,
+      "profile": "release",
+      "ruleSpecificity": "category-profile"
+    },
+    {
+      "category": "texture-sampling",
+      "label": "release texture sampling compile lane",
+      "maxRegressionPercent": 12,
+      "profile": "release",
+      "ruleSpecificity": "category-profile"
+    },
+    {
+      "category": "descriptor-arrays",
+      "label": "release descriptor array compile lane",
+      "maxRegressionPercent": 15,
+      "profile": "release",
+      "ruleSpecificity": "category-profile"
+    },
+    {
+      "category": "storage-images",
+      "label": "release storage image compile lane",
+      "maxRegressionPercent": 15,
+      "profile": "release",
+      "ruleSpecificity": "category-profile"
+    },
+    {
+      "category": "control-flow",
+      "label": "release control-flow compile lane",
+      "maxRegressionPercent": 12,
+      "profile": "release",
+      "ruleSpecificity": "category-profile"
+    },
+    {
+      "category": "atomics",
+      "label": "release atomic operation compile lane",
+      "maxRegressionPercent": 18,
+      "profile": "release",
+      "ruleSpecificity": "category-profile"
+    },
+    {
+      "category": "*",
+      "label": "debug profile compile lane",
+      "maxRegressionPercent": 25,
+      "profile": "debug",
+      "ruleSpecificity": "profile-only"
+    },
+    {
+      "category": "*",
+      "label": "fallback compile lane",
+      "maxRegressionPercent": 20,
+      "profile": "*",
+      "ruleSpecificity": "fallback"
+    }
+  ],
+  "schemaVersion": 1,
+  "tool": "compare_performance_reports"
+}

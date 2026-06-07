@@ -1,0 +1,1 @@
+$.manualTextureCompareKernelBuckets.staticNormalized: index 2 is outside manualTextureCompareKernels

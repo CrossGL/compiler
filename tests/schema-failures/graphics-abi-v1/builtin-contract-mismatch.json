@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "module": "GraphicsAbiSchemaBuiltinContractMismatch",
+  "target": "vulkan",
+  "entryPoints": [
+    {
+      "stage": "vertex",
+      "sourceName": "vs_main",
+      "backendName": "vertex_vs_main",
+      "sourceMapRef": {
+        "file": "tests/schema-failures/graphics-abi-v1/builtin-contract-mismatch.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    }
+  ],
+  "vertexInputs": [],
+  "varyings": [],
+  "fragmentOutputs": [],
+  "builtins": [
+    {
+      "stage": "vertex",
+      "entryPoint": "vertex_vs_main",
+      "name": "frontFacing",
+      "builtin": "front_facing",
+      "type": "bool",
+      "direction": "output"
+    }
+  ],
+  "resources": [],
+  "abiRecords": []
+}

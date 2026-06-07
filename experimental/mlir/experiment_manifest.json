@@ -1,0 +1,1483 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-mlir-experiment-manifest",
+  "status": "report-only",
+  "scope": "Milestone 7 optional real MLIR experiment planning",
+  "pseudoMlirLegacyText": {
+    "classification": "legacy-pseudo-mlir-text",
+    "mustRemainLabeled": true,
+    "files": [
+      {
+        "path": "include/crossgl/IR/IRPrinter.h",
+        "role": "Declares the current pseudo-MLIR printer compatibility surface."
+      },
+      {
+        "path": "src/IR/IRPrinter.cpp",
+        "role": "Emits labeled textual HIR projection, not a registered MLIR dialect."
+      },
+      {
+        "path": "tools/cglc/main.cpp",
+        "role": "Keeps --stage mlir as a compatibility alias for --stage pseudo-mlir."
+      },
+      {
+        "path": "src/Driver/CompilerPipeline.cpp",
+        "role": "Documents pseudo-MLIR dump behavior and package sidecar naming."
+      },
+      {
+        "path": "tools/cglc/main.cpp",
+        "role": "Documents the legacy mlir spelling as pseudo-MLIR output."
+      },
+      {
+        "path": "docs/schemas/manifest-v1.schema.json",
+        "role": "Documents pseudo-MLIR package sidecars as textual HIR projections."
+      }
+    ],
+    "requiredLabels": [
+      "pseudo-mlir",
+      "not real MLIR",
+      "not a registered MLIR dialect"
+    ]
+  },
+  "realMlirExperimentPath": {
+    "classification": "future-real-mlir-fixture-limited",
+    "productionLinked": false,
+    "hirDialectAuthority": {
+      "canonicalNamespace": "hir",
+      "operationPrefix": "hir.",
+      "catalogAuthority": "CrossTL/shared language/HIR catalog",
+      "blockedNamespace": "crossgl.",
+      "operationNameSource": "derive-from-authority-anchors",
+      "operationExamplesAuthoritative": false,
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ]
+    },
+    "defaultOffGate": {
+      "cmakeOption": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL",
+      "default": "OFF",
+      "requiresCMakePackages": [
+        "MLIR"
+      ],
+      "cmakeTarget": "crossgl_mlir_experiment",
+      "normalBuildRequired": false
+    },
+    "productionIsolation": {
+      "productionTargetsMustExclude": [
+        "crossgl_compiler",
+        "cglc"
+      ],
+      "productionTargetChecks": [
+        "add_library",
+        "add_executable",
+        "target_sources",
+        "target_include_directories",
+        "target_link_libraries",
+        "add_dependencies"
+      ],
+      "productionPackageMustExclude": [
+        "crossgl_mlir_experiment",
+        "experimental/mlir"
+      ],
+      "normalPackageOutputsMustNotIncludeRealMlir": true
+    },
+    "releaseBehaviorGate": {
+      "status": "blocked-until-production-proposal",
+      "normalReleaseBehaviorAllowed": false,
+      "pseudoMlirMaySatisfyGate": false,
+      "requiresProductionProposal": true,
+      "requiresNativeBackendParity": true,
+      "requiresSourceMapDebugParity": true,
+      "requiredEvidence": [
+        "written_target_decision",
+        "native_backend_parity_by_target",
+        "source_map_debug_contract_parity",
+        "package_manifest_reflection_diagnostics_parity",
+        "package_verifier_fail_closed",
+        "mlir_enabled_and_disabled_ci_coverage",
+        "direct_backend_release_path_remains_available"
+      ],
+      "preserveContracts": [
+        "manifest.json",
+        "reflection.json",
+        "diagnostics.json",
+        "ir/debug-metadata.json",
+        "ir/hir-source-map.json",
+        "nativeBinary"
+      ],
+      "nativeBackendTargets": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ],
+      "releaseAuthority": "C++ HIR, target legalization, and direct native backend package gates remain release authority until a production proposal is accepted."
+    },
+    "inventoryAuthority": {
+      "sourceList": "CROSSGL_MLIR_EXPERIMENT_SOURCES",
+      "fixtureList": "CROSSGL_MLIR_EXPERIMENT_FIXTURES",
+      "verifierInputList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+      "fixtureInventory": "experimental/mlir/fixture_inventory.json",
+      "parityRequirementField": "parityRequirements",
+      "resourceMetadataField": "resourceFacts.targetIndependentResourceMetadata",
+      "mustMatchCMake": true
+    },
+    "sourceInventory": [
+      {
+        "path": "experimental/mlir/CrossGLMLIRExperiment.cpp",
+        "target": "crossgl_mlir_experiment",
+        "compileGateMacro": "CROSSGL_MLIR_EXPERIMENT_COMPILE_GATED",
+        "productionLinked": false
+      }
+    ],
+    "fixtureInventory": [
+      {
+        "path": "tests/fixtures/MinimalComputeShader.cgl",
+        "source": "experimental/mlir/fixture_inventory.json",
+        "loweringStatus": "eligible-report-only"
+      },
+      {
+        "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "source": "experimental/mlir/fixture_inventory.json",
+        "loweringStatus": "eligible-report-only"
+      },
+      {
+        "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+        "source": "experimental/mlir/fixture_inventory.json",
+        "loweringStatus": "eligible-report-only"
+      },
+      {
+        "path": "tests/fixtures/IfComputeShader.cgl",
+        "source": "experimental/mlir/fixture_inventory.json",
+        "loweringStatus": "eligible-report-only"
+      }
+    ],
+    "verifierInputInventory": [
+      {
+        "path": "tests/fixtures/mlir/minimal_compute_builtin_module.mlir",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "fixture": "tests/fixtures/MinimalComputeShader.cgl",
+        "coveredFixtureFacts": [
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize",
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "verifierTool": "mlir-opt",
+        "verifierTest": "cglc_mlir_experiment_minimal_compute_verifier",
+        "loweringStatus": "optional-tool-gated-smoke",
+        "productionLinked": false,
+        "pseudoMlirInput": false,
+        "mustMatchCMake": true
+      }
+    ],
+    "verifierParityScaffold": {
+      "status": "report-only",
+      "productionLinked": false,
+      "optionalToolGatedWhenExecutable": true,
+      "normalBuildRequired": false,
+      "verifierTool": "mlir-opt",
+      "coverageSource": "eligibleFixtures[].boundaryFactCoverage",
+      "requiredEvidenceSections": [
+        "sourceLocationFacts",
+        "entryPointFacts",
+        "resourceFactFields",
+        "targetIndependentResourceMetadataFields",
+        "targetIndependentTypeFacts",
+        "sourceMapDebugFacts"
+      ],
+      "fixtures": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "loweringStatus": "report-only-verifier-parity-scaffold",
+          "futureVerifierGated": true,
+          "productionLinked": false,
+          "coveredEvidence": {
+            "sourceLocationFacts": [
+              "source_file",
+              "shader_module",
+              "compute_stage",
+              "entry_point",
+              "layout_local_size",
+              "return_statement"
+            ],
+            "entryPointFacts": [
+              "stage",
+              "entryPoint",
+              "sourceLocationFacts.shader_module",
+              "sourceLocationFacts.compute_stage",
+              "sourceLocationFacts.entry_point",
+              "typeFacts.void_entry_point",
+              "resourceFacts.localSize"
+            ],
+            "resourceFactFields": [
+              "resourceFacts.localSize",
+              "resourceFacts.descriptors",
+              "resourceFacts.storageBuffers",
+              "resourceFacts.storageImages",
+              "resourceFacts.textures",
+              "resourceFacts.samplers"
+            ],
+            "targetIndependentResourceMetadataFields": [
+              "resourceFacts.targetIndependentResourceMetadata"
+            ],
+            "targetIndependentTypeFacts": [
+              "void_entry_point"
+            ],
+            "sourceMapDebugFacts": [
+              "path",
+              "stage",
+              "entryPoint",
+              "manifest.artifacts.debugMetadata",
+              "manifest.artifacts.hirSourceMap",
+              "ir/debug-metadata.json",
+              "ir/hir-source-map.json",
+              "debugMetadata.schemaVersion=11",
+              "hirSourceMap.schemaVersion=7",
+              "debugMetadata.hirSourceLocations",
+              "hirSourceMap.hirSourceLocations",
+              "hirSourceMap.categoryCounts",
+              "hirSourceMap.filters.activeCount=0",
+              "hirSourceMap.pagination.activeCount=0",
+              "hirSourceMap.records.enabled=false",
+              "sourceLocationFacts.source_file",
+              "sourceLocationFacts.shader_module",
+              "sourceLocationFacts.compute_stage",
+              "sourceLocationFacts.entry_point",
+              "sourceLocationFacts.layout_local_size",
+              "sourceLocationFacts.return_statement",
+              "typeFacts.void_entry_point",
+              "resourceFacts.localSize"
+            ]
+          }
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "loweringStatus": "report-only-verifier-parity-scaffold",
+          "futureVerifierGated": true,
+          "productionLinked": false,
+          "coveredEvidence": {
+            "sourceLocationFacts": [
+              "source_file",
+              "shader_module",
+              "compute_stage",
+              "entry_point",
+              "layout_local_size",
+              "local_variable_declarations",
+              "scalar_expression_statements",
+              "return_statement"
+            ],
+            "entryPointFacts": [
+              "stage",
+              "entryPoint",
+              "sourceLocationFacts.shader_module",
+              "sourceLocationFacts.compute_stage",
+              "sourceLocationFacts.entry_point",
+              "typeFacts.void_entry_point",
+              "resourceFacts.localSize"
+            ],
+            "resourceFactFields": [
+              "resourceFacts.localSize",
+              "resourceFacts.descriptors",
+              "resourceFacts.storageBuffers",
+              "resourceFacts.storageImages",
+              "resourceFacts.textures",
+              "resourceFacts.samplers"
+            ],
+            "targetIndependentResourceMetadataFields": [
+              "resourceFacts.targetIndependentResourceMetadata"
+            ],
+            "targetIndependentTypeFacts": [
+              "void_entry_point",
+              "float_scalar",
+              "int_scalar",
+              "bool_scalar",
+              "scalar_literals",
+              "constructor_cast_expression",
+              "binary_expression_result_types",
+              "comparison_expression_result_type"
+            ],
+            "sourceMapDebugFacts": [
+              "path",
+              "stage",
+              "entryPoint",
+              "manifest.artifacts.debugMetadata",
+              "manifest.artifacts.hirSourceMap",
+              "ir/debug-metadata.json",
+              "ir/hir-source-map.json",
+              "debugMetadata.schemaVersion=11",
+              "hirSourceMap.schemaVersion=7",
+              "debugMetadata.hirSourceLocations",
+              "hirSourceMap.hirSourceLocations",
+              "hirSourceMap.categoryCounts",
+              "hirSourceMap.filters.activeCount=0",
+              "hirSourceMap.pagination.activeCount=0",
+              "hirSourceMap.records.enabled=false",
+              "sourceLocationFacts.source_file",
+              "sourceLocationFacts.shader_module",
+              "sourceLocationFacts.compute_stage",
+              "sourceLocationFacts.entry_point",
+              "sourceLocationFacts.layout_local_size",
+              "sourceLocationFacts.local_variable_declarations",
+              "sourceLocationFacts.scalar_expression_statements",
+              "sourceLocationFacts.return_statement",
+              "typeFacts.void_entry_point",
+              "typeFacts.float_scalar",
+              "typeFacts.int_scalar",
+              "typeFacts.bool_scalar",
+              "typeFacts.scalar_literals",
+              "typeFacts.constructor_cast_expression",
+              "typeFacts.binary_expression_result_types",
+              "typeFacts.comparison_expression_result_type",
+              "resourceFacts.localSize"
+            ]
+          }
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "loweringStatus": "report-only-verifier-parity-scaffold",
+          "futureVerifierGated": true,
+          "productionLinked": false,
+          "coveredEvidence": {
+            "sourceLocationFacts": [
+              "source_file",
+              "shader_module",
+              "compute_stage",
+              "entry_point",
+              "layout_local_size",
+              "storage_buffer_declaration",
+              "local_variable_declarations",
+              "scalar_expression_statements",
+              "storage_buffer_write",
+              "return_statement"
+            ],
+            "entryPointFacts": [
+              "stage",
+              "entryPoint",
+              "sourceLocationFacts.shader_module",
+              "sourceLocationFacts.compute_stage",
+              "sourceLocationFacts.entry_point",
+              "typeFacts.void_entry_point",
+              "resourceFacts.localSize"
+            ],
+            "resourceFactFields": [
+              "resourceFacts.localSize",
+              "resourceFacts.descriptors",
+              "resourceFacts.descriptors[].stage",
+              "resourceFacts.descriptors[].name",
+              "resourceFacts.descriptors[].kind",
+              "resourceFacts.descriptors[].set",
+              "resourceFacts.descriptors[].binding",
+              "resourceFacts.storageBuffers",
+              "resourceFacts.storageBuffers[].name",
+              "resourceFacts.storageBuffers[].type",
+              "resourceFacts.storageBuffers[].elementType",
+              "resourceFacts.storageBuffers[].addressSpace",
+              "resourceFacts.storageBuffers[].writeAccess",
+              "resourceFacts.storageImages",
+              "resourceFacts.textures",
+              "resourceFacts.samplers"
+            ],
+            "targetIndependentResourceMetadataFields": [
+              "resourceFacts.targetIndependentResourceMetadata",
+              "resourceFacts.targetIndependentResourceMetadata[].stage",
+              "resourceFacts.targetIndependentResourceMetadata[].name",
+              "resourceFacts.targetIndependentResourceMetadata[].kind",
+              "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+              "resourceFacts.targetIndependentResourceMetadata[].elementType",
+              "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+              "resourceFacts.targetIndependentResourceMetadata[].access",
+              "resourceFacts.targetIndependentResourceMetadata[].set",
+              "resourceFacts.targetIndependentResourceMetadata[].binding",
+              "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+            ],
+            "targetIndependentTypeFacts": [
+              "void_entry_point",
+              "float_scalar",
+              "float_pointer_storage_buffer",
+              "storage_buffer_element_type",
+              "binary_expression_result_types"
+            ],
+            "sourceMapDebugFacts": [
+              "path",
+              "stage",
+              "entryPoint",
+              "manifest.artifacts.debugMetadata",
+              "manifest.artifacts.hirSourceMap",
+              "ir/debug-metadata.json",
+              "ir/hir-source-map.json",
+              "debugMetadata.schemaVersion=11",
+              "hirSourceMap.schemaVersion=7",
+              "debugMetadata.hirSourceLocations",
+              "hirSourceMap.hirSourceLocations",
+              "hirSourceMap.categoryCounts",
+              "hirSourceMap.filters.activeCount=0",
+              "hirSourceMap.pagination.activeCount=0",
+              "hirSourceMap.records.enabled=false",
+              "sourceLocationFacts.source_file",
+              "sourceLocationFacts.shader_module",
+              "sourceLocationFacts.compute_stage",
+              "sourceLocationFacts.entry_point",
+              "sourceLocationFacts.layout_local_size",
+              "sourceLocationFacts.storage_buffer_declaration",
+              "sourceLocationFacts.local_variable_declarations",
+              "sourceLocationFacts.scalar_expression_statements",
+              "sourceLocationFacts.storage_buffer_write",
+              "sourceLocationFacts.return_statement",
+              "typeFacts.void_entry_point",
+              "typeFacts.float_scalar",
+              "typeFacts.float_pointer_storage_buffer",
+              "typeFacts.storage_buffer_element_type",
+              "typeFacts.binary_expression_result_types",
+              "resourceFacts.localSize"
+            ]
+          }
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "loweringStatus": "report-only-verifier-parity-scaffold",
+          "futureVerifierGated": true,
+          "productionLinked": false,
+          "coveredEvidence": {
+            "sourceLocationFacts": [
+              "source_file",
+              "shader_module",
+              "compute_stage",
+              "entry_point",
+              "layout_local_size",
+              "storage_buffer_declaration",
+              "local_variable_declarations",
+              "storage_buffer_read",
+              "if_statement",
+              "then_block_assignment",
+              "else_block_assignment",
+              "storage_buffer_write",
+              "return_statement"
+            ],
+            "entryPointFacts": [
+              "stage",
+              "entryPoint",
+              "sourceLocationFacts.shader_module",
+              "sourceLocationFacts.compute_stage",
+              "sourceLocationFacts.entry_point",
+              "typeFacts.void_entry_point",
+              "resourceFacts.localSize"
+            ],
+            "resourceFactFields": [
+              "resourceFacts.localSize",
+              "resourceFacts.descriptors",
+              "resourceFacts.descriptors[].stage",
+              "resourceFacts.descriptors[].name",
+              "resourceFacts.descriptors[].kind",
+              "resourceFacts.descriptors[].set",
+              "resourceFacts.descriptors[].binding",
+              "resourceFacts.storageBuffers",
+              "resourceFacts.storageBuffers[].name",
+              "resourceFacts.storageBuffers[].type",
+              "resourceFacts.storageBuffers[].elementType",
+              "resourceFacts.storageBuffers[].addressSpace",
+              "resourceFacts.storageBuffers[].writeAccess",
+              "resourceFacts.storageImages",
+              "resourceFacts.textures",
+              "resourceFacts.samplers"
+            ],
+            "targetIndependentResourceMetadataFields": [
+              "resourceFacts.targetIndependentResourceMetadata",
+              "resourceFacts.targetIndependentResourceMetadata[].stage",
+              "resourceFacts.targetIndependentResourceMetadata[].name",
+              "resourceFacts.targetIndependentResourceMetadata[].kind",
+              "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+              "resourceFacts.targetIndependentResourceMetadata[].elementType",
+              "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+              "resourceFacts.targetIndependentResourceMetadata[].access",
+              "resourceFacts.targetIndependentResourceMetadata[].set",
+              "resourceFacts.targetIndependentResourceMetadata[].binding",
+              "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+            ],
+            "targetIndependentTypeFacts": [
+              "void_entry_point",
+              "float_scalar",
+              "float_pointer_storage_buffer",
+              "storage_buffer_element_type",
+              "comparison_expression_result_type",
+              "branch_condition_bool",
+              "assignment_expression_result_types",
+              "unary_expression_result_types"
+            ],
+            "sourceMapDebugFacts": [
+              "path",
+              "stage",
+              "entryPoint",
+              "manifest.artifacts.debugMetadata",
+              "manifest.artifacts.hirSourceMap",
+              "ir/debug-metadata.json",
+              "ir/hir-source-map.json",
+              "debugMetadata.schemaVersion=11",
+              "hirSourceMap.schemaVersion=7",
+              "debugMetadata.hirSourceLocations",
+              "hirSourceMap.hirSourceLocations",
+              "hirSourceMap.categoryCounts",
+              "hirSourceMap.filters.activeCount=0",
+              "hirSourceMap.pagination.activeCount=0",
+              "hirSourceMap.records.enabled=false",
+              "sourceLocationFacts.source_file",
+              "sourceLocationFacts.shader_module",
+              "sourceLocationFacts.compute_stage",
+              "sourceLocationFacts.entry_point",
+              "sourceLocationFacts.layout_local_size",
+              "sourceLocationFacts.storage_buffer_declaration",
+              "sourceLocationFacts.local_variable_declarations",
+              "sourceLocationFacts.storage_buffer_read",
+              "sourceLocationFacts.if_statement",
+              "sourceLocationFacts.then_block_assignment",
+              "sourceLocationFacts.else_block_assignment",
+              "sourceLocationFacts.storage_buffer_write",
+              "sourceLocationFacts.return_statement",
+              "typeFacts.void_entry_point",
+              "typeFacts.float_scalar",
+              "typeFacts.float_pointer_storage_buffer",
+              "typeFacts.storage_buffer_element_type",
+              "typeFacts.comparison_expression_result_type",
+              "typeFacts.branch_condition_bool",
+              "typeFacts.assignment_expression_result_types",
+              "typeFacts.unary_expression_result_types",
+              "resourceFacts.localSize"
+            ]
+          }
+        }
+      ]
+    },
+    "separationRules": {
+      "pseudoMlirFilesMustNotBeRealMlirFiles": true,
+      "legacyMlirStageRemainsPseudo": true,
+      "realMlirEntryTarget": "crossgl_mlir_experiment",
+      "sharedFilesAllowed": [],
+      "productionSurfacesExcludedFromRealMlir": [
+        "include/crossgl/IR/IRPrinter.h",
+        "src/IR/IRPrinter.cpp",
+        "tools/cglc/main.cpp"
+      ]
+    },
+    "files": [
+      {
+        "path": "experimental/mlir/CrossGLMLIRExperiment.cpp",
+        "state": "existing",
+        "role": "Human-readable scope and optional-tool behavior."
+      },
+      {
+        "path": "experimental/mlir/CrossGLMLIRExperiment.cpp",
+        "state": "existing",
+        "role": "Compile-gated scaffold source for future real MLIR experiments."
+      },
+      {
+        "path": "experimental/mlir/fixture_inventory.json",
+        "state": "existing",
+        "role": "Fixture-limited HIR fact inventory for the experiment subset."
+      },
+      {
+        "path": "experimental/mlir/experiment_manifest.json",
+        "state": "existing",
+        "role": "Report-only pseudo-vs-real MLIR path manifest."
+      },
+      {
+        "path": "experimental/mlir/experiment_gate_followup.v0.json",
+        "state": "existing",
+        "role": "Machine-readable v0 experiment graduation follow-up."
+      },
+      {
+        "path": "experimental/mlir/boundary_inventory.v0.json",
+        "state": "existing",
+        "role": "Report-only fixture-limited hir.* boundary and preservation inventory."
+      },
+      {
+        "path": "experimental/mlir/op_type_catalog.v0.json",
+        "state": "existing",
+        "role": "Generated report-only operation/type parity catalog derived from the MLIR boundary, fixture, and manifest inventories."
+      },
+      {
+        "path": "experimental/mlir/source_resource_catalog.v0.json",
+        "state": "existing",
+        "role": "Generated report-only source/resource preservation catalog derived from the MLIR boundary, fixture, manifest, and op/type catalog inventories."
+      },
+      {
+        "path": "experimental/mlir/textual_dialect_projection.v0.json",
+        "state": "existing",
+        "role": "Report-only fixture-limited future hir.* textual operation projection and verifier contract catalog."
+      },
+      {
+        "path": "experimental/mlir/boundary_inventory.v0.json",
+        "state": "existing",
+        "role": "Machine-checkable dialect boundary contract for optional MLIR experiments."
+      },
+      {
+        "path": "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+        "state": "existing",
+        "role": "Decision record for when to use MLIR dialects, when to emit LLVM IR, and how experiments graduate."
+      },
+      {
+        "path": "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+        "state": "existing",
+        "role": "Broad MLIR policy and scaffold audit."
+      },
+      {
+        "path": "experimental/mlir/boundary_inventory.v0.json",
+        "state": "existing",
+        "role": "Focused MLIR dialect boundary contract audit."
+      },
+      {
+        "path": "experimental/mlir/experiment_manifest.json",
+        "state": "existing",
+        "role": "Focused report-only manifest and default-off gate audit."
+      },
+      {
+        "path": "tools/check_mlir_fixture_parity_report.py",
+        "state": "existing",
+        "role": "Report-only fixture parity checker for source, type, resource, diagnostics, and source-map/debug preservation evidence."
+      },
+      {
+        "path": "tools/check_mlir_op_type_catalog.py",
+        "state": "existing",
+        "role": "Report-only checker and generator for the operation/type parity catalog."
+      },
+      {
+        "path": "tools/check_mlir_package_sidecar_boundary.py",
+        "state": "existing",
+        "role": "Production package guard that allows only labeled pseudo-MLIR sidecars while real MLIR remains experiment-gated."
+      },
+      {
+        "path": "tools/check_mlir_optional_tool_evidence.py",
+        "state": "existing",
+        "role": "Report-only checker for configured MLIR discovery, verifier input presence, and optional-tool skip evidence metadata."
+      },
+      {
+        "path": "tools/check_mlir_source_resource_catalog.py",
+        "state": "existing",
+        "role": "Report-only checker that keeps compile-gated MLIR scaffold sources declarative, production-isolated, and default-off."
+      },
+      {
+        "path": "tools/check_mlir_source_resource_catalog.py",
+        "state": "existing",
+        "role": "Report-only checker and generator for the source/resource preservation catalog."
+      },
+      {
+        "path": "tools/check_mlir_textual_dialect_projection.py",
+        "state": "existing",
+        "role": "Report-only checker for the fixture-limited future hir.* textual dialect projection catalog."
+      },
+      {
+        "path": "tests/cmake/CheckMLIRExperimentalGateDefault.cmake",
+        "state": "existing",
+        "role": "Configured-build check that the MLIR experiment option defaults off."
+      },
+      {
+        "path": "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+        "state": "existing",
+        "role": "Optional-tool-gated minimal compute MLIR verifier CTest registration."
+      },
+      {
+        "path": "tests/fixtures/mlir/minimal_compute_builtin_module.mlir",
+        "state": "existing",
+        "role": "Deterministic builtin-MLIR verifier input for optional mlir-opt smoke coverage."
+      }
+    ]
+  },
+  "eligibleFixtures": [
+    {
+      "path": "tests/fixtures/MinimalComputeShader.cgl",
+      "experimentSlice": "minimal-compute-entry",
+      "loweringStatus": "eligible-report-only",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "compute",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "empty-resource-facts",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "void_entry_point"
+          ]
+        },
+        "controlFlowCategory": "straight-line"
+      },
+      "boundaryFactCoverage": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "return_statement"
+        ],
+        "entryPointFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ]
+      },
+      "requiredPreservation": [
+        "source_file",
+        "source_map_debug_contracts",
+        "compute_stage",
+        "entry_point",
+        "local_size",
+        "target_independent_resource_metadata",
+        "return_statement"
+      ]
+    },
+    {
+      "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "experimentSlice": "straight-line-scalar-expressions",
+      "loweringStatus": "eligible-report-only",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics"
+      ],
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "compute",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "local_variable_declarations",
+            "scalar_expression_statements",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "empty-resource-facts",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "void_entry_point",
+            "float_scalar",
+            "int_scalar",
+            "bool_scalar",
+            "scalar_literals",
+            "constructor_cast_expression",
+            "binary_expression_result_types",
+            "comparison_expression_result_type"
+          ]
+        },
+        "controlFlowCategory": "straight-line"
+      },
+      "boundaryFactCoverage": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "return_statement"
+        ],
+        "entryPointFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "int_scalar",
+          "bool_scalar",
+          "scalar_literals",
+          "constructor_cast_expression",
+          "binary_expression_result_types",
+          "comparison_expression_result_type"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.int_scalar",
+          "typeFacts.bool_scalar",
+          "typeFacts.scalar_literals",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.binary_expression_result_types",
+          "typeFacts.comparison_expression_result_type",
+          "resourceFacts.localSize"
+        ]
+      },
+      "requiredPreservation": [
+        "source_file",
+        "source_map_debug_contracts",
+        "compute_stage",
+        "entry_point",
+        "scalar_types",
+        "target_independent_resource_metadata",
+        "scalar_expression_statements",
+        "return_statement"
+      ]
+    },
+    {
+      "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+      "experimentSlice": "single-storage-buffer-resource",
+      "loweringStatus": "eligible-report-only",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics",
+        "resources_layouts_and_storage"
+      ],
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "compute",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "storage_buffer_declaration",
+            "local_variable_declarations",
+            "scalar_expression_statements",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "single-storage-buffer-binding",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "void_entry_point",
+            "float_scalar",
+            "float_pointer_storage_buffer",
+            "storage_buffer_element_type",
+            "binary_expression_result_types"
+          ]
+        },
+        "controlFlowCategory": "straight-line"
+      },
+      "boundaryFactCoverage": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "binary_expression_result_types"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.float_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.binary_expression_result_types",
+          "resourceFacts.localSize"
+        ]
+      },
+      "requiredPreservation": [
+        "source_file",
+        "source_map_debug_contracts",
+        "compute_stage",
+        "entry_point",
+        "descriptor_set_binding",
+        "target_independent_resource_metadata",
+        "storage_buffer_element_type",
+        "storage_buffer_write"
+      ]
+    },
+    {
+      "path": "tests/fixtures/IfComputeShader.cgl",
+      "experimentSlice": "single-structured-if-else",
+      "loweringStatus": "eligible-report-only",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics",
+        "resources_layouts_and_storage",
+        "control_flow_and_statements"
+      ],
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "compute",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "storage_buffer_declaration",
+            "local_variable_declarations",
+            "storage_buffer_read",
+            "if_statement",
+            "then_block_assignment",
+            "else_block_assignment",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "single-storage-buffer-binding",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "void_entry_point",
+            "float_scalar",
+            "float_pointer_storage_buffer",
+            "storage_buffer_element_type",
+            "comparison_expression_result_type",
+            "branch_condition_bool",
+            "assignment_expression_result_types",
+            "unary_expression_result_types"
+          ]
+        },
+        "controlFlowCategory": "structured-if-else"
+      },
+      "boundaryFactCoverage": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "storage_buffer_read",
+          "if_statement",
+          "then_block_assignment",
+          "else_block_assignment",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "comparison_expression_result_type",
+          "branch_condition_bool",
+          "assignment_expression_result_types",
+          "unary_expression_result_types"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.storage_buffer_read",
+          "sourceLocationFacts.if_statement",
+          "sourceLocationFacts.then_block_assignment",
+          "sourceLocationFacts.else_block_assignment",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.float_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.comparison_expression_result_type",
+          "typeFacts.branch_condition_bool",
+          "typeFacts.assignment_expression_result_types",
+          "typeFacts.unary_expression_result_types",
+          "resourceFacts.localSize"
+        ]
+      },
+      "requiredPreservation": [
+        "source_file",
+        "source_map_debug_contracts",
+        "compute_stage",
+        "entry_point",
+        "descriptor_set_binding",
+        "target_independent_resource_metadata",
+        "branch_condition_bool",
+        "then_else_statement_locations",
+        "storage_buffer_read_write"
+      ]
+    }
+  ],
+  "ineligibleFixtureFamilies": [
+    {
+      "id": "textures_samplers_images_and_intrinsics",
+      "reason": "Texture, sampler, image, and texture intrinsic lowering are not part of the fixture-limited real MLIR experiment."
+    },
+    {
+      "id": "descriptor_indexing_and_nonuniform",
+      "reason": "Descriptor arrays, dynamic indexing, and nonuniform metadata require target legalization facts first."
+    },
+    {
+      "id": "backend_policy_and_package_schema",
+      "reason": "Production backend policy, package schemas, and target legalization remain outside Milestone 7 experiment scope."
+    }
+  ],
+  "optionalToolGatedChecks": [
+    {
+      "name": "crossgl_mlir_experiment_object_target",
+      "kind": "cmake-target",
+      "requiresInstalledMlirToolchain": true,
+      "optionalToolGated": true,
+      "normalBuildRequired": false,
+      "gate": [
+        "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON",
+        "MLIR_FOUND=TRUE"
+      ],
+      "skipEvidence": {
+        "reportsOption": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL",
+        "reportsCMakePackage": "MLIR_FOUND",
+        "reportsTarget": "crossgl_mlir_experiment",
+        "skipWhenOptionOff": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=OFF; target crossgl_mlir_experiment not created",
+        "skipWhenMlirMissing": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON; MLIR_FOUND=FALSE; target crossgl_mlir_experiment not created"
+      },
+      "skipWhenUnavailable": "Configure reports that crossgl_mlir_experiment was not created."
+    },
+    {
+      "name": "cglc_mlir_experiment_minimal_compute_verifier",
+      "kind": "ctest",
+      "requiresInstalledMlirToolchain": true,
+      "optionalToolGated": true,
+      "normalBuildRequired": false,
+      "gate": [
+        "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON",
+        "MLIR_FOUND=TRUE",
+        "mlir-opt available",
+        "mlir-opt --version probe succeeds",
+        "tests/fixtures/mlir/minimal_compute_builtin_module.mlir"
+      ],
+      "skipEvidence": {
+        "reportsOption": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL",
+        "reportsCMakePackage": "MLIR_FOUND",
+        "reportsTarget": "crossgl_mlir_experiment",
+        "statusValues": [
+          "default-off",
+          "toolchain-unavailable"
+        ],
+        "skipWhenOptionOff": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=OFF; real MLIR verifier disabled by default",
+        "skipWhenMlirMissing": "MLIR_FOUND=FALSE",
+        "skipWhenTargetMissing": "target crossgl_mlir_experiment not created",
+        "skipWhenVerifierToolMissing": "mlir-opt not found",
+        "skipWhenVerifierToolProbeFails": "mlir-opt --version probe failed"
+      },
+      "evidenceRecord": {
+        "kind": "crossgl-mlir-optional-tool-evidence-v0",
+        "generatedPath": "mlir/optional_tool_evidence.v0.json",
+        "generatedBy": "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+        "checker": "tools/check_mlir_optional_tool_evidence.py",
+        "statusValues": [
+          "default-off",
+          "toolchain-unavailable",
+          "toolchain-available"
+        ],
+        "records": [
+          "CROSSGL_ENABLE_MLIR_EXPERIMENTAL",
+          "CROSSGL_ENABLE_MLIR_EXPERIMENTAL default",
+          "CROSSGL_ENABLE_MLIR_EXPERIMENTAL actual",
+          "MLIR_FOUND",
+          "target crossgl_mlir_experiment",
+          "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+          "mlir-opt discovery",
+          "default-off no mlir-opt probe proof",
+          "CTest skip labels and regex",
+          "structured verifier skip diagnostics",
+          "report-only source/resource catalog",
+          "source/resource/entrypoint preservation fields"
+        ],
+        "normalBuildRequired": false,
+        "productionLinked": false
+      },
+      "skipWhenUnavailable": "The deterministic real MLIR minimal compute verifier CTest reports default-off or toolchain-unavailable optional skips instead of failing normal builds."
+    },
+    {
+      "name": "manifest_and_policy_audits",
+      "kind": "report-only-ctest",
+      "requiresInstalledMlirToolchain": false,
+      "optionalToolGated": false,
+      "normalBuildRequired": false,
+      "gate": [
+        "Python 3"
+      ],
+      "skipWhenUnavailable": "Only skipped when Python-backed tests are not registered."
+    },
+    {
+      "name": "default_off_gate_cache_check",
+      "kind": "cmake-cache-check",
+      "requiresInstalledMlirToolchain": false,
+      "optionalToolGated": false,
+      "normalBuildRequired": false,
+      "gate": [
+        "configured build tree"
+      ],
+      "skipWhenUnavailable": "Not an MLIR toolchain probe; it fails only if the default flips on."
+    }
+  ],
+  "docReferences": [
+    {
+      "path": "experimental/mlir/CrossGLMLIRExperiment.cpp",
+      "mustMention": [
+        "experimental/mlir/experiment_manifest.json",
+        "experimental/mlir/experiment_gate_followup.v0.json",
+        "experimental/mlir/boundary_inventory.v0.json",
+        "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+        "canonical HIR dialect catalog names",
+        "hir.*",
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "sourceInventory",
+        "fixtureInventory",
+        "parityRequirements",
+        "loweringEvidence",
+        "sourceMapDebugPreservation",
+        "boundaryFactCoverage",
+        "sourceMapDebugFacts",
+        "tools/check_mlir_source_resource_catalog.py",
+        "pseudoMlirFilesMustNotBeRealMlirFiles",
+        "productionPackageMustExclude",
+        "releaseBehaviorGate",
+        "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=OFF"
+      ]
+    },
+    {
+      "path": "experimental/mlir/boundary_inventory.v0.json",
+      "mustMention": [
+        "crossgl-mlir-dialect-boundary-v0",
+        "C++ HIR",
+        "canonical semantic IR",
+        "hir.*",
+        "crossgl.*",
+        "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON",
+        "CROSSGL_ENABLE_MLIR_EXPERIMENTAL",
+        "experimental/mlir/fixture_inventory.json",
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "sourceInventory",
+        "separationRules",
+        "productionIsolation",
+        "boundaryFactCoverage",
+        "sourceMapDebugFacts",
+        "tools/check_mlir_source_resource_catalog.py",
+        "source_map_debug_contracts",
+        "releaseBehaviorGate",
+        "LLVM IR must not become CrossGL's canonical shader IR"
+      ]
+    },
+    {
+      "path": "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+      "mustMention": [
+        "experimental/mlir/experiment_manifest.json",
+        "experimental/mlir/experiment_gate_followup.v0.json",
+        "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+        "canonical HIR dialect catalog names",
+        "hir.*",
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "sourceInventory",
+        "fixtureInventory",
+        "parityRequirements",
+        "loweringEvidence",
+        "boundaryFactCoverage",
+        "tools/check_mlir_source_resource_catalog.py",
+        "pseudoMlirFilesMustNotBeRealMlirFiles",
+        "productionPackageMustExclude",
+        "releaseBehaviorGate",
+        "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=OFF"
+      ]
+    },
+    {
+      "path": "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+      "mustMention": [
+        "experimental/mlir/experiment_manifest.json",
+        "experimental/mlir/experiment_gate_followup.v0.json",
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "sourceInventory",
+        "tools/check_mlir_source_resource_catalog.py",
+        "pseudoMlirFilesMustNotBeRealMlirFiles",
+        "releaseBehaviorGate",
+        "source-map/debug contracts",
+        "native backend parity",
+        "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON",
+        "LLVM IR must not be CrossGL's canonical shader IR"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "severity": "note",
+      "code": "runtime.example.future_schema",
+      "message": "future schema fixture"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+$.records[3].packageArtifactPath: expected nativeArtifactDescriptor path to match $.records[2].packageArtifactPath for package 'packages/InventoryShader.cglb'

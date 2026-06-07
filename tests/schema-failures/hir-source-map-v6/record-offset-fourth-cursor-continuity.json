@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 6,
+  "filters": {
+    "activeCount": 0
+  },
+  "pagination": {
+    "activeCount": 0,
+    "expressionOffset": 0,
+    "typeOffset": 0,
+    "expressionTotalCount": 6,
+    "expressionEmittedCount": 0,
+    "expressionHasMore": true,
+    "expressionNextOffset": 0,
+    "typeTotalCount": 0,
+    "typeEmittedCount": 0,
+    "typeHasMore": false,
+    "typeNextOffset": 0
+  },
+  "categoryCounts": {
+    "expressionTotalCount": 6,
+    "typeTotalCount": 0,
+    "recordTotalCount": 6,
+    "expressionKinds": [
+      {
+        "name": "literal",
+        "count": 6
+      }
+    ],
+    "statementKinds": [
+      {
+        "name": "decl",
+        "count": 6
+      }
+    ],
+    "typeOwnerKinds": []
+  },
+  "records": {
+    "enabled": true,
+    "activeCount": 2,
+    "offset": 2,
+    "totalCount": 6,
+    "emittedCount": 4,
+    "hasMore": false,
+    "nextOffset": 6,
+    "items": [
+      {
+        "cursor": 2,
+        "recordKind": "expression",
+        "expression": {
+          "index": 2,
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "function": "main",
+          "statementKind": "decl",
+          "kind": "literal",
+          "value": "3.0",
+          "type": "float",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 3,
+            "column": 1,
+            "offset": 8,
+            "length": 3,
+            "endLine": 3,
+            "endColumn": 4,
+            "endOffset": 11
+          }
+        }
+      },
+      {
+        "cursor": 3,
+        "recordKind": "expression",
+        "expression": {
+          "index": 3,
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "function": "main",
+          "statementKind": "decl",
+          "kind": "literal",
+          "value": "4.0",
+          "type": "float",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 4,
+            "column": 1,
+            "offset": 12,
+            "length": 3,
+            "endLine": 4,
+            "endColumn": 4,
+            "endOffset": 15
+          }
+        }
+      },
+      {
+        "cursor": 4,
+        "recordKind": "expression",
+        "expression": {
+          "index": 4,
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "function": "main",
+          "statementKind": "decl",
+          "kind": "literal",
+          "value": "5.0",
+          "type": "float",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 5,
+            "column": 1,
+            "offset": 16,
+            "length": 3,
+            "endLine": 5,
+            "endColumn": 4,
+            "endOffset": 19
+          }
+        }
+      },
+      {
+        "cursor": 6,
+        "recordKind": "expression",
+        "expression": {
+          "index": 5,
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "function": "main",
+          "statementKind": "decl",
+          "kind": "literal",
+          "value": "6.0",
+          "type": "float",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 6,
+            "column": 1,
+            "offset": 20,
+            "length": 3,
+            "endLine": 6,
+            "endColumn": 4,
+            "endOffset": 23
+          }
+        }
+      }
+    ]
+  },
+  "hirSourceLocations": {
+    "expressionCount": 0,
+    "expressionWithLocationCount": 0,
+    "typeCount": 0,
+    "typeWithLocationCount": 0,
+    "expressions": [],
+    "types": []
+  }
+}

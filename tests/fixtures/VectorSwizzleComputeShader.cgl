@@ -1,0 +1,17 @@
+shader VectorSwizzleComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    void main() {
+      vec4 color = vec4(values[0], values[1], values[2], values[3]);
+      vec3 rgb = color.rgb;
+      vec2 rg = color.xy;
+      vec4 rgba = color.rgba;
+      values[0] = rgb.z;
+      values[1] = rg.y;
+      values[2] = rgba.b;
+      return;
+    }
+  }
+}

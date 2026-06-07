@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "values0",
+      "kind": "buffer",
+      "type": "float"
+    },
+    {
+      "stage": "compute",
+      "name": "values1",
+      "kind": "buffer",
+      "type": "float"
+    },
+    {
+      "stage": "fragment",
+      "name": "values2",
+      "kind": "buffer",
+      "type": "float"
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values0",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav"
+    },
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values1",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav"
+    },
+    {
+      "target": "directx",
+      "stage": "fragment",
+      "entryPoint": "compute_main",
+      "name": "values2",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav"
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

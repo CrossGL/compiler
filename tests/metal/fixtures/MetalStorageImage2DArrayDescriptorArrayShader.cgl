@@ -1,0 +1,28 @@
+shader MetalStorageImage2DArrayDescriptorArrayShader {
+  const int ATLAS_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 4, local_size_y = 4, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2DArray colorAtlases[ATLAS_COUNT];
+    layout(set = 0, binding = 2) uniform iimage2DArray labelAtlases[ATLAS_COUNT];
+    layout(set = 0, binding = 4) uniform uimage2DArray maskAtlases[ATLAS_COUNT];
+    layout(set = 0, binding = 6) buffer int* coordinates;
+
+    void main() {
+      ivec2 pixel = ivec2(coordinates[0], coordinates[1]);
+      int layer = coordinates[2];
+      int descriptor = coordinates[3];
+      ivec3 atlasPixel = ivec3(pixel, layer);
+
+      vec4 color = imageLoad(colorAtlases[descriptor], atlasPixel);
+      imageStore(colorAtlases[1], atlasPixel, color);
+
+      ivec4 label = imageLoad(labelAtlases[0], atlasPixel);
+      imageStore(labelAtlases[descriptor], atlasPixel, label);
+
+      uvec4 mask = imageLoad(maskAtlases[descriptor], atlasPixel);
+      imageStore(maskAtlases[0], atlasPixel, mask);
+      return;
+    }
+  }
+}

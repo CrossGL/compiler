@@ -1,0 +1,1 @@
+$.categoryCounts.statementKinds: expected statement kind category counts to match complete source-location records

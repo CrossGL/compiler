@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "language_spec": {
+    "path": "snapshot.json",
+    "schema_version": 0,
+    "sha256": "68d5dde5d84fb39f2942a041a4f5b791c98acaa8e8cec958ffd7ff722a51322b"
+  },
+  "accepted_contracts": {
+    "module_stages_and_entry_points": {
+      "description": "Fixture stage group.",
+      "spec_refs": [
+        "/language/stages"
+      ],
+      "fixtures": [
+        "compiler/tests/fixtures/MinimalComputeShader.cgl"
+      ]
+    },
+    "crosstl_examples_and_backend_policy": {
+      "description": "Fixture example group.",
+      "spec_refs": [
+        "/notes",
+        "/source/files"
+      ],
+      "fixtures": [
+        "translator/examples/graphics/SimpleShader.cgl"
+      ]
+    }
+  },
+  "negative_contracts": {
+    "spec_error": {
+      "description": "Fixture negative group.",
+      "cases": [
+        {
+          "classification": "spec.error",
+          "feature": "module_stages_and_entry_points",
+          "spec_refs": [
+            "/language/stages"
+          ],
+          "compatibility_anchors": [
+            "sema.no-stage-or-entry"
+          ]
+        }
+      ]
+    }
+  }
+}

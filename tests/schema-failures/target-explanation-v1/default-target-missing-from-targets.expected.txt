@@ -1,0 +1,1 @@
+$.defaultTarget: expected target to appear in targets

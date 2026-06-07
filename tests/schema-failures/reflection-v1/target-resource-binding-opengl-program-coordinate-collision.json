@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "opengl",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "values0",
+      "kind": "buffer",
+      "type": "float",
+      "set": 0,
+      "binding": 1024
+    },
+    {
+      "stage": "compute",
+      "name": "values1",
+      "kind": "buffer",
+      "type": "float",
+      "set": 1,
+      "binding": 0
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "opengl",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values0",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "shader-storage",
+      "abi": "programResourceBinding",
+      "bindingClass": "storage-buffer",
+      "set": 0,
+      "binding": 1024,
+      "argumentIndex": 1024
+    },
+    {
+      "target": "opengl",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values1",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "shader-storage",
+      "abi": "programResourceBinding",
+      "bindingClass": "storage-buffer",
+      "set": 1,
+      "binding": 0,
+      "argumentIndex": 1024
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

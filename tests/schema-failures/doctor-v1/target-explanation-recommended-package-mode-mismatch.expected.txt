@@ -1,0 +1,1 @@
+$.targetExplanation.recommendedPackageMode: expected recommended package mode 'source-package', got 'native'

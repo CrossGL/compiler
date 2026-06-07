@@ -1,0 +1,1 @@
+$.diagnosticCounts.warning: expected warning diagnostic count 1, got 0

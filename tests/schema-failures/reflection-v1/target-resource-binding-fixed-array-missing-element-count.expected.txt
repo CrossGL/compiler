@@ -1,0 +1,1 @@
+$.targetResourceBindings[0].arrayDimensions[0].elementCount: fixed arrays require elementCount

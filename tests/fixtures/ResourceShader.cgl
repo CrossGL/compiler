@@ -1,0 +1,34 @@
+shader ResourceShader {
+    const int TILE_SIZE = 16;
+    const int SELECTED_TILE = true ? TILE_SIZE : 8;
+
+    struct Params {
+        float value;
+    }
+
+    compute {
+        layout(local_size_x = TILE_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+        layout(set = 0, binding = 2) uniform Params params;
+        layout(set = 0, binding = 5) buffer float* values;
+        layout(set = 0, binding = 7) uniform sampler2D shadowMap;
+        layout(set = 0, binding = 8) sampler linearSampler;
+        shared float tile[TILE_SIZE];
+
+        void main() {
+            vec4 sampled = texture(shadowMap, linearSampler, vec2(0.25, 0.5));
+            float x = values[0] + params.value + sampled.r;
+            if (x > 1.0) {
+                x = x + 1.0;
+            } else {
+                x = 0.0;
+            }
+            float selected = x > 0.0 ? x : 0.0;
+            x = selected;
+            for (int i = 0; i < TILE_SIZE; i++) {
+                x = x + 1.0;
+            }
+            return;
+        }
+    }
+}

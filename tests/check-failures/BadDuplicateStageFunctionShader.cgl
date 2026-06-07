@@ -1,0 +1,11 @@
+shader BadDuplicateStageFunctionShader {
+  compute {
+    void main() {
+      return;
+    }
+
+    void main() {
+      return;
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-release-publish-target-v1.schema.json",
+  "title": "CrossGL Package Release Publish Target Descriptor JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "targetKind",
+    "enabled"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "targetKind": {
+          "const": "local-filesystem"
+        }
+      },
+      "required": [
+        "targetPath"
+      ]
+    },
+    {
+      "properties": {
+        "targetKind": {
+          "const": "gcs"
+        }
+      },
+      "required": [
+        "bucket",
+        "prefix",
+        "credentialsEnv"
+      ]
+    }
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "targetKind": {
+      "type": "string",
+      "enum": [
+        "local-filesystem",
+        "gcs"
+      ]
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "targetPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bucket": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prefix": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z]:).+$"
+    },
+    "credentialsEnv": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

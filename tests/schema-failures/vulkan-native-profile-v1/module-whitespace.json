@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "module": "Semantic Fixture",
+  "target": "vulkan",
+  "api": "vulkan",
+  "profile": {
+    "name": "vulkan-prototype",
+    "vulkanVersion": "1.2",
+    "spirvVersion": "1.0"
+  },
+  "generator": "CrossGL Vulkan prototype backend",
+  "artifacts": {
+    "backendAssembly": "backend/vulkan/Semantic Fixture.spvasm",
+    "nativeBinary": "backend/vulkan/Semantic Fixture.spv"
+  },
+  "debug": {
+    "binaryFormat": "SPIR-V",
+    "assemblyFormat": "SPIR-V assembly",
+    "validationTargetEnv": "vulkan1.2"
+  }
+}

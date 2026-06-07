@@ -1,0 +1,1 @@
+$.cloudUpload.liveCloudUploadAllowed: must be false unless live-cloud mode is recorded

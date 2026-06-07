@@ -1,0 +1,1 @@
+$.diagnostics[0].location.file: expected non-empty file for non-empty source span

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "build/SemanticFixture.cglb",
+  "requestedExists": true,
+  "publication": {
+    "state": "published",
+    "requestedPath": "build/SemanticFixture.cglb",
+    "sidecarKind": null,
+    "sidecarToken": null,
+    "sidecarAttempt": null,
+    "siblingSidecarCount": 2,
+    "siblingSidecars": [
+      {
+        "path": "build/.SemanticFixture.cglb.previous-alpha-0",
+        "kind": "previous",
+        "token": "alpha",
+        "attempt": 0,
+        "directory": true
+      },
+      {
+        "path": "build/.SemanticFixture.cglb.previous-alpha-0",
+        "kind": "previous",
+        "token": "alpha",
+        "attempt": 1,
+        "directory": true
+      }
+    ]
+  }
+}

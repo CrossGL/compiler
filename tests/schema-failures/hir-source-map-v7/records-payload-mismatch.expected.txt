@@ -1,0 +1,1 @@
+$.records.items[1]: expected cursor 1 to match statement source-location index 0

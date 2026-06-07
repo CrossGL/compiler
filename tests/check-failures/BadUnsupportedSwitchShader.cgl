@@ -1,0 +1,16 @@
+shader BadUnsupportedSwitch {
+  compute {
+    void main() {
+      int value = 0;
+      switch (value) {
+        case 0:
+          value = 1;
+          break;
+        default:
+          value = 2;
+          break;
+      }
+      return;
+    }
+  }
+}

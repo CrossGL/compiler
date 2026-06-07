@@ -1,0 +1,1 @@
+$.summary.nativeBinaryStatus: directx package summary requires nativeBinaryStatus

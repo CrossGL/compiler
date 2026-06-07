@@ -1,0 +1,10 @@
+shader BadArrayTextureCoordinatesShader {
+  compute {
+    uniform sampler2DArray atlas;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureLod(atlas, linearSampler, vec2(0.25, 0.5), 0.0);
+      return;
+    }
+  }
+}

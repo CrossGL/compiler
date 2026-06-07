@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[2].weightsNormalized: expected static-non-normalized normalized flag False, got True

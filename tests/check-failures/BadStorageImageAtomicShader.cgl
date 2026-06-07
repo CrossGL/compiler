@@ -1,0 +1,20 @@
+shader BadStorageImageAtomicShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0, format = rgba32f) readwrite uniform image2D floatImage;
+    layout(set = 0, binding = 1, format = rgba32i) readwrite uniform iimage2D wrongFormat;
+    layout(set = 0, binding = 2, format = r32i) readonly uniform iimage2D readOnlyCounter;
+    layout(set = 0, binding = 3, format = r32i) readwrite uniform iimage2D signedCounter;
+    layout(set = 0, binding = 4, format = r32ui) readwrite uniform uimage2D unsignedCounter;
+
+    void main() {
+      ivec2 pixel = ivec2(0, 0);
+      imageAtomicAdd(floatImage, pixel, 1);
+      imageAtomicAdd(wrongFormat, pixel, 1);
+      imageAtomicExchange(readOnlyCounter, pixel, 1);
+      imageAtomicAdd(signedCounter, ivec3(pixel, 0), 1);
+      imageAtomicExchange(unsignedCounter, pixel, 1);
+      return;
+    }
+  }
+}

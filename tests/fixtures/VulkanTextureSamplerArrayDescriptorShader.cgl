@@ -1,0 +1,11 @@
+shader VulkanTextureSamplerArrayDescriptorShader {
+  const int MAP_COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 2) uniform sampler2D shadowMaps[MAP_COUNT];
+    layout(set = 0, binding = 5) sampler comparisonSamplers[2];
+    void main() {
+      return;
+    }
+  }
+}

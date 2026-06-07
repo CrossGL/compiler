@@ -1,0 +1,9 @@
+shader BadLocalArraySizeShader {
+  compute {
+    void main() {
+      float runtimeWeights[];
+      float unresolvedWeights[COUNT];
+      return;
+    }
+  }
+}

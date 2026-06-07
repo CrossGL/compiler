@@ -1,0 +1,47 @@
+shader MetalGraphicsVaryingPackShader {
+    struct PackedVertex {
+        vec3 position;
+        vec3 normal;
+        vec2 texCoord;
+        float weight;
+    }
+
+    struct VertexPayload {
+        vec2 uv;
+        vec4 position;
+        vec3 lighting;
+        float weight;
+    }
+
+    struct FragmentPayload {
+        vec2 uv;
+        vec3 lighting;
+        float weight;
+    }
+
+    struct ShadedTarget {
+        vec4 shaded;
+    }
+
+    vertex {
+        VertexPayload main(PackedVertex input) {
+            VertexPayload output;
+            output.uv = input.texCoord;
+            output.position = vec4(input.position, 1.0);
+            output.lighting = input.normal * input.weight + vec3(0.1, 0.2, 0.3);
+            output.weight = input.weight;
+            return output;
+        }
+    }
+
+    fragment {
+        ShadedTarget main(FragmentPayload input) {
+            ShadedTarget output;
+            output.shaded = vec4(input.lighting.x * input.uv.x,
+                                 input.lighting.y * input.uv.y,
+                                 input.lighting.z,
+                                 input.weight);
+            return output;
+        }
+    }
+}

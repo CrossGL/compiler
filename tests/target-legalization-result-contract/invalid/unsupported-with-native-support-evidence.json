@@ -1,0 +1,98 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "opengl",
+    "targetProfile": {
+      "target": "opengl",
+      "profile": "opengl.v0.unsupported",
+      "packageMode": "unsupported"
+    },
+    "packageMode": "unsupported",
+    "packageDecisionProvenance": "unsupported-source-form",
+    "supportStatus": "unsupported",
+    "moduleSupported": false,
+    "requiredCapabilities": [
+      "opengl.backend.glsl-lowering",
+      "opengl.feature.shadow-cube-lod"
+    ],
+    "missingCapabilities": [
+      "opengl.feature.shadow-cube-lod"
+    ],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.opengl.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
+    "diagnostics": [
+      {
+        "code": "target.unsupported-shadow-cube-lod",
+        "severity": "error",
+        "message": "OpenGL v0 cannot legalize shadow cube LOD sampling.",
+        "target": "opengl",
+        "missingCapabilities": [
+          "opengl.feature.shadow-cube-lod"
+        ],
+        "evidenceIds": [
+          "target-legalization.v1.opengl.diagnostic.unsupported-shadow-lod"
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "id": "shadow-cube-lod-rewrite",
+        "order": 0,
+        "status": "blocked",
+        "description": "No semantics-preserving v0 rewrite is available.",
+        "evidenceIds": [
+          "target-legalization.v1.opengl.rewrite.blocked"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "unsupported",
+      "facts": [
+        {
+          "id": "sampler.shadow-cube-lod",
+          "kind": "extension",
+          "status": "missing",
+          "target": "opengl",
+          "evidenceIds": [
+            "target-legalization.v1.opengl.abi.unsupported"
+          ]
+        }
+      ],
+      "evidenceIds": [
+        "target-legalization.v1.opengl.abi.unsupported"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.opengl.resource-bindings.empty"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.opengl.abi.unsupported",
+      "target-legalization.v1.opengl.decision",
+      "target-legalization.v1.opengl.diagnostic.unsupported-shadow-lod",
+      "target-legalization.v1.opengl.package-mode.native",
+      "target-legalization.v1.opengl.package-mode.unsupported",
+      "target-legalization.v1.opengl.package-provenance.unsupported-source-form",
+      "target-legalization.v1.opengl.resource-bindings.empty",
+      "target-legalization.v1.opengl.rewrite.blocked",
+      "target-legalization.v1.opengl.state.rejected",
+      "target-legalization.v1.opengl.support.native",
+      "target-legalization.v1.opengl.support.unsupported",
+      "target-legalization.v1.opengl.tool-requirements.empty"
+    ]
+  }
+}

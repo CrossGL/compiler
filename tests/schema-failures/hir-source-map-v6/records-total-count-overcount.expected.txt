@@ -1,0 +1,1 @@
+$.records.totalCount: expected $.categoryCounts.recordTotalCount 2, got 3

@@ -1,0 +1,1 @@
+$.publication.sidecarKind: expected null when published

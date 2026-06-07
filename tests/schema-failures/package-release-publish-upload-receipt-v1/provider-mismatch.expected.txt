@@ -1,0 +1,1 @@
+$.attempts[0].provider: expected mock provider for mock upload

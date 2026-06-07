@@ -1,0 +1,1 @@
+$.targetPath: expected empty path for gcs target

@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.languageFeatureReport",
+  "module": {
+    "moduleId": "ResourceShader",
+    "sourcePath": "tests/fixtures/ResourceShader.cgl",
+    "sourceSha256": "9213f2331dec7747d0e4bea92b083bb3bd9c4e30238d59b943fe49f33b525038",
+    "stageEntryPoints": [
+      {
+        "stage": "compute",
+        "entryPoint": "main"
+      }
+    ]
+  },
+  "language": {
+    "family": "CrossGL",
+    "version": "v0",
+    "nativeProfile": "native-v0",
+    "compatibilityContract": "tools/cross_repo_language_contract.json"
+  },
+  "crossTLSnapshotSeal": {
+    "snapshotId": "crosstl-frontend-language-spec-v0",
+    "snapshotPath": "docs/language/crosstl-frontend-language-spec-v0.json",
+    "snapshotSha256": "7d19829365f76febad6313cf309d514d26ee8b1e3698110d576ac843f0419a04",
+    "snapshotSchemaVersion": 0
+  },
+  "compatibilityBucketSummary": {
+    "cross-tl-inventory-only": 0,
+    "accepted-source": 0,
+    "package-supported": 0,
+    "compatibility-only": 0,
+    "spec.unsupported-for-native-v0": 0,
+    "spec.deprecated": 0,
+    "spec.error": 0,
+    "target.unsupported": 0
+  },
+  "targetFeatureGates": [
+    {
+      "target": "vulkan",
+      "targetVersion": "v0",
+      "packageMode": "source",
+      "gateId": "target.resource-arrays",
+      "featureFamily": "resources",
+      "status": "planned-failure",
+      "requiredCapabilities": [
+        "vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
+      ],
+      "diagnosticCodes": [],
+      "evidenceIds": [
+        "compatibility:target.resource-arrays",
+        "target-contract:vulkan.package-mode.native",
+        "target-contract:vulkan.package-support",
+        "target-contract:vulkan.support.unsupported"
+      ]
+    }
+  ],
+  "resourceMemoryLayoutFeatures": {
+    "resources": [],
+    "memory": [],
+    "layout": []
+  },
+  "facts": {
+    "unsupported": [],
+    "deprecated": [],
+    "error": []
+  },
+  "evidence": [
+    {
+      "id": "compatibility:target.resource-arrays",
+      "kind": "compatibility",
+      "path": "tools/cross_repo_language_contract.json",
+      "anchor": "target.resource-arrays"
+    },
+    {
+      "id": "target-contract:vulkan.package-support",
+      "kind": "target-contract",
+      "path": "docs/target-capability-registry-v1.json",
+      "anchor": "vulkan"
+    },
+    {
+      "id": "target-contract:vulkan.package-mode.native",
+      "kind": "target-contract",
+      "path": "docs/target-capability-registry-v1.json",
+      "anchor": "vulkan"
+    },
+    {
+      "id": "target-contract:vulkan.support.unsupported",
+      "kind": "target-contract",
+      "path": "docs/target-capability-registry-v1.json",
+      "anchor": "vulkan"
+    }
+  ],
+  "generation": {
+    "tool": "schema-fixture",
+    "mode": "report-only",
+    "command": [
+      "not-emitted-by-cglc"
+    ]
+  }
+}

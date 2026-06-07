@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "rootPath": "packages",
+  "setPath": "maintenance/package-set.json",
+  "success": true,
+  "matches": true,
+  "scannedPackageCount": 2,
+  "setPackageCount": 1,
+  "missingFromSetCount": 1,
+  "extraInSetCount": 0,
+  "scannedPackages": [
+    "packages/alpha.crossgl-package.json",
+    "packages/beta.crossgl-package.json"
+  ],
+  "setPackages": [
+    "packages/alpha.crossgl-package.json"
+  ],
+  "missingFromSet": [
+    "packages/beta.crossgl-package.json"
+  ],
+  "extraInSet": [],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

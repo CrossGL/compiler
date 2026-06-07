@@ -1,0 +1,1 @@
+$.completedAttemptCount: expected completed attempt length 1, got 0

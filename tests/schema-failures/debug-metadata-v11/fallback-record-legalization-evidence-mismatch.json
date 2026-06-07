@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 11,
+  "targetDecision": {
+    "requestedTarget": "directx",
+    "selectedTarget": "directx",
+    "selectionReason": "explicit-target",
+    "selectedTargetNativeImplemented": false,
+    "selectedTargetSourcePackageSupported": true,
+    "selectedTargetPackageBuildSupported": true,
+    "selectedTargetPackageMode": "source-package",
+    "selectedTargetMissingCapabilityCount": 0,
+    "selectedTargetMissingCapabilities": [],
+    "selectedTargetLegalizationCoreEvidenceIds": [
+      "target-legalization.v1.directx.decision",
+      "target-legalization.v1.directx.state.legalized",
+      "target-legalization.v1.directx.support.source-package",
+      "target-legalization.v1.directx.package-mode.source-package",
+      "target-legalization.v1.directx.package-provenance.source-package-only",
+      "target-legalization.v1.directx.package-reason.source-package-available"
+    ],
+    "selectedTargetMissingCapabilityGroups": [],
+    "selectedTargetDiagnosticCount": 0,
+    "diagnostics": [],
+    "viableTargets": [
+      "vulkan",
+      "directx",
+      "opengl"
+    ],
+    "fallbackTargets": [
+      "vulkan",
+      "opengl"
+    ],
+    "fallbackTargetRecordCount": 2,
+    "fallbackTargetRecords": [
+      {
+        "rank": 1,
+        "target": "vulkan",
+        "packageMode": "native",
+        "rankReason": "native-package-available",
+        "nativeImplemented": true,
+        "sourcePackageSupported": false,
+        "packageBuildSupported": true,
+        "missingCapabilityCount": 0,
+        "missingCapabilities": [],
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.opengl.decision"
+        ],
+        "missingCapabilityGroups": []
+      },
+      {
+        "rank": 2,
+        "target": "opengl",
+        "packageMode": "source-package",
+        "rankReason": "source-package-available",
+        "nativeImplemented": false,
+        "sourcePackageSupported": true,
+        "packageBuildSupported": true,
+        "missingCapabilityCount": 0,
+        "missingCapabilities": [],
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.opengl.decision",
+          "target-legalization.v1.opengl.state.legalized",
+          "target-legalization.v1.opengl.support.source-package",
+          "target-legalization.v1.opengl.package-mode.source-package",
+          "target-legalization.v1.opengl.package-provenance.source-package-only",
+          "target-legalization.v1.opengl.package-reason.source-package-available"
+        ],
+        "missingCapabilityGroups": []
+      }
+    ],
+    "nonViableTargets": []
+  },
+  "targetCapabilities": {
+    "defaultTarget": "vulkan",
+    "summaries": [
+      {
+        "target": "vulkan",
+        "nativeImplemented": true,
+        "sourcePackageSupported": false,
+        "packageBuildSupported": true,
+        "packageMode": "native",
+        "packageDecisionReason": "native-package-available",
+        "packageRankScore": 0,
+        "requiredCapabilityCount": 0,
+        "missingCapabilityCount": 0,
+        "requiredCapabilities": [],
+        "missingCapabilities": [],
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.vulkan.decision",
+          "target-legalization.v1.vulkan.state.legalized",
+          "target-legalization.v1.vulkan.support.native",
+          "target-legalization.v1.vulkan.package-mode.native",
+          "target-legalization.v1.vulkan.package-provenance.native-package-available",
+          "target-legalization.v1.vulkan.package-reason.native-package-available"
+        ],
+        "requiredCapabilityGroups": [],
+        "missingCapabilityGroups": []
+      },
+      {
+        "target": "directx",
+        "nativeImplemented": false,
+        "sourcePackageSupported": true,
+        "packageBuildSupported": true,
+        "packageMode": "source-package",
+        "packageDecisionReason": "source-package-available",
+        "packageRankScore": 1,
+        "requiredCapabilityCount": 0,
+        "missingCapabilityCount": 0,
+        "requiredCapabilities": [],
+        "missingCapabilities": [],
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.directx.decision",
+          "target-legalization.v1.directx.state.legalized",
+          "target-legalization.v1.directx.support.source-package",
+          "target-legalization.v1.directx.package-mode.source-package",
+          "target-legalization.v1.directx.package-provenance.source-package-only",
+          "target-legalization.v1.directx.package-reason.source-package-available"
+        ],
+        "requiredCapabilityGroups": [],
+        "missingCapabilityGroups": []
+      },
+      {
+        "target": "opengl",
+        "nativeImplemented": false,
+        "sourcePackageSupported": true,
+        "packageBuildSupported": true,
+        "packageMode": "source-package",
+        "packageDecisionReason": "source-package-available",
+        "packageRankScore": 1,
+        "requiredCapabilityCount": 0,
+        "missingCapabilityCount": 0,
+        "requiredCapabilities": [],
+        "missingCapabilities": [],
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.opengl.decision",
+          "target-legalization.v1.opengl.state.legalized",
+          "target-legalization.v1.opengl.support.source-package",
+          "target-legalization.v1.opengl.package-mode.source-package",
+          "target-legalization.v1.opengl.package-provenance.source-package-only",
+          "target-legalization.v1.opengl.package-reason.source-package-available"
+        ],
+        "requiredCapabilityGroups": [],
+        "missingCapabilityGroups": []
+      }
+    ]
+  },
+  "hirSourceLocations": {
+    "expressionCount": 0,
+    "expressionWithLocationCount": 0,
+    "typeCount": 0,
+    "typeWithLocationCount": 0,
+    "statementCount": 1,
+    "statementWithLocationCount": 1,
+    "expressions": [],
+    "types": [],
+    "statements": [
+      {
+        "index": 0,
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "function": "main",
+        "statementKind": "decl",
+        "name": "value",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 12,
+          "endLine": 1,
+          "endColumn": 13,
+          "endOffset": 12
+        }
+      }
+    ]
+  },
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernelBuckets": {
+    "staticNormalized": [],
+    "staticNonNormalized": [],
+    "staticZeroSum": [],
+    "dynamic": []
+  },
+  "manualTextureCompareKernels": []
+}

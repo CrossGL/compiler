@@ -1,0 +1,7 @@
+shader BadParameterArraySizeShader {
+  compute {
+    void main(float weights[COUNT]) {
+      return;
+    }
+  }
+}

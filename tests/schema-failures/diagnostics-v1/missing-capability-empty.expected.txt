@@ -1,0 +1,1 @@
+$.diagnostics[0].missingCapabilities: expected at least 1 items

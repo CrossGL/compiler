@@ -1,0 +1,82 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "opengl",
+    "targetProfile": {
+      "target": "opengl",
+      "profile": "opengl.v0.source-package",
+      "packageMode": "source-package"
+    },
+    "packageMode": "source-package",
+    "packageDecisionProvenance": "source-package-only",
+    "supportStatus": "source-package",
+    "moduleSupported": true,
+    "requiredCapabilities": [
+      "opengl.backend.glsl-lowering",
+      "opengl.package.source-artifact"
+    ],
+    "missingCapabilities": [],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.opengl.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
+    "diagnostics": [
+      {
+        "code": "target.source-package-selected",
+        "severity": "info",
+        "message": "OpenGL v0 records source package support.",
+        "target": "opengl",
+        "missingCapabilities": [],
+        "evidenceIds": [
+          "target-legalization.v1.opengl.diagnostic.source-package"
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "id": "glsl-source-package-projection",
+        "order": 0,
+        "status": "not-required",
+        "description": "Source package emission does not require a v0 rewrite.",
+        "evidenceIds": [
+          "target-legalization.v1.opengl.rewrite.not-required"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "not-required",
+      "facts": [],
+      "evidenceIds": [
+        "target-legalization.v1.opengl.abi.not-required"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.opengl.resource-bindings.empty"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.opengl.abi.not-required",
+      "target-legalization.v1.opengl.decision",
+      "target-legalization.v1.opengl.diagnostic.source-package",
+      "target-legalization.v1.opengl.package-mode.source-package",
+      "target-legalization.v1.opengl.package-provenance.source-package-only",
+      "target-legalization.v1.opengl.resource-bindings.empty",
+      "target-legalization.v1.opengl.rewrite.not-required",
+      "target-legalization.v1.opengl.state.legalized",
+      "target-legalization.v1.opengl.support.source-package",
+      "target-legalization.v1.opengl.tool-requirements.empty"
+    ]
+  }
+}

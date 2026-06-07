@@ -1,0 +1,36 @@
+shader ZeroAlgebraOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer uint* unsignedValues;
+
+    int unknownInt(int value) {
+      return value + 1;
+    }
+
+    void main() {
+      int dynamicIndex = values[0];
+      uint unsignedIndex = unsignedValues[0];
+
+      int mulRightZero = dynamicIndex * 0;
+      int mulLeftZero = 0 * (dynamicIndex + 1);
+      int subtractSelf = dynamicIndex - dynamicIndex;
+      uint unsignedMulRightZero = unsignedIndex * 0u;
+      uint unsignedMulLeftZero = 0u * (unsignedIndex + 1u);
+      uint unsignedSubtractSelf = unsignedIndex - unsignedIndex;
+
+      int mulRightZeroUnknown = unknownInt(dynamicIndex) * 0;
+      int mulLeftZeroUnknown = 0 * unknownInt(dynamicIndex);
+      int subtractSelfUnknown =
+          unknownInt(dynamicIndex) - unknownInt(dynamicIndex);
+
+      values[1] = mulRightZero + mulLeftZero + subtractSelf;
+      unsignedValues[1] =
+          unsignedMulRightZero + unsignedMulLeftZero + unsignedSubtractSelf;
+      values[2] = mulRightZeroUnknown;
+      values[3] = mulLeftZeroUnknown;
+      values[4] = subtractSelfUnknown;
+      return;
+    }
+  }
+}

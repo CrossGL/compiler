@@ -1,0 +1,1 @@
+$.targetCapabilities.summaries[2].missingCapabilityCount: expected $.targetCapabilities.summaries[2].missingCapabilities length 1, got 0

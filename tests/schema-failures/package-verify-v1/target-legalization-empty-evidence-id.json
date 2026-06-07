@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "SemanticFixture.cglb",
+  "success": true,
+  "summary": {
+    "module": "SemanticFixture",
+    "target": "directx",
+    "nativeBinaryStatus": "planned",
+    "artifactCount": 2,
+    "debugArtifactsPresent": true,
+    "nativeArtifactDescriptor": {
+      "artifactPresent": false,
+      "descriptorExists": false,
+      "health": "not-present",
+      "path": null,
+      "optimizationLevel": null,
+      "optimizationEvidence": null
+    },
+    "targetLegalizationEvidence": {
+      "health": "ok",
+      "packageMode": "source-package",
+      "packageModeSource": "manifest.packageArtifactRequirements",
+      "manifestToolRequirements": {
+        "present": true,
+        "target": "directx",
+        "packageMode": "source-package",
+        "requiredToolCount": 0,
+        "missingToolCount": 0,
+        "requiredToolIds": [],
+        "missingToolIds": [],
+        "optionalNativeToolMissing": false,
+        "optionalNativeToolStatus": "not-required",
+        "toolRequirementEvidenceIds": [
+          "target-legalization.v1.directx.tool-requirements.empty"
+        ]
+      },
+      "debugMetadata": {
+        "artifactPresent": true,
+        "artifactExists": true,
+        "target": "directx",
+        "packageMode": "source-package",
+        "packageDecisionReason": "source-package-available",
+        "requiredToolCount": 0,
+        "missingToolCount": 0,
+        "requiredToolIds": [],
+        "missingToolIds": [],
+        "optionalNativeToolMissing": false,
+        "optionalNativeToolStatus": "not-required",
+        "toolRequirementEvidenceIds": [
+          "target-legalization.v1.directx.tool-requirements.empty"
+        ],
+        "legalizationCoreEvidenceIds": [
+          ""
+        ],
+        "packageArtifactRequirementEvidenceIds": null
+      },
+      "targetExplanation": {
+        "artifactPresent": false,
+        "artifactExists": false,
+        "target": null,
+        "packageMode": null,
+        "packageDecisionReason": null,
+        "requiredToolCount": null,
+        "missingToolCount": null,
+        "requiredToolIds": null,
+        "missingToolIds": null,
+        "optionalNativeToolMissing": null,
+        "optionalNativeToolStatus": null,
+        "toolRequirementEvidenceIds": null,
+        "legalizationCoreEvidenceIds": null,
+        "packageArtifactRequirementEvidenceIds": null
+      },
+      "packageArtifactRequirementEvidenceIds": [
+        "directx.backend.hlsl-lowering"
+      ],
+      "missingEvidence": [],
+      "checks": {
+        "manifestToolRequirementsTargetMatchesPackage": true,
+        "manifestToolRequirementsPackageModeMatchesRequirements": true,
+        "manifestToolRequirementEvidenceIdsPresent": true,
+        "debugMetadataTargetMatchesPackage": true,
+        "targetExplanationTargetMatchesPackage": null,
+        "debugMetadataPackageModeMatchesRequirements": true,
+        "targetExplanationPackageModeMatchesRequirements": null,
+        "debugMetadataToolRequirementsMatchManifest": true,
+        "targetExplanationToolRequirementsMatchManifest": null,
+        "packageArtifactRequirementEvidenceIdsPresent": true
+      }
+    }
+  },
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

@@ -1,0 +1,11 @@
+shader WarnUnknownStructFieldTypeShader {
+  struct Params {
+    Nope value;
+  }
+
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

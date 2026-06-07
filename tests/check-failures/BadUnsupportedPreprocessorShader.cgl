@@ -1,0 +1,8 @@
+#include "common.cgl"
+shader BadUnsupportedPreprocessor {
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

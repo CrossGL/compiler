@@ -1,0 +1,563 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-mlir-boundary-inventory-v0",
+  "status": "report-only",
+  "scope": "fixture-limited pseudo-to-real-MLIR boundary inventory",
+  "productionLinked": false,
+  "realMlirRequired": false,
+  "sourceAuthority": {
+    "canonicalSemanticIr": "C++ HIR",
+    "hirNamespace": "hir",
+    "operationPrefix": "hir.",
+    "blockedNamespace": "crossgl.",
+    "authorityAnchors": [
+      "include/crossgl/HIR/HIR.h",
+      "tools/cross_repo_language_contract.json",
+      "docs/language/crosstl-frontend-language-spec-v0.json"
+    ],
+    "fixtureInventory": "experimental/mlir/fixture_inventory.json"
+  },
+  "boundaryRules": {
+    "emissionStatus": "boundary-inventory-only",
+    "defaultOffGate": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=OFF",
+    "optionalToolGate": [
+      "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON",
+      "MLIR_FOUND=TRUE"
+    ],
+    "productionTargetsMustExclude": [
+      "crossgl_compiler",
+      "cglc"
+    ],
+    "mustNotChange": [
+      "production HIR",
+      "target legalization",
+      "package schemas",
+      "backend emitters",
+      "legacy pseudo-MLIR dumps"
+    ]
+  },
+  "operations": [
+    {
+      "operation": "hir.module",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Owns the admitted shader module and fixture source file provenance.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "package_artifact_contracts"
+      ],
+      "requiredFixtureFacts": [
+        "source_file",
+        "shader_module"
+      ]
+    },
+    {
+      "operation": "hir.compute_stage",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the compute stage boundary for admitted entry-point fixtures.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "compute_stage",
+        "stage"
+      ]
+    },
+    {
+      "operation": "hir.entry_point",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Names the canonical HIR entry function and void return type facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "entry_point",
+        "entryPoint"
+      ]
+    },
+    {
+      "operation": "hir.workgroup_size",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records the compute local size without becoming resource lowering.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "workgroup_size",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "resourceFacts.localSize"
+      ]
+    },
+    {
+      "operation": "hir.return",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries return statement source locations for admitted compute functions.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "return_statement"
+      ]
+    },
+    {
+      "operation": "hir.source_location_anchor",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Collects the common source-location provenance facts every admitted fixture must preserve before any real MLIR projection is accepted.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "source_map_debug_contracts"
+      ],
+      "requiredFixtureFacts": [
+        "source_file",
+        "shader_module",
+        "compute_stage",
+        "entry_point",
+        "layout_local_size",
+        "return_statement"
+      ]
+    },
+    {
+      "operation": "hir.scalar_declare",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents straight-line scalar local declarations and their source locations.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "local_variable_declarations",
+        "float_scalar"
+      ]
+    },
+    {
+      "operation": "hir.scalar_expr",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents admitted scalar arithmetic, casts, comparisons, unary expressions, and assignment result facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "float_scalar"
+      ]
+    },
+    {
+      "operation": "hir.scalar_compare",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Separates scalar comparison result parity for the straight-line scalar fixture from generic scalar expression coverage.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "scalar_expression_statements",
+        "comparison_expression_result_type"
+      ]
+    },
+    {
+      "operation": "hir.resource",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries set and binding descriptor facts for admitted resource fixtures.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "resource_bindings",
+        "package_artifact_contracts"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_declaration",
+        "resourceFacts.descriptors[].stage",
+        "resourceFacts.descriptors[].name",
+        "resourceFacts.descriptors[].kind",
+        "resourceFacts.descriptors[].set",
+        "resourceFacts.descriptors[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].stage",
+        "resourceFacts.targetIndependentResourceMetadata[].name",
+        "resourceFacts.targetIndependentResourceMetadata[].kind",
+        "resourceFacts.targetIndependentResourceMetadata[].set",
+        "resourceFacts.targetIndependentResourceMetadata[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the admitted single non-array float storage-buffer type and access facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_element_type",
+        "resourceFacts.storageBuffers[].name",
+        "resourceFacts.storageBuffers[].type",
+        "resourceFacts.storageBuffers[].elementType",
+        "resourceFacts.storageBuffers[].addressSpace",
+        "resourceFacts.storageBuffers[].writeAccess",
+        "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+        "resourceFacts.targetIndependentResourceMetadata[].elementType",
+        "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+        "resourceFacts.targetIndependentResourceMetadata[].access"
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.read",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents the structured-if fixture's storage-buffer read fact only.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_read"
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.write",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents admitted storage-buffer writes while preserving descriptor and source facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_write"
+      ]
+    },
+    {
+      "operation": "hir.if",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents the single admitted structured if/else branch and branch condition facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "control_flow_and_statements",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "if_statement",
+        "branch_condition_bool",
+        "then_block_assignment",
+        "else_block_assignment"
+      ]
+    }
+  ],
+  "fixtureBoundary": [
+    {
+      "path": "tests/fixtures/MinimalComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "empty-resource-facts",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.scalar_compare",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "empty-resource-facts",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "single-storage-buffer-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/IfComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.read",
+        "hir.storage_buffer.write",
+        "hir.if",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "single-storage-buffer-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    }
+  ],
+  "blockedFamilies": [
+    {
+      "id": "textures_samplers_images_and_intrinsics",
+      "reason": "No texture, sampler, image, or intrinsic op is admitted by this fixture-limited boundary."
+    },
+    {
+      "id": "descriptor_indexing_and_nonuniform",
+      "reason": "Descriptor arrays, dynamic indexing, and nonuniform facts require target legalization parity first."
+    },
+    {
+      "id": "crosstl_examples_and_backend_policy",
+      "reason": "Representative examples and backend policy fixtures remain outside this optional MLIR experiment."
+    }
+  ]
+}

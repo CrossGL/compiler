@@ -1,0 +1,48 @@
+{
+  "kind": "crosstl-support-matrix-reference",
+  "minimum_backend_test_counts": {
+    "cuda": 557,
+    "directx": 856,
+    "hip": 597,
+    "metal": 759,
+    "mojo": 619,
+    "opengl": 948,
+    "rust": 736,
+    "slang": 606,
+    "vulkan": 742
+  },
+  "required_backend_ids": [
+    "cuda",
+    "directx",
+    "hip",
+    "metal",
+    "mojo",
+    "opengl",
+    "rust",
+    "slang",
+    "vulkan"
+  ],
+  "source": {
+    "generator": "tools/support_matrix.py",
+    "path": "support/generated/support-matrix.json",
+    "schema_version": 1,
+    "sha256": "956d9809edfec6b9af477671f6aafc83dea911870f188f5b9c040a1d5567ceff"
+  },
+  "upstream": {
+    "additions": 12459,
+    "base_commit": "5ef2a1be97674737a5b7dc8bdbc04ba16c56375b",
+    "base_ref": "main",
+    "changed_crosstl_sources": [],
+    "changed_file_count": 63,
+    "deletions": 695,
+    "head_ref": "integration-fixes",
+    "head_commit": "19557a4b4e6ccca55622e819c795963d7f3a0a59",
+    "language_authority_impact": "no-sealed-source-drift",
+    "pull_request": 720,
+    "repository": "CrossGL/crosstl",
+    "state": "MERGED",
+    "title": "Chore: Backend and CrossTL fixes based on integration testing",
+    "updated_at": "2026-06-03T03:48:54Z",
+    "url": "https://github.com/CrossGL/crosstl/pull/720"
+  }
+}

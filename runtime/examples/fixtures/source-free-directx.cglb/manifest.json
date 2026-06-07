@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "compiler": {
+    "name": "CrossGL-Compiler",
+    "version": "runtime-example",
+    "llvmVersion": "not-found"
+  },
+  "module": "SourceFreeRuntimeExample",
+  "target": "directx",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "artifacts": {
+    "backendSource": "backend/directx/SourceFreeRuntimeExample.hlsl",
+    "nativeBinary": "backend/directx/SourceFreeRuntimeExample.dxil",
+    "nativeBinaryStatus": "planned"
+  }
+}

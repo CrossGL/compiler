@@ -1,0 +1,31 @@
+shader MetalLocalArrayArgumentShader {
+  const int COUNT = 4;
+
+  struct Particle {
+    float weights[COUNT];
+    float result;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+
+    float sumWeights(float values[COUNT]) {
+      return values[0] + values[1] + values[2] + values[3];
+    }
+
+    float forwardWeights(float values[COUNT]) {
+      return sumWeights(values);
+    }
+
+    void main() {
+      float localWeights[COUNT];
+      localWeights[0] = particles[0].weights[0];
+      localWeights[1] = particles[0].weights[1];
+      localWeights[2] = particles[0].weights[2];
+      localWeights[3] = particles[0].weights[3];
+      particles[1].result = forwardWeights(localWeights);
+      return;
+    }
+  }
+}

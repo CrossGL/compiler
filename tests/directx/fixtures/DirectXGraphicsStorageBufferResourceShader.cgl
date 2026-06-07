@@ -1,0 +1,52 @@
+shader DirectXGraphicsStorageBufferResourceShader {
+    struct DrawData {
+        vec4 offset;
+        vec4 tint;
+    }
+
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 tint;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+        vec4 tint;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        layout(set = 0, binding = 0) buffer vec4* vertexOffsets;
+        layout(set = 0, binding = 1) buffer DrawData* drawData;
+
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            vec4 offset = vertexOffsets[0] + drawData[0].offset;
+            output.uv = input.texCoord;
+            output.tint = drawData[0].tint;
+            output.position = vec4(input.position + offset.xyz, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        layout(set = 0, binding = 1) buffer DrawData* drawData;
+        layout(set = 0, binding = 2) buffer vec4* fragmentScales;
+
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            output.color = input.tint * fragmentScales[0];
+            drawData[1].tint = output.color;
+            return output;
+        }
+    }
+}

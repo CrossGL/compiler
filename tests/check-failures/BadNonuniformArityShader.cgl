@@ -1,0 +1,9 @@
+shader BadNonuniformArityShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values[2];
+    void main() {
+      float value = values[nonuniform()][0];
+      return;
+    }
+  }
+}

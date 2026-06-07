@@ -1,0 +1,1 @@
+$.targetDecision.diagnostics[2].capabilityGroups[3].count: expected $.targetDecision.diagnostics[2].capabilityGroups[3].capabilities length 1, got 0

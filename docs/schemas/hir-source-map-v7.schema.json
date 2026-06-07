@@ -1,0 +1,552 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/hir-source-map-v7.schema.json",
+  "title": "CrossGL HIR Source Map Schema v7",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "filters",
+    "pagination",
+    "categoryCounts",
+    "records",
+    "hirSourceLocations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 7
+    },
+    "filters": {
+      "$ref": "#/$defs/filters"
+    },
+    "pagination": {
+      "$ref": "#/$defs/pagination"
+    },
+    "categoryCounts": {
+      "$ref": "#/$defs/categoryCounts"
+    },
+    "records": {
+      "$ref": "#/$defs/records"
+    },
+    "hirSourceLocations": {
+      "$ref": "#/$defs/hirSourceLocations"
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activeCount"
+      ],
+      "properties": {
+        "activeCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "statementKind": {
+          "type": "string"
+        },
+        "expressionKind": {
+          "type": "string"
+        },
+        "expressionValue": {
+          "type": "string"
+        },
+        "ownerKind": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        }
+      }
+    },
+    "pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "activeCount",
+        "expressionOffset",
+        "typeOffset",
+        "statementOffset",
+        "expressionTotalCount",
+        "expressionEmittedCount",
+        "expressionHasMore",
+        "expressionNextOffset",
+        "typeTotalCount",
+        "typeEmittedCount",
+        "typeHasMore",
+        "typeNextOffset",
+        "statementTotalCount",
+        "statementEmittedCount",
+        "statementHasMore",
+        "statementNextOffset"
+      ],
+      "properties": {
+        "activeCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressionOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressionLimit": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeLimit": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementLimit": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressionTotalCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressionEmittedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressionHasMore": {
+          "type": "boolean"
+        },
+        "expressionNextOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeTotalCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeEmittedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeHasMore": {
+          "type": "boolean"
+        },
+        "typeNextOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementTotalCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementEmittedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementHasMore": {
+          "type": "boolean"
+        },
+        "statementNextOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "categoryCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "count"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "categoryCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expressionTotalCount",
+        "typeTotalCount",
+        "statementTotalCount",
+        "recordTotalCount",
+        "expressionKinds",
+        "statementKinds",
+        "typeOwnerKinds"
+      ],
+      "properties": {
+        "expressionTotalCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeTotalCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementTotalCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "recordTotalCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressionKinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/categoryCount"
+          }
+        },
+        "statementKinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/categoryCount"
+          }
+        },
+        "typeOwnerKinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/categoryCount"
+          }
+        }
+      }
+    },
+    "expressionSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "statementKind",
+        "kind",
+        "value",
+        "type",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "statementKind": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "typeSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "ownerKind",
+        "ownerName",
+        "type",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "ownerKind": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "statementSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "statementKind",
+        "name",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "statementKind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "records": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "activeCount",
+        "offset",
+        "totalCount",
+        "emittedCount",
+        "hasMore",
+        "nextOffset",
+        "items"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "activeCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "limit": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "totalCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "emittedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "hasMore": {
+          "type": "boolean"
+        },
+        "nextOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recordItem"
+          }
+        }
+      }
+    },
+    "recordItem": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cursor",
+            "recordKind",
+            "expression"
+          ],
+          "properties": {
+            "cursor": {
+              "$ref": "#/$defs/nonNegativeInteger"
+            },
+            "recordKind": {
+              "const": "expression"
+            },
+            "expression": {
+              "$ref": "#/$defs/expressionSourceLocation"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cursor",
+            "recordKind",
+            "type"
+          ],
+          "properties": {
+            "cursor": {
+              "$ref": "#/$defs/nonNegativeInteger"
+            },
+            "recordKind": {
+              "const": "type"
+            },
+            "type": {
+              "$ref": "#/$defs/typeSourceLocation"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cursor",
+            "recordKind",
+            "statement"
+          ],
+          "properties": {
+            "cursor": {
+              "$ref": "#/$defs/nonNegativeInteger"
+            },
+            "recordKind": {
+              "const": "statement"
+            },
+            "statement": {
+              "$ref": "#/$defs/statementSourceLocation"
+            }
+          }
+        }
+      ]
+    },
+    "hirSourceLocations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expressionCount",
+        "expressionWithLocationCount",
+        "typeCount",
+        "typeWithLocationCount",
+        "statementCount",
+        "statementWithLocationCount",
+        "expressions",
+        "types",
+        "statements"
+      ],
+      "properties": {
+        "expressionCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressionWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/expressionSourceLocation"
+          }
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typeSourceLocation"
+          }
+        },
+        "statements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statementSourceLocation"
+          }
+        }
+      }
+    }
+  }
+}

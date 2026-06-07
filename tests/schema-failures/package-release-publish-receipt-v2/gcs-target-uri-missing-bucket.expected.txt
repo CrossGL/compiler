@@ -1,0 +1,1 @@
+$.targetUri: expected valid gcs bucket name

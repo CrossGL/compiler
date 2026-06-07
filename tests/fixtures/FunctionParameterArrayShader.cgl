@@ -1,0 +1,47 @@
+shader FunctionParameterArrayShader {
+  const int ROWS = 2;
+  const uint COLS = 3;
+  struct Payload {
+    vec4 lanes[ROWS];
+  }
+  struct Particle {
+    float weights[COLS];
+    Payload payload;
+    vec4 grid[ROWS][COLS];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+
+    void consumeTaps(float values[4]) {
+      float first = values[0];
+      return;
+    }
+
+    void consumeWeights(float values[COLS]) {
+      float first = values[0];
+      return;
+    }
+
+    void consumeRows(vec4 values[ROWS]) {
+      vec4 first = values[0];
+      return;
+    }
+
+    void consumeGrid(vec4 values[ROWS][COLS]) {
+      vec4 first = values[0][1];
+      return;
+    }
+
+    void main(float scale, vec3 direction, mat4 transform, float taps[4], float weights[COLS], vec4 grid[ROWS][COLS]) {
+      float first = taps[0] + weights[0] + particles[0].weights[1];
+      consumeTaps(taps);
+      consumeWeights(weights);
+      consumeGrid(grid);
+      consumeWeights(particles[0].weights);
+      consumeRows(particles[0].payload.lanes);
+      consumeGrid(particles[0].grid);
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.artifacts.backendAssembly: expected path without whitespace

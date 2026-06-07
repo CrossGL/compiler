@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 0,
+  "kind": "crosstl-frontend-language-spec-snapshot",
+  "description": "Invalid fixture missing the PR720 authority reference.",
+  "source": {
+    "repository": "CrossGL-Translator",
+    "frontend": "crosstl.translator",
+    "files": [
+      {
+        "path": "crosstl/translator/lexer.py",
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "extraction": {
+      "tool": "fixture",
+      "method": "fixture"
+    }
+  },
+  "lexical": {},
+  "language": {},
+  "ast": {},
+  "validation": {},
+  "notes": [
+    "fixture"
+  ]
+}

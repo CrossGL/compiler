@@ -1,0 +1,35 @@
+shader DirectXFoldedNestedFunctionParameterArrayShader {
+  const int ROWS = 1 + 1;
+  const int COLS = 1 + 2;
+
+  struct Particle {
+    float weights[ROWS][COLS];
+    float mass;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+
+    float sumWeights(float weights[COLS]) {
+      return weights[0] + weights[2];
+    }
+
+    void storeGrid(float grid[ROWS][COLS]) {
+      float nestedTotal = grid[0][1] + grid[1][2];
+      particles[2].mass = nestedTotal;
+      return;
+    }
+
+    void main() {
+      float localWeights[COLS];
+      localWeights[0] = particles[0].weights[0][0];
+      localWeights[1] = particles[0].weights[0][1];
+      localWeights[2] = particles[0].weights[0][2];
+      float total = sumWeights(localWeights);
+      particles[1].mass = total;
+      storeGrid(particles[0].weights);
+      return;
+    }
+  }
+}

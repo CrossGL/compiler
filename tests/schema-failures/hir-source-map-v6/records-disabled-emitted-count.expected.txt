@@ -1,0 +1,1 @@
+$.records.emittedCount: disabled records must emit zero items

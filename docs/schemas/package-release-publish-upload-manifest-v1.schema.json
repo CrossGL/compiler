@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-release-publish-upload-manifest-v1.schema.json",
+  "title": "CrossGL Package Release Publish Upload Manifest JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestCount",
+    "requestBytes",
+    "requests"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "requestCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "requestBytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "requests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/request"
+      }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetKind",
+        "stagedPath",
+        "destinationPath",
+        "bucket",
+        "objectName",
+        "uploadUri",
+        "credentialsEnv",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "targetKind": {
+          "type": "string",
+          "enum": [
+            "gcs"
+          ]
+        },
+        "stagedPath": {
+          "type": "string"
+        },
+        "destinationPath": {
+          "type": "string",
+          "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z]:).*$"
+        },
+        "bucket": {
+          "type": "string"
+        },
+        "objectName": {
+          "type": "string",
+          "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z]:).*$"
+        },
+        "uploadUri": {
+          "type": "string"
+        },
+        "credentialsEnv": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.requests[0].stagedPath: expected normalized staged path

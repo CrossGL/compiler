@@ -1,0 +1,1 @@
+$.targets[0].packageMode: expected registry v0 target package mode 'native', got 'source-package'

@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 6,
+  "filters": {
+    "activeCount": 0
+  },
+  "pagination": {
+    "activeCount": 0,
+    "expressionOffset": 0,
+    "typeOffset": 0,
+    "expressionTotalCount": 0,
+    "expressionEmittedCount": 0,
+    "expressionHasMore": false,
+    "expressionNextOffset": 0,
+    "typeTotalCount": 2,
+    "typeEmittedCount": 2,
+    "typeHasMore": false,
+    "typeNextOffset": 2
+  },
+  "categoryCounts": {
+    "expressionTotalCount": 0,
+    "typeTotalCount": 2,
+    "recordTotalCount": 2,
+    "expressionKinds": [],
+    "statementKinds": [],
+    "typeOwnerKinds": [
+      {
+        "name": "expression",
+        "count": 2
+      }
+    ]
+  },
+  "records": {
+    "enabled": false,
+    "activeCount": 0,
+    "offset": 0,
+    "totalCount": 2,
+    "emittedCount": 0,
+    "hasMore": false,
+    "nextOffset": 0,
+    "items": []
+  },
+  "hirSourceLocations": {
+    "expressionCount": 0,
+    "expressionWithLocationCount": 0,
+    "typeCount": 1,
+    "typeWithLocationCount": 2,
+    "expressions": [],
+    "types": [
+      {
+        "index": 0,
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "function": "main",
+        "ownerKind": "expression",
+        "ownerName": "lhs",
+        "type": "float",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 3,
+          "endLine": 1,
+          "endColumn": 4,
+          "endOffset": 3
+        }
+      },
+      {
+        "index": 1,
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "function": "main",
+        "ownerKind": "expression",
+        "ownerName": "rhs",
+        "type": "float",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 2,
+          "column": 1,
+          "offset": 4,
+          "length": 3,
+          "endLine": 2,
+          "endColumn": 4,
+          "endOffset": 7
+        }
+      }
+    ]
+  }
+}

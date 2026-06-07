@@ -1,0 +1,1 @@
+$.pagination.expressionTotalCount: expected $.categoryCounts.expressionTotalCount 2, got 1

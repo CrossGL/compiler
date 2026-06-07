@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[0].weightClass: expected staticZeroSum bucket weight class 'static-zero-sum', got 'dynamic'

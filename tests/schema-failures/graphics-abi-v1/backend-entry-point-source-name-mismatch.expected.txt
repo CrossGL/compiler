@@ -1,0 +1,1 @@
+$.entryPoints[0].backendName: expected stage/sourceName backend name 'fragment_fs_main', got 'renamed_fragment_main'

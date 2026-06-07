@@ -1,0 +1,1 @@
+$.summaryPath: expected relative path

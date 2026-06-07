@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "planPath": "build/package-release-publish-plan.json",
+  "stagePath": "build/stage",
+  "success": false,
+  "packageCount": 1,
+  "artifactCount": 1,
+  "totalArtifactBytes": 16,
+  "stagedArtifactCount": 1,
+  "stagedArtifactBytes": 16,
+  "artifacts": [
+    {
+      "name": "backendSource",
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourcePath": "packages/basic/artifacts/basic.metal",
+      "packageArtifactPath": "artifacts/basic.metal",
+      "destinationPath": "packages/basic/artifacts/basic.metal",
+      "stagedPath": "build/stage/packages/basic/artifacts/basic.metal",
+      "sizeBytes": 16,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "staged": true
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "package.release.publish.stage.failed",
+      "message": "   ",
+      "location": {
+        "file": "packages/basic/CrossGL.json",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 1,
+        "endLine": 1,
+        "endColumn": 2,
+        "endOffset": 1
+      }
+    }
+  ]
+}

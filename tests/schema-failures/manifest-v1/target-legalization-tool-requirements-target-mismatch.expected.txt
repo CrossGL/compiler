@@ -1,0 +1,1 @@
+$.targetLegalizationToolRequirements.target: must match manifest target

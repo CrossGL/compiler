@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "targetKind": "gcs",
+  "enabled": true,
+  "bucket": "crossgl-release-dry-run",
+  "prefix": "compiler/packages",
+  "credentialsEnv": "GOOGLE_APPLICATION_CREDENTIALS"
+}

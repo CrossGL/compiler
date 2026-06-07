@@ -1,0 +1,1 @@
+$.targetFeatures[0].name: must not be empty

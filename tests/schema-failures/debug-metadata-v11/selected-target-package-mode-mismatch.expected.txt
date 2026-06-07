@@ -1,0 +1,1 @@
+$.targetDecision.selectedTargetPackageMode: expected selected target package flags 'source-package', got 'native'

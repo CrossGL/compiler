@@ -1,0 +1,1 @@
+$.resources[3]: missing target resource binding ('compute', 'values3', 'buffer')

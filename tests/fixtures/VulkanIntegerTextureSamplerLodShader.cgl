@@ -1,0 +1,19 @@
+shader VulkanIntegerTextureSamplerLodShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer ivec4* values;
+    layout(set = 0, binding = 1) buffer uvec4* masks;
+    layout(set = 0, binding = 2) uniform isampler2D labelMap;
+    layout(set = 0, binding = 3) uniform usamplerCube maskMap;
+    layout(set = 0, binding = 5) sampler labelSampler;
+    layout(set = 0, binding = 6) sampler maskSampler;
+
+    void main() {
+      ivec4 label = textureLod(labelMap, labelSampler, vec2(0.5, 0.5), 0.0);
+      uvec4 mask = textureLod(maskMap, maskSampler, vec3(0.0, 1.0, 0.0), 0.0);
+      values[0] = label;
+      masks[0] = mask;
+      return;
+    }
+  }
+}

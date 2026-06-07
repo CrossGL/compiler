@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-release-provenance-manifest-v1",
+  "sourceCommit": "0000000000000000000000000000000000000000",
+  "toolchainSummary": {
+    "python": "3.12.0",
+    "platform": "test"
+  },
+  "cloudUpload": {
+    "mode": "dry-run",
+    "modes": [
+      "dry-run"
+    ],
+    "liveCloudUploadAllowed": false,
+    "liveCloudUploadOptIn": null
+  },
+  "artifactCount": 1,
+  "artifactBytes": 12,
+  "artifacts": [
+    {
+      "path": "build/release/SimpleShader.dxil",
+      "destinationPath": "SimpleShader.dxil",
+      "packagePath": "packages/SimpleShader.cglb",
+      "packageArtifactPath": " file:out/SimpleShader.dxil",
+      "sizeBytes": 12,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

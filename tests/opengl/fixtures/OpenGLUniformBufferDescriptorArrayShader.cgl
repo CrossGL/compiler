@@ -1,0 +1,20 @@
+shader OpenGLUniformBufferDescriptorArrayShader {
+  const int LIGHT_COUNT = 2;
+
+  struct Light {
+    vec4 color;
+    float intensity;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform Light lights[LIGHT_COUNT];
+    layout(set = 0, binding = 1) buffer vec4* values;
+
+    void main() {
+      vec4 color = lights[1].color * lights[0].intensity;
+      values[0] = color;
+      return;
+    }
+  }
+}

@@ -1,0 +1,178 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Keep CI broad for compiler, schema, runtime, and fixture changes. Cost
+# control comes from canceling superseded push/PR runs rather than skipping
+# potentially relevant changes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install pre-commit
+        run: python -m pip install --upgrade pre-commit
+
+      - name: Run pre-commit
+        shell: bash
+        run: |
+          cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1)"
+          case "${cores}" in
+            ''|*[!0-9]*|0) cores=1 ;;
+          esac
+          pre_commit_jobs_args=()
+          if pre-commit run --help | grep -q -- '--jobs'; then
+            pre_commit_jobs_args=(--jobs "${cores}")
+          fi
+          pre-commit run --all-files --show-diff-on-failure "${pre_commit_jobs_args[@]}"
+
+  build-test:
+    name: ${{ matrix.os }}
+    needs: pre-commit
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-2022]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Ninja on Ubuntu
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build spirv-tools
+
+      - name: Install Ninja and SPIR-V tools on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew list ninja >/dev/null 2>&1 || brew install ninja
+          brew list spirv-tools >/dev/null 2>&1 || brew install spirv-tools
+
+      - name: Set CMake, CTest, and package fixture parallelism
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)"
+          if ! [[ "${jobs}" =~ ^[0-9]+$ ]] || [ "${jobs}" -lt 1 ]; then
+            jobs=2
+          fi
+          {
+            echo "CMAKE_BUILD_PARALLEL_LEVEL=${jobs}"
+            echo "CTEST_PARALLEL_LEVEL=${jobs}"
+            echo "CROSSGL_CI_JOBS=${jobs}"
+            echo "CROSSGL_PACKAGE_INSPECT_FIXTURE_JOBS=${jobs}"
+            echo "CROSSGL_PACKAGE_ARTIFACT_INVENTORY_RUNTIME_JOBS=${jobs}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Set CMake, CTest, and package fixture parallelism on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $jobs = [Environment]::ProcessorCount
+          if ($jobs -lt 1) {
+            $jobs = 2
+          }
+          "CMAKE_BUILD_PARALLEL_LEVEL=$jobs" >> $env:GITHUB_ENV
+          "CTEST_PARALLEL_LEVEL=$jobs" >> $env:GITHUB_ENV
+          "CROSSGL_CI_JOBS=$jobs" >> $env:GITHUB_ENV
+          "CROSSGL_PACKAGE_INSPECT_FIXTURE_JOBS=$jobs" >> $env:GITHUB_ENV
+          "CROSSGL_PACKAGE_ARTIFACT_INVENTORY_RUNTIME_JOBS=$jobs" >> $env:GITHUB_ENV
+
+      - name: Configure
+        if: runner.os != 'Windows'
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCROSSGL_REQUIRE_PYTHON_TESTS=ON
+
+      - name: Configure on Windows
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCROSSGL_REQUIRE_PYTHON_TESTS=ON
+
+      - name: Build
+        if: runner.os != 'Windows'
+        shell: bash
+        run: cmake --build build --config Release --parallel "${CMAKE_BUILD_PARALLEL_LEVEL}"
+
+      - name: Build on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: cmake --build build --config Release --parallel $env:CMAKE_BUILD_PARALLEL_LEVEL
+
+      # CTest runs in parallel via -j below.
+      - name: Test
+        if: runner.os != 'Windows'
+        shell: bash
+        run: ctest --test-dir build --output-on-failure -C Release -j "${CTEST_PARALLEL_LEVEL}"
+
+      - name: Test on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ctest --test-dir build --output-on-failure -C Release -j $env:CTEST_PARALLEL_LEVEL
+
+      - name: Build native Metal package
+        if: runner.os == 'macOS'
+        run: |
+          ./build/cglc build tests/fixtures/SimpleShader.cgl --target metal --output build/SimpleShader.cglb --debug-ir
+          test -f build/SimpleShader.cglb/backend/metal/SimpleShader.metallib
+
+      - name: Build prototype Vulkan package
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: |
+          ./build/cglc build tests/fixtures/VectorBufferComputeShader.cgl --target vulkan --output build/VectorBufferComputeShader.cglb --debug-ir
+          test -f build/VectorBufferComputeShader.cglb/backend/vulkan/VectorBufferComputeShader.spv
+
+      - name: Validate package maintenance batch
+        if: runner.os == 'Linux' || runner.os == 'macOS'
+        run: |
+          python3 tools/check_package_release_publish_flow.py \
+            --root . \
+            --cglc build/cglc \
+            --work-dir build/package-release-publish-flow
+
+      - name: Upload package maintenance reports
+        if: ${{ always() && (runner.os == 'Linux' || runner.os == 'macOS') && (github.event_name != 'pull_request' || (failure() && hashFiles('build/package-release-publish-flow/**') != '')) }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-maintenance-${{ runner.os }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            build/package-release-publish-flow
+
+      - name: Upload Metal package
+        if: ${{ always() && runner.os == 'macOS' && (github.event_name != 'pull_request' || (failure() && hashFiles('build/SimpleShader.cglb/**') != '')) }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: SimpleShader-macos-metallib
+          if-no-files-found: error
+          retention-days: 14
+          path: build/SimpleShader.cglb

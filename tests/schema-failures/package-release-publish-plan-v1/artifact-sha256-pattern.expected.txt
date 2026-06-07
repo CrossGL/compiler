@@ -1,0 +1,1 @@
+$.artifacts[0].sha256: expected string to match pattern '^[0-9a-f]{64}$', got 'not-a-sha256'

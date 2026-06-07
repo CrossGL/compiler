@@ -1,0 +1,1 @@
+$.artifacts[0].published: dry-run receipt must not publish

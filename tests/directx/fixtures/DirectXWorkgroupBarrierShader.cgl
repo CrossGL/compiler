@@ -1,0 +1,17 @@
+shader DirectXWorkgroupBarrierShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    shared float tile[4];
+
+    void main() {
+      tile[0] = values[0];
+      workgroupBarrier();
+      tile[1] = tile[0] + 1.0;
+      barrier();
+      values[0] = tile[1];
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.retainedCount: expected retained sidecars length 1, got 0

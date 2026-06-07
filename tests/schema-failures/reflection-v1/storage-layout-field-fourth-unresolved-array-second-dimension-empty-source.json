@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "values",
+      "kind": "buffer",
+      "type": "Values"
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values",
+      "kind": "buffer",
+      "sourceType": "Values",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav",
+      "storageBufferLayout": {
+        "elementType": "Values",
+        "elementSizeBytes": 80,
+        "arrayStrideBytes": 80,
+        "layout": "std430",
+        "alignmentBytes": 16,
+        "supportsScalarLayout": true,
+        "fields": [
+          {
+            "name": "a",
+            "type": "float4",
+            "offsetBytes": 0,
+            "sizeBytes": 16,
+            "storageSizeBytes": 16,
+            "alignmentBytes": 16
+          },
+          {
+            "name": "b",
+            "type": "float4",
+            "offsetBytes": 16,
+            "sizeBytes": 16,
+            "storageSizeBytes": 16,
+            "alignmentBytes": 16
+          },
+          {
+            "name": "c",
+            "type": "float4",
+            "offsetBytes": 32,
+            "sizeBytes": 16,
+            "storageSizeBytes": 16,
+            "alignmentBytes": 16
+          },
+          {
+            "name": "d",
+            "type": "float4",
+            "offsetBytes": 48,
+            "sizeBytes": 16,
+            "storageSizeBytes": 32,
+            "alignmentBytes": 16,
+            "arrayStrideBytes": 16,
+            "arrayElementCount": 2,
+            "arrayDimensions": [
+              {
+                "source": "2",
+                "kind": "fixed",
+                "elementCount": 2
+              },
+              {
+                "source": "",
+                "kind": "unresolved"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

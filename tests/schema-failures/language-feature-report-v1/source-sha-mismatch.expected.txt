@@ -1,0 +1,1 @@
+$.module.sourceSha256: expected normalized UTF-8 source SHA-256

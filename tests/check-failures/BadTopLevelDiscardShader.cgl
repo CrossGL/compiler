@@ -1,0 +1,11 @@
+shader BadTopLevelDiscardShader {
+  void helper() {
+    discard;
+  }
+
+  compute {
+    void main() {
+      helper();
+    }
+  }
+}

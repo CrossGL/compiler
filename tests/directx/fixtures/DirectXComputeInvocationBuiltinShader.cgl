@@ -1,0 +1,16 @@
+shader DirectXComputeInvocationBuiltinShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 2, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer uvec3* ids;
+
+    void main() {
+      uvec3 globalId = gl_GlobalInvocationID;
+      uvec3 localId = gl_LocalInvocationID;
+      uvec3 groupId = gl_WorkGroupID;
+      ids[0] = globalId;
+      ids[1] = localId;
+      ids[2] = groupId;
+      return;
+    }
+  }
+}

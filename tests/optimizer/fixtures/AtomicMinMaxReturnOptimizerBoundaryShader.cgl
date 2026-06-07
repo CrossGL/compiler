@@ -1,0 +1,41 @@
+shader AtomicMinMaxReturnOptimizerBoundaryShader {
+  struct CompatCounters {
+    int active_count;
+    uint spawn_count;
+  }
+
+  compute {
+    layout(local_size_x = 4, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer atomic<int>* counters;
+    layout(set = 0, binding = 2) buffer atomic<uint>* unsignedCounters;
+    layout(set = 0, binding = 3) buffer CompatCounters compatCounters;
+
+    void main() {
+      uint index = gl_GlobalInvocationID.x;
+      int slot = 0;
+      int value = values[slot] + 2;
+      uint unsignedValue = index + 1u;
+      int deadBefore = values[slot] + 13;
+      uint deadUnsigned = unsignedValue + 5u;
+
+      values[slot] = 1;
+      int oldMin = atomicMin(counters[index], value);
+      barrier();
+      values[slot + 1] = oldMin + values[slot];
+
+      int oldMax = 0;
+      oldMax = atomicMax(counters[index], value);
+      atomicMin(counters[index], 0);
+      uint oldMaxU = atomicMax(unsignedCounters[index], unsignedValue);
+      int unusedReturnedMin = atomicMin(counters[index], value);
+      workgroupBarrier();
+      atomicMax(counters[index], value);
+      int oldCompat = atomicMax(compatCounters.active_count, 1);
+      values[slot + 2] = values[slot + 1] + oldMin + oldMax + oldCompat;
+
+      int deadAfter = deadBefore + oldCompat;
+      return;
+    }
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "directx",
+    "targetProfile": {
+      "target": "directx",
+      "profile": "directx.v0.source-package",
+      "packageMode": "source-package"
+    },
+    "packageMode": "source-package",
+    "packageDecisionProvenance": "source-package-only",
+    "supportStatus": "source-package",
+    "moduleSupported": true,
+    "requiredCapabilities": [
+      "directx.backend.hlsl-lowering",
+      "directx.package.source-artifact"
+    ],
+    "missingCapabilities": [],
+    "toolRequirements": {
+      "requiredToolIds": [
+        "directx.nativeTool.fake-native-compiler"
+      ],
+      "missingToolIds": [
+        "directx.nativeTool.fake-native-compiler"
+      ],
+      "optionalNativeToolMissing": true,
+      "evidenceIds": [
+        "target-legalization.v1.directx.optional-native-tool.missing",
+        "target-legalization.v1.directx.tool-requirement.missing.nativeTool.fake-native-compiler",
+        "target-legalization.v1.directx.tool-requirement.required.nativeTool.fake-native-compiler",
+        "target-legalization.v1.directx.tool-requirements.present"
+      ],
+      "records": [
+        {
+          "id": "directx.nativeTool.fake-native-compiler",
+          "kind": "nativeTool",
+          "name": "fake-native-compiler",
+          "status": "required",
+          "target": "directx",
+          "evidenceIds": [
+            "target-legalization.v1.directx.tool-requirement.required.nativeTool.fake-native-compiler"
+          ]
+        },
+        {
+          "id": "directx.nativeTool.fake-native-compiler",
+          "kind": "nativeTool",
+          "name": "fake-native-compiler",
+          "status": "missing",
+          "target": "directx",
+          "evidenceIds": [
+            "target-legalization.v1.directx.tool-requirement.missing.nativeTool.fake-native-compiler"
+          ]
+        }
+      ],
+      "optionalNativeToolStatus": "missing"
+    },
+    "diagnostics": [
+      {
+        "code": "target.source-package-selected",
+        "severity": "info",
+        "message": "DirectX v0 records source package support while the optional native compiler uses legacy spelling.",
+        "target": "directx",
+        "missingCapabilities": [],
+        "evidenceIds": [
+          "target-legalization.v1.directx.diagnostic.source-package"
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "id": "hlsl-source-package-projection",
+        "order": 0,
+        "status": "not-required",
+        "description": "Source package emission does not require a v0 rewrite.",
+        "evidenceIds": [
+          "target-legalization.v1.directx.rewrite.not-required"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "not-required",
+      "facts": [],
+      "evidenceIds": [
+        "target-legalization.v1.directx.abi.not-required"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.directx.resource-bindings.empty"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.directx.abi.not-required",
+      "target-legalization.v1.directx.decision",
+      "target-legalization.v1.directx.diagnostic.source-package",
+      "target-legalization.v1.directx.optional-native-tool.missing",
+      "target-legalization.v1.directx.package-mode.source-package",
+      "target-legalization.v1.directx.package-provenance.source-package-only",
+      "target-legalization.v1.directx.resource-bindings.empty",
+      "target-legalization.v1.directx.rewrite.not-required",
+      "target-legalization.v1.directx.state.legalized",
+      "target-legalization.v1.directx.support.source-package",
+      "target-legalization.v1.directx.tool-requirement.missing.nativeTool.fake-native-compiler",
+      "target-legalization.v1.directx.tool-requirement.required.nativeTool.fake-native-compiler",
+      "target-legalization.v1.directx.tool-requirements.present"
+    ]
+  }
+}

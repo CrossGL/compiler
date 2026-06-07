@@ -1,0 +1,1 @@
+$.manualTextureCompareKernelBuckets.staticNonNormalized: expected $.manualTextureCompareKernelSummary.staticNonNormalizedCount 1, got 0

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "module": "",
+  "target": "vulkan",
+  "api": "vulkan",
+  "profile": {
+    "name": "vulkan-prototype",
+    "vulkanVersion": "1.2",
+    "spirvVersion": "1.0"
+  },
+  "generator": "CrossGL Vulkan prototype backend",
+  "artifacts": {
+    "backendAssembly": "backend/vulkan/.spvasm",
+    "nativeBinary": "backend/vulkan/.spv"
+  },
+  "debug": {
+    "binaryFormat": "SPIR-V",
+    "assemblyFormat": "SPIR-V assembly",
+    "validationTargetEnv": "vulkan1.2"
+  }
+}

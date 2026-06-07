@@ -1,0 +1,21 @@
+shader MixedResourceDescriptorArrayShader {
+  struct Particle {
+    vec3 position;
+    float mass;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles[2];
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[2];
+    layout(set = 0, binding = 5) sampler linearSamplers[2];
+
+    void main() {
+      vec2 uv = particles[1][0].position.xy;
+      vec4 color = textureLod(colorMaps[1], linearSamplers[0], uv, 0.5);
+      float mass = particles[1][0].mass;
+      particles[0][1].mass = mass + color.x;
+      return;
+    }
+  }
+}

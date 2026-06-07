@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "module": "SourceFreeVulkanRuntimeExample",
+  "target": "vulkan",
+  "backendAssembly": "backend/vulkan/SourceFreeVulkanRuntimeExample.spvasm",
+  "nativeBinary": "backend/vulkan/SourceFreeVulkanRuntimeExample.spv",
+  "debug": {
+    "disassembly": {
+      "status": "metadata-only",
+      "path": "backend/vulkan/SourceFreeVulkanRuntimeExample.spvasm"
+    }
+  }
+}

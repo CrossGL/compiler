@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "manifestPath": "build/package-release-publish-upload-manifest.json",
+  "reportPath": "",
+  "reportWritten": false,
+  "uploadMode": "mock",
+  "success": true,
+  "requestCount": 1,
+  "requestBytes": 16,
+  "uploadedArtifactCount": 0,
+  "uploadedArtifactBytes": 0,
+  "uploadedRequests": [],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "package.release.publish.upload-source-missing",
+      "message": "missing source",
+      "location": {
+        "file": "build/stage/backend/metal/SimpleShader.metallib",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 0,
+        "endLine": 1,
+        "endColumn": 1,
+        "endOffset": 0
+      }
+    }
+  ]
+}

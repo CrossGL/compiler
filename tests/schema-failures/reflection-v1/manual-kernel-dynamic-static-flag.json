@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [],
+  "targetResourceBindings": [],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 1,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 1
+  },
+  "manualTextureCompareKernels": [
+    {
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "function": "main",
+      "operation": "textureCompareLodManualKernel",
+      "sourceKind": "tap-list",
+      "canonicalOperation": "textureCompareLodManualKernel",
+      "compatibilityAlias": false,
+      "weightClass": "dynamic",
+      "tapCount": 1,
+      "weightsStatic": true,
+      "weightSum": 1.0,
+      "weightsZeroSum": false,
+      "weightsNormalized": false
+    }
+  ],
+  "targetFeatures": []
+}

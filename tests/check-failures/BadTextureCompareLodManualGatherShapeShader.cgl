@@ -1,0 +1,13 @@
+shader BadTextureCompareLodManualGatherShapeShader {
+  compute {
+    uniform samplerCubeShadow shadowCube;
+    sampler rawShadowSampler;
+    void main() {
+      float visibility =
+          textureCompareLodManualGather2x2(shadowCube, rawShadowSampler,
+                                           vec3(0.0, 1.0, 0.0), 0.5, 1.0,
+                                           greater_equal);
+      return;
+    }
+  }
+}

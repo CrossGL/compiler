@@ -1,0 +1,30 @@
+shader AlgebraicSimplifyHIRShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) buffer int* indices;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[2];
+    layout(set = 0, binding = 3) sampler linearSamplers[2];
+
+    void main() {
+      int dynamicIndex = indices[0];
+      float base = values[0];
+      float plusRight = base + 0.0;
+      float plusLeft = 0.0 + plusRight;
+      float minusRight = plusLeft - 0.0;
+      float multiplyRight = minusRight * 1.0;
+      float multiplyLeft = 1.0 * multiplyRight;
+      float divideRight = multiplyLeft / 1.0;
+      bool visible = !!(dynamicIndex > 0);
+      int selected = true ? dynamicIndex + 0 : 0;
+      vec4 sampled =
+          textureLod(colorMaps[nonuniform(dynamicIndex + 0)],
+                     linearSamplers[selected * 1], vec2(0.0, 0.0), 0.0);
+      for (int i = 0; i < 2; i = (i + 0) + 1) {
+        divideRight = divideRight + values[i];
+      }
+      values[1] = visible ? (divideRight + sampled.x) : multiplyLeft;
+      return;
+    }
+  }
+}

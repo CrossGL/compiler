@@ -1,0 +1,1 @@
+$.targetFeatureGates[0].packageMode: expected legalization package mode 'native' from target contract evidence, got 'source'

@@ -1,0 +1,1 @@
+$.resources[2]: duplicate source resource coordinate ('compute', 0, 0)

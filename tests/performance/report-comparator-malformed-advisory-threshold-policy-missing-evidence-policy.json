@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "tool": "compare_performance_reports",
+  "kind": "advisory-threshold-policy",
+  "mode": "report-only",
+  "name": "fixture-missing-evidence-policy",
+  "description": "Invalid policy fixture missing required threshold evidence metadata.",
+  "enforcement": {
+    "enforced": false,
+    "exitStatusAffected": false,
+    "failureMode": "report-only",
+    "hardFail": false,
+    "mode": "report-only",
+    "policy": "Timing thresholds are emitted as report-only observations. They are not enforced, do not affect comparator exit status, and cannot become release blockers without explicit owner approval.",
+    "releaseBlocker": false,
+    "releaseBlockerPolicy": "Timing advisory thresholds are report-only and are not release blockers without explicit owner approval."
+  },
+  "failurePolicy": "report-only; advisory timing threshold observations never change comparator exit status",
+  "releaseBlockerPolicy": "Timing advisory thresholds are report-only and are not release blockers without explicit owner approval.",
+  "ruleCount": 1,
+  "rules": [
+    {
+      "category": "storage-buffers",
+      "profile": "release",
+      "maxRegressionPercent": 10,
+      "label": "missing evidence storage release lane",
+      "ruleSpecificity": "category-profile"
+    }
+  ]
+}

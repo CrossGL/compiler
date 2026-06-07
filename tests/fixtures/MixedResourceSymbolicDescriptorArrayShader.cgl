@@ -1,0 +1,26 @@
+shader MixedResourceSymbolicDescriptorArrayShader {
+  const int RESOURCE_COUNT = 2;
+  const int READ_DESCRIPTOR = RESOURCE_COUNT - 1;
+  const int WRITE_DESCRIPTOR = 0;
+
+  struct Particle {
+    vec3 position;
+    float mass;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles[RESOURCE_COUNT];
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[RESOURCE_COUNT];
+    layout(set = 0, binding = 5) sampler linearSamplers[RESOURCE_COUNT];
+
+    void main() {
+      vec2 uv = particles[READ_DESCRIPTOR][0].position.xy;
+      vec4 color = textureLod(colorMaps[READ_DESCRIPTOR],
+                              linearSamplers[WRITE_DESCRIPTOR], uv, 0.5);
+      float mass = particles[READ_DESCRIPTOR][0].mass;
+      particles[WRITE_DESCRIPTOR][1].mass = mass + color.x;
+      return;
+    }
+  }
+}

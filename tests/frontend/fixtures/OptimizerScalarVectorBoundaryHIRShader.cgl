@@ -1,0 +1,28 @@
+shader OptimizerScalarVectorBoundaryHIRShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* scalars;
+    layout(set = 0, binding = 1) buffer vec4* vectors;
+    layout(set = 0, binding = 2) buffer vec3* vectors3;
+
+    void main() {
+      float source = scalars[0];
+      float foldedScalar = float(1.0 + 2.0);
+      int signedValue = int(source);
+      float signedBack = float(signedValue);
+      vec4 base = vec4(scalars[1], scalars[2], scalars[3], 1.0);
+      vec4 unusedVector = base + vec4(10.0, 10.0, 10.0, 0.0);
+      vec4 lifted = base + vec4(foldedScalar, 0.5, 0.25, 0.0);
+      vec3 lifted3 = vec3(lifted.x, lifted.y, lifted.z);
+      bool useLifted = signedBack > foldedScalar;
+      if (useLifted) {
+        vectors[1] = lifted;
+      } else {
+        vectors[1] = base;
+      }
+      vectors3[1] = lifted3 + vec3(0.25, 0.25, 0.0);
+      scalars[4] = signedBack + foldedScalar;
+      return;
+    }
+  }
+}

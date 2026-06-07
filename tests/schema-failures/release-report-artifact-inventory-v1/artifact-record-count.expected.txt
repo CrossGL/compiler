@@ -1,0 +1,1 @@
+$.artifactRecordCount: expected record length 3, got 2

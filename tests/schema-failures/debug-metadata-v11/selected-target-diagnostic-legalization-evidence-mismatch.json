@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 11,
+  "targetDecision": {
+    "requestedTarget": "directx",
+    "selectedTarget": "directx",
+    "selectionReason": "explicit-target",
+    "selectedTargetNativeImplemented": false,
+    "selectedTargetSourcePackageSupported": true,
+    "selectedTargetPackageBuildSupported": false,
+    "selectedTargetPackageMode": "unsupported",
+    "selectedTargetMissingCapabilityCount": 1,
+    "selectedTargetMissingCapabilities": [
+      "directx.backend.hlsl-lowering"
+    ],
+    "selectedTargetLegalizationCoreEvidenceIds": [
+      "target-legalization.v1.directx.decision",
+      "target-legalization.v1.directx.state.rejected",
+      "target-legalization.v1.directx.support.unsupported",
+      "target-legalization.v1.directx.package-mode.unsupported",
+      "target-legalization.v1.directx.package-provenance.unsupported",
+      "target-legalization.v1.directx.package-reason.unsupported"
+    ],
+    "selectedTargetMissingCapabilityGroups": [
+      {
+        "kind": "backend",
+        "count": 1,
+        "capabilities": [
+          "directx.backend.hlsl-lowering"
+        ]
+      }
+    ],
+    "selectedTargetDiagnosticCount": 1,
+    "diagnostics": [
+      {
+        "code": "target.selected.unsupported",
+        "severity": "error",
+        "target": "directx",
+        "message": "selected target 'directx' cannot build a package for this module",
+        "capabilities": [
+          "directx.backend.hlsl-lowering"
+        ],
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.directx.decision"
+        ],
+        "capabilityGroups": [
+          {
+            "kind": "backend",
+            "count": 1,
+            "capabilities": [
+              "directx.backend.hlsl-lowering"
+            ]
+          }
+        ]
+      }
+    ],
+    "viableTargets": [],
+    "fallbackTargets": [],
+    "fallbackTargetRecordCount": 0,
+    "fallbackTargetRecords": [],
+    "nonViableTargets": [
+      "directx"
+    ]
+  },
+  "targetCapabilities": {
+    "defaultTarget": "directx",
+    "summaries": [
+      {
+        "target": "directx",
+        "nativeImplemented": false,
+        "sourcePackageSupported": true,
+        "packageBuildSupported": false,
+        "packageMode": "unsupported",
+        "packageDecisionReason": "unsupported",
+        "packageRankScore": 2,
+        "requiredCapabilityCount": 1,
+        "missingCapabilityCount": 1,
+        "requiredCapabilities": [
+          "directx.backend.hlsl-lowering"
+        ],
+        "missingCapabilities": [
+          "directx.backend.hlsl-lowering"
+        ],
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.directx.decision",
+          "target-legalization.v1.directx.state.rejected",
+          "target-legalization.v1.directx.support.unsupported",
+          "target-legalization.v1.directx.package-mode.unsupported",
+          "target-legalization.v1.directx.package-provenance.unsupported",
+          "target-legalization.v1.directx.package-reason.unsupported"
+        ],
+        "requiredCapabilityGroups": [
+          {
+            "kind": "backend",
+            "count": 1,
+            "capabilities": [
+              "directx.backend.hlsl-lowering"
+            ]
+          }
+        ],
+        "missingCapabilityGroups": [
+          {
+            "kind": "backend",
+            "count": 1,
+            "capabilities": [
+              "directx.backend.hlsl-lowering"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "hirSourceLocations": {
+    "expressionCount": 0,
+    "expressionWithLocationCount": 0,
+    "typeCount": 0,
+    "typeWithLocationCount": 0,
+    "statementCount": 1,
+    "statementWithLocationCount": 1,
+    "expressions": [],
+    "types": [],
+    "statements": [
+      {
+        "index": 0,
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "function": "main",
+        "statementKind": "decl",
+        "name": "value",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 12,
+          "endLine": 1,
+          "endColumn": 13,
+          "endOffset": 12
+        }
+      }
+    ]
+  },
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernelBuckets": {
+    "staticNormalized": [],
+    "staticNonNormalized": [],
+    "staticZeroSum": [],
+    "dynamic": []
+  },
+  "manualTextureCompareKernels": []
+}

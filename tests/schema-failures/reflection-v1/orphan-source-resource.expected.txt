@@ -1,0 +1,1 @@
+$.resources[0]: missing target resource binding ('compute', 'values', 'buffer')

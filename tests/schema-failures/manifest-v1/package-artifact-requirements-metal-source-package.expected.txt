@@ -1,0 +1,1 @@
+$.packageArtifactRequirements.packageMode: expected target contract mode 'native'

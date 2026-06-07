@@ -1,0 +1,495 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-maintenance-report-v1.schema.json",
+  "title": "CrossGL Package Maintenance Scan Report JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "rootPath",
+    "dryRun",
+    "keepLast",
+    "olderThanSeconds",
+    "success",
+    "packageCount",
+    "retainedCount",
+    "candidateCount",
+    "discardedCount",
+    "failedCount",
+    "packages",
+    "diagnosticCounts",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "rootPath": {
+      "type": "string"
+    },
+    "dryRun": {
+      "type": "boolean"
+    },
+    "keepLast": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "olderThanSeconds": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "packageCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "retainedCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "candidateCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "discardedCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "failedCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "packages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/packageCleanupResult"
+      }
+    },
+    "diagnosticCounts": {
+      "$ref": "#/$defs/diagnosticCounts"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "packageCleanupResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "packagePath",
+        "dryRun",
+        "requestedExists",
+        "keepLast",
+        "olderThanSeconds",
+        "retainedCount",
+        "success",
+        "candidateCount",
+        "discardedCount",
+        "failedCount",
+        "publication",
+        "candidates",
+        "retained",
+        "diagnosticCounts",
+        "diagnostics"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "packagePath": {
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        },
+        "requestedExists": {
+          "type": "boolean"
+        },
+        "keepLast": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "olderThanSeconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "retainedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "candidateCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "discardedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "failedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "publication": {
+          "$ref": "#/$defs/publication"
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cleanupCandidate"
+          }
+        },
+        "retained": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/retainedCandidate"
+          }
+        },
+        "diagnosticCounts": {
+          "$ref": "#/$defs/diagnosticCounts"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      }
+    },
+    "sidecarKind": {
+      "type": "string",
+      "enum": [
+        "staging",
+        "previous"
+      ]
+    },
+    "nullableSidecarKind": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "staging",
+        "previous",
+        null
+      ]
+    },
+    "nullableString": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nullableInteger": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "requestedPath",
+        "sidecarKind",
+        "sidecarToken",
+        "sidecarAttempt",
+        "siblingSidecarCount",
+        "siblingSidecars"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "published",
+            "staged",
+            "previous"
+          ]
+        },
+        "requestedPath": {
+          "type": "string"
+        },
+        "sidecarKind": {
+          "$ref": "#/$defs/nullableSidecarKind"
+        },
+        "sidecarToken": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sidecarAttempt": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "siblingSidecarCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "siblingSidecars": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sidecarRecord"
+          }
+        }
+      }
+    },
+    "sidecarRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "token",
+        "attempt",
+        "directory"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/sidecarKind"
+        },
+        "token": {
+          "type": "string"
+        },
+        "attempt": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "directory": {
+          "type": "boolean"
+        }
+      }
+    },
+    "cleanupCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "token",
+        "attempt",
+        "directory",
+        "reason",
+        "action",
+        "success"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/sidecarKind"
+        },
+        "token": {
+          "type": "string"
+        },
+        "attempt": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "directory": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "not-directory",
+            "previous-backup",
+            "staging-with-published-output"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "would-discard",
+            "discarded",
+            "failed"
+          ]
+        },
+        "success": {
+          "type": "boolean"
+        }
+      }
+    },
+    "retainedCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "token",
+        "attempt",
+        "directory",
+        "reason",
+        "retainedBy",
+        "action",
+        "success"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/sidecarKind"
+        },
+        "token": {
+          "type": "string"
+        },
+        "attempt": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "directory": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "not-directory",
+            "previous-backup",
+            "staging-with-published-output"
+          ]
+        },
+        "retainedBy": {
+          "type": "string",
+          "enum": [
+            "keep-last",
+            "younger-than",
+            "age-unknown"
+          ]
+        },
+        "action": {
+          "type": "string",
+          "const": "kept"
+        },
+        "success": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "diagnosticCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "warning",
+        "error"
+      ],
+      "properties": {
+        "note": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warning": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endOffset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "target": {
+          "type": "string"
+        },
+        "missingCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

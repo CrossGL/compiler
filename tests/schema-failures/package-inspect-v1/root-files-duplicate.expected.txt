@@ -1,0 +1,1 @@
+$.rootFiles: duplicate root file record 'manifest'

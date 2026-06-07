@@ -1,0 +1,5 @@
+shader BadNoStagesShader {
+  struct Params {
+    float value;
+  }
+}

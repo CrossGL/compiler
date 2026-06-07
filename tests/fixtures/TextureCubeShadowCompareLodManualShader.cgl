@@ -1,0 +1,17 @@
+shader TextureCubeShadowCompareLodManualShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 2) uniform samplerCubeShadow shadowCube;
+    layout(set = 0, binding = 5) sampler rawShadowSampler;
+
+    void main() {
+      float visibility =
+          textureCompareLodManual(shadowCube, rawShadowSampler,
+                                  vec3(0.0, 1.0, 0.0), 0.5, 1.0,
+                                  greater_equal);
+      values[0] = visibility;
+      return;
+    }
+  }
+}

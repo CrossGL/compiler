@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "fragment",
+      "sourceName": "main",
+      "backendName": "fragment_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "fragment",
+      "name": "albedo",
+      "kind": "texture",
+      "type": "sampler2D",
+      "set": 1,
+      "binding": 2
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "fragment",
+      "entryPoint": "fragment_main",
+      "name": "albedo",
+      "kind": "texture",
+      "sourceType": "sampler2D",
+      "hlslType": "Texture2D<float4>",
+      "addressSpace": "shader-resource",
+      "abi": "registerBinding",
+      "bindingClass": "srv",
+      "argumentIndex": 2,
+      "set": 1,
+      "binding": 2
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

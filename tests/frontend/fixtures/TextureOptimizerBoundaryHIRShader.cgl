@@ -1,0 +1,64 @@
+shader TextureOptimizerBoundaryHIRShader {
+  const int RESOURCE_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* pixels;
+    layout(set = 0, binding = 1) buffer float* values;
+    layout(set = 0, binding = 2) buffer int* descriptors;
+    layout(set = 0, binding = 3) uniform sampler2D colorMaps[RESOURCE_COUNT];
+    layout(set = 0, binding = 4) uniform sampler2DShadow shadowMaps[RESOURCE_COUNT];
+    layout(set = 0, binding = 5) uniform sampler2DArrayShadow shadowAtlases[RESOURCE_COUNT];
+    layout(set = 0, binding = 6) sampler linearSamplers[RESOURCE_COUNT];
+    layout(set = 0, binding = 7) sampler shadowSamplers[RESOURCE_COUNT];
+    layout(set = 0, binding = 8) sampler rawShadowSamplers[RESOURCE_COUNT];
+
+    void main() {
+      int textureSlot = descriptors[0];
+      int samplerSlot = descriptors[1];
+      vec2 uv = vec2(values[0], values[1]);
+      vec3 shadowUv = vec3(values[2], values[3], values[4]);
+      float depth = values[5];
+      float sampleLod = values[6];
+      float compareLod = values[7];
+      float kernelLod = values[8];
+      float deadScalar = values[9] + 10.0;
+
+      vec4 sampled =
+          textureLod(colorMaps[nonuniform(textureSlot)],
+                     linearSamplers[samplerSlot], uv, sampleLod);
+      float hardwareVisibility =
+          textureCompare(shadowMaps[textureSlot],
+                         shadowSamplers[nonuniform(samplerSlot)], uv, depth);
+      float lodVisibility =
+          textureCompareLod(shadowMaps[nonuniform(textureSlot)],
+                            shadowSamplers[samplerSlot], uv, depth,
+                            compareLod);
+      float kernelVisibility =
+          textureCompareLodManualKernel4(
+              shadowAtlases[nonuniform(textureSlot)],
+              rawShadowSamplers[samplerSlot], shadowUv, depth, kernelLod,
+              less_equal,
+              ivec2(-1, -1), 0.25,
+              ivec2(0, -1), 0.25,
+              ivec2(-1, 0), 0.25,
+              ivec2(0, 0), 0.25);
+      float listVisibility =
+          textureCompareLodManualKernel(
+              shadowMaps[textureSlot],
+              rawShadowSamplers[nonuniform(samplerSlot)], uv, depth,
+              compareLod, greater_equal,
+              textureCompareKernel(ivec2(0, 0), 0.40,
+                                   ivec2(1, 0), 0.20,
+                                   ivec2(0, 1), 0.20,
+                                   ivec2(-1, 0), 0.20));
+      float deadLocal = deadScalar + 1.0;
+
+      pixels[0] = sampled + vec4(hardwareVisibility, lodVisibility,
+                                 kernelVisibility, listVisibility);
+      values[0] = hardwareVisibility + lodVisibility;
+      values[1] = kernelVisibility + listVisibility;
+      return;
+    }
+  }
+}

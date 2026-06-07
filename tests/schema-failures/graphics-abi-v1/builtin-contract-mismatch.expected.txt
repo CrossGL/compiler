@@ -1,0 +1,1 @@
+$.builtins[0]: builtin 'front_facing' requires (stage, direction, type) ('fragment', 'input', 'bool'), got ('vertex', 'output', 'bool')

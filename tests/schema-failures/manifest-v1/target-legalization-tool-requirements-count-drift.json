@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "compiler": {
+    "name": "CrossGL-Compiler",
+    "version": "0.1.0",
+    "llvmVersion": "unknown"
+  },
+  "module": "SemanticFixture",
+  "target": "directx",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "c0b5df7fb74ceef746570777efdfdfa48f1bc21077c21d6fea75c09c0b3268e0"
+  },
+  "targetLegalizationToolRequirements": {
+    "target": "directx",
+    "packageMode": "source-package",
+    "requiredToolCount": 1,
+    "missingToolCount": 2,
+    "requiredToolIds": [
+      "directx.toolchain.dxc",
+      "directx.validation.dxil-validator"
+    ],
+    "missingToolIds": [
+      "directx.toolchain.dxc",
+      "directx.validation.dxil-validator"
+    ],
+    "optionalNativeToolMissing": true,
+    "optionalNativeToolStatus": "missing",
+    "toolRequirementEvidenceIds": [
+      "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc",
+      "target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator",
+      "target-legalization.v1.directx.tool-requirements.missing"
+    ]
+  },
+  "artifacts": {
+    "backendSource": "out/backend/directx/SemanticFixture.hlsl",
+    "nativeBinary": "out/backend/directx/SemanticFixture.dxil",
+    "nativeBinaryStatus": "planned"
+  }
+}

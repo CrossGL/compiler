@@ -1,0 +1,11 @@
+shader BadTextureCompareDepthShader {
+  compute {
+    uniform sampler2DShadow shadowMap;
+    sampler shadowSampler;
+    void main() {
+      float visibility =
+          textureCompare(shadowMap, shadowSampler, vec2(0.5, 0.5), true);
+      return;
+    }
+  }
+}

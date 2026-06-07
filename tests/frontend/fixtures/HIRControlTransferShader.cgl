@@ -1,0 +1,51 @@
+shader HIRControlTransferShader {
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+
+  struct FragmentInput {
+    vec2 uv;
+  }
+
+  struct FragmentOutput {
+    vec4 color;
+  }
+
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+
+  fragment {
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      output.color = vec4(0.0, 0.0, 0.0, 1.0);
+      for (int i = 0; i < 4; i++) {
+        if (i == 1) {
+          continue;
+          output.color.x = 99.0;
+        }
+        if (i == 2) {
+          break;
+          output.color.y = 99.0;
+        }
+        output.color.x = output.color.x + float(i);
+      }
+      if (input.uv.x < 0.0) {
+        discard;
+        output.color = vec4(1.0, 0.0, 0.0, 1.0);
+      }
+      return output;
+    }
+  }
+}

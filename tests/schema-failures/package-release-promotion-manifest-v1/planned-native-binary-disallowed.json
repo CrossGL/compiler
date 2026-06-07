@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "summaryPath": "build/package-release-summary.json",
+  "manifestPath": "build/package-release-promotion-manifest.json",
+  "batchPath": "build/package-release-verification-batch.json",
+  "status": "eligible",
+  "releaseEligible": true,
+  "blockerCount": 0,
+  "blockers": [],
+  "packageCount": 1,
+  "packages": [
+    {
+      "packagePath": "packages/basic-directx",
+      "module": "Basic",
+      "target": "directx",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "nativeBinaryStatus": "planned",
+      "packageArtifactRequirements": {
+        "target": "directx",
+        "packageMode": "source-package",
+        "requiredPathArtifacts": [
+          "backendSource",
+          "nativeBinary"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": false,
+        "allowsPlannedNativeSourceEvidence": false
+      },
+      "artifactCount": 2,
+      "artifacts": [
+        {
+          "name": "backendSource",
+          "path": "packages/basic-directx/artifacts/basic.hlsl",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "name": "nativeBinary",
+          "path": "packages/basic-directx/artifacts/basic.dxil",
+          "exists": true,
+          "sizeBytes": 8,
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "summaryPath": "build/package-release-summary.json",
+    "batchPath": "build/package-release-verification-batch.json",
+    "success": true,
+    "matches": true,
+    "releaseEligible": true,
+    "verificationCount": 1,
+    "matchedCount": 1,
+    "mismatchedCount": 0,
+    "failedCount": 0,
+    "scannedPackageCount": 1,
+    "setPackageCount": 1,
+    "missingFromSetCount": 0,
+    "extraInSetCount": 0,
+    "diagnosticCounts": {
+      "note": 0,
+      "warning": 0,
+      "error": 0
+    }
+  },
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  }
+}

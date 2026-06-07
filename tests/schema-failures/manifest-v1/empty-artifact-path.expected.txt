@@ -1,0 +1,1 @@
+$.artifacts.backendSource: artifact path must not be empty

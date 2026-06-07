@@ -1,0 +1,1 @@
+$.artifactPath: planned source-package descriptors must not declare artifactPath

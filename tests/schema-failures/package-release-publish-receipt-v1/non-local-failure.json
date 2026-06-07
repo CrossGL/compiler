@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "stageReportPath": "build/package-release-publish-stage.json",
+  "receiptPath": "build/package-release-publish-receipt.json",
+  "receiptWritten": true,
+  "targetKind": "gcs",
+  "targetPath": "release",
+  "success": false,
+  "packageCount": 1,
+  "artifactCount": 1,
+  "totalArtifactBytes": 16,
+  "publishedArtifactCount": 0,
+  "publishedArtifactBytes": 0,
+  "artifacts": [
+    {
+      "name": "backendSource",
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourcePath": "packages/basic/artifacts/basic.metal",
+      "packageArtifactPath": "artifacts/basic.metal",
+      "destinationPath": "packages/basic/artifacts/basic.metal",
+      "stagedPath": "build/stage/packages/basic/artifacts/basic.metal",
+      "publishedPath": "release/packages/basic/artifacts/basic.metal",
+      "sizeBytes": 16,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "staged": true,
+      "published": false
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

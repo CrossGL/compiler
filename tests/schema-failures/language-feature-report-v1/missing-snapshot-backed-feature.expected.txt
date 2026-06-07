@@ -1,0 +1,1 @@
+missing CrossTL snapshot-backed feature 'resource.image-format-metadata'

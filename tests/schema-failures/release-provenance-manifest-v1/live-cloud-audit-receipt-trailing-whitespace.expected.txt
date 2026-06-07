@@ -1,0 +1,1 @@
+$.cloudUpload.approvalEvidence.auditReceiptPaths[0]: expected string to match pattern

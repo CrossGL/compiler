@@ -1,0 +1,37 @@
+shader FloatUnaryIdentityOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    void main() {
+      float floatBase = values[0];
+      float floatUnaryPlus = +floatBase;
+      float floatAddRightZero = floatBase + 0.0;
+      float floatAddLeftZero = 0.0 + floatBase;
+      float floatSubtractRightZero = floatBase - 0.0;
+      float floatMultiplyRightOne = floatBase * 1.0;
+      float floatMultiplyLeftOne = 1.0 * floatBase;
+      float floatDivideRightOne = floatBase / 1.0;
+      float floatMultiplyRightZero = floatBase * 0.0;
+      float floatMultiplyLeftZero = 0.0 * floatBase;
+      float floatResourceMultiplyRightOne = values[0] * 1.0;
+      float floatResourceMultiplyLeftOne = 1.0 * values[0];
+      float floatResourceDivideRightOne = values[0] / 1.0;
+      float floatResourceSubtractRightZero = values[0] - 0.0;
+      float floatResourceMultiplyRightZero = values[0] * 0.0;
+      float floatResourceMultiplyLeftZero = 0.0 * values[0];
+
+      values[1] = floatUnaryPlus;
+      values[2] = floatAddRightZero + floatAddLeftZero +
+                  floatSubtractRightZero + floatMultiplyRightOne +
+                  floatMultiplyLeftOne + floatDivideRightOne;
+      values[3] = floatMultiplyRightZero + floatMultiplyLeftZero +
+                  floatResourceMultiplyRightOne +
+                  floatResourceMultiplyLeftOne + floatResourceDivideRightOne +
+                  floatResourceSubtractRightZero +
+                  floatResourceMultiplyRightZero +
+                  floatResourceMultiplyLeftZero;
+      return;
+    }
+  }
+}

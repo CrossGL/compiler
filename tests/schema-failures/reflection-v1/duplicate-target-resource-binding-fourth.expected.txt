@@ -1,0 +1,1 @@
+$.targetResourceBindings: duplicate (stage, entryPoint, name, kind) ('compute', 'compute_main', 'values0', 'buffer')

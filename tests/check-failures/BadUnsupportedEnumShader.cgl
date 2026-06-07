@@ -1,0 +1,11 @@
+shader BadUnsupportedEnum {
+  enum BlendMode {
+    Add,
+    Multiply,
+  }
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

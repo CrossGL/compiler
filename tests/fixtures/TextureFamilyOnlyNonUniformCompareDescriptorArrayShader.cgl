@@ -1,0 +1,27 @@
+shader TextureFamilyOnlyNonUniformCompareDescriptorArrayShader {
+  const int SHADOW_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) buffer int* descriptors;
+    layout(set = 0, binding = 2) uniform sampler2DArrayShadow shadowAtlases[SHADOW_COUNT];
+    layout(set = 0, binding = 4) uniform samplerCubeShadow shadowCubes[SHADOW_COUNT];
+    layout(set = 0, binding = 6) uniform samplerCubeArrayShadow shadowCubeArrays[SHADOW_COUNT];
+    layout(set = 0, binding = 9) sampler shadowSampler;
+    void main() {
+      int descriptor = descriptors[0];
+      float atlasVisibility =
+          textureCompare(shadowAtlases[nonuniform(descriptor)], shadowSampler,
+                         vec3(0.25, 0.5, 1.0), 0.33);
+      float cubeVisibility =
+          textureCompare(shadowCubes[nonuniform(descriptor)], shadowSampler,
+                         vec3(0.0, 1.0, 0.0), 0.75);
+      float cubeArrayVisibility =
+          textureCompare(shadowCubeArrays[nonuniform(descriptor)], shadowSampler,
+                         vec4(0.0, 1.0, 0.0, 2.0), 0.5);
+      values[0] = atlasVisibility + cubeVisibility + cubeArrayVisibility;
+      return;
+    }
+  }
+}

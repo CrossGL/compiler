@@ -1,0 +1,1 @@
+$.summary.nativeArtifactDescriptor.artifactPresent: native-ready package verification requires nativeArtifactDescriptor artifact evidence

@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[2].index: expected array index 2, got 3

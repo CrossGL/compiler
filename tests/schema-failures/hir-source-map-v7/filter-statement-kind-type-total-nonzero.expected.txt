@@ -1,0 +1,1 @@
+$.categoryCounts.typeTotalCount: expected statementKind filter excludes type records 0, got 1

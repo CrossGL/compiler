@@ -1,0 +1,9 @@
+shader BadContinueOutsideLoopShader {
+  compute {
+    void main() {
+      if (true) {
+        continue;
+      }
+    }
+  }
+}

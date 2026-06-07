@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "module": "FutureSchemaRuntimeExample",
+  "target": "directx",
+  "nativeBinary": "backend/directx/FutureSchemaRuntimeExample.dxil",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "future_schema_main"
+    }
+  ],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "type": "float4",
+      "set": 0,
+      "binding": 0
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "future_schema_main",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "sourceType": "float4",
+      "abi": {
+        "space": 0,
+        "register": "u0"
+      },
+      "bindingClass": "uav",
+      "descriptorType": "UAV",
+      "hlslType": "RWStructuredBuffer<float4>"
+    }
+  ],
+  "targetFeatures": [
+    {
+      "target": "directx",
+      "kind": "package",
+      "name": "source-package"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+shader StorageImageExplicitFormatDescriptorArrayShader {
+  const int IMAGE_COUNT = 2;
+  const int ATLAS_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 2, local_size_y = 2, local_size_z = 1) in;
+    layout(set = 0, binding = 0, format = r32f) readonly uniform image2D colorImages[IMAGE_COUNT];
+    layout(set = 0, binding = 1, format = r32i) readonly uniform iimage2D labelImages[IMAGE_COUNT];
+    layout(set = 0, binding = 2, format = r32ui) readonly uniform uimage2DArray maskAtlases[ATLAS_COUNT];
+    layout(set = 0, binding = 3, format = r32ui) writeonly uniform uimage2DArray outputAtlases[ATLAS_COUNT];
+    layout(set = 0, binding = 4) buffer int* slots;
+    layout(set = 0, binding = 5) buffer vec4* colors;
+    layout(set = 0, binding = 6) buffer ivec4* labels;
+    layout(set = 0, binding = 7) buffer uvec4* masks;
+
+    void main() {
+      int imageSlot = slots[0];
+      int atlasSlot = slots[1];
+      ivec2 pixel = ivec2(0, 0);
+      ivec3 atlasPixel = ivec3(pixel, 0);
+
+      vec4 color = imageLoad(colorImages[nonuniform(imageSlot)], pixel);
+      ivec4 label = imageLoad(labelImages[nonuniform(imageSlot)], pixel);
+      uvec4 mask = imageLoad(maskAtlases[nonuniform(atlasSlot)], atlasPixel);
+      imageStore(outputAtlases[nonuniform(atlasSlot)], atlasPixel, mask);
+
+      colors[0] = color;
+      labels[0] = label;
+      masks[0] = mask;
+      return;
+    }
+  }
+}

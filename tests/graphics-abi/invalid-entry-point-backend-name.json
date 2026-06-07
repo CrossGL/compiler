@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "module": "GraphicsAbiEntryPointBackendNameMismatch",
+  "target": "vulkan",
+  "entryPoints": [
+    {
+      "stage": "fragment",
+      "sourceName": "fs_main",
+      "backendName": "renamed_fragment_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-entry-point-backend-name.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    }
+  ],
+  "vertexInputs": [],
+  "varyings": [],
+  "fragmentOutputs": [],
+  "builtins": [],
+  "resources": [],
+  "abiRecords": []
+}

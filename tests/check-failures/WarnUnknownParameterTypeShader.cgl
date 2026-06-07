@@ -1,0 +1,7 @@
+shader WarnUnknownParameterTypeShader {
+  compute {
+    void main(Nope value) {
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.targetDecision.fallbackTargetRecords[2].missingCapabilityGroups[3].count: expected $.targetDecision.fallbackTargetRecords[2].missingCapabilityGroups[3].capabilities length 1, got 0

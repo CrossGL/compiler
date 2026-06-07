@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "vertex",
+      "sourceName": "main",
+      "backendName": "vertex_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [],
+  "targetResourceBindings": [],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [
+    {
+      "entryPoint": "vertex_main",
+      "attributes": [
+        {
+          "name": "position",
+          "type": "float3",
+          "location": 0
+        },
+        {
+          "name": "normal",
+          "type": "float3",
+          "location": 2
+        }
+      ]
+    }
+  ],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

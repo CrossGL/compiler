@@ -1,0 +1,1034 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-mlir-op-type-catalog-v0",
+  "status": "report-only-derived-from-hir-facts",
+  "scope": "experimental CrossGL MLIR HIR dialect operation and type fact coverage",
+  "generation": {
+    "deterministic": true,
+    "derivedFrom": [
+      "experimental/mlir/boundary_inventory.v0.json",
+      "experimental/mlir/fixture_inventory.json",
+      "experimental/mlir/experiment_manifest.json"
+    ],
+    "optionalMlirToolingRequired": false,
+    "productionLinked": false,
+    "normalBuildRequired": false
+  },
+  "dialect": {
+    "canonicalNamespace": "hir",
+    "operationPrefix": "hir.",
+    "authorityAnchors": [
+      "include/crossgl/HIR/HIR.h",
+      "tools/cross_repo_language_contract.json",
+      "docs/language/crosstl-frontend-language-spec-v0.json"
+    ]
+  },
+  "coverageSummary": {
+    "operationCount": 14,
+    "typeFactCount": 13,
+    "fixtureCount": 4,
+    "fixtures": [
+      "tests/fixtures/IfComputeShader.cgl",
+      "tests/fixtures/MinimalComputeShader.cgl",
+      "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/fixtures/StorageBufferComputeShader.cgl"
+    ]
+  },
+  "fixtureUniverse": {
+    "admittedFixtures": [
+      "tests/fixtures/IfComputeShader.cgl",
+      "tests/fixtures/MinimalComputeShader.cgl",
+      "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/fixtures/StorageBufferComputeShader.cgl"
+    ],
+    "operationFixtures": [
+      "tests/fixtures/IfComputeShader.cgl",
+      "tests/fixtures/MinimalComputeShader.cgl",
+      "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/fixtures/StorageBufferComputeShader.cgl"
+    ],
+    "fixturesMissingOperationCoverage": [],
+    "operationFixturesOutsideInventory": [],
+    "matches": true
+  },
+  "operations": [
+    {
+      "operation": "hir.module",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Owns the admitted shader module and fixture source file provenance.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "preserves": [
+        "source_locations",
+        "package_artifact_contracts"
+      ],
+      "requiredFixtureFacts": [
+        "source_file",
+        "shader_module"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "experimentSlice": "minimal-compute-entry",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "experimentSlice": "straight-line-scalar-expressions",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.compute_stage",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the compute stage boundary for admitted entry-point fixtures.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "preserves": [
+        "source_locations",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "compute_stage",
+        "stage"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "experimentSlice": "minimal-compute-entry",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "experimentSlice": "straight-line-scalar-expressions",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.entry_point",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Names the canonical HIR entry function and void return type facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "entry_point",
+        "entryPoint"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "experimentSlice": "minimal-compute-entry",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "experimentSlice": "straight-line-scalar-expressions",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.workgroup_size",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records the compute local size without becoming resource lowering.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "preserves": [
+        "workgroup_size",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "resourceFacts.localSize"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "experimentSlice": "minimal-compute-entry",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "experimentSlice": "straight-line-scalar-expressions",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.return",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries return statement source locations for admitted compute functions.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "return_statement"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "experimentSlice": "minimal-compute-entry",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "experimentSlice": "straight-line-scalar-expressions",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.source_location_anchor",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Collects the common source-location provenance facts every admitted fixture must preserve before any real MLIR projection is accepted.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "preserves": [
+        "source_locations",
+        "source_map_debug_contracts"
+      ],
+      "requiredFixtureFacts": [
+        "source_file",
+        "shader_module",
+        "compute_stage",
+        "entry_point",
+        "layout_local_size",
+        "return_statement"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "experimentSlice": "minimal-compute-entry",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "experimentSlice": "straight-line-scalar-expressions",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.scalar_declare",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents straight-line scalar local declarations and their source locations.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "local_variable_declarations",
+        "float_scalar"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "experimentSlice": "straight-line-scalar-expressions",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "local_variable_declarations",
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "local_variable_declarations",
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "local_variable_declarations",
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.scalar_expr",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents admitted scalar arithmetic, casts, comparisons, unary expressions, and assignment result facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "float_scalar"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "experimentSlice": "straight-line-scalar-expressions",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.scalar_compare",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Separates scalar comparison result parity for the straight-line scalar fixture from generic scalar expression coverage.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "scalar_expression_statements",
+        "comparison_expression_result_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "experimentSlice": "straight-line-scalar-expressions",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "scalar_expression_statements",
+            "comparison_expression_result_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.resource",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries set and binding descriptor facts for admitted resource fixtures.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "preserves": [
+        "source_locations",
+        "resource_bindings",
+        "package_artifact_contracts"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_declaration",
+        "resourceFacts.descriptors[].stage",
+        "resourceFacts.descriptors[].name",
+        "resourceFacts.descriptors[].kind",
+        "resourceFacts.descriptors[].set",
+        "resourceFacts.descriptors[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].stage",
+        "resourceFacts.targetIndependentResourceMetadata[].name",
+        "resourceFacts.targetIndependentResourceMetadata[].kind",
+        "resourceFacts.targetIndependentResourceMetadata[].set",
+        "resourceFacts.targetIndependentResourceMetadata[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the admitted single non-array float storage-buffer type and access facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "preserves": [
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_element_type",
+        "resourceFacts.storageBuffers[].name",
+        "resourceFacts.storageBuffers[].type",
+        "resourceFacts.storageBuffers[].elementType",
+        "resourceFacts.storageBuffers[].addressSpace",
+        "resourceFacts.storageBuffers[].writeAccess",
+        "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+        "resourceFacts.targetIndependentResourceMetadata[].elementType",
+        "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+        "resourceFacts.targetIndependentResourceMetadata[].access"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.read",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents the structured-if fixture's storage-buffer read fact only.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_read"
+      ],
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_read"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.write",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents admitted storage-buffer writes while preserving descriptor and source facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_write"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "experimentSlice": "single-storage-buffer-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.if",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents the single admitted structured if/else branch and branch condition facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "control_flow_and_statements",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "if_statement",
+        "branch_condition_bool",
+        "then_block_assignment",
+        "else_block_assignment"
+      ],
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "experimentSlice": "single-structured-if-else",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "if_statement",
+            "branch_condition_bool",
+            "then_block_assignment",
+            "else_block_assignment"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    }
+  ],
+  "types": [
+    {
+      "typeFact": "assignment_expression_result_types",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "binary_expression_result_types",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "bool_scalar",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "branch_condition_bool",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "comparison_expression_result_type",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "constructor_cast_expression",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "float_pointer_storage_buffer",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "float_scalar",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "int_scalar",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "scalar_literals",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "storage_buffer_element_type",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "unary_expression_result_types",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "void_entry_point",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl"
+      ]
+    }
+  ],
+  "blockedCoverage": [
+    {
+      "id": "textures_samplers_images_and_intrinsics",
+      "reason": "Texture, sampler, image, and texture intrinsic lowering are not part of the fixture-limited real MLIR experiment."
+    },
+    {
+      "id": "descriptor_indexing_and_nonuniform",
+      "reason": "Descriptor arrays, dynamic indexing, and nonuniform metadata require target legalization facts first."
+    },
+    {
+      "id": "backend_policy_and_package_schema",
+      "reason": "Production backend policy, package schemas, and target legalization remain outside Milestone 7 experiment scope."
+    }
+  ]
+}

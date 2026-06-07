@@ -1,0 +1,1 @@
+$.targets[0].optimization.supported: expected registry v0 optimization support True, got False

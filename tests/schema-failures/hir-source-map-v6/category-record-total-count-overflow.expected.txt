@@ -1,0 +1,1 @@
+$.categoryCounts.recordTotalCount: expected expressionTotalCount + typeTotalCount 2, got 3

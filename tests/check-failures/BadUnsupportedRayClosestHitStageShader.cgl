@@ -1,0 +1,7 @@
+shader BadUnsupportedRayClosestHitStage {
+  ray_closest_hit {
+    void main() {
+      return;
+    }
+  }
+}

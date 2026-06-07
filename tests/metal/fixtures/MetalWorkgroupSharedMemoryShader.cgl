@@ -1,0 +1,16 @@
+shader MetalWorkgroupSharedMemoryShader {
+  const int GROUP_SIZE = 4;
+
+  compute {
+    layout(local_size_x = GROUP_SIZE, local_size_y = 2, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    shared float tile[GROUP_SIZE];
+
+    void main() {
+      tile[0] = values[0];
+      tile[1] = tile[0] + 1.0;
+      values[1] = tile[1];
+      return;
+    }
+  }
+}

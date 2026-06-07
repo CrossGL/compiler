@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "promotionManifestPath": "release/package-release-promotion-manifest.json",
+  "summaryPath": "release/package-maintenance-set-verification-batch-summary.json",
+  "batchPath": "release/package-maintenance-set-verification-batch.json",
+  "status": "eligible",
+  "releaseEligible": true,
+  "blockerCount": 0,
+  "blockers": [],
+  "packageCount": 1,
+  "artifactCount": 3,
+  "existingArtifactCount": 2,
+  "missingArtifactCount": 1,
+  "totalArtifactBytes": 12,
+  "packages": [
+    {
+      "packagePath": "packages/basic-directx",
+      "module": "Basic",
+      "target": "directx",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "nativeBinaryStatus": "emitted",
+      "packageArtifactRequirements": {
+        "target": "directx",
+        "packageMode": "source-package",
+        "requiredPathArtifacts": [
+          "backendSource"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": true,
+        "allowsPlannedNativeSourceEvidence": true
+      },
+      "artifactCount": 3,
+      "existingArtifactCount": 2,
+      "missingArtifactCount": 1,
+      "totalArtifactBytes": 12,
+      "artifacts": [
+        {
+          "name": "backendSource",
+          "path": "artifacts/basic.hlsl",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "name": "nativeArtifactDescriptor",
+          "path": "artifacts/native-artifact.json",
+          "exists": true,
+          "sizeBytes": 8,
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        {
+          "name": "nativeBinary",
+          "path": "artifacts/basic.dxil",
+          "exists": false,
+          "sizeBytes": null,
+          "sha256": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+shader BadMixedSwizzleShader {
+  compute {
+    void main() {
+      vec4 color = vec4(1.0, 2.0, 3.0, 4.0);
+      vec2 bad = color.xg;
+      return;
+    }
+  }
+}

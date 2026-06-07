@@ -1,0 +1,1 @@
+$.packages[0].artifacts.nativeArtifactDescriptor: planned native source evidence requires descriptor artifact evidence

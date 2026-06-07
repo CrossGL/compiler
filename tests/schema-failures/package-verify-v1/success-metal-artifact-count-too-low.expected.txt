@@ -1,0 +1,1 @@
+$.summary.artifactCount: expected successful metal artifact count >= 3, got 2

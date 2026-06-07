@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "defaultTarget": "metal",
+  "buildableTargetCount": 0,
+  "recommendedTarget": null,
+  "recommendedPackageMode": null,
+  "targets": [
+    {
+      "target": "metal",
+      "nativeImplemented": true,
+      "sourcePackageSupported": false,
+      "packageBuildSupported": false,
+      "packageMode": "native",
+      "packageDecisionReason": "unsupported",
+      "packageRankScore": 2,
+      "requiredCapabilityCount": 1,
+      "missingCapabilityCount": 1,
+      "requiredCapabilities": [
+        "metal.unsupported.fixture"
+      ],
+      "missingCapabilities": [
+        "metal.unsupported.fixture"
+      ],
+      "legalizationCoreEvidenceIds": [
+        "target-legalization.v1.metal.decision",
+        "target-legalization.v1.metal.state.rejected",
+        "target-legalization.v1.metal.support.unsupported",
+        "target-legalization.v1.metal.package-mode.unsupported",
+        "target-legalization.v1.metal.package-provenance.unsupported-native-form",
+        "target-legalization.v1.metal.package-reason.unsupported"
+      ],
+      "targetBackend": "metal",
+      "decisionReasonCodes": [
+        "package-mode:native",
+        "package-reason:unsupported",
+        "unsupported:missing-capabilities"
+      ],
+      "artifactLinks": [
+        "ir/target-explanation.json#targets/metal"
+      ],
+      "reportLinks": [
+        "target-explanation-v1#targets/metal"
+      ],
+      "remediation": "No remediation required; native package output is available."
+    }
+  ]
+}

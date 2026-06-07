@@ -1,0 +1,7 @@
+shader BadUnsupportedTessellationStage {
+  tessellation_control {
+    void main() {
+      return;
+    }
+  }
+}

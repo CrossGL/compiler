@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "SemanticFixture.cglb",
+  "packageFormat": "directory",
+  "summary": {
+    "module": "SemanticFixture",
+    "target": "vulkan",
+    "nativeBinaryStatus": null,
+    "artifactCount": 3,
+    "debugArtifactsPresent": false
+  },
+  "rootFiles": [
+    {
+      "name": "manifest",
+      "path": "manifest.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "reflection",
+      "path": "reflection.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "diagnostics",
+      "path": "diagnostics.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "backendAssembly",
+      "path": "backend/vulkan/SemanticFixture.spvasm",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "backendAssembly"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "nativeBinary",
+      "path": "backend/vulkan/SemanticFixture.spv",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "nativeBinary"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "nativeArtifactDescriptor",
+      "path": "metadata/native-artifact.json",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "nativeArtifactDescriptor"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "manifest": {
+    "module": "SemanticFixture",
+    "target": "vulkan",
+    "artifacts": {
+      "backendAssembly": "backend/vulkan/SemanticFixture.spvasm",
+      "nativeBinary": "backend/vulkan/SemanticFixture.spv",
+      "nativeArtifactDescriptor": "metadata/native-artifact.json"
+    }
+  },
+  "reflection": {
+    "module": "SemanticFixture",
+    "target": "vulkan"
+  },
+  "diagnostics": {
+    "schemaVersion": 1
+  },
+  "nativeArtifactDescriptor": {
+    "artifactPresent": true,
+    "descriptorExists": true,
+    "health": "ok",
+    "path": "metadata/native-artifact.json",
+    "schemaVersion": 1,
+    "kind": "crossgl.nativeArtifact",
+    "contractVersion": "native-artifact-v0",
+    "target": "vulkan",
+    "binaryKind": "vulkan.spirv-module",
+    "sourcePath": "backend/vulkan/SemanticFixture.spvasm",
+    "sourceHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "artifactPath": "backend/vulkan/SemanticFixture.spv",
+    "artifactHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "sizeBytes": 1,
+    "optimizationLevel": "O0",
+    "validationStatus": "unavailable",
+    "nativeBinaryStatus": "emitted",
+    "checks": {
+      "descriptorIdentityMatchesContract": true,
+      "targetMatchesPackage": true,
+      "nativeBinaryStatusMatchesPackage": true,
+      "sourcePathMatchesManifest": true,
+      "sourceHashMatchesFile": true,
+      "artifactPathMatchesManifest": true,
+      "artifactHashMatchesFile": true,
+      "sizeBytesMatchesFile": true,
+      "validationStatusMatchesNativeStatus": true
+    }
+  }
+}

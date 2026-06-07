@@ -1,0 +1,1 @@
+$.categoryCounts.typeOwnerKinds: expected type owner kind category counts to match complete source-location records

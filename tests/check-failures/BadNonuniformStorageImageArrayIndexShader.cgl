@@ -1,0 +1,23 @@
+shader BadNonuniformStorageImageArrayIndexShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImages[];
+    layout(set = 0, binding = 1) uniform uimage2DArray maskAtlases[2];
+    layout(set = 0, binding = 2) buffer int* slots;
+    layout(set = 0, binding = 3) buffer vec4* colors;
+    layout(set = 0, binding = 4) buffer uvec4* masks;
+
+    void main() {
+      int slot = slots[0];
+      ivec2 pixel = ivec2(0, 0);
+      ivec3 arrayPixel = ivec3(0, 0, slot);
+      vec4 color = imageLoad(colorImages[slot], pixel);
+      uvec4 mask = imageLoad(maskAtlases[nonuniform(slot)], arrayPixel);
+      imageStore(colorImages[slot], pixel, color);
+      imageStore(maskAtlases[nonuniform(slot)], arrayPixel, mask);
+      colors[0] = color;
+      masks[0] = mask;
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.hirSourceLocations.resources[0].resourceRecordKind: expected one of ['declaration', 'layout', 'set', 'binding', 'access'], got 'pipeline'

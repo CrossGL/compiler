@@ -1,0 +1,694 @@
+{
+  "case": "package-mode-support-optional-diagnostic",
+  "doctor": {
+    "schemaVersion": 1,
+    "toolchain": {
+      "hostPlatform": "linux",
+      "hostArch": "x86_64",
+      "defaultTarget": "metal",
+      "llvmVersion": "22.1.5",
+      "hasMLIR": false,
+      "tools": [
+        {
+          "name": "dxc",
+          "available": false,
+          "path": "",
+          "detail": "not found",
+          "source": "not-found",
+          "resolvedPath": "",
+          "probeStatus": "unavailable",
+          "version": "",
+          "versionDetail": ""
+        },
+        {
+          "name": "glslangValidator",
+          "available": false,
+          "path": "",
+          "detail": "not found",
+          "source": "not-found",
+          "resolvedPath": "",
+          "probeStatus": "unavailable",
+          "version": "",
+          "versionDetail": ""
+        },
+        {
+          "name": "spirv-as",
+          "available": false,
+          "path": "",
+          "detail": "not found",
+          "source": "not-found",
+          "resolvedPath": "",
+          "probeStatus": "unavailable",
+          "version": "",
+          "versionDetail": ""
+        },
+        {
+          "name": "spirv-val",
+          "available": false,
+          "path": "",
+          "detail": "not found",
+          "source": "not-found",
+          "resolvedPath": "",
+          "probeStatus": "unavailable",
+          "version": "",
+          "versionDetail": ""
+        },
+        {
+          "name": "spirv-opt",
+          "available": false,
+          "path": "",
+          "detail": "not found",
+          "source": "not-found",
+          "resolvedPath": "",
+          "probeStatus": "unavailable",
+          "version": "",
+          "versionDetail": ""
+        },
+        {
+          "name": "spirv-dis",
+          "available": false,
+          "path": "",
+          "detail": "not found",
+          "source": "not-found",
+          "resolvedPath": "",
+          "probeStatus": "unavailable",
+          "version": "",
+          "versionDetail": ""
+        },
+        {
+          "name": "metal",
+          "available": false,
+          "path": "",
+          "detail": "not found",
+          "source": "not-found",
+          "resolvedPath": "",
+          "probeStatus": "unavailable",
+          "version": "",
+          "versionDetail": ""
+        },
+        {
+          "name": "metallib",
+          "available": false,
+          "path": "",
+          "detail": "not found",
+          "source": "not-found",
+          "resolvedPath": "",
+          "probeStatus": "unavailable",
+          "version": "",
+          "versionDetail": ""
+        }
+      ]
+    },
+    "targetExplanation": {
+      "schemaVersion": 1,
+      "module": "DoctorAlignmentFixture",
+      "defaultTarget": "metal",
+      "buildableTargetCount": 2,
+      "recommendedTarget": "metal",
+      "recommendedPackageMode": "native",
+      "targets": [
+        {
+          "target": "metal",
+          "nativeImplemented": true,
+          "sourcePackageSupported": false,
+          "packageBuildSupported": true,
+          "packageMode": "native",
+          "packageDecisionReason": "native-package-available",
+          "packageRankScore": 0,
+          "requiredCapabilityCount": 1,
+          "missingCapabilityCount": 0,
+          "legalizationCoreEvidenceIds": [
+            "target-legalization.v1.metal.decision",
+            "target-legalization.v1.metal.state.legalized",
+            "target-legalization.v1.metal.support.native",
+            "target-legalization.v1.metal.package-mode.native",
+            "target-legalization.v1.metal.package-provenance.native-package-available",
+            "target-legalization.v1.metal.package-reason.native-package-available"
+          ],
+          "diagnosticEvidenceIds": [],
+          "requiredToolCount": 2,
+          "missingToolCount": 0,
+          "optionalNativeToolMissing": false,
+          "optionalNativeToolStatus": "not-required",
+          "toolRequirementEvidenceIds": [
+            "target-legalization.v1.metal.tool-requirements.present",
+            "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
+            "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib"
+          ],
+          "requiredToolIds": [
+            "metal.toolchain.xcrun-metal",
+            "metal.toolchain.xcrun-metallib"
+          ],
+          "missingToolIds": [],
+          "requiredCapabilities": [
+            "metal.backend.native-metal-package"
+          ],
+          "missingCapabilities": [],
+          "targetBackend": "metal",
+          "decisionReasonCodes": [
+            "package-mode:native",
+            "package-reason:native-package-available"
+          ],
+          "artifactLinks": [
+            "ir/target-explanation.json#targets/metal"
+          ],
+          "reportLinks": [
+            "target-explanation-v1#targets/metal"
+          ],
+          "remediation": "No remediation required; native package output is available."
+        },
+        {
+          "target": "directx",
+          "nativeImplemented": false,
+          "sourcePackageSupported": true,
+          "packageBuildSupported": true,
+          "packageMode": "source-package",
+          "packageDecisionReason": "source-package-available",
+          "packageRankScore": 1,
+          "requiredCapabilityCount": 4,
+          "missingCapabilityCount": 3,
+          "legalizationCoreEvidenceIds": [
+            "target-legalization.v1.directx.decision",
+            "target-legalization.v1.directx.state.legalized",
+            "target-legalization.v1.directx.support.source-package",
+            "target-legalization.v1.directx.package-mode.source-package",
+            "target-legalization.v1.directx.package-provenance.source-package-only",
+            "target-legalization.v1.directx.optional-native-tool.missing",
+            "target-legalization.v1.directx.package-reason.source-package-available"
+          ],
+          "diagnosticEvidenceIds": [],
+          "requiredToolCount": 2,
+          "missingToolCount": 2,
+          "optionalNativeToolMissing": true,
+          "optionalNativeToolStatus": "missing",
+          "toolRequirementEvidenceIds": [
+            "target-legalization.v1.directx.tool-requirements.present",
+            "target-legalization.v1.directx.tool-requirement.required.toolchain.dxc",
+            "target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator",
+            "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc",
+            "target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator"
+          ],
+          "requiredToolIds": [
+            "directx.toolchain.dxc",
+            "directx.validation.dxil-validator"
+          ],
+          "missingToolIds": [
+            "directx.toolchain.dxc",
+            "directx.validation.dxil-validator"
+          ],
+          "requiredCapabilities": [
+            "directx.backend.hlsl-lowering",
+            "directx.backend.native-dxil-package",
+            "directx.toolchain.dxc",
+            "directx.validation.dxil-validator"
+          ],
+          "missingCapabilities": [
+            "directx.backend.native-dxil-package",
+            "directx.toolchain.dxc",
+            "directx.validation.dxil-validator"
+          ],
+          "targetBackend": "directx",
+          "decisionReasonCodes": [
+            "package-mode:source-package",
+            "package-reason:source-package-available",
+            "optional-native-tool:missing"
+          ],
+          "artifactLinks": [
+            "ir/target-explanation.json#targets/directx"
+          ],
+          "reportLinks": [
+            "target-explanation-v1#targets/directx"
+          ],
+          "remediation": "Source package output is available; native artifact remediation requires satisfying: directx.backend.native-dxil-package, directx.toolchain.dxc, directx.validation.dxil-validator."
+        },
+        {
+          "target": "opengl",
+          "nativeImplemented": false,
+          "sourcePackageSupported": false,
+          "packageBuildSupported": false,
+          "packageMode": "unsupported",
+          "packageDecisionReason": "unsupported",
+          "packageRankScore": 2,
+          "requiredCapabilityCount": 2,
+          "missingCapabilityCount": 1,
+          "legalizationCoreEvidenceIds": [
+            "target-legalization.v1.opengl.decision",
+            "target-legalization.v1.opengl.state.rejected",
+            "target-legalization.v1.opengl.support.unsupported",
+            "target-legalization.v1.opengl.package-mode.unsupported",
+            "target-legalization.v1.opengl.package-provenance.unsupported-source-form",
+            "target-legalization.v1.opengl.package-reason.unsupported"
+          ],
+          "diagnosticEvidenceIds": [
+            "target-legalization.v1.opengl.diagnostic.unsupported-shadow-lod"
+          ],
+          "requiredToolCount": 0,
+          "missingToolCount": 0,
+          "optionalNativeToolMissing": false,
+          "optionalNativeToolStatus": "not-required",
+          "toolRequirementEvidenceIds": [
+            "target-legalization.v1.opengl.tool-requirements.empty"
+          ],
+          "requiredToolIds": [],
+          "missingToolIds": [],
+          "requiredCapabilities": [
+            "opengl.backend.glsl-lowering",
+            "opengl.feature.shadow-cube-lod"
+          ],
+          "missingCapabilities": [
+            "opengl.feature.shadow-cube-lod"
+          ],
+          "targetBackend": "opengl",
+          "decisionReasonCodes": [
+            "package-mode:unsupported",
+            "package-reason:unsupported",
+            "unsupported:missing-capabilities"
+          ],
+          "artifactLinks": [
+            "ir/target-explanation.json#targets/opengl"
+          ],
+          "reportLinks": [
+            "target-explanation-v1#targets/opengl"
+          ],
+          "remediation": "Select a buildable target or satisfy missing target capabilities: opengl.feature.shadow-cube-lod."
+        }
+      ]
+    }
+  },
+  "explainTargets": {
+    "schemaVersion": 1,
+    "module": "DoctorAlignmentFixture",
+    "defaultTarget": "metal",
+    "buildableTargetCount": 2,
+    "recommendedTarget": "metal",
+    "recommendedPackageMode": "native",
+    "targets": [
+      {
+        "target": "metal",
+        "nativeImplemented": true,
+        "sourcePackageSupported": false,
+        "packageBuildSupported": true,
+        "packageMode": "native",
+        "packageDecisionReason": "native-package-available",
+        "packageRankScore": 0,
+        "requiredCapabilityCount": 1,
+        "missingCapabilityCount": 0,
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.metal.decision",
+          "target-legalization.v1.metal.state.legalized",
+          "target-legalization.v1.metal.support.native",
+          "target-legalization.v1.metal.package-mode.native",
+          "target-legalization.v1.metal.package-provenance.native-package-available",
+          "target-legalization.v1.metal.package-reason.native-package-available"
+        ],
+        "diagnosticEvidenceIds": [],
+        "requiredToolCount": 2,
+        "missingToolCount": 0,
+        "optionalNativeToolMissing": false,
+        "optionalNativeToolStatus": "not-required",
+        "toolRequirementEvidenceIds": [
+          "target-legalization.v1.metal.tool-requirements.present",
+          "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
+          "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib"
+        ],
+        "requiredToolIds": [
+          "metal.toolchain.xcrun-metal",
+          "metal.toolchain.xcrun-metallib"
+        ],
+        "missingToolIds": [],
+        "requiredCapabilities": [
+          "metal.backend.native-metal-package"
+        ],
+        "missingCapabilities": [],
+        "targetBackend": "metal",
+        "decisionReasonCodes": [
+          "package-mode:native",
+          "package-reason:native-package-available"
+        ],
+        "artifactLinks": [
+          "ir/target-explanation.json#targets/metal"
+        ],
+        "reportLinks": [
+          "target-explanation-v1#targets/metal"
+        ],
+        "remediation": "No remediation required; native package output is available."
+      },
+      {
+        "target": "directx",
+        "nativeImplemented": false,
+        "sourcePackageSupported": true,
+        "packageBuildSupported": true,
+        "packageMode": "source-package",
+        "packageDecisionReason": "source-package-available",
+        "packageRankScore": 1,
+        "requiredCapabilityCount": 4,
+        "missingCapabilityCount": 3,
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.directx.decision",
+          "target-legalization.v1.directx.state.legalized",
+          "target-legalization.v1.directx.support.source-package",
+          "target-legalization.v1.directx.package-mode.source-package",
+          "target-legalization.v1.directx.package-provenance.source-package-only",
+          "target-legalization.v1.directx.optional-native-tool.missing",
+          "target-legalization.v1.directx.package-reason.source-package-available"
+        ],
+        "diagnosticEvidenceIds": [],
+        "requiredToolCount": 2,
+        "missingToolCount": 2,
+        "optionalNativeToolMissing": true,
+        "optionalNativeToolStatus": "missing",
+        "toolRequirementEvidenceIds": [
+          "target-legalization.v1.directx.tool-requirements.present",
+          "target-legalization.v1.directx.tool-requirement.required.toolchain.dxc",
+          "target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator",
+          "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc",
+          "target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator"
+        ],
+        "requiredToolIds": [
+          "directx.toolchain.dxc",
+          "directx.validation.dxil-validator"
+        ],
+        "missingToolIds": [
+          "directx.toolchain.dxc",
+          "directx.validation.dxil-validator"
+        ],
+        "requiredCapabilities": [
+          "directx.backend.hlsl-lowering",
+          "directx.backend.native-dxil-package",
+          "directx.toolchain.dxc",
+          "directx.validation.dxil-validator"
+        ],
+        "missingCapabilities": [
+          "directx.backend.native-dxil-package",
+          "directx.toolchain.dxc",
+          "directx.validation.dxil-validator"
+        ],
+        "targetBackend": "directx",
+        "decisionReasonCodes": [
+          "package-mode:source-package",
+          "package-reason:source-package-available",
+          "optional-native-tool:missing"
+        ],
+        "artifactLinks": [
+          "ir/target-explanation.json#targets/directx"
+        ],
+        "reportLinks": [
+          "target-explanation-v1#targets/directx"
+        ],
+        "remediation": "Source package output is available; native artifact remediation requires satisfying: directx.backend.native-dxil-package, directx.toolchain.dxc, directx.validation.dxil-validator."
+      },
+      {
+        "target": "opengl",
+        "nativeImplemented": false,
+        "sourcePackageSupported": false,
+        "packageBuildSupported": false,
+        "packageMode": "unsupported",
+        "packageDecisionReason": "unsupported",
+        "packageRankScore": 2,
+        "requiredCapabilityCount": 2,
+        "missingCapabilityCount": 1,
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.opengl.decision",
+          "target-legalization.v1.opengl.state.rejected",
+          "target-legalization.v1.opengl.support.unsupported",
+          "target-legalization.v1.opengl.package-mode.unsupported",
+          "target-legalization.v1.opengl.package-provenance.unsupported-source-form",
+          "target-legalization.v1.opengl.package-reason.unsupported"
+        ],
+        "diagnosticEvidenceIds": [
+          "target-legalization.v1.opengl.diagnostic.unsupported-shadow-lod"
+        ],
+        "requiredToolCount": 0,
+        "missingToolCount": 0,
+        "optionalNativeToolMissing": false,
+        "optionalNativeToolStatus": "not-required",
+        "toolRequirementEvidenceIds": [
+          "target-legalization.v1.opengl.tool-requirements.empty"
+        ],
+        "requiredToolIds": [],
+        "missingToolIds": [],
+        "requiredCapabilities": [
+          "opengl.backend.glsl-lowering",
+          "opengl.feature.shadow-cube-lod"
+        ],
+        "missingCapabilities": [
+          "opengl.feature.shadow-cube-lod"
+        ],
+        "targetBackend": "opengl",
+        "decisionReasonCodes": [
+          "package-mode:unsupported",
+          "package-reason:unsupported",
+          "unsupported:missing-capabilities"
+        ],
+        "artifactLinks": [
+          "ir/target-explanation.json#targets/opengl"
+        ],
+        "reportLinks": [
+          "target-explanation-v1#targets/opengl"
+        ],
+        "remediation": "Select a buildable target or satisfy missing target capabilities: opengl.feature.shadow-cube-lod."
+      }
+    ]
+  },
+  "legalizationProjections": [
+    {
+      "targetProfile": {
+        "requestedTarget": "auto",
+        "preferredTarget": "metal",
+        "resolvedTarget": "metal",
+        "selectedTarget": "metal",
+        "autoRequested": true,
+        "selectedTargetBuildable": true
+      },
+      "nativeImplemented": true,
+      "sourcePackageSupported": false,
+      "supportsPackage": true,
+      "supportStatus": "native",
+      "state": "legalized",
+      "packageMode": "native",
+      "packageDecisionProvenance": "native-package-available",
+      "optionalNativeToolMissing": false,
+      "optionalNativeToolStatus": "not-required",
+      "reason": "native-package-available",
+      "packageRankScore": 0,
+      "requiredCapabilityCount": 1,
+      "missingCapabilityCount": 0,
+      "requiredCapabilityIds": [
+        "metal.backend.native-metal-package"
+      ],
+      "missingCapabilityIds": [],
+      "diagnosticSummary": {
+        "diagnosticCount": 0,
+        "noteCount": 0,
+        "warningCount": 0,
+        "errorCount": 0,
+        "hasErrors": false,
+        "severities": [],
+        "codes": [],
+        "evidenceIds": []
+      },
+      "diagnosticEvidenceIds": [],
+      "requiredToolCount": 2,
+      "missingToolCount": 0,
+      "requiredToolIds": [
+        "metal.toolchain.xcrun-metal",
+        "metal.toolchain.xcrun-metallib"
+      ],
+      "missingToolIds": [],
+      "toolRequirementEvidenceIds": [
+        "target-legalization.v1.metal.tool-requirements.present",
+        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
+        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib"
+      ],
+      "coreEvidenceIds": [
+        "target-legalization.v1.metal.decision",
+        "target-legalization.v1.metal.state.legalized",
+        "target-legalization.v1.metal.support.native",
+        "target-legalization.v1.metal.package-mode.native",
+        "target-legalization.v1.metal.package-provenance.native-package-available",
+        "target-legalization.v1.metal.package-reason.native-package-available"
+      ],
+      "evidenceIds": [
+        "target-legalization.v1.metal.decision",
+        "target-legalization.v1.metal.state.legalized",
+        "target-legalization.v1.metal.support.native",
+        "target-legalization.v1.metal.package-mode.native",
+        "target-legalization.v1.metal.package-provenance.native-package-available",
+        "target-legalization.v1.metal.package-reason.native-package-available",
+        "target-legalization.v1.metal.capability.required.metal.backend.native-metal-package",
+        "target-legalization.v1.metal.tool-requirements.present",
+        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
+        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib"
+      ]
+    },
+    {
+      "targetProfile": {
+        "requestedTarget": "auto",
+        "preferredTarget": "metal",
+        "resolvedTarget": "directx",
+        "selectedTarget": "metal",
+        "autoRequested": true,
+        "selectedTargetBuildable": true
+      },
+      "nativeImplemented": false,
+      "sourcePackageSupported": true,
+      "supportsPackage": true,
+      "supportStatus": "source-package",
+      "state": "legalized",
+      "packageMode": "source-package",
+      "packageDecisionProvenance": "source-package-only",
+      "optionalNativeToolMissing": true,
+      "optionalNativeToolStatus": "missing",
+      "reason": "source-package-available",
+      "packageRankScore": 1,
+      "requiredCapabilityCount": 4,
+      "missingCapabilityCount": 3,
+      "requiredCapabilityIds": [
+        "directx.backend.hlsl-lowering",
+        "directx.backend.native-dxil-package",
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator"
+      ],
+      "missingCapabilityIds": [
+        "directx.backend.native-dxil-package",
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator"
+      ],
+      "diagnosticSummary": {
+        "diagnosticCount": 0,
+        "noteCount": 0,
+        "warningCount": 0,
+        "errorCount": 0,
+        "hasErrors": false,
+        "severities": [],
+        "codes": [],
+        "evidenceIds": []
+      },
+      "diagnosticEvidenceIds": [],
+      "requiredToolCount": 2,
+      "missingToolCount": 2,
+      "requiredToolIds": [
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator"
+      ],
+      "missingToolIds": [
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator"
+      ],
+      "toolRequirementEvidenceIds": [
+        "target-legalization.v1.directx.tool-requirements.present",
+        "target-legalization.v1.directx.tool-requirement.required.toolchain.dxc",
+        "target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator",
+        "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc",
+        "target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator"
+      ],
+      "coreEvidenceIds": [
+        "target-legalization.v1.directx.decision",
+        "target-legalization.v1.directx.state.legalized",
+        "target-legalization.v1.directx.support.source-package",
+        "target-legalization.v1.directx.package-mode.source-package",
+        "target-legalization.v1.directx.package-provenance.source-package-only",
+        "target-legalization.v1.directx.optional-native-tool.missing",
+        "target-legalization.v1.directx.package-reason.source-package-available"
+      ],
+      "evidenceIds": [
+        "target-legalization.v1.directx.decision",
+        "target-legalization.v1.directx.state.legalized",
+        "target-legalization.v1.directx.support.source-package",
+        "target-legalization.v1.directx.package-mode.source-package",
+        "target-legalization.v1.directx.package-provenance.source-package-only",
+        "target-legalization.v1.directx.optional-native-tool.missing",
+        "target-legalization.v1.directx.package-reason.source-package-available",
+        "target-legalization.v1.directx.capability.required.directx.backend.hlsl-lowering",
+        "target-legalization.v1.directx.capability.required.directx.backend.native-dxil-package",
+        "target-legalization.v1.directx.capability.required.directx.toolchain.dxc",
+        "target-legalization.v1.directx.capability.required.directx.validation.dxil-validator",
+        "target-legalization.v1.directx.capability.missing.directx.backend.native-dxil-package",
+        "target-legalization.v1.directx.capability.missing.directx.toolchain.dxc",
+        "target-legalization.v1.directx.capability.missing.directx.validation.dxil-validator",
+        "target-legalization.v1.directx.tool-requirements.present",
+        "target-legalization.v1.directx.tool-requirement.required.toolchain.dxc",
+        "target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator",
+        "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc",
+        "target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator"
+      ]
+    },
+    {
+      "targetProfile": {
+        "requestedTarget": "auto",
+        "preferredTarget": "metal",
+        "resolvedTarget": "opengl",
+        "selectedTarget": "metal",
+        "autoRequested": true,
+        "selectedTargetBuildable": true
+      },
+      "nativeImplemented": false,
+      "sourcePackageSupported": false,
+      "supportsPackage": false,
+      "supportStatus": "unsupported",
+      "state": "rejected",
+      "packageMode": "unsupported",
+      "packageDecisionProvenance": "unsupported-source-form",
+      "optionalNativeToolMissing": false,
+      "optionalNativeToolStatus": "not-required",
+      "reason": "unsupported",
+      "packageRankScore": 2,
+      "requiredCapabilityCount": 2,
+      "missingCapabilityCount": 1,
+      "requiredCapabilityIds": [
+        "opengl.backend.glsl-lowering",
+        "opengl.feature.shadow-cube-lod"
+      ],
+      "missingCapabilityIds": [
+        "opengl.feature.shadow-cube-lod"
+      ],
+      "diagnosticSummary": {
+        "diagnosticCount": 1,
+        "noteCount": 0,
+        "warningCount": 0,
+        "errorCount": 1,
+        "hasErrors": true,
+        "severities": [
+          "error"
+        ],
+        "codes": [
+          "target.unsupported-shadow-cube-lod"
+        ],
+        "evidenceIds": [
+          "target-legalization.v1.opengl.diagnostic.unsupported-shadow-lod"
+        ]
+      },
+      "diagnosticEvidenceIds": [
+        "target-legalization.v1.opengl.diagnostic.unsupported-shadow-lod"
+      ],
+      "requiredToolCount": 0,
+      "missingToolCount": 0,
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "toolRequirementEvidenceIds": [
+        "target-legalization.v1.opengl.tool-requirements.empty"
+      ],
+      "coreEvidenceIds": [
+        "target-legalization.v1.opengl.decision",
+        "target-legalization.v1.opengl.state.rejected",
+        "target-legalization.v1.opengl.support.unsupported",
+        "target-legalization.v1.opengl.package-mode.unsupported",
+        "target-legalization.v1.opengl.package-provenance.unsupported-source-form",
+        "target-legalization.v1.opengl.package-reason.unsupported"
+      ],
+      "evidenceIds": [
+        "target-legalization.v1.opengl.decision",
+        "target-legalization.v1.opengl.state.rejected",
+        "target-legalization.v1.opengl.support.unsupported",
+        "target-legalization.v1.opengl.package-mode.unsupported",
+        "target-legalization.v1.opengl.package-provenance.unsupported-source-form",
+        "target-legalization.v1.opengl.package-reason.unsupported",
+        "target-legalization.v1.opengl.capability.required.opengl.backend.glsl-lowering",
+        "target-legalization.v1.opengl.capability.required.opengl.feature.shadow-cube-lod",
+        "target-legalization.v1.opengl.capability.missing.opengl.feature.shadow-cube-lod",
+        "target-legalization.v1.opengl.diagnostic.unsupported-shadow-lod",
+        "target-legalization.v1.opengl.tool-requirements.empty"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+$.debug.disassembly.path: emitted disassembly requires path 'backend/vulkan/SemanticFixture.disassembly.spvasm'

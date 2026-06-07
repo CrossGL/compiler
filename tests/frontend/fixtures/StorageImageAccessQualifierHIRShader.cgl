@@ -1,0 +1,21 @@
+shader StorageImageAccessQualifierHIRShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    readonly uniform image2D readImage;
+    layout(set = 0, binding = 1) writeonly uniform uimage2D writeImage;
+    layout(set = 0, binding = 2) readwrite uniform image2D readWriteImage;
+    layout(set = 0, binding = 3) readonly uniform image2D readImages[2];
+    layout(set = 0, binding = 4) buffer vec4* colors;
+
+    void main() {
+      int slot = 1;
+      ivec2 pixel = ivec2(0, 0);
+      vec4 first = imageLoad(readImage, pixel);
+      imageStore(writeImage, pixel, uvec4(1u, 2u, 3u, 4u));
+      vec4 second = imageLoad(readWriteImage, pixel);
+      imageStore(readWriteImage, pixel, second);
+      colors[0] = first + second + imageLoad(readImages[slot], pixel);
+      return;
+    }
+  }
+}

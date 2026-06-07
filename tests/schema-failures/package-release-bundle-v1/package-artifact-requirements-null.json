@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "promotionManifestPath": "release/package-release-promotion-manifest.json",
+  "summaryPath": "release/package-maintenance-set-verification-batch-summary.json",
+  "batchPath": "release/package-maintenance-set-verification-batch.json",
+  "status": "eligible",
+  "releaseEligible": true,
+  "blockerCount": 0,
+  "blockers": [],
+  "packageCount": 1,
+  "artifactCount": 3,
+  "existingArtifactCount": 3,
+  "missingArtifactCount": 0,
+  "totalArtifactBytes": 12,
+  "packages": [
+    {
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "nativeBinaryStatus": null,
+      "packageArtifactRequirements": null,
+      "artifactCount": 3,
+      "existingArtifactCount": 3,
+      "missingArtifactCount": 0,
+      "totalArtifactBytes": 12,
+      "artifacts": [
+        {
+          "name": "backendSource",
+          "path": "artifacts/basic.metal",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "name": "intermediate",
+          "path": "artifacts/basic.air",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "name": "nativeBinary",
+          "path": "artifacts/basic.metallib",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,427 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/doctor-v1.schema.json",
+  "title": "CrossGL Doctor JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "toolchain",
+    "targetExplanation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "toolchain": {
+      "$ref": "#/$defs/toolchain"
+    },
+    "targetExplanation": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/targetExplanation"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hostPlatform",
+        "hostArch",
+        "defaultTarget",
+        "llvmVersion",
+        "hasMLIR",
+        "tools"
+      ],
+      "properties": {
+        "hostPlatform": {
+          "type": "string",
+          "enum": [
+            "macos",
+            "windows",
+            "linux",
+            "unknown"
+          ]
+        },
+        "hostArch": {
+          "type": "string",
+          "enum": [
+            "arm64",
+            "x86_64",
+            "unknown"
+          ]
+        },
+        "defaultTarget": {
+          "$ref": "#/$defs/targetName"
+        },
+        "llvmVersion": {
+          "type": "string"
+        },
+        "hasLLVM": {
+          "type": "boolean"
+        },
+        "llvmConfigured": {
+          "type": "boolean"
+        },
+        "hasMLIR": {
+          "type": "boolean"
+        },
+        "mlirConfigured": {
+          "type": "boolean"
+        },
+        "mlirNativePipelineAvailable": {
+          "type": "boolean"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tool"
+          }
+        }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "available",
+        "path",
+        "detail",
+        "source",
+        "resolvedPath",
+        "probeStatus",
+        "version",
+        "versionDetail"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "evidenceStatus": {
+          "type": "string",
+          "enum": [
+            "tool-missing",
+            "probe-failed",
+            "version-unknown",
+            "version-captured"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "PATH",
+            "direct",
+            "fallback",
+            "xcrun",
+            "not-found"
+          ]
+        },
+        "resolvedPath": {
+          "type": "string"
+        },
+        "probeStatus": {
+          "type": "string",
+          "enum": [
+            "succeeded",
+            "version-unknown",
+            "failed",
+            "not-started",
+            "unavailable"
+          ]
+        },
+        "version": {
+          "type": "string"
+        },
+        "versionDetail": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilityList": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidenceIdList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+$"
+      }
+    },
+    "diagnosticEvidenceIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.diagnostic\\.[A-Za-z0-9_.-]+$"
+      }
+    },
+    "toolIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(metal|vulkan|directx|opengl)\\.(native-tool|toolchain|validation)\\.[A-Za-z0-9_.-]+$"
+      }
+    },
+    "optionalNativeToolStatus": {
+      "type": "string",
+      "enum": [
+        "available",
+        "missing",
+        "not-required"
+      ]
+    },
+    "decisionReasonCodeList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_.:-]*$"
+      }
+    },
+    "linkList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "targetExplanation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "module",
+        "defaultTarget",
+        "buildableTargetCount",
+        "recommendedTarget",
+        "recommendedPackageMode",
+        "targets"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "module": {
+          "type": "string"
+        },
+        "defaultTarget": {
+          "$ref": "#/$defs/targetName"
+        },
+        "buildableTargetCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recommendedTarget": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "metal",
+            "vulkan",
+            "directx",
+            "opengl",
+            null
+          ]
+        },
+        "recommendedPackageMode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "native",
+            "source-package",
+            "unsupported",
+            null
+          ]
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetRecord"
+          }
+        }
+      }
+    },
+    "targetRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "targetBackend",
+        "nativeImplemented",
+        "sourcePackageSupported",
+        "packageBuildSupported",
+        "packageMode",
+        "packageDecisionReason",
+        "decisionReasonCodes",
+        "packageRankScore",
+        "artifactLinks",
+        "reportLinks",
+        "remediation",
+        "requiredCapabilityCount",
+        "missingCapabilityCount",
+        "legalizationCoreEvidenceIds",
+        "requiredCapabilities",
+        "missingCapabilities"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "targetBackend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "nativeImplemented": {
+          "type": "boolean"
+        },
+        "sourcePackageSupported": {
+          "type": "boolean"
+        },
+        "packageBuildSupported": {
+          "type": "boolean"
+        },
+        "supportStatus": {
+          "type": "string",
+          "enum": [
+            "native",
+            "source-package",
+            "unsupported"
+          ]
+        },
+        "legalizationState": {
+          "type": "string",
+          "enum": [
+            "legalized",
+            "rejected"
+          ]
+        },
+        "packageMode": {
+          "type": "string",
+          "enum": [
+            "native",
+            "source-package",
+            "unsupported"
+          ]
+        },
+        "packageDecisionProvenance": {
+          "type": "string",
+          "enum": [
+            "native-package-available",
+            "source-package-only",
+            "unsupported",
+            "unsupported-source-form",
+            "unsupported-native-form",
+            "unsupported-raw-hir"
+          ]
+        },
+        "packageDecisionReason": {
+          "type": "string",
+          "enum": [
+            "native-package-available",
+            "source-package-available",
+            "package-build-available",
+            "unsupported"
+          ]
+        },
+        "decisionReasonCodes": {
+          "$ref": "#/$defs/decisionReasonCodeList"
+        },
+        "packageRankScore": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifactLinks": {
+          "$ref": "#/$defs/linkList"
+        },
+        "reportLinks": {
+          "$ref": "#/$defs/linkList"
+        },
+        "remediation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredCapabilityCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missingCapabilityCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "legalizationCoreEvidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        },
+        "diagnosticEvidenceIds": {
+          "$ref": "#/$defs/diagnosticEvidenceIdList"
+        },
+        "requiredToolCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missingToolCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "optionalNativeToolMissing": {
+          "type": "boolean"
+        },
+        "optionalNativeToolStatus": {
+          "$ref": "#/$defs/optionalNativeToolStatus"
+        },
+        "toolRequirementEvidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        },
+        "requiredToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "missingToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "requiredCapabilities": {
+          "$ref": "#/$defs/capabilityList"
+        },
+        "missingCapabilities": {
+          "$ref": "#/$defs/capabilityList"
+        }
+      }
+    }
+  }
+}

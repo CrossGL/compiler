@@ -1,0 +1,1 @@
+$.publication.requestedPath: expected packagePath for published package 'build/SemanticFixture.cglb', got 'build/OtherFixture.cglb'

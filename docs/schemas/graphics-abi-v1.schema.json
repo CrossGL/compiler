@@ -1,0 +1,523 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/graphics-abi-v1.schema.json",
+  "title": "CrossGL Graphics ABI JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "module",
+    "target",
+    "entryPoints",
+    "vertexInputs",
+    "varyings",
+    "fragmentOutputs",
+    "builtins",
+    "resources",
+    "abiRecords"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "module": {
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/targetName"
+    },
+    "entryPoints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entryPoint"
+      }
+    },
+    "vertexInputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/vertexInput"
+      }
+    },
+    "varyings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/varying"
+      }
+    },
+    "fragmentOutputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fragmentOutput"
+      }
+    },
+    "builtins": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/builtin"
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resource"
+      }
+    },
+    "abiRecords": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/abiRecord"
+      }
+    }
+  },
+  "$defs": {
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "stageName": {
+      "type": "string",
+      "enum": [
+        "vertex",
+        "fragment"
+      ]
+    },
+    "ioDirection": {
+      "type": "string",
+      "enum": [
+        "input",
+        "output"
+      ]
+    },
+    "interpolation": {
+      "type": "string",
+      "enum": [
+        "flat",
+        "smooth",
+        "noperspective",
+        "centroid",
+        "sample"
+      ]
+    },
+    "arrayDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "kind"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "fixed",
+            "runtime",
+            "unresolved"
+          ]
+        },
+        "elementCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "sourceMapRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "pattern": "^[^\\\\]*$"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endOffset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "entryPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "sourceName",
+        "backendName",
+        "sourceMapRef"
+      ],
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/stageName"
+        },
+        "sourceName": {
+          "type": "string"
+        },
+        "backendName": {
+          "type": "string"
+        },
+        "sourceMapRef": {
+          "$ref": "#/$defs/sourceMapRef"
+        }
+      }
+    },
+    "vertexInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "entryPoint",
+        "name",
+        "type",
+        "location",
+        "format"
+      ],
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/stageName"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "format": {
+          "type": "string"
+        },
+        "semantic": {
+          "type": "string"
+        }
+      }
+    },
+    "varyingEndpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "entryPoint",
+        "name",
+        "type",
+        "location",
+        "direction"
+      ],
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/stageName"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "direction": {
+          "$ref": "#/$defs/ioDirection"
+        }
+      }
+    },
+    "varying": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interpolation",
+        "producer",
+        "consumer"
+      ],
+      "properties": {
+        "interpolation": {
+          "$ref": "#/$defs/interpolation"
+        },
+        "producer": {
+          "$ref": "#/$defs/varyingEndpoint"
+        },
+        "consumer": {
+          "$ref": "#/$defs/varyingEndpoint"
+        }
+      }
+    },
+    "fragmentOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "entryPoint",
+        "name",
+        "type",
+        "location"
+      ],
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/stageName"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "format": {
+          "type": "string"
+        },
+        "semantic": {
+          "type": "string"
+        }
+      }
+    },
+    "builtin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "entryPoint",
+        "name",
+        "builtin",
+        "type",
+        "direction"
+      ],
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/stageName"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "builtin": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "direction": {
+          "$ref": "#/$defs/ioDirection"
+        },
+        "component": {
+          "type": "string"
+        }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "name",
+        "kind",
+        "type",
+        "sourceMapRef"
+      ],
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/stageName"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "arrayDimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arrayDimension"
+          }
+        },
+        "set": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "binding": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "addressSpace": {
+          "type": "string"
+        },
+        "storageImageFormat": {
+          "enum": [
+            "rgba32f",
+            "rgba32i",
+            "rgba32ui",
+            "r32f",
+            "r32i",
+            "r32ui"
+          ]
+        },
+        "sourceMapRef": {
+          "$ref": "#/$defs/sourceMapRef"
+        }
+      }
+    },
+    "abiRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "stage",
+        "entryPoint",
+        "name",
+        "kind",
+        "sourceType",
+        "addressSpace",
+        "abi",
+        "bindingClass",
+        "sourceMapRef"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "stage": {
+          "$ref": "#/$defs/stageName"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "sourceType": {
+          "type": "string"
+        },
+        "metalType": {
+          "type": "string"
+        },
+        "hlslType": {
+          "type": "string"
+        },
+        "descriptorType": {
+          "type": "string"
+        },
+        "storageClass": {
+          "type": "string"
+        },
+        "spirvType": {
+          "type": "string"
+        },
+        "storageImageFormat": {
+          "enum": [
+            "rgba32f",
+            "rgba32i",
+            "rgba32ui",
+            "r32f",
+            "r32i",
+            "r32ui"
+          ]
+        },
+        "addressSpace": {
+          "type": "string"
+        },
+        "abi": {
+          "type": "string"
+        },
+        "bindingClass": {
+          "type": "string"
+        },
+        "argumentIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "set": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "binding": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arraySize": {
+          "type": "string"
+        },
+        "arrayElementCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arrayDimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arrayDimension"
+          }
+        },
+        "usageRoles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sourceMapRef": {
+          "$ref": "#/$defs/sourceMapRef"
+        }
+      }
+    }
+  }
+}

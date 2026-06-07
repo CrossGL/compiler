@@ -1,0 +1,27 @@
+shader WorkgroupBarrierOptimizerBoundaryShader {
+  const int GROUP_SIZE = 4;
+
+  compute {
+    layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    var<workgroup> tile: array<int, GROUP_SIZE>;
+
+    void main() {
+      int local = int(gl_LocalInvocationID.x);
+      int deadBefore = values[7] + 12;
+
+      tile[local] = values[local] + 1;
+      workgroupBarrier();
+
+      int sharedAfter = tile[0] + tile[local];
+      values[local] = sharedAfter;
+      int deadMiddle = sharedAfter + deadBefore;
+
+      barrier();
+
+      values[local + 1] = values[local] + tile[0];
+      int deadAfter = deadMiddle + 1;
+      return;
+    }
+  }
+}

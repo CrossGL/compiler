@@ -1,0 +1,7 @@
+shader BadUnsupportedRayAnyHitStage {
+  ray_any_hit {
+    void main() {
+      return;
+    }
+  }
+}

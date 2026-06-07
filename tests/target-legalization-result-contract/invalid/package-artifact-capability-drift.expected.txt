@@ -1,0 +1,1 @@
+missing package artifact capability ID 'directx.package.source-artifact' for packageMode 'source-package'

@@ -1,0 +1,1 @@
+$.nativeArtifactDescriptor.optimizationEvidence.status: planned source-package descriptors must not claim applied optimization

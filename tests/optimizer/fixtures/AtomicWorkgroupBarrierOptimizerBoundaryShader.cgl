@@ -1,0 +1,28 @@
+shader AtomicWorkgroupBarrierOptimizerBoundaryShader {
+  const int GROUP_SIZE = 4;
+
+  compute {
+    layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    var<workgroup> sharedCounters: array<atomic<int>, GROUP_SIZE>;
+    var<workgroup> unsignedSharedCounters: array<atomic<uint>, GROUP_SIZE>;
+
+    void main() {
+      uint local = gl_LocalInvocationID.x;
+      int slot = 0;
+      int deadBefore = values[slot] + 9;
+      uint deadUnsigned = local + 3u;
+
+      values[slot] = slot;
+      workgroupBarrier();
+      atomicAdd(sharedCounters[local], 1);
+      values[slot + 1] = values[slot] + 1;
+      barrier();
+      atomicAdd(unsignedSharedCounters[local], local);
+      values[slot + 2] = values[slot + 1] + slot;
+
+      int deadAfter = values[slot + 2] + deadBefore;
+      return;
+    }
+  }
+}

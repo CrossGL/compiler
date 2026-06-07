@@ -1,0 +1,26 @@
+shader DirectXNestedLocalFunctionParameterArrayShader {
+  const int ROWS = 2;
+  const int COLS = 3;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float readGrid(float grid[ROWS][COLS]) {
+      return grid[1][2];
+    }
+
+    void main() {
+      float localGrid[ROWS][COLS];
+      localGrid[0][0] = values[0];
+      localGrid[0][1] = values[1];
+      localGrid[0][2] = values[2];
+      localGrid[1][0] = values[3];
+      localGrid[1][1] = values[4];
+      localGrid[1][2] = values[5];
+      float selected = readGrid(localGrid);
+      values[6] = selected;
+      return;
+    }
+  }
+}

@@ -1,0 +1,10 @@
+shader BadUnsupportedTrait {
+  trait Sample {
+    fn value() -> float;
+  }
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

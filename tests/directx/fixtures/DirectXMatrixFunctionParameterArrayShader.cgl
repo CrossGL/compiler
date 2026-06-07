@@ -1,0 +1,20 @@
+shader DirectXMatrixFunctionParameterArrayShader {
+  const int COUNT = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+    void touchTransform(mat2 transforms[COUNT]) {
+      mat2 first = transforms[0];
+      return;
+    }
+
+    void main() {
+      mat2 localTransforms[COUNT];
+      localTransforms[0] = mat2(1.0, 0.0, 0.0, 1.0);
+      localTransforms[1] = mat2(0.5, 0.0, 0.0, 0.5);
+      touchTransform(localTransforms);
+      return;
+    }
+  }
+}

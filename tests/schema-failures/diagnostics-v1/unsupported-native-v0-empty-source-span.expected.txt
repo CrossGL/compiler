@@ -1,0 +1,1 @@
+$.diagnostics[0].location: expected non-empty source span for spec.unsupported-for-native-v0

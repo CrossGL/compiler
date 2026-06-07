@@ -1,0 +1,401 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/graphics-abi-verify-v1.schema.json",
+  "title": "CrossGL Graphics ABI Verify JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "inputPath",
+    "success",
+    "summary",
+    "entryPointEvidence",
+    "resourceBindingEvidence",
+    "sourceMapEvidence",
+    "diagnosticCounts",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "inputPath": {
+      "type": "string",
+      "pattern": "^[^\\\\]*$"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/summary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "entryPointEvidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entryPointEvidence"
+      }
+    },
+    "resourceBindingEvidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resourceBindingEvidence"
+      }
+    },
+    "sourceMapEvidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sourceMapEvidence"
+      }
+    },
+    "diagnosticCounts": {
+      "$ref": "#/$defs/diagnosticCounts"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "target",
+        "entryPointCount",
+        "vertexInputCount",
+        "varyingCount",
+        "fragmentOutputCount",
+        "builtinCount",
+        "resourceCount",
+        "abiRecordCount"
+      ],
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "entryPointCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "vertexInputCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "varyingCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fragmentOutputCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "builtinCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resourceCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "abiRecordCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "diagnosticCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "warning",
+        "error"
+      ],
+      "properties": {
+        "note": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warning": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "pattern": "^[^\\\\]*$"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endOffset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "entryPointEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entryPointIndex",
+        "stage",
+        "sourceName",
+        "backendName",
+        "sourceMapRef"
+      ],
+      "properties": {
+        "entryPointIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "vertex",
+            "fragment"
+          ]
+        },
+        "sourceName": {
+          "type": "string"
+        },
+        "backendName": {
+          "type": "string"
+        },
+        "sourceMapRef": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "resourceBindingEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "abiRecordIndex",
+        "sourceResourceIndex",
+        "target",
+        "stage",
+        "entryPoint",
+        "entryPointIndex",
+        "name",
+        "kind",
+        "sourceType",
+        "addressSpace",
+        "abi",
+        "bindingClass",
+        "arrayDimensions",
+        "sourceMapRef",
+        "abiSourceMapRef"
+      ],
+      "properties": {
+        "abiRecordIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourceResourceIndex": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "vertex",
+            "fragment"
+          ]
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "entryPointIndex": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "sourceType": {
+          "type": "string"
+        },
+        "addressSpace": {
+          "type": "string"
+        },
+        "abi": {
+          "type": "string"
+        },
+        "bindingClass": {
+          "type": "string"
+        },
+        "set": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "binding": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "argumentIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arrayDimensions": {
+          "type": "array"
+        },
+        "sourceMapRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sourceLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "abiSourceMapRef": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "sourceMapEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "owner",
+        "index",
+        "location"
+      ],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "enum": [
+            "entryPoint",
+            "resource",
+            "abiRecord"
+          ]
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^graphics\\.abi\\.[a-z0-9][a-z0-9-]*$"
+        },
+        "message": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        }
+      }
+    }
+  }
+}

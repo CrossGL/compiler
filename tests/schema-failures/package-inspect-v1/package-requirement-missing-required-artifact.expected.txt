@@ -1,0 +1,1 @@
+$.manifest.artifacts: recorded packageArtifactRequirements requiredPathArtifacts[1] 'nativeBinary' is not declared

@@ -1,0 +1,1 @@
+$.categoryCounts.expressionKinds: duplicate category names

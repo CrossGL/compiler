@@ -1,0 +1,17 @@
+shader VulkanComputeBarrierShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 1, local_size_z = 1) in;
+
+    layout(set = 0, binding = 0) buffer float* values;
+    shared float scratch[4];
+
+    void main() {
+      values[0] = 1.0;
+      workgroupBarrier();
+      values[1] = 2.0;
+      barrier();
+      values[2] = 3.0;
+      return;
+    }
+  }
+}

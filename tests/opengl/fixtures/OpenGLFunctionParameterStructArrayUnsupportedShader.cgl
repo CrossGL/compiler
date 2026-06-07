@@ -1,0 +1,28 @@
+shader OpenGLFunctionParameterStructArrayUnsupportedShader {
+  const int COUNT = 2;
+
+  struct Payload {
+    vec3 direction;
+    float weight;
+  }
+
+  struct Particle {
+    Payload payloads[COUNT];
+    float total;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+
+    float firstWeight(Payload payloads[COUNT]) {
+      return payloads[0].weight;
+    }
+
+    void main() {
+      float total = firstWeight(particles[0].payloads);
+      particles[1].total = total;
+      return;
+    }
+  }
+}

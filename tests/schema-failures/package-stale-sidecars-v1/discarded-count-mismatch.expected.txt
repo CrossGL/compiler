@@ -1,0 +1,1 @@
+$.discardedCount: expected discarded candidate count 0, got 1

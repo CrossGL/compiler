@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "metal",
+  "binaryKind": "metal.metallib",
+  "artifactPath": "backend/metal/SimpleShader.optimized.metallib",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+  },
+  "sizeBytes": 4352,
+  "sourcePath": "backend/metal/SimpleShader.metal",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b"
+  },
+  "toolchainProvenance": {
+    "producer": "CrossGL-Compiler",
+    "tools": [
+      {
+        "name": "CrossGL-Compiler",
+        "role": "generator",
+        "version": "fixture",
+        "executable": "cglc"
+      },
+      {
+        "name": "metal",
+        "role": "compiler",
+        "version": "fixture",
+        "executable": "xcrun"
+      },
+      {
+        "name": "xcrun metallib",
+        "role": "linker",
+        "version": "fixture",
+        "executable": "xcrun"
+      }
+    ],
+    "invocation": {
+      "commandLineSha256": "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c",
+      "environmentSha256": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d"
+    }
+  },
+  "optimizationLevel": "O2",
+  "optimizationEvidence": {
+    "requestedLevel": "O2",
+    "effectiveLevel": "O2",
+    "policy": "metal-conservative-native-package-v1",
+    "status": "applied",
+    "tool": "xcrun metal",
+    "toolFlag": "-O2",
+    "debugInfo": false,
+    "profile": "release",
+    "flags": [
+      "-O2"
+    ]
+  },
+  "validationStatus": "not-run",
+  "validationDiagnostics": []
+}

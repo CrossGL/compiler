@@ -1,0 +1,1 @@
+$.workgroupSizes[1].entryPoint: expected compute entry point, got 'vertex'

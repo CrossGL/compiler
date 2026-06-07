@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "spec.unsupported-for-native-v0",
+      "message": "native v0 does not support this source form",
+      "location": {
+        "file": "",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 0,
+        "endLine": 1,
+        "endColumn": 1,
+        "endOffset": 0
+      }
+    }
+  ]
+}

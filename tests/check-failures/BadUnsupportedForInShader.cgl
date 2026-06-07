@@ -1,0 +1,11 @@
+shader BadUnsupportedForIn {
+  compute {
+    void main() {
+      int value = 0;
+      for item in value {
+        value = value + item;
+      }
+      return;
+    }
+  }
+}

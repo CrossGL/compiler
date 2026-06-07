@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "planPath": "release/package-release-publish-plan.json",
+  "releaseEligible": true,
+  "packageCount": 1,
+  "artifactCount": 0,
+  "totalArtifactBytes": 0,
+  "packages": [
+    {
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourceHash": null,
+      "nativeBinaryStatus": null,
+      "packageArtifactRequirements": {
+        "target": "metal",
+        "packageMode": "native",
+        "requiredPathArtifacts": [
+          "backendSource"
+        ],
+        "requiresNativeBinaryStatus": false,
+        "allowsPlannedNativeBinary": false,
+        "allowsPlannedNativeSourceEvidence": false
+      },
+      "artifactCount": 0,
+      "totalArtifactBytes": 0,
+      "artifacts": []
+    }
+  ],
+  "artifacts": []
+}

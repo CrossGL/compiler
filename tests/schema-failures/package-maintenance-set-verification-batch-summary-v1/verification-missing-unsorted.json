@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "batchPath": "maintenance/package-set-verifications.json",
+  "success": false,
+  "matches": false,
+  "releaseEligible": false,
+  "verificationCount": 2,
+  "matchedCount": 1,
+  "mismatchedCount": 1,
+  "failedCount": 0,
+  "scannedPackageCount": 4,
+  "setPackageCount": 3,
+  "missingFromSetCount": 1,
+  "extraInSetCount": 0,
+  "verifications": [
+    {
+      "rootPath": "packages",
+      "setPath": "maintenance/package-set.json",
+      "success": true,
+      "matches": true,
+      "scannedPackageCount": 2,
+      "setPackageCount": 2,
+      "missingFromSetCount": 0,
+      "extraInSetCount": 0,
+      "missingFromSet": [],
+      "extraInSet": [],
+      "diagnosticCounts": {
+        "note": 0,
+        "warning": 0,
+        "error": 0
+      },
+      "diagnosticCodeCounts": []
+    },
+    {
+      "rootPath": "packages",
+      "setPath": "maintenance/package-set.json",
+      "success": false,
+      "matches": false,
+      "scannedPackageCount": 2,
+      "setPackageCount": 1,
+      "missingFromSetCount": 2,
+      "extraInSetCount": 0,
+      "missingFromSet": [
+        "packages/beta.crossgl-package.json",
+        "packages/alpha.crossgl-package.json"
+      ],
+      "extraInSet": [],
+      "diagnosticCounts": {
+        "note": 0,
+        "warning": 0,
+        "error": 1
+      },
+      "diagnosticCodeCounts": [
+        {
+          "code": "package.set.verify.failed",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnosticCodeCounts": [
+    {
+      "code": "package.set.verify.failed",
+      "count": 1
+    }
+  ]
+}

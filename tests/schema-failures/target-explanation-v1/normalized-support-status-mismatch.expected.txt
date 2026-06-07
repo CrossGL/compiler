@@ -1,0 +1,1 @@
+$.targets[0].supportStatus: expected 'source-package', got 'native'

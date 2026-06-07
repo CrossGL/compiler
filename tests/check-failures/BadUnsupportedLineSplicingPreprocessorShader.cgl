@@ -1,0 +1,9 @@
+#define SCALE 1.0 + \
+  2.0
+shader BadUnsupportedLineSplicingPreprocessor {
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

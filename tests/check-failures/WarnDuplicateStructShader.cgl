@@ -1,0 +1,15 @@
+shader WarnDuplicateStructShader {
+  struct Params {
+    float value;
+  }
+
+  struct Params {
+    int value;
+  }
+
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

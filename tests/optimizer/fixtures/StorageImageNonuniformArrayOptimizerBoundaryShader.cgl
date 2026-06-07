@@ -1,0 +1,34 @@
+shader StorageImageNonuniformArrayOptimizerBoundaryShader {
+  const int IMAGE_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 4, local_size_y = 4, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* descriptors;
+    layout(set = 0, binding = 1) uniform image2D colorImages[IMAGE_COUNT];
+    layout(set = 0, binding = 2) uniform uimage2DArray maskAtlases[IMAGE_COUNT];
+
+    void main() {
+      ivec2 pixel = ivec2(int(gl_GlobalInvocationID.x),
+                          int(gl_GlobalInvocationID.y));
+      int layer = int(gl_GlobalInvocationID.z);
+      int slot = descriptors[0];
+      vec4 seed = vec4(1.0, 0.0, 0.0, 1.0);
+      int deadBefore = slot + pixel.x;
+      vec4 deadColor = seed + vec4(0.25, 0.25, 0.25, 0.0);
+
+      imageStore(colorImages[nonuniform(slot)], pixel, seed);
+      vec4 color = imageLoad(colorImages[nonuniform(slot)],
+                             pixel + ivec2(1, 0));
+      imageLoad(colorImages[nonuniform(slot)], pixel + ivec2(2, 0));
+      imageStore(colorImages[nonuniform(slot)], pixel + ivec2(3, 0), color);
+
+      uvec4 mask = imageLoad(maskAtlases[nonuniform(slot)],
+                             ivec3(pixel, layer));
+      imageStore(maskAtlases[nonuniform(slot)], ivec3(pixel, layer + 1), mask);
+
+      int deadAfter = deadBefore + slot;
+      vec4 deadTail = deadColor + color;
+      return;
+    }
+  }
+}

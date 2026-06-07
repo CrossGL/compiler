@@ -1,0 +1,1282 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-mlir-textual-dialect-projection-v0",
+  "status": "report-only-textual-dialect-projection",
+  "scope": "fixture-limited report-only textual projection for a future CrossGL HIR MLIR dialect",
+  "generation": {
+    "deterministic": true,
+    "derivedFrom": [
+      "experimental/mlir/boundary_inventory.v0.json",
+      "experimental/mlir/fixture_inventory.json",
+      "experimental/mlir/experiment_manifest.json"
+    ],
+    "optionalMlirToolingRequired": false,
+    "productionLinked": false,
+    "normalBuildRequired": false,
+    "registersDialect": false,
+    "emitsRealMlir": false,
+    "separatesPseudoMlir": true
+  },
+  "dialect": {
+    "canonicalNamespace": "hir",
+    "operationPrefix": "hir.",
+    "blockedNamespace": "crossgl.",
+    "authorityAnchors": [
+      "include/crossgl/HIR/HIR.h",
+      "tools/cross_repo_language_contract.json",
+      "docs/language/crosstl-frontend-language-spec-v0.json"
+    ],
+    "typeNamespace": "hir"
+  },
+  "textualProjectionContract": {
+    "status": "catalog-only-not-parser-input",
+    "operationsMustUseCanonicalHirPrefix": true,
+    "mustNotRegisterDialect": true,
+    "mustNotReplacePseudoMlir": true,
+    "mustPreserveSourceLocations": true,
+    "mustPreserveEntrypointIdentity": true,
+    "mustPreserveTargetIndependentTypes": true,
+    "mustPreserveTargetIndependentResources": true
+  },
+  "fixtures": [
+    {
+      "path": "tests/fixtures/IfComputeShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "single-structured-if-else",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "single-storage-buffer-binding",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.read",
+        "hir.storage_buffer.write",
+        "hir.if",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @IfComputeShader attributes {source = \"tests/fixtures/IfComputeShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [1, 1, 1]",
+        "  hir.resource @values {set = 0, binding = 0, kind = \"storageBuffer\"}",
+        "  hir.storage_buffer @values : !hir.storage_buffer<!hir.f32>",
+        "  hir.if %branch_condition : !hir.bool { ... } else { ... }",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "storage_buffer_read",
+          "if_statement",
+          "then_block_assignment",
+          "else_block_assignment",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "comparison_expression_result_type",
+          "branch_condition_bool",
+          "assignment_expression_result_types",
+          "unary_expression_result_types"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.storage_buffer_read",
+          "sourceLocationFacts.if_statement",
+          "sourceLocationFacts.then_block_assignment",
+          "sourceLocationFacts.else_block_assignment",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.float_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.comparison_expression_result_type",
+          "typeFacts.branch_condition_bool",
+          "typeFacts.assignment_expression_result_types",
+          "typeFacts.unary_expression_result_types",
+          "resourceFacts.localSize"
+        ]
+      }
+    },
+    {
+      "path": "tests/fixtures/MinimalComputeShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "minimal-compute-entry",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "empty-resource-facts",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @MinimalComputeShader attributes {source = \"tests/fixtures/MinimalComputeShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [1, 1, 1]",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ]
+      }
+    },
+    {
+      "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "straight-line-scalar-expressions",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "empty-resource-facts",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.scalar_compare",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @ScalarExpressionComputeShader attributes {source = \"tests/fixtures/ScalarExpressionComputeShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [1, 1, 1]",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "int_scalar",
+          "bool_scalar",
+          "scalar_literals",
+          "constructor_cast_expression",
+          "binary_expression_result_types",
+          "comparison_expression_result_type"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.int_scalar",
+          "typeFacts.bool_scalar",
+          "typeFacts.scalar_literals",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.binary_expression_result_types",
+          "typeFacts.comparison_expression_result_type",
+          "resourceFacts.localSize"
+        ]
+      }
+    },
+    {
+      "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "single-storage-buffer-resource",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "single-storage-buffer-binding",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @StorageBufferComputeShader attributes {source = \"tests/fixtures/StorageBufferComputeShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [1, 1, 1]",
+        "  hir.resource @values {set = 0, binding = 0, kind = \"storageBuffer\"}",
+        "  hir.storage_buffer @values : !hir.storage_buffer<!hir.f32>",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "float_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "binary_expression_result_types"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.float_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.binary_expression_result_types",
+          "resourceFacts.localSize"
+        ]
+      }
+    }
+  ],
+  "operations": [
+    {
+      "operation": "hir.module",
+      "textualForm": "hir.module @${module} attributes {source = \"${source_file}\"}",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Owns the admitted shader module and fixture source file provenance.",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "source_file",
+        "shader_module"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.compute_stage",
+      "textualForm": "hir.compute_stage @compute attributes {stage = \"compute\"}",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Carries the compute stage boundary for admitted entry-point fixtures.",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "compute_stage",
+        "stage"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.entry_point",
+      "textualForm": "hir.entry_point @${entryPoint} : () -> !hir.void",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Names the canonical HIR entry function and void return type facts.",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "entry_point",
+        "entryPoint"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.workgroup_size",
+      "textualForm": "hir.workgroup_size [${local_size_x}, ${local_size_y}, ${local_size_z}]",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Records the compute local size without becoming resource lowering.",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [
+        "resourceFacts.localSize"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.return",
+      "textualForm": "hir.return loc(${return_statement})",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Carries return statement source locations for admitted compute functions.",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "return_statement"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.source_location_anchor",
+      "textualForm": "hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Collects the common source-location provenance facts every admitted fixture must preserve before any real MLIR projection is accepted.",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "source_file",
+        "shader_module",
+        "compute_stage",
+        "entry_point",
+        "layout_local_size",
+        "return_statement"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/MinimalComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.scalar_declare",
+      "textualForm": "hir.scalar_declare @${name} : !hir.f32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Represents straight-line scalar local declarations and their source locations.",
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "local_variable_declarations",
+        "float_scalar"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "local_variable_declarations",
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "local_variable_declarations",
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "local_variable_declarations",
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.scalar_expr",
+      "textualForm": "hir.scalar_expr ${expr} : !hir.f32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Represents admitted scalar arithmetic, casts, comparisons, unary expressions, and assignment result facts.",
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "float_scalar"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.scalar_compare",
+      "textualForm": "hir.scalar_compare ${lhs}, ${rhs} : !hir.f32 -> !hir.bool",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Separates scalar comparison result parity for the straight-line scalar fixture from generic scalar expression coverage.",
+      "allowedHirFamilies": [
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "scalar_expression_statements",
+        "comparison_expression_result_type"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "scalar_expression_statements",
+            "comparison_expression_result_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.resource",
+      "textualForm": "hir.resource @${resourceName} {set = ${set}, binding = ${binding}, kind = \"${kind}\"}",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Carries set and binding descriptor facts for admitted resource fixtures.",
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_buffer_declaration"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [
+        "resourceFacts.descriptors[].stage",
+        "resourceFacts.descriptors[].name",
+        "resourceFacts.descriptors[].kind",
+        "resourceFacts.descriptors[].set",
+        "resourceFacts.descriptors[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].stage",
+        "resourceFacts.targetIndependentResourceMetadata[].name",
+        "resourceFacts.targetIndependentResourceMetadata[].kind",
+        "resourceFacts.targetIndependentResourceMetadata[].set",
+        "resourceFacts.targetIndependentResourceMetadata[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer",
+      "textualForm": "hir.storage_buffer @${resourceName} : !hir.storage_buffer<!hir.f32>",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Carries the admitted single non-array float storage-buffer type and access facts.",
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_buffer_element_type"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [
+        "resourceFacts.storageBuffers[].name",
+        "resourceFacts.storageBuffers[].type",
+        "resourceFacts.storageBuffers[].elementType",
+        "resourceFacts.storageBuffers[].addressSpace",
+        "resourceFacts.storageBuffers[].writeAccess",
+        "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+        "resourceFacts.targetIndependentResourceMetadata[].elementType",
+        "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+        "resourceFacts.targetIndependentResourceMetadata[].access"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.read",
+      "textualForm": "hir.storage_buffer.read @${resourceName}[${index}] : !hir.f32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Represents the structured-if fixture's storage-buffer read fact only.",
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_buffer_read"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_read"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.write",
+      "textualForm": "hir.storage_buffer.write @${resourceName}[${index}], ${value} : !hir.f32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Represents admitted storage-buffer writes while preserving descriptor and source facts.",
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_buffer_write"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.if",
+      "textualForm": "hir.if ${condition} : !hir.bool { ... } else { ... }",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Represents the single admitted structured if/else branch and branch condition facts.",
+      "allowedHirFamilies": [
+        "control_flow_and_statements",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "if_statement",
+        "branch_condition_bool",
+        "then_block_assignment",
+        "else_block_assignment"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "if_statement",
+            "branch_condition_bool",
+            "then_block_assignment",
+            "else_block_assignment"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    }
+  ],
+  "verificationPlan": {
+    "currentStatus": "report-only-no-mlir-tool-required",
+    "futureVerifier": "mlir-opt --verify-diagnostics after a real hir dialect exists",
+    "currentChecker": "tools/check_mlir_textual_dialect_projection.py",
+    "optionalMlirToolingRequired": false,
+    "productionLinked": false
+  },
+  "coverageSummary": {
+    "fixtureCount": 4,
+    "operationCount": 14,
+    "resourceBoundFixtureCount": 2,
+    "resourceBoundFixtures": [
+      "tests/fixtures/IfComputeShader.cgl",
+      "tests/fixtures/StorageBufferComputeShader.cgl"
+    ],
+    "fixtures": [
+      "tests/fixtures/IfComputeShader.cgl",
+      "tests/fixtures/MinimalComputeShader.cgl",
+      "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/fixtures/StorageBufferComputeShader.cgl"
+    ],
+    "operationNamingBoundary": {
+      "operationPrefix": "hir.",
+      "blockedNamespace": "crossgl.",
+      "boundaryInventoryOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.return",
+        "hir.source_location_anchor",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.scalar_compare",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.read",
+        "hir.storage_buffer.write",
+        "hir.if"
+      ],
+      "projectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.return",
+        "hir.source_location_anchor",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.scalar_compare",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.read",
+        "hir.storage_buffer.write",
+        "hir.if"
+      ],
+      "allProjectedOperationsFromBoundaryInventory": true,
+      "allProjectedOperationsUseCanonicalPrefix": true,
+      "blockedNamespaceOperationCount": 0
+    }
+  }
+}

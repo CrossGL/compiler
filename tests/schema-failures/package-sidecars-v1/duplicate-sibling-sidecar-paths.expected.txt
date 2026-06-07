@@ -1,0 +1,1 @@
+$.publication.siblingSidecars: duplicate sidecar paths

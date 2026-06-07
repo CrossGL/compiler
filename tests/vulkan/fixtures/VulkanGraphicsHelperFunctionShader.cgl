@@ -1,0 +1,45 @@
+shader VulkanGraphicsHelperFunctionShader {
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            output.uv = input.texCoord;
+            output.position = vec4(input.position, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        vec4 tint(vec2 uv, float gain) {
+            return vec4(uv.x * gain, uv.y + gain, 0.25, 1.0);
+        }
+
+        vec4 shade(FragmentInput input, float gain) {
+            vec4 base = tint(input.uv, gain);
+            return base + vec4(0.1, 0.0, 0.0, 0.0);
+        }
+
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            output.color = shade(input, 2.0);
+            return output;
+        }
+    }
+}

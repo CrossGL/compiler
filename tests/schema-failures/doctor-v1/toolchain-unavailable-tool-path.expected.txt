@@ -1,0 +1,1 @@
+$.toolchain.tools[0].path: expected unavailable path '', got '/tmp/dxc'

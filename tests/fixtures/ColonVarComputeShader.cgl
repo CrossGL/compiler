@@ -1,0 +1,13 @@
+shader ColonVarComputeShader {
+    compute {
+        layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+        layout(set = 0, binding = 0) buffer float* values;
+
+        void main() {
+            var base: float = values[1];
+            var scaled: float = base * 2.0;
+            values[0] = scaled;
+            return;
+        }
+    }
+}

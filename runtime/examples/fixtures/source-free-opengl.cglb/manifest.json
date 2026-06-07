@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "compiler": {
+    "name": "CrossGL-Compiler",
+    "version": "runtime-example",
+    "llvmVersion": "not-found"
+  },
+  "module": "SourceFreeOpenGLRuntimeExample",
+  "target": "opengl",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "artifacts": {
+    "backendSource": "backend/opengl/SourceFreeOpenGLRuntimeExample.comp.glsl",
+    "nativeBinary": "backend/opengl/SourceFreeOpenGLRuntimeExample.glsl",
+    "nativeBinaryStatus": "planned"
+  }
+}

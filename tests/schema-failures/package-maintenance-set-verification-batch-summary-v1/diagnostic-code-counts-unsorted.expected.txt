@@ -1,0 +1,1 @@
+$.diagnosticCodeCounts: diagnostic codes must be sorted; $.diagnosticCodeCounts: expected aggregate count for 'package.set.verify.failed' to include nested verification diagnostics

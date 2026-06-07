@@ -1,0 +1,1 @@
+$.diagnostics[0].missingCapabilities[0]: expected non-empty capability id after target prefix 'directx.'

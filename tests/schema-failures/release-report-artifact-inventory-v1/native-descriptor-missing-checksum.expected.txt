@@ -1,0 +1,1 @@
+nativeArtifactDescriptor release records require descriptor checksum provenance

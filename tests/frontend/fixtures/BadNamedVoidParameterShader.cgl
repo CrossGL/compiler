@@ -1,0 +1,7 @@
+shader BadNamedVoidParameterShader {
+  compute {
+    void main(void x) {
+      return;
+    }
+  }
+}

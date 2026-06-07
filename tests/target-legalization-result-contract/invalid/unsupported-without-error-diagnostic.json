@@ -1,0 +1,58 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "directx",
+    "targetProfile": {
+      "target": "directx",
+      "profile": "directx.v0.unsupported",
+      "packageMode": "unsupported"
+    },
+    "packageMode": "unsupported",
+    "packageDecisionProvenance": "unsupported-source-form",
+    "supportStatus": "unsupported",
+    "moduleSupported": false,
+    "requiredCapabilities": [
+      "directx.backend.dxil-validator",
+      "directx.backend.hlsl-lowering",
+      "directx.package.source-artifact"
+    ],
+    "missingCapabilities": [
+      "directx.backend.dxil-validator"
+    ],
+    "diagnostics": [
+      {
+        "code": "target.unsupported-informational",
+        "severity": "info",
+        "message": "This diagnostic intentionally lacks error severity.",
+        "target": "directx",
+        "missingCapabilities": [
+          "directx.backend.dxil-validator"
+        ],
+        "evidenceIds": [
+          "target-legalization.v1.directx.diagnostic.unsupported-info"
+        ]
+      }
+    ],
+    "rewrites": [],
+    "abiFacts": {
+      "state": "unsupported",
+      "facts": [],
+      "evidenceIds": [
+        "target-legalization.v1.directx.abi.unsupported"
+      ]
+    },
+    "evidenceIds": [
+      "target-legalization.v1.directx.abi.unsupported",
+      "target-legalization.v1.directx.decision",
+      "target-legalization.v1.directx.diagnostic.unsupported-info",
+      "target-legalization.v1.directx.package-provenance.unsupported-source-form"
+    ]
+  }
+}

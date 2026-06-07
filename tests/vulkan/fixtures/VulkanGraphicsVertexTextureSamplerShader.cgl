@@ -1,0 +1,41 @@
+shader VulkanGraphicsVertexTextureSamplerShader {
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        layout(set = 0, binding = 1) uniform sampler2D heightMap;
+        layout(set = 0, binding = 2) sampler linearSampler;
+
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            vec4 height = textureLod(heightMap, linearSampler, input.texCoord, 0.0);
+            output.uv = input.texCoord;
+            output.position = vec4(
+                input.position.x, input.position.y + height.x, input.position.z, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            output.color = vec4(input.uv.x, input.uv.y, 0.25, 1.0);
+            return output;
+        }
+    }
+}

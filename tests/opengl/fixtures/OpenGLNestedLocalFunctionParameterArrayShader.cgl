@@ -1,0 +1,21 @@
+shader OpenGLNestedLocalFunctionParameterArrayShader {
+  const int ROWS = 2;
+  const int COLS = 3;
+  const int LAST_COL = COLS - 1;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+    float readGrid(float grid[ROWS][COLS]) {
+      return grid[1][LAST_COL];
+    }
+
+    void main() {
+      float grid[ROWS][COLS];
+      grid[0][0] = 1.0;
+      grid[1][LAST_COL] = grid[0][0] + 2.0;
+      float selected = readGrid(grid);
+      return;
+    }
+  }
+}

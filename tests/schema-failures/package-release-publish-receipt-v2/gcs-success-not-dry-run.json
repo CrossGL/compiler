@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "stageReportPath": "build/package-release-publish-stage.json",
+  "targetDescriptorPath": "build/package-release-publish-target.json",
+  "receiptPath": "build/package-release-publish-receipt.json",
+  "receiptWritten": true,
+  "dryRun": false,
+  "targetKind": "gcs",
+  "targetPath": "",
+  "targetUri": "gs://crossgl-release-dry-run/compiler",
+  "targetEnabled": false,
+  "success": true,
+  "packageCount": 1,
+  "artifactCount": 1,
+  "totalArtifactBytes": 16,
+  "plannedArtifactCount": 1,
+  "plannedArtifactBytes": 16,
+  "publishedArtifactCount": 1,
+  "publishedArtifactBytes": 16,
+  "artifacts": [
+    {
+      "name": "backendSource",
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourcePath": "packages/basic/artifacts/basic.metal",
+      "packageArtifactPath": "artifacts/basic.metal",
+      "destinationPath": "packages/basic/artifacts/basic.metal",
+      "stagedPath": "build/stage/packages/basic/artifacts/basic.metal",
+      "publishedPath": "gs://crossgl-release-dry-run/compiler/packages/basic/artifacts/basic.metal",
+      "sizeBytes": 16,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "staged": true,
+      "planned": true,
+      "published": true
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

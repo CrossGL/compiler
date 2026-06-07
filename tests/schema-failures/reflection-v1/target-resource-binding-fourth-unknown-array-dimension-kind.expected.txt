@@ -1,0 +1,1 @@
+$.targetResourceBindings[3].arrayDimensions[0].kind: unknown array dimension kind 'specialization'

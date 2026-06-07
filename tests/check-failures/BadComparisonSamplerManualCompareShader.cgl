@@ -1,0 +1,13 @@
+shader BadComparisonSamplerManualCompareShader {
+  compute {
+    uniform sampler2DArrayShadow shadowAtlas;
+    comparison_sampler shadowCompareSampler;
+    void main() {
+      float visibility =
+          textureCompareLodManual(shadowAtlas, shadowCompareSampler,
+                                  vec3(0.25, 0.5, 1.0), 0.33, 2.0,
+                                  less_equal);
+      return;
+    }
+  }
+}

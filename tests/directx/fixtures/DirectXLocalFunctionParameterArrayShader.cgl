@@ -1,0 +1,26 @@
+shader DirectXLocalFunctionParameterArrayShader {
+  const int COUNT = 2;
+
+  struct Particle {
+    float weights[COUNT];
+    float mass;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+
+    float sumWeights(float weights[COUNT]) {
+      return weights[0] + weights[1];
+    }
+
+    void main() {
+      float localWeights[COUNT];
+      localWeights[0] = particles[0].weights[0];
+      localWeights[1] = particles[0].weights[1];
+      float total = sumWeights(localWeights);
+      particles[1].mass = total;
+      return;
+    }
+  }
+}

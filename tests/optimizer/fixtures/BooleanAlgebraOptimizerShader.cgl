@@ -1,0 +1,205 @@
+shader BooleanAlgebraOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+
+    bool unknownFlag(int value) {
+      return value > 0;
+    }
+
+    void main() {
+      int dynamicIndex = values[0];
+      float dynamicFloat = float(dynamicIndex);
+      bool base = dynamicIndex > 0;
+
+      bool andRightTrue = base && true;
+      bool andLeftTrue = true && base;
+      bool orRightFalse = base || false;
+      bool orLeftFalse = false || base;
+      bool andRightFalsePure = (dynamicIndex > 1) && false;
+      bool orRightTruePure = (dynamicIndex > 2) || true;
+      bool andLeftFalsePure = false && (dynamicIndex > 3);
+      bool orLeftTruePure = true || (dynamicIndex > 4);
+      bool andRightFalseUnknown = unknownFlag(dynamicIndex) && false;
+      bool orRightTrueUnknown = unknownFlag(dynamicIndex) || true;
+      bool duplicateAndPure = base && base;
+      bool duplicateOrPure = base || base;
+      bool duplicateAndUnknown =
+          unknownFlag(dynamicIndex) && unknownFlag(dynamicIndex);
+      bool duplicateOrUnknown =
+          unknownFlag(dynamicIndex) || unknownFlag(dynamicIndex);
+      bool complementAndPure = base && !base;
+      bool complementAndPureReversed = !base && base;
+      bool complementOrPure = base || !base;
+      bool complementOrPureReversed = !base || base;
+      bool complementAndUnknown =
+          unknownFlag(dynamicIndex) && !unknownFlag(dynamicIndex);
+      bool complementOrUnknown =
+          unknownFlag(dynamicIndex) || !unknownFlag(dynamicIndex);
+      bool absorptionAndRightPure = base && (base || (dynamicIndex > 9));
+      bool absorptionAndLeftPure = (base || (dynamicIndex > 10)) && base;
+      bool absorptionOrRightPure = base || (base && (dynamicIndex > 11));
+      bool absorptionOrLeftPure = (base && (dynamicIndex > 12)) || base;
+      bool absorptionAndRightInnerPure = base && ((dynamicIndex > 13) || base);
+      bool absorptionAndLeftInnerPure = ((dynamicIndex > 14) || base) && base;
+      bool absorptionOrRightInnerPure = base || ((dynamicIndex > 15) && base);
+      bool absorptionOrLeftInnerPure = ((dynamicIndex > 16) && base) || base;
+      bool absorptionAndUnknownCompound =
+          base && (base || unknownFlag(dynamicIndex));
+      bool absorptionOrUnknownCompound =
+          base || (base && unknownFlag(dynamicIndex));
+      bool absorptionAndUnknownOperand =
+          unknownFlag(dynamicIndex) && (unknownFlag(dynamicIndex) || base);
+      bool absorptionOrUnknownOperand =
+          unknownFlag(dynamicIndex) || (unknownFlag(dynamicIndex) && base);
+      bool absorptionAndUnknownCompoundRightInner =
+          base && (unknownFlag(dynamicIndex) || base);
+      bool absorptionOrUnknownCompoundRightInner =
+          base || (unknownFlag(dynamicIndex) && base);
+      bool absorptionAndUnknownOperandRightInner =
+          unknownFlag(dynamicIndex) && (base || unknownFlag(dynamicIndex));
+      bool absorptionOrUnknownOperandRightInner =
+          unknownFlag(dynamicIndex) || (base && unknownFlag(dynamicIndex));
+      bool deMorganAndPure = !(base && (dynamicIndex > 17));
+      bool deMorganOrPure = !(base || (dynamicIndex > 18));
+      bool deMorganAndComparisonPure =
+          !((dynamicIndex < 19) && (dynamicIndex > 20));
+      bool deMorganOrComparisonPure =
+          !((dynamicIndex < 21) || (dynamicIndex > 22));
+      bool deMorganGeneratedComparison =
+          ((dynamicIndex < 23) && base) == false;
+      bool deMorganGeneratedSelect =
+          ((dynamicIndex > 24) || base) ? false : true;
+      bool deMorganGroupedParent =
+          base && !(base || (dynamicIndex > 25));
+      bool deMorganDoubleNegation =
+          !(!base && (dynamicIndex > 26));
+      bool deMorganAndUnknown = !(base && unknownFlag(dynamicIndex));
+      bool deMorganOrUnknown = !(base || unknownFlag(dynamicIndex));
+      bool equalityNegationInt = !(dynamicIndex == 27);
+      bool inequalityNegationInt = !(dynamicIndex != 28);
+      bool equalityNegationBool = !(base == (dynamicIndex > 29));
+      bool inequalityNegationBool = !((dynamicIndex > 30) != base);
+      bool equalityNegationFloat = !(dynamicFloat == 31.0);
+      bool inequalityNegationFloat = !(dynamicFloat != 32.0);
+      bool equalityGeneratedComparison = ((dynamicIndex == 33) == false);
+      bool equalityDeMorganChild = !((dynamicIndex == 34) && base);
+      bool equalityNestedGroup = base == !(dynamicIndex == 35);
+      bool equalityNegationUnknown =
+          !(unknownFlag(dynamicIndex) == base);
+      bool inequalityNegationUnknown =
+          !(unknownFlag(dynamicIndex) != base);
+      bool boolLiteralNestedKeep =
+          base && (((dynamicIndex > 74) || (dynamicIndex > 75)) == true);
+      bool selectNestedKeep =
+          base && (((dynamicIndex > 76) || (dynamicIndex > 77)) ? true : false);
+      bool sameArmSelectNestedKeep =
+          base && (base ? ((dynamicIndex > 78) || (dynamicIndex > 79))
+                       : ((dynamicIndex > 78) || (dynamicIndex > 79)));
+      bool algebraicChildNestedKeep =
+          base && (((dynamicIndex > 80) || (dynamicIndex > 81)) && true);
+      bool literalSelectNestedKeep =
+          base && (true ? ((dynamicIndex > 82) || (dynamicIndex > 83))
+                        : false);
+      bool selectIdentity = base ? true : false;
+      bool selectNegation = base ? false : true;
+      bool selectCompareNegation = (dynamicIndex > 5) ? false : true;
+      bool selfEqualInt = dynamicIndex == dynamicIndex;
+      bool selfNotEqualInt = dynamicIndex != dynamicIndex;
+      bool selfEqualBool = base == base;
+      bool selfEqualUnknown =
+          unknownFlag(dynamicIndex) == unknownFlag(dynamicIndex);
+      bool equalRightTrue = base == true;
+      bool equalLeftTrue = true == base;
+      bool notEqualRightFalse = base != false;
+      bool notEqualLeftFalse = false != base;
+      bool equalRightFalseCompare = (dynamicIndex > 7) == false;
+      bool notEqualRightTrueCompare = (dynamicIndex > 8) != true;
+      bool equalRightFalseUnknown = unknownFlag(dynamicIndex) == false;
+      int selectSameInt = base ? dynamicIndex : dynamicIndex;
+      bool selectSameBool = (dynamicIndex > 6) ? base : base;
+      int selectSameUnknownCondition =
+          unknownFlag(dynamicIndex) ? dynamicIndex : dynamicIndex;
+
+      values[1] = andRightTrue ? 1 : 0;
+      values[2] = andLeftTrue ? 1 : 0;
+      values[3] = orRightFalse ? 1 : 0;
+      values[4] = orLeftFalse ? 1 : 0;
+      values[5] = andRightFalsePure ? 1 : 0;
+      values[6] = orRightTruePure ? 1 : 0;
+      values[7] = andLeftFalsePure ? 1 : 0;
+      values[8] = orLeftTruePure ? 1 : 0;
+      values[9] = andRightFalseUnknown ? 1 : 0;
+      values[10] = orRightTrueUnknown ? 1 : 0;
+      values[11] = duplicateAndPure ? 1 : 0;
+      values[12] = duplicateOrPure ? 1 : 0;
+      values[13] = duplicateAndUnknown ? 1 : 0;
+      values[14] = duplicateOrUnknown ? 1 : 0;
+      values[31] = complementAndPure ? 1 : 0;
+      values[32] = complementAndPureReversed ? 1 : 0;
+      values[33] = complementOrPure ? 1 : 0;
+      values[34] = complementOrPureReversed ? 1 : 0;
+      values[35] = complementAndUnknown ? 1 : 0;
+      values[36] = complementOrUnknown ? 1 : 0;
+      values[37] = absorptionAndRightPure ? 1 : 0;
+      values[38] = absorptionAndLeftPure ? 1 : 0;
+      values[39] = absorptionOrRightPure ? 1 : 0;
+      values[40] = absorptionOrLeftPure ? 1 : 0;
+      values[41] = absorptionAndUnknownCompound ? 1 : 0;
+      values[42] = absorptionOrUnknownCompound ? 1 : 0;
+      values[43] = absorptionAndUnknownOperand ? 1 : 0;
+      values[44] = absorptionOrUnknownOperand ? 1 : 0;
+      values[45] = absorptionAndRightInnerPure ? 1 : 0;
+      values[46] = absorptionAndLeftInnerPure ? 1 : 0;
+      values[47] = absorptionOrRightInnerPure ? 1 : 0;
+      values[48] = absorptionOrLeftInnerPure ? 1 : 0;
+      values[49] = absorptionAndUnknownCompoundRightInner ? 1 : 0;
+      values[50] = absorptionOrUnknownCompoundRightInner ? 1 : 0;
+      values[51] = absorptionAndUnknownOperandRightInner ? 1 : 0;
+      values[52] = absorptionOrUnknownOperandRightInner ? 1 : 0;
+      values[53] = deMorganAndPure ? 1 : 0;
+      values[54] = deMorganOrPure ? 1 : 0;
+      values[55] = deMorganAndComparisonPure ? 1 : 0;
+      values[56] = deMorganOrComparisonPure ? 1 : 0;
+      values[57] = deMorganGeneratedComparison ? 1 : 0;
+      values[58] = deMorganGeneratedSelect ? 1 : 0;
+      values[59] = deMorganGroupedParent ? 1 : 0;
+      values[60] = deMorganDoubleNegation ? 1 : 0;
+      values[61] = deMorganAndUnknown ? 1 : 0;
+      values[62] = deMorganOrUnknown ? 1 : 0;
+      values[63] = equalityNegationInt ? 1 : 0;
+      values[64] = inequalityNegationInt ? 1 : 0;
+      values[65] = equalityNegationBool ? 1 : 0;
+      values[66] = inequalityNegationBool ? 1 : 0;
+      values[67] = equalityNegationFloat ? 1 : 0;
+      values[68] = inequalityNegationFloat ? 1 : 0;
+      values[69] = equalityGeneratedComparison ? 1 : 0;
+      values[70] = equalityDeMorganChild ? 1 : 0;
+      values[71] = equalityNestedGroup ? 1 : 0;
+      values[72] = equalityNegationUnknown ? 1 : 0;
+      values[73] = inequalityNegationUnknown ? 1 : 0;
+      values[74] = boolLiteralNestedKeep ? 1 : 0;
+      values[75] = selectNestedKeep ? 1 : 0;
+      values[76] = sameArmSelectNestedKeep ? 1 : 0;
+      values[77] = algebraicChildNestedKeep ? 1 : 0;
+      values[78] = literalSelectNestedKeep ? 1 : 0;
+      values[15] = selectIdentity ? 1 : 0;
+      values[16] = selectNegation ? 1 : 0;
+      values[17] = selectCompareNegation ? 1 : 0;
+      values[18] = selfEqualInt ? 1 : 0;
+      values[19] = selfNotEqualInt ? 1 : 0;
+      values[20] = selfEqualBool ? 1 : 0;
+      values[21] = selfEqualUnknown ? 1 : 0;
+      values[22] = equalRightTrue ? 1 : 0;
+      values[23] = equalLeftTrue ? 1 : 0;
+      values[24] = notEqualRightFalse ? 1 : 0;
+      values[25] = notEqualLeftFalse ? 1 : 0;
+      values[26] = equalRightFalseCompare ? 1 : 0;
+      values[27] = notEqualRightTrueCompare ? 1 : 0;
+      values[28] = equalRightFalseUnknown ? 1 : 0;
+      values[29] = selectSameInt + (selectSameBool ? 1 : 0);
+      values[30] = selectSameUnknownCondition;
+      return;
+    }
+  }
+}

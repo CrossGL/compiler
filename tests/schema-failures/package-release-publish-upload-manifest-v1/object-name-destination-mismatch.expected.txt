@@ -1,0 +1,1 @@
+$.requests[0].objectName: expected object name to end with destinationPath

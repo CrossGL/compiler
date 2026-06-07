@@ -1,0 +1,1 @@
+$.summary.module: expected manifest module 'SemanticFixture', got 'SummaryFixture'

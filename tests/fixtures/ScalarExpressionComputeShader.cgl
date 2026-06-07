@@ -1,0 +1,13 @@
+shader ScalarExpressionComputeShader {
+    compute {
+        layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+        void main() {
+            float base = 1.0;
+            float scaled = (base + 2.0) * 0.5;
+            int count = 1 + 2;
+            bool keep = scaled > float(count);
+            return;
+        }
+    }
+}

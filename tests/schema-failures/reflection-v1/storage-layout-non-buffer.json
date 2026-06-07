@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "shadowMap",
+      "kind": "texture",
+      "type": "Texture2D<float>"
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "shadowMap",
+      "kind": "texture",
+      "sourceType": "Texture2D<float>",
+      "addressSpace": "resource",
+      "abi": "hlsl",
+      "bindingClass": "srv",
+      "storageBufferLayout": {
+        "elementType": "float",
+        "elementSizeBytes": 4,
+        "arrayStrideBytes": 4,
+        "layout": "std430",
+        "alignmentBytes": 4,
+        "supportsScalarLayout": true,
+        "fields": []
+      }
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

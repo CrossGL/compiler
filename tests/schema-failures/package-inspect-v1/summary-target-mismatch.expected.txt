@@ -1,0 +1,1 @@
+$.summary.target: expected manifest target 'directx', got 'metal'

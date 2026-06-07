@@ -1,0 +1,2070 @@
+{
+  "schema_version": "crossgl-conformance-manifest-v0",
+  "suite": "crossgl-language-1.0-seed",
+  "description": "Lightweight seed inventory of existing CrossGL fixtures by target-independent feature group. This is not a full conformance suite.",
+  "coverage_contract": {
+    "required_feature_statuses": [
+      {
+        "feature_group": "atomics",
+        "status": "accepted",
+        "min_entries": 5
+      },
+      {
+        "feature_group": "compute-basics",
+        "status": "accepted",
+        "min_entries": 19
+      },
+      {
+        "feature_group": "control-flow",
+        "status": "accepted",
+        "min_entries": 7
+      },
+      {
+        "feature_group": "graphics-stages",
+        "status": "accepted",
+        "min_entries": 19
+      },
+      {
+        "feature_group": "known-native-v0-unsupported",
+        "status": "unsupported",
+        "min_entries": 16
+      },
+      {
+        "feature_group": "resources",
+        "status": "accepted",
+        "min_entries": 16
+      },
+      {
+        "feature_group": "storage-images",
+        "status": "accepted",
+        "min_entries": 18
+      },
+      {
+        "feature_group": "texture-sampling",
+        "status": "accepted",
+        "min_entries": 34
+      }
+    ],
+    "target_feature_evidence": {
+      "required_kinds": [
+        "planned-unsupported",
+        "target-metadata",
+        "target-package-explanation"
+      ]
+    }
+  },
+  "entries": [
+    {
+      "id": "atomics.atomic-add",
+      "feature_group": "atomics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/AtomicAddHIRShader.cgl",
+      "fixture_sha256": "dc01bfd7bc44c6e149474cfeae3cf1b6b540c4981c70efcdf571171b88d46db0",
+      "evidence_tests": [
+        "cglc_dump_hir_atomic_add_expression_statements"
+      ],
+      "notes": "Covers atomic add syntax in target-independent frontend fixtures."
+    },
+    {
+      "id": "atomics.atomic-add-return",
+      "feature_group": "atomics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/AtomicAddReturnHIRShader.cgl",
+      "fixture_sha256": "4df27c3e286e934a88b88f2f9009d24aefe5d008813302041ad10e94ec49dbca",
+      "evidence_tests": [
+        "cglc_dump_hir_atomic_add_return_capture_contexts"
+      ],
+      "notes": "Covers returned atomic add values in target-independent HIR."
+    },
+    {
+      "id": "atomics.atomic-bitwise",
+      "feature_group": "atomics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/AtomicBitwiseHIRShader.cgl",
+      "fixture_sha256": "cc8ede522eef501e94bd4a0e90fa847639ed0f73fe48ccce5fd0fcd5041b2738",
+      "evidence_tests": [
+        "cglc_dump_hir_atomic_bitwise_capture_contexts"
+      ],
+      "notes": "Covers bitwise atomic operations."
+    },
+    {
+      "id": "atomics.atomic-exchange",
+      "feature_group": "atomics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/AtomicExchangeHIRShader.cgl",
+      "fixture_sha256": "23c389238e316c2435cf586cae4e4c690320fd9c4a6d5db07f684b0c0b9a708c",
+      "evidence_tests": [
+        "cglc_dump_hir_atomic_exchange_capture_contexts"
+      ],
+      "notes": "Covers atomic exchange operations."
+    },
+    {
+      "id": "atomics.atomic-min-max",
+      "feature_group": "atomics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/AtomicMinMaxHIRShader.cgl",
+      "fixture_sha256": "f7df9053e3c69c0f8294311fdc7f00af856b316233af97b3d174f0b6f2c8b592",
+      "evidence_tests": [
+        "cglc_dump_hir_atomic_minmax_capture_contexts"
+      ],
+      "notes": "Covers signed and unsigned atomic min/max operations."
+    },
+    {
+      "id": "compute-basics.arithmetic-directx-source-package",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/ArithmeticComputeShader.cgl",
+      "fixture_sha256": "c42e247420b88186d019d67b14a5cb7c4c6d5c9ebae176a187c8d9929d5498a6",
+      "evidence_tests": [
+        "cglc_build_directx_arithmetic_source_package"
+      ],
+      "notes": "Existing DirectX source-package evidence for scalar arithmetic compute lowering."
+    },
+    {
+      "id": "compute-basics.arithmetic-opengl-source-package",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/ArithmeticComputeShader.cgl",
+      "fixture_sha256": "c42e247420b88186d019d67b14a5cb7c4c6d5c9ebae176a187c8d9929d5498a6",
+      "evidence_tests": [
+        "cglc_build_opengl_arithmetic_source_package"
+      ],
+      "notes": "Existing OpenGL source-package evidence for scalar arithmetic compute lowering."
+    },
+    {
+      "id": "compute-basics.atan-intrinsic-calls",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/AtanIntrinsicComputeShader.cgl",
+      "fixture_sha256": "2f7b06c0a6c5d5aa21ec86d5f5788412b3fd6996625dce7d3f358fbae102a5b9",
+      "evidence_tests": [
+        "cglc_check_atan_intrinsic_compute"
+      ],
+      "notes": "Covers atan-style intrinsic calls in compute fixtures."
+    },
+    {
+      "id": "compute-basics.comparison-operators",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/ComparisonComputeShader.cgl",
+      "fixture_sha256": "855de28fe1bb73bcc4e0ebe954f25afc0523748a8495d64843d716c435dc6a7e",
+      "evidence_tests": [
+        "cglc_check_comparison_compute"
+      ],
+      "notes": "Covers scalar comparison operators accepted by compute checks."
+    },
+    {
+      "id": "compute-basics.compute-invocation-builtins",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/ComputeInvocationBuiltinHIRShader.cgl",
+      "fixture_sha256": "22180526467d2e71781718f7dd08e6310c58557736a0f36bfda838e10ca132be",
+      "evidence_tests": [
+        "cglc_dump_hir_compute_invocation_builtin_types"
+      ],
+      "target_feature_evidence_tests": [
+        "cglc_dump_debug_compute_invocation_builtin_target_capabilities"
+      ],
+      "notes": "Covers compute invocation builtins such as global invocation IDs."
+    },
+    {
+      "id": "compute-basics.compute-invocation-builtins-directx-source-package",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/directx/fixtures/DirectXComputeInvocationBuiltinShader.cgl",
+      "fixture_sha256": "761b52cd36f43dcb4e473325a1628bef2f86962b2db0d161d59cd00008ea14c3",
+      "evidence_tests": [
+        "cglc_build_directx_compute_invocation_builtins_source_package"
+      ],
+      "notes": "Existing DirectX source-package evidence for compute invocation builtin lowering."
+    },
+    {
+      "id": "compute-basics.compute-invocation-builtins-opengl-source-package",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/opengl/fixtures/OpenGLComputeInvocationBuiltinShader.cgl",
+      "fixture_sha256": "c0e97def682428a441ac009661d56752c00c9e6a49266673d563d6aff1401ed9",
+      "evidence_tests": [
+        "cglc_build_opengl_compute_invocation_builtin_source_package"
+      ],
+      "notes": "Existing OpenGL source-package evidence for compute invocation builtin lowering."
+    },
+    {
+      "id": "compute-basics.intrinsic-calls",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/IntrinsicComputeShader.cgl",
+      "fixture_sha256": "128745ef2156445b14db62770cac20fa48bf085a9d2b0944cf05741d28c399a0",
+      "evidence_tests": [
+        "cglc_check_intrinsic_compute_hir_call_types"
+      ],
+      "notes": "Covers standard math intrinsic calls and typed HIR results."
+    },
+    {
+      "id": "compute-basics.local-load-store",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/LoadLocalComputeShader.cgl",
+      "fixture_sha256": "3f8ba65174f7b15e4bccf2d0f8d68e72c08763b86159b261a1a703b078e4fab2",
+      "evidence_tests": [
+        "cglc_check_load_local_compute_hir_scalar_load_store"
+      ],
+      "notes": "Covers local scalar loads feeding storage-buffer writes."
+    },
+    {
+      "id": "compute-basics.numeric-float-literals",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/NumericFloatLiteralShader.cgl",
+      "fixture_sha256": "8d796ed88ddcefa8434c0214835df5ab243b143f702edb00f57f5a26af2241be",
+      "evidence_tests": [
+        "cglc_dump_hir_numeric_float_literals"
+      ],
+      "notes": "Covers CrossTL-aligned decimal scientific and hexadecimal float literal spellings accepted by native frontend HIR."
+    },
+    {
+      "id": "compute-basics.read-modify-write",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/ReadModifyWriteComputeShader.cgl",
+      "fixture_sha256": "57e92b895897f46caec55a7e65ce37ad00ca9fb92e74cb7e7f9c66548373e984",
+      "evidence_tests": [
+        "cglc_check_read_modify_write_compute_hir_assignment_shape"
+      ],
+      "notes": "Covers read-modify-write assignment shape in compute HIR."
+    },
+    {
+      "id": "compute-basics.scalar-constructor-casts",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/ScalarConstructorComputeShader.cgl",
+      "fixture_sha256": "cadd63e0a7342853ed59896e8f41b05f06b1918959689798fb76e7a283983295",
+      "evidence_tests": [
+        "cglc_check_scalar_constructor_compute_hir_casts",
+        "cglc_dump_hir_source_map_scalar_constructor_local_decl_type_provenance"
+      ],
+      "notes": "Covers scalar constructor casts between float, int, and uint values."
+    },
+    {
+      "id": "compute-basics.vector-buffer-load-store",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/VectorBufferComputeShader.cgl",
+      "fixture_sha256": "74e738dcc4341f3c0451849ac97927a6d4913e11180b7faa3b6f5c0fed80c6dc",
+      "evidence_tests": [
+        "cglc_check_vector_buffer_compute_hir_vec4_load_store"
+      ],
+      "notes": "Covers vec4 buffer load/store HIR in compute fixtures."
+    },
+    {
+      "id": "compute-basics.vector-constructor-arithmetic",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/VectorLocalComputeShader.cgl",
+      "fixture_sha256": "40d2b5632f404a7f2a154bc95699b1c85912cc6e86f9fbbb61314c1857b640d2",
+      "evidence_tests": [
+        "cglc_check_vector_local_compute_hir_construct_vector_arithmetic"
+      ],
+      "notes": "Covers vector constructors and vector arithmetic in compute HIR."
+    },
+    {
+      "id": "compute-basics.vector-swizzle-members",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/VectorSwizzleComputeShader.cgl",
+      "fixture_sha256": "00f34df8897ea453363eda48ab6d167aaaf7fe0fe7ecb2221240b329e97b228c",
+      "evidence_tests": [
+        "cglc_check_vector_swizzle_compute_hir_member_types"
+      ],
+      "notes": "Covers vector swizzle member access and scalar result typing."
+    },
+    {
+      "id": "compute-basics.vector3-buffer-load-store",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/Vector3BufferComputeShader.cgl",
+      "fixture_sha256": "88380a7e2180305255823496ffa57640099f0bbced6ffc78769c92c4fb426a87",
+      "evidence_tests": [
+        "cglc_check_vector3_buffer_compute_hir_vec3_load_store"
+      ],
+      "notes": "Covers vec3 buffer load/store HIR in compute fixtures."
+    },
+    {
+      "id": "compute-basics.workgroup-barrier",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/WorkgroupBarrierHIRShader.cgl",
+      "fixture_sha256": "4519f4eb14b5a10e36a411a840dcafb7630537e8871d185bb0aaef79222da57d",
+      "evidence_tests": [
+        "cglc_dump_hir_workgroup_barrier_expression_statements"
+      ],
+      "target_feature_evidence_tests": [
+        "cglc_dump_debug_workgroup_barrier_metadata"
+      ],
+      "notes": "Covers compute workgroup barrier syntax."
+    },
+    {
+      "id": "compute-basics.workgroup-barrier-opengl-source-package",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/opengl/fixtures/OpenGLWorkgroupBarrierShader.cgl",
+      "fixture_sha256": "21eab4435730593a6f8d6d37c8484400dff26937012b10421d3834e64e0312e2",
+      "evidence_tests": [
+        "cglc_build_opengl_workgroup_barrier_source_package"
+      ],
+      "notes": "Existing OpenGL source-package evidence for workgroup barrier lowering."
+    },
+    {
+      "id": "compute-basics.workgroup-shared-memory",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/WorkgroupSharedMemoryHIRShader.cgl",
+      "fixture_sha256": "fe6a76cce6b2ff5f90ade45dba5875a2a94ec4273502e41550fb91b24267a145",
+      "evidence_tests": [
+        "cglc_dump_hir_workgroup_shared_memory_folded_source_values"
+      ],
+      "target_feature_evidence_tests": [
+        "cglc_dump_debug_workgroup_shared_resource_metadata"
+      ],
+      "notes": "Covers workgroup-shared memory declarations and use."
+    },
+    {
+      "id": "compute-basics.workgroup-shared-memory-directx-source-package",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/directx/fixtures/DirectXWorkgroupSharedShader.cgl",
+      "fixture_sha256": "7ae9d23b479d06f7537b6ab01f97cf315c378db23afa2bbeb3c78fa1ea5d897f",
+      "evidence_tests": [
+        "cglc_build_directx_workgroup_shared_source_package"
+      ],
+      "notes": "Existing DirectX source-package evidence for workgroup-shared memory lowering."
+    },
+    {
+      "id": "control-flow.colon-var-local-declaration",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/ColonVarComputeShader.cgl",
+      "fixture_sha256": "461bd00eac3dd95d5029042d241baa9f58340cfe9237ae54d8e6899e808cdf43",
+      "evidence_tests": [
+        "cglc_check_colon_var_compute_hir_canonical_declaration"
+      ],
+      "notes": "Function-body colon-style local variables lower to canonical HIR local declarations."
+    },
+    {
+      "id": "control-flow.for-increment-decrement",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/frontend/fixtures/ForIncrementDecrementHIRShader.cgl",
+      "fixture_sha256": "12a825d5b60f28c7361a7de0ea82e34ce1cac97db751bb6d20dd672dfd8863b8",
+      "evidence_tests": [
+        "cglc_check_for_increment_decrement_hir",
+        "cglc_check_for_increment_decrement_hir_updates"
+      ],
+      "notes": "Covers for-loop increment and decrement forms."
+    },
+    {
+      "id": "control-flow.for-loop",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/ForComputeShader.cgl",
+      "fixture_sha256": "0d44539472320cb452aef43ef154092869e0cbd7d11eaf4894c984743dd1799d",
+      "evidence_tests": [
+        "cglc_check_for_compute_hir_loop_contract"
+      ],
+      "notes": "Covers canonical for-loop init, condition, update, and body placement."
+    },
+    {
+      "id": "control-flow.for-stride",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/ForStrideComputeShader.cgl",
+      "fixture_sha256": "7786bcc65381ba9e9d1c3f81517b343fa505374955376eb70ee18d36a6653dda",
+      "evidence_tests": [
+        "cglc_check_for_stride_compute_hir_update_contract"
+      ],
+      "notes": "Covers strided for-loop updates."
+    },
+    {
+      "id": "control-flow.if-else",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/IfComputeShader.cgl",
+      "fixture_sha256": "3d7aecfeff361ec5ab58e6a8038f2d2be14b6dcbd482dcdb98f8d9a66241adb4",
+      "evidence_tests": [
+        "cglc_check_if_compute_hir_branch_shape"
+      ],
+      "notes": "Covers typed if/else branch bodies."
+    },
+    {
+      "id": "control-flow.if-return",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/IfReturnComputeShader.cgl",
+      "fixture_sha256": "304431d6083846c3968ca745a313e19424dc20df9f095a740c33e0de9058903c",
+      "evidence_tests": [
+        "cglc_check_if_return_compute_hir_branch_return_shape"
+      ],
+      "notes": "Covers branch-local returns and branch body cleanup."
+    },
+    {
+      "id": "control-flow.loop-transfer",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/frontend/fixtures/HIRControlTransferShader.cgl",
+      "fixture_sha256": "cdc6c3a6d73286fc517a96d1f6a3fac24ef417c501d19d101e2fee2c41656e84",
+      "evidence_tests": [
+        "cglc_check_hir_control_transfer_explicit_statements"
+      ],
+      "notes": "Covers break and continue in loop contexts."
+    },
+    {
+      "id": "control-flow.while-loop",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/frontend/fixtures/WhileControlFlowHIRShader.cgl",
+      "fixture_sha256": "31b845adc302a29d1b0c6a6fa471c61869a191a985548d2a0358a1fd5ba9e508",
+      "evidence_tests": [
+        "cglc_check_while_control_flow_hir",
+        "cglc_check_while_control_flow_hir_body_update",
+        "cglc_check_while_control_flow_hir_condition",
+        "cglc_check_while_control_flow_hir_outer_scope_restored",
+        "cglc_check_while_control_flow_hir_scoped_block"
+      ],
+      "notes": "Covers while-loop control flow."
+    },
+    {
+      "id": "graphics-stages.directx-basic-source-package",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/SimpleShader.cgl",
+      "fixture_sha256": "f2736779b2831445cf004bd9864e99366bb1298d17457595c8bf286972b84e1c",
+      "evidence_tests": [
+        "cglc_build_directx_graphics_source_package"
+      ],
+      "notes": "Fixture-scoped DirectX source-package evidence for the SimpleShader vertex/fragment stages only."
+    },
+    {
+      "id": "graphics-stages.directx-storage-buffer-resources-source-package",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/directx/fixtures/DirectXGraphicsStorageBufferResourceShader.cgl",
+      "fixture_sha256": "90e3903e6db4c07ba140faa508b06c87d56d573022a206be354b903e33627972",
+      "evidence_tests": [
+        "cglc_build_directx_graphics_storage_buffer_resources_source_package"
+      ],
+      "target_feature_evidence_tests": [
+        "cglc_build_directx_graphics_resource_unsupported_planned_failure",
+        "cglc_doctor_json_directx_graphics_storage_buffer_source_package_evidence",
+        "cglc_explain_targets_directx_graphics_storage_buffer_source_package_evidence"
+      ],
+      "notes": "Fixture-scoped DirectX source-package evidence for vertex/fragment stages with stage-local storage-buffer resources."
+    },
+    {
+      "id": "graphics-stages.graphics-provenance",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+      "fixture_sha256": "ad7474bf16c59c0da3afccb4623e7382cb906e3a5c5acc1bd4f90362dbaafff5",
+      "evidence_tests": [
+        "cglc_dump_hir_graphics_provenance_stage_shapes"
+      ],
+      "notes": "Covers vertex/fragment stage provenance in frontend fixtures."
+    },
+    {
+      "id": "graphics-stages.metal-descriptor-array-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "metal",
+      "fixture": "tests/metal/fixtures/MetalGraphicsDescriptorArrayShader.cgl",
+      "fixture_sha256": "74329f22d868ee6c65d104429b590caeed61732089a0278045016d3544128273",
+      "evidence_tests": [
+        "cglc_build_metal_graphics_descriptor_array_native"
+      ],
+      "target_feature_evidence_tests": [
+        "cglc_doctor_json_metal_graphics_descriptor_array_native_evidence",
+        "cglc_explain_targets_metal_graphics_descriptor_array_native_evidence"
+      ],
+      "notes": "Fixture-scoped Metal native-package evidence for vertex/fragment descriptor-array graphics stages."
+    },
+    {
+      "id": "graphics-stages.opengl-basic-source-package",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/SimpleShader.cgl",
+      "fixture_sha256": "f2736779b2831445cf004bd9864e99366bb1298d17457595c8bf286972b84e1c",
+      "evidence_tests": [
+        "cglc_build_opengl_graphics_source_package"
+      ],
+      "notes": "Fixture-scoped OpenGL source-package evidence for the SimpleShader vertex/fragment stages only."
+    },
+    {
+      "id": "graphics-stages.opengl-descriptor-array-resources-source-package",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/opengl/fixtures/OpenGLGraphicsDescriptorArrayResourcesShader.cgl",
+      "fixture_sha256": "d6275b0b9ff9658d3107f30b97beb17e0749940e3e610d559dd08a344398daf2",
+      "evidence_tests": [
+        "cglc_build_opengl_graphics_descriptor_array_resources_source_package"
+      ],
+      "target_feature_evidence_tests": [
+        "cglc_doctor_json_opengl_graphics_descriptor_array_source_package_evidence",
+        "cglc_explain_targets_opengl_graphics_descriptor_array_source_package_evidence"
+      ],
+      "notes": "Fixture-scoped OpenGL source-package evidence for vertex/fragment descriptor-array graphics resources."
+    },
+    {
+      "id": "graphics-stages.vulkan-helper-function-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsHelperFunctionShader.cgl",
+      "fixture_sha256": "24adfd81d2e4e50ffdf7169b5f646ba30d7b760232bea86c82ba1873984f75ba",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_helper_function_native",
+        "cglc_build_vulkan_graphics_helper_function_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for same-stage graphics helper functions and helper-to-helper calls."
+    },
+    {
+      "id": "graphics-stages.vulkan-loop-control-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsLoopControlShader.cgl",
+      "fixture_sha256": "3624e4118a840fa617c2d47d528dd5343f7397c35204732318bf53063e286e41",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_loop_control_native",
+        "cglc_build_vulkan_graphics_loop_control_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for structured graphics loop control with nested if, continue, and break."
+    },
+    {
+      "id": "graphics-stages.vulkan-loop-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsLoopShader.cgl",
+      "fixture_sha256": "6c51fe61d5415fad79a9f7b27a8fe90208c9283a8011d71a2c278ee33780739d",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_loop_native",
+        "cglc_build_vulkan_graphics_loop_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for structured graphics for-loop lowering."
+    },
+    {
+      "id": "graphics-stages.vulkan-math-intrinsic-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsMathIntrinsicShader.cgl",
+      "fixture_sha256": "f8307d2bd3302b8619715053525b433939ec9fb35544d98e14760a19eae9bd53",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_math_intrinsic_native",
+        "cglc_build_vulkan_graphics_math_intrinsic_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for graphics math intrinsic lowering."
+    },
+    {
+      "id": "graphics-stages.vulkan-nonuniform-descriptor-array-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsNonUniformDescriptorArrayShader.cgl",
+      "fixture_sha256": "3b7d789a7a66159cb765ef46d265906ece80758214084a15e456a99d760fae9c",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_nonuniform_descriptor_array_native",
+        "cglc_build_vulkan_graphics_nonuniform_descriptor_array_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for graphics texture/sampler descriptor arrays indexed with explicit nonuniform markers."
+    },
+    {
+      "id": "graphics-stages.vulkan-shadow-array-lod-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsShadowArrayLodUnsupportedShader.cgl",
+      "fixture_sha256": "0a2e512597ff09c90152025f812fed67997a614bdd6880817a820150fd8a15af",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_shadow_array_lod_native",
+        "cglc_build_vulkan_graphics_shadow_array_lod_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for graphics 2D-array shadow compare sampling with explicit LOD."
+    },
+    {
+      "id": "graphics-stages.vulkan-shadow-array-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsShadowArrayUnsupportedShader.cgl",
+      "fixture_sha256": "041b883744d5f16c361c09d6decdf922a6277888219bcc5339635f90d33c6aec",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_shadow_array_native",
+        "cglc_build_vulkan_graphics_shadow_array_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for graphics 2D-array shadow compare sampling."
+    },
+    {
+      "id": "graphics-stages.vulkan-shadow-compare-lod-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsShadowCompareLodShader.cgl",
+      "fixture_sha256": "50091647d2e0819f2cd35f79058021e7701fb27bf5b46439e587e50fe6e6d976",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_shadow_compare_lod_native",
+        "cglc_build_vulkan_graphics_shadow_compare_lod_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for graphics shadow compare with explicit LOD."
+    },
+    {
+      "id": "graphics-stages.vulkan-shadow-compare-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsShadowCompareShader.cgl",
+      "fixture_sha256": "21d534d669eb4e0ca0ba357ec32706fbcce96b31ccdc10c2ee0cf88f5cd857dd",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_shadow_compare_native",
+        "cglc_build_vulkan_graphics_shadow_compare_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for graphics shadow compare sampling."
+    },
+    {
+      "id": "graphics-stages.vulkan-shadow-descriptor-array-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsShadowDescriptorArrayShader.cgl",
+      "fixture_sha256": "3d090ded058c4487641aadf1c49110ab8a54b1e245a1f4b952efa5579f61999a",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_shadow_descriptor_array_native",
+        "cglc_build_vulkan_graphics_shadow_descriptor_array_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for graphics shadow compare descriptor arrays."
+    },
+    {
+      "id": "graphics-stages.vulkan-texture-sampler-descriptor-array-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsTextureSamplerDescriptorArrayShader.cgl",
+      "fixture_sha256": "de78299f04324ca2168601b78928acf8dc94ee324405b3b4720754fd5ad491fa",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_texture_sampler_descriptor_array_native",
+        "cglc_build_vulkan_graphics_texture_sampler_descriptor_array_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for vertex/fragment graphics stages with texture/sampler descriptor arrays."
+    },
+    {
+      "id": "graphics-stages.vulkan-texture-sampler-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsTextureSamplerShader.cgl",
+      "fixture_sha256": "17eb5020b89948538f26e8e41e082398e84880da0def2a99c18f5a2292890fb5",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_texture_sampler_native",
+        "cglc_build_vulkan_graphics_texture_sampler_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for fragment texture/sampler sampling."
+    },
+    {
+      "id": "graphics-stages.vulkan-uniform-buffer-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsUniformBufferShader.cgl",
+      "fixture_sha256": "55624f87610ceb81e4f6f2d5e48d09621196ad909de6a6e5cb699474cc964b04",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_uniform_buffer_native",
+        "cglc_build_vulkan_graphics_uniform_buffer_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for vertex/fragment uniform buffer resources."
+    },
+    {
+      "id": "graphics-stages.vulkan-vertex-shadow-compare-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsVertexShadowCompareShader.cgl",
+      "fixture_sha256": "77611477d6e8dd3e06c835281e91f30cfc1a2e1982057f81a5bd3238497e87d5",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_vertex_shadow_compare_native",
+        "cglc_build_vulkan_graphics_vertex_shadow_compare_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for vertex-stage shadow compare sampling."
+    },
+    {
+      "id": "graphics-stages.vulkan-vertex-texture-sampler-native",
+      "feature_group": "graphics-stages",
+      "language_category": "graphics",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/vulkan/fixtures/VulkanGraphicsVertexTextureSamplerShader.cgl",
+      "fixture_sha256": "b5c6145be1ef1c82101151e1eb705748ba5d207fbe9017a05ebbd77da170fbed",
+      "evidence_tests": [
+        "cglc_build_vulkan_graphics_vertex_texture_sampler_native",
+        "cglc_build_vulkan_graphics_vertex_texture_sampler_spvasm_native"
+      ],
+      "notes": "Fixture-scoped Vulkan native-package evidence for vertex-stage texture/sampler sampling."
+    },
+    {
+      "id": "native-v0-unsupported.colon-var",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedColonVarShader.cgl",
+      "fixture_sha256": "85ac8c6b0fd0503822b17ab72adbabe32078a6856580826bb320b2528256f88e",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_colon_var_failure"
+      ],
+      "notes": "Stage-scope unqualified colon-style var declarations remain outside the native v0 accepted surface; function-body colon-style locals have separate accepted evidence."
+    },
+    {
+      "id": "native-v0-unsupported.extended-stage",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedExtendedStageShader.cgl",
+      "fixture_sha256": "34d33c111d90f94466d2757434a278e23de9292aa5a47e274ad8e1ea3e4ab160",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_extended_stage_failure"
+      ],
+      "notes": "Extended CrossTL stage spellings are outside the native v0 accepted surface unless a future target-specific package row names them."
+    },
+    {
+      "id": "native-v0-unsupported.fn-style-declaration",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedFnStyleShader.cgl",
+      "fixture_sha256": "5c2b22e1860c6b0a4b41612ec88fbac0b95a29a41b08b1e8fdeab23c1e544c14",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_fn_style_failure"
+      ],
+      "notes": "Rust-style fn declarations are outside the native v0 accepted surface."
+    },
+    {
+      "id": "native-v0-unsupported.generic-declaration",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedGenericShader.cgl",
+      "fixture_sha256": "f510b1cca3613ce485953b67abb459d4e78cfb0bc6b437aaffe0afb6b01b2581",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_generic_failure"
+      ],
+      "notes": "Generics are outside the native v0 accepted surface."
+    },
+    {
+      "id": "native-v0-unsupported.impl-declaration",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedImplShader.cgl",
+      "fixture_sha256": "9f195180428f3f18b82f668079088948bdc5cb98b61813165457c57a78cead53",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_impl_failure"
+      ],
+      "notes": "Impl blocks are outside the native v0 accepted surface."
+    },
+    {
+      "id": "native-v0-unsupported.import-declaration",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedImportShader.cgl",
+      "fixture_sha256": "e3a1562b86f2a22765ca42d0e144a29bb00cde35d3efa4dcadd1b8069c29855c",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_import_failure"
+      ],
+      "notes": "Imports are outside the native v0 accepted surface."
+    },
+    {
+      "id": "native-v0-unsupported.line-splicing-preprocessor",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedLineSplicingPreprocessorShader.cgl",
+      "fixture_sha256": "e8e70320d3e9b34ed1a9e580248d71bcbf8ae01cae2ee0a863add0246a2a193d",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_line_splicing_preprocessor_failure"
+      ],
+      "notes": "Backslash-newline physical line splicing remains translator/importer tolerance, not native-v0 shared .cgl syntax."
+    },
+    {
+      "id": "native-v0-unsupported.match-pattern-control",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedMatchShader.cgl",
+      "fixture_sha256": "f7050eb3e710465ec20433de92df9e9d45aeba6eb645bb18afd9e86d79f8f7b1",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_match_failure"
+      ],
+      "notes": "Match and pattern-control forms are outside the native v0 accepted surface."
+    },
+    {
+      "id": "native-v0-unsupported.preprocessor-directive",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedPreprocessorShader.cgl",
+      "fixture_sha256": "ec513da50815b0b3e1df93431c04c3a4b497f90c756eb3d01e8d9d792c94a20a",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_preprocessor_failure"
+      ],
+      "notes": "Preprocessor directives are outside the native v0 accepted surface."
+    },
+    {
+      "id": "native-v0-unsupported.ray-any-hit-stage",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedRayAnyHitStageShader.cgl",
+      "fixture_sha256": "8358cc94e58874110685869ff8fb04edeeffcf56971dbf6c16a23b65e94ef6c2",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_ray_any_hit_stage_failure"
+      ],
+      "notes": "Ray any-hit stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
+    },
+    {
+      "id": "native-v0-unsupported.ray-callable-stage",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedRayCallableStageShader.cgl",
+      "fixture_sha256": "b8c319eedb10537c692c1a087f8d997c38701afa4623a1617bcc51aa5ef1a798",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_ray_callable_stage_failure"
+      ],
+      "notes": "Ray callable stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
+    },
+    {
+      "id": "native-v0-unsupported.ray-closest-hit-stage",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedRayClosestHitStageShader.cgl",
+      "fixture_sha256": "a97136eed25f3c521abef39bb70a9e774dfcce5c77bb2519df097006e105fbde",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_ray_closest_hit_stage_failure"
+      ],
+      "notes": "Ray closest-hit stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
+    },
+    {
+      "id": "native-v0-unsupported.ray-generation-stage",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedRayStageShader.cgl",
+      "fixture_sha256": "0fb9b0b600184c2fc728dcfe7542d37c16faa21729e932c59436f3a89dc39eeb",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_ray_stage_failure"
+      ],
+      "notes": "Ray generation stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
+    },
+    {
+      "id": "native-v0-unsupported.ray-intersection-stage",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedRayIntersectionStageShader.cgl",
+      "fixture_sha256": "16a79b091218f2da1456574470cb66e8e36bfccc06dde9767d2cfc76ec628e3e",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_ray_intersection_stage_failure"
+      ],
+      "notes": "Ray intersection stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
+    },
+    {
+      "id": "native-v0-unsupported.ray-miss-stage",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedRayMissStageShader.cgl",
+      "fixture_sha256": "cf4584ecfbe2d5e55842760b09b872601879a2c8bfab6a5e3b6a16942b59b00a",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_ray_miss_stage_failure"
+      ],
+      "notes": "Ray miss stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
+    },
+    {
+      "id": "native-v0-unsupported.resource-metadata-alias",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedResourceMetadataAliasShader.cgl",
+      "fixture_sha256": "1c7526fc09e2a4fbc3b9ad4c59d89fc0b09024159c81ef7fb8d0513cb48b1eab",
+      "expected_diagnostic": "parse.unsupported-resource-layout-key",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_resource_metadata_alias_failure"
+      ],
+      "notes": "Broader CrossTL metadata entries such as resource location remain frontend-unsupported for native-v0 unless accepted parser/HIR evidence promotes them."
+    },
+    {
+      "id": "native-v0-unsupported.tessellation-stage",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedTessellationStageShader.cgl",
+      "fixture_sha256": "8585ec8a1766a3da2b29abda856752381b4cbfb26b1d7511d723be9826db61cb",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_tessellation_stage_failure"
+      ],
+      "notes": "Tessellation stage spellings are CrossTL-only until native stage, HIR, and target contracts exist."
+    },
+    {
+      "id": "native-v0-unsupported.trait-declaration",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedTraitShader.cgl",
+      "fixture_sha256": "3bb460006f8a4036d24597967bd66a876348edc6752baf601bf51e8c3d58c84d",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_trait_failure"
+      ],
+      "notes": "Trait declarations are outside the native v0 accepted surface."
+    },
+    {
+      "id": "native-v0-unsupported.var-address-space",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedVarAddressSpaceShader.cgl",
+      "fixture_sha256": "e5edcd97c852cb5192b150942eabdc9e092437cb5daaeed7f8c59692701b2496",
+      "expected_diagnostic": "parse.unsupported-var-address-space",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_var_address_space_failure"
+      ],
+      "notes": "Only workgroup/shared var address spaces are inside the native v0 accepted surface."
+    },
+    {
+      "id": "resources.basic-declarations",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/ResourceShader.cgl",
+      "fixture_sha256": "9213f2331dec7747d0e4bea92b083bb3bd9c4e30238d59b943fe49f33b525038",
+      "evidence_tests": [
+        "cglc_check_resources"
+      ],
+      "notes": "Covers basic resource declaration syntax in an existing frontend fixture."
+    },
+    {
+      "id": "resources.descriptor-array-storage-image",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+      "fixture_sha256": "52dbfd7092b5d8ae29b1b2a149fdded1248076fb0b8f9df735e838252d69c10d",
+      "evidence_tests": [
+        "cglc_check_storage_image_descriptor_array_hir"
+      ],
+      "notes": "Covers descriptor array syntax for storage images."
+    },
+    {
+      "id": "resources.descriptor-arrays",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/ResourceArrayShader.cgl",
+      "fixture_sha256": "7a2978b7cb5f18cd61cd8a13ef9ea074b6a86176ba9db8c0dd828e96bcf5aaad",
+      "evidence_tests": [
+        "cglc_check_resource_arrays"
+      ],
+      "notes": "Covers descriptor array resource declarations."
+    },
+    {
+      "id": "resources.dynamic-descriptor-array-index",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanDynamicDescriptorArrayIndexShader.cgl",
+      "fixture_sha256": "144d8c2e2c318e415fe787d0cc820291d2349dac1405057e9632627c9aeeb411",
+      "evidence_tests": [
+        "cglc_check_vulkan_dynamic_descriptor_array_index"
+      ],
+      "notes": "Covers dynamic descriptor-array indexing in resource declarations."
+    },
+    {
+      "id": "resources.graphics-uniform-resources",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/opengl/fixtures/OpenGLGraphicsResourcesShader.cgl",
+      "fixture_sha256": "6efe5b1b6aeecdb28306f4c7fd0941d77b31f6c6c3ef2ee96d43bd7b8943310c",
+      "evidence_tests": [
+        "cglc_build_opengl_graphics_resources_source_package"
+      ],
+      "notes": "Existing accepted graphics fixture covering uniform resources."
+    },
+    {
+      "id": "resources.graphics-uniform-resources-directx-source-package",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/directx/fixtures/DirectXGraphicsResourceShader.cgl",
+      "fixture_sha256": "9254aa8f1fc41b66039c16726dca0215c72a75f492e9b9fabbba72e191b04729",
+      "evidence_tests": [
+        "cglc_build_directx_graphics_resources_source_package"
+      ],
+      "notes": "Existing DirectX source-package evidence for graphics uniform, texture, and sampler resources."
+    },
+    {
+      "id": "resources.group-layout-alias",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/ResourceGroupAliasShader.cgl",
+      "fixture_sha256": "4e9cb30903a730cc50eb9fb1e59fdfe06e3e928bdca9e848271c6c6e183224d5",
+      "evidence_tests": [
+        "cglc_check_resource_group_layout_alias_hir_canonical_set"
+      ],
+      "notes": "Covers CrossTL layout(group = N, ...) metadata canonicalized to resource set N in native-v0 HIR."
+    },
+    {
+      "id": "resources.group-layout-alias-directx-source-package",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/ResourceGroupAliasShader.cgl",
+      "fixture_sha256": "4e9cb30903a730cc50eb9fb1e59fdfe06e3e928bdca9e848271c6c6e183224d5",
+      "evidence_tests": [
+        "cglc_build_directx_resource_group_layout_alias_source_package"
+      ],
+      "notes": "Covers canonical group-to-set metadata in DirectX source-package reflection and register space lowering."
+    },
+    {
+      "id": "resources.metal-multi-set",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/MetalMultiSetResourceShader.cgl",
+      "fixture_sha256": "0c910356a4db1c2017dc981180a61c6752bd6899a19af6d1ef6343d9c79a90d2",
+      "evidence_tests": [
+        "cglc_check_metal_multi_set_resources"
+      ],
+      "notes": "Covers multi-set resource declarations accepted by the frontend."
+    },
+    {
+      "id": "resources.mixed-descriptor-arrays",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/MixedResourceDescriptorArrayShader.cgl",
+      "fixture_sha256": "90ee6800463f84cc582817a13380d4357fa19042f34b0ddd84f2f242636e3780",
+      "evidence_tests": [
+        "cglc_check_mixed_resource_descriptor_array"
+      ],
+      "notes": "Covers mixed texture/sampler resource descriptor arrays."
+    },
+    {
+      "id": "resources.mixed-symbolic-descriptor-arrays",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/MixedResourceSymbolicDescriptorArrayShader.cgl",
+      "fixture_sha256": "f366fcfb3fb6693b7d8d969fcfe7489c047cbfe11393aa128ed8a022b061c4e2",
+      "evidence_tests": [
+        "cglc_check_mixed_resource_symbolic_descriptor_array"
+      ],
+      "notes": "Covers mixed descriptor arrays with symbolic sizes."
+    },
+    {
+      "id": "resources.nonuniform-descriptor-array-index",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanNonUniformDescriptorArrayIndexShader.cgl",
+      "fixture_sha256": "bd44376f6fe3c9a0c7e3d067a6813d1b1ebef0a71f5dea96f43c8528f99092cd",
+      "evidence_tests": [
+        "cglc_check_vulkan_nonuniform_descriptor_array_index"
+      ],
+      "notes": "Covers nonuniform descriptor-array indexing in resource declarations."
+    },
+    {
+      "id": "resources.register-layout-alias",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/ResourceRegisterAliasShader.cgl",
+      "fixture_sha256": "20bff827368baad7de80692f43b5cd308f46e8f9834a7c4b88316def006936bd",
+      "evidence_tests": [
+        "cglc_check_resource_register_layout_alias_hir_canonical_binding"
+      ],
+      "notes": "Covers CrossTL layout(register = N) metadata canonicalized to resource binding N in native-v0 HIR."
+    },
+    {
+      "id": "resources.register-layout-alias-directx-source-package",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/ResourceRegisterAliasShader.cgl",
+      "fixture_sha256": "20bff827368baad7de80692f43b5cd308f46e8f9834a7c4b88316def006936bd",
+      "evidence_tests": [
+        "cglc_build_directx_resource_register_layout_alias_source_package"
+      ],
+      "notes": "Covers canonical register-to-binding metadata in DirectX source-package reflection and HLSL register lowering."
+    },
+    {
+      "id": "resources.resource-array-access",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/ResourceArrayAccessShader.cgl",
+      "fixture_sha256": "a20951579eaa4d91da2b9e9731cf5cfa11e928abc979f688e8b833eeb1968b29",
+      "evidence_tests": [
+        "cglc_check_resource_array_access"
+      ],
+      "notes": "Covers resource array declarations and indexed access."
+    },
+    {
+      "id": "resources.resource-array-access-target-packages",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/ResourceArrayAccessShader.cgl",
+      "fixture_sha256": "a20951579eaa4d91da2b9e9731cf5cfa11e928abc979f688e8b833eeb1968b29",
+      "evidence_tests": [
+        "cglc_build_opengl_resource_array_access_source_package"
+      ],
+      "notes": "Covers accepted resource array access syntax plus OpenGL source-package evidence; DirectX source-package support is tracked in support-matrix package evidence."
+    },
+    {
+      "id": "resources.runtime-struct-array",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/RuntimeStructArrayShader.cgl",
+      "fixture_sha256": "e8fa931de6cb550bf1b51d88f91e0e4941360aa0daeed2736ac0bbc8b6326e05",
+      "evidence_tests": [
+        "cglc_check_runtime_struct_array_hir_runtime_struct_array_refs"
+      ],
+      "notes": "Covers runtime-sized struct array fields in storage buffers."
+    },
+    {
+      "id": "resources.storage-buffer-compute",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/StorageBufferComputeShader.cgl",
+      "fixture_sha256": "7b573de26282b494e21f3ed2f3485fbc67c9a72fba01ce08ff9267c27a81045d",
+      "evidence_tests": [
+        "cglc_check_storage_buffer_compute"
+      ],
+      "notes": "Covers storage-buffer resource declarations in compute fixtures."
+    },
+    {
+      "id": "resources.storage-buffer-struct-field",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/StructBufferComputeShader.cgl",
+      "fixture_sha256": "6f97c7a9f7f9e30f79253d5ebb0477ba3b4c9f06b37a984f56c844e5004f2c60",
+      "evidence_tests": [
+        "cglc_build_opengl_struct_buffer_source_package",
+        "cglc_check_struct_buffer_compute_hir_struct_field_access"
+      ],
+      "notes": "Covers storage-buffer struct field access through HIR and OpenGL source package evidence."
+    },
+    {
+      "id": "resources.struct-array-fields",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/StructArrayFieldComputeShader.cgl",
+      "fixture_sha256": "50e45c0740534fd4345a8e8f57c70de85f22c0626bc24aeac27b9bf192926e83",
+      "evidence_tests": [
+        "cglc_check_struct_array_field_compute_hir_fixed_array_field"
+      ],
+      "notes": "Covers fixed-size array fields inside storage-buffer structs."
+    },
+    {
+      "id": "storage-images.access-qualifiers",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+      "fixture_sha256": "3a547f7be4cfceaa75240845cbf98de90ebad22a4bc24c4a526e4c58faa83456",
+      "evidence_tests": [
+        "cglc_check_storage_image_access_qualifier_hir"
+      ],
+      "target_feature_evidence_tests": [
+        "cglc_dump_debug_storage_image_access_qualifier_descriptor_array_target_capabilities",
+        "cglc_explain_targets_storage_image_access_qualifier_descriptor_array_target_capabilities"
+      ],
+      "notes": "Covers storage image access qualifier syntax."
+    },
+    {
+      "id": "storage-images.access-qualifiers-directx-source-package",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/directx/fixtures/DirectXStorageImageAccessQualifierShader.cgl",
+      "fixture_sha256": "d5bdbba8ff88e01b081d3ce0a4ae8cb183428f76d88d1f54f5b595f1e2b9a388",
+      "evidence_tests": [
+        "cglc_build_directx_storage_image_access_qualifier_source_package"
+      ],
+      "notes": "Existing DirectX source-package evidence for read/write storage image access qualifiers."
+    },
+    {
+      "id": "storage-images.access-qualifiers-preserve-access",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+      "fixture_sha256": "3a547f7be4cfceaa75240845cbf98de90ebad22a4bc24c4a526e4c58faa83456",
+      "evidence_tests": [
+        "cglc_check_storage_image_access_qualifier_hir_preserves_access"
+      ],
+      "notes": "Covers HIR preservation of storage-image read/write access qualifiers."
+    },
+    {
+      "id": "storage-images.atomic-descriptor-arrays",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
+      "fixture_sha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
+      "evidence_tests": [
+        "cglc_build_opengl_storage_image_atomic_descriptor_array_source_package",
+        "cglc_check_storage_image_atomic_descriptor_array_hir_preserves_nonuniform"
+      ],
+      "target_feature_evidence_tests": [
+        "cglc_dump_debug_storage_image_atomic_nonuniform_descriptor_array_target_capabilities",
+        "cglc_explain_targets_storage_image_atomic_nonuniform_descriptor_array_target_capabilities"
+      ],
+      "notes": "Covers nonuniform descriptor-array storage image atomics with OpenGL source package and target capability evidence."
+    },
+    {
+      "id": "storage-images.atomic-descriptor-arrays-check",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
+      "fixture_sha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
+      "evidence_tests": [
+        "cglc_check_storage_image_atomic_descriptor_array_hir"
+      ],
+      "notes": "Covers accepted storage-image atomic descriptor-array HIR checks."
+    },
+    {
+      "id": "storage-images.atomic-directx-source-package",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/StorageImageAtomicShader.cgl",
+      "fixture_sha256": "a5a0191fffb927d04b796b4cade9d374945dc40b8eecd3b89738b3845adbbf36",
+      "evidence_tests": [
+        "cglc_build_directx_storage_image_atomic_source_package"
+      ],
+      "notes": "Existing DirectX source-package evidence for storage image atomic lowering."
+    },
+    {
+      "id": "storage-images.atomic-operations",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/StorageImageAtomicShader.cgl",
+      "fixture_sha256": "a5a0191fffb927d04b796b4cade9d374945dc40b8eecd3b89738b3845adbbf36",
+      "evidence_tests": [
+        "cglc_check_storage_image_atomic_hir_preserves_scalar_return"
+      ],
+      "notes": "Covers scalar-returning storage image atomic operations."
+    },
+    {
+      "id": "storage-images.descriptor-array-load-store-paths",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+      "fixture_sha256": "52dbfd7092b5d8ae29b1b2a149fdded1248076fb0b8f9df735e838252d69c10d",
+      "evidence_tests": [
+        "cglc_check_storage_image_descriptor_array_hir_load_store_paths"
+      ],
+      "notes": "Covers descriptor-array storage-image load/store HIR paths."
+    },
+    {
+      "id": "storage-images.explicit-format-descriptor-arrays",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+      "fixture_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+      "evidence_tests": [
+        "cglc_build_opengl_storage_image_explicit_format_descriptor_array_source_package",
+        "cglc_check_storage_image_explicit_format_descriptor_array_hir_preserves_format"
+      ],
+      "target_feature_evidence_tests": [
+        "cglc_dump_debug_storage_image_explicit_format_nonuniform_descriptor_array_target_capabilities",
+        "cglc_explain_targets_storage_image_explicit_format_nonuniform_descriptor_array_target_capabilities"
+      ],
+      "notes": "Covers explicit storage image formats on descriptor arrays with nonuniform indexing."
+    },
+    {
+      "id": "storage-images.explicit-format-descriptor-arrays-check",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+      "fixture_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+      "evidence_tests": [
+        "cglc_check_storage_image_explicit_format_descriptor_array_hir"
+      ],
+      "notes": "Covers accepted explicit-format storage-image descriptor-array HIR checks."
+    },
+    {
+      "id": "storage-images.explicit-formats",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+      "fixture_sha256": "45f88a12264cec4a3bf6eb6ffe7e63f6d9ceeb3964fad7703c64a0ea35a69703",
+      "evidence_tests": [
+        "cglc_check_storage_image_explicit_format_hir_preserves_format"
+      ],
+      "notes": "Covers explicit r32f, r32i, and r32ui storage image format qualifiers."
+    },
+    {
+      "id": "storage-images.explicit-formats-check",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+      "fixture_sha256": "45f88a12264cec4a3bf6eb6ffe7e63f6d9ceeb3964fad7703c64a0ea35a69703",
+      "evidence_tests": [
+        "cglc_check_storage_image_explicit_format_hir"
+      ],
+      "notes": "Covers accepted explicit storage-image format HIR checks."
+    },
+    {
+      "id": "storage-images.load-store",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+      "fixture_sha256": "deacb16685a0b619b4666f2d70d202e2c1bcd0d30fcde268835d24d79fbff4d5",
+      "evidence_tests": [
+        "cglc_check_storage_image_hir_load_store_types"
+      ],
+      "notes": "Covers imageLoad and imageStore on storage images."
+    },
+    {
+      "id": "storage-images.load-store-check",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+      "fixture_sha256": "deacb16685a0b619b4666f2d70d202e2c1bcd0d30fcde268835d24d79fbff4d5",
+      "evidence_tests": [
+        "cglc_check_storage_image_hir"
+      ],
+      "notes": "Covers accepted storage-image load/store frontend checks."
+    },
+    {
+      "id": "storage-images.load-store-directx-source-package",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/directx/fixtures/DirectXStorageImage2DShader.cgl",
+      "fixture_sha256": "cf08870aee8e61ec113ab03ea7505b55ea53a04a722b13e9602031d6a8774737",
+      "evidence_tests": [
+        "cglc_build_directx_storage_image_2d_source_package"
+      ],
+      "notes": "Existing DirectX source-package evidence for 2D storage image load/store lowering."
+    },
+    {
+      "id": "storage-images.load-store-opengl-source-package",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/opengl/fixtures/OpenGLStorageImageShader.cgl",
+      "fixture_sha256": "e25dd97305ab258ec489db8f983dda586423d595561a607a7d67853b5503dff2",
+      "evidence_tests": [
+        "cglc_build_opengl_storage_image_source_package"
+      ],
+      "notes": "Existing OpenGL source-package evidence for storage image load/store lowering."
+    },
+    {
+      "id": "storage-images.mixed-atomic-access-directx-source-package",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/directx/fixtures/DirectXMixedStorageImageAtomicAccessShader.cgl",
+      "fixture_sha256": "1d82e2187b937016addea2d23354d59a57da58355b99dc18c78bf8489ca8f6d5",
+      "evidence_tests": [
+        "cglc_build_directx_mixed_storage_image_atomic_access_source_package",
+        "cglc_check_storage_image_atomic_hir",
+        "cglc_check_storage_image_hir_load_store_types"
+      ],
+      "notes": "Covers DirectX source-package lowering for a single r32i storage image used by scalar image atomics and vector imageLoad/imageStore; DirectX emits one scalar typed UAV and bridges vector access through the x lane."
+    },
+    {
+      "id": "storage-images.nonuniform-descriptor-arrays",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/frontend/fixtures/StorageImageNonUniformDescriptorArrayHIRShader.cgl",
+      "fixture_sha256": "aa79a47d30497499c8292002671a79727dc6560d54c5ba21b12f3982b5bc7f96",
+      "evidence_tests": [
+        "cglc_check_storage_image_nonuniform_descriptor_array_hir",
+        "cglc_check_storage_image_nonuniform_descriptor_array_hir_load_store_paths"
+      ],
+      "notes": "Covers nonuniform storage-image descriptor-array HIR load/store paths."
+    },
+    {
+      "id": "texture-sampling.array-compare-descriptor-array-lod-opengl-source-package",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/TextureArrayCompareDescriptorArrayLodShader.cgl",
+      "fixture_sha256": "227c90255b02e36d2ad993dfeed4bf340abba476e1066e2c12e5ac7be68b03c3",
+      "evidence_tests": [
+        "cglc_build_opengl_texture_array_compare_descriptor_array_lod_source_package"
+      ],
+      "notes": "Covers OpenGL source-package evidence for indexed sampler2DArrayShadow descriptor-array textureCompareLod lowering."
+    },
+    {
+      "id": "texture-sampling.compare-descriptor-array-lod-directx-source-package",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/TextureCompareDescriptorArrayLodShader.cgl",
+      "fixture_sha256": "076cd3e599ea8dd4d5c225117fc3d8ca7a40064b76783fe1d9e3880e8ab57048",
+      "evidence_tests": [
+        "cglc_build_directx_texture_compare_descriptor_array_lod_source_package"
+      ],
+      "notes": "Existing DirectX source-package evidence for descriptor-array texture compare with explicit LOD."
+    },
+    {
+      "id": "texture-sampling.compare-descriptor-array-lod-opengl-source-package",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/TextureCompareDescriptorArrayLodShader.cgl",
+      "fixture_sha256": "076cd3e599ea8dd4d5c225117fc3d8ca7a40064b76783fe1d9e3880e8ab57048",
+      "evidence_tests": [
+        "cglc_build_opengl_texture_compare_descriptor_array_lod_source_package"
+      ],
+      "notes": "Existing OpenGL source-package evidence for descriptor-array texture compare with explicit LOD."
+    },
+    {
+      "id": "texture-sampling.comparison-sampler-role",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/ComparisonSamplerRoleShader.cgl",
+      "fixture_sha256": "93396a1f6ae7abc1d1584a093101196919ab90a6a4e4da870a177bf4046bf1f1",
+      "evidence_tests": [
+        "cglc_check_comparison_sampler_role"
+      ],
+      "notes": "Covers comparison sampler role validation for texture operations."
+    },
+    {
+      "id": "texture-sampling.cube-compare-descriptor-array-lod-opengl-source-package",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/TextureCubeCompareDescriptorArrayLodShader.cgl",
+      "fixture_sha256": "65829d05089f333760044b074afd3888379483fddd57fedc9eb2d2a54fa28379",
+      "evidence_tests": [
+        "cglc_build_opengl_texture_cube_compare_descriptor_array_lod_source_package"
+      ],
+      "notes": "Covers OpenGL source-package evidence for indexed samplerCubeShadow and samplerCubeArrayShadow descriptor-array textureCompareLod lowering."
+    },
+    {
+      "id": "texture-sampling.integer-sampler-array-lod",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanIntegerTextureArraySamplerLodShader.cgl",
+      "fixture_sha256": "c1b2b7e14610581679e62869d6e03822c5711d0c5b795d74f356b10b3ca6f3b5",
+      "evidence_tests": [
+        "cglc_check_vulkan_integer_texture_array_sampler_lod"
+      ],
+      "notes": "Covers integer texture array sampler LOD checks."
+    },
+    {
+      "id": "texture-sampling.integer-sampler-lod",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanIntegerTextureSamplerLodShader.cgl",
+      "fixture_sha256": "fe6a37050d42c8c6aab99c19051ab1ab393f38cc05dec1277ff138150cbaf290",
+      "evidence_tests": [
+        "cglc_check_vulkan_integer_texture_sampler_lod"
+      ],
+      "notes": "Covers integer texture sampler LOD checks."
+    },
+    {
+      "id": "texture-sampling.manual-compare-lod-nonuniform",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/TextureCompareLodManualNonUniformDescriptorArrayShader.cgl",
+      "fixture_sha256": "412651b5dc31c67217e8c26b9223d2036a4e8e0baacfc570b51d9ddf506e8f86",
+      "evidence_tests": [
+        "cglc_build_opengl_texture_compare_lod_manual_nonuniform_descriptor_array_source_package",
+        "cglc_check_texture_compare_lod_manual_nonuniform_descriptor_array_hir_markers"
+      ],
+      "notes": "Covers manual texture compare with explicit LOD and nonuniform descriptor indexing."
+    },
+    {
+      "id": "texture-sampling.nonuniform-descriptor-sample",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/TextureOnlyNonUniformDescriptorArraySampleShader.cgl",
+      "fixture_sha256": "17e0cedd66b91a4534cd14262beba4a8e629df8672781b785be226730920d1fc",
+      "evidence_tests": [
+        "cglc_check_texture_only_nonuniform_descriptor_array_sample_hir_marker"
+      ],
+      "notes": "Covers nonuniform texture descriptor array indexing for sampling."
+    },
+    {
+      "id": "texture-sampling.optimizer-boundary",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/frontend/fixtures/TextureOptimizerBoundaryHIRShader.cgl",
+      "fixture_sha256": "c8e731bd269951b404f6b5a6232686242620238c42281e217d1405ac278a69b8",
+      "evidence_tests": [
+        "cglc_check_texture_optimizer_boundary_hir_sample_lod"
+      ],
+      "notes": "Covers texture sampling across optimizer boundary fixtures."
+    },
+    {
+      "id": "texture-sampling.sampler-3d-array-lod",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanTextureSampler3DArrayLodShader.cgl",
+      "fixture_sha256": "c6dda5c465adf879820b11251d202c80071a0d5a0027913ad6860910615e1cef",
+      "evidence_tests": [
+        "cglc_check_vulkan_texture_sampler_3d_array_lod"
+      ],
+      "notes": "Covers 3D-array texture sampler LOD checks."
+    },
+    {
+      "id": "texture-sampling.sampler-3d-lod",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanTextureSampler3DLodShader.cgl",
+      "fixture_sha256": "322c6cf60c5b5ac7aadd40e05f8568914ca03899769e08d4b462a1666dae793a",
+      "evidence_tests": [
+        "cglc_check_vulkan_texture_sampler_3d_lod"
+      ],
+      "notes": "Covers 3D texture sampler LOD checks."
+    },
+    {
+      "id": "texture-sampling.sampler-array-descriptors",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanTextureSamplerArrayDescriptorShader.cgl",
+      "fixture_sha256": "dc23b940d5c5c3c257bcc33753d02e4f2f74979f0fa4f16f3887c9aa0b8fd646",
+      "evidence_tests": [
+        "cglc_check_vulkan_texture_sampler_array_descriptors"
+      ],
+      "notes": "Covers combined texture/sampler descriptor arrays."
+    },
+    {
+      "id": "texture-sampling.sampler-array-lod",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanTextureSamplerArrayLodShader.cgl",
+      "fixture_sha256": "2012c159b234b93956424c120f78c9ef9dfae9b728c7e7f7127468c1304798e6",
+      "evidence_tests": [
+        "cglc_check_vulkan_texture_sampler_array_lod"
+      ],
+      "notes": "Covers texture array sampler LOD checks."
+    },
+    {
+      "id": "texture-sampling.sampler-cube-array-lod",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+      "fixture_sha256": "10be2cb8466e96795ffc567f103d9fdc2b8e477b5c69df06ab5383da82564a29",
+      "evidence_tests": [
+        "cglc_check_vulkan_texture_sampler_cube_array_lod"
+      ],
+      "notes": "Covers cube-array texture sampler LOD checks."
+    },
+    {
+      "id": "texture-sampling.sampler-cube-lod",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanTextureSamplerCubeLodShader.cgl",
+      "fixture_sha256": "4984b11f77400482145ff81b7bdce79129b9df1bb9f4ee2d9ae20073f08f3bdc",
+      "evidence_tests": [
+        "cglc_check_vulkan_texture_sampler_cube_lod"
+      ],
+      "notes": "Covers cube texture sampler LOD checks."
+    },
+    {
+      "id": "texture-sampling.sampler-descriptor-arrays",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/SamplerDescriptorArrayShader.cgl",
+      "fixture_sha256": "da89c320b0324b65c0b7df66af489064f0037c8ce7a1f3be2810a1a7dcfe733d",
+      "evidence_tests": [
+        "cglc_check_sampler_descriptor_array"
+      ],
+      "notes": "Covers sampler descriptor-array declarations."
+    },
+    {
+      "id": "texture-sampling.sampler-lod-directx-source-package",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "fixture_sha256": "2f60b58a8f89cab516aaa059edd69ff2d69e37507bbe0363abf7c6ba69144de7",
+      "evidence_tests": [
+        "cglc_build_directx_texture_sampler_lod_source_package"
+      ],
+      "notes": "Existing DirectX source-package evidence for texture sample LOD lowering."
+    },
+    {
+      "id": "texture-sampling.sampler-lod-frontend-check",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "fixture_sha256": "2f60b58a8f89cab516aaa059edd69ff2d69e37507bbe0363abf7c6ba69144de7",
+      "evidence_tests": [
+        "cglc_check_vulkan_texture_sampler_lod"
+      ],
+      "notes": "Covers frontend acceptance of texture sampler LOD calls."
+    },
+    {
+      "id": "texture-sampling.sampler-lod-opengl-source-package",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "opengl",
+      "fixture": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "fixture_sha256": "2f60b58a8f89cab516aaa059edd69ff2d69e37507bbe0363abf7c6ba69144de7",
+      "evidence_tests": [
+        "cglc_build_opengl_texture_sampler_lod_source_package"
+      ],
+      "notes": "Existing OpenGL source-package evidence for texture sample LOD lowering."
+    },
+    {
+      "id": "texture-sampling.sampler-only-descriptor-array-sample",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/SamplerOnlyDescriptorArraySampleShader.cgl",
+      "fixture_sha256": "2563fc78b2d66445742739419077ddcf11cbba6484c562b0d94b4bc1713ebad1",
+      "evidence_tests": [
+        "cglc_check_sampler_only_descriptor_array_sample"
+      ],
+      "notes": "Covers sampler-only descriptor-array sampling."
+    },
+    {
+      "id": "texture-sampling.sampler-only-nonuniform-compare-descriptor-array",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/SamplerOnlyNonUniformCompareDescriptorArrayShader.cgl",
+      "fixture_sha256": "b56a003faca65f91cba0dbe05f14b9c1233314556673e6a7571b76ed8fbdf2bd",
+      "evidence_tests": [
+        "cglc_check_sampler_only_nonuniform_compare_descriptor_array_hir_marker"
+      ],
+      "notes": "Covers sampler-only nonuniform compare descriptor-array HIR markers."
+    },
+    {
+      "id": "texture-sampling.sampler-only-nonuniform-descriptor-sample",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/SamplerOnlyNonUniformDescriptorArraySampleShader.cgl",
+      "fixture_sha256": "21219e2bf3931c1035bec26702a6058c008a1d0c2b696bd8df4c2ad5baa5a4ed",
+      "evidence_tests": [
+        "cglc_check_sampler_only_nonuniform_descriptor_array_sample_hir_marker"
+      ],
+      "notes": "Covers sampler-only nonuniform descriptor-array sample HIR markers."
+    },
+    {
+      "id": "texture-sampling.shadow-compare",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/TextureCompareShadowShader.cgl",
+      "fixture_sha256": "967cfa879cf0b9d3a1c82568171aae5b102e6f6dbb75fcfa6283181b3d202083",
+      "evidence_tests": [
+        "cglc_check_texture_compare_shadow"
+      ],
+      "notes": "Covers comparison sampler shadow texture operations."
+    },
+    {
+      "id": "texture-sampling.texture-array-dimensions",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/TextureArrayDimensionShader.cgl",
+      "fixture_sha256": "68ab53fc4ef965f64739499c377bb47a035406de9e9fcbc0a8a1ad4141851f02",
+      "evidence_tests": [
+        "cglc_check_texture_array_dimensions"
+      ],
+      "notes": "Covers array texture dimensions in texture sampling fixtures."
+    },
+    {
+      "id": "texture-sampling.texture-array-shadow-compare",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/TextureArrayShadowCompareShader.cgl",
+      "fixture_sha256": "434bd3a27bae2e2eb8cffe96ea51ec3416fdb65befe40bbb6fb8279abe673e64",
+      "evidence_tests": [
+        "cglc_check_texture_array_shadow_compare"
+      ],
+      "notes": "Covers texture array shadow comparison sampling."
+    },
+    {
+      "id": "texture-sampling.texture-compare-2d-lod",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/TextureCompare2DLodShader.cgl",
+      "fixture_sha256": "e3ca5bad622eada39193993d9ab57a0fc9b4763e979915f95e983dcafc6c32e3",
+      "evidence_tests": [
+        "cglc_check_texture_compare_2d_lod"
+      ],
+      "notes": "Covers 2D texture compare LOD operations."
+    },
+    {
+      "id": "texture-sampling.texture-compare-lod",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/TextureCompareLodShader.cgl",
+      "fixture_sha256": "bebb676d84077bd7aeb46fe792576f947629b9520f95610aed326cce0c24b1cd",
+      "evidence_tests": [
+        "cglc_check_texture_compare_lod"
+      ],
+      "notes": "Covers texture compare LOD operations."
+    },
+    {
+      "id": "texture-sampling.texture-compare-lod-nonuniform-descriptor-array",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/TextureCompareNonUniformDescriptorArrayLodShader.cgl",
+      "fixture_sha256": "8264923fd175212fe694f98fd188fdc484a1b7afbe3d3899317bdbb34e8fc965",
+      "evidence_tests": [
+        "cglc_check_texture_compare_lod_nonuniform_descriptor_array_hir_markers"
+      ],
+      "notes": "Covers nonuniform descriptor-array compare LOD HIR markers."
+    },
+    {
+      "id": "texture-sampling.texture-compare-nonuniform-descriptor-array",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/TextureCompareNonUniformDescriptorArrayShader.cgl",
+      "fixture_sha256": "f943745d2ed4f14896ee4a2848985688ac365aae4f1ce86644c80227f147230c",
+      "evidence_tests": [
+        "cglc_check_texture_compare_nonuniform_descriptor_array_hir_markers"
+      ],
+      "notes": "Covers nonuniform descriptor-array compare HIR markers."
+    },
+    {
+      "id": "texture-sampling.texture-descriptor-arrays",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/TextureDescriptorArrayShader.cgl",
+      "fixture_sha256": "464e890dc3481a05f7aa5babda28990873e43f25ab4dc929f87b44465b7c60f5",
+      "evidence_tests": [
+        "cglc_check_texture_descriptor_array"
+      ],
+      "notes": "Covers texture descriptor-array declarations."
+    },
+    {
+      "id": "texture-sampling.texture-only-descriptor-array-sample",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/TextureOnlyDescriptorArraySampleShader.cgl",
+      "fixture_sha256": "fd26cbff6f73ae4b514af21d7f018af97ace97a742a8772292b1f04835a19a1d",
+      "evidence_tests": [
+        "cglc_check_texture_only_descriptor_array_sample"
+      ],
+      "notes": "Covers texture-only descriptor-array sampling."
+    },
+    {
+      "id": "texture-sampling.texture-only-nonuniform-compare-descriptor-array",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/TextureOnlyNonUniformCompareDescriptorArrayShader.cgl",
+      "fixture_sha256": "0322ec938740b5666a5121a700736083134addf89fad67fb39d7896af0b34f42",
+      "evidence_tests": [
+        "cglc_check_texture_only_nonuniform_compare_descriptor_array_hir_marker"
+      ],
+      "notes": "Covers texture-only nonuniform compare descriptor-array HIR markers."
+    },
+    {
+      "id": "texture-sampling.texture-only-nonuniform-uint-descriptor-sample",
+      "feature_group": "texture-sampling",
+      "language_category": "texture-operations",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/TextureOnlyNonUniformUintDescriptorArraySampleShader.cgl",
+      "fixture_sha256": "4917495cee6909fcf9e28879f5802ecdc05a8525bef70d713b770a1f19ca5a51",
+      "evidence_tests": [
+        "cglc_check_texture_only_nonuniform_uint_descriptor_array_sample"
+      ],
+      "notes": "Covers unsigned texture-only nonuniform descriptor-array sampling."
+    }
+  ]
+}

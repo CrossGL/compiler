@@ -1,0 +1,21 @@
+shader WorkgroupBarrierHIRShader {
+    const int GROUP_SIZE = 4;
+
+    compute {
+        layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+        layout(set = 0, binding = 0) buffer int* values;
+
+        var<workgroup> tile: array<int, GROUP_SIZE>;
+
+        void main() {
+            int local = int(gl_LocalInvocationID.x);
+            tile[local] = local + 1;
+            workgroupBarrier();
+            int left = tile[0];
+            barrier();
+            int total = left + tile[local];
+            values[local] = total;
+            return;
+        }
+    }
+}

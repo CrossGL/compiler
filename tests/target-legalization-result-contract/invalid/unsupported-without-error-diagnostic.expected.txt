@@ -1,0 +1,1 @@
+unsupported modules require an error diagnostic

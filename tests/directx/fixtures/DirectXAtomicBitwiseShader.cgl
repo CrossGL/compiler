@@ -1,0 +1,37 @@
+shader DirectXAtomicBitwiseShader {
+  const int GROUP_SIZE = 4;
+
+  compute {
+    layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer atomic<int>* signedMasks;
+    layout(set = 0, binding = 1) buffer atomic<uint>* unsignedMasks;
+    layout(set = 0, binding = 2) buffer int* observed;
+    layout(set = 0, binding = 3) buffer uint* unsignedObserved;
+
+    var<workgroup> signedTile: atomic<int>[GROUP_SIZE];
+    var<workgroup> unsignedTile: atomic<uint>[GROUP_SIZE];
+
+    void main() {
+      int index = int(gl_GlobalInvocationID.x);
+      uint unsignedIndex = gl_LocalInvocationID.x;
+      int signedMask = int(gl_LocalInvocationID.x) + 1;
+      uint unsignedMask = unsignedIndex + 1u;
+
+      atomicAnd(signedMasks[index], signedMask);
+      atomicOr(unsignedMasks[unsignedIndex], unsignedMask);
+      atomicXor(unsignedTile[unsignedIndex], unsignedMask);
+      atomicAnd(signedTile[index], signedMask);
+
+      int oldAnd = atomicAnd(signedMasks[index], signedMask);
+      oldAnd = atomicOr(signedMasks[index], 1);
+      uint oldOr = atomicOr(unsignedMasks[unsignedIndex], unsignedMask);
+      uint oldXor = atomicXor(unsignedMasks[unsignedIndex], unsignedMask);
+      int oldShared = atomicXor(signedTile[index], signedMask);
+      uint oldUnsignedShared = atomicAnd(unsignedTile[unsignedIndex], unsignedMask);
+
+      observed[index] = oldAnd + oldShared;
+      unsignedObserved[unsignedIndex] = oldOr + oldXor + oldUnsignedShared;
+      return;
+    }
+  }
+}

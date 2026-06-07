@@ -1,0 +1,1 @@
+$.targetLegalizationToolRequirements.requiredToolCount: must match requiredToolIds length

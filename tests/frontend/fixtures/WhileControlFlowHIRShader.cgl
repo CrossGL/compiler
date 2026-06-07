@@ -1,0 +1,27 @@
+shader WhileControlFlowHIRShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    void main() {
+      int i = 0;
+      float total = 0.0;
+      int sample = 0;
+
+      while (i < 4) {
+        {
+          float sample = total;
+          total += sample + values[i];
+        }
+
+        sample = i;
+        total += float(sample);
+        values[i] = total;
+        i++;
+      }
+
+      values[4] = total;
+      return;
+    }
+  }
+}

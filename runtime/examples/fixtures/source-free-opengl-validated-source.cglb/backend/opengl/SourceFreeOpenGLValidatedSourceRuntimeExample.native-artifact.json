@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "opengl",
+  "binaryKind": "opengl.source",
+  "sourcePath": "backend/opengl/SourceFreeOpenGLValidatedSourceRuntimeExample.comp.glsl",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "750e2f0b948c3fcbebe347ec5c3f91a81400e1575be73eca41e5bbe022923a89"
+  },
+  "artifactPath": "backend/opengl/SourceFreeOpenGLValidatedSourceRuntimeExample.glsl",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "7353935217248b5f3b3029ec841ce250e1ecfb65f955776357036866de936976"
+  },
+  "sizeBytes": 358,
+  "toolchainProvenance": {
+    "producer": "runtime.examples.source_free_loader",
+    "tools": [
+      {
+        "name": "CrossGL OpenGL backend",
+        "role": "generator",
+        "version": "runtime-example",
+        "executable": "cglc"
+      },
+      {
+        "name": "glslangValidator",
+        "role": "validator",
+        "version": "fixture",
+        "executable": "glslangValidator",
+        "executableSource": "not-found",
+        "versionProbeStatus": "unavailable"
+      }
+    ],
+    "invocation": {
+      "commandLineSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "environmentSha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  },
+  "optimizationLevel": "debug",
+  "optimizationEvidence": {
+    "requestedLevel": "debug",
+    "effectiveLevel": "debug",
+    "policy": "metadata-only",
+    "status": "metadata-only",
+    "evidenceSource": {
+      "kind": "descriptor"
+    }
+  },
+  "validationStatus": "validated",
+  "nativeBinaryStatus": "validated",
+  "validationDiagnostics": []
+}

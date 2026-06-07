@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/release-provenance-manifest-v1.schema.json",
+  "title": "CrossGL Release Provenance Manifest JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "sourceCommit",
+    "toolchainSummary",
+    "cloudUpload",
+    "artifactCount",
+    "artifactBytes",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "crossgl-release-provenance-manifest-v1"
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "toolchainSummary": {
+      "type": "object"
+    },
+    "cloudUpload": {
+      "$ref": "#/$defs/cloudUpload"
+    },
+    "artifactCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "artifactBytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "explicitText": {
+      "type": "string",
+      "pattern": "^(?!\\s*$)(?!\\s*(?:[Tt][Bb][Dd]|[Tt][Oo][Dd][Oo]|[Nn][Oo][Nn][Ee]|[Nn]/[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr])\\s*$)(?!\\s*[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr])(?!\\s*<[^>]*>\\s*$).+$"
+    },
+    "relativePath": {
+      "type": "string",
+      "pattern": "^(?!\\s)(?!.*\\s$)(?!/)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!.*//).+$"
+    },
+    "explicitRelativePath": {
+      "type": "string",
+      "pattern": "^(?!\\s*$)(?!\\s*(?:[Tt][Bb][Dd]|[Tt][Oo][Dd][Oo]|[Nn][Oo][Nn][Ee]|[Nn]/[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr])\\s*$)(?!\\s*[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr])(?!\\s*<[^>]*>\\s*$)(?!\\s)(?!.*\\s$)(?!/)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!.*//).+$"
+    },
+    "optionalRelativePath": {
+      "type": "string",
+      "pattern": "^(?:$|(?!\\s)(?!.*\\s$)(?!/)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!.*//).+)$"
+    },
+    "releaseObjectPrefix": {
+      "type": "string",
+      "pattern": "^(?!\\s*$)(?!\\s*(?:[Tt][Bb][Dd]|[Tt][Oo][Dd][Oo]|[Nn][Oo][Nn][Ee]|[Nn]/[Aa]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr])\\s*$)(?!\\s*[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr])(?!\\s*<[^>]*>\\s*$)(?!\\s)(?!.*\\s$)(?!/)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!.*//)(?!(?:[Aa][Rr][Tt][Ii][Ff][Aa][Cc][Tt]|[Aa][Rr][Tt][Ii][Ff][Aa][Cc][Tt][Ss]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Ss][Hh][Aa][Rr][Ee][Dd]|[Ss][Cc][Rr][Aa][Tt][Cc][Hh]|[Ss][Tt][Aa][Gg][Ee]|[Ss][Tt][Aa][Gg][Ii][Nn][Gg]|[Tt][Ee][Mm][Pp]|[Tt][Mm][Pp]|[Uu][Pp][Ll][Oo][Aa][Dd]|[Uu][Pp][Ll][Oo][Aa][Dd][Ss])(?:/|$))(?!.*(?:^|/)(?:[Aa][Rr][Tt][Ii][Ff][Aa][Cc][Tt]|[Aa][Rr][Tt][Ii][Ff][Aa][Cc][Tt][Ss]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Ss][Hh][Aa][Rr][Ee][Dd]|[Ss][Cc][Rr][Aa][Tt][Cc][Hh]|[Ss][Tt][Aa][Gg][Ee]|[Ss][Tt][Aa][Gg][Ii][Nn][Gg]|[Tt][Ee][Mm][Pp]|[Tt][Mm][Pp]|[Uu][Pp][Ll][Oo][Aa][Dd]|[Uu][Pp][Ll][Oo][Aa][Dd][Ss])$)(?=.*(?:^|/)(?:[Rr][Ee][Ll][Ee][Aa][Ss][Ee][Ss]?|[Vv][0-9][^/]*)(?:/|$)).+/.+$"
+    },
+    "cloudMode": {
+      "type": "string",
+      "enum": [
+        "dry-run",
+        "live-cloud",
+        "local-only",
+        "mock"
+      ]
+    },
+    "cloudUpload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "modes",
+        "liveCloudUploadAllowed",
+        "liveCloudUploadOptIn"
+      ],
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/cloudMode"
+        },
+        "modes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/cloudMode"
+          }
+        },
+        "liveCloudUploadAllowed": {
+          "type": "boolean"
+        },
+        "liveCloudUploadOptIn": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "cli-flag",
+            "CROSSGL_ALLOW_LIVE_CLOUD_RELEASE_UPLOAD",
+            null
+          ]
+        },
+        "approvalEvidence": {
+          "$ref": "#/$defs/liveApprovalEvidence"
+        }
+      }
+    },
+    "liveApprovalEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approvalRecord",
+        "projectAllowlistEntry",
+        "bucketAllowlistEntry",
+        "budgetGuardrail",
+        "releaseObjectPrefix",
+        "lifecyclePolicy",
+        "auditReceiptPaths"
+      ],
+      "properties": {
+        "approvalRecord": {
+          "$ref": "#/$defs/explicitText"
+        },
+        "projectAllowlistEntry": {
+          "$ref": "#/$defs/explicitText"
+        },
+        "bucketAllowlistEntry": {
+          "$ref": "#/$defs/explicitText"
+        },
+        "budgetGuardrail": {
+          "$ref": "#/$defs/explicitText"
+        },
+        "releaseObjectPrefix": {
+          "$ref": "#/$defs/releaseObjectPrefix"
+        },
+        "lifecyclePolicy": {
+          "$ref": "#/$defs/explicitText"
+        },
+        "auditReceiptPaths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/explicitRelativePath"
+          }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "destinationPath": {
+          "$ref": "#/$defs/optionalRelativePath"
+        },
+        "packagePath": {
+          "$ref": "#/$defs/optionalRelativePath"
+        },
+        "packageArtifactPath": {
+          "$ref": "#/$defs/optionalRelativePath"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

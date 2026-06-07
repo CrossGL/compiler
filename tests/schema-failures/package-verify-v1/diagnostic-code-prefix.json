@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "SemanticFixture.cglb",
+  "success": false,
+  "summary": {
+    "module": "SemanticFixture",
+    "target": "directx",
+    "nativeBinaryStatus": "planned",
+    "artifactCount": 2,
+    "debugArtifactsPresent": false,
+    "nativeArtifactDescriptor": {
+      "artifactPresent": false,
+      "descriptorExists": false,
+      "health": "not-present",
+      "path": null,
+      "optimizationLevel": null,
+      "optimizationEvidence": null
+    }
+  },
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "package.fixture",
+      "message": "fixture error",
+      "location": {
+        "file": "manifest.json",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 10,
+        "endLine": 1,
+        "endColumn": 11,
+        "endOffset": 10
+      }
+    }
+  ]
+}

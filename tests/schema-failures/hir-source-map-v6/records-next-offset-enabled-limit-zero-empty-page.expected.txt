@@ -1,0 +1,1 @@
+$.records.nextOffset: expected min(offset + emittedCount, totalCount) 1, got 2

@@ -1,0 +1,78 @@
+{
+  "backends": [
+    {
+      "id": "directx",
+      "signals": {
+        "tests": {
+          "test_count": 856
+        }
+      }
+    },
+    {
+      "id": "opengl",
+      "signals": {
+        "tests": {
+          "test_count": 948
+        }
+      }
+    },
+    {
+      "id": "metal",
+      "signals": {
+        "tests": {
+          "test_count": 759
+        }
+      }
+    },
+    {
+      "id": "vulkan",
+      "signals": {
+        "tests": {
+          "test_count": 742
+        }
+      }
+    },
+    {
+      "id": "cuda",
+      "signals": {
+        "tests": {
+          "test_count": 557
+        }
+      }
+    },
+    {
+      "id": "hip",
+      "signals": {
+        "tests": {
+          "test_count": 597
+        }
+      }
+    },
+    {
+      "id": "mojo",
+      "signals": {
+        "tests": {
+          "test_count": 619
+        }
+      }
+    },
+    {
+      "id": "rust",
+      "signals": {
+        "tests": {
+          "test_count": 736
+        }
+      }
+    },
+    {
+      "id": "slang",
+      "signals": {
+        "tests": {
+          "test_count": 606
+        }
+      }
+    }
+  ],
+  "generator": "tools/support_matrix.py",
+  "schema_version": 1
+}

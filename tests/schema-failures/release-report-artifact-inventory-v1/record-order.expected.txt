@@ -1,0 +1,1 @@
+$.records: records must be sorted by packagePath, packageArtifactPath, sourceRecordKind, destinationPath, stagedPath

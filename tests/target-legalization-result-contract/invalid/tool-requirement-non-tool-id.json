@@ -1,0 +1,111 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "directx",
+    "targetProfile": {
+      "target": "directx",
+      "profile": "directx.v0.source-package",
+      "packageMode": "source-package"
+    },
+    "packageMode": "source-package",
+    "packageDecisionProvenance": "source-package-only",
+    "supportStatus": "source-package",
+    "moduleSupported": true,
+    "requiredCapabilities": [
+      "directx.backend.hlsl-lowering",
+      "directx.package.source-artifact"
+    ],
+    "missingCapabilities": [],
+    "toolRequirements": {
+      "requiredToolIds": [
+        "directx.backend.native-dxil-package",
+        "directx.toolchain.dxc"
+      ],
+      "missingToolIds": [
+        "directx.toolchain.dxc"
+      ],
+      "optionalNativeToolMissing": true,
+      "evidenceIds": [
+        "target-legalization.v1.directx.optional-native-tool.missing",
+        "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc",
+        "target-legalization.v1.directx.tool-requirement.required.backend.native-dxil-package",
+        "target-legalization.v1.directx.tool-requirement.required.toolchain.dxc",
+        "target-legalization.v1.directx.tool-requirements.present"
+      ],
+      "records": [
+        {
+          "id": "directx.backend.native-dxil-package",
+          "kind": "backend",
+          "name": "native-dxil-package",
+          "status": "required",
+          "target": "directx",
+          "evidenceIds": [
+            "target-legalization.v1.directx.tool-requirement.required.backend.native-dxil-package"
+          ]
+        },
+        {
+          "id": "directx.toolchain.dxc",
+          "kind": "toolchain",
+          "name": "dxc",
+          "status": "required",
+          "target": "directx",
+          "evidenceIds": [
+            "target-legalization.v1.directx.tool-requirement.required.toolchain.dxc"
+          ]
+        },
+        {
+          "id": "directx.toolchain.dxc",
+          "kind": "toolchain",
+          "name": "dxc",
+          "status": "missing",
+          "target": "directx",
+          "evidenceIds": [
+            "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc"
+          ]
+        }
+      ],
+      "optionalNativeToolStatus": "missing"
+    },
+    "diagnostics": [],
+    "rewrites": [
+      {
+        "id": "hlsl-source-package-projection",
+        "order": 0,
+        "status": "not-required",
+        "description": "Source package emission does not require a v0 rewrite.",
+        "evidenceIds": [
+          "target-legalization.v1.directx.rewrite.not-required"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "not-required",
+      "facts": [],
+      "evidenceIds": [
+        "target-legalization.v1.directx.abi.not-required"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.directx.resource-bindings.empty"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.directx.abi.not-required",
+      "target-legalization.v1.directx.decision",
+      "target-legalization.v1.directx.optional-native-tool.missing",
+      "target-legalization.v1.directx.package-provenance.source-package-only",
+      "target-legalization.v1.directx.resource-bindings.empty",
+      "target-legalization.v1.directx.rewrite.not-required",
+      "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc",
+      "target-legalization.v1.directx.tool-requirement.required.backend.native-dxil-package",
+      "target-legalization.v1.directx.tool-requirement.required.toolchain.dxc",
+      "target-legalization.v1.directx.tool-requirements.present"
+    ]
+  }
+}

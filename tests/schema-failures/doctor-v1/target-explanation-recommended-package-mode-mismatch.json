@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "toolchain": {
+    "hostPlatform": "macos",
+    "hostArch": "arm64",
+    "defaultTarget": "directx",
+    "llvmVersion": "22.1.5",
+    "hasMLIR": true,
+    "tools": []
+  },
+  "targetExplanation": {
+    "schemaVersion": 1,
+    "module": "SemanticFixture",
+    "defaultTarget": "directx",
+    "buildableTargetCount": 1,
+    "recommendedTarget": "directx",
+    "recommendedPackageMode": "native",
+    "targets": [
+      {
+        "target": "directx",
+        "nativeImplemented": false,
+        "sourcePackageSupported": true,
+        "packageBuildSupported": true,
+        "packageMode": "source-package",
+        "packageDecisionReason": "source-package-available",
+        "packageRankScore": 1,
+        "requiredCapabilityCount": 1,
+        "missingCapabilityCount": 0,
+        "requiredCapabilities": [
+          "directx.baseline.shader-model"
+        ],
+        "missingCapabilities": [],
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.directx.decision",
+          "target-legalization.v1.directx.state.legalized",
+          "target-legalization.v1.directx.support.source-package",
+          "target-legalization.v1.directx.package-mode.source-package",
+          "target-legalization.v1.directx.package-provenance.source-package-only",
+          "target-legalization.v1.directx.package-reason.source-package-available"
+        ],
+        "targetBackend": "directx",
+        "decisionReasonCodes": [
+          "package-mode:source-package",
+          "package-reason:source-package-available"
+        ],
+        "artifactLinks": [
+          "ir/target-explanation.json#targets/directx"
+        ],
+        "reportLinks": [
+          "target-explanation-v1#targets/directx"
+        ],
+        "remediation": "No remediation required; source package output is available."
+      }
+    ]
+  }
+}

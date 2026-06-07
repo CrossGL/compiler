@@ -1,0 +1,1 @@
+$.targetResourceBindings[0].storageClass: expected vulkan texture resource storageClass 'UniformConstant', got 'StorageBuffer'

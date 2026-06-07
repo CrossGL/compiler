@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [],
+  "targetResourceBindings": [],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [
+    {
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "x": "1",
+      "y": "1",
+      "z": "1",
+      "sourceX": "1",
+      "sourceY": "1",
+      "sourceZ": "1"
+    },
+    {
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "x": "2",
+      "y": "1",
+      "z": "1",
+      "sourceX": "2",
+      "sourceY": "1",
+      "sourceZ": "1"
+    },
+    {
+      "stage": "compute",
+      "entryPoint": "missing_main",
+      "x": "1",
+      "y": "1",
+      "z": "1",
+      "sourceX": "1",
+      "sourceY": "1",
+      "sourceZ": "1"
+    }
+  ],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

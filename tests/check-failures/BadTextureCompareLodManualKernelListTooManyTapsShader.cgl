@@ -1,0 +1,29 @@
+shader BadTextureCompareLodManualKernelListTooManyTapsShader {
+  compute {
+    uniform sampler2DShadow shadowMap;
+    sampler rawShadowSampler;
+    void main() {
+      float visibility =
+          textureCompareLodManualKernel(
+              shadowMap, rawShadowSampler, vec2(0.5, 0.5), 0.25, 2.0, less,
+              textureCompareKernel(ivec2(0, 0), 0.05,
+                                   ivec2(1, 0), 0.05,
+                                   ivec2(2, 0), 0.05,
+                                   ivec2(3, 0), 0.05,
+                                   ivec2(4, 0), 0.05,
+                                   ivec2(5, 0), 0.05,
+                                   ivec2(6, 0), 0.05,
+                                   ivec2(7, 0), 0.05,
+                                   ivec2(8, 0), 0.05,
+                                   ivec2(9, 0), 0.05,
+                                   ivec2(10, 0), 0.05,
+                                   ivec2(11, 0), 0.05,
+                                   ivec2(12, 0), 0.05,
+                                   ivec2(13, 0), 0.05,
+                                   ivec2(14, 0), 0.05,
+                                   ivec2(15, 0), 0.05,
+                                   ivec2(16, 0), 0.05));
+      return;
+    }
+  }
+}

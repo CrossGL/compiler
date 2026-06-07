@@ -1,0 +1,1 @@
+$.categoryCounts.typeOwnerKinds: duplicate category names

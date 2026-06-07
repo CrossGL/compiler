@@ -1,0 +1,7 @@
+shader BadUnsupportedRayStage {
+  ray_generation {
+    void main() {
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.attempts[0].generation: expected empty value for failed upload; $.attempts[0].metageneration: expected empty value for failed upload; $.attempts[0].crc32c: expected empty value for failed upload; $.attempts[0].md5Hash: expected empty value for failed upload

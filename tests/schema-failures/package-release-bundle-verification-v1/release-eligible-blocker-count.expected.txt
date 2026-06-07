@@ -1,0 +1,1 @@
+$.blockerCount: release eligible verification must not report blockers

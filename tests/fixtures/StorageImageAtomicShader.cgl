@@ -1,0 +1,45 @@
+shader StorageImageAtomicShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 4, local_size_z = 2) in;
+    layout(set = 0, binding = 0, format = r32i) readwrite uniform iimage2D signedCounters;
+    layout(set = 0, binding = 1, format = r32ui) readwrite uniform uimage2D unsignedCounters;
+    layout(set = 0, binding = 2, format = r32i) readwrite uniform iimage2DArray signedAtlas;
+    layout(set = 0, binding = 3, format = r32ui) readwrite uniform uimage2DArray unsignedAtlas;
+    layout(set = 0, binding = 4) buffer int* signedResults;
+    layout(set = 0, binding = 5) buffer uint* unsignedResults;
+
+    void main() {
+      ivec2 pixel = ivec2(0, 0);
+      int layer = 0;
+      ivec3 atlasPixel = ivec3(pixel, layer);
+
+      int signedOld = imageAtomicAdd(signedCounters, pixel, 1);
+      uint unsignedOld = imageAtomicAdd(unsignedCounters, pixel, uint(1.0));
+      int signedMin = imageAtomicMin(signedCounters, pixel + ivec2(1, 0),
+                                     signedOld);
+      int signedMax = imageAtomicMax(signedAtlas, atlasPixel, signedMin + 2);
+      uint unsignedMin = imageAtomicMin(unsignedCounters, pixel, unsignedOld);
+      uint unsignedMax = imageAtomicMax(unsignedAtlas, atlasPixel,
+                                        unsignedMin);
+      int signedAnd = imageAtomicAnd(signedCounters, pixel, signedMax);
+      int signedOr = imageAtomicOr(signedAtlas, atlasPixel, signedAnd);
+      uint unsignedAnd = imageAtomicAnd(unsignedCounters,
+                                        pixel + ivec2(0, 1), unsignedMax);
+      uint unsignedOr = imageAtomicOr(unsignedAtlas, atlasPixel, unsignedAnd);
+      int atlasOld = imageAtomicExchange(signedAtlas, atlasPixel,
+                                         signedOr + 2);
+      uint unsignedAtlasOld = imageAtomicExchange(unsignedAtlas, atlasPixel,
+                                                  unsignedOr);
+
+      imageAtomicAdd(signedCounters, pixel + ivec2(1, 0), atlasOld);
+      imageAtomicExchange(unsignedCounters, pixel + ivec2(0, 1),
+                          unsignedAtlasOld);
+      imageAtomicXor(signedCounters, pixel, atlasOld);
+      imageAtomicXor(unsignedCounters, pixel, unsignedAtlasOld);
+
+      signedResults[0] = signedOld + signedMax + signedOr + atlasOld;
+      unsignedResults[0] = unsignedAtlasOld + unsignedOr;
+      return;
+    }
+  }
+}

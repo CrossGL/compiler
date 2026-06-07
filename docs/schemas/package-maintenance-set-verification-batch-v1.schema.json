@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-maintenance-set-verification-batch-v1.schema.json",
+  "title": "CrossGL Package Maintenance Set Verification Batch JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "verifications"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "verifications": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/verification"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rootPath",
+        "setPath"
+      ],
+      "properties": {
+        "rootPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "setPath": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

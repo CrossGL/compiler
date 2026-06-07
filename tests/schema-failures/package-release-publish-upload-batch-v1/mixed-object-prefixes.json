@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "manifestPath": "build/package-release-publish-upload-manifest.json",
+  "reportPath": "",
+  "reportWritten": false,
+  "uploadMode": "mock",
+  "success": true,
+  "requestCount": 2,
+  "requestBytes": 24,
+  "uploadedArtifactCount": 2,
+  "uploadedArtifactBytes": 24,
+  "uploadedRequests": [
+    {
+      "targetKind": "gcs",
+      "stagedPath": "build/stage/backend/metal/AShader.metallib",
+      "destinationPath": "backend/metal/AShader.metallib",
+      "bucket": "crossgl-release-dry-run",
+      "objectName": "compiler/packages/backend/metal/AShader.metallib",
+      "uploadUri": "gs://crossgl-release-dry-run/compiler/packages/backend/metal/AShader.metallib",
+      "credentialsEnv": "GOOGLE_APPLICATION_CREDENTIALS",
+      "sizeBytes": 8,
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "targetKind": "gcs",
+      "stagedPath": "build/stage/backend/metal/SimpleShader.metallib",
+      "destinationPath": "backend/metal/SimpleShader.metallib",
+      "bucket": "crossgl-release-dry-run",
+      "objectName": "shared-scratch/backend/metal/SimpleShader.metallib",
+      "uploadUri": "gs://crossgl-release-dry-run/shared-scratch/backend/metal/SimpleShader.metallib",
+      "credentialsEnv": "GOOGLE_APPLICATION_CREDENTIALS",
+      "sizeBytes": 16,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

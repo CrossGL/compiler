@@ -1,0 +1,1 @@
+$.targetResourceBindings[0].arrayDimensions: expected source resource arrayDimensions [{'source': '2', 'kind': 'fixed', 'elementCount': 2}], got [{'source': '3', 'kind': 'fixed', 'elementCount': 3}]

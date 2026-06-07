@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "module": "SourceFreeOpenGLRuntimeExample",
+  "target": "opengl",
+  "nativeBinary": "backend/opengl/SourceFreeOpenGLRuntimeExample.glsl",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "source_free_opengl_main"
+    }
+  ],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "type": "float4",
+      "set": 0,
+      "binding": 0
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "opengl",
+      "stage": "compute",
+      "entryPoint": "source_free_opengl_main",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "sourceType": "float4",
+      "addressSpace": "buffer",
+      "abi": {
+        "program": 0,
+        "binding": 0
+      },
+      "bindingClass": "storage-buffer",
+      "descriptorType": "shader-storage-buffer"
+    }
+  ],
+  "targetFeatures": [
+    {
+      "target": "opengl",
+      "kind": "package",
+      "name": "source-package"
+    }
+  ]
+}

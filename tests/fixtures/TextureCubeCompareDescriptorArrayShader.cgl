@@ -1,0 +1,20 @@
+shader TextureCubeCompareDescriptorArrayShader {
+  const int SHADOW_COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 2) uniform samplerCubeShadow shadowCubes[SHADOW_COUNT];
+    layout(set = 0, binding = 4) uniform samplerCubeArrayShadow shadowCubeArrays[SHADOW_COUNT];
+    layout(set = 0, binding = 5) sampler shadowSamplers[2];
+    void main() {
+      float cubeVisibility =
+          textureCompare(shadowCubes[1], shadowSamplers[0],
+                         vec3(0.0, 1.0, 0.0), 0.75);
+      float cubeArrayVisibility =
+          textureCompare(shadowCubeArrays[1], shadowSamplers[0],
+                         vec4(0.0, 1.0, 0.0, 2.0), 0.5);
+      values[0] = cubeVisibility + cubeArrayVisibility;
+      return;
+    }
+  }
+}

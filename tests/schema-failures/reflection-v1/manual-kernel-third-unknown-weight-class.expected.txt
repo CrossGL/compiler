@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[2].weightClass: unknown class 'unknown'

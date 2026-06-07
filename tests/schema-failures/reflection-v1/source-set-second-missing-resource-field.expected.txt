@@ -1,0 +1,1 @@
+$.targetResourceBindings[1].set: expected source resource set None, got 1

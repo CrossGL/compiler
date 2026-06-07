@@ -1,0 +1,51 @@
+shader OptimizerBranchReadModifyBoundaryHIRShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    void main() {
+      if (values[0] > 0.0) {
+        int thenSlot = 1;
+        float thenDead = 4.0;
+        float thenLive = values[0] + 1.0;
+        values[thenSlot] = thenLive;
+      } else {
+        int elseSlot = 2;
+        float elseDead = 5.0;
+        float elseLive = values[0] - 1.0;
+        values[elseSlot] = elseLive;
+      }
+
+      if (values[8] > 0.0) {
+        if (values[9] > 0.0) {
+          float nestedThenDead = 6.0;
+          float nestedThenLive = values[8] + values[9];
+          values[8] = nestedThenLive;
+        } else {
+          float nestedElseDead = 7.0;
+          float nestedElseLive = values[8] - values[9];
+          values[8] = nestedElseLive;
+        }
+      }
+
+      if (values[3] > 0.0) {
+        values[0] = values[0] + values[3];
+      } else {
+        values[0] = values[0] - values[3];
+      }
+
+      if (values[4] > 0.0) {
+        values[4] = values[0];
+        return;
+        values[5] = 99.0;
+      } else {
+        values[4] = -values[0];
+        return;
+        values[6] = 100.0;
+      }
+
+      values[7] = 101.0;
+      return;
+    }
+  }
+}

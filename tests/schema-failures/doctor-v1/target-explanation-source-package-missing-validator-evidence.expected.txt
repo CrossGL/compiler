@@ -1,0 +1,1 @@
+$.targetExplanation.targets[0].requiredCapabilities: source-package fallback requires optional native evidence 'directx.validation.dxil-validator'

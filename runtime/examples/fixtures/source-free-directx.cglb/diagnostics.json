@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "severity": "note",
+      "code": "runtime.example.fixture",
+      "message": "source-free runtime fixture"
+    }
+  ]
+}

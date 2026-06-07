@@ -1,0 +1,7 @@
+shader WarnUnknownReturnTypeShader {
+  compute {
+    Nope main() {
+      return;
+    }
+  }
+}

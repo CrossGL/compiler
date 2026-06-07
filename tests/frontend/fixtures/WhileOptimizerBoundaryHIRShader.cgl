@@ -1,0 +1,40 @@
+shader WhileOptimizerBoundaryHIRShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) buffer int* indices;
+
+    void main() {
+      int i = 0;
+      int slot = 0;
+      float total = 0.0;
+
+      while (i < 4) {
+        int foldedIndex = 1;
+        float unusedLocal = 2.0;
+
+        total = total + values[i];
+        values[i] = total;
+        values[foldedIndex] = values[foldedIndex] + 1.0;
+
+        if (true) {
+          total = total + 2.0;
+        } else {
+          total = total + 99.0;
+        }
+
+        if (i > indices[0]) {
+          return;
+          total = total + 100.0;
+        }
+
+        slot = i;
+        values[slot] = total;
+        i++;
+      }
+
+      values[i] = total;
+      return;
+    }
+  }
+}

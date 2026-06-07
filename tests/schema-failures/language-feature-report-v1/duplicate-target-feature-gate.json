@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.languageFeatureReport",
+  "module": {
+    "moduleId": "ResourceShader",
+    "sourcePath": "tests/fixtures/ResourceShader.cgl",
+    "sourceSha256": "9213f2331dec7747d0e4bea92b083bb3bd9c4e30238d59b943fe49f33b525038",
+    "stageEntryPoints": [
+      {
+        "stage": "compute",
+        "entryPoint": "main"
+      }
+    ]
+  },
+  "language": {
+    "family": "CrossGL",
+    "version": "v0",
+    "nativeProfile": "native-v0",
+    "compatibilityContract": "tools/cross_repo_language_contract.json"
+  },
+  "crossTLSnapshotSeal": {
+    "snapshotId": "crosstl-frontend-language-spec-v0",
+    "snapshotPath": "docs/language/crosstl-frontend-language-spec-v0.json",
+    "snapshotSha256": "7d19829365f76febad6313cf309d514d26ee8b1e3698110d576ac843f0419a04",
+    "snapshotSchemaVersion": 0
+  },
+  "compatibilityBucketSummary": {
+    "cross-tl-inventory-only": 0,
+    "accepted-source": 1,
+    "package-supported": 2,
+    "compatibility-only": 0,
+    "spec.unsupported-for-native-v0": 1,
+    "spec.deprecated": 1,
+    "spec.error": 1,
+    "target.unsupported": 0
+  },
+  "targetFeatureGates": [
+    {
+      "target": "vulkan",
+      "targetVersion": "v0",
+      "packageMode": "native",
+      "gateId": "target.resource-arrays",
+      "featureFamily": "resources",
+      "status": "planned-failure",
+      "requiredCapabilities": [
+        "descriptor-array"
+      ],
+      "diagnosticCodes": [],
+      "evidenceIds": [
+        "compatibility:target.resource-arrays",
+        "support-matrix:cglc_build_vulkan_runtime_texture_descriptor_array_conflict_planned_failure"
+      ]
+    },
+    {
+      "target": "vulkan",
+      "targetVersion": "v0",
+      "packageMode": "native",
+      "gateId": "target.resource-arrays",
+      "featureFamily": "resources",
+      "status": "planned-failure",
+      "requiredCapabilities": [
+        "runtime-resource-array"
+      ],
+      "diagnosticCodes": [
+        "target.capability.missing"
+      ],
+      "evidenceIds": [
+        "compatibility:target.resource-arrays",
+        "support-matrix:cglc_build_vulkan_runtime_texture_descriptor_array_conflict_planned_failure"
+      ]
+    }
+  ],
+  "resourceMemoryLayoutFeatures": {
+    "resources": [
+      {
+        "featureId": "resource.storage-buffer",
+        "status": "package-supported",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "fixture:tests/fixtures/ResourceShader.cgl"
+        ]
+      }
+    ],
+    "memory": [
+      {
+        "featureId": "memory.workgroup-shared",
+        "status": "package-supported",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "support-matrix:cglc_build_vulkan_resource_shader_workgroup_shared_native"
+        ]
+      }
+    ],
+    "layout": [
+      {
+        "featureId": "layout.set-binding",
+        "status": "accepted-source",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:semantics.metadata-and-layout"
+        ]
+      }
+    ]
+  },
+  "facts": {
+    "unsupported": [
+      {
+        "factId": "resource.var-address-space",
+        "classification": "spec.unsupported-for-native-v0",
+        "message": "Only workgroup/shared var address spaces are native-v0 source forms.",
+        "evidenceIds": [
+          "compatibility:resource.var-address-space",
+          "diagnostic:parse.unsupported-var-address-space"
+        ]
+      }
+    ],
+    "deprecated": [
+      {
+        "factId": "stage.kernel-alias",
+        "classification": "spec.deprecated",
+        "message": "Use compute stage blocks instead of kernel aliases.",
+        "evidenceIds": [
+          "compatibility:stage.kernel-alias"
+        ]
+      }
+    ],
+    "error": [
+      {
+        "factId": "sema.no-stage-or-entry",
+        "classification": "spec.error",
+        "message": "A shared module must contain a supported stage and entry function.",
+        "evidenceIds": [
+          "compatibility:sema.no-stage-or-entry"
+        ]
+      }
+    ]
+  },
+  "evidence": [
+    {
+      "id": "spec-index:semantics.metadata-and-layout",
+      "kind": "spec-index",
+      "path": "docs/language/crosstl-frontend-language-spec-v0.json",
+      "anchor": "semantics.metadata-and-layout"
+    },
+    {
+      "id": "compatibility:target.resource-arrays",
+      "kind": "compatibility",
+      "path": "tools/cross_repo_language_contract.json",
+      "anchor": "target.resource-arrays"
+    },
+    {
+      "id": "support-matrix:cglc_build_vulkan_runtime_texture_descriptor_array_conflict_planned_failure",
+      "kind": "support-matrix",
+      "path": "tests/cmake/CrossGLVulkanNativeBuildTests.cmake",
+      "ctestName": "cglc_build_vulkan_runtime_texture_descriptor_array_conflict_planned_failure"
+    },
+    {
+      "id": "fixture:tests/fixtures/ResourceShader.cgl",
+      "kind": "fixture",
+      "path": "tests/fixtures/ResourceShader.cgl"
+    },
+    {
+      "id": "support-matrix:cglc_build_vulkan_resource_shader_workgroup_shared_native",
+      "kind": "support-matrix",
+      "path": "tests/cmake/CrossGLVulkanNativeBuildTests.cmake",
+      "ctestName": "cglc_build_vulkan_resource_shader_workgroup_shared_native"
+    },
+    {
+      "id": "compatibility:resource.var-address-space",
+      "kind": "compatibility",
+      "path": "tools/cross_repo_language_contract.json",
+      "anchor": "resource.var-address-space"
+    },
+    {
+      "id": "diagnostic:parse.unsupported-var-address-space",
+      "kind": "diagnostic",
+      "path": "tools/cross_repo_language_contract.json",
+      "diagnosticCode": "parse.unsupported-var-address-space"
+    },
+    {
+      "id": "compatibility:stage.kernel-alias",
+      "kind": "compatibility",
+      "path": "tools/cross_repo_language_contract.json",
+      "anchor": "stage.kernel-alias"
+    },
+    {
+      "id": "compatibility:sema.no-stage-or-entry",
+      "kind": "compatibility",
+      "path": "tools/cross_repo_language_contract.json",
+      "anchor": "sema.no-stage-or-entry"
+    }
+  ],
+  "generation": {
+    "tool": "schema-fixture",
+    "mode": "report-only",
+    "command": [
+      "not-emitted-by-cglc"
+    ]
+  }
+}

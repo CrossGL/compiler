@@ -1,0 +1,1 @@
+$.candidates[0].action: applied cleanup must not report would-discard

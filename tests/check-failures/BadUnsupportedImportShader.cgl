@@ -1,0 +1,9 @@
+import "common.cgl";
+
+shader BadUnsupportedImport {
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

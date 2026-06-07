@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-release-publish-upload-receipt-v1.schema.json",
+  "title": "CrossGL Package Release Publish Upload Receipt JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "manifestPath",
+    "receiptPath",
+    "receiptWritten",
+    "uploadMode",
+    "success",
+    "requestCount",
+    "requestBytes",
+    "attemptCount",
+    "attemptBytes",
+    "completedAttemptCount",
+    "completedAttemptBytes",
+    "attempts",
+    "diagnosticCounts",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "manifestPath": {
+      "type": "string"
+    },
+    "receiptPath": {
+      "type": "string"
+    },
+    "receiptWritten": {
+      "type": "boolean"
+    },
+    "uploadMode": {
+      "type": "string",
+      "enum": [
+        "custom",
+        "mock",
+        "gcs"
+      ]
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "requestCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "requestBytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "attemptCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "attemptBytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "completedAttemptCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "completedAttemptBytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attempt"
+      }
+    },
+    "diagnosticCounts": {
+      "$ref": "#/$defs/diagnosticCounts"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "provider",
+        "overwrite",
+        "idempotencyKey",
+        "preconditionKind",
+        "preconditionValue",
+        "generation",
+        "metageneration",
+        "crc32c",
+        "md5Hash",
+        "errorMessage",
+        "request"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "uploaded",
+            "already-present",
+            "failed"
+          ]
+        },
+        "provider": {
+          "type": "string"
+        },
+        "overwrite": {
+          "type": "boolean"
+        },
+        "idempotencyKey": {
+          "type": "string"
+        },
+        "preconditionKind": {
+          "type": "string"
+        },
+        "preconditionValue": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "metageneration": {
+          "type": "string"
+        },
+        "crc32c": {
+          "type": "string"
+        },
+        "md5Hash": {
+          "type": "string"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetKind",
+        "stagedPath",
+        "destinationPath",
+        "bucket",
+        "objectName",
+        "uploadUri",
+        "credentialsEnv",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "targetKind": {
+          "type": "string",
+          "enum": [
+            "gcs"
+          ]
+        },
+        "stagedPath": {
+          "type": "string"
+        },
+        "destinationPath": {
+          "type": "string",
+          "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z]:).*$"
+        },
+        "bucket": {
+          "type": "string"
+        },
+        "objectName": {
+          "type": "string",
+          "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z]:).*$"
+        },
+        "uploadUri": {
+          "type": "string"
+        },
+        "credentialsEnv": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "diagnosticCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "warning",
+        "error"
+      ],
+      "properties": {
+        "note": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "warning": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "error": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endOffset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "target": {
+          "type": "string"
+        },
+        "missingCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.targetResourceBindings[1].entryPoint: unknown entry point 'missing_main'

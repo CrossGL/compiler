@@ -1,0 +1,1 @@
+$.requestedPath: expected sidecar requested path 'build/SemanticFixture.cglb', got 'build/OtherFixture.cglb'
