@@ -197,19 +197,19 @@
           "id": "translator/examples/compute/ParticleSimulation.cgl",
           "source_sha256": "98cbcaec828dd6cc0eb36a53be91797e655cff31ab2f9448f758d1dff1b94d49",
           "translator_ast_sha256": "0e304e54540c0a049c167106d5d80feab8c0406ae32507da97a8020b56cdbdb2",
-          "compiler_hir_sha256": "d6046bee9b555639b28a002637605eeeaf7747b8e4fa06a839910457f126eeb0"
+          "compiler_hir_sha256": "9555206a056a0b1d7bfa957e6169eba4e0c345f9ab1f6fe43b59a7fa74fee215"
         },
         {
           "id": "translator/examples/graphics/ComplexShader.cgl",
           "source_sha256": "e9e9cfe5a86c820d8ae290e13394183195e687c3b5c3f493dd01e89493fac4b3",
           "translator_ast_sha256": "4f4faf30328f45b6e4a4dd9cd7154db77e6fb68fc8215ea3087315f7fada5a78",
-          "compiler_hir_sha256": "8df45f7111581f1d3b49121e4e17eedaad8a305bd0cde6c3dda2bd3e6d3cd81b"
+          "compiler_hir_sha256": "1b59229b1bac79d49b67aa506c9ae1717a48d3b88cebf0765cee63b8ff75a40c"
         },
         {
           "id": "translator/examples/graphics/PerlinNoise.cgl",
           "source_sha256": "39270d9fac2e2215ed31d1388ea697c2d168e652981b645b3969bc9d9d8eb893",
           "translator_ast_sha256": "c3b2eaad1fc3e5b702b9b79408dbba685d968a88faf7a047a414c3c2401aa017",
-          "compiler_hir_sha256": "33e66bd273ead96b84ffb563963d5fdf83d464e8dbbc081b199493c06e8e2a9d"
+          "compiler_hir_sha256": "7fcbbe04bbb3b14061f1122a766fc72c11354df16c93d23135f955766bff5364"
         },
         {
           "id": "compiler/tests/fixtures/DirectXMixedManualSamplerUsageUnsupportedShader.cgl",
@@ -267,7 +267,7 @@
           "id": "compiler/tests/fixtures/FunctionParameterArrayShader.cgl",
           "source_sha256": "aa6bac627c015458e73bccd4cd9211a5edf9274279beb64f47e34e59c9991a1c",
           "translator_ast_sha256": "361df5f5a0e195ec3af62fa697d162090700041072bcc3024174d45ae8d7c108",
-          "compiler_hir_sha256": "aa13a730aa6e9e421828188ff43ddee10b1b92f667d57b136762f174e700f776"
+          "compiler_hir_sha256": "f33ce5295d0865b2656f662e0b69ee5d1062c14a83911a55f4add02a1abc2fc0"
         },
         {
           "id": "compiler/tests/fixtures/RuntimeArrayShader.cgl",
@@ -436,7 +436,7 @@
           "id": "compiler/tests/fixtures/FnStyleFunctionShader.cgl",
           "source_sha256": "f30b3bd0e13a0b7e06f87eb3c0d9a03188f018c7a7b1be7cc24702204ccaa46c",
           "translator_ast_sha256": "aa0307a043fe016ff62782c093af5300035c46af5cd3fe5ab6efefb2fb56eed8",
-          "compiler_hir_sha256": "b6df979c7b6a4f2d1165400d56678cde2378ea1689f7b26bf7d7afe5585fbff2"
+          "compiler_hir_sha256": "cc7d15cc489264d3e9e2105106143fdbf6aa064a66b313aa4e2070814643e6b7"
         },
         {
           "id": "compiler/tests/fixtures/MinimalComputeShader.cgl",
@@ -460,7 +460,7 @@
           "id": "translator/examples/gpu_computing/MatrixMultiplication.cgl",
           "source_sha256": "4c002060f3203388c1224a223696ab8b27f40a685a220a77707ebb4374c6c0c8",
           "translator_ast_sha256": "ff13d8f35d19149b7baafc5411783d3d5713f0712f4028f8514062d9d998329c",
-          "compiler_hir_sha256": "ef30ff8996f3d2c74611f1ef4c2fabe109c606f01ffa1b9dd4c0e976eb6d414b"
+          "compiler_hir_sha256": "01d5f887afa85f0332ea4ca4a9e7da58c6733c459c38a7934d8fdcfa0b24f171"
         }
       ]
     },
