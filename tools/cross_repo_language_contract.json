@@ -646,6 +646,75 @@
           }
         },
         {
+          "id": "compiler/tests/check-failures/BadUnsupportedSwitchGroupedLabelsShader.cgl",
+          "classification": "spec.unsupported-for-native-v0",
+          "feature": "control_flow_and_statements",
+          "spec_refs": [
+            "/ast/statementNodes",
+            "/ast/classes"
+          ],
+          "root": "compiler",
+          "path": "tests/check-failures/BadUnsupportedSwitchGroupedLabelsShader.cgl",
+          "source_sha256": "cb0b0f5bd8f4d42298e2f7c6cb214716c47634599a8888859859bd3fbe576718",
+          "reason": "CrossTL accepts grouped switch case labels, but native compiler v0 requires each case section to have its own terminal break-delimited body.",
+          "translator": {
+            "status": "accepts",
+            "ast_sha256": "44c4d44d4ea4361e614307f5ca3b3e24a0756f85c2893f5b003f69e50854a1e5"
+          },
+          "compiler": {
+            "status": "rejects",
+            "diagnostic_substrings": [
+              "spec.unsupported-for-native-v0"
+            ]
+          }
+        },
+        {
+          "id": "compiler/tests/check-failures/BadUnsupportedSwitchIncompatibleCaseLabelTypeShader.cgl",
+          "classification": "spec.unsupported-for-native-v0",
+          "feature": "control_flow_and_statements",
+          "spec_refs": [
+            "/ast/statementNodes",
+            "/ast/classes"
+          ],
+          "root": "compiler",
+          "path": "tests/check-failures/BadUnsupportedSwitchIncompatibleCaseLabelTypeShader.cgl",
+          "source_sha256": "59c602ed6a7f67db1460c28b3a0793172c3275948524bcaa4637ffa19838d28f",
+          "reason": "CrossTL accepts switch case labels with expressions of different scalar types, but native compiler v0 requires labels compatible with the selector type.",
+          "translator": {
+            "status": "accepts",
+            "ast_sha256": "d1b6fa7eb3e40120cdf29725274519b3863b2bc3ad27a14da2d3c66b98adf386"
+          },
+          "compiler": {
+            "status": "rejects",
+            "diagnostic_substrings": [
+              "spec.unsupported-for-native-v0"
+            ]
+          }
+        },
+        {
+          "id": "compiler/tests/check-failures/BadUnsupportedSwitchNonTerminalBreakShader.cgl",
+          "classification": "spec.unsupported-for-native-v0",
+          "feature": "control_flow_and_statements",
+          "spec_refs": [
+            "/ast/statementNodes",
+            "/ast/classes"
+          ],
+          "root": "compiler",
+          "path": "tests/check-failures/BadUnsupportedSwitchNonTerminalBreakShader.cgl",
+          "source_sha256": "e07a29bfac2281d299463509ad42a647c398be40b0dc8d7852494cced67be454",
+          "reason": "CrossTL accepts break statements inside switch sections, but native compiler v0 only strips a terminal switch-local break from each case body.",
+          "translator": {
+            "status": "accepts",
+            "ast_sha256": "d97e219d918a569aa0cf4f57d1c00838b0134ce71ad9b7532d7fb624c4749a83"
+          },
+          "compiler": {
+            "status": "rejects",
+            "diagnostic_substrings": [
+              "spec.unsupported-for-native-v0"
+            ]
+          }
+        },
+        {
           "id": "compiler/tests/check-failures/BadUnsupportedForInShader.cgl",
           "classification": "spec.unsupported-for-native-v0",
           "feature": "control_flow_and_statements",

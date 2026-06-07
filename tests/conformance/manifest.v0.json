@@ -1067,6 +1067,48 @@
       "notes": "Ray miss stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
     },
     {
+      "id": "native-v0-unsupported.switch-grouped-labels",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchGroupedLabelsShader.cgl",
+      "fixture_sha256": "cb0b0f5bd8f4d42298e2f7c6cb214716c47634599a8888859859bd3fbe576718",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_switch_grouped_labels_failure"
+      ],
+      "notes": "Grouped switch case labels are outside the restricted native v0 switch subset."
+    },
+    {
+      "id": "native-v0-unsupported.switch-incompatible-case-label-type",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchIncompatibleCaseLabelTypeShader.cgl",
+      "fixture_sha256": "59c602ed6a7f67db1460c28b3a0793172c3275948524bcaa4637ffa19838d28f",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_switch_incompatible_case_label_type_failure"
+      ],
+      "notes": "Switch case labels with scalar types incompatible with the selector are outside the restricted native v0 switch subset."
+    },
+    {
+      "id": "native-v0-unsupported.switch-non-terminal-break",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchNonTerminalBreakShader.cgl",
+      "fixture_sha256": "e07a29bfac2281d299463509ad42a647c398be40b0dc8d7852494cced67be454",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_switch_non_terminal_break_failure"
+      ],
+      "notes": "Non-terminal switch-local breaks are outside the restricted native v0 switch subset."
+    },
+    {
       "id": "native-v0-unsupported.switch-restricted-form",
       "feature_group": "known-native-v0-unsupported",
       "language_category": "native-v0",
