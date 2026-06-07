@@ -1547,6 +1547,13 @@ private:
     std::size_t bodyBegin = 0;
   };
 
+  struct SwitchSection {
+    bool isDefault = false;
+    HIRExpression label;
+    std::vector<HIRStatement> body;
+    SourceLocation location;
+  };
+
   std::vector<Token> collectStatement() {
     std::vector<Token> statement;
     int braceDepth = 0;
@@ -1654,7 +1661,7 @@ private:
 
     if (tokens.front().kind == TokenKind::Identifier &&
         tokens.front().text == "switch") {
-      return makeRawFallback(std::move(statement));
+      return parseSwitchStatement(std::move(statement), tokens);
     }
 
     if (tokens.size() == 1 && tokens.front().kind == TokenKind::Identifier) {
@@ -2008,6 +2015,77 @@ private:
     return statement;
   }
 
+  HIRStatement parseSwitchStatement(HIRStatement statement,
+                                    const std::vector<Token> &tokens) {
+    if (tokens.size() < 6) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    const std::optional<ControlConditionSpan> selectorSpan =
+        parseControlConditionSpan(tokens);
+    if (!selectorSpan.has_value() ||
+        hasUnsupportedExpressionToken(tokens, selectorSpan->begin,
+                                      selectorSpan->end)) {
+      return makeRawFallback(std::move(statement));
+    }
+    std::size_t bodyBegin = selectorSpan->bodyBegin;
+    while (bodyBegin < tokens.size() &&
+           tokens[bodyBegin].kind == TokenKind::Semicolon) {
+      ++bodyBegin;
+    }
+    if (bodyBegin >= tokens.size() || tokens[bodyBegin].kind != TokenKind::LBrace) {
+      return makeRawFallback(std::move(statement));
+    }
+    const std::optional<std::size_t> bodyClose =
+        findMatching(tokens, bodyBegin, TokenKind::LBrace, TokenKind::RBrace);
+    if (!bodyClose.has_value() || *bodyClose + 1 != tokens.size()) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    std::optional<std::vector<SwitchSection>> sections =
+        parseSwitchSections(tokens, bodyBegin + 1, *bodyClose);
+    if (!sections.has_value() || sections->empty()) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    HIRExpression selector =
+        parseExpression(tokens, selectorSpan->begin, selectorSpan->end);
+    if (!isSwitchComparableType(selector.type) ||
+        !switchLabelsMatchSelector(selector.type, *sections)) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    const std::unordered_map<std::string, HIRType> outerVariables = variables_;
+    const std::set<std::string> outerMutableLocals = mutableLocals_;
+    const std::string selectorName = makeUniqueLocalName("__crossgl_selector",
+                                                         selector.type);
+    HIRStatement selectorDeclaration;
+    selectorDeclaration.kind = HIRStatementKind::Declaration;
+    selectorDeclaration.location = selector.location;
+    selectorDeclaration.declaredType = selector.type;
+    selectorDeclaration.name = selectorName;
+    selectorDeclaration.value = std::move(selector);
+
+    const HIRExpression selectorReference = makeIdentifierExpression(
+        selectorName, selectorDeclaration.declaredType,
+        selectorDeclaration.location);
+    std::optional<std::vector<HIRStatement>> lowered =
+        lowerSwitchSections(selectorReference, std::move(*sections));
+    if (!lowered.has_value() || lowered->empty()) {
+      variables_ = outerVariables;
+      mutableLocals_ = outerMutableLocals;
+      return makeRawFallback(std::move(statement));
+    }
+
+    statement.kind = HIRStatementKind::Block;
+    statement.body = std::move(*lowered);
+    statement.body.insert(statement.body.begin(), std::move(selectorDeclaration));
+    variables_ = outerVariables;
+    mutableLocals_ = outerMutableLocals;
+    statement.rawTokens.clear();
+    return statement;
+  }
+
   HIRExpression makeGroupedExpression(HIRExpression expression) const {
     HIRExpression group;
     group.kind = HIRExpressionKind::Group;
@@ -2042,6 +2120,51 @@ private:
     return statement;
   }
 
+  HIRExpression makeIdentifierExpression(std::string name, HIRType type,
+                                         SourceLocation location) const {
+    HIRExpression expression;
+    expression.kind = HIRExpressionKind::Identifier;
+    expression.value = std::move(name);
+    expression.type = std::move(type);
+    expression.location = std::move(location);
+    return expression;
+  }
+
+  std::string makeUniqueLocalName(std::string_view base, const HIRType &type) {
+    std::string name(base);
+    std::size_t suffix = 0;
+    while (variables_.contains(name)) {
+      name = std::string(base) + std::to_string(++suffix);
+    }
+    variables_[name] = type;
+    mutableLocals_.insert(name);
+    return name;
+  }
+
+  bool isSwitchComparableType(const HIRType &type) const {
+    if (type.name.empty() || type.arraySize.has_value()) {
+      return false;
+    }
+    const std::string base = baseTypeName(type);
+    return base == "bool" || isNumericScalarTypeName(base);
+  }
+
+  bool switchLabelsMatchSelector(
+      const HIRType &selectorType,
+      const std::vector<SwitchSection> &sections) const {
+    const HIRType strippedSelector = stripTypeQualifier(selectorType);
+    for (const SwitchSection &section : sections) {
+      if (section.isDefault) {
+        continue;
+      }
+      if (!isSwitchComparableType(section.label.type) ||
+          !sameType(strippedSelector, stripTypeQualifier(section.label.type))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   HIRStatement makeConditionBreakStatement(HIRExpression condition,
                                            SourceLocation location) const {
     HIRStatement statement;
@@ -2060,6 +2183,223 @@ private:
     block.body.push_back(makeConditionBreakStatement(condition, location));
     block.body.push_back(makeContinueStatement(std::move(location)));
     return block;
+  }
+
+  bool isSwitchLabelToken(const Token &token) const {
+    return token.kind == TokenKind::Identifier &&
+           (token.text == "case" || token.text == "default");
+  }
+
+  std::optional<std::size_t> findSwitchLabelColon(
+      const std::vector<Token> &tokens, std::size_t begin,
+      std::size_t end) const {
+    int parenDepth = 0;
+    int bracketDepth = 0;
+    int braceDepth = 0;
+    for (std::size_t cursor = begin; cursor < end; ++cursor) {
+      const Token &token = tokens[cursor];
+      if (token.kind == TokenKind::LParen) {
+        ++parenDepth;
+      } else if (token.kind == TokenKind::RParen) {
+        --parenDepth;
+      } else if (token.kind == TokenKind::LBracket) {
+        ++bracketDepth;
+      } else if (token.kind == TokenKind::RBracket) {
+        --bracketDepth;
+      } else if (token.kind == TokenKind::LBrace) {
+        ++braceDepth;
+      } else if (token.kind == TokenKind::RBrace) {
+        --braceDepth;
+      } else if (token.kind == TokenKind::Colon && parenDepth == 0 &&
+                 bracketDepth == 0 && braceDepth == 0) {
+        return cursor;
+      } else if ((token.kind == TokenKind::Semicolon ||
+                  isSwitchLabelToken(token)) &&
+                 parenDepth == 0 && bracketDepth == 0 && braceDepth == 0) {
+        return std::nullopt;
+      }
+    }
+    return std::nullopt;
+  }
+
+  bool hasTopLevelSwitchLabel(const std::vector<Token> &tokens,
+                              std::size_t begin, std::size_t end) const {
+    int parenDepth = 0;
+    int bracketDepth = 0;
+    int braceDepth = 0;
+    for (std::size_t cursor = begin; cursor < end; ++cursor) {
+      const Token &token = tokens[cursor];
+      if (token.kind == TokenKind::LParen) {
+        ++parenDepth;
+      } else if (token.kind == TokenKind::RParen) {
+        --parenDepth;
+      } else if (token.kind == TokenKind::LBracket) {
+        ++bracketDepth;
+      } else if (token.kind == TokenKind::RBracket) {
+        --bracketDepth;
+      } else if (token.kind == TokenKind::LBrace) {
+        ++braceDepth;
+      } else if (token.kind == TokenKind::RBrace) {
+        --braceDepth;
+      } else if (isSwitchLabelToken(token) && parenDepth == 0 &&
+                 bracketDepth == 0 && braceDepth == 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  std::optional<std::vector<SwitchSection>> parseSwitchSections(
+      const std::vector<Token> &tokens, std::size_t begin, std::size_t end) const {
+    std::vector<SwitchSection> sections;
+    std::size_t cursor = begin;
+    bool sawDefault = false;
+
+    while (cursor < end) {
+      if (!isSwitchLabelToken(tokens[cursor])) {
+        return std::nullopt;
+      }
+
+      SwitchSection section;
+      section.isDefault = tokens[cursor].text == "default";
+      section.location = tokens[cursor].location;
+      if (section.isDefault) {
+        if (sawDefault) {
+          return std::nullopt;
+        }
+        sawDefault = true;
+      } else if (sawDefault) {
+        return std::nullopt;
+      }
+
+      const std::optional<std::size_t> colon =
+          findSwitchLabelColon(tokens, cursor + 1, end);
+      if (!colon.has_value()) {
+        return std::nullopt;
+      }
+      if (section.isDefault) {
+        if (*colon != cursor + 1) {
+          return std::nullopt;
+        }
+      } else {
+        if (*colon == cursor + 1 ||
+            hasUnsupportedExpressionToken(tokens, cursor + 1, *colon)) {
+          return std::nullopt;
+        }
+        section.label = parseExpression(tokens, cursor + 1, *colon);
+      }
+
+      std::size_t bodyEnd = *colon + 1;
+      while (bodyEnd < end) {
+        if (isSwitchLabelToken(tokens[bodyEnd])) {
+          break;
+        }
+        if (tokens[bodyEnd].kind == TokenKind::LBrace) {
+          const std::optional<std::size_t> close =
+              findMatching(tokens, bodyEnd, TokenKind::LBrace, TokenKind::RBrace);
+          if (!close.has_value() || *close >= end) {
+            return std::nullopt;
+          }
+          bodyEnd = *close + 1;
+          continue;
+        }
+        ++bodyEnd;
+      }
+      if (hasTopLevelSwitchLabel(tokens, *colon + 1, bodyEnd)) {
+        return std::nullopt;
+      }
+
+      section.body = parseStatementsInRange(tokens, *colon + 1, bodyEnd);
+      if (section.body.empty() ||
+          section.body.back().kind != HIRStatementKind::Break) {
+        return std::nullopt;
+      }
+      section.body.pop_back();
+      if (containsRawStatement(section.body) ||
+          containsBreakOutsideLoop(section.body)) {
+        return std::nullopt;
+      }
+      sections.push_back(std::move(section));
+      cursor = bodyEnd;
+    }
+
+    return sections;
+  }
+
+  HIRExpression makeSwitchCaseCondition(const HIRExpression &selector,
+                                        HIRExpression label,
+                                        SourceLocation location) const {
+    HIRExpression condition;
+    condition.kind = HIRExpressionKind::Binary;
+    condition.value = "==";
+    condition.type = makeType("bool");
+    condition.location = std::move(location);
+    condition.children.push_back(selector);
+    condition.children.push_back(std::move(label));
+    return condition;
+  }
+
+  std::optional<std::vector<HIRStatement>>
+  lowerSwitchSections(const HIRExpression &selector,
+                      std::vector<SwitchSection> sections) const {
+    std::vector<HIRStatement> elseBody;
+    if (!sections.empty() && sections.back().isDefault) {
+      elseBody = std::move(sections.back().body);
+      sections.pop_back();
+    }
+
+    for (std::size_t reverseIndex = sections.size(); reverseIndex > 0;
+         --reverseIndex) {
+      SwitchSection &section = sections[reverseIndex - 1];
+      if (section.isDefault) {
+        return std::nullopt;
+      }
+      HIRStatement branch;
+      branch.kind = HIRStatementKind::If;
+      branch.location = section.location;
+      branch.value = makeSwitchCaseCondition(selector, std::move(section.label),
+                                             section.location);
+      branch.body = std::move(section.body);
+      branch.elseBody = std::move(elseBody);
+      elseBody.clear();
+      elseBody.push_back(std::move(branch));
+    }
+
+    if (elseBody.empty()) {
+      return std::nullopt;
+    }
+    return elseBody;
+  }
+
+  bool containsRawStatement(const std::vector<HIRStatement> &body) const {
+    for (const HIRStatement &statement : body) {
+      if (statement.kind == HIRStatementKind::Raw) {
+        return true;
+      }
+      if (containsRawStatement(statement.initializer) ||
+          containsRawStatement(statement.update) ||
+          containsRawStatement(statement.body) ||
+          containsRawStatement(statement.elseBody)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool containsBreakOutsideLoop(const std::vector<HIRStatement> &body,
+                                std::size_t loopDepth = 0) const {
+    for (const HIRStatement &statement : body) {
+      if (statement.kind == HIRStatementKind::Break && loopDepth == 0) {
+        return true;
+      }
+      const std::size_t childLoopDepth =
+          statement.kind == HIRStatementKind::For ? loopDepth + 1 : loopDepth;
+      if (containsBreakOutsideLoop(statement.body, childLoopDepth) ||
+          containsBreakOutsideLoop(statement.elseBody, loopDepth)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void rewriteDoWhileContinues(std::vector<HIRStatement> &body,
@@ -2497,6 +2837,12 @@ private:
     if (begin >= end) {
       return {};
     }
+    return parseStatementsInRange(tokens, begin, end);
+  }
+
+  std::vector<HIRStatement> parseStatementsInRange(const std::vector<Token> &tokens,
+                                                   std::size_t begin,
+                                                   std::size_t end) const {
     std::vector<Token> bodyTokens(tokens.begin() + static_cast<std::ptrdiff_t>(begin),
                                   tokens.begin() + static_cast<std::ptrdiff_t>(end));
     return BodyParser(bodyTokens, knownTypeNames_, structs_, variables_,

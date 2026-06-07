@@ -45,9 +45,9 @@
   "contract_manifest": {
     "path": "tools/cross_repo_language_contract.json",
     "schema": 1,
-    "contract_count": 152,
+    "contract_count": 153,
     "accepted_feature_group_count": 8,
-    "negative_case_count": 24,
+    "negative_case_count": 23,
     "hash_fields": [
       "source_sha256",
       "translator_ast_sha256",
@@ -73,7 +73,7 @@
           "sha256": "152cf6b2e0bc796255b316b7413c18a68ff8228cf6ba5c5801aa3bac8db4e135"
         }
       ],
-      "fixture_count": 15,
+      "fixture_count": 16,
       "fixtures": [
         {
           "id": "compiler/tests/fixtures/IfComputeShader.cgl",
@@ -158,6 +158,12 @@
           "source_sha256": "6194f5d1643d7c566def1bf93856b96d14a69809b1b3bc16c9bf968cad318c48",
           "translator_ast_sha256": "7d260b3dcb2eceae246422852907b554056efbdf39aacafe67104db3e0b36167",
           "compiler_hir_sha256": "923a302b244bef03db859f0f97fc32b819dc88ce96952c80aea0073cc930f1f3"
+        },
+        {
+          "id": "compiler/tests/fixtures/SwitchComputeShader.cgl",
+          "source_sha256": "c85dd3def959349840abb23bb37d77fa7c0fe13f8b4f29e9b5ed733f7013538e",
+          "translator_ast_sha256": "df5ac6d0c9a00e44d2c377d62de69f40791fc5470fd2de017eff34fbc2689922",
+          "compiler_hir_sha256": "38f1be3fd66da849f1d8b3f7c17662f8b43a7f6b43accaefcfaa09b6da6ba822"
         },
         {
           "id": "compiler/tests/fixtures/NonParenthesizedControlFlowShader.cgl",
@@ -1067,26 +1073,6 @@
       "translator": {
         "status": "accepts",
         "ast_sha256": "28269c77fc554c9c373194782e3162ae7fd8e0ae0f00080fdb9d9a4db4cdeedb"
-      },
-      "compiler": {
-        "status": "rejects",
-        "diagnostic_substrings": [
-          "spec.unsupported-for-native-v0"
-        ]
-      }
-    },
-    {
-      "id": "compiler/tests/check-failures/BadUnsupportedSwitchShader.cgl",
-      "group": "spec_unsupported_for_native_v0",
-      "classification": "spec.unsupported-for-native-v0",
-      "feature_group": "control_flow_and_statements",
-      "reason": "CrossTL accepts switch/case/default statements, but native compiler v0 only lowers the narrower control-flow subset covered by accepted fixtures.",
-      "root": "compiler",
-      "path": "tests/check-failures/BadUnsupportedSwitchShader.cgl",
-      "source_sha256": "563c8c919d8dfdcbb0ed75e4efe98101d1155048a8d9a74c929a491f869617c0",
-      "translator": {
-        "status": "accepts",
-        "ast_sha256": "33ca89fc13caad15c5fbc6ce770b8e3bd0087763a9b1d77ddb52e4b958fbccc9"
       },
       "compiler": {
         "status": "rejects",

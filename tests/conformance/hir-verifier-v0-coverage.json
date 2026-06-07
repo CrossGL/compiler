@@ -216,6 +216,7 @@
         "control-flow.if-else",
         "control-flow.if-return",
         "control-flow.loop-transfer",
+        "control-flow.switch-case-default",
         "control-flow.while-loop",
         "graphics-stages.vulkan-loop-control-native",
         "graphics-stages.vulkan-loop-native"
@@ -264,6 +265,15 @@
             "HIRStatementKind::Return"
           ],
           "requirement": "Branch-local returns remain explicit in HIR branch bodies."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_switch_hir_if_chain",
+          "coverage_categories": [
+            "HIRStatementKind::Block",
+            "HIRStatementKind::If"
+          ],
+          "requirement": "Restricted switch/case/default lowers to existing block and if-chain HIR nodes."
         },
         {
           "kind": "support-matrix",

@@ -681,6 +681,25 @@ add_test(NAME cglc_check_do_while_hir_trailing_condition_break
     -DMODE=dump-stage
     "-DMUST_CONTAIN=assign total : float = total \\+ float\\(value\\) : float[^\n]*\n        if value >= 4 : bool[^\n]*\n          break"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_switch_compute
+  COMMAND cglc check ${CROSSGL_SWITCH_COMPUTE_SHADER})
+add_test(NAME cglc_check_switch_hir_if_chain
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=block[^\n]*\n        decl int __crossgl_selector = mode : int[^\n]*\n        if __crossgl_selector == 0 : bool[^\n]*\n          assign total : int = 1 : int[^\n]*\n        else[^\n]*\n          if __crossgl_selector == 1 : bool[^\n]*\n            assign total : int = 2 : int[^\n]*\n          else[^\n]*\n            assign total : int = 3 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_switch_hir_no_switch_break
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set_tests_properties(cglc_check_switch_hir_no_switch_break
+  PROPERTIES FAIL_REGULAR_EXPRESSION "switch|case|default|break")
 set(CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForIncrementDecrementHIRShader.cgl)
 add_test(NAME cglc_check_for_increment_decrement_hir
   COMMAND cglc check ${CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER})
@@ -1833,12 +1852,16 @@ crossgl_add_native_v0_unsupported_failure(
   5
   7
   "message=match/pattern control statements|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_switch_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchShader.cgl
-  5
-  7
-  "message=switch/case/default statements|message=native v0")
+add_test(NAME cglc_check_unsupported_switch_fallthrough_backend_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchShader.cgl
+    -DSTAGE=backend
+    -DTARGET=metal
+    -DMODE=dump-stage-failure
+    -DEXPECTED_DIAGNOSTIC=opt.hir-raw-statement-backend-input
+    "-DEXPECTED_STDERR_FRAGMENT=raw statement must be lowered to structured HIR"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_for_in_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedForInShader.cgl

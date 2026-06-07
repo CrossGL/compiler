@@ -235,9 +235,6 @@ std::string unsupportedPatternControlForm(std::string_view text) {
   if (text == "match") {
     return "match/pattern control statements";
   }
-  if (text == "switch" || text == "case" || text == "default") {
-    return "switch/case/default statements";
-  }
   return std::string(text) + " statements";
 }
 
@@ -1489,8 +1486,7 @@ void Parser::diagnoseUnsupportedFunctionBodyForms(
       continue;
     }
 
-    if (token.text == "match" || token.text == "switch" ||
-        token.text == "case" || token.text == "default") {
+    if (token.text == "match") {
       diagnoseUnsupportedNativeV0(unsupportedPatternControlForm(token.text),
                                   token.location);
       return;

@@ -16362,68 +16362,273 @@ shader CompileRequestRemapInvalidShader {
   std::filesystem::remove_all(invalidOutputPath, error);
 }
 
-void testSourceCheckRawStatementContractBoundary() {
+void testSwitchControlFlowHIR() {
   constexpr std::string_view source = R"(
-shader UniversalPBRShaderContractShape {
-  compute precompute_environment {
-    layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-
-    vec3 getSamplingVector(vec2 uv, int face) {
-      vec3 result;
-      switch (face) {
-        case 0: result = vec3(1.0, -uv.y, -uv.x); break;
-        case 1: result = vec3(-1.0, -uv.y, uv.x); break;
-        case 2: result = vec3(uv.x, 1.0, uv.y); break;
-        case 3: result = vec3(uv.x, -1.0, -uv.y); break;
-        case 4: result = vec3(uv.x, -uv.y, 1.0); break;
-        case 5: result = vec3(-uv.x, -uv.y, -1.0); break;
-      }
-      return normalize(result);
-    }
-
+shader SwitchControlFlowShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
     void main() {
-      vec3 direction = getSamplingVector(vec2(0.0, 0.0), 0);
+      int mode = values[0];
+      int total = 0;
+      switch (mode) {
+        case 0:
+          total = 1;
+          break;
+        case 1:
+          total = 2;
+          break;
+        default:
+          total = 3;
+          break;
+      }
+      values[1] = total;
       return;
     }
   }
 }
 )";
 
-  const std::filesystem::path inputPath =
-      unitTestTempDirectoryPath() /
-      "crossgl-universal-pbr-raw-contract-shape.cgl";
-  std::error_code cleanupError;
-  std::filesystem::remove(inputPath, cleanupError);
-  {
-    std::ofstream input(inputPath, std::ios::binary);
-    input << source;
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "switch control-flow source builds HIR");
+  if (!hir) {
+    return;
   }
 
-  const crossgl::CheckResult check = crossgl::checkFile(inputPath);
-  expect(!check.success &&
-             hasDiagnosticCode(check.diagnostics,
-                               "spec.unsupported-for-native-v0"),
-         "source check rejects translator-compatible raw switch statements");
+  const crossgl::HIRStage *stage = crossgl::singleComputeStage(*hir);
+  const crossgl::HIRFunction *entry =
+      stage == nullptr ? nullptr : crossgl::entryFunction(*stage);
+  expect(stage != nullptr && entry != nullptr,
+         "switch control-flow HIR has a compute entry");
+  if (stage == nullptr || entry == nullptr) {
+    return;
+  }
 
-  crossgl::DiagnosticEngine hirDumpDiagnostics;
-  const std::optional<std::string> hirDump =
-      crossgl::dumpIR(inputPath, crossgl::DumpStage::HIR,
-                      crossgl::TargetKind::Auto, hirDumpDiagnostics);
-  expect(!hirDump &&
-             hasDiagnosticCode(hirDumpDiagnostics.diagnostics(),
-                               "spec.unsupported-for-native-v0"),
-         "HIR dump rejects unsupported switch statements before raw preservation");
+  expect(entry->body.size() == 5,
+         "switch control-flow body preserves declarations, lowered block, "
+         "store, and return");
+  if (entry->body.size() < 5) {
+    return;
+  }
 
-  crossgl::DiagnosticEngine backendDumpDiagnostics;
-  const std::optional<std::string> backendDump =
-      crossgl::dumpIR(inputPath, crossgl::DumpStage::Backend,
-                      crossgl::TargetKind::Auto, backendDumpDiagnostics);
-  expect(!backendDump &&
-             hasDiagnosticCode(backendDumpDiagnostics.diagnostics(),
-                               "spec.unsupported-for-native-v0"),
-         "backend dump rejects unsupported switch statements before backend input");
+  const crossgl::HIRStatement &switchBlock = entry->body[2];
+  expect(switchBlock.kind == crossgl::HIRStatementKind::Block &&
+             switchBlock.body.size() == 2,
+         "switch lowers into a lexical block with a selector declaration and "
+         "if chain");
+  if (switchBlock.kind != crossgl::HIRStatementKind::Block ||
+      switchBlock.body.size() < 2) {
+    return;
+  }
 
-  std::filesystem::remove(inputPath, cleanupError);
+  const crossgl::HIRStatement &selector = switchBlock.body[0];
+  expect(selector.kind == crossgl::HIRStatementKind::Declaration &&
+             selector.name == "__crossgl_selector" &&
+             selector.declaredType.name == "int" &&
+             selector.value.kind == crossgl::HIRExpressionKind::Identifier &&
+             selector.value.value == "mode",
+         "switch lowering evaluates the selector once into a typed temp");
+
+  auto matchesCaseCondition =
+      [](const crossgl::HIRExpression &condition, std::string_view literal) {
+        return condition.kind == crossgl::HIRExpressionKind::Binary &&
+               condition.value == "==" && condition.children.size() == 2 &&
+               condition.children[0].kind ==
+                   crossgl::HIRExpressionKind::Identifier &&
+               condition.children[0].value == "__crossgl_selector" &&
+               condition.children[1].kind ==
+                   crossgl::HIRExpressionKind::Literal &&
+               condition.children[1].value == literal &&
+               condition.type.name == "bool";
+      };
+  auto matchesTotalAssignment =
+      [](const crossgl::HIRStatement &statement, std::string_view literal) {
+        return statement.kind == crossgl::HIRStatementKind::Assignment &&
+               statement.target.value == "total" &&
+               statement.value.kind == crossgl::HIRExpressionKind::Literal &&
+               statement.value.value == literal;
+      };
+
+  const crossgl::HIRStatement &case0 = switchBlock.body[1];
+  expect(case0.kind == crossgl::HIRStatementKind::If &&
+             matchesCaseCondition(case0.value, "0") && case0.body.size() == 1 &&
+             matchesTotalAssignment(case0.body.front(), "1") &&
+             case0.elseBody.size() == 1,
+         "switch case 0 lowers to the first if branch");
+  if (case0.elseBody.empty()) {
+    return;
+  }
+
+  const crossgl::HIRStatement &case1 = case0.elseBody.front();
+  expect(case1.kind == crossgl::HIRStatementKind::If &&
+             matchesCaseCondition(case1.value, "1") && case1.body.size() == 1 &&
+             matchesTotalAssignment(case1.body.front(), "2") &&
+             case1.elseBody.size() == 1 &&
+             matchesTotalAssignment(case1.elseBody.front(), "3"),
+         "switch case 1 and default lower to a nested if/else chain");
+
+  const std::string hirText = crossgl::printHIR(*hir);
+  expect(hirText.find("raw switch") == std::string::npos &&
+             hirText.find("case ") == std::string::npos &&
+             hirText.find("default") == std::string::npos &&
+             hirText.find("break") == std::string::npos,
+         "switch-local labels and terminal breaks do not survive HIR lowering");
+
+  crossgl::DiagnosticEngine diagnostics;
+  (void)crossgl::runHIRPassPipeline(*hir, diagnostics);
+  expect(!diagnostics.hasErrors(),
+         "lowered switch control flow optimizes without diagnostics");
+}
+
+void testSwitchRestrictedBoundaryHIR() {
+  auto expectRawSwitchBackendBoundary = [](std::string_view source,
+                                           std::string_view description) {
+    std::optional<crossgl::HIRModule> hir = parseHIR(source);
+    expect(hir.has_value(), std::string(description) + " source preserves HIR");
+    if (!hir) {
+      return;
+    }
+
+    const std::string hirText = crossgl::printHIR(*hir);
+    expect(hirText.find("raw switch") != std::string::npos,
+           std::string(description) + " remains a raw HIR boundary");
+
+    crossgl::DiagnosticEngine diagnostics;
+    (void)crossgl::runHIRPassPipeline(*hir, diagnostics);
+    expect(hasDiagnosticCode(diagnostics.diagnostics(),
+                             "opt.hir-raw-statement-backend-input"),
+           std::string(description) + " is rejected before backend input");
+  };
+
+  expectRawSwitchBackendBoundary(R"(
+shader SwitchFallthroughBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 0:
+          values[1] = 1;
+        default:
+          values[1] = 2;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                "unsupported switch fallthrough");
+
+  expectRawSwitchBackendBoundary(R"(
+shader SwitchGroupedLabelsBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 0:
+        case 1:
+          values[1] = 1;
+          break;
+        default:
+          values[1] = 2;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                "unsupported switch grouped labels");
+
+  expectRawSwitchBackendBoundary(R"(
+shader SwitchIncompatibleLabelBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 1.5:
+          values[1] = 1;
+          break;
+        default:
+          values[1] = 2;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                "unsupported switch incompatible case label");
+
+  expectRawSwitchBackendBoundary(R"(
+shader SwitchNonTerminalBreakBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 0:
+          break;
+          values[1] = 1;
+        default:
+          values[1] = 2;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                "unsupported switch non-terminal break");
+
+  constexpr std::string_view nestedLoopBreakSource = R"(
+shader SwitchNestedLoopBreakShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      int total = 0;
+      switch (mode) {
+        case 0:
+          for (int i = 0; i < 1; i++) {
+            break;
+          }
+          total = 1;
+          break;
+        default:
+          total = 2;
+          break;
+      }
+      values[1] = total;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(nestedLoopBreakSource);
+  expect(hir.has_value(), "switch nested loop break source builds HIR");
+  if (!hir) {
+    return;
+  }
+  const std::string hirText = crossgl::printHIR(*hir);
+  expect(hirText.find("raw switch") == std::string::npos &&
+             hirText.find("for i < 1 : bool") != std::string::npos &&
+             hirText.find("break") != std::string::npos,
+         "switch lowering allows breaks that target a nested loop");
+
+  crossgl::DiagnosticEngine diagnostics;
+  (void)crossgl::runHIRPassPipeline(*hir, diagnostics);
+  expect(!diagnostics.hasErrors(),
+         "switch nested loop break optimizes without diagnostics");
 }
 
 void testTargetCapabilityRegistry() {
@@ -49755,7 +49960,8 @@ int main() {
   testSourceRemapDiagnosticsAndHIRSourceMaps();
   testCompileRequestLogicalSourceRemapAPI();
   testDebugSourceLocationsUseGenericPathSeparators();
-  testSourceCheckRawStatementContractBoundary();
+  testSwitchControlFlowHIR();
+  testSwitchRestrictedBoundaryHIR();
   testTargetCapabilityRegistry();
   testTargetCapabilityInventoryParity();
   testTargetLegalizationFacade();

@@ -518,6 +518,21 @@
       "notes": "Covers break and continue in loop contexts."
     },
     {
+      "id": "control-flow.switch-case-default",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/SwitchComputeShader.cgl",
+      "fixture_sha256": "c85dd3def959349840abb23bb37d77fa7c0fe13f8b4f29e9b5ed733f7013538e",
+      "evidence_tests": [
+        "cglc_check_switch_compute",
+        "cglc_check_switch_hir_if_chain",
+        "cglc_check_switch_hir_no_switch_break"
+      ],
+      "notes": "Restricted non-fallthrough switch/case/default lowers to a block, selector temp, and nested if/else chain."
+    },
+    {
       "id": "control-flow.while-loop",
       "feature_group": "control-flow",
       "language_category": "statements",
