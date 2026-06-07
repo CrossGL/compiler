@@ -1386,7 +1386,9 @@ int commandBuildSourceBatch(const std::vector<std::string> &args,
 
     crossgl::CompileResult result = crossgl::compile(request);
     entryResult.success = result.success;
-    entryResult.artifactPath = result.artifactPath;
+    if (!result.artifactPath.empty()) {
+      entryResult.artifactPath = result.artifactPath;
+    }
     entryResult.target = result.resolvedTarget;
     appendDiagnostics(allDiagnostics, result.diagnostics);
     entryResults.push_back(std::move(entryResult));

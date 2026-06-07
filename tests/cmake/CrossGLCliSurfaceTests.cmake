@@ -176,6 +176,87 @@ file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BUILD_MANIFEST}"
 }
 ")
 
+set(CROSSGL_CLI_SOURCE_BATCH_BUILD_JSON_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-build-json.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BUILD_JSON_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"defaults\": {
+    \"target\": \"directx\",
+    \"optLevel\": \"O1\"
+  },
+  \"sources\": [
+    {
+      \"id\": \"storage\",
+      \"path\": \"tests/fixtures/StorageBufferComputeShader.cgl\",
+      \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-storage.cglb\"
+    },
+    {
+      \"id\": \"fn-style\",
+      \"path\": \"tests/fixtures/FnStyleFunctionShader.cgl\",
+      \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-fn-style.cglb\",
+      \"debugIR\": true
+    }
+  ]
+}
+")
+
+if(CROSSGL_PYTHON3)
+  set(CROSSGL_CLI_SOURCE_BATCH_CHECK_FAILURE_MANIFEST
+    "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-check-failure.json")
+  file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_CHECK_FAILURE_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"defaults\": {
+    \"target\": \"auto\",
+    \"optLevel\": \"O1\"
+  },
+  \"sources\": [
+    {
+      \"id\": \"simple\",
+      \"path\": \"tests/fixtures/SimpleShader.cgl\"
+    },
+    {
+      \"id\": \"invalid-utf8\",
+      \"path\": \"${CROSSGL_CLI_INVALID_UTF8_SHADER}\",
+      \"logicalInput\": \"translator/snapshots/InvalidUtf8SourceShader.cgl\"
+    }
+  ]
+}
+")
+
+  set(CROSSGL_CLI_SOURCE_BATCH_BUILD_FAILURE_MANIFEST
+    "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-build-failure.json")
+  file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BUILD_FAILURE_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"defaults\": {
+    \"target\": \"directx\",
+    \"optLevel\": \"O1\"
+  },
+  \"sources\": [
+    {
+      \"id\": \"invalid-utf8\",
+      \"path\": \"${CROSSGL_CLI_INVALID_UTF8_SHADER}\",
+      \"logicalInput\": \"translator/snapshots/InvalidUtf8SourceShader.cgl\",
+      \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-invalid-utf8.cglb\"
+    },
+    {
+      \"id\": \"storage\",
+      \"path\": \"tests/fixtures/StorageBufferComputeShader.cgl\",
+      \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-partial-storage.cglb\"
+    }
+  ]
+}
+")
+endif()
+
 set(CROSSGL_CLI_SOURCE_BATCH_UNKNOWN_TOP_LEVEL_MANIFEST
   "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-unknown-top-level.json")
 file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_UNKNOWN_TOP_LEVEL_MANIFEST}"
@@ -326,6 +407,31 @@ crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_success_contract
     "\"id\": \"source-2\""
     "\"success\": true"
     "\"diagnostics\": []")
+
+crossgl_add_python_expect_test(
+  NAME cglc_cli_check_source_manifest_result_json_schema
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DMODE=source-batch-check-json
+    -DMANIFEST=${CROSSGL_CLI_SOURCE_BATCH_CHECK_MANIFEST}
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=3|entries.0.id=simple|entries.0.logicalInput=translator/snapshots/SimpleShader.cgl|entries.0.target=auto|entries.0.success=true|entries.1.id=fn-style|entries.1.logicalInput=translator/snapshots/FnStyleFunctionShader.cgl|entries.1.target=auto|entries.1.success=true|entries.2.id=source-2|entries.2.target=auto|entries.2.success=true|diagnosticReport.schemaVersion=1"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=3|diagnosticReport.diagnostics=0")
+
+if(CROSSGL_PYTHON3)
+  crossgl_add_python_expect_test(
+    NAME cglc_cli_check_source_manifest_failure_result_json_schema
+    DEFINITIONS
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DMODE=source-batch-check-json
+      -DMANIFEST=${CROSSGL_CLI_SOURCE_BATCH_CHECK_FAILURE_MANIFEST}
+      -DEXPECTED_RESULT=1
+      -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
+      -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+      "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=false|entryCount=2|entries.0.id=simple|entries.0.target=auto|entries.0.success=true|entries.1.id=invalid-utf8|entries.1.logicalInput=translator/snapshots/InvalidUtf8SourceShader.cgl|entries.1.target=auto|entries.1.success=false|diagnosticReport.schemaVersion=1|diagnosticReport.diagnostics.0.severity=error|diagnosticReport.diagnostics.0.code=io.invalid-source-byte|diagnosticReport.diagnostics.0.location.file=translator/snapshots/InvalidUtf8SourceShader.cgl"
+      "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=2|diagnosticReport.diagnostics=1")
+endif()
 
 crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_missing_path_fails
   EXPECTED_RESULT 2
@@ -620,6 +726,31 @@ crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_success_contract
     "cglc-cli-batch-fn-style.cglb"
     "for directx"
     "batch build passed: 2 sources")
+
+crossgl_add_python_expect_test(
+  NAME cglc_cli_build_source_manifest_result_json_schema
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DMODE=source-batch-build-json
+    -DMANIFEST=${CROSSGL_CLI_SOURCE_BATCH_BUILD_JSON_MANIFEST}
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=2|entries.0.id=storage|entries.0.output=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-storage.cglb|entries.0.artifact=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-storage.cglb|entries.0.target=directx|entries.0.success=true|entries.1.id=fn-style|entries.1.output=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-fn-style.cglb|entries.1.artifact=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-fn-style.cglb|entries.1.target=directx|entries.1.success=true|diagnosticReport.schemaVersion=1"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=2")
+
+if(CROSSGL_PYTHON3)
+  crossgl_add_python_expect_test(
+    NAME cglc_cli_build_source_manifest_failure_result_json_schema
+    DEFINITIONS
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DMODE=source-batch-build-json
+      -DMANIFEST=${CROSSGL_CLI_SOURCE_BATCH_BUILD_FAILURE_MANIFEST}
+      -DEXPECTED_RESULT=1
+      -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
+      -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+      "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=false|entryCount=2|entries.0.id=invalid-utf8|entries.0.logicalInput=translator/snapshots/InvalidUtf8SourceShader.cgl|entries.0.output=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-invalid-utf8.cglb|entries.0.target=directx|entries.0.success=false|entries.1.id=storage|entries.1.output=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-partial-storage.cglb|entries.1.artifact=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-partial-storage.cglb|entries.1.target=directx|entries.1.success=true|diagnosticReport.schemaVersion=1|diagnosticReport.diagnostics.0.severity=error|diagnosticReport.diagnostics.0.code=io.invalid-source-byte|diagnosticReport.diagnostics.0.location.file=translator/snapshots/InvalidUtf8SourceShader.cgl"
+      "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=2")
+endif()
 
 crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_output_option_fails
   EXPECTED_RESULT 2
