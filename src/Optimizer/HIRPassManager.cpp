@@ -839,6 +839,21 @@ void validateHIRFunctionNames(std::span<const HIRFunction> functions,
   }
 }
 
+struct HIRFunctionSignature {
+  HIRType returnType;
+  std::vector<HIRParameter> parameters;
+};
+
+using HIRFunctionSignatureMap =
+    std::unordered_map<std::string, HIRFunctionSignature>;
+
+HIRFunctionSignature makeHIRFunctionSignature(const HIRFunction &function) {
+  HIRFunctionSignature signature;
+  signature.returnType = function.returnType;
+  signature.parameters = function.parameters;
+  return signature;
+}
+
 SourceLocation hirFunctionSignatureSourceLocation(const HIRFunction &function) {
   if (hasHIRTypeShape(function.returnType)) {
     return function.returnType.location;
@@ -857,6 +872,74 @@ void reportHIRFunctionShape(const HIRFunction &function,
   diagnostics.error("opt.hir-function-shape",
                     "HIR " + context + " " + std::move(message),
                     hirFunctionSignatureSourceLocation(function));
+}
+
+bool hasCompleteHIRFunctionSignature(const HIRFunction &function) {
+  if (function.name.empty() || function.returnType.name.empty()) {
+    return false;
+  }
+  for (const HIRParameter &parameter : function.parameters) {
+    if (parameter.type.name.empty()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool sameHIRSignatureType(const HIRType &left, const HIRType &right) {
+  return sameType(stripTypeQualifier(left), stripTypeQualifier(right));
+}
+
+bool sameHIRFunctionSignature(const HIRFunctionSignature &left,
+                              const HIRFunctionSignature &right) {
+  if (!sameHIRSignatureType(left.returnType, right.returnType) ||
+      left.parameters.size() != right.parameters.size()) {
+    return false;
+  }
+  for (std::size_t index = 0; index < left.parameters.size(); ++index) {
+    if (!sameHIRSignatureType(left.parameters[index].type,
+                              right.parameters[index].type)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::string formatHIRFunctionSignature(const HIRFunctionSignature &signature) {
+  std::ostringstream stream;
+  stream << formatType(signature.returnType) << "(";
+  for (std::size_t index = 0; index < signature.parameters.size(); ++index) {
+    if (index != 0) {
+      stream << ", ";
+    }
+    stream << formatType(signature.parameters[index].type);
+  }
+  stream << ")";
+  return stream.str();
+}
+
+void validateHIRFunctionSignatureConsistency(
+    std::span<const HIRFunction> functions, const std::string &scopeLabel,
+    DiagnosticEngine &diagnostics) {
+  HIRFunctionSignatureMap signatures;
+  for (const HIRFunction &function : functions) {
+    if (!hasCompleteHIRFunctionSignature(function)) {
+      continue;
+    }
+    HIRFunctionSignature signature = makeHIRFunctionSignature(function);
+    const auto [existing, inserted] =
+        signatures.emplace(function.name, signature);
+    if (!inserted && !sameHIRFunctionSignature(existing->second, signature)) {
+      diagnostics.error(
+          "opt.hir-function-signature-mismatch",
+          "HIR " + scopeLabel + " function '" + function.name +
+              "' signature mismatch: previous signature '" +
+              formatHIRFunctionSignature(existing->second) +
+              "', current signature '" + formatHIRFunctionSignature(signature) +
+              "'",
+          hirFunctionSignatureSourceLocation(function));
+    }
+  }
 }
 
 void validateHIRFunctionSignatures(std::span<const HIRFunction> functions,
@@ -897,6 +980,7 @@ void validateHIRFunctionSignatures(std::span<const HIRFunction> functions,
       }
     }
   }
+  validateHIRFunctionSignatureConsistency(functions, scopeLabel, diagnostics);
 }
 
 SourceLocation hirStructSourceLocation(const HIRStruct &structure) {
@@ -1184,14 +1268,6 @@ bool validateHIRBackendInput(HIRModule &module,
 
 using HIRSymbolTable = std::unordered_map<std::string, HIRType>;
 
-struct HIRFunctionSignature {
-  HIRType returnType;
-  std::vector<HIRParameter> parameters;
-};
-
-using HIRFunctionSignatureMap =
-    std::unordered_map<std::string, HIRFunctionSignature>;
-
 struct HIRTypedSymbolContext {
   std::set<std::string> structNames;
   std::unordered_map<std::string, HIRStruct> structs;
@@ -1199,13 +1275,6 @@ struct HIRTypedSymbolContext {
   HIRSymbolTable globalCBufferFields;
   HIRFunctionSignatureMap functionSignatures;
 };
-
-HIRFunctionSignature makeHIRFunctionSignature(const HIRFunction &function) {
-  HIRFunctionSignature signature;
-  signature.returnType = function.returnType;
-  signature.parameters = function.parameters;
-  return signature;
-}
 
 void addHIRFunctionSignatures(HIRFunctionSignatureMap &signatures,
                               const std::vector<HIRFunction> &functions) {

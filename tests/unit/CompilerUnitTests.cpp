@@ -4635,6 +4635,73 @@ void testHIROptimizationPipelineDefaultPasses() {
                             "opt.hir-duplicate-function"),
          "HIR default validation pass allows forward declarations");
 
+  crossgl::HIRModule conflictingStageReturnModule = simpleModule();
+  crossgl::HIRFunction stageReturnPrototype;
+  stageReturnPrototype.returnType = crossgl::HIRType{"float", std::nullopt};
+  stageReturnPrototype.name = "helper";
+  crossgl::HIRFunction stageReturnDefinition = stageReturnPrototype;
+  stageReturnDefinition.returnType = crossgl::HIRType{"int", std::nullopt};
+  stageReturnDefinition.body.push_back(
+      crossgl::HIRStatement{crossgl::HIRStatementKind::Return});
+  conflictingStageReturnModule.stages.front().functions.push_back(
+      stageReturnPrototype);
+  conflictingStageReturnModule.stages.front().functions.push_back(
+      stageReturnDefinition);
+  expect(hasDiagnosticCodeAndMessage(
+             collectDefaultHIRValidationDiagnostics(
+                 conflictingStageReturnModule),
+             "opt.hir-function-signature-mismatch",
+             "previous signature 'float()', current signature 'int()'"),
+         "HIR default validation pass rejects stage prototype/definition "
+         "return type conflicts");
+
+  crossgl::HIRModule conflictingTopLevelParameterModule = simpleModule();
+  crossgl::HIRFunction topLevelParameterPrototype;
+  topLevelParameterPrototype.returnType =
+      crossgl::HIRType{"float", std::nullopt};
+  topLevelParameterPrototype.name = "utility";
+  topLevelParameterPrototype.parameters.push_back(crossgl::HIRParameter{
+      crossgl::HIRType{"float", std::nullopt}, "value"});
+  crossgl::HIRFunction topLevelParameterDefinition =
+      topLevelParameterPrototype;
+  topLevelParameterDefinition.parameters.front().type =
+      crossgl::HIRType{"vec2", std::nullopt};
+  topLevelParameterDefinition.body.push_back(
+      crossgl::HIRStatement{crossgl::HIRStatementKind::Return});
+  conflictingTopLevelParameterModule.functions.push_back(
+      topLevelParameterPrototype);
+  conflictingTopLevelParameterModule.functions.push_back(
+      topLevelParameterDefinition);
+  expect(hasDiagnosticCodeAndMessage(
+             collectDefaultHIRValidationDiagnostics(
+                 conflictingTopLevelParameterModule),
+             "opt.hir-function-signature-mismatch",
+             "top-level function list function 'utility' signature mismatch"),
+         "HIR default validation pass rejects top-level prototype/definition "
+         "parameter type conflicts");
+
+  crossgl::HIRModule qualifiedForwardDeclarationModule = simpleModule();
+  crossgl::HIRFunction qualifiedPrototype;
+  qualifiedPrototype.returnType = crossgl::HIRType{"float", std::nullopt};
+  qualifiedPrototype.name = "loadValue";
+  qualifiedPrototype.parameters.push_back(crossgl::HIRParameter{
+      crossgl::HIRType{"buffer float*", std::nullopt}, "values"});
+  crossgl::HIRFunction qualifiedDefinition = qualifiedPrototype;
+  qualifiedDefinition.parameters.front().type =
+      crossgl::HIRType{"float*", std::nullopt};
+  qualifiedDefinition.body.push_back(
+      crossgl::HIRStatement{crossgl::HIRStatementKind::Return});
+  qualifiedForwardDeclarationModule.stages.front().functions.push_back(
+      qualifiedPrototype);
+  qualifiedForwardDeclarationModule.stages.front().functions.push_back(
+      qualifiedDefinition);
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 qualifiedForwardDeclarationModule),
+             "opt.hir-function-signature-mismatch"),
+         "HIR default validation pass accepts qualifier-normalized forward "
+         "declarations");
+
   crossgl::HIRModule emptyStageFunctionModule = simpleModule();
   emptyStageFunctionModule.stages.front().functions.front().name.clear();
   expect(hasDiagnosticCode(
