@@ -303,6 +303,119 @@ file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BAD_DEFAULT_TYPE_MANIFEST}"
 }
 ")
 
+set(CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_ABSOLUTE_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-logical-input-absolute.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_ABSOLUTE_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"logicalInput\": \"/tmp/generated/SimpleShader.cgl\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_LOGICAL_PATH_PARENT_SEGMENT_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-logical-path-parent-segment.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_PATH_PARENT_SEGMENT_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"logicalPath\": \"translator/../SimpleShader.cgl\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_DRIVE_PREFIX_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-logical-input-drive-prefix.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_DRIVE_PREFIX_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"logicalInput\": \"C:/generated/SimpleShader.cgl\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_BACKSLASH_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-logical-input-backslash.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_BACKSLASH_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"logicalInput\": \"translator\\\\snapshots\\\\SimpleShader.cgl\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_EMPTY_SEGMENT_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-logical-input-empty-segment.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_EMPTY_SEGMENT_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"logicalInput\": \"translator//snapshots/SimpleShader.cgl\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_CURRENT_SEGMENT_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-logical-input-current-segment.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_CURRENT_SEGMENT_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"logicalInput\": \"translator/./snapshots/SimpleShader.cgl\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_LOGICAL_PATH_ALIAS_INVALID_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-logical-path-alias-invalid.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_PATH_ALIAS_INVALID_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"logicalInput\": \"translator/snapshots/SimpleShader.cgl\",
+      \"logicalPath\": \"translator/../SimpleShader.cgl\"
+    }
+  ]
+}
+")
+
 function(crossgl_append_cli_surface_defines out_var prefix)
   set(defines)
   set(index 0)
@@ -471,6 +584,94 @@ crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_bad_default_type_fai
     "source batch manifest defaults.debugIR must be a boolean"
   STDERR_CONTAINS
     "source batch manifest defaults.debugIR must be a boolean")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_logical_input_absolute_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_ABSOLUTE_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[0].logicalInput must be a stable relative path"
+  STDERR_CONTAINS
+    "source batch manifest sources[0].logicalInput must be a stable relative path")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_logical_path_parent_segment_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_PATH_PARENT_SEGMENT_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[0].logicalPath must be a stable relative path"
+  STDERR_CONTAINS
+    "source batch manifest sources[0].logicalPath must be a stable relative path")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_logical_input_drive_prefix_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_DRIVE_PREFIX_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[0].logicalInput must be a stable relative path"
+  STDERR_CONTAINS
+    "source batch manifest sources[0].logicalInput must be a stable relative path")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_logical_input_backslash_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_BACKSLASH_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[0].logicalInput must be a stable relative path"
+  STDERR_CONTAINS
+    "source batch manifest sources[0].logicalInput must be a stable relative path")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_logical_input_empty_segment_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_EMPTY_SEGMENT_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[0].logicalInput must be a stable relative path"
+  STDERR_CONTAINS
+    "source batch manifest sources[0].logicalInput must be a stable relative path")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_logical_input_current_segment_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_CURRENT_SEGMENT_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[0].logicalInput must be a stable relative path"
+  STDERR_CONTAINS
+    "source batch manifest sources[0].logicalInput must be a stable relative path")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_logical_path_alias_invalid_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_PATH_ALIAS_INVALID_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[0].logicalPath must be a stable relative path"
+  STDERR_CONTAINS
+    "source batch manifest sources[0].logicalPath must be a stable relative path")
+
+crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_logical_input_drive_prefix_fails
+  EXPECTED_RESULT 1
+  ARGS build --source-batch
+    ${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_INPUT_DRIVE_PREFIX_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[0].logicalInput must be a stable relative path"
+  STDERR_CONTAINS
+    "source batch manifest sources[0].logicalInput must be a stable relative path")
 
 crossgl_add_cli_surface_test(cglc_cli_check_missing_input_diagnostics_json
   EXPECTED_RESULT 1

@@ -620,6 +620,58 @@ bool parseOptionalSourceBatchStringMember(
   return true;
 }
 
+bool isAsciiLetter(char value) {
+  return (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
+}
+
+bool isSourceBatchStableRelativePath(std::string_view path) {
+  if (path.empty() || path.front() == '/') {
+    return false;
+  }
+  if (path.size() >= 2 && isAsciiLetter(path[0]) && path[1] == ':') {
+    return false;
+  }
+  if (path.find('\\') != std::string_view::npos) {
+    return false;
+  }
+
+  std::size_t segmentBegin = 0;
+  for (std::size_t index = 0; index <= path.size(); ++index) {
+    if (index < path.size() && path[index] != '/') {
+      continue;
+    }
+    if (index == segmentBegin) {
+      return false;
+    }
+    std::string_view segment =
+        path.substr(segmentBegin, index - segmentBegin);
+    if (segment == "." || segment == "..") {
+      return false;
+    }
+    segmentBegin = index + 1;
+  }
+  return true;
+}
+
+bool parseOptionalSourceBatchStableRelativePathMember(
+    std::string_view object, std::string_view key, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics, std::optional<std::string> &value) {
+  if (!parseOptionalSourceBatchStringMember(object, key, context, manifestPath,
+                                            diagnostics, value)) {
+    return false;
+  }
+  if (!value || isSourceBatchStableRelativePath(*value)) {
+    return true;
+  }
+  sourceBatchManifestError(
+      diagnostics, manifestPath,
+      std::string(context) + "." + std::string(key) +
+          " must be a stable relative path without drive prefixes, "
+          "backslashes, empty segments, or . or .. segments");
+  return false;
+}
+
 bool parseOptionalSourceBatchBoolMember(
     std::string_view object, std::string_view key, std::string_view context,
     const std::filesystem::path &manifestPath,
@@ -776,23 +828,21 @@ parseSourceBatchEntryObject(std::string_view entryText,
   entry.id = id.value_or("source-" + std::to_string(sourceIndex));
   entry.path = resolveManifestPath(root, *path);
   std::optional<std::string> logicalInput;
-  if (!parseOptionalSourceBatchStringMember(entryText, "logicalInput", context,
-                                            manifestPath, diagnostics,
-                                            logicalInput)) {
+  if (!parseOptionalSourceBatchStableRelativePathMember(
+          entryText, "logicalInput", context, manifestPath, diagnostics,
+          logicalInput)) {
+    return std::nullopt;
+  }
+  std::optional<std::string> logicalPath;
+  if (!parseOptionalSourceBatchStableRelativePathMember(
+          entryText, "logicalPath", context, manifestPath, diagnostics,
+          logicalPath)) {
     return std::nullopt;
   }
   if (logicalInput) {
     entry.logicalInput = std::filesystem::path(*logicalInput);
-  } else {
-    std::optional<std::string> logicalPath;
-    if (!parseOptionalSourceBatchStringMember(entryText, "logicalPath", context,
-                                              manifestPath, diagnostics,
-                                              logicalPath)) {
-      return std::nullopt;
-    }
-    if (logicalPath) {
-      entry.logicalInput = std::filesystem::path(*logicalPath);
-    }
+  } else if (logicalPath) {
+    entry.logicalInput = std::filesystem::path(*logicalPath);
   }
   std::optional<std::string> output;
   if (!parseOptionalSourceBatchStringMember(entryText, "output", context,

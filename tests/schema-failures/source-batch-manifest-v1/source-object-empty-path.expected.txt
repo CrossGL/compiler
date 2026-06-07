@@ -1,0 +1,1 @@
+$.sources[0].path: expected string length >= 1

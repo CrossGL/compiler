@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.sourceBatchManifest",
+  "sources": [
+    {
+      "path": "tests/fixtures/SimpleShader.cgl",
+      "logicalInput": "C:/generated/SimpleShader.cgl"
+    }
+  ]
+}
