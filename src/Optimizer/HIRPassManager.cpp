@@ -1751,8 +1751,12 @@ void validateHIRUserFunctionCall(
     const HIRType &expected = signature.parameters[index].type;
     const std::optional<HIRType> actual =
         hirExpressionEffectiveType(expression.children[index], symbols);
+    const HIRType normalizedExpected = stripTypeQualifier(expected);
+    const HIRType normalizedActual =
+        actual.has_value() ? stripTypeQualifier(*actual) : HIRType{};
     if (!actual.has_value() ||
-        !shouldDiagnoseExactHIRTypeMismatch(expected, *actual, typedContext)) {
+        !shouldDiagnoseExactHIRTypeMismatch(normalizedExpected,
+                                           normalizedActual, typedContext)) {
       continue;
     }
     diagnostics.error(

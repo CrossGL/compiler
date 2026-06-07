@@ -6125,6 +6125,22 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       "HIR typed-symbol validation diagnoses user function call result type "
       "mismatches");
 
+  crossgl::HIRModule qualifiedUserCallModule = simpleModule();
+  qualifiedUserCallModule.functions.push_back(functionSignature(
+      "loadValue", type("float"),
+      {crossgl::HIRParameter{type("buffer float*"), "values"}}));
+  crossgl::HIRFunction &qualifiedUserCallMain =
+      qualifiedUserCallModule.stages.front().functions.front();
+  qualifiedUserCallMain.returnType = type("void");
+  qualifiedUserCallMain.body.push_back(expressionStatement(
+      call("loadValue", type("float"), {identifier("values", type("float*"))})));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(qualifiedUserCallModule)),
+             "opt.hir-function-call-argument-type"),
+         "HIR typed-symbol validation accepts address-space-qualified user "
+         "function arguments after qualifier normalization");
+
   crossgl::HIRExpression missingMember =
       expression(crossgl::HIRExpressionKind::MemberAccess, "missing",
                  type("float"));
