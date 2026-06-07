@@ -1532,6 +1532,12 @@ private:
     SourceLocation opLocation;
   };
 
+  struct ControlConditionSpan {
+    std::size_t begin = 0;
+    std::size_t end = 0;
+    std::size_t bodyBegin = 0;
+  };
+
   std::vector<Token> collectStatement() {
     std::vector<Token> statement;
     int braceDepth = 0;
@@ -1661,6 +1667,16 @@ private:
 
     const std::optional<std::size_t> equal = topLevelEqual(tokens);
     if (equal.has_value()) {
+      if (std::optional<HIRStatement> letMut =
+              parseLetMutDeclarationStatement(tokens, *equal,
+                                              statementLocation)) {
+        return std::move(*letMut);
+      }
+
+      if (isLetMutDeclarationStart(tokens)) {
+        return makeRawFallback(std::move(statement));
+      }
+
       if (std::optional<DeclarationDeclarator> declaration =
               parseColonStyleVarDeclarator(tokens, *equal)) {
         if (hasUnsupportedExpressionToken(tokens, *equal + 1, tokens.size())) {
@@ -1819,26 +1835,19 @@ private:
   HIRStatement parseWhileStatement(HIRStatement statement,
                                    const std::vector<Token> &tokens) {
     statement.kind = HIRStatementKind::For;
-    const std::optional<std::size_t> conditionOpen =
-        findToken(tokens, TokenKind::LParen, 1);
-    if (!conditionOpen.has_value()) {
-      return makeRawFallback(std::move(statement));
-    }
-    const std::optional<std::size_t> conditionClose =
-        findMatching(tokens, *conditionOpen, TokenKind::LParen,
-                     TokenKind::RParen);
-    if (!conditionClose.has_value()) {
+    const std::optional<ControlConditionSpan> condition =
+        parseControlConditionSpan(tokens);
+    if (!condition.has_value()) {
       return makeRawFallback(std::move(statement));
     }
 
-    if (hasUnsupportedExpressionToken(tokens, *conditionOpen + 1,
-                                      *conditionClose)) {
+    if (hasUnsupportedExpressionToken(tokens, condition->begin,
+                                      condition->end)) {
       return makeRawFallback(std::move(statement));
     }
-    statement.value =
-        parseExpression(tokens, *conditionOpen + 1, *conditionClose);
+    statement.value = parseExpression(tokens, condition->begin, condition->end);
 
-    std::size_t bodyBegin = *conditionClose + 1;
+    std::size_t bodyBegin = condition->bodyBegin;
     while (bodyBegin < tokens.size() &&
            tokens[bodyBegin].kind == TokenKind::Semicolon) {
       ++bodyBegin;
@@ -1860,23 +1869,18 @@ private:
   HIRStatement parseIfStatement(HIRStatement statement,
                                 const std::vector<Token> &tokens) {
     statement.kind = HIRStatementKind::If;
-    const std::optional<std::size_t> conditionOpen =
-        findToken(tokens, TokenKind::LParen, 1);
-    if (!conditionOpen.has_value()) {
-      return makeRawFallback(std::move(statement));
-    }
-    const std::optional<std::size_t> conditionClose =
-        findMatching(tokens, *conditionOpen, TokenKind::LParen, TokenKind::RParen);
-    if (!conditionClose.has_value()) {
+    const std::optional<ControlConditionSpan> condition =
+        parseControlConditionSpan(tokens);
+    if (!condition.has_value()) {
       return makeRawFallback(std::move(statement));
     }
 
-    if (hasUnsupportedExpressionToken(tokens, *conditionOpen + 1, *conditionClose)) {
+    if (hasUnsupportedExpressionToken(tokens, condition->begin, condition->end)) {
       return makeRawFallback(std::move(statement));
     }
-    statement.value = parseExpression(tokens, *conditionOpen + 1, *conditionClose);
+    statement.value = parseExpression(tokens, condition->begin, condition->end);
 
-    std::size_t thenBegin = *conditionClose + 1;
+    std::size_t thenBegin = condition->bodyBegin;
     while (thenBegin < tokens.size() && tokens[thenBegin].kind == TokenKind::Semicolon) {
       ++thenBegin;
     }
@@ -1919,6 +1923,51 @@ private:
     return statement;
   }
 
+  std::optional<ControlConditionSpan>
+  parseControlConditionSpan(const std::vector<Token> &tokens) const {
+    constexpr std::size_t controlTokenIndex = 0;
+    const std::size_t headerBegin = controlTokenIndex + 1;
+    if (headerBegin >= tokens.size()) {
+      return std::nullopt;
+    }
+
+    if (tokens[headerBegin].kind == TokenKind::LParen) {
+      const std::optional<std::size_t> close =
+          findMatching(tokens, headerBegin, TokenKind::LParen,
+                       TokenKind::RParen);
+      if (!close.has_value()) {
+        return std::nullopt;
+      }
+      return ControlConditionSpan{headerBegin + 1, *close, *close + 1};
+    }
+
+    int parenDepth = 0;
+    int bracketDepth = 0;
+    for (std::size_t cursor = headerBegin; cursor < tokens.size(); ++cursor) {
+      const Token &token = tokens[cursor];
+      if (token.kind == TokenKind::LParen) {
+        ++parenDepth;
+      } else if (token.kind == TokenKind::RParen) {
+        --parenDepth;
+      } else if (token.kind == TokenKind::LBracket) {
+        ++bracketDepth;
+      } else if (token.kind == TokenKind::RBracket) {
+        --bracketDepth;
+      } else if (token.kind == TokenKind::LBrace && parenDepth == 0 &&
+                 bracketDepth == 0) {
+        if (cursor == headerBegin) {
+          return std::nullopt;
+        }
+        return ControlConditionSpan{headerBegin, cursor, cursor};
+      } else if ((token.kind == TokenKind::Semicolon ||
+                  token.kind == TokenKind::RBrace) &&
+                 parenDepth == 0 && bracketDepth == 0) {
+        return std::nullopt;
+      }
+    }
+    return std::nullopt;
+  }
+
   HIRStatement makeRawFallback(HIRStatement statement) const {
     std::vector<Token> rawTokens = std::move(statement.rawTokens);
     SourceLocation location = std::move(statement.location);
@@ -1945,6 +1994,45 @@ private:
 
   bool isIncrementDecrementOperator(std::string_view op) const {
     return op == "++" || op == "--";
+  }
+
+  bool isLetMutDeclarationStart(const std::vector<Token> &tokens) const {
+    return tokens.size() >= 4 &&
+           tokens[0].kind == TokenKind::Identifier && tokens[0].text == "let" &&
+           tokens[1].kind == TokenKind::Identifier && tokens[1].text == "mut" &&
+           isNameToken(tokens[2].kind);
+  }
+
+  std::optional<HIRStatement>
+  parseLetMutDeclarationStatement(const std::vector<Token> &tokens,
+                                  std::size_t equal,
+                                  SourceLocation statementLocation) {
+    if (!isLetMutDeclarationStart(tokens) || equal != 3) {
+      return std::nullopt;
+    }
+
+    HIRStatement statement;
+    statement.kind = HIRStatementKind::Declaration;
+    statement.location = std::move(statementLocation);
+    statement.name = tokens[2].text;
+    if (hasUnsupportedExpressionToken(tokens, equal + 1, tokens.size())) {
+      diagnoseUnsupportedIncrementDecrementTokens(tokens, equal + 1,
+                                                  tokens.size());
+      return std::nullopt;
+    }
+    statement.value = parseExpression(tokens, equal + 1, tokens.size());
+    if (statement.value.type.name.empty()) {
+      diagnostics_.error(
+          "sema.let-mut-inferred-type",
+          "let mut declarations require an initializer with an inferable type",
+          tokens[0].location);
+      return std::nullopt;
+    }
+    statement.declaredType = statement.value.type;
+    statement.declaredType.location = tokens[2].location;
+    variables_[statement.name] = statement.declaredType;
+    mutableLocals_.insert(statement.name);
+    return statement;
   }
 
   std::optional<IncrementDecrementUpdate>

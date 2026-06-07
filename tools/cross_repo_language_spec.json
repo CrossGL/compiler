@@ -45,9 +45,9 @@
   "contract_manifest": {
     "path": "tools/cross_repo_language_contract.json",
     "schema": 1,
-    "contract_count": 146,
+    "contract_count": 148,
     "accepted_feature_group_count": 8,
-    "negative_case_count": 29,
+    "negative_case_count": 26,
     "hash_fields": [
       "source_sha256",
       "translator_ast_sha256",
@@ -73,7 +73,7 @@
           "sha256": "152cf6b2e0bc796255b316b7413c18a68ff8228cf6ba5c5801aa3bac8db4e135"
         }
       ],
-      "fixture_count": 10,
+      "fixture_count": 12,
       "fixtures": [
         {
           "id": "compiler/tests/fixtures/IfComputeShader.cgl",
@@ -92,6 +92,12 @@
           "source_sha256": "461bd00eac3dd95d5029042d241baa9f58340cfe9237ae54d8e6899e808cdf43",
           "translator_ast_sha256": "fec407cbcb49872d98c23f10970b30cee2142d722a66d83be456fb143907cae6",
           "compiler_hir_sha256": "86d444b64d3e31eb22f6f1f16b334443003e9761a22257a03f5f66f6ec48c7b9"
+        },
+        {
+          "id": "compiler/tests/fixtures/LetMutComputeShader.cgl",
+          "source_sha256": "59a97f5f1def379fa4396cd14cb6bd8a108d673f4902c6b728fc599c897221a0",
+          "translator_ast_sha256": "09c49734c5b39c23c25443392d3e95fdcb32b5bebbeb685b0eda9d36f911154f",
+          "compiler_hir_sha256": "6b2a5e4cdda8f0cc07d968e9d1af710861b1e71edb13aa00a4db3002eacd11b0"
         },
         {
           "id": "compiler/tests/fixtures/IfReturnComputeShader.cgl",
@@ -134,6 +140,12 @@
           "source_sha256": "dd61bafecf825fa88ee0dddcd6670f39af62b1425d00909c3f4d971724badcb3",
           "translator_ast_sha256": "d4b899250a72193b35e1da3eea50d74d46f4981b6f353e7ea109ea1028797d6f",
           "compiler_hir_sha256": "e99db3f71bba9b81a622aa8f8d9b0f219b6e5dd173cb5b101bac0279c47e8445"
+        },
+        {
+          "id": "compiler/tests/fixtures/NonParenthesizedControlFlowShader.cgl",
+          "source_sha256": "c177f79e3b2c71fe3b35af9a016e40dc5115b879d67885795f496db43e59be9b",
+          "translator_ast_sha256": "57821c66504a5c17946d7e71e0e558557d8876e2505d2db0a0f8c7b3697e6164",
+          "compiler_hir_sha256": "79e9d7b6c5683b72567c5e95b61d9d6d1dd23684593a70aaadae0616a7c73236"
         }
       ]
     },
@@ -1111,66 +1123,6 @@
       "translator": {
         "status": "accepts",
         "ast_sha256": "ec21f337d7199987ca0624b869e7434b38b59a1978d3d9d26107b9917c5818ee"
-      },
-      "compiler": {
-        "status": "rejects",
-        "diagnostic_substrings": [
-          "spec.unsupported-for-native-v0"
-        ]
-      }
-    },
-    {
-      "id": "compiler/tests/check-failures/BadUnsupportedLetMutShader.cgl",
-      "group": "spec_unsupported_for_native_v0",
-      "classification": "spec.unsupported-for-native-v0",
-      "feature_group": "control_flow_and_statements",
-      "reason": "CrossTL accepts let mut declarations, but native compiler v0 only lowers C-style local declarations.",
-      "root": "compiler",
-      "path": "tests/check-failures/BadUnsupportedLetMutShader.cgl",
-      "source_sha256": "8552417d4f577b58626025cb1d0ce1c558b065d8c7451053c14923a1e7ee06ec",
-      "translator": {
-        "status": "accepts",
-        "ast_sha256": "b47b144ced31e28a4c45a30f61a3d25e247d9bd847c5232ffd970620eb345023"
-      },
-      "compiler": {
-        "status": "rejects",
-        "diagnostic_substrings": [
-          "spec.unsupported-for-native-v0"
-        ]
-      }
-    },
-    {
-      "id": "compiler/tests/check-failures/BadMalformedIfHeaderShader.cgl",
-      "group": "spec_unsupported_for_native_v0",
-      "classification": "spec.unsupported-for-native-v0",
-      "feature_group": "control_flow_and_statements",
-      "reason": "CrossTL accepts non-parenthesized if headers, but native compiler v0 requires the accepted fixture's parenthesized header form.",
-      "root": "compiler",
-      "path": "tests/check-failures/BadMalformedIfHeaderShader.cgl",
-      "source_sha256": "cd21320780fcef5e0d26d1028240c6abf8ccd9dbdfb099d1f944650e6a3199b9",
-      "translator": {
-        "status": "accepts",
-        "ast_sha256": "03a6fa1c1ccbff2d9f836565ba11087e03b39312008b2166075088e9a672a63a"
-      },
-      "compiler": {
-        "status": "rejects",
-        "diagnostic_substrings": [
-          "spec.unsupported-for-native-v0"
-        ]
-      }
-    },
-    {
-      "id": "compiler/tests/check-failures/BadMalformedWhileHeaderShader.cgl",
-      "group": "spec_unsupported_for_native_v0",
-      "classification": "spec.unsupported-for-native-v0",
-      "feature_group": "control_flow_and_statements",
-      "reason": "CrossTL accepts non-parenthesized while headers, but native compiler v0 requires the accepted fixture's parenthesized header form.",
-      "root": "compiler",
-      "path": "tests/check-failures/BadMalformedWhileHeaderShader.cgl",
-      "source_sha256": "f075dab9e9329664570dd757bbf5479e24dd4fe39ff0abbbf86902ea0429783b",
-      "translator": {
-        "status": "accepts",
-        "ast_sha256": "81c8304c0ce9193d7a9acff892a594f104dd6f1bb4daa466f36629753d138e74"
       },
       "compiler": {
         "status": "rejects",

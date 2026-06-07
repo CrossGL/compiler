@@ -688,6 +688,58 @@ add_test(NAME cglc_check_while_control_flow_hir_body_update
     -DMODE=dump-stage
     "-DMUST_CONTAIN=assign i : int = i \\+ 1 : int"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_non_parenthesized_control_flow
+  COMMAND cglc check ${CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER})
+add_test(NAME cglc_check_non_parenthesized_if_hir_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=if values\\[0\\] > 0\\.0 : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_non_parenthesized_else_if_hir_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=if values\\[1\\] > 0\\.0 : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_non_parenthesized_while_hir_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for index < 4 : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_let_mut_compute
+  COMMAND cglc check ${CROSSGL_LET_MUT_COMPUTE_SHADER})
+add_test(NAME cglc_check_let_mut_int_hir_declaration
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LET_MUT_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=decl int value = int\\(values\\[1\\]\\) : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_let_mut_float_hir_declaration
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LET_MUT_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=decl float total = values\\[0\\] : float"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_let_mut_hir_update
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LET_MUT_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=assign value : int = value \\+ 1 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_HIR_CONTROL_TRANSFER_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/HIRControlTransferShader.cgl)
 add_test(NAME cglc_check_hir_control_transfer_explicit_statements
   COMMAND ${CMAKE_COMMAND}
@@ -1724,24 +1776,6 @@ crossgl_add_native_v0_unsupported_failure(
   5
   7
   "message=for-in loop statements|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_let_mut_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedLetMutShader.cgl
-  4
-  7
-  "message=let mut declarations|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_malformed_if_header_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadMalformedIfHeaderShader.cgl
-  5
-  7
-  "message=malformed control headers|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_malformed_while_header_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadMalformedWhileHeaderShader.cgl
-  5
-  7
-  "message=malformed control headers|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_malformed_for_header_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadMalformedForHeaderShader.cgl

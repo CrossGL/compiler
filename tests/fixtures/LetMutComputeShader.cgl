@@ -1,0 +1,15 @@
+shader LetMutComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    void main() {
+      let mut value = int(values[1]);
+      let mut total = values[0];
+      value++;
+      total += float(value);
+      values[0] = total;
+      return;
+    }
+  }
+}

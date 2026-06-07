@@ -265,16 +265,12 @@ bool isForInStatement(const std::vector<Token> &tokens, std::size_t index) {
   return false;
 }
 
-bool isLetMutDeclaration(const std::vector<Token> &tokens, std::size_t index) {
-  return isIdentifierText(tokens[index], "let") && index + 1 < tokens.size() &&
-         isIdentifierText(tokens[index + 1], "mut");
-}
-
 bool hasMalformedControlHeader(const std::vector<Token> &tokens,
                                std::size_t index) {
-  if (!isIdentifierText(tokens[index], "if") &&
-      !isIdentifierText(tokens[index], "while") &&
-      !isIdentifierText(tokens[index], "for")) {
+  const bool isIf = isIdentifierText(tokens[index], "if");
+  const bool isWhile = isIdentifierText(tokens[index], "while");
+  const bool isFor = isIdentifierText(tokens[index], "for");
+  if (!isIf && !isWhile && !isFor) {
     return false;
   }
 
@@ -283,7 +279,23 @@ bool hasMalformedControlHeader(const std::vector<Token> &tokens,
   }
 
   const std::size_t openIndex = index + 1;
-  if (openIndex >= tokens.size() || tokens[openIndex].kind != TokenKind::LParen) {
+  if (openIndex >= tokens.size()) {
+    return true;
+  }
+
+  if (tokens[openIndex].kind != TokenKind::LParen) {
+    if (isFor) {
+      return true;
+    }
+    for (std::size_t cursor = openIndex; cursor < tokens.size(); ++cursor) {
+      const TokenKind kind = tokens[cursor].kind;
+      if (kind == TokenKind::LBrace) {
+        return cursor == openIndex;
+      }
+      if (kind == TokenKind::Semicolon || kind == TokenKind::RBrace) {
+        return true;
+      }
+    }
     return true;
   }
 
@@ -1487,10 +1499,6 @@ void Parser::diagnoseUnsupportedFunctionBodyForms(
     }
     if (isForInStatement(tokens, index)) {
       diagnoseUnsupportedNativeV0("for-in loop statements", token.location);
-      return;
-    }
-    if (isLetMutDeclaration(tokens, index)) {
-      diagnoseUnsupportedNativeV0("let mut declarations", token.location);
       return;
     }
     if (hasMalformedControlHeader(tokens, index)) {
