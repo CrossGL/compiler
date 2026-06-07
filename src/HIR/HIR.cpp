@@ -1820,6 +1820,11 @@ private:
       return makeRawFallback(std::move(statement));
     }
 
+    if (!headerParts[1].empty() &&
+        hasUnsupportedExpressionToken(headerParts[1], 0, headerParts[1].size())) {
+      return makeRawFallback(std::move(statement));
+    }
+
     const std::unordered_map<std::string, HIRType> outerVariables = variables_;
     const std::set<std::string> outerMutableLocals = mutableLocals_;
     if (!headerParts[0].empty()) {
@@ -1828,9 +1833,6 @@ private:
     if (headerParts[1].empty()) {
       statement.value = makeBoolLiteral("true", tokens.front().location);
     } else {
-      if (hasUnsupportedExpressionToken(headerParts[1], 0, headerParts[1].size())) {
-        return makeRawFallback(std::move(statement));
-      }
       statement.value = parseExpression(headerParts[1], 0, headerParts[1].size());
     }
     statement.updateTokens = headerParts[2];
