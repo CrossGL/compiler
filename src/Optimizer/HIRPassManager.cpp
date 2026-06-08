@@ -1977,6 +1977,16 @@ hirAssignmentTargetDirectIdentifier(const HIRExpression &expression) {
   return target.kind == HIRExpressionKind::Identifier ? &target : nullptr;
 }
 
+bool isHIRDirectAggregateAssignmentTarget(const HIRExpression &expression) {
+  const HIRExpression *direct =
+      hirAssignmentTargetDirectIdentifier(expression);
+  if (direct == nullptr || !isArrayType(expression.type)) {
+    return false;
+  }
+  const HIRResourceKind kind = resourceKindFromName(expression.type.name);
+  return kind == HIRResourceKind::Value || kind == HIRResourceKind::Shared;
+}
+
 void validateHIRAtomicReadModifyWriteLValue(
     const HIRExpression &expression, const std::string &context,
     const HIRSymbolTable &symbols, DiagnosticEngine &diagnostics) {
@@ -2455,6 +2465,15 @@ void validateHIRStatementTypedSymbols(
                         "HIR " + statementContext + " target '" + root->value +
                             "' is read-only",
                         root->location);
+    } else if (isHIRDirectAggregateAssignmentTarget(statement.target)) {
+      const HIRExpression *target =
+          hirAssignmentTargetDirectIdentifier(statement.target);
+      diagnostics.error("opt.hir-assignment-target-lvalue",
+                        "HIR " + statementContext + " target '" +
+                            target->value + "' has array type '" +
+                            formatType(statement.target.type) +
+                            "'; assign an element instead",
+                        target->location);
     }
     const std::optional<HIRType> targetType =
         hirExpressionEffectiveType(statement.target, symbols);

@@ -2608,6 +2608,26 @@ add_test(NAME cglc_check_storage_image_resource_assignment_readonly_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'colorImage' is a resource handle"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_local_array_assignment_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_LOCAL_ARRAY_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'weights' has array type 'float[4]'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_shared_array_assignment_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SHARED_ARRAY_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'tile' has array type 'float[4]'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_void_return_value_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

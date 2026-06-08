@@ -4664,6 +4664,21 @@ assignmentTargetDiagnosticExpression(const HIRExpression &expression) {
 }
 
 const HIRExpression *
+directAssignmentTargetIdentifier(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
+  return target.kind == HIRExpressionKind::Identifier ? &target : nullptr;
+}
+
+bool isDirectAggregateAssignmentTarget(const HIRExpression &expression) {
+  const HIRExpression *direct = directAssignmentTargetIdentifier(expression);
+  if (direct == nullptr || !isArrayType(expression.type)) {
+    return false;
+  }
+  const HIRResourceKind kind = resourceKindFromName(expression.type.name);
+  return kind == HIRResourceKind::Value || kind == HIRResourceKind::Shared;
+}
+
+const HIRExpression *
 duplicateSwizzleAssignmentTargetExpression(const HIRExpression &expression) {
   const HIRExpression &target = unwrapTransparentTargetExpression(expression);
   if ((target.kind == HIRExpressionKind::IndexAccess ||
@@ -4684,17 +4699,29 @@ duplicateSwizzleAssignmentTargetExpression(const HIRExpression &expression) {
 void validateAssignmentTargetSemantics(const HIRStatement &statement,
                                        DiagnosticEngine &diagnostics) {
   if (statement.kind != HIRStatementKind::Assignment ||
-      statement.target.kind == HIRExpressionKind::Empty ||
-      isAssignableTargetExpression(statement.target)) {
+      statement.target.kind == HIRExpressionKind::Empty) {
     return;
   }
-  const HIRExpression &target =
-      assignmentTargetDiagnosticExpression(statement.target);
-  diagnostics.error("sema.assignment-target-lvalue",
-                    "assignment target must be an assignable storage location, "
-                    "got '" +
-                        expressionKindName(target.kind) + "' expression",
-                    target.location);
+  if (!isAssignableTargetExpression(statement.target)) {
+    const HIRExpression &target =
+        assignmentTargetDiagnosticExpression(statement.target);
+    diagnostics.error(
+        "sema.assignment-target-lvalue",
+        "assignment target must be an assignable storage location, got '" +
+            expressionKindName(target.kind) + "' expression",
+        target.location);
+    return;
+  }
+  if (isDirectAggregateAssignmentTarget(statement.target)) {
+    const HIRExpression *target =
+        directAssignmentTargetIdentifier(statement.target);
+    diagnostics.error("sema.assignment-target-lvalue",
+                      "assignment target '" + target->value +
+                          "' has array type '" +
+                          formatType(statement.target.type) +
+                          "'; assign an element instead",
+                      target->location);
+  }
 }
 
 void validateAssignmentTargetSwizzleSemantics(

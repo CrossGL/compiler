@@ -5849,6 +5849,9 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
   auto type = [](std::string name) {
     return crossgl::HIRType{std::move(name), std::nullopt};
   };
+  auto arrayType = [](std::string name, std::string arraySize) {
+    return crossgl::HIRType{std::move(name), std::move(arraySize)};
+  };
   auto expression = [](crossgl::HIRExpressionKind kind, std::string value,
                        crossgl::HIRType expressionType = {}) {
     crossgl::HIRExpression result;
@@ -6271,6 +6274,36 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
              "opt.hir-assignment-target-readonly"),
          "HIR typed-symbol validation keeps storage-buffer element writes "
          "writable");
+
+  crossgl::HIRModule localArrayAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &localArrayAssignmentTargetMain =
+      localArrayAssignmentTargetModule.stages.front().functions.front();
+  localArrayAssignmentTargetMain.returnType = type("void");
+  localArrayAssignmentTargetMain.body.push_back(
+      declaration("weights", arrayType("float", "4")));
+  localArrayAssignmentTargetMain.body.push_back(assignment(
+      identifier("weights", arrayType("float", "4")),
+      identifier("weights", arrayType("float", "4"))));
+  expectInvalidTypedSymbol(
+      std::move(localArrayAssignmentTargetModule),
+      "opt.hir-assignment-target-lvalue",
+      "HIR typed-symbol validation rejects direct assignments to whole arrays");
+
+  crossgl::HIRModule localArrayElementAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &localArrayElementAssignmentTargetMain =
+      localArrayElementAssignmentTargetModule.stages.front().functions.front();
+  localArrayElementAssignmentTargetMain.returnType = type("void");
+  localArrayElementAssignmentTargetMain.body.push_back(
+      declaration("weights", arrayType("float", "4")));
+  localArrayElementAssignmentTargetMain.body.push_back(assignment(
+      index(identifier("weights", arrayType("float", "4")),
+            literal("0", type("int")), type("float")),
+      literal("1.0", type("float"))));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(localArrayElementAssignmentTargetModule)),
+             "opt.hir-assignment-target-lvalue"),
+         "HIR typed-symbol validation keeps array element writes writable");
 
   crossgl::HIRModule shadowedConstantAssignmentTargetModule = simpleModule();
   shadowedConstantAssignmentTargetModule.constants.push_back(
@@ -50249,6 +50282,35 @@ shader DuplicateSwizzleReadShader {
          "duplicate vector swizzle reads remain valid");
 }
 
+void testAssignmentTargetAggregateDiagnostics() {
+  constexpr std::string_view aggregateAssignmentSource = R"(
+shader BadAggregateAssignmentShader {
+  compute {
+    shared float tile[4];
+    void main() {
+      float weights[4];
+      weights = weights;
+      tile = tile;
+      weights[0] = tile[0];
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> aggregateDiagnostics =
+      collectDiagnostics(aggregateAssignmentSource);
+  expect(hasDiagnosticCodeAndMessage(aggregateDiagnostics,
+                                     "sema.assignment-target-lvalue",
+                                     "target 'weights' has array type") &&
+             hasDiagnosticCodeAndMessage(aggregateDiagnostics,
+                                         "sema.assignment-target-lvalue",
+                                         "target 'tile' has array type") &&
+             aggregateDiagnostics.size() == 2,
+         "direct assignments to whole local and shared arrays produce "
+         "diagnostics while element writes remain valid");
+}
+
 void testAssignmentTargetReadOnlyDiagnostics() {
   constexpr std::string_view constantAssignmentSource = R"(
 shader BadConstantAssignmentShader {
@@ -50723,6 +50785,7 @@ int main() {
   testStorageImageDiagnostics();
   testTextureSampleDiagnostics();
   testVectorSwizzleDiagnostics();
+  testAssignmentTargetAggregateDiagnostics();
   testAssignmentTargetReadOnlyDiagnostics();
 
   std::error_code cleanupError;
