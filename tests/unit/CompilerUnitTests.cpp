@@ -691,6 +691,15 @@ void testHIRTypeSemanticsHelpers() {
          "array element type preserves pointer markers");
   expect(!element.arraySize.has_value(), "array element type removes array shape");
 
+  const crossgl::HIRType multidimArray{
+      "float", std::optional<std::string>{"2][3"}};
+  const crossgl::HIRType multidimElement =
+      crossgl::arrayElementType(multidimArray);
+  expect(multidimElement.name == "float" &&
+             multidimElement.arraySize == std::optional<std::string>{"3"},
+         "array element type removes only the indexed dimension for "
+         "multidimensional arrays");
+
   const crossgl::HIRType bufferElement = crossgl::bufferElementType(arrayOfPointers);
   expect(bufferElement.name == "vec4",
          "buffer element type strips trailing pointer markers");
@@ -6304,6 +6313,84 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
                  std::move(localArrayElementAssignmentTargetModule)),
              "opt.hir-assignment-target-lvalue"),
          "HIR typed-symbol validation keeps array element writes writable");
+
+  crossgl::HIRModule structArrayFieldAssignmentTargetModule = simpleModule();
+  structArrayFieldAssignmentTargetModule.structs.push_back(crossgl::HIRStruct{
+      "Particle",
+      {crossgl::HIRField{crossgl::HIRType{"float", std::string{"4"}},
+                         "weights"}}});
+  crossgl::HIRFunction &structArrayFieldAssignmentTargetMain =
+      structArrayFieldAssignmentTargetModule.stages.front().functions.front();
+  structArrayFieldAssignmentTargetMain.returnType = type("void");
+  structArrayFieldAssignmentTargetMain.body.push_back(
+      declaration("particle", type("Particle")));
+  structArrayFieldAssignmentTargetMain.body.push_back(assignment(
+      member(identifier("particle", type("Particle")), "weights",
+             arrayType("float", "4")),
+      member(identifier("particle", type("Particle")), "weights",
+             arrayType("float", "4"))));
+  expectInvalidTypedSymbol(
+      std::move(structArrayFieldAssignmentTargetModule),
+      "opt.hir-assignment-target-lvalue",
+      "HIR typed-symbol validation rejects direct assignments to whole "
+      "struct array fields");
+
+  crossgl::HIRModule structArrayElementAssignmentTargetModule = simpleModule();
+  structArrayElementAssignmentTargetModule.structs.push_back(crossgl::HIRStruct{
+      "Particle",
+      {crossgl::HIRField{crossgl::HIRType{"float", std::string{"4"}},
+                         "weights"}}});
+  crossgl::HIRFunction &structArrayElementAssignmentTargetMain =
+      structArrayElementAssignmentTargetModule.stages.front().functions.front();
+  structArrayElementAssignmentTargetMain.returnType = type("void");
+  structArrayElementAssignmentTargetMain.body.push_back(
+      declaration("particle", type("Particle")));
+  structArrayElementAssignmentTargetMain.body.push_back(assignment(
+      index(member(identifier("particle", type("Particle")), "weights",
+                   arrayType("float", "4")),
+            literal("0", type("int")), type("float")),
+      literal("1.0", type("float"))));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(structArrayElementAssignmentTargetModule)),
+             "opt.hir-assignment-target-lvalue"),
+         "HIR typed-symbol validation keeps struct array field element writes "
+         "writable");
+
+  crossgl::HIRModule nestedSubarrayAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &nestedSubarrayAssignmentTargetMain =
+      nestedSubarrayAssignmentTargetModule.stages.front().functions.front();
+  nestedSubarrayAssignmentTargetMain.returnType = type("void");
+  nestedSubarrayAssignmentTargetMain.body.push_back(
+      declaration("grid", arrayType("float", "2][3")));
+  nestedSubarrayAssignmentTargetMain.body.push_back(assignment(
+      index(identifier("grid", arrayType("float", "2][3")),
+            literal("0", type("int")), arrayType("float", "3")),
+      index(identifier("grid", arrayType("float", "2][3")),
+            literal("1", type("int")), arrayType("float", "3"))));
+  expectInvalidTypedSymbol(
+      std::move(nestedSubarrayAssignmentTargetModule),
+      "opt.hir-assignment-target-lvalue",
+      "HIR typed-symbol validation rejects direct assignments to nested "
+      "subarrays");
+
+  crossgl::HIRModule nestedScalarElementAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &nestedScalarElementAssignmentTargetMain =
+      nestedScalarElementAssignmentTargetModule.stages.front().functions.front();
+  nestedScalarElementAssignmentTargetMain.returnType = type("void");
+  nestedScalarElementAssignmentTargetMain.body.push_back(
+      declaration("grid", arrayType("float", "2][3")));
+  nestedScalarElementAssignmentTargetMain.body.push_back(assignment(
+      index(index(identifier("grid", arrayType("float", "2][3")),
+                  literal("0", type("int")), arrayType("float", "3")),
+            literal("0", type("int")), type("float")),
+      literal("1.0", type("float"))));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(nestedScalarElementAssignmentTargetModule)),
+             "opt.hir-assignment-target-lvalue"),
+         "HIR typed-symbol validation keeps nested scalar element writes "
+         "writable");
 
   crossgl::HIRModule shadowedConstantAssignmentTargetModule = simpleModule();
   shadowedConstantAssignmentTargetModule.constants.push_back(
@@ -50285,13 +50372,22 @@ shader DuplicateSwizzleReadShader {
 void testAssignmentTargetAggregateDiagnostics() {
   constexpr std::string_view aggregateAssignmentSource = R"(
 shader BadAggregateAssignmentShader {
+  struct Particle {
+    float weights[4];
+  };
   compute {
+    layout(set = 0, binding = 0) buffer Particle* particles;
     shared float tile[4];
     void main() {
       float weights[4];
+      float grid[2][3];
       weights = weights;
       tile = tile;
+      grid[0] = grid[1];
+      particles[1].weights = particles[0].weights;
       weights[0] = tile[0];
+      grid[0][0] = weights[0];
+      particles[1].weights[0] = weights[0];
       return;
     }
   }
@@ -50306,9 +50402,15 @@ shader BadAggregateAssignmentShader {
              hasDiagnosticCodeAndMessage(aggregateDiagnostics,
                                          "sema.assignment-target-lvalue",
                                          "target 'tile' has array type") &&
-             aggregateDiagnostics.size() == 2,
-         "direct assignments to whole local and shared arrays produce "
-         "diagnostics while element writes remain valid");
+             hasDiagnosticCodeAndMessage(
+                 aggregateDiagnostics, "sema.assignment-target-lvalue",
+                 "target indexed expression has array type") &&
+             hasDiagnosticCodeAndMessage(
+                 aggregateDiagnostics, "sema.assignment-target-lvalue",
+                 "target member 'weights' has array type") &&
+             aggregateDiagnostics.size() == 4,
+         "direct assignments to whole local, shared, member, and nested arrays "
+         "produce diagnostics while element writes remain valid");
 }
 
 void testAssignmentTargetReadOnlyDiagnostics() {

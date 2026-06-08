@@ -4664,18 +4664,29 @@ assignmentTargetDiagnosticExpression(const HIRExpression &expression) {
 }
 
 const HIRExpression *
-directAssignmentTargetIdentifier(const HIRExpression &expression) {
+aggregateAssignmentTargetExpression(const HIRExpression &expression) {
   const HIRExpression &target = unwrapTransparentTargetExpression(expression);
-  return target.kind == HIRExpressionKind::Identifier ? &target : nullptr;
+  if (!isAssignableTargetExpression(target) || !isArrayType(target.type)) {
+    return nullptr;
+  }
+  const HIRResourceKind kind = resourceKindFromName(target.type.name);
+  if (kind != HIRResourceKind::Value && kind != HIRResourceKind::Shared) {
+    return nullptr;
+  }
+  return &target;
 }
 
-bool isDirectAggregateAssignmentTarget(const HIRExpression &expression) {
-  const HIRExpression *direct = directAssignmentTargetIdentifier(expression);
-  if (direct == nullptr || !isArrayType(expression.type)) {
-    return false;
+std::string assignmentTargetDescription(const HIRExpression &target) {
+  switch (target.kind) {
+  case HIRExpressionKind::Identifier:
+    return "'" + target.value + "'";
+  case HIRExpressionKind::MemberAccess:
+    return "member '" + target.value + "'";
+  case HIRExpressionKind::IndexAccess:
+    return "indexed expression";
+  default:
+    return "'" + std::string(expressionKindName(target.kind)) + "' expression";
   }
-  const HIRResourceKind kind = resourceKindFromName(expression.type.name);
-  return kind == HIRResourceKind::Value || kind == HIRResourceKind::Shared;
 }
 
 const HIRExpression *
@@ -4712,13 +4723,12 @@ void validateAssignmentTargetSemantics(const HIRStatement &statement,
         target.location);
     return;
   }
-  if (isDirectAggregateAssignmentTarget(statement.target)) {
-    const HIRExpression *target =
-        directAssignmentTargetIdentifier(statement.target);
+  if (const HIRExpression *target =
+          aggregateAssignmentTargetExpression(statement.target)) {
     diagnostics.error("sema.assignment-target-lvalue",
-                      "assignment target '" + target->value +
-                          "' has array type '" +
-                          formatType(statement.target.type) +
+                      "assignment target " +
+                          assignmentTargetDescription(*target) +
+                          " has array type '" + formatType(target->type) +
                           "'; assign an element instead",
                       target->location);
   }

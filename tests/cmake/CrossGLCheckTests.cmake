@@ -2628,6 +2628,26 @@ add_test(NAME cglc_check_shared_array_assignment_lvalue_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'tile' has array type 'float[4]'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_struct_array_field_assignment_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_STRUCT_ARRAY_FIELD_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=8|location.column=20"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target member 'weights' has array type 'float[4]'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_nested_subarray_assignment_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_NESTED_SUBARRAY_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=11"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target indexed expression has array type 'float[3]'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_void_return_value_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

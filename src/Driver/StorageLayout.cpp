@@ -183,6 +183,11 @@ fieldStorageSizeBytes(const StorageTypeLayout &layout,
   return layout.sizeBytes;
 }
 
+HIRType flattenedArrayElementType(HIRType type) {
+  type.arraySize.reset();
+  return type;
+}
+
 std::optional<StorageTypeLayout>
 storageTypeLayout(const HIRType &type, StorageLayoutKind layoutKind,
                   const StorageLayoutContext &context,
@@ -264,7 +269,7 @@ storageTypeLayout(const HIRType &type, StorageLayoutKind layoutKind,
                   bool allowRuntimeArrayTail,
                   std::set<std::string> &visiting) {
   if (type.arraySize.has_value()) {
-    HIRType elementType = arrayElementType(type);
+    HIRType elementType = flattenedArrayElementType(type);
     const std::optional<StorageTypeLayout> elementLayout =
         storageTypeLayout(elementType, layoutKind, context, false, visiting);
     if (!elementLayout.has_value() || elementLayout->hasRuntimeArray) {

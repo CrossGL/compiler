@@ -138,7 +138,16 @@ HIRType pointerlessType(HIRType type) {
 }
 
 HIRType arrayElementType(HIRType type) {
-  type.arraySize.reset();
+  if (!type.arraySize.has_value()) {
+    return type;
+  }
+
+  const std::size_t separator = type.arraySize->find("][");
+  if (separator == std::string::npos) {
+    type.arraySize.reset();
+  } else {
+    type.arraySize = type.arraySize->substr(separator + 2);
+  }
   return type;
 }
 
