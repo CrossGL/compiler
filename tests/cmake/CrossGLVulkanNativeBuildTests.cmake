@@ -2450,6 +2450,27 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_SNIPPET=OpCompositeExtract %float %param_readWeight_weights 1"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_function_parameter_array_write_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-function-parameter-array-write-native.cglb
+      -DEXPECTED_MODULE=VulkanFunctionParameterArrayWriteShader
+      -DEXPECTED_STORAGE_ELEMENT=Particle
+      -DEXPECTED_STORAGE_STRIDE=8
+      -DEXPECTED_STRUCT_FIELD=weights
+      -DEXPECTED_STRUCT_FIELD_OFFSET=0
+      -DEXPECTED_STRUCT_FIELD_ARRAY_COUNT=2
+      -DEXPECTED_STRUCT_FIELD_ARRAY_STRIDE=4
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanFunctionParameterArrayWriteShader|artifacts.backendAssembly=backend/vulkan/VulkanFunctionParameterArrayWriteShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanFunctionParameterArrayWriteShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanFunctionParameterArrayWriteShader|nativeBinary=backend/vulkan/VulkanFunctionParameterArrayWriteShader.spv|workgroupSizes.0.entryPoint=compute_main|functionConstants.0.name=COUNT|functionConstants.0.value=2|structs.0.fields.0.name=weights|structs.0.fields.0.arrayDimensions.0.elementCount=2"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|functionConstants=1|structs=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storageBuffer|particles.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|particles.storageClass=StorageBuffer|particles.set=0|particles.binding=0|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.arrayStrideBytes=8|particles.storageBufferLayout.fields.0.name=weights|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=4"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=fixed-array.kind=layout|fixed-array-field.kind=layout|compute-kernel.kind=stage|storage-buffer.kind=resource|local-declaration.kind=operation|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      "-DEXPECTED_SPVASM_CONTAINS=%ptr_Function_float_COUNT_ = OpTypePointer Function %fnarr_float_COUNT_|%param_rewriteWeight_weights = OpFunctionParameter %ptr_Function_float_COUNT_|%var_param_array_writeback_rewriteWeight_weights = OpVariable %ptr_Function_float_COUNT_ Function|OpFunctionCall %float %func_rewriteWeight %var_param_array_writeback_rewriteWeight_weights|OpAccessChain %ptr_Function_float %var_param_array_writeback_rewriteWeight_weights|OpAccessChain %ptr_Function_float %param_rewriteWeight_weights"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_local_function_parameter_array_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>

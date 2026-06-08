@@ -41355,15 +41355,76 @@ shader VulkanFunctionParameterArrayWriteShader {
 }
 )";
 
-  const std::vector<crossgl::Diagnostic> diagnostics =
-      collectVulkanPrototypeDiagnostics(writeThroughSource);
-  const crossgl::Diagnostic *writeDiagnostic = findDiagnostic(
-      diagnostics, "vulkan.prototype-unsupported-function-parameter-array");
-  expect(writeDiagnostic != nullptr &&
-             writeDiagnostic->message.find("read-only value-copy ABI") !=
+  std::optional<crossgl::HIRModule> writeThroughHir =
+      parseHIR(writeThroughSource);
+  expect(writeThroughHir.has_value(),
+         "Vulkan storage helper array write-through source builds HIR");
+  if (writeThroughHir) {
+    crossgl::DiagnosticEngine writeThroughDiagnostics;
+    const std::string writeThroughAssembly =
+        crossgl::generateVulkanPrototypeAssembly(*writeThroughHir,
+                                                 writeThroughDiagnostics);
+    expect(!writeThroughDiagnostics.hasErrors(),
+           "Vulkan prototype lowers direct storage-buffer field helper array "
+           "writes without diagnostics");
+    expect(writeThroughAssembly.find(
+               "%param_rewriteWeight_weights = OpFunctionParameter "
+               "%ptr_Function_float_COUNT_") != std::string::npos &&
+               writeThroughAssembly.find(
+                   "%ptr_Function_float_COUNT_ = OpTypePointer Function "
+                   "%fnarr_float_COUNT_") != std::string::npos &&
+               writeThroughAssembly.find(
+                   "%var_param_array_writeback_rewriteWeight_weights = "
+                   "OpVariable %ptr_Function_float_COUNT_ Function") !=
+                   std::string::npos &&
+               writeThroughAssembly.find(
+                   "OpFunctionCall %float %func_rewriteWeight "
+                   "%var_param_array_writeback_rewriteWeight_weights") !=
+                   std::string::npos &&
+               countOccurrences(
+                   writeThroughAssembly,
+                   "OpAccessChain %ptr_Function_float "
+                   "%var_param_array_writeback_rewriteWeight_weights") >= 4 &&
+               countOccurrences(writeThroughAssembly,
+                                "OpAccessChain %ptr_Function_float "
+                                "%param_rewriteWeight_weights") >= 2,
+           "Vulkan prototype copies a storage-buffer field array into a "
+           "Function temporary, calls the helper through pointer ABI, writes "
+           "inside the helper, and copies temporary elements back");
+  }
+
+  constexpr std::string_view unsupportedLocalWriteBackSource = R"(
+shader VulkanFunctionParameterArrayWriteUnsupportedShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    float rewriteWeight(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      float weights[COUNT];
+      weights[0] = values[0];
+      float value = rewriteWeight(weights);
+      values[1] = value;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> localWriteDiagnostics =
+      collectVulkanPrototypeDiagnostics(unsupportedLocalWriteBackSource);
+  const crossgl::Diagnostic *localWriteDiagnostic = findDiagnostic(
+      localWriteDiagnostics,
+      "vulkan.prototype-unsupported-function-parameter-array");
+  expect(localWriteDiagnostic != nullptr &&
+             localWriteDiagnostic->message.find(
+                 "direct non-aliased storage-buffer field array argument") !=
                  std::string::npos,
-         "Vulkan keeps a planned diagnostic for writes through helper array "
-         "parameters");
+         "Vulkan keeps a diagnostic for helper array writes when the caller "
+         "passes a local array rather than a storage-buffer field array");
 
   constexpr std::string_view dynamicNestedIndexSource = R"(
 shader VulkanDynamicNestedLocalFunctionParameterArrayUnsupportedShader {

@@ -34,6 +34,8 @@ constexpr std::string_view kRawStatementBackendInputDiagnostic =
 
 using PrototypeTextureOffset = std::array<int, 2>;
 
+const std::unordered_set<std::string> kEmptyStringSet;
+
 enum class VulkanStorageImageAccessDecoration {
   None,
   NonWritable,
@@ -2474,6 +2476,8 @@ bool isPrototypeDirectResourceArrayArgument(
 
 using VulkanPrototypeResourceArrayParameterAliasMap =
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>>;
+using VulkanPrototypeArrayWriteBackParameterMap =
+    std::unordered_map<std::string, std::unordered_set<std::string>>;
 
 const HIRFunction *findVulkanPrototypeCallableFunction(const HIRModule &module,
                                                        const HIRStage &stage,
@@ -2625,6 +2629,238 @@ bool collectVulkanPrototypeResourceArrayParameterAliases(
     }
     return false;
   }
+  return true;
+}
+
+const HIRExpression *
+vulkanFunctionParameterArrayRootIdentifier(const HIRExpression &expression) {
+  const HIRExpression *current = &expression;
+  while (current != nullptr) {
+    if ((current->kind == HIRExpressionKind::Group ||
+         (current->kind == HIRExpressionKind::Unary &&
+          current->value == "+")) &&
+        !current->children.empty()) {
+      current = &current->children.front();
+      continue;
+    }
+    if ((current->kind == HIRExpressionKind::IndexAccess ||
+         current->kind == HIRExpressionKind::MemberAccess) &&
+        !current->children.empty()) {
+      current = &current->children.front();
+      continue;
+    }
+    return current->kind == HIRExpressionKind::Identifier ? current : nullptr;
+  }
+  return nullptr;
+}
+
+bool vulkanFunctionParameterArrayHasCallFeature(
+    const std::vector<HIRFunctionParameterArrayCallFeature> &features,
+    HIRFunctionParameterArrayCallFeature expected) {
+  return std::find(features.begin(), features.end(), expected) !=
+         features.end();
+}
+
+bool vulkanStorageBufferFieldArrayWriteBackArgument(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRExpression &argument, const HIRStage *stage) {
+  if (functionParameterArrayShape(module, argument.type) !=
+          HIRFunctionParameterArrayShape::FixedSize ||
+      !argument.type.arraySize.has_value()) {
+    return false;
+  }
+  if (prototypeArrayDimensions(*argument.type.arraySize).size() != 1) {
+    return false;
+  }
+
+  const std::vector<HIRFunctionParameterArrayCallFeature> features =
+      functionParameterArrayCallArgumentFeatures(module, caller, argument,
+                                                 stage);
+  return vulkanFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           StorageBufferFieldArguments) &&
+         !vulkanFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           LocalArrayArguments) &&
+         !vulkanFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           FunctionParameterArguments) &&
+         !vulkanFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           NestedStructFieldArguments) &&
+         !vulkanFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           DirectResourceArrayArguments);
+}
+
+void collectVulkanFunctionParameterArrayWritesInStatement(
+    const HIRModule &module, const HIRFunction &function,
+    const std::unordered_set<std::string> &parameterArrays,
+    const HIRStatement &statement, std::unordered_set<std::string> &written) {
+  if (statement.kind == HIRStatementKind::Assignment &&
+      functionParameterArrayWriteTarget(module, function, statement.target,
+                                        nullptr) ==
+          HIRFunctionParameterArrayWriteTarget::ReadOnlyParameterArray) {
+    if (const HIRExpression *root =
+            vulkanFunctionParameterArrayRootIdentifier(statement.target);
+        root != nullptr && parameterArrays.count(root->value) != 0) {
+      written.insert(root->value);
+    }
+  }
+
+  for (const HIRStatement &child : statement.initializer) {
+    collectVulkanFunctionParameterArrayWritesInStatement(
+        module, function, parameterArrays, child, written);
+  }
+  for (const HIRStatement &child : statement.update) {
+    collectVulkanFunctionParameterArrayWritesInStatement(
+        module, function, parameterArrays, child, written);
+  }
+  for (const HIRStatement &child : statement.body) {
+    collectVulkanFunctionParameterArrayWritesInStatement(
+        module, function, parameterArrays, child, written);
+  }
+  for (const HIRStatement &child : statement.elseBody) {
+    collectVulkanFunctionParameterArrayWritesInStatement(
+        module, function, parameterArrays, child, written);
+  }
+}
+
+std::unordered_set<std::string>
+writtenVulkanFunctionParameterArrayNames(const HIRModule &module,
+                                         const HIRFunction &function) {
+  std::unordered_set<std::string> parameterArrays;
+  for (const HIRParameter &parameter : function.parameters) {
+    if (functionParameterArrayShape(module, parameter.type) ==
+        HIRFunctionParameterArrayShape::FixedSize) {
+      parameterArrays.insert(parameter.name);
+    }
+  }
+
+  std::unordered_set<std::string> written;
+  if (parameterArrays.empty()) {
+    return written;
+  }
+  for (const HIRStatement &statement : function.body) {
+    collectVulkanFunctionParameterArrayWritesInStatement(
+        module, function, parameterArrays, statement, written);
+  }
+  return written;
+}
+
+VulkanPrototypeArrayWriteBackParameterMap
+collectVulkanFunctionParameterArrayWriteBackParameters(
+    const HIRModule &module, const HIRStage &stage) {
+  VulkanPrototypeArrayWriteBackParameterMap parameters;
+  auto collect = [&](const HIRFunction &function) {
+    std::unordered_set<std::string> written =
+        writtenVulkanFunctionParameterArrayNames(module, function);
+    if (!written.empty()) {
+      parameters[function.name] = std::move(written);
+    }
+  };
+  for (const HIRFunction &function : module.functions) {
+    collect(function);
+  }
+  for (const HIRFunction &function : stage.functions) {
+    collect(function);
+  }
+  return parameters;
+}
+
+bool vulkanFunctionParameterArrayWriteArgumentAliases(
+    const HIRFunction &callee, const HIRExpression &call,
+    std::size_t parameterIndex) {
+  if (call.children.size() <= parameterIndex) {
+    return false;
+  }
+  const HIRExpression *writtenRoot =
+      vulkanFunctionParameterArrayRootIdentifier(call.children[parameterIndex]);
+  if (writtenRoot == nullptr) {
+    return false;
+  }
+
+  for (std::size_t index = 0; index < callee.parameters.size(); ++index) {
+    if (index == parameterIndex || call.children.size() <= index ||
+        !callee.parameters[index].type.arraySize.has_value()) {
+      continue;
+    }
+    const HIRExpression *otherRoot =
+        vulkanFunctionParameterArrayRootIdentifier(call.children[index]);
+    if (otherRoot != nullptr && otherRoot->value == writtenRoot->value) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void collectUnsupportedVulkanPrototypeFunctionParameterArrayWriteLabels(
+    const HIRModule &module, const HIRStage &stage, const HIRFunction &caller,
+    const VulkanPrototypeArrayWriteBackParameterMap &writeBackParameters,
+    std::set<std::string> &labels) {
+  auto visitor = [&](const HIRExpression &expression) {
+    if (expression.kind != HIRExpressionKind::Call) {
+      return;
+    }
+    const HIRFunction *callee =
+        findVulkanPrototypeCallableFunction(module, stage, expression.value);
+    if (callee == nullptr) {
+      return;
+    }
+    const auto written = writeBackParameters.find(callee->name);
+    if (written == writeBackParameters.end()) {
+      return;
+    }
+
+    const std::size_t argumentCount =
+        std::min(expression.children.size(), callee->parameters.size());
+    for (std::size_t index = 0; index < callee->parameters.size(); ++index) {
+      const HIRParameter &parameter = callee->parameters[index];
+      if (written->second.count(parameter.name) == 0) {
+        continue;
+      }
+      const bool supportedArgument =
+          index < argumentCount &&
+          !vulkanFunctionParameterArrayWriteArgumentAliases(
+              *callee, expression, index) &&
+          vulkanStorageBufferFieldArrayWriteBackArgument(
+              module, caller, expression.children[index], &stage);
+      if (!supportedArgument) {
+        labels.insert("caller '" + caller.name + "' -> callee '" +
+                      callee->name + "' parameter '" + parameter.name +
+                      "': written helper array parameters require a direct "
+                      "non-aliased storage-buffer field array argument");
+      }
+    }
+  };
+  visitFunctionExpressions(caller, visitor);
+}
+
+bool diagnoseUnsupportedVulkanPrototypeFunctionParameterArrayWrites(
+    const HIRModule &module, const HIRStage &stage,
+    const VulkanPrototypeArrayWriteBackParameterMap &writeBackParameters,
+    DiagnosticEngine &diagnostics) {
+  if (writeBackParameters.empty()) {
+    return false;
+  }
+  std::set<std::string> unsupportedLabels;
+  for (const HIRFunction &function : module.functions) {
+    collectUnsupportedVulkanPrototypeFunctionParameterArrayWriteLabels(
+        module, stage, function, writeBackParameters, unsupportedLabels);
+  }
+  for (const HIRFunction &function : stage.functions) {
+    collectUnsupportedVulkanPrototypeFunctionParameterArrayWriteLabels(
+        module, stage, function, writeBackParameters, unsupportedLabels);
+  }
+  if (unsupportedLabels.empty()) {
+    return false;
+  }
+  diagnostics.error(
+      "vulkan.prototype-unsupported-function-parameter-array",
+      "Vulkan prototype helper array parameter writes support only "
+      "copy-in/copy-out for direct storage-buffer field array arguments; "
+      "unsupported helper array write call(s): " +
+          joinNames(unsupportedLabels));
   return true;
 }
 
@@ -5101,7 +5337,9 @@ bool prototypeBodySupported(const HIRFunction &function,
                             const std::vector<HIRResource> &stageResources,
                             const PrototypeConstantMap &constants,
                             const PrototypeStructMap &structs,
-                            DiagnosticEngine &diagnostics) {
+                            DiagnosticEngine &diagnostics,
+                            const std::unordered_set<std::string>
+                                &mutableArrayParameters = {}) {
   std::unordered_map<std::string, HIRType> locals;
   std::unordered_set<std::string> readOnlyArrayLocals;
   std::unordered_map<std::string, HIRResource> resources;
@@ -5142,7 +5380,8 @@ bool prototypeBodySupported(const HIRFunction &function,
       return false;
     }
     locals[parameter.name] = parameter.type;
-    if (parameter.type.arraySize.has_value()) {
+    if (parameter.type.arraySize.has_value() &&
+        mutableArrayParameters.count(parameter.name) == 0) {
       readOnlyArrayLocals.insert(parameter.name);
     }
   }
@@ -5462,8 +5701,15 @@ struct PrototypeSPIRVFunctionInfo {
   std::string functionTypeId;
   HIRType returnType;
   std::vector<HIRType> parameterTypes;
+  std::vector<bool> pointerParameters;
   std::vector<bool> erasedResourceArrayParameters;
   bool entry = false;
+};
+
+struct PrototypeSPIRVArrayWriteBackCopy {
+  HIRType type;
+  std::string temporaryPointerId;
+  std::string storagePointerId;
 };
 
 bool isPrototypeZeroLiteral(const HIRExpression &expression) {
@@ -5497,6 +5743,8 @@ public:
     }
     collectVulkanPrototypeResourceArrayParameterAliases(
         module, stage, resourceArrayParameterAliases_, nullptr);
+    arrayWriteBackParameters_ =
+        collectVulkanFunctionParameterArrayWriteBackParameters(module, stage);
     registerFunctionSignatures(module, stage);
   }
 
@@ -5584,17 +5832,25 @@ private:
     info.returnType = function.returnType;
     info.entry = isEntry;
     info.parameterTypes.reserve(function.parameters.size());
+    info.pointerParameters.reserve(function.parameters.size());
     info.erasedResourceArrayParameters.reserve(function.parameters.size());
+    const auto writeBackParameters =
+        arrayWriteBackParameters_.find(function.name);
     for (const HIRParameter &parameter : function.parameters) {
       const bool erased = isVulkanPrototypeErasedResourceArrayParameter(
           parameter, constants_, isEntry);
       info.erasedResourceArrayParameters.push_back(erased);
       if (!erased) {
+        const bool pointerParameter =
+            writeBackParameters != arrayWriteBackParameters_.end() &&
+            writeBackParameters->second.count(parameter.name) != 0;
         info.parameterTypes.push_back(parameter.type);
+        info.pointerParameters.push_back(pointerParameter);
       }
     }
     info.functionTypeId =
-        ensureFunctionType(info.returnType, info.parameterTypes);
+        ensureFunctionType(info.returnType, info.parameterTypes,
+                           info.pointerParameters);
     functions_[function.name] = std::move(info);
   }
 
@@ -5627,13 +5883,19 @@ private:
     output.entryLabel =
         "%entry_" + sanitizeIdFragment(functionInfo->second.id.substr(1));
 
+    std::size_t abiParameterIndex = 0;
     for (std::size_t index = 0; index < function.parameters.size(); ++index) {
       const HIRParameter &parameter = function.parameters[index];
       if (index < functionInfo->second.erasedResourceArrayParameters.size() &&
           functionInfo->second.erasedResourceArrayParameters[index]) {
         continue;
       }
-      const std::string parameterTypeId = ensureType(parameter.type);
+      const bool pointerParameter =
+          abiParameterIndex < functionInfo->second.pointerParameters.size() &&
+          functionInfo->second.pointerParameters[abiParameterIndex];
+      const std::string parameterTypeId =
+          pointerParameter ? ensureFunctionPointerType(parameter.type)
+                           : ensureType(parameter.type);
       if (parameterTypeId.empty()) {
         return false;
       }
@@ -5642,12 +5904,18 @@ private:
       const std::string parameterId =
           "%param_" + sanitizeIdFragment(function.name) + "_" +
           sanitizeIdFragment(parameter.name);
-      local.valueId = parameterId;
-      local.readOnly = parameter.type.arraySize.has_value();
+      if (pointerParameter) {
+        local.pointerTypeId = parameterTypeId;
+        local.variableId = parameterId;
+      } else {
+        local.valueId = parameterId;
+        local.readOnly = parameter.type.arraySize.has_value();
+      }
       locals_[parameter.name] = local;
       output.parameterLines.push_back(parameterId +
                                       " = OpFunctionParameter " +
                                       parameterTypeId);
+      ++abiParameterIndex;
     }
 
     for (const HIRStatement &statement : function.body) {
@@ -5839,6 +6107,65 @@ private:
     pointerTypeIds_[key] = id;
     module_.addTypeInstruction(id + " = OpTypePointer Function " + valueType);
     return id;
+  }
+
+  std::string ensureFunctionValueType(const HIRType &type) {
+    if (!type.arraySize.has_value()) {
+      return ensureType(type);
+    }
+
+    const std::string key = prototypeTypeKey(type);
+    if (auto existing = functionValueTypeIds_.find(key);
+        existing != functionValueTypeIds_.end()) {
+      return existing->second;
+    }
+
+    HIRType elementType = prototypeArrayElementTypeOneDimension(type);
+    const std::string elementTypeId = ensureFunctionValueType(elementType);
+    if (elementTypeId.empty()) {
+      return "";
+    }
+    const std::optional<std::size_t> elementCount =
+        prototypeArrayFirstDimensionElementCount(type, constants_);
+    if (!elementCount.has_value()) {
+      diagnostics_.error("vulkan.prototype-unsupported-type",
+                         "Vulkan prototype Function array temporaries require "
+                         "fixed-size numeric or folded-constant arrays, got '" +
+                             formatType(type) + "'");
+      return "";
+    }
+
+    const std::string id =
+        "%fnarr_" + sanitizeIdFragment(formatType(type));
+    functionValueTypeIds_[key] = id;
+    const std::string lengthId = ensureArrayLengthConstant(*elementCount);
+    module_.addTypeInstruction(id + " = OpTypeArray " + elementTypeId + " " +
+                               lengthId);
+    return id;
+  }
+
+  std::string ensureFunctionPointerType(const HIRType &type) {
+    const std::string key = prototypeTypeKey(type);
+    if (auto existing = functionPointerTypeIds_.find(key);
+        existing != functionPointerTypeIds_.end()) {
+      return existing->second;
+    }
+
+    const std::string valueTypeId = ensureFunctionValueType(type);
+    if (valueTypeId.empty()) {
+      return "";
+    }
+    const std::string id =
+        "%ptr_Function_" + sanitizeIdFragment(formatType(type));
+    functionPointerTypeIds_[key] = id;
+    module_.addTypeInstruction(id + " = OpTypePointer Function " +
+                               valueTypeId);
+    return id;
+  }
+
+  std::string ensureFunctionElementPointerType(const HIRType &type) {
+    return type.arraySize.has_value() ? ensureFunctionPointerType(type)
+                                      : ensurePointerType(type);
   }
 
   std::string ensureInputPointerType(const HIRType &type) {
@@ -6623,10 +6950,15 @@ private:
     return value;
   }
 
-  std::string ensureFunctionType(const HIRType &returnType,
-                                 const std::vector<HIRType> &parameterTypes) {
+  std::string ensureFunctionType(
+      const HIRType &returnType, const std::vector<HIRType> &parameterTypes,
+      const std::vector<bool> &pointerParameters = {}) {
     std::string key = prototypeTypeKey(returnType) + "(";
-    for (const HIRType &parameterType : parameterTypes) {
+    for (std::size_t index = 0; index < parameterTypes.size(); ++index) {
+      if (index < pointerParameters.size() && pointerParameters[index]) {
+        key += "ptr:";
+      }
+      const HIRType &parameterType = parameterTypes[index];
       key += prototypeTypeKey(parameterType) + ";";
     }
     key += ")";
@@ -6641,8 +6973,13 @@ private:
     }
     std::vector<std::string> parameterTypeIds;
     parameterTypeIds.reserve(parameterTypes.size());
-    for (const HIRType &parameterType : parameterTypes) {
-      const std::string parameterTypeId = ensureType(parameterType);
+    for (std::size_t index = 0; index < parameterTypes.size(); ++index) {
+      const HIRType &parameterType = parameterTypes[index];
+      const bool pointerParameter =
+          index < pointerParameters.size() && pointerParameters[index];
+      const std::string parameterTypeId =
+          pointerParameter ? ensureFunctionPointerType(parameterType)
+                           : ensureType(parameterType);
       if (parameterTypeId.empty()) {
         return "";
       }
@@ -7628,6 +7965,38 @@ private:
     return PrototypeSPIRVValue{builtinType, resultId};
   }
 
+  std::optional<std::string> emitFunctionLocalArrayElementPointer(
+      const HIRExpression &indexAccess,
+      const PrototypeLocalArrayElementAccess &access,
+      const PrototypeSPIRVLocal &local) {
+    const std::string pointerTypeId =
+        ensureFunctionElementPointerType(indexAccess.type);
+    if (pointerTypeId.empty()) {
+      return std::nullopt;
+    }
+
+    std::ostringstream accessChain;
+    const std::string pointer = nextTemp();
+    accessChain << pointer << " = OpAccessChain " << pointerTypeId << " "
+                << local.variableId;
+    for (const HIRExpression *index : access.indices) {
+      const std::optional<std::size_t> staticIndex =
+          prototypeStaticArrayIndexValue(*index, constants_);
+      if (!staticIndex.has_value()) {
+        diagnostics_.error(
+            "vulkan.prototype-unsupported-function-parameter-array",
+            "Vulkan prototype helper array writeback currently requires "
+            "folded constant helper array indices");
+        return std::nullopt;
+      }
+      accessChain << " "
+                  << ensureNumericConstant(HIRType{"int", std::nullopt},
+                                           std::to_string(*staticIndex));
+    }
+    instructionLines_.push_back(accessChain.str());
+    return pointer;
+  }
+
   bool emitWorkgroupControlBarrier() {
     const HIRType uintType{"uint", std::nullopt};
     // SPIR-V: Workgroup scope = 2, AcquireRelease | WorkgroupMemory = 0x108.
@@ -7977,17 +8346,35 @@ private:
       return std::nullopt;
     }
     const auto local = locals_.find(access->localName);
-    if (local == locals_.end() || local->second.valueId.empty()) {
+    if (local == locals_.end() ||
+        (local->second.valueId.empty() && local->second.variableId.empty())) {
       diagnostics_.error("vulkan.prototype-unsupported-function-parameter-array",
                          "Vulkan prototype helper array indexing requires an "
                          "array value");
       return std::nullopt;
     }
+    if (local->second.valueId.empty()) {
+      std::optional<std::string> pointer =
+          emitFunctionLocalArrayElementPointer(indexAccess, *access,
+                                               local->second);
+      if (!pointer.has_value()) {
+        return std::nullopt;
+      }
+      const std::string typeId = ensureType(indexAccess.type);
+      if (typeId.empty()) {
+        return std::nullopt;
+      }
+      const std::string resultId = nextTemp();
+      instructionLines_.push_back(resultId + " = OpLoad " + typeId + " " +
+                                  *pointer);
+      return PrototypeSPIRVValue{indexAccess.type, resultId};
+    }
+    std::string arrayValueId = local->second.valueId;
     std::vector<std::size_t> staticIndices;
     staticIndices.reserve(access->indices.size());
     if (localArrayElementAccessUsesDynamicIndex(*access)) {
       return emitDynamicLocalArrayElementLoad(indexAccess, *access,
-                                              local->second.valueId, 0,
+                                              arrayValueId, 0,
                                               staticIndices);
     }
     for (const HIRExpression *index : access->indices) {
@@ -8003,7 +8390,7 @@ private:
       staticIndices.push_back(*staticIndex);
     }
     return emitLocalArrayCompositeExtract(indexAccess.type,
-                                          local->second.valueId, staticIndices);
+                                          arrayValueId, staticIndices);
   }
 
   bool emitLocalArrayElementStore(const HIRStatement &statement) {
@@ -8014,7 +8401,8 @@ private:
       return false;
     }
     auto local = locals_.find(access->localName);
-    if (local == locals_.end() || local->second.valueId.empty()) {
+    if (local == locals_.end() ||
+        (local->second.valueId.empty() && local->second.variableId.empty())) {
       diagnostics_.error("vulkan.prototype-unsupported-function-parameter-array",
                          "Vulkan prototype local array element writes require "
                          "an array value");
@@ -8027,6 +8415,29 @@ private:
           "read-only value-copy ABI; writes through parameter array '" +
               access->localName + "' are not supported");
       return false;
+    }
+    if (local->second.valueId.empty()) {
+      std::optional<PrototypeSPIRVValue> value =
+          emitStatementAssignmentValue(statement.value);
+      if (!value.has_value()) {
+        return false;
+      }
+      if (!samePrototypeType(indexAccess.type, value->type) &&
+          !isPrototypeDeferredUserCallType(statement.value, value->type)) {
+        diagnostics_.error(
+            "vulkan.prototype-unsupported-type",
+            "Vulkan prototype binary emission does not insert local array "
+            "element assignment casts yet");
+        return false;
+      }
+      std::optional<std::string> pointer =
+          emitFunctionLocalArrayElementPointer(indexAccess, *access,
+                                               local->second);
+      if (!pointer.has_value()) {
+        return false;
+      }
+      instructionLines_.push_back("OpStore " + *pointer + " " + value->id);
+      return true;
     }
     std::vector<std::size_t> staticIndices;
     staticIndices.reserve(access->indices.size());
@@ -8798,6 +9209,130 @@ private:
     return PrototypeSPIRVValue{expression.type, resultId};
   }
 
+  std::optional<std::string> emitArrayWriteBackPointerArgument(
+      const HIRExpression &argument, const HIRParameter &parameter,
+      const PrototypeSPIRVFunctionInfo &callee,
+      std::vector<PrototypeSPIRVArrayWriteBackCopy> &copyBacks) {
+    if (!isStructStorageBufferMemberAccess(argument, true)) {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-function-parameter-array",
+          "Vulkan prototype helper array parameter writeback requires a "
+          "direct storage-buffer field array argument");
+      return std::nullopt;
+    }
+
+    std::optional<std::string> storagePointer =
+        emitStorageBufferMemberPointer(argument, true);
+    if (!storagePointer.has_value()) {
+      return std::nullopt;
+    }
+    const std::string pointerTypeId = ensureFunctionPointerType(parameter.type);
+    if (pointerTypeId.empty()) {
+      return std::nullopt;
+    }
+
+    const std::string temporaryPointer =
+        makeVariableId("param_array_writeback_" +
+                       (callee.function != nullptr ? callee.function->name
+                                                   : std::string{"helper"}) +
+                       "_" + parameter.name);
+    variableLines_.push_back(temporaryPointer + " = OpVariable " +
+                             pointerTypeId + " Function");
+
+    const std::optional<std::size_t> elementCount =
+        prototypeArrayFirstDimensionElementCount(parameter.type, constants_);
+    if (!elementCount.has_value()) {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-function-parameter-array",
+          "Vulkan prototype helper array parameter writeback requires "
+          "fixed-size folded array dimensions");
+      return std::nullopt;
+    }
+    const HIRType elementType =
+        prototypeArrayElementTypeOneDimension(parameter.type);
+    const std::string storageElementPointerType =
+        ensureStorageBufferElementPointerType(elementType);
+    const std::string functionElementPointerType =
+        ensureFunctionElementPointerType(elementType);
+    const std::string elementTypeId = ensureType(elementType);
+    if (storageElementPointerType.empty() ||
+        functionElementPointerType.empty() || elementTypeId.empty()) {
+      return std::nullopt;
+    }
+
+    for (std::size_t index = 0; index < *elementCount; ++index) {
+      const std::string indexId =
+          ensureNumericConstant(HIRType{"int", std::nullopt},
+                                std::to_string(index));
+      const std::string storageElementPointer = nextTemp();
+      instructionLines_.push_back(storageElementPointer + " = OpAccessChain " +
+                                  storageElementPointerType + " " +
+                                  *storagePointer + " " + indexId);
+      const std::string functionElementPointer = nextTemp();
+      instructionLines_.push_back(functionElementPointer + " = OpAccessChain " +
+                                  functionElementPointerType + " " +
+                                  temporaryPointer + " " + indexId);
+      const std::string loaded = nextTemp();
+      instructionLines_.push_back(loaded + " = OpLoad " + elementTypeId + " " +
+                                  storageElementPointer);
+      instructionLines_.push_back("OpStore " + functionElementPointer + " " +
+                                  loaded);
+    }
+    copyBacks.push_back(PrototypeSPIRVArrayWriteBackCopy{
+        parameter.type, temporaryPointer, *storagePointer});
+    return temporaryPointer;
+  }
+
+  bool emitArrayWriteBackCopies(
+      const std::vector<PrototypeSPIRVArrayWriteBackCopy> &copyBacks) {
+    for (const PrototypeSPIRVArrayWriteBackCopy &copyBack : copyBacks) {
+      const std::optional<std::size_t> elementCount =
+          prototypeArrayFirstDimensionElementCount(copyBack.type, constants_);
+      if (!elementCount.has_value()) {
+        diagnostics_.error(
+            "vulkan.prototype-unsupported-function-parameter-array",
+            "Vulkan prototype helper array parameter writeback requires "
+            "fixed-size folded array dimensions");
+        return false;
+      }
+      const HIRType elementType =
+          prototypeArrayElementTypeOneDimension(copyBack.type);
+      const std::string storageElementPointerType =
+          ensureStorageBufferElementPointerType(elementType);
+      const std::string functionElementPointerType =
+          ensureFunctionElementPointerType(elementType);
+      const std::string elementTypeId = ensureType(elementType);
+      if (storageElementPointerType.empty() ||
+          functionElementPointerType.empty() || elementTypeId.empty()) {
+        return false;
+      }
+
+      for (std::size_t index = 0; index < *elementCount; ++index) {
+        const std::string indexId =
+            ensureNumericConstant(HIRType{"int", std::nullopt},
+                                  std::to_string(index));
+        const std::string functionElementPointer = nextTemp();
+        instructionLines_.push_back(functionElementPointer +
+                                    " = OpAccessChain " +
+                                    functionElementPointerType + " " +
+                                    copyBack.temporaryPointerId + " " +
+                                    indexId);
+        const std::string storageElementPointer = nextTemp();
+        instructionLines_.push_back(storageElementPointer +
+                                    " = OpAccessChain " +
+                                    storageElementPointerType + " " +
+                                    copyBack.storagePointerId + " " +
+                                    indexId);
+        const std::string updated = nextTemp();
+        instructionLines_.push_back(updated + " = OpLoad " + elementTypeId +
+                                    " " + functionElementPointer);
+        instructionLines_.push_back("OpStore " + storageElementPointer + " " +
+                                    updated);
+      }
+    }
+    return true;
+  }
+
   std::optional<PrototypeSPIRVValue> emitUserFunctionCall(
       const HIRExpression &expression) {
     const auto function = functions_.find(expression.value);
@@ -8816,8 +9351,9 @@ private:
       return std::nullopt;
     }
 
-    std::vector<PrototypeSPIRVValue> arguments;
-    arguments.reserve(info.parameterTypes.size());
+    std::vector<std::string> argumentIds;
+    argumentIds.reserve(info.parameterTypes.size());
+    std::vector<PrototypeSPIRVArrayWriteBackCopy> copyBacks;
     std::size_t abiParameterIndex = 0;
     for (std::size_t index = 0; index < expression.children.size(); ++index) {
       const HIRParameter &parameter = info.function->parameters[index];
@@ -8844,6 +9380,28 @@ private:
         }
         continue;
       }
+      const bool pointerParameter =
+          abiParameterIndex < info.pointerParameters.size() &&
+          info.pointerParameters[abiParameterIndex];
+      if (pointerParameter) {
+        if (abiParameterIndex >= info.parameterTypes.size() ||
+            !samePrototypeType(expression.children[index].type,
+                               info.parameterTypes[abiParameterIndex])) {
+          diagnostics_.error("vulkan.prototype-unsupported-type",
+                             "Vulkan prototype helper calls do not insert "
+                             "argument casts");
+          return std::nullopt;
+        }
+        std::optional<std::string> pointerArgument =
+            emitArrayWriteBackPointerArgument(expression.children[index],
+                                              parameter, info, copyBacks);
+        if (!pointerArgument.has_value()) {
+          return std::nullopt;
+        }
+        argumentIds.push_back(*pointerArgument);
+        ++abiParameterIndex;
+        continue;
+      }
       std::optional<PrototypeSPIRVValue> argument =
           emitExpression(expression.children[index]);
       if (!argument.has_value()) {
@@ -8857,7 +9415,7 @@ private:
                            "argument casts");
         return std::nullopt;
       }
-      arguments.push_back(*argument);
+      argumentIds.push_back(argument->id);
       ++abiParameterIndex;
     }
 
@@ -8878,10 +9436,13 @@ private:
     std::ostringstream instruction;
     instruction << resultId << " = OpFunctionCall " << returnTypeId << " "
                 << info.id;
-    for (const PrototypeSPIRVValue &argument : arguments) {
-      instruction << " " << argument.id;
+    for (const std::string &argumentId : argumentIds) {
+      instruction << " " << argumentId;
     }
     instructionLines_.push_back(instruction.str());
+    if (!emitArrayWriteBackCopies(copyBacks)) {
+      return std::nullopt;
+    }
     return PrototypeSPIRVValue{info.returnType, resultId};
   }
 
@@ -9917,6 +10478,8 @@ private:
   std::vector<std::string> entryPointInterfaces_;
   std::unordered_map<std::string, std::string> typeIds_;
   std::unordered_map<std::string, std::string> pointerTypeIds_;
+  std::unordered_map<std::string, std::string> functionValueTypeIds_;
+  std::unordered_map<std::string, std::string> functionPointerTypeIds_;
   std::unordered_map<std::string, std::string> inputPointerTypeIds_;
   std::unordered_map<std::string, std::string> computeBuiltinVariableIds_;
   std::unordered_map<std::string, std::string> workgroupTypeIds_;
@@ -9943,6 +10506,7 @@ private:
   std::vector<PrototypeLoopLabels> loopLabels_;
   std::unordered_map<std::string, PrototypeSPIRVFunctionInfo> functions_;
   VulkanPrototypeResourceArrayParameterAliasMap resourceArrayParameterAliases_;
+  VulkanPrototypeArrayWriteBackParameterMap arrayWriteBackParameters_;
   HIRType currentReturnType_;
   std::string currentFunctionName_;
   StorageLayoutContext layoutContext_;
@@ -14009,12 +14573,22 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
           module, *stage, diagnostics)) {
     return false;
   }
+  const VulkanPrototypeArrayWriteBackParameterMap writeBackParameters =
+      collectVulkanFunctionParameterArrayWriteBackParameters(module, *stage);
+  if (diagnoseUnsupportedVulkanPrototypeFunctionParameterArrayWrites(
+          module, *stage, writeBackParameters, diagnostics)) {
+    return false;
+  }
   if (!prototypeFunctionParameterArraysSupported(module, *stage, diagnostics)) {
     return false;
   }
   for (const HIRFunction &function : module.functions) {
+    const auto writeBack = writeBackParameters.find(function.name);
+    const std::unordered_set<std::string> &mutableArrayParameters =
+        writeBack != writeBackParameters.end() ? writeBack->second
+                                               : kEmptyStringSet;
     if (!prototypeBodySupported(function, stage->resources, constants, structs,
-                                diagnostics)) {
+                                diagnostics, mutableArrayParameters)) {
       return false;
     }
   }
@@ -14022,8 +14596,12 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
     if (function.name == stage->entryPointName) {
       continue;
     }
+    const auto writeBack = writeBackParameters.find(function.name);
+    const std::unordered_set<std::string> &mutableArrayParameters =
+        writeBack != writeBackParameters.end() ? writeBack->second
+                                               : kEmptyStringSet;
     if (!prototypeBodySupported(function, stage->resources, constants, structs,
-                                diagnostics)) {
+                                diagnostics, mutableArrayParameters)) {
       return false;
     }
   }
@@ -14033,8 +14611,12 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
                       "void entry function with no parameters");
     return false;
   }
+  const auto entryWriteBack = writeBackParameters.find(entry->name);
+  const std::unordered_set<std::string> &entryMutableArrayParameters =
+      entryWriteBack != writeBackParameters.end() ? entryWriteBack->second
+                                                  : kEmptyStringSet;
   if (!prototypeBodySupported(*entry, stage->resources, constants, structs,
-                              diagnostics)) {
+                              diagnostics, entryMutableArrayParameters)) {
     return false;
   }
   return true;
