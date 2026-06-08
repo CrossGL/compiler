@@ -533,6 +533,19 @@
       "notes": "Restricted non-fallthrough switch/case/default lowers to a block, selector temp, and nested if/else chain."
     },
     {
+      "id": "control-flow.switch-grouped-case-labels",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/SwitchGroupedLabelsComputeShader.cgl",
+      "fixture_sha256": "c886654704786d725a7befc880511a8431f75361519e0aec86351e03e8ef512f",
+      "evidence_tests": [
+        "cglc_check_switch_grouped_labels_hir_if_chain"
+      ],
+      "notes": "Restricted non-terminal grouped case labels lower to an if-chain branch with OR-combined selector comparisons."
+    },
+    {
       "id": "control-flow.while-loop",
       "feature_group": "control-flow",
       "language_category": "statements",
@@ -1109,20 +1122,6 @@
       "notes": "Duplicate folded scalar switch case labels are outside the restricted native v0 switch subset."
     },
     {
-      "id": "native-v0-unsupported.switch-grouped-labels",
-      "feature_group": "known-native-v0-unsupported",
-      "language_category": "native-v0",
-      "status": "unsupported",
-      "command_profile": "unsupported-native-v0-check",
-      "fixture": "tests/check-failures/BadUnsupportedSwitchGroupedLabelsShader.cgl",
-      "fixture_sha256": "cb0b0f5bd8f4d42298e2f7c6cb214716c47634599a8888859859bd3fbe576718",
-      "expected_diagnostic": "spec.unsupported-for-native-v0",
-      "evidence_tests": [
-        "cglc_check_unsupported_native_v0_switch_grouped_labels_failure"
-      ],
-      "notes": "Grouped switch case labels are outside the restricted native v0 switch subset."
-    },
-    {
       "id": "native-v0-unsupported.switch-incompatible-case-label-type",
       "feature_group": "known-native-v0-unsupported",
       "language_category": "native-v0",
@@ -1162,7 +1161,21 @@
       "evidence_tests": [
         "cglc_check_unsupported_native_v0_switch_failure"
       ],
-      "notes": "Fallthrough and grouped switch/case/default forms are outside the restricted native v0 switch subset."
+      "notes": "Fallthrough switch/case/default forms are outside the restricted native v0 switch subset."
+    },
+    {
+      "id": "native-v0-unsupported.switch-terminal-grouped-labels",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchTerminalGroupedLabelsShader.cgl",
+      "fixture_sha256": "95b29fa0eca61437e95b3cb02f131b90d5129f09c9e6fc18819885ef2ab186cf",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_switch_terminal_grouped_labels_failure"
+      ],
+      "notes": "Terminal grouped case labels, including a grouped case immediately before default, remain outside the restricted native v0 switch subset."
     },
     {
       "id": "native-v0-unsupported.tessellation-stage",

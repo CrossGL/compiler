@@ -1833,7 +1833,7 @@ private:
 
   struct SwitchSection {
     bool isDefault = false;
-    HIRExpression label;
+    std::vector<HIRExpression> labels;
     std::vector<HIRStatement> body;
     SourceLocation location;
   };
@@ -2407,8 +2407,8 @@ private:
         "CrossTL/CrossGL native v0 only supports restricted "
         "switch/case/default statements with case labels compatible with the "
         "scalar selector, an optional trailing default, and a terminal break "
-        "in every case; "
-        "fallthrough and grouped labels are not supported",
+        "in every case; fallthrough and terminal grouped case labels are not "
+        "supported",
         std::move(location));
     return makeRawFallback(std::move(statement));
   }
@@ -2484,9 +2484,11 @@ private:
       if (section.isDefault) {
         continue;
       }
-      if (!isSwitchComparableType(section.label.type) ||
-          !sameType(strippedSelector, stripTypeQualifier(section.label.type))) {
-        return false;
+      for (const HIRExpression &label : section.labels) {
+        if (!isSwitchComparableType(label.type) ||
+            !sameType(strippedSelector, stripTypeQualifier(label.type))) {
+          return false;
+        }
       }
     }
     return true;
@@ -2516,13 +2518,14 @@ private:
       if (section.isDefault) {
         continue;
       }
-      std::optional<std::string> key =
-          canonicalSwitchCaseLabelKey(section.label);
-      if (!key.has_value()) {
-        continue;
-      }
-      if (!labels.insert(*key).second) {
-        return true;
+      for (const HIRExpression &label : section.labels) {
+        std::optional<std::string> key = canonicalSwitchCaseLabelKey(label);
+        if (!key.has_value()) {
+          continue;
+        }
+        if (!labels.insert(*key).second) {
+          return true;
+        }
       }
     }
     return false;
@@ -2624,35 +2627,44 @@ private:
       }
 
       SwitchSection section;
-      section.isDefault = tokens[cursor].text == "default";
       section.location = tokens[cursor].location;
-      if (section.isDefault) {
-        if (sawDefault) {
+
+      while (cursor < end && isSwitchLabelToken(tokens[cursor])) {
+        const bool labelIsDefault = tokens[cursor].text == "default";
+        if (labelIsDefault) {
+          if (sawDefault || !section.labels.empty()) {
+            return std::nullopt;
+          }
+          section.isDefault = true;
+          sawDefault = true;
+        } else if (sawDefault || section.isDefault) {
           return std::nullopt;
         }
-        sawDefault = true;
-      } else if (sawDefault) {
-        return std::nullopt;
+
+        const std::optional<std::size_t> colon =
+            findSwitchLabelColon(tokens, cursor + 1, end);
+        if (!colon.has_value()) {
+          return std::nullopt;
+        }
+        if (labelIsDefault) {
+          if (*colon != cursor + 1) {
+            return std::nullopt;
+          }
+        } else {
+          if (*colon == cursor + 1 ||
+              hasUnsupportedExpressionToken(tokens, cursor + 1, *colon)) {
+            return std::nullopt;
+          }
+          section.labels.push_back(parseExpression(tokens, cursor + 1, *colon));
+        }
+
+        cursor = *colon + 1;
+        if (section.isDefault) {
+          break;
+        }
       }
 
-      const std::optional<std::size_t> colon =
-          findSwitchLabelColon(tokens, cursor + 1, end);
-      if (!colon.has_value()) {
-        return std::nullopt;
-      }
-      if (section.isDefault) {
-        if (*colon != cursor + 1) {
-          return std::nullopt;
-        }
-      } else {
-        if (*colon == cursor + 1 ||
-            hasUnsupportedExpressionToken(tokens, cursor + 1, *colon)) {
-          return std::nullopt;
-        }
-        section.label = parseExpression(tokens, cursor + 1, *colon);
-      }
-
-      std::size_t bodyEnd = *colon + 1;
+      std::size_t bodyEnd = cursor;
       while (bodyEnd < end) {
         if (isSwitchLabelToken(tokens[bodyEnd])) {
           break;
@@ -2668,11 +2680,15 @@ private:
         }
         ++bodyEnd;
       }
-      if (hasTopLevelSwitchLabel(tokens, *colon + 1, bodyEnd)) {
+      if (hasTopLevelSwitchLabel(tokens, cursor, bodyEnd)) {
+        return std::nullopt;
+      }
+      if (section.labels.size() > 1 &&
+          (bodyEnd == end || tokens[bodyEnd].text == "default")) {
         return std::nullopt;
       }
 
-      section.body = parseStatementsInRange(tokens, *colon + 1, bodyEnd);
+      section.body = parseStatementsInRange(tokens, cursor, bodyEnd);
       if (section.body.empty() ||
           section.body.back().kind != HIRStatementKind::Break) {
         return std::nullopt;
@@ -2702,6 +2718,25 @@ private:
     return condition;
   }
 
+  HIRExpression makeSwitchCaseGroupCondition(
+      const HIRExpression &selector, std::vector<HIRExpression> labels,
+      SourceLocation location) const {
+    HIRExpression condition = makeSwitchCaseCondition(
+        selector, std::move(labels.front()), location);
+    for (std::size_t labelIndex = 1; labelIndex < labels.size(); ++labelIndex) {
+      HIRExpression alternative;
+      alternative.kind = HIRExpressionKind::Binary;
+      alternative.value = "||";
+      alternative.type = makeType("bool");
+      alternative.location = labels[labelIndex].location;
+      alternative.children.push_back(std::move(condition));
+      alternative.children.push_back(makeSwitchCaseCondition(
+          selector, std::move(labels[labelIndex]), alternative.location));
+      condition = std::move(alternative);
+    }
+    return condition;
+  }
+
   std::optional<std::vector<HIRStatement>>
   lowerSwitchSections(const HIRExpression &selector,
                       std::vector<SwitchSection> sections) const {
@@ -2720,8 +2755,11 @@ private:
       HIRStatement branch;
       branch.kind = HIRStatementKind::If;
       branch.location = section.location;
-      branch.value = makeSwitchCaseCondition(selector, std::move(section.label),
-                                             section.location);
+      if (section.labels.empty()) {
+        return std::nullopt;
+      }
+      branch.value = makeSwitchCaseGroupCondition(
+          selector, std::move(section.labels), section.location);
       branch.body = std::move(section.body);
       branch.elseBody = std::move(elseBody);
       elseBody.clear();
