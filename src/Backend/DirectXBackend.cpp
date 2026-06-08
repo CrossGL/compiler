@@ -211,6 +211,56 @@ std::optional<std::size_t> matrixDimensionFromName(std::string_view name) {
   return std::nullopt;
 }
 
+bool isDirectXFloatVectorType(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string baseName = baseTypeName(type);
+  return vectorWidthFromName(baseName).has_value() &&
+         baseTypeName(scalarTypeForVector(baseName)) == "float";
+}
+
+bool isDirectXMatrixVectorMultiplyOperandPair(const HIRType &matrixType,
+                                              const HIRType &vectorType,
+                                              const HIRType &resultType) {
+  const std::optional<std::size_t> matrixDimension =
+      matrixDimensionFromName(baseTypeName(matrixType));
+  const std::optional<std::size_t> vectorWidth =
+      vectorWidthFromName(baseTypeName(vectorType));
+  return matrixDimension.has_value() && vectorWidth.has_value() &&
+         *matrixDimension == *vectorWidth &&
+         isDirectXFloatVectorType(vectorType) &&
+         baseTypeName(vectorType) == baseTypeName(resultType) &&
+         !resultType.arraySize.has_value();
+}
+
+bool isDirectXMatrixProductExpression(const HIRExpression &expression) {
+  if (expression.kind != HIRExpressionKind::Binary || expression.value != "*" ||
+      expression.children.size() != 2) {
+    return false;
+  }
+
+  const HIRType &leftType = expression.children[0].type;
+  const HIRType &rightType = expression.children[1].type;
+  if (isDirectXMatrixVectorMultiplyOperandPair(leftType, rightType,
+                                               expression.type) ||
+      isDirectXMatrixVectorMultiplyOperandPair(rightType, leftType,
+                                               expression.type)) {
+    return true;
+  }
+
+  const std::optional<std::size_t> leftDimension =
+      matrixDimensionFromName(baseTypeName(leftType));
+  const std::optional<std::size_t> rightDimension =
+      matrixDimensionFromName(baseTypeName(rightType));
+  const std::optional<std::size_t> resultDimension =
+      matrixDimensionFromName(baseTypeName(expression.type));
+  return leftDimension.has_value() && rightDimension.has_value() &&
+         resultDimension.has_value() && *leftDimension == *rightDimension &&
+         *leftDimension == *resultDimension && !leftType.arraySize.has_value() &&
+         !rightType.arraySize.has_value() && !expression.type.arraySize.has_value();
+}
+
 bool isSupportedLocalArrayType(const HIRModule &module, const HIRType &type) {
   if (!type.arraySize.has_value() ||
       functionParameterArrayShape(module, type) !=
@@ -1817,6 +1867,16 @@ std::string emitDirectXMatrixConstructor(const HIRExpression &expression,
   return emitDirectXMatrixFromColumnMajorScalars(expression.type, scalars);
 }
 
+std::string emitDirectXBinaryExpression(const HIRExpression &expression,
+                                        const DirectXEmitContext &context) {
+  if (isDirectXMatrixProductExpression(expression)) {
+    return "mul(" + emitExpression(expression.children[0], context) + ", " +
+           emitExpression(expression.children[1], context) + ")";
+  }
+  return emitExpression(expression.children[0], context) + " " +
+         expression.value + " " + emitExpression(expression.children[1], context);
+}
+
 std::string emitExpression(const HIRExpression &expression,
                            const DirectXEmitContext &context) {
   switch (expression.kind) {
@@ -1870,9 +1930,7 @@ std::string emitExpression(const HIRExpression &expression,
     return expression.value +
            emitExpression(expression.children.front(), context);
   case HIRExpressionKind::Binary:
-    return emitExpression(expression.children[0], context) + " " +
-           expression.value + " " +
-           emitExpression(expression.children[1], context);
+    return emitDirectXBinaryExpression(expression, context);
   case HIRExpressionKind::Call:
     return emitCall(expression, context);
   case HIRExpressionKind::Select:

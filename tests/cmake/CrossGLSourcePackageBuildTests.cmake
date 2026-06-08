@@ -1598,6 +1598,23 @@ add_test(NAME cglc_build_directx_matrix_constructor_source_package
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|vector-constructor.kind=operation|matrix-constructor.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET [=[float3 columnProduct = mul(transform, source);
+  float3 rowProduct = mul(source, transform);
+  float3x3 composed = mul(transform, basis);
+  float3 projected = mul(composed, rowProduct);]=])
+add_test(NAME cglc_build_directx_matrix_vector_arithmetic_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_VECTOR_ARITHMETIC_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-matrix-vector-arithmetic-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/MatrixVectorArithmeticComputeShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=MatrixVectorArithmeticComputeShader|nativeBinary=backend/directx/MatrixVectorArithmeticComputeShader.dxil|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_VECTOR_LOCAL_SOURCE_SNIPPET [=[float4 color = float4(values[0], values[1], values[2], 1.0);
   float4 lifted = color + float4(0.5, 0.5, 0.5, 0.0);
   values[0] = lifted.x;]=])
