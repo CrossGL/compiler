@@ -6159,6 +6159,20 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       "HIR typed-symbol validation diagnoses incompatible select branches");
 
   expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(
+          index(literal("1.0", type("float")), literal("0", type("int")),
+                type("float")))),
+      "opt.hir-index-base-type",
+      "HIR typed-symbol validation diagnoses non-indexable base types");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(
+          index(identifier("weights", arrayType("float", "4")),
+                literal("0.5", type("float")), type("float")))),
+      "opt.hir-index-type",
+      "HIR typed-symbol validation diagnoses non-integer index operands");
+
+  expectInvalidTypedSymbol(
       moduleWithVoidStageStatement(declaration(
           "value", type("int"), literal("1.0", type("float")))),
       "opt.hir-declaration-type",
@@ -50369,6 +50383,83 @@ shader DuplicateSwizzleReadShader {
          "duplicate vector swizzle reads remain valid");
 }
 
+void testIndexAccessDiagnostics() {
+  constexpr std::string_view invalidIndexTypeSource = R"(
+shader BadIndexTypeShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values;
+    uniform sampler2D maps[2];
+    void main() {
+      float weights[4];
+      vec4 color = vec4(1.0);
+      bool flag = true;
+      float first = weights[0.5];
+      float second = values[color.x];
+      vec4 sampled = texture(maps[flag], vec2(0.5, 0.5));
+      float component = color[true];
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> invalidIndexTypeDiagnostics =
+      collectDiagnostics(invalidIndexTypeSource);
+  expect(hasDiagnosticCodeAndMessage(invalidIndexTypeDiagnostics,
+                                     "sema.index-type", "got 'float'") &&
+             hasDiagnosticCodeAndMessage(invalidIndexTypeDiagnostics,
+                                         "sema.index-type", "got 'bool'") &&
+             invalidIndexTypeDiagnostics.size() == 4,
+         "array, storage-buffer, descriptor-array, and vector indexes reject "
+         "non-integer operands");
+
+  constexpr std::string_view invalidBaseSource = R"(
+shader BadIndexBaseShader {
+  compute {
+    void main() {
+      float value = 1.0;
+      float bad = value[0];
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> invalidBaseDiagnostics =
+      collectDiagnostics(invalidBaseSource);
+  expect(hasDiagnosticCodeAndMessage(invalidBaseDiagnostics,
+                                     "sema.index-base-type", "got 'float'") &&
+             invalidBaseDiagnostics.size() == 1,
+         "index access rejects scalar base operands");
+
+  constexpr std::string_view validIndexSource = R"(
+shader ValidIndexShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values;
+    uniform sampler2D maps[2];
+    void main() {
+      uint slot = 1u;
+      float weights[4];
+      vec4 color = vec4(1.0);
+      float first = weights[slot];
+      float second = values[slot];
+      vec4 sampled = texture(maps[slot], vec2(0.5, 0.5));
+      float component = color[slot];
+      values[0] = first + second + sampled.x + component;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> validIndexDiagnostics =
+      collectDiagnostics(validIndexSource);
+  expect(!hasDiagnostic(validIndexDiagnostics, "sema.index-type") &&
+             !hasDiagnostic(validIndexDiagnostics, "sema.index-base-type"),
+         "uint indexes remain valid for arrays, storage-buffer pointers, "
+         "descriptor arrays, and vectors");
+}
+
 void testAssignmentTargetAggregateDiagnostics() {
   constexpr std::string_view aggregateAssignmentSource = R"(
 shader BadAggregateAssignmentShader {
@@ -50887,6 +50978,7 @@ int main() {
   testStorageImageDiagnostics();
   testTextureSampleDiagnostics();
   testVectorSwizzleDiagnostics();
+  testIndexAccessDiagnostics();
   testAssignmentTargetAggregateDiagnostics();
   testAssignmentTargetReadOnlyDiagnostics();
 

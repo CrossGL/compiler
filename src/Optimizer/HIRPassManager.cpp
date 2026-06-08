@@ -1269,6 +1269,7 @@ bool validateHIRBackendInput(HIRModule &module,
 using HIRSymbolTable = std::unordered_map<std::string, HIRType>;
 using HIRReadOnlySymbolSet = std::set<std::string>;
 using HIRResourceHandleSymbolSet = std::set<std::string>;
+using HIRIndexableResourceBaseSet = std::set<std::string>;
 
 struct HIRTypedSymbolContext {
   std::set<std::string> structNames;
@@ -2250,10 +2251,79 @@ void validateHIRSelectOperandTypes(const HIRExpression &expression,
   }
 }
 
+bool isHIRStorageBufferResourceBase(
+    const HIRExpression &base,
+    const HIRIndexableResourceBaseSet *indexableResourceBases) {
+  return indexableResourceBases != nullptr &&
+         base.kind == HIRExpressionKind::Identifier &&
+         indexableResourceBases->contains(base.value);
+}
+
+bool isHIRIndexableExpressionType(
+    const HIRExpression &base, const HIRType &type,
+    const HIRIndexableResourceBaseSet *indexableResourceBases) {
+  if (isHIRStorageBufferResourceBase(base, indexableResourceBases)) {
+    return true;
+  }
+  if (type.name.empty()) {
+    return true;
+  }
+  HIRType baseType = stripTypeQualifier(type);
+  if (baseType.name.empty()) {
+    return true;
+  }
+  if (!baseType.name.empty() && baseType.name.back() == '*') {
+    return true;
+  }
+  if (baseType.arraySize.has_value()) {
+    return true;
+  }
+  return isVectorType(baseTypeName(baseType));
+}
+
+void validateHIRIndexAccessOperandTypes(const HIRExpression &expression,
+                                        const std::string &context,
+                                        const HIRSymbolTable &symbols,
+                                        const HIRIndexableResourceBaseSet
+                                            *indexableResourceBases,
+                                        DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::IndexAccess ||
+      expression.children.size() < 2) {
+    return;
+  }
+
+  const std::optional<HIRType> baseType =
+      hirExpressionEffectiveType(expression.children[0], symbols);
+  if (baseType.has_value() &&
+      !isHIRIndexableExpressionType(expression.children[0], *baseType,
+                                    indexableResourceBases)) {
+    diagnostics.error(
+        "opt.hir-index-base-type",
+        "HIR " + context +
+            " index operator requires an array, storage-buffer pointer, "
+            "descriptor array, or vector base, got '" +
+            formatType(*baseType) + "'",
+        expression.location);
+  }
+
+  const std::optional<HIRType> indexType =
+      hirExpressionEffectiveType(expression.children[1], symbols);
+  if (expression.children[1].kind != HIRExpressionKind::NonUniform &&
+      indexType.has_value() && !isIntegerScalarType(*indexType)) {
+    diagnostics.error(
+        "opt.hir-index-type",
+        "HIR " + context +
+            " index operator requires a scalar int or uint index, got '" +
+            formatType(*indexType) + "'",
+        expression.children[1].location);
+  }
+}
+
 void validateHIRExpressionTypedSymbols(
     const HIRExpression &expression, const std::string &context,
     const HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
-    DiagnosticEngine &diagnostics, bool skipIdentifierResolution = false) {
+    DiagnosticEngine &diagnostics, bool skipIdentifierResolution = false,
+    const HIRIndexableResourceBaseSet *indexableResourceBases = nullptr) {
   if (expression.kind == HIRExpressionKind::Empty) {
     return;
   }
@@ -2313,6 +2383,8 @@ void validateHIRExpressionTypedSymbols(
   validateHIRUnaryOperatorOperandTypes(expression, context, symbols, diagnostics);
   validateHIRBinaryOperatorOperandTypes(expression, context, symbols, diagnostics);
   validateHIRSelectOperandTypes(expression, context, symbols, diagnostics);
+  validateHIRIndexAccessOperandTypes(expression, context, symbols,
+                                     indexableResourceBases, diagnostics);
   validateHIRTextureSampleTypedExpression(expression, context, symbols,
                                           typedContext, diagnostics);
   validateHIRTextureCompareTypedExpression(expression, context, symbols,
@@ -2357,7 +2429,8 @@ void validateHIRExpressionTypedSymbols(
         expression.children[index],
         context + " child " + std::to_string(index), symbols, typedContext,
         diagnostics, isManualHIRTextureCompareOpOperand(expression, index) ||
-                         isHIRImageAccessResourceOperand(expression, index));
+                         isHIRImageAccessResourceOperand(expression, index),
+        indexableResourceBases);
   }
 }
 
@@ -2381,6 +2454,7 @@ void validateHIRStatementTypedSymbols(
     HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
     HIRReadOnlySymbolSet &readOnlySymbols,
     HIRResourceHandleSymbolSet &resourceHandleSymbols,
+    HIRIndexableResourceBaseSet &indexableResourceBases,
     DiagnosticEngine &diagnostics, const std::string &context);
 
 void validateHIRStatementBlockTypedSymbols(
@@ -2388,11 +2462,14 @@ void validateHIRStatementBlockTypedSymbols(
     HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
     HIRReadOnlySymbolSet &readOnlySymbols,
     HIRResourceHandleSymbolSet &resourceHandleSymbols,
+    HIRIndexableResourceBaseSet &indexableResourceBases,
     DiagnosticEngine &diagnostics, const std::string &context) {
   for (const HIRStatement &statement : statements) {
     validateHIRStatementTypedSymbols(statement, returnType, symbols,
                                      typedContext, readOnlySymbols,
-                                     resourceHandleSymbols, diagnostics, context);
+                                     resourceHandleSymbols,
+                                     indexableResourceBases, diagnostics,
+                                     context);
   }
 }
 
@@ -2401,6 +2478,7 @@ void validateHIRStatementTypedSymbols(
     HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
     HIRReadOnlySymbolSet &readOnlySymbols,
     HIRResourceHandleSymbolSet &resourceHandleSymbols,
+    HIRIndexableResourceBaseSet &indexableResourceBases,
     DiagnosticEngine &diagnostics, const std::string &context) {
   const std::string statementContext =
       context + " " + statementKindName(statement.kind) + " statement";
@@ -2421,7 +2499,8 @@ void validateHIRStatementTypedSymbols(
                        diagnostics);
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " initializer",
-                                      symbols, typedContext, diagnostics);
+                                      symbols, typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     if (!isEmptyHIRExpressionSlot(statement.value)) {
       const std::optional<HIRType> valueType =
           hirExpressionEffectiveType(statement.value, symbols);
@@ -2436,16 +2515,19 @@ void validateHIRStatementTypedSymbols(
       symbols[statement.name] = statement.declaredType;
       readOnlySymbols.erase(statement.name);
       resourceHandleSymbols.erase(statement.name);
+      indexableResourceBases.erase(statement.name);
     }
     break;
   }
   case HIRStatementKind::Assignment: {
     validateHIRExpressionTypedSymbols(statement.target,
                                       statementContext + " target", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " value", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     if (!isEmptyHIRExpressionSlot(statement.target) &&
         !isHIRAssignableTargetExpression(statement.target)) {
       const HIRExpression &target =
@@ -2505,7 +2587,8 @@ void validateHIRStatementTypedSymbols(
   case HIRStatementKind::Return: {
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " value", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     if (isSourceBackedUnknownHIRType(returnType, typedContext)) {
       break;
     }
@@ -2536,7 +2619,8 @@ void validateHIRStatementTypedSymbols(
   case HIRStatementKind::Expression:
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " value", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     break;
   case HIRStatementKind::Break:
   case HIRStatementKind::Continue:
@@ -2547,10 +2631,13 @@ void validateHIRStatementTypedSymbols(
     HIRReadOnlySymbolSet blockReadOnlySymbols = readOnlySymbols;
     HIRResourceHandleSymbolSet blockResourceHandleSymbols =
         resourceHandleSymbols;
+    HIRIndexableResourceBaseSet blockIndexableResourceBases =
+        indexableResourceBases;
     validateHIRStatementBlockTypedSymbols(statement.body, returnType,
                                           blockSymbols, typedContext,
                                           blockReadOnlySymbols,
                                           blockResourceHandleSymbols,
+                                          blockIndexableResourceBases,
                                           diagnostics,
                                           statementContext + " body");
     break;
@@ -2558,26 +2645,33 @@ void validateHIRStatementTypedSymbols(
   case HIRStatementKind::If: {
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " condition", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     validateHIRConditionType(statement.value, statementContext, symbols,
                              diagnostics);
     HIRSymbolTable thenSymbols = symbols;
     HIRReadOnlySymbolSet thenReadOnlySymbols = readOnlySymbols;
     HIRResourceHandleSymbolSet thenResourceHandleSymbols =
         resourceHandleSymbols;
+    HIRIndexableResourceBaseSet thenIndexableResourceBases =
+        indexableResourceBases;
     validateHIRStatementBlockTypedSymbols(statement.body, returnType,
                                           thenSymbols, typedContext,
                                           thenReadOnlySymbols,
                                           thenResourceHandleSymbols,
+                                          thenIndexableResourceBases,
                                           diagnostics, statementContext + " body");
     HIRSymbolTable elseSymbols = symbols;
     HIRReadOnlySymbolSet elseReadOnlySymbols = readOnlySymbols;
     HIRResourceHandleSymbolSet elseResourceHandleSymbols =
         resourceHandleSymbols;
+    HIRIndexableResourceBaseSet elseIndexableResourceBases =
+        indexableResourceBases;
     validateHIRStatementBlockTypedSymbols(statement.elseBody, returnType,
                                           elseSymbols, typedContext,
                                           elseReadOnlySymbols,
                                           elseResourceHandleSymbols,
+                                          elseIndexableResourceBases,
                                           diagnostics, statementContext + " else");
     break;
   }
@@ -2586,15 +2680,20 @@ void validateHIRStatementTypedSymbols(
     HIRReadOnlySymbolSet loopReadOnlySymbols = readOnlySymbols;
     HIRResourceHandleSymbolSet loopResourceHandleSymbols =
         resourceHandleSymbols;
+    HIRIndexableResourceBaseSet loopIndexableResourceBases =
+        indexableResourceBases;
     for (const HIRStatement &initializer : statement.initializer) {
       validateHIRStatementTypedSymbols(initializer, returnType, loopSymbols,
                                        typedContext, loopReadOnlySymbols,
-                                       loopResourceHandleSymbols, diagnostics,
+                                       loopResourceHandleSymbols,
+                                       loopIndexableResourceBases,
+                                       diagnostics,
                                        statementContext + " initializer");
     }
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " condition", loopSymbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &loopIndexableResourceBases);
     if (!isEmptyHIRExpressionSlot(statement.value)) {
       validateHIRConditionType(statement.value, statementContext, loopSymbols,
                                diagnostics);
@@ -2602,17 +2701,22 @@ void validateHIRStatementTypedSymbols(
     for (const HIRStatement &update : statement.update) {
       validateHIRStatementTypedSymbols(update, returnType, loopSymbols,
                                        typedContext, loopReadOnlySymbols,
-                                       loopResourceHandleSymbols, diagnostics,
+                                       loopResourceHandleSymbols,
+                                       loopIndexableResourceBases,
+                                       diagnostics,
                                        statementContext + " update");
     }
     HIRSymbolTable bodySymbols = loopSymbols;
     HIRReadOnlySymbolSet bodyReadOnlySymbols = loopReadOnlySymbols;
     HIRResourceHandleSymbolSet bodyResourceHandleSymbols =
         loopResourceHandleSymbols;
+    HIRIndexableResourceBaseSet bodyIndexableResourceBases =
+        loopIndexableResourceBases;
     validateHIRStatementBlockTypedSymbols(statement.body, returnType,
                                           bodySymbols, typedContext,
                                           bodyReadOnlySymbols,
-                                          bodyResourceHandleSymbols, diagnostics,
+                                          bodyResourceHandleSymbols,
+                                          bodyIndexableResourceBases, diagnostics,
                                           statementContext + " body");
     break;
   }
@@ -2759,10 +2863,27 @@ HIRResourceHandleSymbolSet stageHIRResourceHandleSymbolsForFunction(
   return resourceHandleSymbols;
 }
 
+HIRIndexableResourceBaseSet stageHIRIndexableResourceBasesForFunction(
+    const HIRFunction &function, const HIRStage &stage) {
+  HIRIndexableResourceBaseSet indexableResourceBases;
+  for (const HIRResource &resource : stage.resources) {
+    if (!resource.name.empty() && resource.kind == HIRResourceKind::Buffer) {
+      indexableResourceBases.insert(resource.name);
+    }
+  }
+  for (const HIRParameter &parameter : function.parameters) {
+    if (!parameter.name.empty()) {
+      indexableResourceBases.erase(parameter.name);
+    }
+  }
+  return indexableResourceBases;
+}
+
 void validateHIRFunctionTypedSymbols(
     const HIRFunction &function, HIRSymbolTable symbols,
     HIRReadOnlySymbolSet readOnlySymbols,
     HIRResourceHandleSymbolSet resourceHandleSymbols,
+    HIRIndexableResourceBaseSet indexableResourceBases,
     const HIRTypedSymbolContext &typedContext, DiagnosticEngine &diagnostics,
     const std::string &context) {
   const std::string functionName =
@@ -2778,7 +2899,8 @@ void validateHIRFunctionTypedSymbols(
   }
   validateHIRStatementBlockTypedSymbols(function.body, function.returnType,
                                         symbols, typedContext, readOnlySymbols,
-                                        resourceHandleSymbols, diagnostics,
+                                        resourceHandleSymbols,
+                                        indexableResourceBases, diagnostics,
                                         functionContext);
 }
 
@@ -2875,7 +2997,8 @@ bool validateHIRTypedSymbols(HIRModule &module, DiagnosticEngine &diagnostics) {
     validateHIRFunctionTypedSymbols(
         function, baseHIRSymbolsForFunction(function, typedContext),
         baseHIRReadOnlySymbolsForFunction(function, typedContext),
-        HIRResourceHandleSymbolSet{}, typedContext, diagnostics, "top-level");
+        HIRResourceHandleSymbolSet{}, HIRIndexableResourceBaseSet{},
+        typedContext, diagnostics, "top-level");
   }
 
   for (const HIRStage &stage : module.stages) {
@@ -2894,6 +3017,7 @@ bool validateHIRTypedSymbols(HIRModule &module, DiagnosticEngine &diagnostics) {
           stageHIRSymbolsForFunction(function, stage, stageTypedContext),
           stageHIRReadOnlySymbolsForFunction(function, stage, stageTypedContext),
           stageHIRResourceHandleSymbolsForFunction(function, stage),
+          stageHIRIndexableResourceBasesForFunction(function, stage),
           stageTypedContext, diagnostics, "stage '" + stageLabel + "'");
     }
   }

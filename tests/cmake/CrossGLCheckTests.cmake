@@ -2548,6 +2548,26 @@ add_test(NAME cglc_check_assignment_target_lvalue_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target must be an assignable storage location, got 'literal' expression"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_index_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INDEX_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.index-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=27"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=index operator requires a scalar int or uint index|message=got 'float'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_index_base_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INDEX_BASE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.index-base-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=24"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=index operator requires an array, storage-buffer pointer, descriptor array, or vector base|message=got 'float'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_constant_assignment_readonly_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

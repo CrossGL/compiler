@@ -4537,6 +4537,71 @@ bool isDescriptorResourceArrayIndex(
          resource->second.type.arraySize.has_value();
 }
 
+bool isStorageBufferResourceBase(
+    const HIRExpression &base,
+    const std::unordered_map<std::string, HIRResource> &resources) {
+  if (base.kind != HIRExpressionKind::Identifier) {
+    return false;
+  }
+  const auto resource = resources.find(base.value);
+  return resource != resources.end() &&
+         resource->second.kind == HIRResourceKind::Buffer;
+}
+
+bool isIndexableExpressionType(
+    const HIRExpression &base,
+    const std::unordered_map<std::string, HIRResource> &resources) {
+  if (isStorageBufferResourceBase(base, resources)) {
+    return true;
+  }
+  const HIRType &type = base.type;
+  if (type.name.empty()) {
+    return true;
+  }
+  HIRType baseType = stripTypeQualifier(type);
+  if (baseType.name.empty()) {
+    return true;
+  }
+  if (!baseType.name.empty() && baseType.name.back() == '*') {
+    return true;
+  }
+  if (baseType.arraySize.has_value()) {
+    return true;
+  }
+  return isVectorType(baseTypeName(baseType));
+}
+
+void validateIndexAccessExpression(
+    const HIRExpression &expression,
+    const std::unordered_map<std::string, HIRResource> &resources,
+    DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::IndexAccess &&
+      expression.children.size() >= 2) {
+    const HIRExpression &base = expression.children[0];
+    const HIRExpression &index = expression.children[1];
+    if (!isIndexableExpressionType(base, resources)) {
+      diagnostics.error(
+          "sema.index-base-type",
+          "index operator requires an array, storage-buffer pointer, descriptor "
+          "array, or vector base, got '" +
+              formatType(base.type) + "'",
+          expression.location);
+    }
+    if (index.kind != HIRExpressionKind::NonUniform &&
+        !index.type.name.empty() && !isIntegerScalarType(index.type)) {
+      diagnostics.error("sema.index-type",
+                        "index operator requires a scalar int or uint index, "
+                        "got '" +
+                            formatType(index.type) + "'",
+                        index.location);
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateIndexAccessExpression(child, resources, diagnostics);
+  }
+}
+
 void validateNonUniformIndexExpression(
     const HIRExpression &expression,
     const std::unordered_map<std::string, HIRResource> &resources,
@@ -4885,6 +4950,7 @@ void validateExpressionSemantics(const HIRExpression &expression,
   validateIntrinsicCallExpression(expression, diagnostics);
   validateUserFunctionCallExpression(expression, functionSignatures, diagnostics);
   validateScalarConstructorExpression(expression, diagnostics);
+  validateIndexAccessExpression(expression, resources, diagnostics);
   validateNonUniformIndexExpression(expression, resources, diagnostics);
   validateAtomicReadModifyWriteExpression(expression, diagnostics);
 }
