@@ -6378,16 +6378,27 @@ add_test(NAME cglc_build_opengl_function_parameter_struct_array_source_package
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storage-buffer|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.arrayStrideBytes=48|particles.storageBufferLayout.fields.0.name=payloads|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=16"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_STRUCT_STORAGE_AGGREGATE_ARRAY_FIELD_FEATURE_FIELDS}|function-parameter-array.kind=array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_function_parameter_resource_array_planned_failure
+set(CROSSGL_OPENGL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET [=[vec4 sampleFirst(texture2D maps[COUNT], sampler samplers[COUNT]) {
+  return textureLod(sampler2D(maps[0], samplers[0]), vec2(0.5, 0.5), 0.0);
+}
+
+void main() {
+  vec4 color = sampleFirst(colorMaps, linearSamplers);
+  values[0] = color;]=])
+add_test(NAME cglc_build_opengl_function_parameter_resource_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/opengl/fixtures/OpenGLFunctionParameterResourceArrayUnsupportedShader.cgl
+    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-function-parameter-resource-array.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-call-feature
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=sampleFirst.maps|message=sampleFirst.samplers|message=direct-resource-array-arguments"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLFunctionParameterResourceArrayShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET}"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLFunctionParameterResourceArrayShader|artifacts.backendSource=backend/opengl/OpenGLFunctionParameterResourceArrayShader.comp.glsl|artifacts.nativeBinary=backend/opengl/OpenGLFunctionParameterResourceArrayShader.glsl|artifacts.nativeBinaryStatus=planned"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLFunctionParameterResourceArrayShader|nativeBinary=backend/opengl/OpenGLFunctionParameterResourceArrayShader.glsl|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=values|resources.0.kind=buffer|resources.0.type=vec4*|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.2.name=linearSamplers|resources.2.kind=sampler|resources.2.type=sampler[COUNT]|workgroupSizes.0.entryPoint=compute_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|functionConstants=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.bindingClass=storage-buffer|colorMaps.bindingClass=texture|colorMaps.arraySize=COUNT|colorMaps.arrayElementCount=2|linearSamplers.bindingClass=sampler|linearSamplers.arraySize=COUNT|linearSamplers.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|native-glsl-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|sampled-texture.kind=resource|sampler-state.kind=resource|fixed-array.kind=layout|descriptor-array.kind=resource|function-parameter-array.kind=array|texture-sample.kind=operation|index-access.kind=operation|vector-constructor.kind=operation|storage-buffer-write.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_metal_function_parameter_resource_array_planned_failure
   COMMAND ${CMAKE_COMMAND}

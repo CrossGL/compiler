@@ -40475,7 +40475,7 @@ shader OpenGLFunctionParameterStructArrayUnsupportedShader {
   }
 
   constexpr std::string_view resourceArraySource = R"(
-shader OpenGLFunctionParameterResourceArrayUnsupportedShader {
+shader OpenGLFunctionParameterResourceArrayShader {
   const int COUNT = 2;
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -40499,30 +40499,37 @@ shader OpenGLFunctionParameterResourceArrayUnsupportedShader {
   expect(resourceArrayHir.has_value(),
          "OpenGL resource-array parameter fixture builds HIR");
   if (resourceArrayHir) {
-    expect(!crossgl::openglTextualBackendSupported(*resourceArrayHir),
-           "OpenGL rejects direct resource-array helper arguments");
-    expect(crossgl::openglHasUnsupportedFunctionParameterArrayCallFeatures(
+    expect(crossgl::openglTextualBackendSupported(*resourceArrayHir),
+           "OpenGL supports fixed-size direct sampled resource-array helper "
+           "arguments");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayCallFeatures(
                *resourceArrayHir),
-           "OpenGL classifies direct resource-array arguments as unsupported");
+           "OpenGL classifies fixed-size sampled resource-array arguments as "
+           "supported");
     crossgl::DiagnosticEngine resourceArrayDiagnostics;
-    expect(crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayCallFeatures(
-               *resourceArrayHir, resourceArrayDiagnostics),
-           "OpenGL emits direct resource-array argument diagnostic");
-    const std::vector<crossgl::Diagnostic> diagnostics =
-        resourceArrayDiagnostics.diagnostics();
-    expect(hasDiagnosticMessageFragment(
-               diagnostics,
-               "opengl.unsupported-function-parameter-array-call-feature",
-               "sampleFirst.maps") &&
-               hasDiagnosticMessageFragment(
-                   diagnostics,
-                   "opengl.unsupported-function-parameter-array-call-feature",
-                   "sampleFirst.samplers") &&
-               hasDiagnosticMessageFragment(
-                   diagnostics,
-                   "opengl.unsupported-function-parameter-array-call-feature",
-                   "direct-resource-array-arguments"),
-           "OpenGL diagnostic names direct resource-array parameters");
+    expect(!crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayCallFeatures(
+               *resourceArrayHir, resourceArrayDiagnostics) &&
+               resourceArrayDiagnostics.diagnostics().empty(),
+           "OpenGL does not emit direct sampled resource-array helper argument "
+           "diagnostics");
+    expect(crossgl::openGLSourcePackageSupported(*resourceArrayHir,
+                                                 resourceArrayDiagnostics) &&
+               resourceArrayDiagnostics.diagnostics().empty(),
+           "OpenGL source package predicate accepts fixed-size sampled "
+           "resource-array helper arguments");
+    const std::string resourceArrayOpenGL =
+        crossgl::generateOpenGLSource(*resourceArrayHir);
+    expect(resourceArrayOpenGL.find(
+               "vec4 sampleFirst(texture2D maps[COUNT], sampler "
+               "samplers[COUNT])") != std::string::npos &&
+               resourceArrayOpenGL.find(
+                   "return textureLod(sampler2D(maps[0], samplers[0]), "
+                   "vec2(0.5, 0.5), 0.0);") != std::string::npos &&
+               resourceArrayOpenGL.find(
+                   "vec4 color = sampleFirst(colorMaps, linearSamplers);") !=
+                   std::string::npos,
+           "OpenGL emits sampled resource-array helper parameters and "
+           "helper-side texture sampling");
   }
 }
 

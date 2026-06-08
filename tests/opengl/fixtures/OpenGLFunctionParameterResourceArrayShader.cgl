@@ -1,4 +1,4 @@
-shader OpenGLFunctionParameterResourceArrayUnsupportedShader {
+shader OpenGLFunctionParameterResourceArrayShader {
   const int COUNT = 2;
 
   compute {

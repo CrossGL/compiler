@@ -79,6 +79,8 @@ bool diagnoseRawStatementBackendInput(const HIRModule &module,
   return true;
 }
 
+std::string glslTextureType(const HIRType &type);
+
 std::string glslTypeName(std::string_view name) {
   if (name == "float" || name == "int" || name == "uint" || name == "bool" ||
       name == "void" || name == "vec2" || name == "vec3" ||
@@ -169,6 +171,25 @@ std::string glslValueType(const HIRModule &module, const HIRType &type) {
   return structure != nullptr ? structure->name : "";
 }
 
+std::string glslFunctionParameterValueType(const HIRModule &module,
+                                           const HIRType &type) {
+  const std::string valueType = glslValueType(module, type);
+  if (!valueType.empty()) {
+    return valueType;
+  }
+  if (type.name.empty() || type.name.back() == '*') {
+    return "";
+  }
+  const std::string textureType = glslTextureType(type);
+  if (!textureType.empty()) {
+    return textureType;
+  }
+  if (type.name == "sampler" || type.name == "comparison_sampler") {
+    return "sampler";
+  }
+  return "";
+}
+
 std::string glslArraySuffix(const HIRType &type) {
   return type.arraySize.has_value() ? "[" + *type.arraySize + "]" : "";
 }
@@ -179,6 +200,17 @@ bool isSupportedFunctionValueType(const HIRModule &module,
     return false;
   }
   if (glslValueType(module, type).empty()) {
+    return false;
+  }
+  return !type.arraySize.has_value() || !type.arraySize->empty();
+}
+
+bool isSupportedFunctionParameterType(const HIRModule &module,
+                                      const HIRType &type) {
+  if (type.name == "void" || (!type.name.empty() && type.name.back() == '*')) {
+    return false;
+  }
+  if (glslFunctionParameterValueType(module, type).empty()) {
     return false;
   }
   return !type.arraySize.has_value() || !type.arraySize->empty();
@@ -204,6 +236,13 @@ std::string glslDeclarator(const HIRModule &module, const HIRType &type,
                            std::string_view name) {
   return glslValueType(module, type) + " " + std::string(name) +
          glslArraySuffix(type);
+}
+
+std::string glslFunctionParameterDeclarator(const HIRModule &module,
+                                            const HIRType &type,
+                                            std::string_view name) {
+  return glslFunctionParameterValueType(module, type) + " " +
+         std::string(name) + glslArraySuffix(type);
 }
 
 std::string glslStructFieldType(const HIRModule &module, const HIRType &type) {
@@ -738,16 +777,33 @@ void appendOpenGLFunctionParameterArrayCallFeature(
 HIRFunctionParameterArrayCallFeatureSupport
 openGLFunctionParameterArrayCallFeatureSupport(
     HIRFunctionParameterArrayCallFeature feature) {
-  if (feature == HIRFunctionParameterArrayCallFeature::StructElements) {
+  if (feature == HIRFunctionParameterArrayCallFeature::StructElements ||
+      feature ==
+          HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments) {
     return HIRFunctionParameterArrayCallFeatureSupport::Supported;
   }
   return functionParameterArrayCallFeatureSupport(feature);
 }
 
+bool openGLSampledTextureOrSamplerArrayParameterSupported(
+    const HIRModule &module, const HIRType &type) {
+  return functionParameterArrayShape(module, type) ==
+             HIRFunctionParameterArrayShape::FixedSize &&
+         !glslFunctionParameterValueType(module, type).empty() &&
+         (isTextureResourceType(type.name) || isSamplerResourceType(type.name));
+}
+
 HIRFunctionParameterArrayCallFeatureSupport
 openGLFunctionParameterArrayCallFeaturesSupport(
+    const HIRModule &module, const HIRType &parameterType,
     const std::vector<HIRFunctionParameterArrayCallFeature> &features) {
   for (HIRFunctionParameterArrayCallFeature feature : features) {
+    if (feature ==
+            HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments &&
+        !openGLSampledTextureOrSamplerArrayParameterSupported(module,
+                                                              parameterType)) {
+      return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+    }
     if (openGLFunctionParameterArrayCallFeatureSupport(feature) ==
         HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
       return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
@@ -797,7 +853,8 @@ bool openGLFunctionParameterArrayCallFeaturesSupported(
       appendOpenGLFunctionParameterArrayCallFeature(features, feature);
     }
 
-    if (openGLFunctionParameterArrayCallFeaturesSupport(features) ==
+    if (openGLFunctionParameterArrayCallFeaturesSupport(module, parameter.type,
+                                                        features) ==
         HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
       supported = false;
       if (unsupportedLabels != nullptr) {
@@ -2425,7 +2482,7 @@ bool userFunctionCallSupported(const HIRExpression &expression,
   for (std::size_t index = 0; index < function->parameters.size(); ++index) {
     const HIRParameter &parameter = function->parameters[index];
     const HIRExpression &argument = expression.children[index];
-    if (!isSupportedFunctionValueType(*context.module, parameter.type) ||
+    if (!isSupportedFunctionParameterType(*context.module, parameter.type) ||
         !argumentTypeMatchesParameter(argument.type, parameter.type) ||
         !expressionSupported(argument, context)) {
       return false;
@@ -2589,7 +2646,8 @@ bool openGLLocalArrayCopyArgument(const HIRModule &module,
   const std::vector<HIRFunctionParameterArrayCallFeature> features =
       functionParameterArrayCallArgumentFeatures(module, caller, argument,
                                                  stage);
-  if (openGLFunctionParameterArrayCallFeaturesSupport(features) !=
+  if (openGLFunctionParameterArrayCallFeaturesSupport(module, argument.type,
+                                                      features) !=
       HIRFunctionParameterArrayCallFeatureSupport::Supported) {
     return false;
   }
@@ -3041,7 +3099,7 @@ bool functionSupported(const HIRModule &module, const HIRStage &stage,
     }
   }
   for (const HIRParameter &parameter : function.parameters) {
-    if (!isSupportedFunctionValueType(module, parameter.type)) {
+    if (!isSupportedFunctionParameterType(module, parameter.type)) {
       return false;
     }
   }
@@ -3105,8 +3163,8 @@ void emitFunctionSignature(std::ostringstream &out, const HIRModule &module,
       out << ", ";
     }
     const HIRParameter &parameter = function.parameters[index];
-    out << glslDeclarator(module, parameter.type,
-                          emitIdentifierName(parameter.name, context));
+    out << glslFunctionParameterDeclarator(
+        module, parameter.type, emitIdentifierName(parameter.name, context));
   }
   out << ")";
 }
@@ -3286,8 +3344,10 @@ void diagnoseOpenGLSourceUnsupported(DiagnosticEngine &diagnostics) {
       "local arrays "
       "(including fixed nested arrays with literal/folded or dynamic helper "
       "read indices) passed to helper array parameters with callee-local "
-      "parameter writes, fixed-size struct-element helper arrays, same-stage "
-      "helper functions, and void entry functions with no parameters, or one "
+      "parameter writes, fixed-size struct-element helper arrays, fixed-size "
+      "sampled texture/sampler resource arrays passed to read-only helper "
+      "parameters, same-stage helper functions, and void entry functions with "
+      "no parameters, or one "
       "vertex stage plus one "
       "fragment stage with struct input/output signatures, scalar/vector stage "
       "IO fields, non-array struct uniform buffers, and fixed-size sampled "
@@ -4131,8 +4191,9 @@ std::string generateOpenGLBackendIR(const HIRModule &module) {
            "(including fixed nested arrays with literal/folded or dynamic "
            "helper read indices) passed to helper array parameters with "
            "callee-local parameter writes, fixed-size struct-element helper "
-           "arrays, same-stage helper functions, and void entry functions "
-           "with no parameters, or one "
+           "arrays, fixed-size sampled texture/sampler resource arrays passed "
+           "to read-only helper parameters, same-stage helper functions, and "
+           "void entry functions with no parameters, or one "
            "vertex stage plus one fragment stage with struct input/output "
            "signatures, scalar/vector stage IO fields, non-array struct "
            "uniform buffers, and fixed-size sampled texture/comparison texture "
