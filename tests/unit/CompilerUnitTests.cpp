@@ -46811,6 +46811,188 @@ shader MetalDynamicNestedVectorFunctionParameterArrayReadShader {
     }
   }
 
+  constexpr std::string_view dynamicNestedMatrixReadSource = R"(
+shader MetalDynamicNestedMatrixFunctionParameterArrayReadShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    mat2 readGrid(mat2 grid[ROWS][COLS], int row, int col) {
+      return grid[row][col];
+    }
+    void main() {
+      mat2 localGrid[ROWS][COLS];
+      int row = 1;
+      int col = 0;
+      mat2 selected = readGrid(localGrid, row, col);
+      localGrid[0][0] = selected;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicNestedMatrixReadHir =
+      parseHIR(dynamicNestedMatrixReadSource);
+  expect(dynamicNestedMatrixReadHir.has_value(),
+         "Metal dynamic nested matrix parameter-array read source builds HIR");
+  if (dynamicNestedMatrixReadHir.has_value()) {
+    crossgl::DiagnosticEngine supportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(*dynamicNestedMatrixReadHir,
+                                                supportDiagnostics),
+           "Metal dynamic nested matrix helper array reads pass native "
+           "support preflight");
+    expect(!supportDiagnostics.hasErrors(),
+           "Metal dynamic nested matrix helper array reads have no preflight "
+           "diagnostics");
+
+    const std::string dynamicNestedMatrixMetal =
+        crossgl::generateMetalSource(*dynamicNestedMatrixReadHir);
+    expect(dynamicNestedMatrixMetal.find(
+               "float2x2 readGrid(array<array<float2x2, COLS>, ROWS> grid, "
+               "int row, int col)") != std::string::npos,
+           "Metal backend emits matrix nested helper array parameter for "
+           "dynamic reads");
+    expect(dynamicNestedMatrixMetal.find("return grid[row][col];") !=
+               std::string::npos,
+           "Metal backend preserves dynamic matrix nested helper array read");
+
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-dynamic-nested-matrix-helper-array-read-native-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+
+      crossgl::DiagnosticEngine diagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*dynamicNestedMatrixReadHir, packageDir,
+                                    diagnostics);
+      expect(result.success,
+             "Metal dynamic nested matrix helper array reads compile to "
+             "metallib");
+      expect(!diagnostics.hasErrors(),
+             "Metal dynamic nested matrix helper array read native build has "
+             "no diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal dynamic nested matrix helper array read metallib exists");
+    }
+  }
+
+  constexpr std::string_view dynamicNestedStructReadSource = R"(
+shader MetalDynamicNestedStructFunctionParameterArrayReadShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+  struct Payload {
+    float value;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    Payload readGrid(Payload grid[ROWS][COLS], int row, int col) {
+      return grid[row][col];
+    }
+    void main() {
+      Payload localGrid[ROWS][COLS];
+      Payload seed;
+      seed.value = 1.0;
+      localGrid[0][0] = seed;
+      int row = 0;
+      int col = 0;
+      Payload selected = readGrid(localGrid, row, col);
+      localGrid[0][1] = selected;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicNestedStructReadHir =
+      parseHIR(dynamicNestedStructReadSource);
+  expect(dynamicNestedStructReadHir.has_value(),
+         "Metal dynamic nested struct parameter-array read source builds HIR");
+  if (dynamicNestedStructReadHir.has_value()) {
+    crossgl::DiagnosticEngine supportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(*dynamicNestedStructReadHir,
+                                                supportDiagnostics),
+           "Metal dynamic nested struct helper array reads pass native "
+           "support preflight");
+    expect(!supportDiagnostics.hasErrors(),
+           "Metal dynamic nested struct helper array reads have no preflight "
+           "diagnostics");
+
+    const std::string dynamicNestedStructMetal =
+        crossgl::generateMetalSource(*dynamicNestedStructReadHir);
+    expect(dynamicNestedStructMetal.find(
+               "Payload readGrid(array<array<Payload, COLS>, ROWS> grid, "
+               "int row, int col)") != std::string::npos,
+           "Metal backend emits struct nested helper array parameter for "
+           "dynamic reads");
+    expect(dynamicNestedStructMetal.find("return grid[row][col];") !=
+               std::string::npos,
+           "Metal backend preserves dynamic struct nested helper array read");
+
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-dynamic-nested-struct-helper-array-read-native-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+
+      crossgl::DiagnosticEngine diagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*dynamicNestedStructReadHir, packageDir,
+                                    diagnostics);
+      expect(result.success,
+             "Metal dynamic nested struct helper array reads compile to "
+             "metallib");
+      expect(!diagnostics.hasErrors(),
+             "Metal dynamic nested struct helper array read native build has "
+             "no diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal dynamic nested struct helper array read metallib exists");
+    }
+  }
+
+  constexpr std::string_view dynamicNestedResourceReadSource = R"(
+shader MetalDynamicNestedResourceFunctionParameterArrayReadUnsupportedShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[ROWS][COLS];
+    layout(set = 0, binding = 5) sampler linearSamplers[ROWS][COLS];
+    vec4 readGrid(sampler2D maps[ROWS][COLS], sampler samplers[ROWS][COLS], int row, int col) {
+      return textureLod(maps[row][col], samplers[row][col], vec2(0.5, 0.5), 0.0);
+    }
+    void main() {
+      int row = 0;
+      int col = 1;
+      values[0] = readGrid(colorMaps, linearSamplers, row, col);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicNestedResourceReadHir =
+      parseHIR(dynamicNestedResourceReadSource);
+  expect(dynamicNestedResourceReadHir.has_value(),
+         "Metal dynamic nested resource parameter-array read diagnostic "
+         "source builds HIR");
+  if (dynamicNestedResourceReadHir.has_value()) {
+    crossgl::DiagnosticEngine supportDiagnostics;
+    expect(!crossgl::metalNativeBackendSupported(
+               *dynamicNestedResourceReadHir, supportDiagnostics),
+           "Metal dynamic nested resource helper array reads remain "
+           "unsupported");
+    expect(hasDiagnosticCode(
+               supportDiagnostics.diagnostics(),
+               "metal.unsupported-dynamic-nested-helper-array-read"),
+           "Metal dynamic nested resource helper array reads keep the "
+           "unsupported read diagnostic");
+  }
+
   constexpr std::string_view writeThroughSource = R"(
 shader MetalFunctionParameterArrayWriteShader {
   const int COUNT = 2;

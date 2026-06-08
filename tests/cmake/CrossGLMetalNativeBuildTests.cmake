@@ -1209,6 +1209,40 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|index-access.kind=operation|local-declaration.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_DYNAMIC_NESTED_MATRIX_FUNCTION_PARAMETER_ARRAY_READ_NATIVE_SOURCE_SNIPPET [=[float2x2 readGrid(array<array<float2x2, COLS>, ROWS> grid, int row, int col) {
+  return grid[row][col];
+}]=])
+  add_test(NAME cglc_build_metal_dynamic_nested_matrix_function_parameter_array_read_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-dynamic-nested-matrix-function-parameter-array-read.cglb
+      -DEXPECTED_MODULE=MetalDynamicNestedMatrixFunctionParameterArrayReadShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_DYNAMIC_NESTED_MATRIX_FUNCTION_PARAMETER_ARRAY_READ_NATIVE_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedMatrixFunctionParameterArrayReadShader|artifacts.backendSource=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.metal|artifacts.intermediate=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.air|artifacts.nativeBinary=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedMatrixFunctionParameterArrayReadShader|nativeBinary=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1|workgroupSizes.0.sourceX=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=0|targetResourceBindings=0|functionConstants=2|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_READ_NATIVE_SOURCE_SNIPPET [=[Payload readGrid(array<array<Payload, COLS>, ROWS> grid, int row, int col) {
+  return grid[row][col];
+}]=])
+  add_test(NAME cglc_build_metal_dynamic_nested_struct_function_parameter_array_read_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedStructFunctionParameterArrayReadShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-dynamic-nested-struct-function-parameter-array-read.cglb
+      -DEXPECTED_MODULE=MetalDynamicNestedStructFunctionParameterArrayReadShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_READ_NATIVE_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayReadShader|artifacts.backendSource=backend/metal/MetalDynamicNestedStructFunctionParameterArrayReadShader.metal|artifacts.intermediate=backend/metal/MetalDynamicNestedStructFunctionParameterArrayReadShader.air|artifacts.nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayReadShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayReadShader|nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayReadShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1|workgroupSizes.0.sourceX=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=0|targetResourceBindings=0|functionConstants=2|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_folded_array_helper_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>

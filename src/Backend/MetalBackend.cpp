@@ -3319,11 +3319,12 @@ bool metalTypeHasNestedArray(const HIRType &type) {
          splitMetalArrayDimensions(*type.arraySize).size() > 1;
 }
 
-bool metalSupportsDynamicNestedHelperArrayRead(const HIRModule &,
+bool metalSupportsDynamicNestedHelperArrayRead(const HIRModule &module,
                                                const HIRType &type) {
   const std::string baseName = baseTypeName(type);
   return baseName == "bool" || isNumericScalarTypeName(baseName) ||
-         isVectorType(baseName);
+         isVectorType(baseName) || isMatrixType(baseName) ||
+         findStructByName(module.structs, baseName) != nullptr;
 }
 
 bool metalSupportsDynamicNestedHelperArrayWrite(const HIRModule &module,
@@ -3524,8 +3525,8 @@ bool validateMetalDynamicNestedFunctionParameterArrayReads(
   diagnostics.error(
       "metal.unsupported-dynamic-nested-helper-array-read",
       "Metal backend supports dynamic nested helper-array reads only for "
-      "fixed-size scalar/vector helper array parameter(s); unsupported "
-      "parameter(s): " +
+      "fixed-size scalar/vector/matrix/struct helper array parameter(s); "
+      "unsupported parameter(s): " +
           joinMetalLabels(labels) +
           "; use literal or folded constant indices for other nested helper "
           "array element types in Metal source packages");
