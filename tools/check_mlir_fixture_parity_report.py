@@ -110,8 +110,23 @@ RESOURCE_ITEM_FIELDS = {
         "resourceFacts.storageBuffers[].writeAccess",
     ),
     "storageImages": ("resourceFacts.storageImages[]",),
-    "textures": ("resourceFacts.textures[]",),
-    "samplers": ("resourceFacts.samplers[]",),
+    "textures": (
+        "resourceFacts.textures[].name",
+        "resourceFacts.textures[].type",
+        "resourceFacts.textures[].sampledType",
+        "resourceFacts.textures[].dimension",
+        "resourceFacts.textures[].arrayed",
+        "resourceFacts.textures[].comparison",
+        "resourceFacts.textures[].set",
+        "resourceFacts.textures[].binding",
+    ),
+    "samplers": (
+        "resourceFacts.samplers[].name",
+        "resourceFacts.samplers[].type",
+        "resourceFacts.samplers[].comparison",
+        "resourceFacts.samplers[].set",
+        "resourceFacts.samplers[].binding",
+    ),
 }
 TARGET_INDEPENDENT_RESOURCE_METADATA_FIELDS = (
     "resourceFacts.targetIndependentResourceMetadata",
@@ -135,6 +150,17 @@ RESOURCE_ITEM_REQUIRED_KEYS = {
         "addressSpace",
         "writeAccess",
     ),
+    "textures": (
+        "name",
+        "type",
+        "sampledType",
+        "dimension",
+        "arrayed",
+        "comparison",
+        "set",
+        "binding",
+    ),
+    "samplers": ("name", "type", "comparison", "set", "binding"),
     "targetIndependentResourceMetadata": (
         "stage",
         "name",
@@ -171,6 +197,7 @@ LOWERING_EVIDENCE_SECTIONS = (
 LOWERING_EVIDENCE_STATUS = "report-only"
 RESOURCE_MODE_EMPTY = "empty-resource-facts"
 RESOURCE_MODE_STORAGE_BUFFER = "single-storage-buffer-binding"
+RESOURCE_MODE_TEXTURE_SAMPLER = "sampled-texture-sampler-binding"
 CONTROL_FLOW_CATEGORY_STRAIGHT_LINE = "straight-line"
 CONTROL_FLOW_CATEGORY_STRUCTURED_IF_ELSE = "structured-if-else"
 HIR_OPT_LEVEL_FOR_PARITY = "O0"
@@ -380,6 +407,8 @@ def expected_control_flow_report(
 
 
 def expected_resource_mode(resource_facts: dict[str, Any]) -> str:
+    if resource_facts.get("textures") or resource_facts.get("samplers"):
+        return RESOURCE_MODE_TEXTURE_SAMPLER
     has_resource_binding = any(
         resource_facts.get(collection) for collection in RESOURCE_FACT_COLLECTIONS
     )
@@ -450,10 +479,7 @@ def check_resource_facts(
         if not isinstance(resource_facts.get(collection), list):
             errors.append(f"{field}.{collection} must be a list")
             continue
-        if (
-            collection in {"storageImages", "textures", "samplers"}
-            and resource_facts[collection]
-        ):
+        if collection == "storageImages" and resource_facts[collection]:
             errors.append(
                 f"{field}.{collection} must stay empty until its HIR family is "
                 "admitted with blocked-family rationale updated"
@@ -474,8 +500,15 @@ def check_resource_facts(
             )
             if descriptor.get("stage") != stage:
                 errors.append(f"{item_field}.stage must match fixture stage")
-            if descriptor.get("kind") != "storageBuffer":
-                errors.append(f"{item_field}.kind must be 'storageBuffer'")
+            if descriptor.get("kind") not in {
+                "storageBuffer",
+                "sampledTexture",
+                "sampler",
+            }:
+                errors.append(
+                    f"{item_field}.kind must be 'storageBuffer', "
+                    "'sampledTexture', or 'sampler'"
+                )
             for integer_field in ("set", "binding"):
                 value = descriptor.get(integer_field)
                 if not isinstance(value, int) or value < 0:
@@ -498,14 +531,82 @@ def check_resource_facts(
                 errors,
             )
             require_string(storage_buffer.get("name"), f"{item_field}.name", errors)
-            if storage_buffer.get("type") != "float*":
-                errors.append(f"{item_field}.type must be 'float*'")
-            if storage_buffer.get("elementType") != "float":
-                errors.append(f"{item_field}.elementType must be 'float'")
+            source_type = require_string(
+                storage_buffer.get("type"), f"{item_field}.type", errors
+            )
+            element_type = require_string(
+                storage_buffer.get("elementType"),
+                f"{item_field}.elementType",
+                errors,
+            )
+            if source_type is not None and not source_type.endswith("*"):
+                errors.append(f"{item_field}.type must be a pointer resource type")
+            if (
+                source_type is not None
+                and element_type is not None
+                and source_type != f"{element_type}*"
+            ):
+                errors.append(
+                    f"{item_field}.type must match elementType with a pointer suffix"
+                )
             if storage_buffer.get("addressSpace") != "storage":
                 errors.append(f"{item_field}.addressSpace must be 'storage'")
             if not isinstance(storage_buffer.get("writeAccess"), bool):
                 errors.append(f"{item_field}.writeAccess must be a boolean")
+
+    textures = resource_facts.get("textures")
+    if isinstance(textures, list):
+        for index, item in enumerate(textures):
+            item_field = f"{field}.textures[{index}]"
+            texture = require_object(item, item_field, errors)
+            if not texture:
+                continue
+            require_exact_keys(
+                texture,
+                item_field,
+                RESOURCE_ITEM_REQUIRED_KEYS["textures"],
+                errors,
+            )
+            require_string(texture.get("name"), f"{item_field}.name", errors)
+            require_string(texture.get("type"), f"{item_field}.type", errors)
+            require_string(
+                texture.get("sampledType"), f"{item_field}.sampledType", errors
+            )
+            require_string(texture.get("dimension"), f"{item_field}.dimension", errors)
+            if not isinstance(texture.get("arrayed"), bool):
+                errors.append(f"{item_field}.arrayed must be a boolean")
+            if not isinstance(texture.get("comparison"), bool):
+                errors.append(f"{item_field}.comparison must be a boolean")
+            for integer_field in ("set", "binding"):
+                value = texture.get(integer_field)
+                if not isinstance(value, int) or value < 0:
+                    errors.append(
+                        f"{item_field}.{integer_field} must be a non-negative integer"
+                    )
+
+    samplers = resource_facts.get("samplers")
+    if isinstance(samplers, list):
+        for index, item in enumerate(samplers):
+            item_field = f"{field}.samplers[{index}]"
+            sampler = require_object(item, item_field, errors)
+            if not sampler:
+                continue
+            require_exact_keys(
+                sampler,
+                item_field,
+                RESOURCE_ITEM_REQUIRED_KEYS["samplers"],
+                errors,
+            )
+            require_string(sampler.get("name"), f"{item_field}.name", errors)
+            require_string(sampler.get("type"), f"{item_field}.type", errors)
+            if not isinstance(sampler.get("comparison"), bool):
+                errors.append(f"{item_field}.comparison must be a boolean")
+            for integer_field in ("set", "binding"):
+                value = sampler.get(integer_field)
+                if not isinstance(value, int) or value < 0:
+                    errors.append(
+                        f"{item_field}.{integer_field} must be a non-negative integer"
+                    )
 
     metadata = resource_facts.get(RESOURCE_METADATA_COLLECTION)
     if isinstance(metadata, list):
@@ -522,17 +623,27 @@ def check_resource_facts(
             )
             if record.get("stage") != stage:
                 errors.append(f"{item_field}.stage must match fixture stage")
-            if record.get("kind") != "storageBuffer":
-                errors.append(f"{item_field}.kind must be 'storageBuffer'")
+            kind = record.get("kind")
+            if kind not in {"storageBuffer", "sampledTexture", "sampler"}:
+                errors.append(
+                    f"{item_field}.kind must be 'storageBuffer', "
+                    "'sampledTexture', or 'sampler'"
+                )
             require_string(record.get("name"), f"{item_field}.name", errors)
-            if record.get("sourceType") != "float*":
-                errors.append(f"{item_field}.sourceType must be 'float*'")
-            if record.get("elementType") != "float":
-                errors.append(f"{item_field}.elementType must be 'float'")
-            if record.get("addressSpace") != "storage":
-                errors.append(f"{item_field}.addressSpace must be 'storage'")
-            if record.get("access") != "read_write":
-                errors.append(f"{item_field}.access must be 'read_write'")
+            require_string(record.get("sourceType"), f"{item_field}.sourceType", errors)
+            require_string(
+                record.get("elementType"), f"{item_field}.elementType", errors
+            )
+            expected_address_space = (
+                "storage" if kind == "storageBuffer" else "uniform_constant"
+            )
+            if record.get("addressSpace") != expected_address_space:
+                errors.append(
+                    f"{item_field}.addressSpace must be {expected_address_space!r}"
+                )
+            expected_access = "read_write" if kind == "storageBuffer" else "read"
+            if record.get("access") != expected_access:
+                errors.append(f"{item_field}.access must be {expected_access!r}")
             for integer_field in ("set", "binding"):
                 value = record.get(integer_field)
                 if not isinstance(value, int) or value < 0:
@@ -582,6 +693,34 @@ def check_resource_facts(
                     f"{field} target-independent resource metadata set/binding "
                     "must match descriptor set/binding"
                 )
+    if isinstance(descriptors, list) and isinstance(textures, list):
+        descriptor_names = {
+            item.get("name")
+            for item in descriptors
+            if isinstance(item, dict) and item.get("kind") == "sampledTexture"
+        }
+        texture_names = {
+            item.get("name") for item in textures if isinstance(item, dict)
+        }
+        if descriptor_names != texture_names:
+            errors.append(
+                f"{field} sampledTexture descriptor names must match "
+                "resourceFacts.textures names"
+            )
+    if isinstance(descriptors, list) and isinstance(samplers, list):
+        descriptor_names = {
+            item.get("name")
+            for item in descriptors
+            if isinstance(item, dict) and item.get("kind") == "sampler"
+        }
+        sampler_names = {
+            item.get("name") for item in samplers if isinstance(item, dict)
+        }
+        if descriptor_names != sampler_names:
+            errors.append(
+                f"{field} sampler descriptor names must match "
+                "resourceFacts.samplers names"
+            )
 
 
 def check_required_facts(inventory: dict[str, Any], errors: list[str]) -> None:
@@ -1237,7 +1376,8 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
         r"^fn\s+([A-Za-z_][A-Za-z0-9_]*)\(\)\s+->\s+([A-Za-z_][A-Za-z0-9_*]*)$"
     )
     resource_pattern = re.compile(
-        r"^resource\s+buffer\s+(.+?)\s+([A-Za-z_][A-Za-z0-9_]*)\s+"
+        r"^resource\s+([A-Za-z_][A-Za-z0-9_]*)\s+(.+?)\s+"
+        r"([A-Za-z_][A-Za-z0-9_]*)\s+"
         r"set\s+([0-9]+)\s+binding\s+([0-9]+)$"
     )
     declaration_pattern = re.compile(
@@ -1262,8 +1402,9 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
                 (
                     match.group(1),
                     match.group(2),
-                    int(match.group(3)),
+                    match.group(3),
                     int(match.group(4)),
+                    int(match.group(5)),
                 )
             )
             continue
@@ -1422,19 +1563,37 @@ def check_hir_text_parity(
         if isinstance(item, dict)
     }
     for index, descriptor in enumerate(resource_facts.get("descriptors", [])):
-        if (
-            not isinstance(descriptor, dict)
-            or descriptor.get("kind") != "storageBuffer"
-        ):
+        if not isinstance(descriptor, dict):
             continue
         name = descriptor.get("name")
-        storage_buffer = storage_buffers_by_name.get(name)
-        source_type = (
-            storage_buffer.get("type")
-            if isinstance(storage_buffer, dict)
-            else descriptor.get("sourceType")
-        )
+        kind = descriptor.get("kind")
+        hir_kind = {
+            "storageBuffer": "buffer",
+            "sampledTexture": "texture",
+            "sampler": "sampler",
+        }.get(kind)
+        if hir_kind is None:
+            continue
+        source_type = descriptor.get("sourceType")
+        if kind == "storageBuffer":
+            storage_buffer = storage_buffers_by_name.get(name)
+            source_type = (
+                storage_buffer.get("type")
+                if isinstance(storage_buffer, dict)
+                else descriptor.get("sourceType")
+            )
+        elif kind == "sampledTexture":
+            for texture in resource_facts.get("textures", []):
+                if isinstance(texture, dict) and texture.get("name") == name:
+                    source_type = texture.get("type")
+                    break
+        elif kind == "sampler":
+            for sampler in resource_facts.get("samplers", []):
+                if isinstance(sampler, dict) and sampler.get("name") == name:
+                    source_type = sampler.get("type")
+                    break
         expected_resource = (
+            hir_kind,
             source_type,
             name,
             descriptor.get("set"),
@@ -1442,8 +1601,7 @@ def check_hir_text_parity(
         )
         if expected_resource not in facts["resources"]:
             errors.append(
-                f"{field}: HIR text missing storage-buffer resource "
-                f"{index}: {expected_resource!r}"
+                f"{field}: HIR text missing resource {index}: {expected_resource!r}"
             )
 
     source_facts = set(record.get("sourceLocationFacts", []))
@@ -1555,10 +1713,19 @@ def check_hir_source_map_parity(
         owner == "resource-type" and typ == "float*" for owner, _, typ in type_triples
     ):
         errors.append(f"{field}: HIR source-map missing float* storage-buffer type")
-    if "storage_buffer_element_type" in type_facts and not any(
-        kind == "index" and typ == "float" for _, kind, _, typ in expression_tuples
-    ):
-        errors.append(f"{field}: HIR source-map missing storage-buffer element type")
+    if "storage_buffer_element_type" in type_facts:
+        expected_element_types = {
+            item.get("elementType")
+            for item in record.get("resourceFacts", {}).get("storageBuffers", [])
+            if isinstance(item, dict) and isinstance(item.get("elementType"), str)
+        }
+        if not any(
+            kind == "index" and typ in expected_element_types
+            for _, kind, _, typ in expression_tuples
+        ):
+            errors.append(
+                f"{field}: HIR source-map missing storage-buffer element type"
+            )
     if "binary_expression_result_types" in type_facts and not any(
         kind == "binary" and isinstance(typ, str) and typ
         for _, kind, _, typ in expression_tuples

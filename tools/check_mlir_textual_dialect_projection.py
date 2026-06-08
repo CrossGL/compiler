@@ -248,11 +248,22 @@ def textual_form_for_operation(operation: str) -> str:
         return 'hir.resource @${resourceName} {set = ${set}, binding = ${binding}, kind = "${kind}"}'
     if operation == "hir.storage_buffer":
         return "hir.storage_buffer @${resourceName} : !hir.storage_buffer<!hir.f32>"
+    if operation == "hir.texture":
+        return "hir.texture @${resourceName} : !hir.texture<2d, sampled, f32>"
+    if operation == "hir.sampler":
+        return (
+            "hir.sampler @${resourceName} {comparison = ${comparison}} : !hir.sampler"
+        )
     if operation == "hir.storage_buffer.read":
         return "hir.storage_buffer.read @${resourceName}[${index}] : !hir.f32"
     if operation == "hir.storage_buffer.write":
         return (
             "hir.storage_buffer.write @${resourceName}[${index}], ${value} : !hir.f32"
+        )
+    if operation == "hir.texture_lod":
+        return (
+            "hir.texture_lod @${texture}, @${sampler}, ${coordinates}, ${lod} "
+            ": !hir.vec2, !hir.f32 -> !hir.vec4"
         )
     if operation == "hir.if":
         return "hir.if ${condition} : !hir.bool { ... } else { ... }"
@@ -284,6 +295,8 @@ def hir_type_name(source_type: str) -> str:
 def resource_lines(resource_facts: dict[str, Any]) -> list[str]:
     descriptors = resource_facts.get("descriptors")
     storage_buffers = resource_facts.get("storageBuffers")
+    textures = resource_facts.get("textures")
+    samplers = resource_facts.get("samplers")
     lines: list[str] = []
     if isinstance(descriptors, list):
         for descriptor in descriptors:
@@ -306,6 +319,26 @@ def resource_lines(resource_facts: dict[str, Any]) -> list[str]:
             )
             lines.append(
                 f"  hir.storage_buffer @{name} : !hir.storage_buffer<!hir.{element_type}>"
+            )
+    if isinstance(textures, list):
+        for texture in textures:
+            if not isinstance(texture, dict):
+                continue
+            name = scalar_value(texture, "name", "texture")
+            dimension = scalar_value(texture, "dimension", "2d")
+            sampled_type = hir_type_name(scalar_value(texture, "sampledType", "float"))
+            sampled = "sampled"
+            lines.append(
+                f"  hir.texture @{name} : !hir.texture<{dimension}, {sampled}, {sampled_type}>"
+            )
+    if isinstance(samplers, list):
+        for sampler in samplers:
+            if not isinstance(sampler, dict):
+                continue
+            name = scalar_value(sampler, "name", "sampler")
+            comparison = str(bool(sampler.get("comparison"))).lower()
+            lines.append(
+                f"  hir.sampler @{name} {{comparison = {comparison}}} : !hir.sampler"
             )
     return lines
 
@@ -332,6 +365,11 @@ def textual_module_skeleton(
     lines.extend(resource_lines(resource_facts))
     if "hir.if" in string_list(boundary_record.get("expectedOperations")):
         lines.append("  hir.if %branch_condition : !hir.bool { ... } else { ... }")
+    if "hir.texture_lod" in string_list(boundary_record.get("expectedOperations")):
+        lines.append(
+            "  %sample = hir.texture_lod @shadowMap, @comparisonSampler, "
+            "%uv, %lod : !hir.vec2, !hir.f32 -> !hir.vec4"
+        )
     lines.extend(
         [
             "  hir.return loc(return_statement)",
@@ -460,10 +498,19 @@ def derive_catalog(root: Path) -> dict[str, Any]:
     fixtures = derive_fixture_projection(fixture_inventory, manifest, boundary)
     operations = derive_operation_projection(boundary, manifest, fixtures)
     operation_names = [item["operation"] for item in operations]
-    resource_bound = [
+    storage_buffer_resource_bound = [
         item["path"]
         for item in fixtures
         if item.get("resourceFactMode") == "single-storage-buffer-binding"
+    ]
+    texture_sampler_resource_bound = [
+        item["path"]
+        for item in fixtures
+        if item.get("resourceFactMode") == "sampled-texture-sampler-binding"
+    ]
+    resource_bound = [
+        *storage_buffer_resource_bound,
+        *texture_sampler_resource_bound,
     ]
     operation_prefix = source_authority.get("operationPrefix", "hir.")
     if not isinstance(operation_prefix, str):
@@ -517,6 +564,8 @@ def derive_catalog(root: Path) -> dict[str, Any]:
             "operationCount": len(operations),
             "resourceBoundFixtureCount": len(resource_bound),
             "resourceBoundFixtures": resource_bound,
+            "sampledTextureSamplerFixtureCount": len(texture_sampler_resource_bound),
+            "sampledTextureSamplerFixtures": texture_sampler_resource_bound,
             "fixtures": [item["path"] for item in fixtures],
             "operationNamingBoundary": {
                 "operationPrefix": operation_prefix,
@@ -789,6 +838,43 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
         errors.append(f"{CATALOG_PATH}: coverageSummary.fixtureCount stale")
     if summary.get("operationCount") != len(operations):
         errors.append(f"{CATALOG_PATH}: coverageSummary.operationCount stale")
+    resource_bound_fixtures = [
+        path
+        for path, expected_operations in expected_operations_by_fixture.items()
+        if "hir.resource" in expected_operations
+    ]
+    sampled_texture_sampler_fixtures = [
+        path
+        for path, expected_operations in expected_operations_by_fixture.items()
+        if {
+            "hir.texture",
+            "hir.sampler",
+            "hir.texture_lod",
+        }
+        & set(expected_operations)
+    ]
+    if summary.get("resourceBoundFixtureCount") != len(resource_bound_fixtures):
+        errors.append(
+            f"{CATALOG_PATH}: coverageSummary.resourceBoundFixtureCount stale"
+        )
+    compare_fields(
+        string_list(summary.get("resourceBoundFixtures")),
+        resource_bound_fixtures,
+        "coverageSummary.resourceBoundFixtures",
+        errors,
+    )
+    if summary.get("sampledTextureSamplerFixtureCount") != len(
+        sampled_texture_sampler_fixtures
+    ):
+        errors.append(
+            f"{CATALOG_PATH}: coverageSummary.sampledTextureSamplerFixtureCount stale"
+        )
+    compare_fields(
+        string_list(summary.get("sampledTextureSamplerFixtures")),
+        sampled_texture_sampler_fixtures,
+        "coverageSummary.sampledTextureSamplerFixtures",
+        errors,
+    )
     compare_fields(
         string_list(summary.get("fixtures")),
         fixture_paths,

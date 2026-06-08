@@ -283,7 +283,7 @@
             "unsupportedHirFamilies[].reason"
           ],
           "families": [
-            "textures_samplers_images_and_intrinsics",
+            "remaining_texture_image_intrinsics",
             "descriptor_indexing_and_nonuniform",
             "crosstl_examples_and_backend_policy"
           ]
@@ -641,7 +641,7 @@
             "unsupportedHirFamilies[].reason"
           ],
           "families": [
-            "textures_samplers_images_and_intrinsics",
+            "remaining_texture_image_intrinsics",
             "descriptor_indexing_and_nonuniform",
             "crosstl_examples_and_backend_policy"
           ]
@@ -1030,7 +1030,7 @@
             "unsupportedHirFamilies[].reason"
           ],
           "families": [
-            "textures_samplers_images_and_intrinsics",
+            "remaining_texture_image_intrinsics",
             "descriptor_indexing_and_nonuniform",
             "crosstl_examples_and_backend_policy"
           ]
@@ -1502,7 +1502,7 @@
             "unsupportedHirFamilies[].reason"
           ],
           "families": [
-            "textures_samplers_images_and_intrinsics",
+            "remaining_texture_image_intrinsics",
             "descriptor_indexing_and_nonuniform",
             "crosstl_examples_and_backend_policy"
           ]
@@ -1546,6 +1546,561 @@
             "access": "read_write",
             "set": 0,
             "binding": 0,
+            "targetIndependent": true
+          }
+        ]
+      }
+    },
+    {
+      "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "productionFacing": false,
+      "sourceLineage": {
+        "sourceLanguage": "CrossGL",
+        "sourceLanguageVersion": "v0",
+        "specAnchor": "docs/language/crosstl-frontend-language-spec-v0.json",
+        "contractAnchor": "tools/cross_repo_language_contract.json",
+        "fixtureKind": "checked-in-source-fixture",
+        "productionInput": false
+      },
+      "stage": "compute",
+      "entryPoint": "main",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics",
+        "resources_layouts_and_storage",
+        "sampled_textures_and_samplers"
+      ],
+      "sourceLocationFacts": [
+        "source_file",
+        "shader_module",
+        "compute_stage",
+        "entry_point",
+        "layout_local_size",
+        "storage_buffer_declaration",
+        "texture_declaration",
+        "sampler_declaration",
+        "local_variable_declarations",
+        "scalar_expression_statements",
+        "texture_sample_lod",
+        "storage_buffer_write",
+        "return_statement"
+      ],
+      "typeFacts": [
+        "void_entry_point",
+        "vec4_scalar",
+        "vec4_pointer_storage_buffer",
+        "storage_buffer_element_type",
+        "texture_sample_result_type",
+        "texture_coordinate_type",
+        "explicit_lod_scalar",
+        "constructor_cast_expression",
+        "scalar_literals"
+      ],
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "compute",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "storage_buffer_declaration",
+            "texture_declaration",
+            "sampler_declaration",
+            "local_variable_declarations",
+            "scalar_expression_statements",
+            "texture_sample_lod",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "sampled-texture-sampler-binding",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "void_entry_point",
+            "vec4_scalar",
+            "vec4_pointer_storage_buffer",
+            "storage_buffer_element_type",
+            "texture_sample_result_type",
+            "texture_coordinate_type",
+            "explicit_lod_scalar",
+            "constructor_cast_expression",
+            "scalar_literals"
+          ]
+        },
+        "controlFlowCategory": "straight-line"
+      },
+      "parityRequirements": {
+        "sourceLocations": {
+          "required": true,
+          "fields": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "storage_buffer_declaration",
+            "texture_declaration",
+            "sampler_declaration",
+            "local_variable_declarations",
+            "scalar_expression_statements",
+            "texture_sample_lod",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "typeFacts": {
+          "required": true,
+          "fields": [
+            "void_entry_point",
+            "vec4_scalar",
+            "vec4_pointer_storage_buffer",
+            "storage_buffer_element_type",
+            "texture_sample_result_type",
+            "texture_coordinate_type",
+            "explicit_lod_scalar",
+            "constructor_cast_expression",
+            "scalar_literals"
+          ]
+        },
+        "entryPoint": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint",
+            "resourceFacts.localSize"
+          ]
+        },
+        "resources": {
+          "required": true,
+          "fields": [
+            "resourceFacts.localSize",
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.textures[].name",
+            "resourceFacts.textures[].type",
+            "resourceFacts.textures[].sampledType",
+            "resourceFacts.textures[].dimension",
+            "resourceFacts.textures[].arrayed",
+            "resourceFacts.textures[].comparison",
+            "resourceFacts.textures[].set",
+            "resourceFacts.textures[].binding",
+            "resourceFacts.samplers",
+            "resourceFacts.samplers[].name",
+            "resourceFacts.samplers[].type",
+            "resourceFacts.samplers[].comparison",
+            "resourceFacts.samplers[].set",
+            "resourceFacts.samplers[].binding"
+          ]
+        },
+        "targetIndependentResourceMetadata": {
+          "required": true,
+          "fields": [
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ]
+        },
+        "diagnosticsProvenance": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.texture_declaration",
+            "sourceLocationFacts.sampler_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.texture_sample_lod",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.vec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.texture_sample_result_type",
+            "typeFacts.texture_coordinate_type",
+            "typeFacts.explicit_lod_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals",
+            "resourceFacts.localSize"
+          ]
+        },
+        "sourceMapDebugPreservation": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.texture_declaration",
+            "sourceLocationFacts.sampler_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.texture_sample_lod",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.vec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.texture_sample_result_type",
+            "typeFacts.texture_coordinate_type",
+            "typeFacts.explicit_lod_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals",
+            "resourceFacts.localSize"
+          ]
+        }
+      },
+      "parityReportFields": {
+        "sourceFile": {
+          "required": true,
+          "fields": [
+            "path",
+            "sourceLocationFacts.source_file"
+          ]
+        },
+        "entryPoint": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint"
+          ]
+        },
+        "entryPointIdentity": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "localSize": {
+          "required": true,
+          "fields": [
+            "resourceFacts.localSize"
+          ]
+        },
+        "workgroupSize": {
+          "required": true,
+          "fields": [
+            "resourceFacts.localSize",
+            "sourceLocationFacts.layout_local_size"
+          ]
+        },
+        "resourceBindings": {
+          "required": true,
+          "fields": [
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.textures[].name",
+            "resourceFacts.textures[].type",
+            "resourceFacts.textures[].sampledType",
+            "resourceFacts.textures[].dimension",
+            "resourceFacts.textures[].arrayed",
+            "resourceFacts.textures[].comparison",
+            "resourceFacts.textures[].set",
+            "resourceFacts.textures[].binding",
+            "resourceFacts.samplers",
+            "resourceFacts.samplers[].name",
+            "resourceFacts.samplers[].type",
+            "resourceFacts.samplers[].comparison",
+            "resourceFacts.samplers[].set",
+            "resourceFacts.samplers[].binding"
+          ]
+        },
+        "targetIndependentResourceMetadata": {
+          "required": true,
+          "fields": [
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ]
+        },
+        "typeFacts": {
+          "required": true,
+          "fields": [
+            "typeFacts.void_entry_point",
+            "typeFacts.vec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.texture_sample_result_type",
+            "typeFacts.texture_coordinate_type",
+            "typeFacts.explicit_lod_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals"
+          ]
+        },
+        "diagnosticsProvenance": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.texture_declaration",
+            "sourceLocationFacts.sampler_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.texture_sample_lod",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.vec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.texture_sample_result_type",
+            "typeFacts.texture_coordinate_type",
+            "typeFacts.explicit_lod_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals",
+            "resourceFacts.localSize"
+          ]
+        },
+        "sourceMapDebugPreservation": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.texture_declaration",
+            "sourceLocationFacts.sampler_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.texture_sample_lod",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.vec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.texture_sample_result_type",
+            "typeFacts.texture_coordinate_type",
+            "typeFacts.explicit_lod_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals",
+            "resourceFacts.localSize"
+          ]
+        },
+        "controlFlowSlice": {
+          "required": true,
+          "slice": "none",
+          "fields": []
+        },
+        "blockedFamilyRationale": {
+          "required": true,
+          "fields": [
+            "unsupportedHirFamilies[].id",
+            "unsupportedHirFamilies[].reason"
+          ],
+          "families": [
+            "remaining_texture_image_intrinsics",
+            "descriptor_indexing_and_nonuniform",
+            "crosstl_examples_and_backend_policy"
+          ]
+        }
+      },
+      "resourceFacts": {
+        "localSize": [
+          1,
+          1,
+          1
+        ],
+        "descriptors": [
+          {
+            "stage": "compute",
+            "name": "values",
+            "kind": "storageBuffer",
+            "set": 0,
+            "binding": 0
+          },
+          {
+            "stage": "compute",
+            "name": "shadowMap",
+            "kind": "sampledTexture",
+            "set": 0,
+            "binding": 2
+          },
+          {
+            "stage": "compute",
+            "name": "comparisonSampler",
+            "kind": "sampler",
+            "set": 0,
+            "binding": 5
+          }
+        ],
+        "storageBuffers": [
+          {
+            "name": "values",
+            "type": "vec4*",
+            "elementType": "vec4",
+            "addressSpace": "storage",
+            "writeAccess": true
+          }
+        ],
+        "storageImages": [],
+        "textures": [
+          {
+            "name": "shadowMap",
+            "type": "sampler2D",
+            "sampledType": "float",
+            "dimension": "2d",
+            "arrayed": false,
+            "comparison": false,
+            "set": 0,
+            "binding": 2
+          }
+        ],
+        "samplers": [
+          {
+            "name": "comparisonSampler",
+            "type": "sampler",
+            "comparison": true,
+            "set": 0,
+            "binding": 5
+          }
+        ],
+        "targetIndependentResourceMetadata": [
+          {
+            "stage": "compute",
+            "name": "values",
+            "kind": "storageBuffer",
+            "sourceType": "vec4*",
+            "elementType": "vec4",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 0,
+            "targetIndependent": true
+          },
+          {
+            "stage": "compute",
+            "name": "shadowMap",
+            "kind": "sampledTexture",
+            "sourceType": "sampler2D",
+            "elementType": "float",
+            "addressSpace": "uniform_constant",
+            "access": "read",
+            "set": 0,
+            "binding": 2,
+            "targetIndependent": true
+          },
+          {
+            "stage": "compute",
+            "name": "comparisonSampler",
+            "kind": "sampler",
+            "sourceType": "sampler",
+            "elementType": "sampler",
+            "addressSpace": "uniform_constant",
+            "access": "read",
+            "set": 0,
+            "binding": 5,
             "targetIndependent": true
           }
         ]
@@ -1599,8 +2154,8 @@
   ],
   "unsupportedHirFamilies": [
     {
-      "id": "textures_samplers_images_and_intrinsics",
-      "reason": "Texture, sampler, image, and texture intrinsic HIR families are unsupported by the MLIR experiment."
+      "id": "remaining_texture_image_intrinsics",
+      "reason": "Direct sampled texture plus sampler LOD facts are admitted; storage images, descriptor arrays, nonuniform texture indexing, compare helpers, and manual texture intrinsics remain blocked."
     },
     {
       "id": "descriptor_indexing_and_nonuniform",
@@ -1668,9 +2223,9 @@
     ],
     "resources": [
       {
-        "id": "minimal_fixture_has_no_resource_bindings",
+        "id": "sampled_texture_sampler_fixture_lod_call",
         "required": true,
-        "description": "The current fixture must remain resource-free; any descriptor, buffer, texture, sampler, or image fact requires a new inventory entry."
+        "description": "The sampled texture fixture preserves the textureLod source fact that combines a texture resource, sampler resource, coordinates, and explicit LOD."
       },
       {
         "id": "minimal_fixture_local_size",
@@ -1705,9 +2260,9 @@
     ],
     "targetIndependentResourceMetadata": [
       {
-        "id": "resource_metadata_is_target_independent",
+        "id": "sampled_texture_sampler_resource_metadata_matches_descriptors",
         "required": true,
-        "description": "Resource metadata admitted by the optional MLIR experiment must describe HIR resource identity without target-specific ABI lowering."
+        "description": "The sampled texture fixture target-independent metadata must match descriptor names, stage, set, binding, source type, element type, address space, and access mode for storage buffer, sampled texture, and sampler resources."
       },
       {
         "id": "resource_metadata_no_target_abi_fields",

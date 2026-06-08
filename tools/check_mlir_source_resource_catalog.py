@@ -95,6 +95,9 @@ RESOURCE_FACT_KEYS = (
     "manifestFields",
     "descriptors",
     "storageBuffers",
+    "storageImages",
+    "textures",
+    "samplers",
     "emptyCollections",
     "missingManifestFields",
 )
@@ -222,6 +225,23 @@ RESOURCE_STORAGE_BUFFER_ITEM_FIELDS = (
     "resourceFacts.storageBuffers[].elementType",
     "resourceFacts.storageBuffers[].addressSpace",
     "resourceFacts.storageBuffers[].writeAccess",
+)
+RESOURCE_TEXTURE_ITEM_FIELDS = (
+    "resourceFacts.textures[].name",
+    "resourceFacts.textures[].type",
+    "resourceFacts.textures[].sampledType",
+    "resourceFacts.textures[].dimension",
+    "resourceFacts.textures[].arrayed",
+    "resourceFacts.textures[].comparison",
+    "resourceFacts.textures[].set",
+    "resourceFacts.textures[].binding",
+)
+RESOURCE_SAMPLER_ITEM_FIELDS = (
+    "resourceFacts.samplers[].name",
+    "resourceFacts.samplers[].type",
+    "resourceFacts.samplers[].comparison",
+    "resourceFacts.samplers[].set",
+    "resourceFacts.samplers[].binding",
 )
 RESOURCE_METADATA_ITEM_FIELDS = (
     "resourceFacts.targetIndependentResourceMetadata[].stage",
@@ -396,13 +416,13 @@ def expected_resource_manifest_fields(resource_facts: dict[str, Any]) -> list[st
     fields.append("resourceFacts.storageBuffers")
     if resource_facts.get("storageBuffers"):
         fields.extend(RESOURCE_STORAGE_BUFFER_ITEM_FIELDS)
-    fields.extend(
-        [
-            "resourceFacts.storageImages",
-            "resourceFacts.textures",
-            "resourceFacts.samplers",
-        ]
-    )
+    fields.append("resourceFacts.storageImages")
+    fields.append("resourceFacts.textures")
+    if resource_facts.get("textures"):
+        fields.extend(RESOURCE_TEXTURE_ITEM_FIELDS)
+    fields.append("resourceFacts.samplers")
+    if resource_facts.get("samplers"):
+        fields.extend(RESOURCE_SAMPLER_ITEM_FIELDS)
     return fields
 
 
@@ -938,6 +958,9 @@ def derive_fixture_catalog(
                     "manifestFields": resource_fields,
                     "descriptors": resource_facts.get("descriptors", []),
                     "storageBuffers": resource_facts.get("storageBuffers", []),
+                    "storageImages": resource_facts.get("storageImages", []),
+                    "textures": resource_facts.get("textures", []),
+                    "samplers": resource_facts.get("samplers", []),
                     "emptyCollections": empty_collections,
                     "missingManifestFields": missing_fields(
                         ["resourceFacts.localSize", *RESOURCE_COLLECTION_FIELDS],
@@ -1033,6 +1056,11 @@ def derive_catalog(root: Path) -> dict[str, Any]:
         for item in fixtures
         if item.get("resourceFactMode") == "single-storage-buffer-binding"
     ]
+    texture_sampler_bound = [
+        item["path"]
+        for item in fixtures
+        if item.get("resourceFactMode") == "sampled-texture-sampler-binding"
+    ]
     resource_free = [
         item["path"]
         for item in fixtures
@@ -1068,9 +1096,11 @@ def derive_catalog(root: Path) -> dict[str, Any]:
             "targetIndependentMetadataField": RESOURCE_METADATA_COLLECTION,
             "resourceFieldModeValues": [
                 "empty-resource-facts",
+                "sampled-texture-sampler-binding",
                 "single-storage-buffer-binding",
             ],
-            "resourceBoundFixtures": resource_bound,
+            "resourceBoundFixtures": [*resource_bound, *texture_sampler_bound],
+            "sampledTextureSamplerFixtures": texture_sampler_bound,
             "resourceFreeFixtures": resource_free,
         },
         "catalogConsistency": derive_catalog_consistency(fixtures, op_type_catalog),
@@ -1078,7 +1108,9 @@ def derive_catalog(root: Path) -> dict[str, Any]:
         "fixtures": fixtures,
         "coverageSummary": {
             "fixtureCount": len(fixtures),
-            "resourceBoundFixtureCount": len(resource_bound),
+            "resourceBoundFixtureCount": len(resource_bound)
+            + len(texture_sampler_bound),
+            "sampledTextureSamplerFixtureCount": len(texture_sampler_bound),
             "resourceFreeFixtureCount": len(resource_free),
             "targetIndependentTypeFactCount": len(type_facts),
             "targetIndependentTypeFacts": type_facts,

@@ -175,10 +175,14 @@ set(CROSSGL_MLIR_OPTIONAL_TOOL_EVIDENCE_SCRIPT
   "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_mlir_optional_tool_evidence.py")
 set(CROSSGL_MLIR_TEXTUAL_DIALECT_PROJECTION_SCRIPT
   "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_mlir_textual_dialect_projection.py")
+set(CROSSGL_MLIR_OP_TYPE_CATALOG_SCRIPT
+  "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_mlir_op_type_catalog.py")
 set(CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG
   "experimental/mlir/source_resource_catalog.v0.json")
 set(CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_CHECKER
   "tools/check_mlir_source_resource_catalog.py")
+set(CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_SCRIPT
+  "${CMAKE_CURRENT_SOURCE_DIR}/${CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_CHECKER}")
 set(CROSSGL_MLIR_SOURCE_RESOURCE_PRESERVATION_SECTION
   "sourceResourceEntrypointPreservation")
 set(CROSSGL_MLIR_FIXTURE_PARITY_REPORT_TESTS
@@ -199,6 +203,14 @@ set(CROSSGL_MLIR_TEXTUAL_DIALECT_PROJECTION_TESTS
   cglc_mlir_textual_dialect_projection_compile
   cglc_mlir_textual_dialect_projection
   cglc_mlir_textual_dialect_projection_self_test)
+set(CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_TESTS
+  cglc_mlir_source_resource_catalog_compile
+  cglc_mlir_source_resource_catalog
+  cglc_mlir_source_resource_catalog_self_test)
+set(CROSSGL_MLIR_OP_TYPE_CATALOG_TESTS
+  cglc_mlir_op_type_catalog_compile
+  cglc_mlir_op_type_catalog
+  cglc_mlir_op_type_catalog_self_test)
 
 if(CROSSGL_PYTHON3)
   add_test(NAME cglc_mlir_fixture_parity_report_compile
@@ -253,6 +265,28 @@ if(CROSSGL_PYTHON3)
     COMMAND "${CROSSGL_PYTHON3}"
       "${CROSSGL_MLIR_TEXTUAL_DIALECT_PROJECTION_SCRIPT}"
       --self-test)
+  add_test(NAME cglc_mlir_source_resource_catalog_compile
+    COMMAND "${CROSSGL_PYTHON3}" -m py_compile
+      "${CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_SCRIPT}")
+  add_test(NAME cglc_mlir_source_resource_catalog
+    COMMAND "${CROSSGL_PYTHON3}"
+      "${CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_SCRIPT}"
+      --root "${CMAKE_CURRENT_SOURCE_DIR}")
+  add_test(NAME cglc_mlir_source_resource_catalog_self_test
+    COMMAND "${CROSSGL_PYTHON3}"
+      "${CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_SCRIPT}"
+      --self-test)
+  add_test(NAME cglc_mlir_op_type_catalog_compile
+    COMMAND "${CROSSGL_PYTHON3}" -m py_compile
+      "${CROSSGL_MLIR_OP_TYPE_CATALOG_SCRIPT}")
+  add_test(NAME cglc_mlir_op_type_catalog
+    COMMAND "${CROSSGL_PYTHON3}"
+      "${CROSSGL_MLIR_OP_TYPE_CATALOG_SCRIPT}"
+      --root "${CMAKE_CURRENT_SOURCE_DIR}")
+  add_test(NAME cglc_mlir_op_type_catalog_self_test
+    COMMAND "${CROSSGL_PYTHON3}"
+      "${CROSSGL_MLIR_OP_TYPE_CATALOG_SCRIPT}"
+      --self-test)
   set_tests_properties(${CROSSGL_MLIR_FIXTURE_PARITY_REPORT_TESTS} PROPERTIES
     LABELS "mlir;optional-mlir;report-only"
     PROCESSORS 1)
@@ -267,6 +301,12 @@ if(CROSSGL_PYTHON3)
     PROCESSORS 1)
   set_tests_properties(${CROSSGL_MLIR_TEXTUAL_DIALECT_PROJECTION_TESTS} PROPERTIES
     LABELS "mlir;optional-mlir;report-only;mlir-textual-dialect-projection"
+    PROCESSORS 1)
+  set_tests_properties(${CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_TESTS} PROPERTIES
+    LABELS "mlir;optional-mlir;report-only;mlir-source-resource-catalog"
+    PROCESSORS 1)
+  set_tests_properties(${CROSSGL_MLIR_OP_TYPE_CATALOG_TESTS} PROPERTIES
+    LABELS "mlir;optional-mlir;report-only;mlir-op-type-catalog"
     PROCESSORS 1)
 else()
   foreach(CROSSGL_MLIR_FIXTURE_PARITY_REPORT_TEST IN LISTS
@@ -315,6 +355,26 @@ else()
       COMMAND ${CMAKE_COMMAND} -E echo
         "SKIP: CrossGL MLIR textual dialect projection requires Python 3")
     set_tests_properties("${CROSSGL_MLIR_TEXTUAL_DIALECT_PROJECTION_TEST}"
+      PROPERTIES
+        LABELS "mlir;optional-mlir;report-only;python-unavailable"
+        SKIP_REGULAR_EXPRESSION "^SKIP:")
+  endforeach()
+  foreach(CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_TEST IN LISTS
+      CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_TESTS)
+    add_test(NAME "${CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_TEST}"
+      COMMAND ${CMAKE_COMMAND} -E echo
+        "SKIP: CrossGL MLIR source/resource catalog requires Python 3")
+    set_tests_properties("${CROSSGL_MLIR_SOURCE_RESOURCE_CATALOG_TEST}"
+      PROPERTIES
+        LABELS "mlir;optional-mlir;report-only;python-unavailable"
+        SKIP_REGULAR_EXPRESSION "^SKIP:")
+  endforeach()
+  foreach(CROSSGL_MLIR_OP_TYPE_CATALOG_TEST IN LISTS
+      CROSSGL_MLIR_OP_TYPE_CATALOG_TESTS)
+    add_test(NAME "${CROSSGL_MLIR_OP_TYPE_CATALOG_TEST}"
+      COMMAND ${CMAKE_COMMAND} -E echo
+        "SKIP: CrossGL MLIR op/type catalog requires Python 3")
+    set_tests_properties("${CROSSGL_MLIR_OP_TYPE_CATALOG_TEST}"
       PROPERTIES
         LABELS "mlir;optional-mlir;report-only;python-unavailable"
         SKIP_REGULAR_EXPRESSION "^SKIP:")
