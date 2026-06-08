@@ -1590,6 +1590,52 @@
       "notes": "Covers accepted storage-image atomic descriptor-array HIR checks."
     },
     {
+      "id": "storage-images.atomic-descriptor-arrays-directx-source-package",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
+      "fixture_sha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
+      "evidence_tests": [
+        "cglc_build_directx_storage_image_atomic_descriptor_array_source_package",
+        "cglc_dump_backend_directx_storage_image_atomic_descriptor_array",
+        "cglc_package_verify_json_schema_directx_storage_image_atomic_descriptor_array_source_package"
+      ],
+      "notes": "Covers DirectX source-package lowering, backend dump, and package schema verification for storage-image atomic descriptor arrays."
+    },
+    {
+      "id": "storage-images.atomic-descriptor-arrays-metal-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "metal",
+      "fixture": "tests/metal/fixtures/MetalStorageImageAtomicDescriptorArrayShader.cgl",
+      "fixture_sha256": "766b961823ef20978bbf365b9f5b866f5587b35e0b761c7b1e0edebae2314248",
+      "evidence_tests": [
+        "cglc_build_metal_storage_image_atomic_descriptor_array_native",
+        "cglc_dump_backend_metal_storage_image_atomic_descriptor_array"
+      ],
+      "notes": "Covers Metal native-package lowering and backend dump evidence for storage-image atomic descriptor arrays."
+    },
+    {
+      "id": "storage-images.atomic-descriptor-arrays-vulkan-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
+      "fixture_sha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
+      "evidence_tests": [
+        "cglc_build_vulkan_storage_image_atomic_descriptor_array_native",
+        "cglc_dump_backend_vulkan_storage_image_atomic_descriptor_array"
+      ],
+      "notes": "Covers Vulkan native-package lowering and backend dump evidence for storage-image atomic descriptor arrays."
+    },
+    {
       "id": "storage-images.atomic-directx-source-package",
       "feature_group": "storage-images",
       "language_category": "image-operations",
@@ -1660,6 +1706,52 @@
         "cglc_check_storage_image_explicit_format_descriptor_array_hir"
       ],
       "notes": "Covers accepted explicit-format storage-image descriptor-array HIR checks."
+    },
+    {
+      "id": "storage-images.explicit-format-descriptor-arrays-directx-source-package",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+      "fixture_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+      "evidence_tests": [
+        "cglc_build_directx_storage_image_explicit_format_descriptor_array_source_package",
+        "cglc_dump_backend_directx_storage_image_explicit_format_descriptor_array",
+        "cglc_package_verify_json_schema_directx_storage_image_explicit_format_descriptor_array_source_package"
+      ],
+      "notes": "Covers DirectX source-package lowering, backend dump, and package schema verification for explicit-format storage-image descriptor arrays."
+    },
+    {
+      "id": "storage-images.explicit-format-descriptor-arrays-metal-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "metal",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+      "fixture_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+      "evidence_tests": [
+        "cglc_build_metal_storage_image_explicit_format_descriptor_array_native",
+        "cglc_dump_backend_metal_storage_image_explicit_format_descriptor_array"
+      ],
+      "notes": "Covers Metal native-package lowering and backend dump evidence for explicit-format storage-image descriptor arrays."
+    },
+    {
+      "id": "storage-images.explicit-format-descriptor-arrays-vulkan-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+      "fixture_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+      "evidence_tests": [
+        "cglc_build_vulkan_storage_image_explicit_format_descriptor_array_native",
+        "cglc_dump_backend_vulkan_storage_image_explicit_format_descriptor_array"
+      ],
+      "notes": "Covers Vulkan native-package lowering and backend dump evidence for explicit-format storage-image descriptor arrays."
     },
     {
       "id": "storage-images.explicit-formats",
