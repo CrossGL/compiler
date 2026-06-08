@@ -6489,7 +6489,7 @@ add_test(NAME cglc_build_directx_runtime_texture_resource_array_conflict_planned
     -DMODE=planned-build-failure
     -DEXPECTED_DIAGNOSTIC=directx.unsupported-runtime-resource-array
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX source package requires fixed-size descriptor arrays|message=detailMaps (texture)|message=maps (texture)|message=per register class"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX source package requires fixed-size descriptor arrays|message=runtime descriptor array 'maps' (texture) at register(t1, space0)|message=overlaps resource 'detailMap' (texture) at register(t3, space0)|message=same HLSL register class/space"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_runtime_uniform_buffer_descriptor_array
   COMMAND ${CMAKE_COMMAND}

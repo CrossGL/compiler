@@ -365,6 +365,24 @@ bool isDirectXDescriptorResourceKind(HIRResourceKind kind) {
          kind == HIRResourceKind::Sampler;
 }
 
+std::string directxResourceRegisterClass(const HIRResource &resource) {
+  switch (resource.kind) {
+  case HIRResourceKind::Uniform:
+    return "b";
+  case HIRResourceKind::Buffer:
+  case HIRResourceKind::StorageImage:
+    return "u";
+  case HIRResourceKind::Texture:
+    return "t";
+  case HIRResourceKind::Sampler:
+    return "s";
+  case HIRResourceKind::Shared:
+  case HIRResourceKind::Value:
+    break;
+  }
+  return "";
+}
+
 std::span<const HIRResourceKind>
 directxRuntimeDescriptorRegisterClassKinds(HIRResourceKind kind) {
   static constexpr std::array<HIRResourceKind, 1> uniformKinds = {
@@ -393,19 +411,134 @@ directxRuntimeDescriptorRegisterClassKinds(HIRResourceKind kind) {
   return {};
 }
 
-std::set<std::string> directxRuntimeTextureArrayLabelsInRegisterSpace(
-    const HIRModule &module, const HIRResource &resource) {
-  std::set<std::string> labels;
+bool directxSameResourceDeclaration(const HIRResource &lhs,
+                                    const HIRResource &rhs) {
+  return lhs.kind == rhs.kind && lhs.type.name == rhs.type.name &&
+         lhs.type.arraySize == rhs.type.arraySize && lhs.name == rhs.name &&
+         lhs.set == rhs.set && lhs.binding == rhs.binding &&
+         lhs.storageImageAccess == rhs.storageImageAccess &&
+         lhs.storageImageFormat == rhs.storageImageFormat;
+}
+
+bool directxResourcesShareRegisterSpace(const HIRResource &lhs,
+                                        const HIRResource &rhs) {
+  const std::string lhsRegisterClass = directxResourceRegisterClass(lhs);
+  return !lhsRegisterClass.empty() &&
+         lhsRegisterClass == directxResourceRegisterClass(rhs) &&
+         lhs.set == rhs.set;
+}
+
+std::optional<std::size_t>
+directxParseLiteralDescriptorCount(std::string_view text) {
+  if (!text.empty() && (text.back() == 'u' || text.back() == 'U')) {
+    text.remove_suffix(1);
+  }
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  std::size_t value = 0;
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return std::nullopt;
+    }
+    value = value * 10 + static_cast<std::size_t>(character - '0');
+  }
+  return value;
+}
+
+std::optional<std::size_t>
+directxFixedDescriptorCount(const HIRResource &resource) {
+  if (!resource.type.arraySize.has_value()) {
+    return 1;
+  }
+  if (resource.type.arraySize->empty()) {
+    return std::nullopt;
+  }
+  return directxParseLiteralDescriptorCount(*resource.type.arraySize);
+}
+
+bool directxRuntimeDescriptorArrayOverlapsResource(
+    const HIRResource &runtimeArray, const HIRResource &resource) {
+  if (!isRuntimeDescriptorArray(runtimeArray) ||
+      directxSameResourceDeclaration(runtimeArray, resource) ||
+      !directxResourcesShareRegisterSpace(runtimeArray, resource)) {
+    return false;
+  }
+  if (resource.binding >= runtimeArray.binding) {
+    return true;
+  }
+  const std::optional<std::size_t> descriptorCount =
+      directxFixedDescriptorCount(resource);
+  return !descriptorCount.has_value() ||
+         *descriptorCount > runtimeArray.binding - resource.binding;
+}
+
+std::string directxResourceRegisterLabel(const HIRResource &resource) {
+  return "register(" + directxResourceRegisterClass(resource) +
+         std::to_string(resource.binding) + ", space" +
+         std::to_string(resource.set) + ")";
+}
+
+std::string directxRuntimeDescriptorArrayConflictLabel(
+    const HIRResource &runtimeArray, const HIRResource &resource) {
+  const HIRResource *rangeStart = &runtimeArray;
+  const HIRResource *overlapped = &resource;
+  if (isRuntimeDescriptorArray(resource) &&
+      (resource.binding < runtimeArray.binding ||
+       (resource.binding == runtimeArray.binding &&
+        resource.name < runtimeArray.name))) {
+    rangeStart = &resource;
+    overlapped = &runtimeArray;
+  }
+  return "runtime descriptor array '" + rangeStart->name + "' (" +
+         resourceKindLabel(rangeStart->kind) + ") at " +
+         directxResourceRegisterLabel(*rangeStart) + " overlaps resource '" +
+         overlapped->name + "' (" + resourceKindLabel(overlapped->kind) +
+         ") at " + directxResourceRegisterLabel(*overlapped);
+}
+
+std::optional<std::string> directxDescriptorRangeConflictLabel(
+    const HIRResource &lhs, const HIRResource &rhs) {
+  if (directxRuntimeDescriptorArrayOverlapsResource(lhs, rhs)) {
+    return directxRuntimeDescriptorArrayConflictLabel(lhs, rhs);
+  }
+  if (directxRuntimeDescriptorArrayOverlapsResource(rhs, lhs)) {
+    return directxRuntimeDescriptorArrayConflictLabel(rhs, lhs);
+  }
+  return std::nullopt;
+}
+
+std::set<std::string>
+directxDescriptorRangeConflictLabels(const HIRModule &module,
+                                     const HIRResource &resource) {
+  std::set<std::string> conflicts;
   for (const HIRStage &stage : module.stages) {
     for (const HIRResource &candidate : stage.resources) {
-      if (candidate.kind == HIRResourceKind::Texture &&
-          candidate.set == resource.set &&
-          isRuntimeDescriptorArray(candidate)) {
-        labels.insert(resourceArrayLabel(candidate));
+      if (!isDirectXDescriptorResourceKind(candidate.kind)) {
+        continue;
+      }
+      const std::optional<std::string> conflict =
+          directxDescriptorRangeConflictLabel(resource, candidate);
+      if (conflict.has_value()) {
+        conflicts.insert(*conflict);
       }
     }
   }
-  return labels;
+  return conflicts;
+}
+
+bool directxRuntimeDescriptorArrayPolicySupported(const HIRModule &module,
+                                                  const HIRResource &resource) {
+  if (!isRuntimeDescriptorArray(resource)) {
+    return true;
+  }
+  if (resource.kind == HIRResourceKind::Texture) {
+    return true;
+  }
+  return runtimeDescriptorArraySupportedByPolicy(
+      module, resource,
+      RuntimeDescriptorArrayPolicy::AllowSingleUnboundedDescriptorArray,
+      directxRuntimeDescriptorRegisterClassKinds(resource.kind));
 }
 
 bool directxResourceArrayShapeSupported(const HIRModule &module,
@@ -413,15 +546,8 @@ bool directxResourceArrayShapeSupported(const HIRModule &module,
   if (!isDirectXDescriptorResourceKind(resource.kind)) {
     return false;
   }
-  if (resource.kind == HIRResourceKind::Texture &&
-      isRuntimeDescriptorArray(resource)) {
-    return directxRuntimeTextureArrayLabelsInRegisterSpace(module, resource)
-               .size() == 1;
-  }
-  return runtimeDescriptorArraySupportedByPolicy(
-      module, resource,
-      RuntimeDescriptorArrayPolicy::AllowSingleUnboundedDescriptorArray,
-      directxRuntimeDescriptorRegisterClassKinds(resource.kind));
+  return directxRuntimeDescriptorArrayPolicySupported(module, resource) &&
+         directxDescriptorRangeConflictLabels(module, resource).empty();
 }
 
 std::string hlslStorageBufferElementType(const HIRModule &module,
@@ -2933,24 +3059,6 @@ bool resourcesSupported(const HIRModule &module, const HIRStage &stage) {
   return true;
 }
 
-std::string directxResourceRegisterClass(const HIRResource &resource) {
-  switch (resource.kind) {
-  case HIRResourceKind::Uniform:
-    return "b";
-  case HIRResourceKind::Buffer:
-  case HIRResourceKind::StorageImage:
-    return "u";
-  case HIRResourceKind::Texture:
-    return "t";
-  case HIRResourceKind::Sampler:
-    return "s";
-  case HIRResourceKind::Shared:
-  case HIRResourceKind::Value:
-    break;
-  }
-  return "";
-}
-
 bool directxGraphicsResourceSupported(const HIRModule &module,
                                       const HIRResource &resource) {
   if (resource.kind == HIRResourceKind::Uniform) {
@@ -4303,9 +4411,15 @@ directxUnsupportedRuntimeResourceArrayLabels(const HIRModule &module) {
   std::set<std::string> resourceArrays;
   for (const HIRStage &stage : module.stages) {
     for (const HIRResource &resource : stage.resources) {
-      if (resource.kind != HIRResourceKind::Buffer &&
-          isRuntimeDescriptorArray(resource) &&
-          !directxResourceArrayShapeSupported(module, resource)) {
+      if (resource.kind == HIRResourceKind::Buffer ||
+          !isDirectXDescriptorResourceKind(resource.kind)) {
+        continue;
+      }
+      const std::set<std::string> conflicts =
+          directxDescriptorRangeConflictLabels(module, resource);
+      resourceArrays.insert(conflicts.begin(), conflicts.end());
+      if (isRuntimeDescriptorArray(resource) &&
+          !directxRuntimeDescriptorArrayPolicySupported(module, resource)) {
         resourceArrays.insert(resourceArrayLabel(resource));
       }
     }
@@ -4451,12 +4565,14 @@ bool diagnoseDirectXUnsupportedRuntimeResourceArray(
   diagnostics.error(
       "directx.unsupported-runtime-resource-array",
       "DirectX source package requires fixed-size descriptor arrays when "
-      "multiple unbounded descriptor arrays share an HLSL register class or "
-      "the descriptor shape is ambiguous; "
+      "multiple unbounded descriptor arrays share an HLSL register class, an "
+      "unbounded descriptor array overlaps another resource in the same HLSL "
+      "register class/space, or the descriptor shape is ambiguous; "
       "unsupported unsized/runtime resource array(s): " +
           joinNames(resourceArrays) +
           "; use a fixed descriptor array size or keep only one unbounded "
-          "descriptor array per register class");
+          "descriptor array per register class/space without later descriptors "
+          "in that class/space");
   return true;
 }
 
@@ -4619,7 +4735,8 @@ bool directxSourcePackageSupported(const HIRModule &module,
       "sampling, SM 6.7 explicit-lod shadow texture comparison sampling, "
       "manual explicit-lod shadow compare fallback sampling, scalar constants, "
       "fixed-size descriptor arrays, one unbounded descriptor array per HLSL "
-      "register class when binding metadata remains unambiguous, helper "
+      "register class/space when no later descriptor in that class/space "
+      "overlaps it, helper "
       "functions with fixed-size scalar/vector/matrix array parameters and "
       "read-only fixed-size direct texture/sampler resource-array parameters, "
       "fixed-size numeric "
@@ -5305,10 +5422,12 @@ std::string generateDirectXBackendIR(
         directxUnsupportedRuntimeResourceArrayLabels(module);
     if (!resourceArrays.empty()) {
       out << "// directx textual scaffold does not yet support ambiguous "
-             "descriptor arrays with unsized/runtime descriptor counts ("
+             "or overlapping descriptor arrays with unsized/runtime "
+             "descriptor counts ("
           << joinNames(resourceArrays)
           << "); use a fixed descriptor array size or keep only one unbounded "
-             "descriptor array per register class\n";
+             "descriptor array per register class/space without later "
+             "descriptors in that class/space\n";
     }
     const std::set<std::string> bufferElementTypes =
         directxUnsupportedStorageBufferElementTypeLabels(module);
@@ -5365,8 +5484,9 @@ std::string generateDirectXBackendIR(
            "texture comparison sampling, SM 6.7 explicit-lod shadow texture "
            "comparison sampling, manual explicit-lod shadow compare fallback "
            "sampling, scalar constants, fixed-size descriptor arrays, one "
-           "unbounded descriptor array per HLSL register class when binding "
-           "metadata remains unambiguous, helper functions with fixed-size "
+           "unbounded descriptor array per HLSL register class/space when no "
+           "later descriptor in that class/space overlaps it, helper functions "
+           "with fixed-size "
            "scalar/vector/matrix array parameters, fixed-size numeric "
            "scalar/vector/matrix local arrays, including fixed nested local "
            "arrays, workgroup/shared memory declarations, statement-form and "
