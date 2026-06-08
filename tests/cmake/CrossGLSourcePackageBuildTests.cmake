@@ -6575,27 +6575,35 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_unsized_storage_buffer_array_glsl_validated opengl)
 endif()
-add_test(NAME cglc_build_opengl_runtime_resource_array_planned_failure
+set(CROSSGL_OPENGL_RUNTIME_RESOURCE_ARRAY_SOURCE_SNIPPET [=[layout(binding = 1) uniform texture2D maps[];
+
+// CrossGL set 0, binding 2
+layout(binding = 2) uniform sampler linearSamplers[];]=])
+add_test(NAME cglc_build_opengl_runtime_resource_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_RUNTIME_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-runtime-resource-array.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-runtime-resource-array
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=OpenGL source package requires fixed-size descriptor arrays|message=maps (texture)|message=linearSamplers (sampler)"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/RuntimeResourceArrayUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_RUNTIME_RESOURCE_ARRAY_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=RuntimeResourceArrayUnsupportedShader|resources.1.name=maps|resources.1.type=sampler2D[]|resources.1.arrayDimensions.0.kind=runtime|resources.2.name=linearSamplers|resources.2.type=sampler[]|resources.2.arrayDimensions.0.kind=runtime"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.bindingClass=storage-buffer|maps.sourceType=sampler2D[]|maps.bindingClass=texture|maps.abi=programResourceBinding|maps.arraySize=|maps.arrayDimensions.0.kind=runtime|linearSamplers.sourceType=sampler[]|linearSamplers.bindingClass=sampler|linearSamplers.abi=programResourceBinding|linearSamplers.arraySize=|linearSamplers.arrayDimensions.0.kind=runtime"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|runtime-descriptor-array.kind=resource|runtime-texture-descriptor-array.kind=resource|runtime-sampler-descriptor-array.kind=resource|runtime-array.kind=layout"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_runtime_texture_descriptor_array_policy_planned_failure
+add_test(NAME cglc_build_opengl_runtime_texture_descriptor_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_OPENGL_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_POLICY_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-runtime-texture-descriptor-array-policy.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-runtime-resource-array
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=OpenGL source package requires fixed-size descriptor arrays|message=maps (texture)"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLRuntimeTextureDescriptorArrayPolicyShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=layout(binding = 1) uniform texture2D maps[];"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLRuntimeTextureDescriptorArrayPolicyShader|resources.1.name=maps|resources.1.type=sampler2D[]|resources.1.arrayDimensions.0.kind=runtime"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=maps.sourceType=sampler2D[]|maps.bindingClass=texture|maps.abi=programResourceBinding|maps.arraySize=|maps.arrayDimensions.0.kind=runtime"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|runtime-descriptor-array.kind=resource|runtime-texture-descriptor-array.kind=resource|runtime-array.kind=layout"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_function_parameter_struct_array_source_package
   COMMAND ${CMAKE_COMMAND}

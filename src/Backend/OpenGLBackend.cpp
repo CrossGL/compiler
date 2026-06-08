@@ -571,6 +571,81 @@ bool moduleUsesShadowCompareExplicitLod(const HIRModule &module) {
 }
 
 std::optional<std::string>
+resourceReferenceBaseName(const HIRExpression &expression);
+
+bool openGLRuntimeTextureSamplerDescriptorArrayKindSupported(
+    const HIRResource &resource) {
+  if (!isRuntimeDescriptorArray(resource)) {
+    return false;
+  }
+  if (resource.kind == HIRResourceKind::Texture) {
+    return !glslTextureType(resource.type).empty();
+  }
+  if (resource.kind == HIRResourceKind::Sampler) {
+    return resource.type.name == "sampler" ||
+           resource.type.name == "comparison_sampler";
+  }
+  return false;
+}
+
+bool openGLRuntimeTextureSamplerDescriptorArrayHasSameClassConflict(
+    const HIRStage &stage, const HIRResource &resource) {
+  const std::optional<std::size_t> resourceBindingIndex =
+      backendPlanOpenGLBindingIndex(resource);
+  if (!resourceBindingIndex.has_value()) {
+    return true;
+  }
+
+  for (const HIRResource &candidate : stage.resources) {
+    if (&candidate == &resource || candidate.kind != resource.kind) {
+      continue;
+    }
+    if (isRuntimeDescriptorArray(candidate)) {
+      return true;
+    }
+    const std::optional<std::size_t> candidateBindingIndex =
+        backendPlanOpenGLBindingIndex(candidate);
+    if (candidateBindingIndex.has_value() &&
+        *candidateBindingIndex > *resourceBindingIndex) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool openGLRuntimeTextureSamplerDescriptorArrayReferenced(
+    const HIRModule &module, const HIRStage &stage,
+    const HIRResource &resource) {
+  bool referenced = false;
+  auto visitor = [&](const HIRExpression &expression) {
+    if (referenced) {
+      return;
+    }
+    const std::optional<std::string> baseName =
+        resourceReferenceBaseName(expression);
+    referenced = baseName.has_value() && *baseName == resource.name;
+  };
+  for (const HIRFunction &function : stage.functions) {
+    visitFunctionExpressions(function, visitor);
+  }
+  for (const HIRFunction &function : module.functions) {
+    visitFunctionExpressions(function, visitor);
+  }
+  return referenced;
+}
+
+bool openGLRuntimeTextureSamplerDescriptorArraySupported(
+    const HIRModule &module, const HIRStage &stage,
+    const HIRResource &resource) {
+  return stage.stage == "compute" &&
+         openGLRuntimeTextureSamplerDescriptorArrayKindSupported(resource) &&
+         !openGLRuntimeTextureSamplerDescriptorArrayHasSameClassConflict(
+             stage, resource) &&
+         !openGLRuntimeTextureSamplerDescriptorArrayReferenced(module, stage,
+                                                               resource);
+}
+
+std::optional<std::string>
 resourceReferenceBaseName(const HIRExpression &expression) {
   if (expression.kind == HIRExpressionKind::Identifier) {
     if (expression.value.empty()) {
@@ -2556,6 +2631,24 @@ unsupportedOpenGLStorageBufferArrayNames(const HIRModule &module) {
   return bufferArrays;
 }
 
+std::set<std::string>
+unsupportedOpenGLRuntimeResourceArrayLabels(const HIRModule &module) {
+  std::set<std::string> resourceArrays;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &resource : stage.resources) {
+      if (resource.kind == HIRResourceKind::Buffer ||
+          !isRuntimeDescriptorArray(resource)) {
+        continue;
+      }
+      if (!openGLRuntimeTextureSamplerDescriptorArraySupported(module, stage,
+                                                               resource)) {
+        resourceArrays.insert(resourceArrayLabel(resource));
+      }
+    }
+  }
+  return resourceArrays;
+}
+
 bool resourcesSupported(const HIRModule &module, const HIRStage &stage) {
   for (const HIRResource &resource : stage.resources) {
     if (resource.kind == HIRResourceKind::Shared) {
@@ -2573,10 +2666,19 @@ bool resourcesSupported(const HIRModule &module, const HIRStage &stage) {
     if (isSupportedStorageBufferResource(module, resource)) {
       continue;
     }
+    auto textureSupported = [&](const HIRResource &candidate) {
+      return isSupportedTextureResource(candidate) ||
+             openGLRuntimeTextureSamplerDescriptorArraySupported(
+                 module, stage, candidate);
+    };
+    auto samplerSupported = [&](const HIRResource &candidate) {
+      return isSupportedSamplerResource(candidate) ||
+             openGLRuntimeTextureSamplerDescriptorArraySupported(
+                 module, stage, candidate);
+    };
     if (!resourceSupportedByPolicy(module, resource,
                                    isSupportedStorageBufferElementType,
-                                   isSupportedTextureResource,
-                                   isSupportedSamplerResource)) {
+                                   textureSupported, samplerSupported)) {
       return false;
     }
   }
@@ -4271,8 +4373,10 @@ void diagnoseOpenGLSourceUnsupported(DiagnosticEngine &diagnostics) {
       "read indices) passed to helper array parameters with callee-local "
       "parameter writes, fixed-size struct-element helper arrays, fixed-size "
       "sampled texture/sampler resource arrays passed to read-only helper "
-      "parameters, same-stage helper functions, and void entry functions with "
-      "no parameters, or one "
+      "parameters, at most one unreferenced unsized texture descriptor array "
+      "and one unreferenced unsized sampler descriptor array in compute "
+      "packages with no later same-class resource, same-stage helper "
+      "functions, and void entry functions with no parameters, or one "
       "vertex stage plus one "
       "fragment stage with struct input/output signatures, scalar/vector stage "
       "IO fields, non-array struct uniform buffers, and fixed-size sampled "
@@ -4315,14 +4419,28 @@ bool openglHasUnsupportedStorageBufferArray(const HIRModule &module) {
 }
 
 bool openglHasUnsupportedRuntimeResourceArray(const HIRModule &module) {
-  return hasUnsupportedRuntimeResourceArray(module);
+  return !unsupportedOpenGLRuntimeResourceArrayLabels(module).empty();
 }
 
 bool diagnoseOpenGLUnsupportedRuntimeResourceArray(
     const HIRModule &module, DiagnosticEngine &diagnostics) {
-  return diagnoseUnsupportedRuntimeResourceArray(
-      module, diagnostics, "opengl.unsupported-runtime-resource-array",
-      "OpenGL");
+  const std::set<std::string> resourceArrays =
+      unsupportedOpenGLRuntimeResourceArrayLabels(module);
+  if (resourceArrays.empty()) {
+    return false;
+  }
+  diagnostics.error(
+      "opengl.unsupported-runtime-resource-array",
+      "OpenGL source package supports unreferenced unsized texture/sampler "
+      "descriptor arrays in compute packages when each descriptor class has "
+      "at most one runtime array and no later same-class resource; unsupported "
+      "unsized/runtime resource array(s): " +
+          joinNames(resourceArrays) +
+          "; use a fixed descriptor array size, remove runtime descriptor "
+          "references, or keep runtime descriptor arrays limited to one "
+          "unreferenced texture array and one unreferenced sampler array with "
+          "no later resource in the same class");
+  return true;
 }
 
 bool diagnoseOpenGLUnsupportedStorageBufferArray(
@@ -5045,10 +5163,13 @@ std::string generateOpenGLBackendIR(const HIRModule &module) {
           << joinNames(bufferArrays) << "\n";
     }
     const std::set<std::string> resourceArrays =
-        unsupportedRuntimeResourceArrayLabels(module);
+        unsupportedOpenGLRuntimeResourceArrayLabels(module);
     if (!resourceArrays.empty()) {
-      out << "// opengl textual scaffold does not yet support descriptor arrays "
-             "with unsized/runtime descriptor counts: "
+      out << "// opengl textual scaffold supports unreferenced texture/sampler "
+             "descriptor arrays with unsized descriptor counts only in compute "
+             "packages when each descriptor class has at most one runtime "
+             "array and no later same-class resource; unsupported runtime "
+             "descriptor array(s): "
           << joinNames(resourceArrays) << "\n";
     }
     const std::set<std::string> runtimeTailBlockIndexes =
@@ -5117,7 +5238,10 @@ std::string generateOpenGLBackendIR(const HIRModule &module) {
            "helper read indices) passed to helper array parameters with "
            "callee-local parameter writes, fixed-size struct-element helper "
            "arrays, fixed-size sampled texture/sampler resource arrays passed "
-           "to read-only helper parameters, same-stage helper functions, and "
+           "to read-only helper parameters, at most one unreferenced unsized "
+           "texture descriptor array and one unreferenced unsized sampler "
+           "descriptor array in compute packages with no later same-class "
+           "resource, same-stage helper functions, and "
            "void entry functions with no parameters, or one "
            "vertex stage plus one fragment stage with struct input/output "
            "signatures, scalar/vector stage IO fields, non-array struct "

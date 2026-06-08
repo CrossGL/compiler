@@ -135,8 +135,27 @@ std::span<const HIRResourceKind> directxRuntimeDescriptorResourceKinds() {
 }
 
 std::span<const HIRResourceKind> openGLRuntimeDescriptorResourceKinds() {
+  static constexpr std::array<HIRResourceKind, 3> kinds = {
+      HIRResourceKind::Buffer, HIRResourceKind::Texture,
+      HIRResourceKind::Sampler};
+  return kinds;
+}
+
+std::span<const HIRResourceKind> openGLRuntimeStorageBufferKinds() {
   static constexpr std::array<HIRResourceKind, 1> kinds = {
       HIRResourceKind::Buffer};
+  return kinds;
+}
+
+std::span<const HIRResourceKind> openGLRuntimeTextureKinds() {
+  static constexpr std::array<HIRResourceKind, 1> kinds = {
+      HIRResourceKind::Texture};
+  return kinds;
+}
+
+std::span<const HIRResourceKind> openGLRuntimeSamplerKinds() {
+  static constexpr std::array<HIRResourceKind, 1> kinds = {
+      HIRResourceKind::Sampler};
   return kinds;
 }
 
@@ -162,13 +181,31 @@ bool directxRuntimeDescriptorArrayCapabilitiesSatisfied(
          !directxHasUnsupportedRuntimeResourceArray(module);
 }
 
-bool openGLRuntimeStorageBufferDescriptorArrayCapabilitiesSatisfied(
-    const HIRModule &module) {
-  return !runtimeDescriptorArrayLabels(
-              module, openGLRuntimeDescriptorResourceKinds())
-              .empty() &&
-         !openglHasUnsupportedStorageBufferArray(module) &&
-         !openglHasUnsupportedRuntimeResourceArray(module);
+bool openGLRuntimeDescriptorArrayCapabilitySatisfied(
+    const HIRModule &module, std::string_view capabilityName) {
+  if (openglHasUnsupportedStorageBufferArray(module) ||
+      openglHasUnsupportedRuntimeResourceArray(module)) {
+    return false;
+  }
+  if (capabilityName == "runtime-descriptor-array") {
+    return !runtimeDescriptorArrayLabels(
+                module, openGLRuntimeDescriptorResourceKinds())
+                .empty();
+  }
+  if (capabilityName == "runtime-storage-buffer-descriptor-array") {
+    return !runtimeDescriptorArrayLabels(module,
+                                         openGLRuntimeStorageBufferKinds())
+                .empty();
+  }
+  if (capabilityName == "runtime-texture-descriptor-array") {
+    return !runtimeDescriptorArrayLabels(module, openGLRuntimeTextureKinds())
+                .empty();
+  }
+  if (capabilityName == "runtime-sampler-descriptor-array") {
+    return !runtimeDescriptorArrayLabels(module, openGLRuntimeSamplerKinds())
+                .empty();
+  }
+  return false;
 }
 
 bool isVectorTypeName(std::string_view name) {
@@ -684,12 +721,8 @@ bool capabilitySatisfiedByTextualScaffold(
         return directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
       }
       if (capability.target == TargetKind::OpenGL) {
-        if (capability.name == "runtime-descriptor-array" ||
-            capability.name == "runtime-storage-buffer-descriptor-array") {
-          return openGLRuntimeStorageBufferDescriptorArrayCapabilitiesSatisfied(
-              module);
-        }
-        return false;
+        return openGLRuntimeDescriptorArrayCapabilitySatisfied(
+            module, capability.name);
       }
       return false;
     }
@@ -712,8 +745,8 @@ bool capabilitySatisfiedByTextualScaffold(
         return directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
       }
       if (capability.target == TargetKind::OpenGL) {
-        return openGLRuntimeStorageBufferDescriptorArrayCapabilitiesSatisfied(
-            module);
+        return openGLRuntimeDescriptorArrayCapabilitySatisfied(
+            module, "runtime-descriptor-array");
       }
       return false;
     }

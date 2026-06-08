@@ -15198,6 +15198,31 @@ void testRuntimeDescriptorArrayPolicyHelper() {
                             "runtime-texture-descriptor-array"),
          "target decisions treat DirectX single-unbounded runtime descriptor "
          "arrays as supported source-package ABI");
+  expect(crossgl::openglTextualBackendSupported(singleTextureModule),
+         "OpenGL scaffold supports an unreferenced runtime texture descriptor "
+         "array");
+  const std::vector<crossgl::TargetCapability> openglTextureCapabilities =
+      crossgl::targetFeatureRequirements(singleTextureModule,
+                                         crossgl::TargetKind::OpenGL);
+  expect(hasCapability(openglTextureCapabilities, crossgl::TargetKind::OpenGL,
+                       "resource", "runtime-descriptor-array") &&
+             hasCapability(openglTextureCapabilities,
+                           crossgl::TargetKind::OpenGL, "resource",
+                           "runtime-texture-descriptor-array"),
+         "OpenGL target capabilities expose runtime texture descriptor-array "
+         "metadata");
+  const std::vector<crossgl::TargetCapability> openglTextureMissing =
+      crossgl::missingTargetCapabilities(singleTextureModule,
+                                         crossgl::TargetKind::OpenGL);
+  expect(!hasCapability(openglTextureMissing, crossgl::TargetKind::OpenGL,
+                        "layout", "runtime-array") &&
+             !hasCapability(openglTextureMissing, crossgl::TargetKind::OpenGL,
+                            "resource", "runtime-descriptor-array") &&
+             !hasCapability(openglTextureMissing, crossgl::TargetKind::OpenGL,
+                            "resource",
+                            "runtime-texture-descriptor-array"),
+         "target decisions treat OpenGL unreferenced runtime texture "
+         "descriptor arrays as supported source-package ABI");
   const crossgl::ReflectionDocument runtimeTextureReflection =
       crossgl::buildReflectionDocument(
           singleTextureModule, crossgl::TargetKind::DirectX,
@@ -15249,6 +15274,31 @@ void testRuntimeDescriptorArrayPolicyHelper() {
                             "runtime-sampler-descriptor-array"),
          "target decisions treat DirectX single-unbounded runtime sampler "
          "descriptor arrays as supported source-package ABI");
+  expect(crossgl::openglTextualBackendSupported(singleSamplerModule),
+         "OpenGL scaffold supports an unreferenced runtime sampler descriptor "
+         "array");
+  const std::vector<crossgl::TargetCapability> openglSamplerCapabilities =
+      crossgl::targetFeatureRequirements(singleSamplerModule,
+                                         crossgl::TargetKind::OpenGL);
+  expect(hasCapability(openglSamplerCapabilities, crossgl::TargetKind::OpenGL,
+                       "resource", "runtime-descriptor-array") &&
+             hasCapability(openglSamplerCapabilities,
+                           crossgl::TargetKind::OpenGL, "resource",
+                           "runtime-sampler-descriptor-array"),
+         "OpenGL target capabilities expose runtime sampler descriptor-array "
+         "metadata");
+  const std::vector<crossgl::TargetCapability> openglSamplerMissing =
+      crossgl::missingTargetCapabilities(singleSamplerModule,
+                                         crossgl::TargetKind::OpenGL);
+  expect(!hasCapability(openglSamplerMissing, crossgl::TargetKind::OpenGL,
+                        "layout", "runtime-array") &&
+             !hasCapability(openglSamplerMissing, crossgl::TargetKind::OpenGL,
+                            "resource", "runtime-descriptor-array") &&
+             !hasCapability(openglSamplerMissing, crossgl::TargetKind::OpenGL,
+                            "resource",
+                            "runtime-sampler-descriptor-array"),
+         "target decisions treat OpenGL unreferenced runtime sampler "
+         "descriptor arrays as supported source-package ABI");
   const crossgl::ReflectionDocument runtimeSamplerReflection =
       crossgl::buildReflectionDocument(
           singleSamplerModule, crossgl::TargetKind::DirectX,
@@ -15288,6 +15338,24 @@ void testRuntimeDescriptorArrayPolicyHelper() {
                             "directx.unsupported-runtime-resource-array"),
          "target decisions accept DirectX runtime texture and sampler arrays "
          "when their register classes remain distinct");
+  expect(crossgl::openglTextualBackendSupported(multipleRuntimeModule),
+         "OpenGL scaffold accepts unreferenced runtime texture and sampler "
+         "arrays");
+  const crossgl::TargetPackageDecision multipleOpenGLDecision =
+      crossgl::targetPackageDecision(multipleRuntimeModule,
+                                     crossgl::TargetKind::OpenGL);
+  expect(multipleOpenGLDecision.sourcePackageSupported &&
+             !hasCapability(multipleOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "diagnostic",
+                            "opengl.unsupported-runtime-resource-array") &&
+             !hasCapability(multipleOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "resource",
+                            "runtime-texture-descriptor-array") &&
+             !hasCapability(multipleOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "resource",
+                            "runtime-sampler-descriptor-array"),
+         "target decisions accept OpenGL unreferenced runtime texture and "
+         "sampler descriptor arrays");
 
   crossgl::HIRModule distinctRegisterSpaceRuntimeModule = moduleWithResources({
       resource(crossgl::HIRResourceKind::Buffer, type("vec4*"), "values", 0),
@@ -15343,6 +15411,36 @@ void testRuntimeDescriptorArrayPolicyHelper() {
                            "directx.unsupported-runtime-resource-array"),
          "target decisions keep same-register-class runtime arrays unsupported "
          "with a diagnostic capability");
+  expect(crossgl::openglHasUnsupportedRuntimeResourceArray(
+             sameRegisterClassRuntimeModule),
+         "OpenGL policy rejects multiple runtime texture descriptor arrays");
+  expect(!crossgl::openglTextualBackendSupported(
+             sameRegisterClassRuntimeModule),
+         "OpenGL scaffold rejects multiple runtime texture descriptor arrays");
+  crossgl::DiagnosticEngine sameRegisterClassOpenGLDiagnostics;
+  expect(crossgl::diagnoseOpenGLUnsupportedRuntimeResourceArray(
+             sameRegisterClassRuntimeModule,
+             sameRegisterClassOpenGLDiagnostics),
+         "OpenGL multiple runtime texture descriptor-array helper emits a "
+         "diagnostic");
+  expect(hasDiagnosticMessageFragment(
+             sameRegisterClassOpenGLDiagnostics.diagnostics(),
+             "opengl.unsupported-runtime-resource-array", "maps (texture)") &&
+             hasDiagnosticMessageFragment(
+                 sameRegisterClassOpenGLDiagnostics.diagnostics(),
+                 "opengl.unsupported-runtime-resource-array",
+                 "detailMaps (texture)"),
+         "OpenGL multiple runtime texture descriptor-array diagnostic names "
+         "both arrays");
+  const crossgl::TargetPackageDecision sameRegisterClassOpenGLDecision =
+      crossgl::targetPackageDecision(sameRegisterClassRuntimeModule,
+                                     crossgl::TargetKind::OpenGL);
+  expect(!sameRegisterClassOpenGLDecision.sourcePackageSupported &&
+             hasCapability(sameRegisterClassOpenGLDecision.missingCapabilities,
+                           crossgl::TargetKind::OpenGL, "diagnostic",
+                           "opengl.unsupported-runtime-resource-array"),
+         "target decisions keep OpenGL multiple runtime texture descriptor "
+         "arrays unsupported with a diagnostic capability");
 }
 
 void expectNonUniformDescriptorIndexFamilies(
@@ -43686,20 +43784,119 @@ shader VulkanRuntimeTextureDescriptorArrayConflictShader {
          "DirectX runtime resource array helper accepts distinct texture and "
          "sampler register classes");
 
-  expect(!crossgl::openglTextualBackendSupported(*resourceHir),
-         "OpenGL scaffold rejects runtime resource descriptor arrays");
+  expect(crossgl::openglTextualBackendSupported(*resourceHir),
+         "OpenGL scaffold accepts unreferenced runtime texture plus sampler "
+         "descriptor arrays");
   crossgl::DiagnosticEngine runtimeResourceOpenGLDiagnostics;
-  expect(crossgl::diagnoseOpenGLUnsupportedRuntimeResourceArray(
-             *resourceHir, runtimeResourceOpenGLDiagnostics),
-         "OpenGL runtime resource array helper emits a diagnostic");
-  expect(hasDiagnosticMessageFragment(
-             runtimeResourceOpenGLDiagnostics.diagnostics(),
-             "opengl.unsupported-runtime-resource-array", "maps"),
-         "OpenGL runtime resource array diagnostic names the texture array");
-  expect(hasDiagnosticMessageFragment(
-             runtimeResourceOpenGLDiagnostics.diagnostics(),
-             "opengl.unsupported-runtime-resource-array", "linearSamplers"),
-         "OpenGL runtime resource array diagnostic names the sampler array");
+  expect(!crossgl::diagnoseOpenGLUnsupportedRuntimeResourceArray(
+             *resourceHir, runtimeResourceOpenGLDiagnostics) &&
+             runtimeResourceOpenGLDiagnostics.diagnostics().empty(),
+         "OpenGL runtime resource array helper accepts unreferenced "
+         "texture/sampler runtime arrays");
+  crossgl::DiagnosticEngine runtimeResourceOpenGLSupportDiagnostics;
+  expect(crossgl::openGLSourcePackageSupported(
+             *resourceHir, runtimeResourceOpenGLSupportDiagnostics) &&
+             runtimeResourceOpenGLSupportDiagnostics.diagnostics().empty(),
+         "OpenGL source-package predicate accepts unreferenced runtime "
+         "texture/sampler descriptor arrays");
+  const std::string runtimeResourceOpenGLSource =
+      crossgl::generateOpenGLSource(*resourceHir);
+  expect(runtimeResourceOpenGLSource.find(
+             "layout(binding = 1) uniform texture2D maps[];") !=
+                 std::string::npos &&
+             runtimeResourceOpenGLSource.find(
+                 "layout(binding = 2) uniform sampler linearSamplers[];") !=
+                 std::string::npos,
+         "OpenGL source emits unreferenced runtime texture and sampler "
+         "descriptor arrays");
+  const crossgl::ReflectionDocument openglReflection =
+      crossgl::buildReflectionDocument(*resourceHir,
+                                       crossgl::TargetKind::OpenGL,
+                                       "/tmp/RuntimeResourceArrayShader.glsl");
+  const crossgl::ReflectionTargetResourceBinding *openglMapsBinding =
+      findTargetResourceBinding(openglReflection, "maps");
+  const crossgl::ReflectionTargetResourceBinding *openglSamplersBinding =
+      findTargetResourceBinding(openglReflection, "linearSamplers");
+  expect(openglMapsBinding != nullptr &&
+             openglMapsBinding->bindingClass == "texture" &&
+             openglMapsBinding->arraySize == std::optional<std::string>{""} &&
+             !openglMapsBinding->arrayElementCount.has_value() &&
+             openglMapsBinding->arrayDimensions.size() == 1 &&
+             openglMapsBinding->arrayDimensions[0].kind == "runtime",
+         "OpenGL reflection records runtime texture descriptor-array "
+         "dimensions");
+  expect(openglSamplersBinding != nullptr &&
+             openglSamplersBinding->bindingClass == "sampler" &&
+             openglSamplersBinding->arraySize ==
+                 std::optional<std::string>{""} &&
+             !openglSamplersBinding->arrayElementCount.has_value() &&
+             openglSamplersBinding->arrayDimensions.size() == 1 &&
+             openglSamplersBinding->arrayDimensions[0].kind == "runtime",
+         "OpenGL reflection records runtime sampler descriptor-array "
+         "dimensions");
+  const crossgl::TargetPackageDecision runtimeResourceOpenGLDecision =
+      crossgl::targetPackageDecision(*resourceHir,
+                                     crossgl::TargetKind::OpenGL);
+  expect(runtimeResourceOpenGLDecision.sourcePackageSupported &&
+             !hasCapability(runtimeResourceOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "diagnostic",
+                            "opengl.unsupported-runtime-resource-array") &&
+             !hasCapability(runtimeResourceOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "resource",
+                            "runtime-texture-descriptor-array") &&
+             !hasCapability(runtimeResourceOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "resource",
+                            "runtime-sampler-descriptor-array"),
+         "target decisions accept unreferenced OpenGL runtime texture and "
+         "sampler descriptor arrays");
+
+  constexpr std::string_view referencedOpenGLRuntimeTextureSource = R"(
+shader OpenGLReferencedRuntimeTextureDescriptorArrayShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) uniform sampler2D maps[];
+    layout(set = 0, binding = 2) sampler linearSampler;
+    void main() {
+      values[0] = textureLod(maps[0], linearSampler, vec2(0.0, 0.0), 0.0);
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> referencedOpenGLRuntimeTextureHir =
+      parseHIR(referencedOpenGLRuntimeTextureSource);
+  expect(referencedOpenGLRuntimeTextureHir.has_value(),
+         "OpenGL referenced runtime texture descriptor-array source builds "
+         "HIR");
+  if (referencedOpenGLRuntimeTextureHir) {
+    expect(!crossgl::openglTextualBackendSupported(
+               *referencedOpenGLRuntimeTextureHir),
+           "OpenGL scaffold rejects referenced runtime texture descriptor "
+           "arrays");
+    crossgl::DiagnosticEngine referencedRuntimeTextureDiagnostics;
+    expect(crossgl::diagnoseOpenGLUnsupportedRuntimeResourceArray(
+               *referencedOpenGLRuntimeTextureHir,
+               referencedRuntimeTextureDiagnostics),
+           "OpenGL referenced runtime texture descriptor-array helper emits "
+           "a diagnostic");
+    expect(hasDiagnosticMessageFragment(
+               referencedRuntimeTextureDiagnostics.diagnostics(),
+               "opengl.unsupported-runtime-resource-array", "maps (texture)"),
+           "OpenGL referenced runtime texture descriptor-array diagnostic "
+           "names the array");
+    crossgl::DiagnosticEngine referencedRuntimeTextureSupportDiagnostics;
+    expect(!crossgl::openGLSourcePackageSupported(
+               *referencedOpenGLRuntimeTextureHir,
+               referencedRuntimeTextureSupportDiagnostics),
+           "OpenGL source-package predicate rejects referenced runtime "
+           "texture descriptor arrays");
+    expect(hasDiagnostic(
+               referencedRuntimeTextureSupportDiagnostics.diagnostics(),
+               "opengl.unsupported-runtime-resource-array"),
+           "OpenGL source-package predicate reports the runtime texture "
+           "descriptor-array diagnostic");
+  }
 
   crossgl::DiagnosticEngine runtimeResourceMetalSupportDiagnostics;
   expect(crossgl::metalNativeBackendSupported(
