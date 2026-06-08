@@ -54,6 +54,7 @@ std::string generateMetalSource(const HIRModule &module);
 std::string metalResourceABIType(const HIRResource &resource);
 std::string metalResourceAddressSpace(const HIRResource &resource);
 std::string metalResourceBindingClass(HIRResourceKind kind);
+std::string metalResourceBindingClass(const HIRResource &resource);
 bool metalResourceIsKernelParameter(HIRResourceKind kind);
 std::optional<std::size_t>
 metalResourceArgumentIndex(

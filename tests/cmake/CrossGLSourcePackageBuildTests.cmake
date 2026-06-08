@@ -6269,6 +6269,22 @@ kernel void compute_main(device float4* values [[buffer(0)]], array<texture2d<fl
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|fixed-array.kind=layout|index-access.kind=operation|scalar-arithmetic.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_TABLE_SNIPPET [=[kernel void compute_main(device float4* values [[buffer(0)]], constant CrossGLMetalRuntimeTextureDescriptorArrayTable& maps [[buffer(1)]]) {]=])
+  add_test(NAME cglc_build_metal_runtime_texture_descriptor_array_policy_source_package
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_METAL_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_POLICY_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-texture-descriptor-array-policy.cglb
+      -DEXPECTED_MODULE=MetalRuntimeTextureDescriptorArrayPolicyShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_TABLE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalRuntimeTextureDescriptorArrayPolicyShader|artifacts.backendSource=backend/metal/MetalRuntimeTextureDescriptorArrayPolicyShader.metal|artifacts.intermediate=backend/metal/MetalRuntimeTextureDescriptorArrayPolicyShader.air|artifacts.nativeBinary=backend/metal/MetalRuntimeTextureDescriptorArrayPolicyShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalRuntimeTextureDescriptorArrayPolicyShader|nativeBinary=backend/metal/MetalRuntimeTextureDescriptorArrayPolicyShader.metallib|resources.0.name=values|resources.0.kind=buffer|resources.0.type=vec4*|resources.1.name=maps|resources.1.kind=texture|resources.1.type=sampler2D[]|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1|manualTextureCompareKernelSummary.totalCount=0"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|workgroupSizes=1|manualTextureCompareKernels=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.metalType=device float4*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=vec4|values.storageBufferLayout.layout=metal-device|maps.sourceType=sampler2D[]|maps.metalType=constant CrossGLMetalRuntimeTextureDescriptorArrayTable&|maps.addressSpace=constant|maps.abi=kernelArgument|maps.bindingClass=buffer|maps.argumentIndex=1|maps.set=0|maps.binding=1|maps.arraySize=|maps.arrayDimensions.0.kind=runtime"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|sampled-texture.kind=resource|descriptor-array.kind=resource|runtime-descriptor-array.kind=resource|runtime-texture-descriptor-array.kind=resource|runtime-array.kind=layout|storage-buffer-write.kind=operation|vector-constructor.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   crossgl_label_new_optional_native_tests(metal
     "${CROSSGL_SOURCE_PACKAGE_METAL_NATIVE_TESTS_BEFORE}")
 else()
@@ -6618,18 +6634,6 @@ add_test(NAME cglc_build_metal_runtime_resource_array_planned_failure
     -DINPUT=${CROSSGL_RUNTIME_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
     -DTARGET=metal
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-resource-array.cglb
-    -DMODE=planned-build-failure
-    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=metal"
-    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=metal.backend.native-metal-package|missingCapabilities=metal.diagnostic.metal.unsupported-runtime-resource-array"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'metal' cannot build a package for this module|message=metal.backend.native-metal-package|message=metal.diagnostic.metal.unsupported-runtime-resource-array"
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_metal_runtime_texture_descriptor_array_policy_planned_failure
-  COMMAND ${CMAKE_COMMAND}
-    -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_METAL_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_POLICY_SHADER}
-    -DTARGET=metal
-    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-texture-descriptor-array-policy.cglb
     -DMODE=planned-build-failure
     ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=metal"

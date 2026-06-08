@@ -1036,8 +1036,8 @@ std::string legalizationMetalResourceAddressSpace(const HIRResource &resource) {
   return metalResourceAddressSpace(resource);
 }
 
-std::string legalizationMetalResourceBindingClass(HIRResourceKind kind) {
-  return metalResourceBindingClass(kind);
+std::string legalizationMetalResourceBindingClass(const HIRResource &resource) {
+  return metalResourceBindingClass(resource);
 }
 
 bool legalizationMetalResourceIsKernelParameter(HIRResourceKind kind) {
@@ -1100,7 +1100,7 @@ resourceBindingRecordForResource(const HIRModule &module,
     record.addressSpace = legalizationMetalResourceAddressSpace(source);
     if (legalizationMetalResourceIsKernelParameter(source.kind)) {
       record.abi = "kernelArgument";
-      record.bindingClass = legalizationMetalResourceBindingClass(source.kind);
+      record.bindingClass = legalizationMetalResourceBindingClass(source);
       record.argumentIndex = metalResourceArgumentIndex(
                                  *stage.source, source.name, &module.constants)
                                  .value_or(source.binding);
