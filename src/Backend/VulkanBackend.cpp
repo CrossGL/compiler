@@ -960,6 +960,72 @@ bool vulkanRuntimeTextureSamplerDescriptorArraySupported(
       vulkanRuntimeDescriptorBindingClassKinds(resource.kind));
 }
 
+bool isVulkanRuntimeTextureSamplerDescriptorArray(
+    const HIRResource &resource) {
+  return isRuntimeDescriptorArray(resource) &&
+         (resource.kind == HIRResourceKind::Texture ||
+          resource.kind == HIRResourceKind::Sampler);
+}
+
+bool vulkanRuntimeDescriptorArraysConflict(const HIRResource &lhs,
+                                           const HIRResource &rhs) {
+  return isVulkanRuntimeTextureSamplerDescriptorArray(lhs) &&
+         isVulkanRuntimeTextureSamplerDescriptorArray(rhs) &&
+         lhs.name != rhs.name &&
+         vulkanResourceBindingClass(lhs.kind) ==
+             vulkanResourceBindingClass(rhs.kind);
+}
+
+bool vulkanResourceSortsBefore(const HIRResource &lhs,
+                               const HIRResource &rhs) {
+  if (lhs.set != rhs.set) {
+    return lhs.set < rhs.set;
+  }
+  if (lhs.binding != rhs.binding) {
+    return lhs.binding < rhs.binding;
+  }
+  return lhs.name < rhs.name;
+}
+
+std::string vulkanDescriptorSetBindingLabel(const HIRResource &resource) {
+  return "set " + std::to_string(resource.set) + " binding " +
+         std::to_string(resource.binding);
+}
+
+std::string vulkanRuntimeDescriptorArrayConflictLabel(
+    const HIRResource &lhs, const HIRResource &rhs) {
+  const HIRResource *first = &lhs;
+  const HIRResource *second = &rhs;
+  if (vulkanResourceSortsBefore(*second, *first)) {
+    std::swap(first, second);
+  }
+
+  const std::string bindingClass = vulkanResourceBindingClass(first->kind);
+  return "runtime descriptor array '" + first->name + "' (" +
+         resourceKindLabel(first->kind) + ") at " +
+         vulkanDescriptorSetBindingLabel(*first) +
+         " conflicts with runtime descriptor array '" + second->name + "' (" +
+         resourceKindLabel(second->kind) + ") at " +
+         vulkanDescriptorSetBindingLabel(*second) +
+         " because both use Vulkan descriptor binding class '" + bindingClass +
+         "' (" + vulkanDescriptorType(first->kind) + ")";
+}
+
+std::set<std::string> vulkanRuntimeDescriptorArrayConflictLabels(
+    const HIRModule &module, const HIRResource &resource) {
+  std::set<std::string> conflicts;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &candidate : stage.resources) {
+      if (!vulkanRuntimeDescriptorArraysConflict(resource, candidate)) {
+        continue;
+      }
+      conflicts.insert(
+          vulkanRuntimeDescriptorArrayConflictLabel(resource, candidate));
+    }
+  }
+  return conflicts;
+}
+
 std::string vulkanRuntimeDescriptorArrayUnsupportedMessage(
     const HIRModule &module, const HIRResource &resource) {
   const std::span<const HIRResourceKind> bindingClassKinds =
@@ -969,13 +1035,26 @@ std::string vulkanRuntimeDescriptorArrayUnsupportedMessage(
           ? runtimeDescriptorArrayLabels(
                 module, vulkanRuntimeTextureSamplerDescriptorKinds())
           : runtimeDescriptorArrayLabels(module, bindingClassKinds);
+  const std::set<std::string> conflicts =
+      vulkanRuntimeDescriptorArrayConflictLabels(module, resource);
+
+  std::string details = "unsupported unsized/runtime resource array(s): " +
+                        joinNames(unsupportedArrays);
+  if (!conflicts.empty()) {
+    details += "; conflict(s): " + joinNames(conflicts);
+  }
+
   return "Vulkan prototype descriptor lowering requires fixed-size descriptor "
          "arrays when multiple unbounded texture/sampler arrays share a "
          "Vulkan descriptor binding class or the descriptor shape is "
-         "ambiguous; unsupported unsized/runtime resource array(s): " +
-         joinNames(unsupportedArrays) +
-         "; use a fixed descriptor array size or keep only one unbounded "
-         "descriptor array per Vulkan descriptor binding class";
+         "ambiguous; " +
+         details +
+         "; policy " +
+         runtimeDescriptorArrayPolicyName(
+             RuntimeDescriptorArrayPolicy::AllowSingleUnboundedDescriptorArray) +
+         " permits only one unbounded descriptor array per Vulkan descriptor "
+         "binding class; use a fixed descriptor array size or keep only one "
+         "unbounded descriptor array per Vulkan descriptor binding class";
 }
 
 bool isPrototypeStructStorageBufferResourceForSupport(

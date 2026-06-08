@@ -22,6 +22,8 @@ namespace {
 
 constexpr std::string_view kRawStatementBackendInputDiagnostic =
     "opt.hir-raw-statement-backend-input";
+constexpr std::string_view kVulkanRuntimeResourceArrayDiagnostic =
+    "vulkan.prototype-unsupported-runtime-resource-array";
 
 bool containsString(const std::vector<std::string> &values,
                     std::string_view value) {
@@ -1480,6 +1482,22 @@ unsupportedDiagnosticForDecision(const HIRModule &module,
         "target '" + decision.targetName +
         "' cannot build a package while HIR contains raw statements that have "
         "not been explicitly backend-legalized";
+    return diagnostic;
+  }
+
+  if (decision.target == TargetKind::Vulkan &&
+      hasMissingDiagnosticCapability(decision,
+                                     kVulkanRuntimeResourceArrayDiagnostic) &&
+      !predicateDiagnostics.empty() &&
+      predicateDiagnostics.front().message.find("texture/sampler") !=
+          std::string::npos) {
+    diagnostic.evidenceId =
+        evidenceId(decision.target, "diagnostic.target.unsupported");
+    diagnostic.code = "target.unsupported";
+    diagnostic.message = "target '" + decision.targetName +
+                         "' cannot build a package for this module: " +
+                         predicateDiagnostics.front().message;
+    diagnostic.location = std::move(predicateLocation);
     return diagnostic;
   }
 
