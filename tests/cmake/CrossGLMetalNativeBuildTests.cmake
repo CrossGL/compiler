@@ -2068,6 +2068,58 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -DMODE=metal-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_MATRIX_SCALAR_ARITHMETIC_SOURCE_SNIPPET [=[void keep(float3x3 scaled, float3x3 rescaled, float3x3 inferred, device float* values) {
+  values[0] = 1.0;
+  return;
+}
+
+kernel void compute_main(device float* values [[buffer(0)]]) {
+  float3x3 transform = float3x3(float3(1.0, 2.0, 3.0), float3(4.0, 5.0, 6.0), float3(7.0, 8.0, 9.0));
+  float3x3 scaled = transform * 2.0;
+  float3x3 rescaled = 0.5 * transform;
+  float3x3 inferred = transform * 0.25;
+  inferred = inferred * 4.0;
+  keep(scaled, rescaled, inferred, values);]=])
+  add_test(NAME cglc_build_metal_matrix_scalar_arithmetic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_MATRIX_SCALAR_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-matrix-scalar-arithmetic.cglb
+      -DEXPECTED_MODULE=MatrixScalarArithmeticComputeShader
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ float*
+      "-DEXPECTED_METAL_STORE_SNIPPET=values[0] = 1.0;"
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_MATRIX_SCALAR_ARITHMETIC_SOURCE_SNIPPET}"
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MatrixScalarArithmeticComputeShader|nativeBinary=backend/metal/MatrixScalarArithmeticComputeShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|matrix-constructor.kind=operation|scalar-arithmetic.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=metal-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET [=[float3 columnProduct = transform * source;
+  float3 rowProduct = source * transform;
+  float3x3 composed = transform * basis;
+  float3 projected = composed * rowProduct;]=])
+  add_test(NAME cglc_build_metal_matrix_vector_arithmetic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_MATRIX_VECTOR_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-matrix-vector-arithmetic.cglb
+      -DEXPECTED_MODULE=MatrixVectorArithmeticComputeShader
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ float*
+      "-DEXPECTED_METAL_STORE_SNIPPET=values[1] = rowProduct.y;"
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET}"
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MatrixVectorArithmeticComputeShader|nativeBinary=backend/metal/MatrixVectorArithmeticComputeShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|vector-constructor.kind=operation|index-access.kind=operation|matrix-constructor.kind=operation|vector-arithmetic.kind=operation|scalar-arithmetic.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=metal-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_vector_local_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
