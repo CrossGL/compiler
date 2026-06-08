@@ -1787,6 +1787,10 @@ bool shouldValidateHIRUserFunctionCall(
   if (expression.kind != HIRExpressionKind::Call || expression.value.empty()) {
     return false;
   }
+  if (expression.value.size() >= 2 && expression.value[0] == '_' &&
+      expression.value[1] == '_') {
+    return false;
+  }
   if (!lookupHIRIntrinsicSignatures(expression.value).empty() ||
       lookupHIRCallBuiltinEffect(expression.value).has_value()) {
     return false;

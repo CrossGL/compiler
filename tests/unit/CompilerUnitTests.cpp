@@ -1649,6 +1649,25 @@ void testHIRIntrinsicRegistry() {
              crossgl::formatHIRIntrinsicArityExpectation(*dot) ==
                  "exactly 2 arguments",
          "HIR intrinsic registry exposes exact arity and purity helpers");
+  const crossgl::HIRIntrinsicSignature *smoothstep =
+      crossgl::lookupHIRIntrinsic("smoothstep");
+  const crossgl::HIRIntrinsicSignature *inverse =
+      crossgl::lookupHIRIntrinsic("inverse");
+  const crossgl::HIRIntrinsicSignature *transpose =
+      crossgl::lookupHIRIntrinsic("transpose");
+  expect(smoothstep != nullptr && inverse != nullptr && transpose != nullptr &&
+             smoothstep->resultRule ==
+                 crossgl::HIRIntrinsicResultRule::FirstArgument &&
+             smoothstep->minimumArity == 3 &&
+             smoothstep->maximumArity == std::optional<std::size_t>{3} &&
+             smoothstep->compatibilityRule ==
+                 crossgl::HIRIntrinsicArgumentCompatibilityRule::
+                     SameTypeOrScalarComponentWithFirst &&
+             inverse->argumentDomain ==
+                 crossgl::HIRIntrinsicArgumentDomain::FloatMatrix &&
+             transpose->argumentDomain ==
+                 crossgl::HIRIntrinsicArgumentDomain::FloatMatrix,
+         "HIR intrinsic registry includes CrossTL shared math intrinsics");
   const std::array<crossgl::HIRIntrinsicSignature, 2> arityOverloads = {{
       {"testIntrinsic", crossgl::HIRIntrinsicResultRule::FixedFloat, 1,
        std::size_t{1}},
@@ -13996,6 +14015,12 @@ shader HexLiteralShader {
       float partial_sum = 1.0;
       int offset = 1;
       partial_sum += __shfl_down_sync(0xFFFFFFFF, partial_sum, offset);
+      mat4 identity = mat4(1.0, 0.0, 0.0, 0.0,
+                           0.0, 1.0, 0.0, 0.0,
+                           0.0, 0.0, 1.0, 0.0,
+                           0.0, 0.0, 0.0, 1.0);
+      mat4 corrected = transpose(inverse(identity));
+      float eased = smoothstep(0.0, 1.0, partial_sum);
       return;
     }
   }
@@ -14016,6 +14041,15 @@ shader HexLiteralShader {
                hirExpressionIsLiteral(shuffleCall->children.front(),
                                       "0xFFFFFFFF"),
            "split lexer hex literal is preserved as one HIR literal");
+    expect(findHIRCallExpression(hexHIR->stages.front().functions.front().body,
+                                 "transpose") != nullptr &&
+               findHIRCallExpression(
+                   hexHIR->stages.front().functions.front().body,
+                   "inverse") != nullptr &&
+               findHIRCallExpression(
+                   hexHIR->stages.front().functions.front().body,
+                   "smoothstep") != nullptr,
+           "shared-contract math intrinsics build HIR call expressions");
   }
 
   constexpr std::string_view elseIfSource = R"(

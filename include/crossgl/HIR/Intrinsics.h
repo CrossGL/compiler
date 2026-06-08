@@ -26,6 +26,7 @@ enum class HIRIntrinsicArgumentDomain {
   NumericValue,
   FloatValue,
   FloatScalar,
+  FloatMatrix,
   NumericScalarOrVector,
   FloatScalarOrVector,
   FloatVector,
