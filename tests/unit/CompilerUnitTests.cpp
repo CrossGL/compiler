@@ -6200,6 +6200,22 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       "opt.hir-assignment-target-readonly",
       "HIR typed-symbol validation rejects assignments to constants");
 
+  crossgl::HIRModule cbufferAssignmentTargetModule = simpleModule();
+  cbufferAssignmentTargetModule.structs.push_back(crossgl::HIRStruct{
+      "Constants",
+      {crossgl::HIRField{crossgl::HIRType{"float", std::nullopt}, "exposure"}}});
+  cbufferAssignmentTargetModule.stages.front().resources.push_back(
+      crossgl::HIRResource{crossgl::HIRResourceKind::Uniform,
+                           type("Constants"), "Constants"});
+  crossgl::HIRFunction &cbufferAssignmentTargetMain =
+      cbufferAssignmentTargetModule.stages.front().functions.front();
+  cbufferAssignmentTargetMain.body.push_back(assignment(
+      identifier("exposure", type("float")), literal("1.0", type("float"))));
+  expectInvalidTypedSymbol(
+      std::move(cbufferAssignmentTargetModule),
+      "opt.hir-assignment-target-readonly",
+      "HIR typed-symbol validation rejects assignments to cbuffer fields");
+
   crossgl::HIRModule computeBuiltinAssignmentTargetModule = simpleModule();
   computeBuiltinAssignmentTargetModule.stages.front().stage = "compute";
   crossgl::HIRFunction &computeBuiltinAssignmentTargetMain =
@@ -50224,6 +50240,26 @@ shader BadComputeBuiltinAssignmentShader {
   expect(hasDiagnostic(builtinAssignmentDiagnostics,
                        "sema.assignment-target-readonly"),
          "assignments to compute built-ins produce a diagnostic");
+
+  constexpr std::string_view cbufferAssignmentSource = R"(
+shader BadCBufferAssignmentShader {
+  cbuffer Constants {
+    float exposure;
+  };
+  compute {
+    void main() {
+      exposure = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> cbufferAssignmentDiagnostics =
+      collectDiagnostics(cbufferAssignmentSource);
+  expect(hasDiagnostic(cbufferAssignmentDiagnostics,
+                       "sema.assignment-target-readonly"),
+         "assignments to cbuffer fields produce a diagnostic");
 
   constexpr std::string_view localShadowSource = R"(
 shader LocalConstantShadowAssignmentShader {
