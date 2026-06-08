@@ -4011,23 +4011,6 @@ set(CROSSGL_OPENGL_SOURCE_UNSUPPORTED_DIAGNOSTIC_EXPECTATIONS
     -DEXPECTED_DIAGNOSTIC=opengl.source-unsupported
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS})
 
-function(crossgl_add_vulkan_graphics_stage_resource_planned_failure test_name
-         input_fixture output_name)
-  add_test(NAME ${test_name}
-    COMMAND ${CMAKE_COMMAND}
-      -DCGLC=$<TARGET_FILE:cglc>
-      -DINPUT=${input_fixture}
-      -DTARGET=vulkan
-      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/${output_name}.cglb
-      -DEXPECT_NO_OUTPUT_PACKAGE=ON
-      -DMODE=planned-build-failure
-      ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
-      "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=schemaVersion=1|diagnostics.0.target=vulkan"
-      "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-graphics-stage-resource"
-      "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-graphics-stage-resource"
-      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-endfunction()
-
 if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
   add_test(NAME cglc_build_vulkan_graphics_native
     COMMAND ${CMAKE_COMMAND}
@@ -4190,6 +4173,39 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_CONTAINS=OpDecorate %resource_fragment_albedo DescriptorSet 0|OpDecorate %resource_fragment_albedo Binding 1|OpDecorate %resource_fragment_linearSampler DescriptorSet 0|OpDecorate %resource_fragment_linearSampler Binding 2|OpTypeImage|OpTypeSampler|OpTypeSampledImage|%resource_fragment_albedo = OpVariable|%resource_fragment_linearSampler = OpVariable|OpSampledImage|OpImageSampleImplicitLod"
       "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeRuntimeArray|OpCapability SampledImageArrayNonUniformIndexingEXT|NonUniformEXT"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_resource_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_RESOURCE_UNSUPPORTED_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-resource.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsResourceUnsupportedShader
+      -DEXPECTED_DESCRIPTOR_TYPE=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsResourceUnsupportedShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsResourceUnsupportedShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsResourceUnsupportedShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsResourceUnsupportedShader|nativeBinary=backend/vulkan/VulkanGraphicsResourceUnsupportedShader.spv|resources.0.stage=vertex|resources.0.name=camera|resources.0.kind=uniform|resources.0.type=Camera|resources.0.binding=0|resources.1.stage=fragment|resources.1.name=albedo|resources.1.kind=texture|resources.1.type=sampler2D|resources.1.binding=1|resources.2.stage=fragment|resources.2.name=linearSampler|resources.2.kind=sampler|resources.2.type=sampler|resources.2.binding=2|entryPoints.0.stage=vertex|entryPoints.1.stage=fragment"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=3|targetResourceBindings=3|vertexLayouts=1|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=camera.stage=vertex|camera.bindingClass=uniformBuffer|camera.descriptorType=VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER|camera.storageClass=Uniform|camera.set=0|camera.binding=0|albedo.stage=fragment|albedo.bindingClass=sampledImage|albedo.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE|albedo.storageClass=UniformConstant|albedo.set=0|albedo.binding=1|linearSampler.stage=fragment|linearSampler.bindingClass=sampler|linearSampler.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLER|linearSampler.storageClass=UniformConstant|linearSampler.set=0|linearSampler.binding=2"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|uniform-buffer.kind=resource|sampled-texture.kind=resource|sampler-state.kind=resource|local-declaration.kind=operation|vector-constructor.kind=operation"
+      "-DEXPECTED_SPVASM_CONTAINS=OpDecorate %resource_vertex_camera DescriptorSet 0|OpDecorate %resource_vertex_camera Binding 0|OpDecorate %resource_fragment_albedo DescriptorSet 0|OpDecorate %resource_fragment_albedo Binding 1|OpDecorate %resource_fragment_linearSampler DescriptorSet 0|OpDecorate %resource_fragment_linearSampler Binding 2|OpTypeImage|OpTypeSampler|%resource_vertex_camera = OpVariable|%resource_fragment_albedo = OpVariable|%resource_fragment_linearSampler = OpVariable"
+      -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_texture_array_resource_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_TEXTURE_ARRAY_UNSUPPORTED_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-texture-array-resource.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsTextureArrayUnsupportedShader
+      -DEXPECTED_DESCRIPTOR_TYPE=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+      -DEXPECTED_RESOURCE_ARRAY_COUNT=2
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsTextureArrayUnsupportedShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsTextureArrayUnsupportedShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsTextureArrayUnsupportedShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsTextureArrayUnsupportedShader|nativeBinary=backend/vulkan/VulkanGraphicsTextureArrayUnsupportedShader.spv|resources.0.stage=fragment|resources.0.name=albedo|resources.0.kind=texture|resources.0.type=sampler2D[2]|resources.0.binding=1|resources.1.stage=fragment|resources.1.name=linearSampler|resources.1.kind=sampler|resources.1.type=sampler|resources.1.binding=2|entryPoints.0.stage=vertex|entryPoints.1.stage=fragment"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=2|targetResourceBindings=2|vertexLayouts=1|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=albedo.stage=fragment|albedo.bindingClass=sampledImage|albedo.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE|albedo.storageClass=UniformConstant|albedo.set=0|albedo.binding=1|albedo.arrayElementCount=2|linearSampler.stage=fragment|linearSampler.bindingClass=sampler|linearSampler.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLER|linearSampler.storageClass=UniformConstant|linearSampler.set=0|linearSampler.binding=2"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|sampled-texture.kind=resource|sampler-state.kind=resource|local-declaration.kind=operation|vector-constructor.kind=operation"
+      "-DEXPECTED_SPVASM_CONTAINS=OpDecorate %resource_fragment_albedo DescriptorSet 0|OpDecorate %resource_fragment_albedo Binding 1|OpDecorate %resource_fragment_linearSampler DescriptorSet 0|OpDecorate %resource_fragment_linearSampler Binding 2|OpTypeArray|OpTypeImage|OpTypeSampler|%resource_fragment_albedo = OpVariable|%resource_fragment_linearSampler = OpVariable"
+      -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_graphics_vertex_texture_sampler_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -4441,6 +4457,10 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_texture_sampler_spvasm_native vulkan)
   crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_resource_native vulkan)
+  crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_texture_array_resource_native vulkan)
+  crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_vertex_texture_sampler_native vulkan)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_vertex_texture_sampler_spvasm_native vulkan)
@@ -4477,14 +4497,6 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_shadow_descriptor_array_spvasm_native vulkan)
 endif()
-crossgl_add_vulkan_graphics_stage_resource_planned_failure(
-  cglc_build_vulkan_graphics_resource_planned_failure
-  ${CROSSGL_VULKAN_GRAPHICS_RESOURCE_UNSUPPORTED_SHADER}
-  test-vulkan-graphics-resource)
-crossgl_add_vulkan_graphics_stage_resource_planned_failure(
-  cglc_build_vulkan_graphics_texture_array_resource_planned_failure
-  ${CROSSGL_VULKAN_GRAPHICS_TEXTURE_ARRAY_UNSUPPORTED_SHADER}
-  test-vulkan-graphics-texture-array-resource)
 add_test(NAME cglc_build_vulkan_function_parameter_array_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

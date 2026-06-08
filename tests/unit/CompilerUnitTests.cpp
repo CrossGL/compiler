@@ -41487,13 +41487,90 @@ shader VulkanSupportPredicateGraphicsResourceShader {
   }
 }
 )";
-  expectVulkanPrototypeUnsupported(
+  expectVulkanPrototypeSupport(
       graphicsResourceSource,
+      "graphics-stage declared resource support predicate");
+
+  constexpr std::string_view graphicsTextureArrayResourceSource = R"(
+shader VulkanSupportPredicateGraphicsTextureArrayResourceShader {
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+  fragment {
+    layout(set = 0, binding = 1) uniform sampler2D albedo[2];
+    layout(set = 0, binding = 2) sampler linearSampler;
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      output.color = vec4(input.uv.x, input.uv.y, 0.0, 1.0);
+      return output;
+    }
+  }
+}
+)";
+  expectVulkanPrototypeSupport(
+      graphicsTextureArrayResourceSource,
+      "graphics-stage declared texture array resource support predicate");
+
+  constexpr std::string_view graphicsUnsupportedResourceSource = R"(
+shader VulkanSupportPredicateGraphicsUnsupportedResourceShader {
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+  fragment {
+    layout(set = 0, binding = 4) buffer vec4* debugValues;
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      output.color = vec4(input.uv.x, input.uv.y, 0.0, 1.0);
+      return output;
+    }
+  }
+}
+)";
+  expectVulkanPrototypeUnsupported(
+      graphicsUnsupportedResourceSource,
       "vulkan.prototype-unsupported-graphics-stage-resource",
-      "fragment.linearSampler (sampler, type sampler, set 0 binding 2; "
-      "reason: descriptor is not referenced by a supported fragment texture "
-      "operation)",
-      "graphics-stage resource rejection support predicate");
+      "fragment.debugValues (storage-buffer, type vec4*, set 0 binding 4; "
+      "reason: only struct uniform buffers and graphics texture/sampler "
+      "descriptors are supported)",
+      "graphics-stage unsupported resource rejection support predicate");
 
   constexpr std::string_view uniformSource = R"(
 shader VulkanSupportPredicateUniformShader {

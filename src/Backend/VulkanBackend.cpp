@@ -10095,67 +10095,6 @@ bool vulkanGraphicsSamplerResourceSupported(const HIRModule &module,
           elementType.name == "comparison_sampler");
 }
 
-bool vulkanGraphicsDescriptorOperandReferencesResource(
-    const HIRExpression &operand, const HIRResource &resource) {
-  if (operand.kind == HIRExpressionKind::Identifier) {
-    return operand.value == resource.name;
-  }
-  return operand.kind == HIRExpressionKind::IndexAccess &&
-         operand.children.size() == 2 &&
-         operand.children[0].kind == HIRExpressionKind::Identifier &&
-         operand.children[0].value == resource.name;
-}
-
-bool vulkanGraphicsExpressionReferencesDescriptor(
-    const HIRExpression &expression, const HIRResource &resource) {
-  if ((expression.kind == HIRExpressionKind::TextureSample ||
-       expression.kind == HIRExpressionKind::TextureCompare) &&
-      expression.children.size() >= 2) {
-    const HIRExpression &operand =
-        resource.kind == HIRResourceKind::Texture ? expression.children[0]
-                                                  : expression.children[1];
-    if (vulkanGraphicsDescriptorOperandReferencesResource(operand, resource)) {
-      return true;
-    }
-  }
-  for (const HIRExpression &child : expression.children) {
-    if (vulkanGraphicsExpressionReferencesDescriptor(child, resource)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool vulkanGraphicsStatementReferencesDescriptor(
-    const HIRStatement &statement, const HIRResource &resource) {
-  if (vulkanGraphicsExpressionReferencesDescriptor(statement.target, resource) ||
-      vulkanGraphicsExpressionReferencesDescriptor(statement.value, resource)) {
-    return true;
-  }
-  for (const HIRStatement &child : statement.body) {
-    if (vulkanGraphicsStatementReferencesDescriptor(child, resource)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool vulkanGraphicsStageDescriptorResourceUsed(const HIRStage &stage,
-                                               const HIRResource &resource) {
-  if (resource.kind != HIRResourceKind::Texture &&
-      resource.kind != HIRResourceKind::Sampler) {
-    return false;
-  }
-  for (const HIRFunction &function : stage.functions) {
-    for (const HIRStatement &statement : function.body) {
-      if (vulkanGraphicsStatementReferencesDescriptor(statement, resource)) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 bool vulkanGraphicsStageResourceSupported(const HIRModule &module,
                                           const HIRStage &stage,
                                           const HIRResource &resource) {
@@ -10165,9 +10104,8 @@ bool vulkanGraphicsStageResourceSupported(const HIRModule &module,
   if (stage.stage != "vertex" && stage.stage != "fragment") {
     return false;
   }
-  return vulkanGraphicsStageDescriptorResourceUsed(stage, resource) &&
-         (vulkanGraphicsSampledTextureResourceSupported(module, resource) ||
-          vulkanGraphicsSamplerResourceSupported(module, resource));
+  return vulkanGraphicsSampledTextureResourceSupported(module, resource) ||
+         vulkanGraphicsSamplerResourceSupported(module, resource);
 }
 
 const HIRField *vulkanGraphicsPositionField(const HIRStruct &structure) {
@@ -11012,10 +10950,6 @@ std::string vulkanGraphicsStageResourceUnsupportedReason(
   }
   if (stage.stage != "vertex" && stage.stage != "fragment") {
     return "texture/sampler descriptors are supported only in graphics stages";
-  }
-  if (!vulkanGraphicsStageDescriptorResourceUsed(stage, resource)) {
-    return "descriptor is not referenced by a supported " + stage.stage +
-           " texture operation";
   }
   if (resource.type.arraySize.has_value() &&
       !vulkanGraphicsDescriptorArraySizeSupported(module, resource)) {
