@@ -2125,7 +2125,7 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
       "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|values.set=0|values.binding=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|vector-constructor.kind=operation|index-access.kind=operation|matrix-constructor.kind=operation|vector-arithmetic.kind=operation|storage-buffer-write.kind=operation"
-      "-DEXPECTED_SPVASM_CONTAINS=%mat3 = OpTypeMatrix %vec3 3|%ptr_Function_mat3 = OpTypePointer Function %mat3|OpMatrixTimesVector %vec3|OpStore %var_result"
+      "-DEXPECTED_SPVASM_CONTAINS=%mat3 = OpTypeMatrix %vec3 3|%ptr_Function_mat3 = OpTypePointer Function %mat3|OpMatrixTimesVector %vec3|OpVectorTimesMatrix %vec3|OpMatrixTimesMatrix %mat3|OpStore %var_projected"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)

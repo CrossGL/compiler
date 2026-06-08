@@ -1131,9 +1131,9 @@ bool isPrototypeFloatVectorType(const HIRType &type) {
           type.name == "vec4");
 }
 
-bool isPrototypeFloatMatrixVectorMultiply(const HIRType &matrixType,
-                                          const HIRType &vectorType,
-                                          const HIRType &resultType) {
+bool isPrototypeFloatMatrixVectorMultiplyOperandPair(
+    const HIRType &matrixType, const HIRType &vectorType,
+    const HIRType &resultType) {
   const std::optional<std::size_t> matrixDimension =
       prototypeMatrixDimension(matrixType);
   const std::optional<std::size_t> vectorWidth =
@@ -1142,6 +1142,31 @@ bool isPrototypeFloatMatrixVectorMultiply(const HIRType &matrixType,
          *matrixDimension == *vectorWidth &&
          isPrototypeFloatVectorType(vectorType) &&
          samePrototypeType(vectorType, resultType);
+}
+
+struct PrototypeMatrixMultiplyLowering {
+  std::string_view opcode;
+  bool swapOperands = false;
+};
+
+std::optional<PrototypeMatrixMultiplyLowering>
+prototypeMatrixMultiplyLowering(const HIRType &leftType,
+                                const HIRType &rightType,
+                                const HIRType &resultType) {
+  if (isPrototypeFloatMatrixVectorMultiplyOperandPair(leftType, rightType,
+                                                      resultType)) {
+    return PrototypeMatrixMultiplyLowering{"OpMatrixTimesVector", false};
+  }
+  if (isPrototypeFloatMatrixVectorMultiplyOperandPair(rightType, leftType,
+                                                      resultType)) {
+    return PrototypeMatrixMultiplyLowering{"OpVectorTimesMatrix", false};
+  }
+  if (prototypeMatrixDimension(leftType).has_value() &&
+      samePrototypeType(leftType, rightType) &&
+      samePrototypeType(leftType, resultType)) {
+    return PrototypeMatrixMultiplyLowering{"OpMatrixTimesMatrix", false};
+  }
+  return std::nullopt;
 }
 
 bool isPrototypeFloatScalarOrVectorType(const HIRType &type) {
@@ -3589,20 +3614,21 @@ bool prototypeExpressionSupported(
     const HIRType rightType =
         prototypeExpressionType(expression.children[1], locals, resources,
                                 constants);
-    const bool matrixVectorMultiply =
-        expression.value == "*" &&
-        isPrototypeFloatMatrixVectorMultiply(leftType, rightType,
-                                             expression.type);
-    if (!matrixVectorMultiply &&
+    const std::optional<PrototypeMatrixMultiplyLowering> matrixMultiply =
+        expression.value == "*"
+            ? prototypeMatrixMultiplyLowering(leftType, rightType,
+                                              expression.type)
+            : std::nullopt;
+    if (!matrixMultiply.has_value() &&
         (!isPrototypeArithmeticType(leftType) ||
          !isPrototypeArithmeticType(rightType))) {
       diagnostics.error("vulkan.prototype-unsupported-expression",
                         "Vulkan prototype binary emission supports only "
-                        "numeric operands or square matrix-vector multiply");
+                        "numeric operands or float matrix multiplication");
       return false;
     }
     if (isPrototypeArithmeticOperator(expression.value)) {
-      if (matrixVectorMultiply) {
+      if (matrixMultiply.has_value()) {
         return true;
       }
       if (samePrototypeType(leftType, rightType)) {
@@ -8635,17 +8661,25 @@ private:
 
       PrototypeSPIRVValue leftValue = *left;
       PrototypeSPIRVValue rightValue = *right;
-      if (expression.value == "*" &&
-          isPrototypeFloatMatrixVectorMultiply(leftValue.type, rightValue.type,
-                                               expression.type)) {
+      const std::optional<PrototypeMatrixMultiplyLowering> matrixMultiply =
+          expression.value == "*"
+              ? prototypeMatrixMultiplyLowering(leftValue.type, rightValue.type,
+                                                expression.type)
+              : std::nullopt;
+      if (matrixMultiply.has_value()) {
         const std::string typeId = ensureType(expression.type);
         if (typeId.empty()) {
           return std::nullopt;
         }
+        const PrototypeSPIRVValue &firstValue =
+            matrixMultiply->swapOperands ? rightValue : leftValue;
+        const PrototypeSPIRVValue &secondValue =
+            matrixMultiply->swapOperands ? leftValue : rightValue;
         const std::string resultId = nextTemp();
-        instructionLines_.push_back(resultId + " = OpMatrixTimesVector " +
-                                    typeId + " " + leftValue.id + " " +
-                                    rightValue.id);
+        instructionLines_.push_back(resultId + " = " +
+                                    std::string(matrixMultiply->opcode) + " " +
+                                    typeId + " " + firstValue.id + " " +
+                                    secondValue.id);
         return PrototypeSPIRVValue{expression.type, resultId};
       }
 

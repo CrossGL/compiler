@@ -992,9 +992,9 @@
       "compiler_hir_sha256": "6fa2024aef24e0bea62e1a3985156c3f5b1ad9bb7268bd48e7a7231245c17d96"
     },
     "compiler/tests/fixtures/MatrixVectorArithmeticComputeShader.cgl": {
-      "source_sha256": "865c5bd1952bc58902116f105556dc3cc9b1a98f58907472835532eddd470d8e",
-      "translator_ast_sha256": "fe291173060e82f7f77da4a3b2194dcbf3a06fbcdd8f4e953c1c9a73322c3c50",
-      "compiler_hir_sha256": "2fd485357b08ec6cc932e1372bb6e629c93c9091cc81bddf91d4c32d26ca6f77"
+      "source_sha256": "a1426f351120a25b7fa3e36b3ea9e48b5ba5cce9dbd6958202f2a9247aac0f5f",
+      "translator_ast_sha256": "2269b7c330b2f38d83953f960f74533cd131d31d4811fa822d79cca000b8c91c",
+      "compiler_hir_sha256": "0c371b9524f9bc4efc6195a62474802a216d5108c2cb924091be85ac834b79f7"
     },
     "compiler/tests/fixtures/MetalMultiSetResourceShader.cgl": {
       "source_sha256": "0c910356a4db1c2017dc981180a61c6752bd6899a19af6d1ef6343d9c79a90d2",
