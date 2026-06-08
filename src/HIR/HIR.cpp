@@ -4428,6 +4428,17 @@ void validateIntrinsicCallExpression(const HIRExpression &expression,
   }
 }
 
+bool isReservedTargetIntrinsicCallName(std::string_view name) {
+  return name.size() >= 2 && name[0] == '_' && name[1] == '_';
+}
+
+bool isKnownNonUserCallName(std::string_view name) {
+  return isWorkgroupBarrierCallName(name) || isImageAccessCallName(name) ||
+         !lookupHIRIntrinsicSignatures(name).empty() ||
+         lookupHIRCallBuiltinEffect(name).has_value() ||
+         isReservedTargetIntrinsicCallName(name);
+}
+
 std::string formatFunctionArgumentCount(std::size_t count) {
   return count == 1 ? "exactly 1 argument"
                     : "exactly " + std::to_string(count) + " arguments";
@@ -4445,11 +4456,15 @@ void validateUserFunctionCallExpression(
     const UserFunctionSignatureMap &functionSignatures,
     DiagnosticEngine &diagnostics) {
   if (expression.kind == HIRExpressionKind::Call &&
-      !isWorkgroupBarrierCallName(expression.value) &&
-      !isImageAccessCallName(expression.value) &&
-      lookupHIRIntrinsicSignatures(expression.value).empty()) {
+      !isKnownNonUserCallName(expression.value)) {
     auto function = functionSignatures.find(expression.value);
-    if (function != functionSignatures.end()) {
+    if (function == functionSignatures.end()) {
+      diagnostics.error(
+          "sema.unresolved-function-call",
+          "function call '" + expression.value +
+              "' does not resolve to a declared function or supported intrinsic",
+          expression.location);
+    } else {
       const std::vector<HIRParameter> &parameters =
           function->second.parameters;
       if (expression.children.size() != parameters.size()) {

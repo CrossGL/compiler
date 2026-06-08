@@ -2488,6 +2488,16 @@ add_test(NAME cglc_check_function_call_argument_type_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=30"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function call 'identity' argument 0 expects 'vec2', got 'float'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_unresolved_function_call_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_UNRESOLVED_FUNCTION_CALL_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.unresolved-function-call
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=21"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function call 'missingHelper' does not resolve to a declared function or supported intrinsic"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_function_signature_return_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

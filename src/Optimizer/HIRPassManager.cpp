@@ -1788,7 +1788,7 @@ bool shouldValidateHIRUserFunctionCall(
     return false;
   }
   if (!lookupHIRIntrinsicSignatures(expression.value).empty() ||
-      isHIRImageAccessBuiltinCall(expression.value)) {
+      lookupHIRCallBuiltinEffect(expression.value).has_value()) {
     return false;
   }
   const HIRType calleeType{expression.value, std::nullopt,
@@ -1805,6 +1805,14 @@ void validateHIRUserFunctionCall(
   }
   const auto function = typedContext.functionSignatures.find(expression.value);
   if (function == typedContext.functionSignatures.end()) {
+    if (expression.type.name.empty()) {
+      diagnostics.error(
+          "opt.hir-unresolved-function-call",
+          "HIR " + context + " call '" + expression.value +
+              "' does not resolve to a declared function or supported "
+              "intrinsic",
+          expression.location);
+    }
     return;
   }
 

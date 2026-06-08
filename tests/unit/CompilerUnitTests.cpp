@@ -6472,6 +6472,17 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       "HIR typed-symbol validation diagnoses user function call result type "
       "mismatches");
 
+  crossgl::HIRModule unresolvedUserCallModule = simpleModule();
+  crossgl::HIRFunction &unresolvedUserCallMain =
+      unresolvedUserCallModule.stages.front().functions.front();
+  unresolvedUserCallMain.returnType = type("void");
+  unresolvedUserCallMain.body.push_back(expressionStatement(
+      call("missingHelper", {}, {literal("1.0", type("float"))})));
+  expectInvalidTypedSymbol(
+      std::move(unresolvedUserCallModule),
+      "opt.hir-unresolved-function-call",
+      "HIR typed-symbol validation diagnoses unresolved function calls");
+
   crossgl::HIRModule qualifiedUserCallModule = simpleModule();
   qualifiedUserCallModule.functions.push_back(functionSignature(
       "loadValue", type("float"),
@@ -44944,6 +44955,25 @@ shader MetalFunctionCallArityShader {
                               "expects exactly 2 arguments"),
          "source helper-call arity diagnostic reports expected argument count "
          "before backend preflight");
+
+  constexpr std::string_view unresolvedCallSource = R"(
+shader BadUnresolvedFunctionCallShader {
+  compute {
+    void main() {
+      float value = missingHelper(1.0);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> unresolvedCallDiagnostics =
+      collectDiagnostics(unresolvedCallSource);
+  expect(hasDiagnosticMessage(unresolvedCallDiagnostics,
+                              "sema.unresolved-function-call",
+                              "function call 'missingHelper' does not resolve"),
+         "source helper-call diagnostics reject unresolved callees before "
+         "backend preflight");
 
   constexpr std::string_view dynamicNestedReadSource = R"(
 shader MetalDynamicNestedFunctionParameterArrayReadShader {
