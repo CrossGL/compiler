@@ -1291,6 +1291,11 @@
       "translator_ast_sha256": "df5ac6d0c9a00e44d2c377d62de69f40791fc5470fd2de017eff34fbc2689922",
       "compiler_hir_sha256": "38f1be3fd66da849f1d8b3f7c17662f8b43a7f6b43accaefcfaa09b6da6ba822"
     },
+    "compiler/tests/fixtures/SwitchGroupedLabelsComputeShader.cgl": {
+      "source_sha256": "c886654704786d725a7befc880511a8431f75361519e0aec86351e03e8ef512f",
+      "translator_ast_sha256": "88512f0b68ae8e101ee1a202857cacf805f313cb53c88a8b386b6671db470187",
+      "compiler_hir_sha256": "53c1873158f10ffae3ea8324ef1390a47fb3d3c6e016ffd0b664197a77989faa"
+    },
     "compiler/tests/fixtures/Texture2DArrayShadowCompareLodManualGather2x2Shader.cgl": {
       "source_sha256": "97cd46cee05f24e303c058b6c3faf8427f34b73788533356c419d8681223869e",
       "translator_ast_sha256": "6a147855d285b0426dce0af44321dba0f690c59f4c107d81ba790b92405cd99e",
