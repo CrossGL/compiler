@@ -588,6 +588,69 @@ class RuntimePackageReaderTests(unittest.TestCase):
             self.assertEqual(target_resource["hlslType"], "RWStructuredBuffer<float4>")
             self.assertEqual(target_resource["bindingClass"], "uav")
 
+    def test_reads_descriptor_array_binding_metadata_without_source_parse(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            array_dimensions = [
+                {"kind": "fixed", "source": "3", "elementCount": 3},
+                {"kind": "fixed", "source": "2", "elementCount": 2},
+            ]
+            reflection["resources"][0].update(
+                {
+                    "type": "StructuredBuffer<float4>[3][2]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 6,
+                    "set": 4,
+                    "binding": 5,
+                }
+            )
+            reflection["targetResourceBindings"][0].update(
+                {
+                    "sourceType": "StructuredBuffer<float4>[3][2]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 6,
+                    "abi": {"space": 1, "register": "u5"},
+                    "bindingClass": "uav",
+                    "descriptorType": "UAV",
+                    "hlslType": "RWStructuredBuffer<float4>",
+                }
+            )
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "descriptor array metadata must come from reflection\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="directx")
+
+            summary = report.to_summary()
+            resource = package.require_resource_binding("compute", "OutputBuffer")
+            target_resource = package.require_target_resource_binding(
+                "compute",
+                "OutputBuffer",
+                entry_point="runtime_reader_main",
+            )
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertFalse(report.source_parsing_required)
+            self.assertEqual(resource["arrayDimensions"], array_dimensions)
+            self.assertEqual(resource["arrayElementCount"], 6)
+            self.assertEqual(resource["set"], 4)
+            self.assertEqual(resource["binding"], 5)
+            self.assertEqual(target_resource["arrayDimensions"], array_dimensions)
+            self.assertEqual(target_resource["arrayElementCount"], 6)
+            self.assertEqual(target_resource["abi"], {"space": 1, "register": "u5"})
+            self.assertEqual(target_resource["bindingClass"], "uav")
+            self.assertEqual(target_resource["descriptorType"], "UAV")
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_reads_workgroup_size_metadata_without_source_parse(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)

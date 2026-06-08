@@ -36,6 +36,7 @@ _discard_legacy_cglc_arg()
 
 
 from runtime.loader import read_loader_plan  # noqa: E402
+from runtime.opengl_loader import plan_opengl_loader  # noqa: E402
 from runtime.package_reader import (  # noqa: E402
     PackageReadError,
     read_compatibility_report,
@@ -833,6 +834,140 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 ]["compatibilityScope"],
                 "legacy/report-only",
             )
+
+    def test_loader_summary_exposes_descriptor_array_binding_metadata_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            array_dimensions = [
+                {"kind": "fixed", "source": "4", "elementCount": 4},
+            ]
+            reflection["resources"][0].update(
+                {
+                    "type": "StructuredBuffer<float4>[4]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 4,
+                    "set": 2,
+                    "binding": 3,
+                }
+            )
+            reflection["targetResourceBindings"][0].update(
+                {
+                    "sourceType": "StructuredBuffer<float4>[4]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 4,
+                    "abi": {"space": 1, "register": "u3"},
+                    "set": 2,
+                    "binding": 3,
+                    "bindingClass": "uav",
+                    "descriptorType": "UAV",
+                    "hlslType": "RWStructuredBuffer<float4>",
+                }
+            )
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "RuntimeLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "loader must not parse source for descriptor array metadata\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "directx")
+
+            summary = plan.to_summary()
+            resource = summary["reflectionResources"]["resources"][0]
+            target_binding = summary["reflectionResources"]["targetResourceBindings"][0]
+            binding_metadata = summary["targetResourceBindingMetadata"]["bindings"][0]
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertFalse(plan.source_parsing_required)
+            self.assertEqual(resource["arrayDimensions"], array_dimensions)
+            self.assertEqual(resource["arrayElementCount"], 4)
+            self.assertEqual(resource["set"], 2)
+            self.assertEqual(resource["binding"], 3)
+            self.assertEqual(target_binding["arrayDimensions"], array_dimensions)
+            self.assertEqual(target_binding["arrayElementCount"], 4)
+            self.assertEqual(target_binding["abi"], {"space": 1, "register": "u3"})
+            self.assertEqual(binding_metadata["arrayDimensions"], array_dimensions)
+            self.assertEqual(binding_metadata["arrayElementCount"], 4)
+            self.assertEqual(binding_metadata["set"], 2)
+            self.assertEqual(binding_metadata["binding"], 3)
+            self.assertEqual(binding_metadata["bindingClass"], "uav")
+            self.assertEqual(binding_metadata["descriptorType"], "UAV")
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_opengl_summary_exposes_descriptor_array_binding_metadata_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="opengl")
+            manifest_path = package_dir / "manifest.json"
+            reflection_path = package_dir / "reflection.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            native_binary_path = "backend/opengl/RuntimeLoaderFixture.native.glsl"
+            (package_dir / native_binary_path).write_bytes(b"native")
+            manifest["artifacts"]["nativeBinary"] = native_binary_path
+            reflection["nativeBinary"] = native_binary_path
+            array_dimensions = [
+                {"kind": "fixed", "source": "2", "elementCount": 2},
+                {"kind": "fixed", "source": "3", "elementCount": 3},
+            ]
+            reflection["resources"][0].update(
+                {
+                    "type": "float4[2][3]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 6,
+                    "set": 0,
+                    "binding": 7,
+                }
+            )
+            reflection["targetResourceBindings"][0].update(
+                {
+                    "sourceType": "float4[2][3]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 6,
+                    "abi": {"program": 0, "binding": 7},
+                    "bindingClass": "storage-buffer",
+                    "descriptorType": "shader-storage-buffer",
+                }
+            )
+            self._write_json(manifest_path, manifest)
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "RuntimeLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "opengl loader must not parse source for descriptor arrays\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = plan_opengl_loader(package_dir)
+
+            summary = plan.to_summary()
+            admission_reflection = summary["openglSourcePackageAdmission"]["reflection"]
+            resource = admission_reflection["resources"][0]
+            target_binding = admission_reflection["targetResourceBindings"][0]
+            generic_binding = summary["targetResourceBindingMetadata"]["bindings"][0]
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertFalse(plan.source_parsing_required)
+            self.assertEqual(resource["arrayDimensions"], array_dimensions)
+            self.assertEqual(resource["arrayElementCount"], 6)
+            self.assertEqual(resource["binding"], 7)
+            self.assertEqual(target_binding["arrayDimensions"], array_dimensions)
+            self.assertEqual(target_binding["arrayElementCount"], 6)
+            self.assertEqual(target_binding["binding"], 7)
+            self.assertEqual(target_binding["descriptorType"], "shader-storage-buffer")
+            self.assertEqual(generic_binding["arrayDimensions"], array_dimensions)
+            self.assertEqual(generic_binding["arrayElementCount"], 6)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_loader_plan_reports_version_metadata_rejections_without_source_parse(
         self,

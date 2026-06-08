@@ -582,7 +582,16 @@ class RuntimeLoaderPlan:
             "resources": [
                 _summarize_reflection_record(
                     record,
-                    ("stage", "name", "kind", "type", "set", "binding"),
+                    (
+                        "stage",
+                        "name",
+                        "kind",
+                        "type",
+                        "arrayDimensions",
+                        "arrayElementCount",
+                        "set",
+                        "binding",
+                    ),
                 )
                 for record in self._reflection_records("resources")
             ],
@@ -597,6 +606,8 @@ class RuntimeLoaderPlan:
                         "kind",
                         "bindingClass",
                         "descriptorType",
+                        "arrayDimensions",
+                        "arrayElementCount",
                         "abi",
                     ),
                 )
@@ -1231,7 +1242,7 @@ def _target_resource_binding_metadata_record(
 ) -> dict[str, Any]:
     abi = record.get("abi")
     abi_summary = dict(abi) if isinstance(abi, dict) else abi
-    return {
+    summary = {
         "target": record.get("target"),
         "stage": record.get("stage"),
         "entryPoint": record.get("entryPoint"),
@@ -1251,3 +1262,7 @@ def _target_resource_binding_metadata_record(
             "kind": record.get("kind"),
         },
     }
+    for field_name in ("arrayDimensions", "arrayElementCount"):
+        if field_name in record:
+            summary[field_name] = record.get(field_name)
+    return summary

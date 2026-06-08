@@ -1608,7 +1608,7 @@ def _summarize_vulkan_entry_point(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def _summarize_vulkan_resource(record: dict[str, Any]) -> dict[str, Any]:
-    return {
+    summary = {
         "stage": record.get("stage"),
         "name": record.get("name"),
         "kind": record.get("kind"),
@@ -1616,12 +1616,14 @@ def _summarize_vulkan_resource(record: dict[str, Any]) -> dict[str, Any]:
         "set": record.get("set"),
         "binding": record.get("binding"),
     }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
 
 
 def _summarize_vulkan_resource_binding(record: dict[str, Any]) -> dict[str, Any]:
     abi = record.get("abi")
     abi_summary = dict(abi) if isinstance(abi, dict) else {}
-    return {
+    summary = {
         "target": record.get("target"),
         "stage": record.get("stage"),
         "entryPoint": record.get("entryPoint"),
@@ -1637,6 +1639,17 @@ def _summarize_vulkan_resource_binding(record: dict[str, Any]) -> dict[str, Any]
         "storageClass": record.get("storageClass"),
         "spirvType": record.get("spirvType"),
     }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
+
+
+def _copy_descriptor_array_metadata(
+    summary: dict[str, Any],
+    record: dict[str, Any],
+) -> None:
+    for field_name in ("arrayDimensions", "arrayElementCount"):
+        if field_name in record:
+            summary[field_name] = record.get(field_name)
 
 
 def _vulkan_native_profile_plan(
