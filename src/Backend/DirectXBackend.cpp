@@ -286,9 +286,14 @@ std::string hlslValueType(const HIRModule *module, const HIRType &type) {
 
 std::string hlslDeclarator(const HIRModule *module, const HIRType &type,
                            std::string_view name) {
-  const std::string baseType = type.arraySize.has_value()
-                                   ? hlslTypeName(stripPointer(type.name))
-                                   : hlslValueType(module, type);
+  std::string baseType = type.arraySize.has_value()
+                             ? hlslTypeName(stripPointer(type.name))
+                             : hlslValueType(module, type);
+  if (baseType.empty() && module != nullptr && type.arraySize.has_value()) {
+    if (const HIRStruct *structure = findStruct(*module, stripPointer(type.name))) {
+      baseType = structure->name;
+    }
+  }
   if (baseType.empty()) {
     return "";
   }
@@ -297,21 +302,6 @@ std::string hlslDeclarator(const HIRModule *module, const HIRType &type,
     declarator += "[" + *type.arraySize + "]";
   }
   return declarator;
-}
-
-bool isSupportedFunctionParameterType(const HIRType &type) {
-  if (!type.arraySize.has_value()) {
-    return isSupportedValueType(type);
-  }
-  return !type.arraySize->empty() &&
-         !hlslTypeName(stripPointer(type.name)).empty();
-}
-
-bool isSupportedFunctionReturnType(const HIRType &type) {
-  if (type.name == "void" && !type.arraySize.has_value()) {
-    return true;
-  }
-  return isSupportedValueType(type);
 }
 
 std::string hlslStructFieldType(const HIRModule &module, const HIRType &type) {
@@ -3142,7 +3132,8 @@ HIRFunctionParameterArrayCallFeatureSupport
 directxFunctionParameterArrayCallFeatureSupport(
     HIRFunctionParameterArrayCallFeature feature) {
   if (feature ==
-      HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments) {
+          HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments ||
+      feature == HIRFunctionParameterArrayCallFeature::StructElements) {
     return HIRFunctionParameterArrayCallFeatureSupport::Supported;
   }
   return functionParameterArrayCallFeatureSupport(feature);
@@ -3210,6 +3201,25 @@ void collectUnsupportedFunctionParameterArrayCallFeatures(
       appendUnsupportedFunctionParameterArrayCallFeatures(
           labels, function.name, callee->name, parameter.name,
           argumentFeatures);
+
+      const auto hasFeature =
+          [](std::span<const HIRFunctionParameterArrayCallFeature> features,
+             HIRFunctionParameterArrayCallFeature feature) {
+            return std::find(features.begin(), features.end(), feature) !=
+                   features.end();
+          };
+      const std::span<const HIRFunctionParameterArrayCallFeature> typeSpan{
+          typeFeatures.data(), typeFeatures.size()};
+      const std::span<const HIRFunctionParameterArrayCallFeature> argumentSpan{
+          argumentFeatures.data(), argumentFeatures.size()};
+      if (hasFeature(typeSpan,
+                     HIRFunctionParameterArrayCallFeature::StructElements) &&
+          hasFeature(argumentSpan, HIRFunctionParameterArrayCallFeature::
+                                       FunctionParameterArguments)) {
+        labels.insert("caller '" + function.name + "' -> callee '" +
+                      callee->name + "' parameter '" + parameter.name +
+                      "': struct-array-forwarding=unsupported");
+      }
     }
   };
   visitFunctionExpressions(function, visitor);
@@ -3322,6 +3332,9 @@ bool directxLocalArrayCopyArgument(const HIRModule &module,
              featureSpan,
              HIRFunctionParameterArrayCallFeature::LocalArrayArguments) &&
          !hasFunctionParameterArrayCallFeature(
+             featureSpan,
+             HIRFunctionParameterArrayCallFeature::StructElements) &&
+         !hasFunctionParameterArrayCallFeature(
              featureSpan, HIRFunctionParameterArrayCallFeature::
                               FunctionParameterArguments) &&
          !hasFunctionParameterArrayCallFeature(
@@ -3398,15 +3411,6 @@ unsupportedFunctionParameterArrayWriteLabels(const HIRModule &module) {
   return labels;
 }
 
-bool functionParametersSupported(const HIRFunction &function) {
-  for (const HIRParameter &parameter : function.parameters) {
-    if (!isSupportedFunctionParameterType(parameter.type)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 bool isSupportedFunctionValueType(const HIRModule &module,
                                   const HIRType &type) {
   if (!hlslFunctionParameterResourceType(module, type).empty()) {
@@ -3419,7 +3423,9 @@ bool isSupportedFunctionValueType(const HIRModule &module,
     return isSupportedValueType(type) ||
            directxStructType(module, type) != nullptr;
   }
-  return !hlslTypeName(stripPointer(type.name)).empty();
+  return !type.arraySize->empty() &&
+         (!hlslTypeName(stripPointer(type.name)).empty() ||
+          findStruct(module, stripPointer(type.name)) != nullptr);
 }
 
 bool isSupportedFunctionReturnType(const HIRModule &module,
@@ -3446,8 +3452,9 @@ bool entryFunctionSupported(const HIRFunction &function,
 
 bool helperFunctionSupported(const HIRFunction &function,
                              const DirectXTextualSupportContext &context) {
-  if (!isSupportedFunctionReturnType(function.returnType) ||
-      !functionParametersSupported(function)) {
+  if (context.module == nullptr ||
+      !isSupportedFunctionReturnType(*context.module, function.returnType) ||
+      !functionParametersSupported(*context.module, function)) {
     return false;
   }
   return functionBodySupportedByPolicy(

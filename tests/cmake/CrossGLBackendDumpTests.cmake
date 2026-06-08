@@ -2071,15 +2071,14 @@ add_test(NAME cglc_dump_backend_directx_mixed_sampler_array_usage_scaffold
     -DMODE=dump-backend
     "-DMUST_CONTAIN=SamplerComparisonState sharedSamplers_cglComparison\\[SAMPLER_COUNT\\] : register\\(s5, space0\\);"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_dump_backend_directx_function_parameter_array_unsupported_scaffold
+add_test(NAME cglc_dump_backend_directx_function_parameter_struct_array_scaffold
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_ARRAY_UNSUPPORTED_SHADER}
     -DTARGET=directx
-    -DSTAGE=backend
-    -DMODE=dump-stage-failure
-    -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-call-feature
-    "-DEXPECTED_STDERR_FRAGMENT=TargetLegalizationResult: state=rejected"
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=void consumePayloads\\(Payload payloads\\[COUNT\\]\\)"
+    "-DMUST_CONTAIN=consumePayloads\\(particles\\[0\\]\\.payloads\\)"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_opengl_function_parameter_struct_array_scaffold
   COMMAND ${CMAKE_COMMAND}
@@ -2170,6 +2169,17 @@ add_test(NAME cglc_dump_backend_opengl_nested_function_parameter_array_write_sca
     -DTARGET=opengl
     -DMODE=dump-backend
     "-DMUST_CONTAIN=float rewriteGrid\\(float grid\\[ROWS\\]\\[COLS\\]\\).*grid\\[1\\]\\[2\\] = grid\\[0\\]\\[0\\] \\+ 1\\.0;"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_opengl_nested_storage_function_parameter_array_write_scaffold
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_NESTED_STORAGE_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
+    -DTARGET=opengl
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=float crossgl_param_array_writeback_0_rewriteGrid_grid\\[ROWS\\]\\[COLS\\]"
+    "-DMUST_CONTAIN=for \\(int crossgl_param_array_writeback_0_rewriteGrid_grid_i0 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i0 < ROWS;"
+    "-DMUST_CONTAIN=for \\(int crossgl_param_array_writeback_0_rewriteGrid_grid_i1 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i1 < COLS;"
+    "-DMUST_CONTAIN=float selected = rewriteGrid\\(crossgl_param_array_writeback_0_rewriteGrid_grid\\);"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_metal_function_parameter_array_write_scaffold
   COMMAND ${CMAKE_COMMAND}

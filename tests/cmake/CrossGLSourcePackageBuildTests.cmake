@@ -4497,16 +4497,34 @@ add_test(NAME cglc_build_vulkan_function_parameter_array_planned_failure
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_directx_planned_failure
+set(CROSSGL_DIRECTX_FUNCTION_PARAMETER_STRUCT_ARRAY_SOURCE_SNIPPET [=[void consumePayloads(Payload payloads[COUNT]) {
+  float weight = payloads[0].weights[0];
+  particles[1].mass = weight;
+  return;
+}
+
+void consumeMaps(Texture2D<float4> maps[COUNT]) {
+  return;
+}
+
+[numthreads(1, 1, 1)]
+void compute_main(uint3 crossgl_GlobalInvocationID : SV_DispatchThreadID) {
+  consumePayloads(particles[0].payloads);
+  consumeMaps(colorMaps);
+  return;]=])
+add_test(NAME cglc_build_directx_function_parameter_struct_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_ARRAY_UNSUPPORTED_SHADER}
     -DTARGET=directx
-    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-call-feature
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=struct-elements=unsupported|message=value-copy-read-only"
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-function-parameter-struct-array.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXFunctionParameterArrayUnsupportedShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_STRUCT_ARRAY_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXFunctionParameterArrayUnsupportedShader|nativeBinary=backend/directx/DirectXFunctionParameterArrayUnsupportedShader.dxil|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.1.arrayDimensions.0.kind=fixed|resources.1.arrayDimensions.0.elementCount=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|functionConstants=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.stage=compute|particles.entryPoint=compute_main|particles.sourceType=Particle*|particles.hlslType=RWStructuredBuffer<Particle>|particles.addressSpace=unordered-access|particles.abi=registerBinding|particles.bindingClass=uav|particles.descriptorType=UAV|particles.argumentIndex=0|particles.set=0|particles.binding=0|colorMaps.stage=compute|colorMaps.entryPoint=compute_main|colorMaps.sourceType=sampler2D[COUNT]|colorMaps.hlslType=Texture2D<float4>|colorMaps.addressSpace=shader-resource|colorMaps.abi=registerBinding|colorMaps.bindingClass=srv|colorMaps.descriptorType=SRV|colorMaps.argumentIndex=2|colorMaps.set=0|colorMaps.binding=2|colorMaps.arraySize=COUNT|colorMaps.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|fixed-array.kind=layout|fixed-array-field.kind=layout|descriptor-array.kind=resource|function-parameter-array.kind=array|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|sampled-texture.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET [=[void consumeMaps(Texture2D<float4> maps[COUNT]) {
   return;
@@ -4566,16 +4584,16 @@ crossgl_add_python_expect_test(
   NAME cglc_diagnostics_json_schema_target_failure
   DEFINITIONS
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_ARRAY_UNSUPPORTED_SHADER}
+    -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_RESOURCE_UNSUPPORTED_SHADER}
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-diagnostics-schema.cglb
     -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-call-feature
+    -DEXPECTED_DIAGNOSTIC=directx.unsupported-graphics-resource
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/diagnostics-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=schemaVersion=1|diagnostics.0.target=directx"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=struct-elements=unsupported|message=value-copy-read-only")
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array storage buffers, and texture/sampler resources|message=runtime storage-buffer descriptor arrays are not supported")
 add_test(NAME cglc_build_vulkan_diagnostics_json_target_capability_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -6544,6 +6562,31 @@ add_test(NAME cglc_build_opengl_nested_function_parameter_array_write_source_pac
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLNestedFunctionParameterArrayWriteUnsupportedShader|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=3|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_LOCAL_FEATURE_FIELDS}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_NESTED_STORAGE_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewriteGrid_grid[ROWS][COLS];
+  for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i0 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i0 < ROWS; ++crossgl_param_array_writeback_0_rewriteGrid_grid_i0) {
+    for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i1 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i1 < COLS; ++crossgl_param_array_writeback_0_rewriteGrid_grid_i1) {
+      crossgl_param_array_writeback_0_rewriteGrid_grid[crossgl_param_array_writeback_0_rewriteGrid_grid_i0][crossgl_param_array_writeback_0_rewriteGrid_grid_i1] = tiles[0].grid[crossgl_param_array_writeback_0_rewriteGrid_grid_i0][crossgl_param_array_writeback_0_rewriteGrid_grid_i1];
+    }
+  }
+  float selected = rewriteGrid(crossgl_param_array_writeback_0_rewriteGrid_grid);
+  for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i0 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i0 < ROWS; ++crossgl_param_array_writeback_0_rewriteGrid_grid_i0) {
+    for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i1 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i1 < COLS; ++crossgl_param_array_writeback_0_rewriteGrid_grid_i1) {
+      tiles[0].grid[crossgl_param_array_writeback_0_rewriteGrid_grid_i0][crossgl_param_array_writeback_0_rewriteGrid_grid_i1] = crossgl_param_array_writeback_0_rewriteGrid_grid[crossgl_param_array_writeback_0_rewriteGrid_grid_i0][crossgl_param_array_writeback_0_rewriteGrid_grid_i1];
+    }
+  }]=])
+add_test(NAME cglc_build_opengl_nested_storage_function_parameter_array_write_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_NESTED_STORAGE_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-nested-storage-function-parameter-array-write.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLNestedStorageFunctionParameterArrayWriteShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_NESTED_STORAGE_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLNestedStorageFunctionParameterArrayWriteShader|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=3|resources.0.name=tiles|resources.0.kind=buffer|resources.0.type=Tile*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=tiles.sourceType=Tile*|tiles.bindingClass=storage-buffer|tiles.argumentIndex=0|tiles.storageBufferLayout.elementType=Tile|tiles.storageBufferLayout.layout=std430|tiles.storageBufferLayout.fields.0.name=grid|tiles.storageBufferLayout.fields.0.type=float[ROWS][COLS]|tiles.storageBufferLayout.fields.0.arrayElementCount=6|tiles.storageBufferLayout.fields.0.arrayDimensions.0.source=ROWS|tiles.storageBufferLayout.fields.0.arrayDimensions.0.elementCount=2|tiles.storageBufferLayout.fields.0.arrayDimensions.1.source=COLS|tiles.storageBufferLayout.fields.0.arrayDimensions.1.elementCount=3"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_RESOURCE_FEATURE_FIELDS}|fixed-nested-arrays.kind=array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_metal_unsized_storage_buffer_array_planned_failure
   COMMAND ${CMAKE_COMMAND}

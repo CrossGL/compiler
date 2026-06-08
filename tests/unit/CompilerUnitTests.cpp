@@ -39749,7 +39749,7 @@ shader DirectXNestedLocalFunctionParameterArrayShader {
          "and local-declaration capabilities");
 }
 
-void testDirectXFunctionParameterArrayUnsupportedDiagnostics() {
+void testDirectXFunctionParameterStructArrayHLSL() {
   constexpr std::string_view source = R"(
 shader DirectXFunctionParameterArrayUnsupportedShader {
   const int COUNT = 2;
@@ -39783,43 +39783,104 @@ shader DirectXFunctionParameterArrayUnsupportedShader {
 
   std::optional<crossgl::HIRModule> hir = parseHIR(source);
   expect(hir.has_value(),
-         "DirectX unsupported function parameter array source builds HIR");
+         "DirectX struct function-parameter array source builds HIR");
   if (!hir) {
     return;
   }
 
-  expect(!crossgl::directxTextualBackendSupported(*hir),
-         "DirectX scaffold gates unsupported helper array call features");
-  expect(crossgl::directxHasUnsupportedFunctionParameterArrayCallFeature(*hir),
-         "DirectX analysis detects unsupported helper array call features");
+  expect(crossgl::directxTextualBackendSupported(*hir),
+         "DirectX source package supports read-only fixed-size struct helper "
+         "array parameters");
+  expect(!crossgl::directxHasUnsupportedFunctionParameterArrayCallFeature(*hir),
+         "DirectX analysis accepts read-only struct helper array calls");
+  expect(!crossgl::directxHasUnsupportedFunctionParameterArrayWrite(*hir),
+         "DirectX write gate keeps read-only struct helper array calls "
+         "positive");
 
   crossgl::DiagnosticEngine diagnostics;
-  expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
+  expect(!crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
              *hir, diagnostics),
-         "DirectX helper array feature diagnostic emits a diagnostic");
-  expect(hasDiagnosticMessageFragment(
-             diagnostics.diagnostics(),
-             "directx.unsupported-function-parameter-array-call-feature",
-             "struct-elements"),
-         "DirectX helper array diagnostic names struct element arrays");
-  expect(!hasDiagnosticMessageFragment(
-             diagnostics.diagnostics(),
-             "directx.unsupported-function-parameter-array-call-feature",
-             "direct-resource-array-arguments"),
-         "DirectX helper array diagnostic does not reject direct resource "
-         "arrays");
-  expect(hasDiagnosticMessageFragment(
-             diagnostics.diagnostics(),
-             "directx.unsupported-function-parameter-array-call-feature",
-             "value-copy-read-only"),
-         "DirectX helper array diagnostic names the shared call ABI");
+         "DirectX helper array feature diagnostic stays quiet for read-only "
+         "struct arrays");
+  expect(diagnostics.diagnostics().empty(),
+         "DirectX read-only struct helper array call has no feature "
+         "diagnostic");
 
-  const std::string directx =
+  const std::string directx = crossgl::generateDirectXSource(*hir);
+  expect(directx.find("void consumePayloads(Payload payloads[COUNT])") !=
+                 std::string::npos &&
+             directx.find("float weight = payloads[0].weights[0];") !=
+                 std::string::npos &&
+             directx.find("particles[1].mass = weight;") !=
+                 std::string::npos &&
+             directx.find("consumePayloads(particles[0].payloads);") !=
+                 std::string::npos &&
+             directx.find("void consumeMaps(Texture2D<float4> maps[COUNT])") !=
+                 std::string::npos &&
+             directx.find("consumeMaps(colorMaps);") != std::string::npos,
+         "DirectX backend emits read-only struct helper arrays and direct "
+         "storage-buffer field arguments");
+
+  const std::string backendDump =
       crossgl::printBackendIR(*hir, crossgl::TargetKind::DirectX);
-  expect(directx.find("direct-resource-array-arguments") == std::string::npos &&
-             directx.find("struct-elements") != std::string::npos &&
-             directx.find("value-copy-read-only") != std::string::npos,
-         "DirectX backend dump explains unsupported helper array call features");
+  expect(backendDump.find("unsupported fixed-size helper array call feature") ==
+                 std::string::npos &&
+             backendDump.find("void consumePayloads(Payload payloads[COUNT])") !=
+                 std::string::npos,
+         "DirectX backend dump emits the supported struct helper array "
+         "scaffold");
+
+  constexpr std::string_view forwardedStructSource = R"(
+shader DirectXForwardedStructFunctionParameterArrayShader {
+  const int COUNT = 2;
+  struct Payload {
+    float weights[COUNT];
+  }
+  struct Particle {
+    Payload payloads[COUNT];
+    float mass;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    void consumePayloads(Payload payloads[COUNT]) {
+      float weight = payloads[0].weights[0];
+      particles[1].mass = weight;
+      return;
+    }
+    void forwardPayloads(Payload payloads[COUNT]) {
+      consumePayloads(payloads);
+      return;
+    }
+    void main() {
+      forwardPayloads(particles[0].payloads);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> forwardedStructHir =
+      parseHIR(forwardedStructSource);
+  expect(forwardedStructHir.has_value(),
+         "DirectX forwarded struct function-parameter array source builds HIR");
+  if (forwardedStructHir) {
+    expect(!crossgl::directxTextualBackendSupported(*forwardedStructHir),
+           "DirectX keeps struct helper array forwarding rejected");
+    expect(crossgl::directxHasUnsupportedFunctionParameterArrayCallFeature(
+               *forwardedStructHir),
+           "DirectX analysis detects struct helper array forwarding");
+    crossgl::DiagnosticEngine forwardedDiagnostics;
+    expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
+               *forwardedStructHir, forwardedDiagnostics),
+           "DirectX forwarded struct helper array diagnostic emits a "
+           "diagnostic");
+    expect(hasDiagnosticMessageFragment(
+               forwardedDiagnostics.diagnostics(),
+               "directx.unsupported-function-parameter-array-call-feature",
+               "struct-array-forwarding=unsupported"),
+           "DirectX forwarded struct helper array diagnostic names forwarding");
+  }
 
   constexpr std::string_view directResourceOnlySource = R"(
 shader DirectXFunctionParameterResourceArrayShader {
@@ -40543,6 +40604,72 @@ shader OpenGLFunctionParameterArrayWriteThroughShader {
                    std::string::npos,
            "OpenGL backend emits copy-in, rewritten helper call, and copy-out "
            "for storage-buffer field array write-through");
+  }
+
+  constexpr std::string_view nestedStorageWriteThroughSource = R"(
+shader OpenGLNestedStorageFunctionParameterArrayWriteShader {
+  const int ROWS = 2;
+  const int COLS = 3;
+  struct Tile {
+    float grid[ROWS][COLS];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Tile* tiles;
+    float rewriteGrid(float grid[ROWS][COLS]) {
+      grid[1][2] = grid[0][0] + 1.0;
+      return grid[1][2];
+    }
+    void main() {
+      float selected = rewriteGrid(tiles[0].grid);
+      tiles[1].grid[0][0] = selected;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> nestedStorageWriteThroughHir =
+      parseHIR(nestedStorageWriteThroughSource);
+  expect(nestedStorageWriteThroughHir.has_value(),
+         "OpenGL nested storage helper array write-through source builds HIR");
+  if (nestedStorageWriteThroughHir) {
+    expect(crossgl::openglTextualBackendSupported(
+               *nestedStorageWriteThroughHir),
+           "OpenGL supports nested fixed storage-buffer field array helper "
+           "write-through via nested local copy lowering");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayWrite(
+               *nestedStorageWriteThroughHir),
+           "OpenGL helper array write gate accepts nested direct "
+           "storage-buffer field write-through calls");
+
+    const std::string nestedStorageWriteOpenGL =
+        crossgl::generateOpenGLSource(*nestedStorageWriteThroughHir);
+    expect(nestedStorageWriteOpenGL.find(
+               "float crossgl_param_array_writeback_0_rewriteGrid_grid[ROWS]"
+               "[COLS];") != std::string::npos &&
+               nestedStorageWriteOpenGL.find(
+                   "for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i0 = 0; "
+                   "crossgl_param_array_writeback_0_rewriteGrid_grid_i0 < ROWS;") !=
+                   std::string::npos &&
+               nestedStorageWriteOpenGL.find(
+                   "for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i1 = 0; "
+                   "crossgl_param_array_writeback_0_rewriteGrid_grid_i1 < COLS;") !=
+                   std::string::npos &&
+               nestedStorageWriteOpenGL.find(
+                   "float selected = rewriteGrid("
+                   "crossgl_param_array_writeback_0_rewriteGrid_grid);") !=
+                   std::string::npos &&
+               nestedStorageWriteOpenGL.find(
+                   "tiles[0].grid"
+                   "[crossgl_param_array_writeback_0_rewriteGrid_grid_i0]"
+                   "[crossgl_param_array_writeback_0_rewriteGrid_grid_i1] = "
+                   "crossgl_param_array_writeback_0_rewriteGrid_grid"
+                   "[crossgl_param_array_writeback_0_rewriteGrid_grid_i0]"
+                   "[crossgl_param_array_writeback_0_rewriteGrid_grid_i1];") !=
+                   std::string::npos,
+           "OpenGL backend emits nested copy-in, rewritten helper call, and "
+           "nested copy-out for fixed storage-buffer field arrays");
   }
 
   constexpr std::string_view nestedWriteThroughSource = R"(
@@ -52233,7 +52360,7 @@ int main() {
   testOpenGLMatrixStorageBufferGLSL();
   testDirectXFoldedNestedFunctionParameterArrayHLSL();
   testDirectXNestedLocalFunctionParameterArrayHLSL();
-  testDirectXFunctionParameterArrayUnsupportedDiagnostics();
+  testDirectXFunctionParameterStructArrayHLSL();
   testOpenGLFunctionParameterArrayGLSL();
   testVulkanFunctionParameterArraySPIRV();
   testVulkanLocalFunctionParameterArraySPIRV();

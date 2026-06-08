@@ -1886,16 +1886,39 @@ void emitOpenGLArrayElementCopyLoop(std::ostringstream &out,
   }
   const std::vector<std::string_view> dimensions =
       openGLArrayDimensions(*type.arraySize);
-  if (dimensions.size() != 1) {
+  if (dimensions.empty()) {
     return;
   }
-  const std::string spaces(indentation, ' ');
-  const std::string innerSpaces(indentation + 2, ' ');
-  out << spaces << "for (int " << indexName << " = 0; " << indexName
-      << " < " << dimensions.front() << "; ++" << indexName << ") {\n";
-  out << innerSpaces << destination << "[" << indexName << "] = " << source
-      << "[" << indexName << "];\n";
-  out << spaces << "}\n";
+  std::vector<std::string> indices;
+  indices.reserve(dimensions.size());
+  auto emitLoop = [&](auto &self, std::size_t depth,
+                      std::size_t currentIndentation) -> void {
+    const std::string loopIndex =
+        dimensions.size() == 1
+            ? std::string(indexName)
+            : std::string(indexName) + std::to_string(depth);
+    const std::string spaces(currentIndentation, ' ');
+    out << spaces << "for (int " << loopIndex << " = 0; " << loopIndex
+        << " < " << dimensions[depth] << "; ++" << loopIndex << ") {\n";
+    indices.push_back(loopIndex);
+    if (depth + 1 == dimensions.size()) {
+      const std::string innerSpaces(currentIndentation + 2, ' ');
+      out << innerSpaces << destination;
+      for (const std::string &index : indices) {
+        out << "[" << index << "]";
+      }
+      out << " = " << source;
+      for (const std::string &index : indices) {
+        out << "[" << index << "]";
+      }
+      out << ";\n";
+    } else {
+      self(self, depth + 1, currentIndentation + 2);
+    }
+    indices.pop_back();
+    out << spaces << "}\n";
+  };
+  emitLoop(emitLoop, 0, indentation);
 }
 
 void emitOpenGLArrayWriteBackCopiesBefore(
@@ -2961,8 +2984,7 @@ bool openGLStorageBufferFieldArrayCopyArgument(const HIRModule &module,
                                                const HIRStage *stage) {
   if (functionParameterArrayShape(module, argument.type) !=
           HIRFunctionParameterArrayShape::FixedSize ||
-      !argument.type.arraySize.has_value() ||
-      openGLArrayDimensions(*argument.type.arraySize).size() != 1) {
+      !argument.type.arraySize.has_value()) {
     return false;
   }
 
