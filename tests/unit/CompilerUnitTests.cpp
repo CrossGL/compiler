@@ -40132,25 +40132,98 @@ shader DirectXNestedExpressionFunctionParameterArrayWriteUnsupportedShader {
   if (!nestedExpressionRhsWriteHir) {
     return;
   }
-  expect(!crossgl::directxTextualBackendSupported(
+  expect(crossgl::directxTextualBackendSupported(
              *nestedExpressionRhsWriteHir),
-         "DirectX keeps RHS nested-expression helper array writeback rejected");
-  expect(crossgl::directxHasUnsupportedFunctionParameterArrayWrite(
+         "DirectX source package supports safe RHS nested-expression helper "
+         "array writeback");
+  expect(!crossgl::directxHasUnsupportedFunctionParameterArrayWrite(
              *nestedExpressionRhsWriteHir),
-         "DirectX analysis detects RHS nested-expression helper array "
-         "writeback");
+         "DirectX helper array write gate accepts safe RHS "
+         "nested-expression writeback");
 
   crossgl::DiagnosticEngine nestedExpressionRhsDiagnostics;
-  expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
+  expect(!crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
              *nestedExpressionRhsWriteHir, nestedExpressionRhsDiagnostics),
-         "DirectX RHS nested-expression helper array writeback emits a "
+         "DirectX RHS nested-expression helper array write diagnostic stays "
+         "silent for safe writeback");
+
+  const std::string nestedExpressionRhsHlsl =
+      crossgl::generateDirectXSource(*nestedExpressionRhsWriteHir);
+  expect(containsInOrder(
+             nestedExpressionRhsHlsl,
+             {"float crossgl_param_array_writeback_0_rewriteWeight_weights"
+              "[COUNT];",
+              "crossgl_param_array_writeback_0_rewriteWeight_weights"
+              "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+              "particles[0].weights"
+              "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];",
+              "float crossgl_param_array_writeback_1_result = rewriteWeight("
+              "crossgl_param_array_writeback_0_rewriteWeight_weights);",
+              "particles[0].weights"
+              "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+              "crossgl_param_array_writeback_0_rewriteWeight_weights"
+              "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];",
+              "particles[1].weights[0] = 1.0 + "
+              "crossgl_param_array_writeback_1_result;"}) &&
+             nestedExpressionRhsHlsl.find(
+                 "particles[1].weights[0] = 1.0 + "
+                 "rewriteWeight(particles[0].weights);") == std::string::npos,
+         "DirectX backend materializes a RHS helper result, copies mutations "
+         "back, then uses the saved result in the final expression");
+
+  constexpr std::string_view unsafeNestedExpressionRhsWriteSource = R"(
+shader DirectXUnsafeNestedExpressionFunctionParameterArrayWriteShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float readOffset() {
+      return particles[1].weights[0];
+    }
+    float rewriteWeight(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      particles[1].weights[0] = readOffset() + rewriteWeight(particles[0].weights);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> unsafeNestedExpressionRhsWriteHir =
+      parseHIR(unsafeNestedExpressionRhsWriteSource);
+  expect(unsafeNestedExpressionRhsWriteHir.has_value(),
+         "DirectX unsafe RHS nested-expression parameter-array write source "
+         "builds HIR");
+  if (!unsafeNestedExpressionRhsWriteHir) {
+    return;
+  }
+  expect(!crossgl::directxTextualBackendSupported(
+             *unsafeNestedExpressionRhsWriteHir),
+         "DirectX keeps RHS nested-expression helper array writeback rejected "
+         "when the other operand has call-like evaluation");
+  expect(crossgl::directxHasUnsupportedFunctionParameterArrayWrite(
+             *unsafeNestedExpressionRhsWriteHir),
+         "DirectX helper array write gate rejects unsafe RHS "
+         "nested-expression writeback");
+
+  crossgl::DiagnosticEngine unsafeNestedExpressionRhsDiagnostics;
+  expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
+             *unsafeNestedExpressionRhsWriteHir,
+             unsafeNestedExpressionRhsDiagnostics),
+         "DirectX unsafe RHS nested-expression helper array writeback emits a "
          "diagnostic");
   expect(hasDiagnosticMessageFragment(
-             nestedExpressionRhsDiagnostics.diagnostics(),
+             unsafeNestedExpressionRhsDiagnostics.diagnostics(),
              "directx.unsupported-function-parameter-array-write",
-             "binary expression's left operand"),
-         "DirectX RHS nested-expression helper array write diagnostic "
-         "describes the remaining supported writeback shape");
+             "other operand has no call-like evaluation"),
+         "DirectX unsafe RHS nested-expression helper array write diagnostic "
+         "describes the supported writeback shape");
 
   constexpr std::string_view nestedWriteThroughSource = R"(
 shader DirectXNestedFunctionParameterArrayWriteUnsupportedShader {
