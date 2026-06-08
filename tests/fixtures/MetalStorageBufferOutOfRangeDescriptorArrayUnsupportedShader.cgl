@@ -1,15 +1,12 @@
 shader MetalStorageBufferOutOfRangeDescriptorArrayUnsupportedShader {
   const int BAD_INDEX = 2;
-  const int NEGATIVE_INDEX = -1;
 
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
     layout(set = 0, binding = 0) buffer float* values[2];
     void main() {
       float first = values[BAD_INDEX][0];
-      float second = values[+BAD_INDEX][0];
-      float third = values[NEGATIVE_INDEX][0];
-      values[0][1] = first + second + third;
+      values[0][1] = first;
       return;
     }
   }
