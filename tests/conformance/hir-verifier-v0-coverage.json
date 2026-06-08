@@ -16,6 +16,17 @@
       "coverage": [
         {
           "kind": "support-matrix",
+          "name": "cglc_build_opengl_forwarded_function_parameter_array_write_source_package",
+          "coverage_categories": [
+            "HIRExpressionKind::Call",
+            "HIRExpressionKind::IndexAccess",
+            "HIRStatementKind::Assignment",
+            "HIRStatementKind::Return"
+          ],
+          "requirement": "Forwarded OpenGL helper array writes lower through explicit local copy-in/copy-out source package coverage."
+        },
+        {
+          "kind": "support-matrix",
           "name": "cglc_build_opengl_function_parameter_array_write_source_package",
           "coverage_categories": [
             "HIRExpressionKind::IndexAccess",
@@ -321,12 +332,12 @@
       "coverage": [
         {
           "kind": "planned-failure",
-          "name": "cglc_build_opengl_forwarded_function_parameter_array_write_planned_failure",
+          "name": "cglc_build_opengl_aliased_function_parameter_array_write_planned_failure",
           "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
           "coverage_categories": [
             "diagnostic:opengl.unsupported-function-parameter-array-write"
           ],
-          "requirement": "Unsupported forwarded helper array write shapes retain planned-failure diagnostics."
+          "requirement": "Unsupported aliased helper array write shapes retain planned-failure diagnostics."
         },
         {
           "kind": "diagnostic",

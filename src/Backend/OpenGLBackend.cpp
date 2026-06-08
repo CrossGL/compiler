@@ -1802,12 +1802,12 @@ const HIRExpression *openGLStatementDirectCallValue(
   case HIRStatementKind::Declaration:
   case HIRStatementKind::Assignment:
   case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
     return statement.value.kind == HIRExpressionKind::Call ? &statement.value
                                                            : nullptr;
   case HIRStatementKind::Break:
   case HIRStatementKind::Continue:
   case HIRStatementKind::Discard:
-  case HIRStatementKind::Return:
   case HIRStatementKind::Block:
   case HIRStatementKind::If:
   case HIRStatementKind::For:
@@ -1815,6 +1815,52 @@ const HIRExpression *openGLStatementDirectCallValue(
     return nullptr;
   }
   return nullptr;
+}
+
+bool openGLForwardedFunctionParameterArrayCopyArgument(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRExpression &argument, const HIRStage *stage) {
+  if (argument.kind != HIRExpressionKind::Identifier ||
+      functionParameterArrayShape(module, argument.type) !=
+          HIRFunctionParameterArrayShape::FixedSize ||
+      !argument.type.arraySize.has_value()) {
+    return false;
+  }
+
+  const HIRParameter *parameter = nullptr;
+  for (const HIRParameter &candidate : caller.parameters) {
+    if (candidate.name == argument.value) {
+      parameter = &candidate;
+      break;
+    }
+  }
+  if (parameter == nullptr || !parameter->type.arraySize.has_value()) {
+    return false;
+  }
+
+  const std::vector<HIRFunctionParameterArrayCallFeature> features =
+      functionParameterArrayCallArgumentFeatures(module, caller, argument,
+                                                 stage);
+  if (openGLFunctionParameterArrayCallFeaturesSupport(module, argument.type,
+                                                      features) !=
+      HIRFunctionParameterArrayCallFeatureSupport::Supported) {
+    return false;
+  }
+  auto hasFeature = [&](HIRFunctionParameterArrayCallFeature feature) {
+    return std::find(features.begin(), features.end(), feature) !=
+           features.end();
+  };
+  return hasFeature(
+             HIRFunctionParameterArrayCallFeature::
+                 FunctionParameterArguments) &&
+         !hasFeature(
+             HIRFunctionParameterArrayCallFeature::LocalArrayArguments) &&
+         !hasFeature(HIRFunctionParameterArrayCallFeature::
+                         StorageBufferFieldArguments) &&
+         !hasFeature(HIRFunctionParameterArrayCallFeature::
+                         NestedStructFieldArguments) &&
+         !hasFeature(HIRFunctionParameterArrayCallFeature::
+                         DirectResourceArrayArguments);
 }
 
 std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
@@ -1844,9 +1890,12 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
     const HIRParameter &parameter = callee->parameters[index];
     if (writtenParameters.count(parameter.name) == 0 ||
         index >= call->children.size() ||
-        !openGLStorageBufferFieldArrayCopyArgument(
-            *context.module, *context.function, call->children[index],
-            context.hirStage)) {
+        !(openGLStorageBufferFieldArrayCopyArgument(
+              *context.module, *context.function, call->children[index],
+              context.hirStage) ||
+          openGLForwardedFunctionParameterArrayCopyArgument(
+              *context.module, *context.function, call->children[index],
+              context.hirStage))) {
       continue;
     }
     OpenGLArrayWriteBackArgument argument;
@@ -1973,10 +2022,31 @@ void emitOpenGLStatementWithArrayWriteBack(
                                                    overrides)
         << ";\n";
     break;
+  case HIRStatementKind::Return: {
+    if (statement.value.type.name == "void" &&
+        !statement.value.type.arraySize.has_value()) {
+      out << spaces << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                     overrides)
+          << ";\n";
+      emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+      out << spaces << "return;\n";
+      return;
+    }
+    const std::string resultName =
+        "crossgl_param_array_writeback_" +
+        std::to_string(nextOpenGLTemporaryIndex(context)) + "_return";
+    out << spaces << glslDeclarator(*context.module, statement.value.type,
+                                    resultName)
+        << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                  overrides)
+        << ";\n";
+    emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+    out << spaces << "return " << resultName << ";\n";
+    return;
+  }
   case HIRStatementKind::Break:
   case HIRStatementKind::Continue:
   case HIRStatementKind::Discard:
-  case HIRStatementKind::Return:
   case HIRStatementKind::Block:
   case HIRStatementKind::If:
   case HIRStatementKind::For:
@@ -3054,8 +3124,12 @@ bool openGLFunctionParameterArrayWriteCallSupportedInContext(
                                    call.children[parameterIndex], stage)) {
     return true;
   }
-  return allowStorageBufferFieldWriteBack &&
-         openGLStorageBufferFieldArrayCopyArgument(
+  if (!allowStorageBufferFieldWriteBack) {
+    return false;
+  }
+  return openGLStorageBufferFieldArrayCopyArgument(
+             module, caller, call.children[parameterIndex], stage) ||
+         openGLForwardedFunctionParameterArrayCopyArgument(
              module, caller, call.children[parameterIndex], stage);
 }
 

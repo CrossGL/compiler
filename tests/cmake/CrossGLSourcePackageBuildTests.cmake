@@ -6573,16 +6573,36 @@ add_test(NAME cglc_build_opengl_function_parameter_array_write_source_package
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storage-buffer|particles.argumentIndex=0|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.arrayStrideBytes=8|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.fields.0.name=weights|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=4"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_RESOURCE_FEATURE_FIELDS}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_forwarded_function_parameter_array_write_planned_failure
+set(CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewrite_values[COUNT];
+  for (int crossgl_param_array_writeback_0_rewrite_values_i = 0; crossgl_param_array_writeback_0_rewrite_values_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_values_i) {
+    crossgl_param_array_writeback_0_rewrite_values[crossgl_param_array_writeback_0_rewrite_values_i] = values[crossgl_param_array_writeback_0_rewrite_values_i];
+  }
+  float crossgl_param_array_writeback_1_return = rewrite(crossgl_param_array_writeback_0_rewrite_values);
+  for (int crossgl_param_array_writeback_0_rewrite_values_i = 0; crossgl_param_array_writeback_0_rewrite_values_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_values_i) {
+    values[crossgl_param_array_writeback_0_rewrite_values_i] = crossgl_param_array_writeback_0_rewrite_values[crossgl_param_array_writeback_0_rewrite_values_i];
+  }
+  return crossgl_param_array_writeback_1_return;]=])
+set(CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_FEATURE_FIELDS
+    "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|function-parameter-array.kind=array|scalar-vector-elements.kind=array|local-array.kind=array|index-access.kind=operation|local-declaration.kind=operation")
+if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
+  set(CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_BINARY
+      -DEXPECTED_NATIVE_BINARY=backend/opengl/OpenGLForwardedFunctionParameterArrayWriteUnsupportedShader.glsl)
+else()
+  set(CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_BINARY)
+endif()
+add_test(NAME cglc_build_opengl_forwarded_function_parameter_array_write_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-forwarded-function-parameter-array-write.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-write
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=rewrite.values|message=forwarded helper parameter"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLForwardedFunctionParameterArrayWriteUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLForwardedFunctionParameterArrayWriteUnsupportedShader|functionConstants.0.name=COUNT|functionConstants.0.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_FEATURE_FIELDS}"
+    -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
+    ${CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_BINARY}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_aliased_function_parameter_array_write_planned_failure
   COMMAND ${CMAKE_COMMAND}
