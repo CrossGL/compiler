@@ -195,6 +195,7 @@ set(CROSSGL_DO_WHILE_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/D
 set(CROSSGL_SWITCH_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/SwitchComputeShader.cgl)
 set(CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/NonParenthesizedControlFlowShader.cgl)
 set(CROSSGL_SCALAR_CONSTRUCTOR_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ScalarConstructorComputeShader.cgl)
+set(CROSSGL_MATRIX_CONSTRUCTOR_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/MatrixConstructorComputeShader.cgl)
 set(CROSSGL_VECTOR_LOCAL_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/VectorLocalComputeShader.cgl)
 set(CROSSGL_VECTOR_SWIZZLE_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/VectorSwizzleComputeShader.cgl)
 set(CROSSGL_VECTOR_SCALAR_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/VectorScalarComputeShader.cgl)

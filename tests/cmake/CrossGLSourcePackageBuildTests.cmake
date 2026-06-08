@@ -1577,6 +1577,27 @@ add_test(NAME cglc_build_directx_scalar_constructor_source_package
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-constructor.kind=operation|storage-buffer-write.kind=operation|scalar-arithmetic.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_MATRIX_CONSTRUCTOR_SOURCE_SNIPPET [=[float2x2 flattened = float2x2(1.0, 3.0, 2.0, 4.0);
+  float2x2 diagonal = float2x2(5.0, 0.0, 0.0, 5.0);
+  float3x3 expanded = float3x3(flattened[0][0], flattened[0][1], 0.0, flattened[1][0], flattened[1][1], 0.0, 0.0, 0.0, 1.0);
+  float3 c0 = float3(1.0, 2.0, 3.0);
+  float3 c1 = float3(4.0, 5.0, 6.0);
+  float3 c2 = float3(7.0, 8.0, 9.0);
+  float3x3 basis = float3x3(c0[0], c1[0], c2[0], c0[1], c1[1], c2[1], c0[2], c1[2], c2[2]);]=])
+add_test(NAME cglc_build_directx_matrix_constructor_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_CONSTRUCTOR_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-matrix-constructor-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/MatrixConstructorComputeShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_MATRIX_CONSTRUCTOR_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=MatrixConstructorComputeShader|nativeBinary=backend/directx/MatrixConstructorComputeShader.dxil|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|vector-constructor.kind=operation|matrix-constructor.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_VECTOR_LOCAL_SOURCE_SNIPPET [=[float4 color = float4(values[0], values[1], values[2], 1.0);
   float4 lifted = color + float4(0.5, 0.5, 0.5, 0.0);
   values[0] = lifted.x;]=])
@@ -1876,6 +1897,27 @@ add_test(NAME cglc_build_opengl_scalar_constructor_source_package
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=ScalarConstructorComputeShader"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.storageBufferLayout.layout=std430|values.storageBufferLayout.elementType=float"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-constructor.kind=operation|storage-buffer-write.kind=operation|scalar-arithmetic.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_MATRIX_CONSTRUCTOR_SOURCE_SNIPPET [=[mat2 flattened = mat2(1.0, 2.0, 3.0, 4.0);
+  mat2 diagonal = mat2(5.0);
+  mat3 expanded = mat3(flattened);
+  vec3 c0 = vec3(1.0, 2.0, 3.0);
+  vec3 c1 = vec3(4.0, 5.0, 6.0);
+  vec3 c2 = vec3(7.0, 8.0, 9.0);
+  mat3 basis = mat3(c0, c1, c2);]=])
+add_test(NAME cglc_build_opengl_matrix_constructor_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_CONSTRUCTOR_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-matrix-constructor-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/MatrixConstructorComputeShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_MATRIX_CONSTRUCTOR_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=MatrixConstructorComputeShader|nativeBinary=backend/opengl/MatrixConstructorComputeShader.glsl|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.set=0|values.binding=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|vector-constructor.kind=operation|matrix-constructor.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_OPENGL_VECTOR_LOCAL_SOURCE_SNIPPET [=[vec4 color = vec4(values[0], values[1], values[2], 1.0);
   vec4 lifted = color + vec4(0.5, 0.5, 0.5, 0.0);
