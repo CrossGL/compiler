@@ -277,6 +277,12 @@ def textual_form_for_operation(operation: str) -> str:
             "hir.image_store @${image}, ${coordinates}, ${value} "
             ": !hir.ivec2, !hir.vec4"
         )
+    if operation.startswith("hir.image_atomic."):
+        family = operation.removeprefix("hir.image_atomic.")
+        return (
+            f"hir.image_atomic.{family} @${{image}}, ${{coordinates}}, ${{payload}} "
+            ": !hir.ivec2, !hir.i32 -> !hir.i32"
+        )
     if operation == "hir.storage_image.nonuniform_descriptor_array":
         return (
             "hir.storage_image.nonuniform_descriptor_array @${image}"
@@ -435,6 +441,16 @@ def textual_module_skeleton(
         lines.append(
             f"  hir.image_store @{store_image}, %xy, %pixel : !hir.ivec2, !hir.vec4"
         )
+    for operation in string_list(boundary_record.get("expectedOperations")):
+        if operation.startswith("hir.image_atomic."):
+            family = operation.removeprefix("hir.image_atomic.")
+            atomic_image = storage_image_name_for_access(
+                resource_facts, {"read_write"}, "signedCounters"
+            )
+            lines.append(
+                f"  %old_{family} = {operation} @{atomic_image}, %xy, %delta "
+                ": !hir.ivec2, !hir.i32 -> !hir.i32"
+            )
     lines.extend(
         [
             "  hir.return loc(return_statement)",

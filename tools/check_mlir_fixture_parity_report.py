@@ -302,6 +302,23 @@ CONTROL_FLOW_CATEGORY_STRAIGHT_LINE = "straight-line"
 CONTROL_FLOW_CATEGORY_STRUCTURED_IF_ELSE = "structured-if-else"
 HIR_OPT_LEVEL_FOR_PARITY = "O0"
 STORAGE_IMAGE_ACCESS_VALUES = {"read", "write", "read_write"}
+STORAGE_IMAGE_ATOMIC_FACTS = {
+    "storage_image_atomic_add": "imageAtomicAdd",
+    "storage_image_atomic_min": "imageAtomicMin",
+    "storage_image_atomic_max": "imageAtomicMax",
+    "storage_image_atomic_and": "imageAtomicAnd",
+    "storage_image_atomic_or": "imageAtomicOr",
+    "storage_image_atomic_exchange": "imageAtomicExchange",
+    "storage_image_atomic_xor": "imageAtomicXor",
+}
+STORAGE_IMAGE_ATOMIC_TYPE_FACTS = {
+    "storage_image_atomic_int_result_type": "int",
+    "storage_image_atomic_uint_result_type": "uint",
+}
+STORAGE_IMAGE_ATOMIC_PAYLOAD_TYPE_FACTS = {
+    "storage_image_atomic_int_payload_type": "int",
+    "storage_image_atomic_uint_payload_type": "uint",
+}
 
 
 def read_text(path: Path) -> str:
@@ -1631,6 +1648,50 @@ def run_cglc_dump(
 
 def collect_hir_text_facts(text: str) -> dict[str, Any]:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
+    local_types: dict[str, str] = {}
+
+    def split_call_args(argument_text: str) -> list[str]:
+        args: list[str] = []
+        current: list[str] = []
+        depth = 0
+        for char in argument_text:
+            if char == "(":
+                depth += 1
+            elif char == ")" and depth > 0:
+                depth -= 1
+            if char == "," and depth == 0:
+                args.append("".join(current).strip())
+                current = []
+            else:
+                current.append(char)
+        if current:
+            args.append("".join(current).strip())
+        return args
+
+    def infer_scalar_type(expression: str) -> str | None:
+        expression = expression.strip()
+        if expression.startswith("uint("):
+            return "uint"
+        if expression.startswith("int("):
+            return "int"
+        if re.fullmatch(r"[0-9]+[uU]", expression):
+            return "uint"
+        if re.fullmatch(r"[0-9]+", expression):
+            return "int"
+        if expression in local_types:
+            return local_types[expression]
+        if "+" in expression:
+            operand_types = {
+                inferred
+                for part in expression.split("+")
+                if (inferred := infer_scalar_type(part)) is not None
+            }
+            if "uint" in operand_types:
+                return "uint"
+            if "int" in operand_types:
+                return "int"
+        return None
+
     facts: dict[str, Any] = {
         "lines": lines,
         "modules": set(),
@@ -1656,6 +1717,9 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
         ),
         "hasImageLoad": any("imageLoad(" in line for line in lines),
         "hasImageStore": any("imageStore(" in line for line in lines),
+        "imageAtomicCalls": set(),
+        "imageAtomicResultTypes": set(),
+        "imageAtomicPayloadTypes": set(),
     }
 
     module_pattern = re.compile(r"^module\s+([A-Za-z_][A-Za-z0-9_]*)$")
@@ -1678,8 +1742,20 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
     declaration_pattern = re.compile(
         r"^decl\s+([A-Za-z_][A-Za-z0-9_*]*)\s+[A-Za-z_][A-Za-z0-9_]*\b"
     )
+    named_declaration_pattern = re.compile(
+        r"^decl\s+([A-Za-z_][A-Za-z0-9_*]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*="
+    )
+    image_atomic_pattern = re.compile(
+        r"\b(imageAtomic[A-Za-z0-9_]*)\s*\((.*)\)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)"
+    )
 
     for line in lines:
+        for match in image_atomic_pattern.finditer(line):
+            facts["imageAtomicCalls"].add(match.group(1))
+            facts["imageAtomicResultTypes"].add(match.group(3))
+            args = split_call_args(match.group(2))
+            if len(args) >= 3 and (payload_type := infer_scalar_type(args[-1])):
+                facts["imageAtomicPayloadTypes"].add(payload_type)
         if match := module_pattern.match(line):
             facts["modules"].add(match.group(1))
             continue
@@ -1705,6 +1781,8 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
             continue
         if match := declaration_pattern.match(line):
             facts["declaredTypes"].add(match.group(1))
+        if match := named_declaration_pattern.match(line):
+            local_types[match.group(2)] = match.group(1)
 
     return facts
 
@@ -1944,6 +2022,27 @@ def check_hir_text_parity(
         errors.append(f"{field}: HIR text must include an imageLoad call")
     if "storage_image_store" in source_facts and not facts["hasImageStore"]:
         errors.append(f"{field}: HIR text must include an imageStore call")
+    for source_fact, operation in STORAGE_IMAGE_ATOMIC_FACTS.items():
+        if source_fact in source_facts and operation not in facts["imageAtomicCalls"]:
+            errors.append(f"{field}: HIR text must include a {operation} call")
+    for type_fact, expected_type in STORAGE_IMAGE_ATOMIC_TYPE_FACTS.items():
+        if (
+            type_fact in type_facts
+            and expected_type not in facts["imageAtomicResultTypes"]
+        ):
+            errors.append(
+                f"{field}: HIR text must include storage-image atomic "
+                f"{expected_type} result type"
+            )
+    for type_fact, expected_type in STORAGE_IMAGE_ATOMIC_PAYLOAD_TYPE_FACTS.items():
+        if (
+            type_fact in type_facts
+            and expected_type not in facts["imageAtomicPayloadTypes"]
+        ):
+            errors.append(
+                f"{field}: HIR text must include storage-image atomic "
+                f"{expected_type} payload type"
+            )
     if "return_statement" in source_facts and not facts["hasReturn"]:
         errors.append(f"{field}: HIR text must include return")
     if CONTROL_FLOW_FAMILY in allowed_families:
@@ -2127,6 +2226,24 @@ def check_hir_source_map_parity(
         for _, kind, value, _ in expression_tuples
     ):
         errors.append(f"{field}: HIR source-map missing imageStore call")
+    for source_fact, operation in STORAGE_IMAGE_ATOMIC_FACTS.items():
+        if source_fact in source_facts and not any(
+            kind == "call" and value == operation
+            for _, kind, value, _ in expression_tuples
+        ):
+            errors.append(f"{field}: HIR source-map missing {operation} call")
+    for type_fact, expected_type in STORAGE_IMAGE_ATOMIC_TYPE_FACTS.items():
+        if type_fact in type_facts and not any(
+            kind == "call"
+            and isinstance(value, str)
+            and value.startswith("imageAtomic")
+            and typ == expected_type
+            for _, kind, value, typ in expression_tuples
+        ):
+            errors.append(
+                f"{field}: HIR source-map missing storage-image atomic "
+                f"{expected_type} call type"
+            )
 
 
 def check_fixture_hir_dump_parity(

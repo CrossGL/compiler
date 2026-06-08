@@ -24,15 +24,17 @@
     ]
   },
   "coverageSummary": {
-    "operationCount": 24,
-    "typeFactCount": 26,
-    "fixtureCount": 11,
+    "operationCount": 31,
+    "typeFactCount": 32,
+    "fixtureCount": 13,
     "fixtures": [
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/MinimalComputeShader.cgl",
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/StorageImageAtomicShader.cgl",
+      "tests/fixtures/StorageImageExplicitFormatShader.cgl",
       "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -48,6 +50,8 @@
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/StorageImageAtomicShader.cgl",
+      "tests/fixtures/StorageImageExplicitFormatShader.cgl",
       "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -61,6 +65,8 @@
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/StorageImageAtomicShader.cgl",
+      "tests/fixtures/StorageImageExplicitFormatShader.cgl",
       "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -102,7 +108,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -198,6 +206,26 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "source_file",
@@ -237,7 +265,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -333,6 +363,26 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "compute_stage",
@@ -372,7 +422,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -468,6 +520,26 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "entry_point",
@@ -506,7 +578,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -593,6 +667,24 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "resourceFacts.localSize"
@@ -630,7 +722,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -717,6 +811,24 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "return_statement"
@@ -760,7 +872,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -892,6 +1006,34 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "source_file",
@@ -1119,7 +1261,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -1281,6 +1425,46 @@
             "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1319,7 +1503,9 @@
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -1433,6 +1619,42 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "storage_buffer_element_type",
@@ -1976,7 +2198,9 @@
       "fixtures": [
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -2026,6 +2250,50 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_declaration",
+            "resourceFacts.storageImages[].name",
+            "resourceFacts.storageImages[].type",
+            "resourceFacts.storageImages[].elementType",
+            "resourceFacts.storageImages[].format",
+            "resourceFacts.storageImages[].dimension",
+            "resourceFacts.storageImages[].arrayed",
+            "resourceFacts.storageImages[].access",
+            "resourceFacts.storageImages[].set",
+            "resourceFacts.storageImages[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_declaration",
+            "resourceFacts.storageImages[].name",
+            "resourceFacts.storageImages[].type",
+            "resourceFacts.storageImages[].elementType",
+            "resourceFacts.storageImages[].format",
+            "resourceFacts.storageImages[].dimension",
+            "resourceFacts.storageImages[].arrayed",
+            "resourceFacts.storageImages[].access",
+            "resourceFacts.storageImages[].set",
+            "resourceFacts.storageImages[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "storage_image_declaration",
@@ -2074,7 +2342,8 @@
       "fixtures": [
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -2102,6 +2371,17 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_load",
+            "storage_image_result_type",
+            "storage_image_coordinate_type"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "storage_image_load",
@@ -2138,7 +2418,8 @@
       "fixtures": [
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -2164,6 +2445,16 @@
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
           "experimentSlice": "access-qualified-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_store",
+            "storage_image_coordinate_type"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "storage_image_store",
@@ -2239,6 +2530,314 @@
       ]
     },
     {
+      "operation": "hir.image_atomic.add",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic add calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_add",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_atomic_add",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.min",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic min calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_min",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_atomic_min",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.max",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic max calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_max",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_atomic_max",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.and",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic and calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_and",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_atomic_and",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.or",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic or calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_or",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_atomic_or",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.exchange",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic exchange calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_exchange",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_atomic_exchange",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.xor",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic xor calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_xor",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_image_atomic_xor",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
       "operation": "hir.storage_buffer.write",
       "coverageStatus": "boundary-inventory-only",
       "emissionStatus": "boundary-inventory-only",
@@ -2266,7 +2865,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -2340,6 +2941,24 @@
             "storage_buffer_write"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "experimentSlice": "direct-explicit-format-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2404,6 +3023,7 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl"
@@ -2440,6 +3060,8 @@
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -2482,6 +3104,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageNonUniformDescriptorArrayHIRShader.cgl"
@@ -2493,6 +3116,7 @@
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -2500,10 +3124,19 @@
       ]
     },
     {
+      "typeFact": "ivec3_scalar",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
       "typeFact": "ivec4_pointer_storage_buffer",
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ]
@@ -2513,6 +3146,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ]
@@ -2535,6 +3169,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -2544,10 +3180,44 @@
       ]
     },
     {
+      "typeFact": "storage_image_atomic_int_payload_type",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "storage_image_atomic_int_result_type",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "storage_image_atomic_uint_payload_type",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "storage_image_atomic_uint_result_type",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
       "typeFact": "storage_image_coordinate_type",
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -2559,6 +3229,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -2584,10 +3255,19 @@
       ]
     },
     {
+      "typeFact": "uint_pointer_storage_buffer",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
       "typeFact": "uint_scalar",
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -2617,6 +3297,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -2628,6 +3309,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -2641,6 +3323,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -2659,6 +3342,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -2671,11 +3356,11 @@
   "blockedCoverage": [
     {
       "id": "remaining_texture_image_intrinsics",
-      "reason": "Direct sampled texture plus sampler LOD facts, direct storage-image load/store facts with read, write, and read_write access qualifiers, one fixed storage-buffer descriptor-array catalog fixture, one fixed sampled texture plus sampler descriptor-array catalog fixture, one literal-index fixed storage-image descriptor-array catalog fixture, and one nonuniform storage-image descriptor-array marker catalog fixture are admitted; runtime descriptor arrays, broad dynamic storage-image indexing beyond cataloged literal/nonuniform-marker facts, access-qualified storage-image array indexing or lowering, storage-image atomics, compare helpers, manual texture intrinsics, and backend descriptor-indexing policy remain blocked."
+      "reason": "Direct sampled texture plus sampler LOD facts, direct storage-image load/store facts with read, write, read_write, and explicit r32f/r32i/r32ui formats, one direct storage-image atomic operation-family fixture, one fixed storage-buffer descriptor-array catalog fixture, one fixed sampled texture plus sampler descriptor-array catalog fixture, one literal-index fixed storage-image descriptor-array catalog fixture, and one nonuniform storage-image descriptor-array marker catalog fixture are admitted; runtime descriptor arrays, broad dynamic storage-image indexing beyond cataloged literal/nonuniform-marker facts, access-qualified storage-image array indexing or lowering, nonuniform descriptor-array storage-image atomics, compare helpers, manual texture intrinsics, real MLIR lowering, and backend descriptor-indexing policy remain blocked."
     },
     {
       "id": "descriptor_indexing_and_nonuniform",
-      "reason": "Only fixed literal storage-buffer, sampled texture/sampler, and storage-image descriptor-array indices plus one nonuniform storage-image descriptor-array marker fixture are report-only evidence; the access-qualified fixture records a readonly fixed-array storage-image declaration as source/resource metadata only. Runtime descriptor arrays, dynamic indexes beyond cataloged literal/nonuniform-marker facts, folded-symbolic indexes outside cataloged literal facts, real MLIR lowering, storage-image atomics, and backend descriptor-indexing policy remain blocked."
+      "reason": "Only fixed literal storage-buffer, sampled texture/sampler, and storage-image descriptor-array indices plus one nonuniform storage-image descriptor-array marker fixture are report-only descriptor-array evidence; the access-qualified fixture records a readonly fixed-array storage-image declaration as source/resource metadata only. Runtime descriptor arrays, dynamic indexes beyond cataloged literal/nonuniform-marker facts, folded-symbolic indexes outside cataloged literal facts, nonuniform descriptor-array storage-image atomics, real MLIR lowering, and backend descriptor-indexing policy remain blocked."
     },
     {
       "id": "backend_policy_and_package_schema",

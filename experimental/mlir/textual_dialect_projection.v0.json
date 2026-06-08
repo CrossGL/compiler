@@ -633,6 +633,360 @@
       }
     },
     {
+      "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "direct-storage-image-atomic-operation-families",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "direct-storage-image-binding",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.image_atomic.add",
+        "hir.image_atomic.min",
+        "hir.image_atomic.max",
+        "hir.image_atomic.and",
+        "hir.image_atomic.or",
+        "hir.image_atomic.exchange",
+        "hir.image_atomic.xor",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @StorageImageAtomicShader attributes {source = \"tests/fixtures/StorageImageAtomicShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [4, 4, 2]",
+        "  hir.resource @signedCounters {set = 0, binding = 0, kind = \"storageImage\"}",
+        "  hir.resource @unsignedCounters {set = 0, binding = 1, kind = \"storageImage\"}",
+        "  hir.resource @signedAtlas {set = 0, binding = 2, kind = \"storageImage\"}",
+        "  hir.resource @unsignedAtlas {set = 0, binding = 3, kind = \"storageImage\"}",
+        "  hir.resource @signedResults {set = 0, binding = 4, kind = \"storageBuffer\"}",
+        "  hir.resource @unsignedResults {set = 0, binding = 5, kind = \"storageBuffer\"}",
+        "  hir.storage_buffer @signedResults : !hir.storage_buffer<!hir.i32>",
+        "  hir.storage_buffer @unsignedResults : !hir.storage_buffer<!hir.ui32>",
+        "  hir.storage_image @signedCounters {access = \"read_write\"} : !hir.storage_image<2d, r32i>",
+        "  hir.storage_image @unsignedCounters {access = \"read_write\"} : !hir.storage_image<2d, r32ui>",
+        "  hir.storage_image @signedAtlas {access = \"read_write\"} : !hir.storage_image<2d_array, r32i>",
+        "  hir.storage_image @unsignedAtlas {access = \"read_write\"} : !hir.storage_image<2d_array, r32ui>",
+        "  %old_add = hir.image_atomic.add @signedCounters, %xy, %delta : !hir.ivec2, !hir.i32 -> !hir.i32",
+        "  %old_min = hir.image_atomic.min @signedCounters, %xy, %delta : !hir.ivec2, !hir.i32 -> !hir.i32",
+        "  %old_max = hir.image_atomic.max @signedCounters, %xy, %delta : !hir.ivec2, !hir.i32 -> !hir.i32",
+        "  %old_and = hir.image_atomic.and @signedCounters, %xy, %delta : !hir.ivec2, !hir.i32 -> !hir.i32",
+        "  %old_or = hir.image_atomic.or @signedCounters, %xy, %delta : !hir.ivec2, !hir.i32 -> !hir.i32",
+        "  %old_exchange = hir.image_atomic.exchange @signedCounters, %xy, %delta : !hir.ivec2, !hir.i32 -> !hir.i32",
+        "  %old_xor = hir.image_atomic.xor @signedCounters, %xy, %delta : !hir.ivec2, !hir.i32 -> !hir.i32",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_image_declaration",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "storage_image_atomic_add",
+          "storage_image_atomic_min",
+          "storage_image_atomic_max",
+          "storage_image_atomic_and",
+          "storage_image_atomic_or",
+          "storage_image_atomic_exchange",
+          "storage_image_atomic_xor",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "int_scalar",
+          "uint_scalar",
+          "ivec3_scalar",
+          "int_pointer_storage_buffer",
+          "uint_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "storage_image_coordinate_type",
+          "storage_image_atomic_int_result_type",
+          "storage_image_atomic_uint_result_type",
+          "storage_image_atomic_int_payload_type",
+          "storage_image_atomic_uint_payload_type",
+          "constructor_cast_expression",
+          "binary_expression_result_types"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.storageImages[].name",
+          "resourceFacts.storageImages[].type",
+          "resourceFacts.storageImages[].elementType",
+          "resourceFacts.storageImages[].format",
+          "resourceFacts.storageImages[].dimension",
+          "resourceFacts.storageImages[].arrayed",
+          "resourceFacts.storageImages[].access",
+          "resourceFacts.storageImages[].set",
+          "resourceFacts.storageImages[].binding",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_image_declaration",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.storage_image_atomic_add",
+          "sourceLocationFacts.storage_image_atomic_min",
+          "sourceLocationFacts.storage_image_atomic_max",
+          "sourceLocationFacts.storage_image_atomic_and",
+          "sourceLocationFacts.storage_image_atomic_or",
+          "sourceLocationFacts.storage_image_atomic_exchange",
+          "sourceLocationFacts.storage_image_atomic_xor",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.int_scalar",
+          "typeFacts.uint_scalar",
+          "typeFacts.ivec3_scalar",
+          "typeFacts.int_pointer_storage_buffer",
+          "typeFacts.uint_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.storage_image_coordinate_type",
+          "typeFacts.storage_image_atomic_int_result_type",
+          "typeFacts.storage_image_atomic_uint_result_type",
+          "typeFacts.storage_image_atomic_int_payload_type",
+          "typeFacts.storage_image_atomic_uint_payload_type",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.binary_expression_result_types",
+          "resourceFacts.localSize"
+        ]
+      }
+    },
+    {
+      "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "direct-explicit-format-storage-image-resource",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "direct-storage-image-binding",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.image_load",
+        "hir.image_store",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @StorageImageExplicitFormatShader attributes {source = \"tests/fixtures/StorageImageExplicitFormatShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [2, 2, 1]",
+        "  hir.resource @readColor {set = 0, binding = 0, kind = \"storageImage\"}",
+        "  hir.resource @readLabel {set = 0, binding = 1, kind = \"storageImage\"}",
+        "  hir.resource @readMask {set = 0, binding = 2, kind = \"storageImage\"}",
+        "  hir.resource @writeMask {set = 0, binding = 3, kind = \"storageImage\"}",
+        "  hir.resource @colors {set = 0, binding = 4, kind = \"storageBuffer\"}",
+        "  hir.resource @labels {set = 0, binding = 5, kind = \"storageBuffer\"}",
+        "  hir.storage_buffer @colors : !hir.storage_buffer<!hir.vec4>",
+        "  hir.storage_buffer @labels : !hir.storage_buffer<!hir.ivec4>",
+        "  hir.storage_image @readColor {access = \"read\"} : !hir.storage_image<2d, r32f>",
+        "  hir.storage_image @readLabel {access = \"read\"} : !hir.storage_image<2d, r32i>",
+        "  hir.storage_image @readMask {access = \"read\"} : !hir.storage_image<2d, r32ui>",
+        "  hir.storage_image @writeMask {access = \"write\"} : !hir.storage_image<2d, r32ui>",
+        "  %pixel = hir.image_load @readColor, %xy : !hir.ivec2 -> !hir.vec4",
+        "  hir.image_store @writeMask, %xy, %pixel : !hir.ivec2, !hir.vec4",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_image_declaration",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "storage_image_load",
+          "storage_image_store",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "vec4_scalar",
+          "ivec4_scalar",
+          "uvec4_scalar",
+          "vec4_pointer_storage_buffer",
+          "ivec4_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "storage_image_result_type",
+          "storage_image_coordinate_type",
+          "constructor_cast_expression"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.storageImages[].name",
+          "resourceFacts.storageImages[].type",
+          "resourceFacts.storageImages[].elementType",
+          "resourceFacts.storageImages[].format",
+          "resourceFacts.storageImages[].dimension",
+          "resourceFacts.storageImages[].arrayed",
+          "resourceFacts.storageImages[].access",
+          "resourceFacts.storageImages[].set",
+          "resourceFacts.storageImages[].binding",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_image_declaration",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.storage_image_load",
+          "sourceLocationFacts.storage_image_store",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.vec4_scalar",
+          "typeFacts.ivec4_scalar",
+          "typeFacts.uvec4_scalar",
+          "typeFacts.vec4_pointer_storage_buffer",
+          "typeFacts.ivec4_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.storage_image_result_type",
+          "typeFacts.storage_image_coordinate_type",
+          "typeFacts.constructor_cast_expression",
+          "resourceFacts.localSize"
+        ]
+      }
+    },
+    {
       "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "stage": "compute",
       "entryPoint": "main",
@@ -1719,7 +2073,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -1817,6 +2173,24 @@
             "shader_module"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1838,7 +2212,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "compute_stage",
@@ -1936,6 +2312,24 @@
             "stage"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1957,7 +2351,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "entry_point",
@@ -2055,6 +2451,24 @@
             "entryPoint"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2076,7 +2490,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [],
       "typeFactsRequired": [],
@@ -2163,6 +2579,22 @@
             "resourceFacts.localSize"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2184,7 +2616,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "return_statement"
@@ -2271,6 +2705,22 @@
             "return_statement"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2292,7 +2742,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -2424,6 +2876,32 @@
         },
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "source_file",
@@ -2597,7 +3075,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_declaration"
@@ -2768,6 +3248,44 @@
             "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2786,7 +3304,9 @@
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_element_type"
@@ -2908,6 +3428,40 @@
         },
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "storage_buffer_element_type",
@@ -3375,7 +3929,9 @@
       "fixtures": [
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_image_declaration"
@@ -3459,6 +4015,48 @@
             "resourceFacts.targetIndependentResourceMetadata[].access"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_declaration",
+            "resourceFacts.storageImages[].name",
+            "resourceFacts.storageImages[].type",
+            "resourceFacts.storageImages[].elementType",
+            "resourceFacts.storageImages[].format",
+            "resourceFacts.storageImages[].dimension",
+            "resourceFacts.storageImages[].arrayed",
+            "resourceFacts.storageImages[].access",
+            "resourceFacts.storageImages[].set",
+            "resourceFacts.storageImages[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_declaration",
+            "resourceFacts.storageImages[].name",
+            "resourceFacts.storageImages[].type",
+            "resourceFacts.storageImages[].elementType",
+            "resourceFacts.storageImages[].format",
+            "resourceFacts.storageImages[].dimension",
+            "resourceFacts.storageImages[].arrayed",
+            "resourceFacts.storageImages[].access",
+            "resourceFacts.storageImages[].set",
+            "resourceFacts.storageImages[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -3474,7 +4072,8 @@
       "fixtures": [
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_image_load",
@@ -3513,6 +4112,16 @@
             "storage_image_coordinate_type"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_load",
+            "storage_image_result_type",
+            "storage_image_coordinate_type"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -3528,7 +4137,8 @@
       "fixtures": [
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_image_store",
@@ -3557,6 +4167,15 @@
         },
         {
           "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_store",
+            "storage_image_coordinate_type"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "storage_image_store",
@@ -3622,6 +4241,265 @@
       ]
     },
     {
+      "operation": "hir.image_atomic.add",
+      "textualForm": "hir.image_atomic.add @${image}, ${coordinates}, ${payload} : !hir.ivec2, !hir.i32 -> !hir.i32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Catalogs direct storage-image atomic add calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_atomic_add"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_atomic_add",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.min",
+      "textualForm": "hir.image_atomic.min @${image}, ${coordinates}, ${payload} : !hir.ivec2, !hir.i32 -> !hir.i32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Catalogs direct storage-image atomic min calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_atomic_min"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_atomic_min",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.max",
+      "textualForm": "hir.image_atomic.max @${image}, ${coordinates}, ${payload} : !hir.ivec2, !hir.i32 -> !hir.i32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Catalogs direct storage-image atomic max calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_atomic_max"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_atomic_max",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.and",
+      "textualForm": "hir.image_atomic.and @${image}, ${coordinates}, ${payload} : !hir.ivec2, !hir.i32 -> !hir.i32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Catalogs direct storage-image atomic and calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_atomic_and"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_atomic_and",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.or",
+      "textualForm": "hir.image_atomic.or @${image}, ${coordinates}, ${payload} : !hir.ivec2, !hir.i32 -> !hir.i32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Catalogs direct storage-image atomic or calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_atomic_or"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_atomic_or",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.exchange",
+      "textualForm": "hir.image_atomic.exchange @${image}, ${coordinates}, ${payload} : !hir.ivec2, !hir.i32 -> !hir.i32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Catalogs direct storage-image atomic exchange calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_atomic_exchange"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_atomic_exchange",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.xor",
+      "textualForm": "hir.image_atomic.xor @${image}, ${coordinates}, ${payload} : !hir.ivec2, !hir.i32 -> !hir.i32",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Catalogs direct storage-image atomic xor calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_atomic_xor"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_atomic_xor",
+            "typeFacts.storage_image_atomic_int_result_type",
+            "typeFacts.storage_image_atomic_uint_result_type",
+            "typeFacts.storage_image_atomic_int_payload_type",
+            "typeFacts.storage_image_atomic_uint_payload_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
       "operation": "hir.storage_buffer.write",
       "textualForm": "hir.storage_buffer.write @${resourceName}[${index}], ${value} : !hir.f32",
       "emissionStatus": "not-emitted-report-only",
@@ -3638,7 +4516,9 @@
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_write"
@@ -3709,6 +4589,22 @@
             "storage_buffer_write"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -3755,13 +4651,15 @@
     "productionLinked": false
   },
   "coverageSummary": {
-    "fixtureCount": 11,
-    "operationCount": 24,
-    "resourceBoundFixtureCount": 9,
+    "fixtureCount": 13,
+    "operationCount": 31,
+    "resourceBoundFixtureCount": 11,
     "resourceBoundFixtures": [
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/StorageImageAtomicShader.cgl",
+      "tests/fixtures/StorageImageExplicitFormatShader.cgl",
       "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -3774,8 +4672,10 @@
       "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
     ],
-    "storageImageFixtureCount": 4,
+    "storageImageFixtureCount": 6,
     "storageImageFixtures": [
+      "tests/fixtures/StorageImageAtomicShader.cgl",
+      "tests/fixtures/StorageImageExplicitFormatShader.cgl",
       "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
       "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -3787,6 +4687,8 @@
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/StorageImageAtomicShader.cgl",
+      "tests/fixtures/StorageImageExplicitFormatShader.cgl",
       "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
@@ -3820,6 +4722,13 @@
         "hir.image_load",
         "hir.image_store",
         "hir.storage_buffer.read",
+        "hir.image_atomic.add",
+        "hir.image_atomic.min",
+        "hir.image_atomic.max",
+        "hir.image_atomic.and",
+        "hir.image_atomic.or",
+        "hir.image_atomic.exchange",
+        "hir.image_atomic.xor",
         "hir.storage_buffer.write",
         "hir.if"
       ],
@@ -3846,6 +4755,13 @@
         "hir.image_load",
         "hir.image_store",
         "hir.storage_buffer.read",
+        "hir.image_atomic.add",
+        "hir.image_atomic.min",
+        "hir.image_atomic.max",
+        "hir.image_atomic.and",
+        "hir.image_atomic.or",
+        "hir.image_atomic.exchange",
+        "hir.image_atomic.xor",
         "hir.storage_buffer.write",
         "hir.if"
       ],
