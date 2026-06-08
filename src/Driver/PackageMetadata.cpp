@@ -1385,6 +1385,24 @@ bool plannedSourcePackageGeneratorMatches(
                      });
 }
 
+bool openglPlannedValidationFailureToolsMatch(
+    const std::vector<NativeArtifactToolRecord> &tools) {
+  if (tools.size() != 2 || countToolRole(tools, "generator") != 1 ||
+      countToolRole(tools, "validator") != 1) {
+    return false;
+  }
+  return std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "generator" &&
+                              tool.name == "CrossGL-Compiler";
+                     }) &&
+         std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "validator" &&
+                              tool.name == "glslangValidator";
+                     });
+}
+
 bool hasDuplicateToolRoleRecord(
     const std::vector<NativeArtifactToolRecord> &tools) {
   for (std::size_t index = 0; index < tools.size(); ++index) {
@@ -1667,10 +1685,20 @@ bool nativeArtifactDescriptorMatchesContract(
       return false;
     }
     if (*health.nativeBinaryStatus == "planned") {
-      if (hasArtifactPath || *health.validationStatus != "unavailable" ||
-          *health.optimizationLevel != "unknown" ||
-          hasUnexpectedToolRole(tools, "generator") ||
-          !plannedSourcePackageGeneratorMatches(*health.target, tools)) {
+      if (hasArtifactPath || *health.optimizationLevel != "unknown") {
+        return false;
+      }
+      if (*health.validationStatus == "unavailable") {
+        if (hasUnexpectedToolRole(tools, "generator") ||
+            !plannedSourcePackageGeneratorMatches(*health.target, tools)) {
+          return false;
+        }
+      } else if (*health.validationStatus == "failed" &&
+                 *health.binaryKind == "opengl.source") {
+        if (!openglPlannedValidationFailureToolsMatch(tools)) {
+          return false;
+        }
+      } else {
         return false;
       }
     } else if (!hasArtifactPath) {

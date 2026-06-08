@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "crossgl/Basic/Diagnostic.h"
 #include "crossgl/HIR/HIR.h"
@@ -20,6 +21,7 @@ struct OpenGLSourcePackageResult {
   std::string validatorTool = "glslangValidator";
   std::string validatorPolicy = "use-when-available";
   std::string validatorStatus = "skipped-tool-missing";
+  std::vector<Diagnostic> validationDiagnostics;
 };
 
 bool openglTextualBackendSupported(const HIRModule &module);

@@ -5164,6 +5164,7 @@ buildOpenGLSourcePackage(const HIRModule &module,
   diagnostic.target = "opengl";
   diagnostic.missingCapabilities = {"opengl.backend.native-glsl-package",
                                     "opengl.validation.glsl-program-validation"};
+  result.validationDiagnostics.push_back(diagnostic);
   diagnostics.report(std::move(diagnostic));
   diagnostics.warning("opengl.source-package-only",
                       "kept GLSL source package; native OpenGL validation "

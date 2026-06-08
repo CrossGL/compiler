@@ -57,6 +57,7 @@ struct NativeArtifactDescriptorSpec {
   std::string optimizationLevel;
   std::optional<std::string> optimizationEvidenceJson;
   std::vector<NativeArtifactToolProvenance> tools;
+  std::vector<Diagnostic> validationDiagnostics;
 };
 
 struct NativeOptimizationEvidenceSpec {
@@ -1201,6 +1202,16 @@ void writeJsonStringArray(std::ostringstream &out,
   out << "]";
 }
 
+void writeNativeArtifactValidationDiagnostic(std::ostringstream &out,
+                                             const Diagnostic &diagnostic,
+                                             std::string_view indent) {
+  out << indent << "{\n"
+      << indent << "  \"code\": \"" << escapeJson(diagnostic.code) << "\",\n"
+      << indent << "  \"message\": \"" << escapeJson(diagnostic.message)
+      << "\"\n"
+      << indent << "}";
+}
+
 void appendTargetLegalizationToolRequirementsJson(
     std::ostringstream &out,
     const TargetLegalizationContractProjection &projection) {
@@ -1378,6 +1389,13 @@ std::string nativeArtifactDescriptorJson(
       (spec.optimizationEvidenceJson ? *spec.optimizationEvidenceJson
                                      : std::string()) +
       "\n";
+  std::string validationDiagnosticFingerprint;
+  for (const Diagnostic &diagnostic : spec.validationDiagnostics) {
+    validationDiagnosticFingerprint += diagnostic.code;
+    validationDiagnosticFingerprint += "\n";
+    validationDiagnosticFingerprint += diagnostic.message;
+    validationDiagnosticFingerprint += "\n";
+  }
 
   std::ostringstream out;
   out << "{\n"
@@ -1414,7 +1432,9 @@ std::string nativeArtifactDescriptorJson(
   out << "],\n"
       << "    \"invocation\": {\n"
       << "      \"commandLineSha256\": \""
-      << escapeJson(sha256(invocationFingerprint)) << "\",\n"
+      << escapeJson(
+             sha256(invocationFingerprint + validationDiagnosticFingerprint))
+      << "\",\n"
       << "      \"environmentSha256\": \"" << escapeJson(sha256("")) << "\"\n"
       << "    }\n"
       << "  },\n"
@@ -1434,7 +1454,18 @@ std::string nativeArtifactDescriptorJson(
         << escapeJson(*spec.nativeBinaryStatus) << "\"";
   }
   out << ",\n"
-      << "  \"validationDiagnostics\": []\n"
+      << "  \"validationDiagnostics\": [";
+  for (std::size_t index = 0; index < spec.validationDiagnostics.size();
+       ++index) {
+    out << (index == 0 ? "\n" : ",\n");
+    writeNativeArtifactValidationDiagnostic(out,
+                                            spec.validationDiagnostics[index],
+                                            "    ");
+  }
+  if (!spec.validationDiagnostics.empty()) {
+    out << "\n  ";
+  }
+  out << "]\n"
       << "}\n";
   return out.str();
 }
@@ -1954,7 +1985,8 @@ bool finalizeSourcePackageBuild(
     const std::optional<std::filesystem::path> &sourceRemapProvenancePath,
     const std::optional<std::filesystem::path> &targetExplanationPath,
     const std::filesystem::path &inputPath, StagedPackageDirectory &stagedPackage,
-    DiagnosticEngine &diagnostics) {
+    DiagnosticEngine &diagnostics,
+    const std::vector<Diagnostic> *sourceValidationDiagnostics = nullptr) {
   if (!requireSourcePackageArtifactRequirements(artifact, projection,
                                                 diagnostics)) {
     return false;
@@ -1983,6 +2015,15 @@ bool finalizeSourcePackageBuild(
     descriptorSpec.optimizationEvidenceJson =
         sourcePackageDescriptorOptimizationEvidenceJson(descriptorPolicy,
                                                         *directxResult);
+  }
+  if (target == TargetKind::OpenGL && sourceValidationDiagnostics != nullptr &&
+      !sourceValidationDiagnostics->empty()) {
+    const std::string validatorTool =
+        nativeToolName.empty() ? "glslangValidator" : std::string(nativeToolName);
+    descriptorSpec.validationStatus = "failed";
+    descriptorSpec.tools = nativeDescriptorTools({nativeArtifactTool(
+        validatorTool, "validator", validatorTool, validatorTool)});
+    descriptorSpec.validationDiagnostics = *sourceValidationDiagnostics;
   }
 
   const std::optional<std::filesystem::path> descriptorPath =
@@ -2740,7 +2781,8 @@ CompileResult compile(const CompileRequest &request) {
               request.optimizationLevel, nullptr, opengl.validatorTool,
               admission->decision.contract, debugMetadataPath, hirSourceMapPath,
               sourceRemapProvenancePath, targetExplanationPath,
-              request.inputPath, stagedPackage, diagnostics)) {
+              request.inputPath, stagedPackage, diagnostics,
+              &opengl.validationDiagnostics)) {
         result.artifactPath = request.outputPath;
         result.success = true;
       } else {

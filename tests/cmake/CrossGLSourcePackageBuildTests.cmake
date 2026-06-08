@@ -792,6 +792,14 @@ function(crossgl_add_opengl_compute_fake_glslang_package_inspect_test)
       "|sourceHash.algorithm=sha256|artifactPath=backend/opengl/StorageBufferComputeShader.glsl|artifactHash.algorithm=sha256|validationStatus=validated")
     set(opengl_fake_glslang_inspect_extra_native_descriptor_array_lengths
       "toolchainProvenance.tools=2|validationDiagnostics=0")
+  elseif(CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_VALIDATION_STATUS
+         STREQUAL "failed")
+    set(opengl_fake_glslang_inspect_extra_json_fields
+      "|nativeArtifactDescriptor.validationStatus=failed")
+    set(opengl_fake_glslang_inspect_extra_native_descriptor_fields
+      "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|validationStatus=failed|validationDiagnostics.0.code=opengl.glslang-failed")
+    set(opengl_fake_glslang_inspect_extra_native_descriptor_array_lengths
+      "toolchainProvenance.tools=2|validationDiagnostics=1")
   endif()
 
   set(inspect_definitions
@@ -963,9 +971,9 @@ add_test(NAME cglc_build_opengl_source_package_fake_glslang_tool_failure
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450"
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=opengl.backend.native-glsl-package|missingCapabilities=opengl.validation.glsl-program-validation"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2|diagnostics.0.missingCapabilities=2"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/StorageBufferComputeShader.comp.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/StorageBufferComputeShader.comp.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=failed|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|validationDiagnostics.0.code=opengl.glslang-failed"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=1|validationDiagnostics=0"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=1"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FAILURE_DIR}/glslangValidator.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator failure: -S comp"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
@@ -4973,9 +4981,9 @@ add_test(NAME cglc_build_opengl_graphics_fake_glslang_fragment_tool_failure
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450"
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=opengl.backend.native-glsl-package|missingCapabilities=opengl.validation.glsl-program-validation"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2|diagnostics.0.missingCapabilities=2"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/SimpleShader.graphics.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/SimpleShader.graphics.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=failed|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|validationDiagnostics.0.code=opengl.glslang-failed"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=1|validationDiagnostics=0"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=1"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FRAGMENT_FAILURE_DIR}/glslangValidator.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -l -S vert -DCROSSGL_STAGE_VERTEX=1"
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FRAGMENT_FAILURE_DIR}/glslangValidator.log

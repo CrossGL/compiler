@@ -74,6 +74,32 @@ def tools_with_role(instance, role):
     ]
 
 
+def is_opengl_planned_validation_failure(instance):
+    return (
+        instance["target"] == "opengl"
+        and instance["binaryKind"] == "opengl.source"
+        and instance.get("nativeBinaryStatus") == "planned"
+        and instance["validationStatus"] == "failed"
+    )
+
+
+def opengl_planned_validation_failure_tools_match(instance):
+    tools = [
+        tool
+        for tool in instance["toolchainProvenance"]["tools"]
+        if isinstance(tool, dict)
+    ]
+    generators = tools_with_role(instance, "generator")
+    validators = tools_with_role(instance, "validator")
+    return (
+        len(tools) == 2
+        and len(generators) == 1
+        and generators[0].get("name") == "CrossGL-Compiler"
+        and len(validators) == 1
+        and validators[0].get("name") == "glslangValidator"
+    )
+
+
 def validate_target_contract_alignment(errors):
     matrix_targets = set(TARGET_BINARY_KINDS)
     if matrix_targets != PACKAGE_TARGET_NAMES:
@@ -151,6 +177,15 @@ def validate_toolchain_roles(errors, instance):
                 "$.toolchainProvenance.tools: planned source-package "
                 "descriptors require a generator tool role"
             )
+        if is_opengl_planned_validation_failure(instance):
+            if not opengl_planned_validation_failure_tools_match(instance):
+                errors.append(
+                    "$.toolchainProvenance.tools: failed OpenGL planned "
+                    "source-package descriptors require exactly one generator "
+                    "named 'CrossGL-Compiler' and one validator named "
+                    "'glslangValidator'"
+                )
+            return
         unexpected_roles = sorted(roles - PLANNED_SOURCE_PACKAGE_ROLES)
         if unexpected_roles:
             errors.append(
@@ -234,7 +269,10 @@ def validate_native_binary_status(errors, instance):
                 "$.sizeBytes: planned source-package descriptors must not "
                 "declare sizeBytes"
             )
-        if validation_status != "unavailable":
+        if (
+            validation_status != "unavailable"
+            and not is_opengl_planned_validation_failure(instance)
+        ):
             errors.append(
                 "$.validationStatus: planned source-package descriptors require "
                 "validationStatus 'unavailable'"
