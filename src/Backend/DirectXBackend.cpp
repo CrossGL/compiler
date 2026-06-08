@@ -574,7 +574,12 @@ const HIRStruct *directxStructType(const HIRModule &module,
 }
 
 bool isDirectXGraphicsScalarFieldType(const HIRType &type) {
-  return !type.arraySize.has_value() && !hlslType(type).empty();
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string baseName = baseTypeName(type);
+  return baseName == "float" || baseName == "int" || baseName == "uint" ||
+         baseName == "bool" || isVectorType(baseName);
 }
 
 bool directxGraphicsStructSupported(const HIRStruct &structure) {

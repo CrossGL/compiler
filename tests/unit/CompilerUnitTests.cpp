@@ -22315,9 +22315,10 @@ void testScalarVectorFixtureTargetFeatureEvidence() {
     bool scalarComparison = false;
     bool scalarConstructor = false;
     bool vectorConstructor = false;
+    bool matrixConstructor = false;
   };
 
-  const std::array<FixtureFeatureCase, 8> cases = {{
+  const std::array<FixtureFeatureCase, 9> cases = {{
       {
           "ArithmeticComputeShader.cgl",
           R"(
@@ -22517,6 +22518,30 @@ shader Vector3BufferComputeShader {
           false,
           true,
       },
+      {
+          "MatrixConstructorComputeShader.cgl",
+          R"(
+shader MatrixConstructorComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    void main() {
+      mat2 transform = mat2(1.0, 0.0, 0.0, 1.0);
+      return;
+    }
+  }
+}
+)",
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+      },
   }};
 
   const std::array<crossgl::TargetKind, 4> targets = {
@@ -22542,6 +22567,16 @@ shader Vector3BufferComputeShader {
     expect(hir.has_value(), label + " scalar/vector feature source builds HIR");
     if (!hir) {
       continue;
+    }
+
+    if (testCase.matrixConstructor) {
+      expect(crossgl::openglTextualBackendSupported(*hir),
+             label + " OpenGL source package accepts local matrix "
+                     "constructors");
+      const std::string opengl = crossgl::generateOpenGLSource(*hir);
+      expect(opengl.find("mat2 transform = mat2(1.0, 0.0, 0.0, 1.0)") !=
+                 std::string::npos,
+             label + " OpenGL source emits GLSL matrix constructors");
     }
 
     for (crossgl::TargetKind target : targets) {
@@ -22579,6 +22614,8 @@ shader Vector3BufferComputeShader {
                        testCase.scalarConstructor);
       expectCapability("operation", "vector-constructor",
                        testCase.vectorConstructor);
+      expectCapability("operation", "matrix-constructor",
+                       testCase.matrixConstructor);
 
       const crossgl::ReflectionDocument reflection =
           crossgl::buildReflectionDocument(
@@ -22613,6 +22650,8 @@ shader Vector3BufferComputeShader {
                               testCase.scalarConstructor);
       expectReflectionFeature("operation", "vector-constructor",
                               testCase.vectorConstructor);
+      expectReflectionFeature("operation", "matrix-constructor",
+                              testCase.matrixConstructor);
 
       if (target == crossgl::TargetKind::DirectX ||
           target == crossgl::TargetKind::OpenGL) {
@@ -22644,6 +22683,8 @@ shader Vector3BufferComputeShader {
                               testCase.scalarConstructor);
         expectSourceSatisfied("operation", "vector-constructor",
                               testCase.vectorConstructor);
+        expectSourceSatisfied("operation", "matrix-constructor",
+                              testCase.matrixConstructor);
       }
     }
   }

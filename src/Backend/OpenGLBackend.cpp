@@ -82,7 +82,9 @@ std::string glslTypeName(std::string_view name) {
       name == "vec4" || name == "ivec2" || name == "ivec3" ||
       name == "ivec4" || name == "uvec2" || name == "uvec3" ||
       name == "uvec4" || name == "bvec2" || name == "bvec3" ||
-      name == "bvec4") {
+      name == "bvec4" || name == "mat2" || name == "mat3" ||
+      name == "mat4" || name == "mat2x2" || name == "mat3x3" ||
+      name == "mat4x4") {
     return std::string(name);
   }
   return "";
@@ -211,7 +213,8 @@ std::string glslStructFieldType(const HIRModule &module, const HIRType &type) {
 }
 
 bool glslStorageBufferScalarTypeSupported(std::string_view name) {
-  return !glslTypeName(name).empty();
+  return name == "float" || name == "int" || name == "uint" ||
+         name == "bool" || isVectorType(name);
 }
 
 bool openglStructStorageBufferElementSupported(const HIRModule &module,
@@ -602,7 +605,12 @@ const HIRField *findField(const HIRStruct &structure, std::string_view name) {
 }
 
 bool isOpenGLGraphicsScalarFieldType(const HIRType &type) {
-  return !type.arraySize.has_value() && !glslType(type).empty();
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string baseName = baseTypeName(type);
+  return baseName == "float" || baseName == "int" || baseName == "uint" ||
+         baseName == "bool" || isVectorType(baseName);
 }
 
 bool openGLGraphicsStructSupported(const HIRStruct &structure) {

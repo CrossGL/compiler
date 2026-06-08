@@ -487,6 +487,8 @@ void addExpressionCapabilities(
   case HIRExpressionKind::Constructor:
     if (isVectorTypeName(expression.type.name)) {
       collector.add("operation", "vector-constructor");
+    } else if (isMatrixTypeName(expression.type.name)) {
+      collector.add("operation", "matrix-constructor");
     } else if (isScalarTypeName(expression.type.name)) {
       collector.add("operation", "scalar-constructor");
     }
@@ -720,6 +722,7 @@ bool capabilitySatisfiedByTextualScaffold(
            capability.name == "select-expression" ||
            capability.name == "scalar-constructor" ||
            capability.name == "vector-constructor" ||
+           capability.name == "matrix-constructor" ||
            capability.name == "nonuniform-descriptor-index" ||
            capability.name ==
                "nonuniform-uniform-buffer-descriptor-index" ||
