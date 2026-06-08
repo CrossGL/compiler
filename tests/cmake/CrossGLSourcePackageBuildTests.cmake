@@ -1387,6 +1387,8 @@ set(CROSSGL_OPENGL_PARAM_ARRAY_WRITE_RESOURCE_FEATURE_FIELDS
     "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|fixed-array-field.kind=layout|storage-buffer.kind=resource|function-parameter-array.kind=array|scalar-vector-elements.kind=array|local-declaration.kind=operation|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation")
 set(CROSSGL_OPENGL_PARAM_ARRAY_WRITE_LOCAL_FEATURE_FIELDS
     "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|function-parameter-array.kind=array|scalar-vector-elements.kind=array|local-array.kind=array|index-access.kind=operation|scalar-arithmetic.kind=operation|local-declaration.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation")
+set(CROSSGL_OPENGL_PARAM_ARRAY_WRITE_ALIASED_LOCAL_FEATURE_FIELDS
+    "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|function-parameter-array.kind=array|scalar-vector-elements.kind=array|local-array.kind=array|index-access.kind=operation|local-declaration.kind=operation")
 set(CROSSGL_OPENGL_PARAM_ARRAY_VALIDATED_RESOURCE_FEATURE_FIELDS
     "native-glsl-package.kind=backend|glsl-program-validation.kind=validation|fixed-array.kind=layout|fixed-array-field.kind=layout|storage-buffer.kind=resource|local-declaration.kind=operation|index-access.kind=operation|storage-buffer-write.kind=operation")
 set(CROSSGL_OPENGL_PARAM_ARRAY_VALIDATED_LOCAL_FEATURE_FIELDS
@@ -6622,16 +6624,38 @@ add_test(NAME cglc_build_opengl_forwarded_function_parameter_array_write_source_
     -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
     ${CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_BINARY}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_aliased_function_parameter_array_write_planned_failure
+set(CROSSGL_OPENGL_ALIASED_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_blendAliased_left[COUNT];
+  for (int crossgl_param_array_writeback_0_blendAliased_left_i = 0; crossgl_param_array_writeback_0_blendAliased_left_i < COUNT; ++crossgl_param_array_writeback_0_blendAliased_left_i) {
+    crossgl_param_array_writeback_0_blendAliased_left[crossgl_param_array_writeback_0_blendAliased_left_i] = weights[crossgl_param_array_writeback_0_blendAliased_left_i];
+  }
+  float crossgl_param_array_writeback_1_result = blendAliased(crossgl_param_array_writeback_0_blendAliased_left, crossgl_param_array_writeback_0_blendAliased_left);
+  for (int crossgl_param_array_writeback_0_blendAliased_left_i = 0; crossgl_param_array_writeback_0_blendAliased_left_i < COUNT; ++crossgl_param_array_writeback_0_blendAliased_left_i) {
+    weights[crossgl_param_array_writeback_0_blendAliased_left_i] = crossgl_param_array_writeback_0_blendAliased_left[crossgl_param_array_writeback_0_blendAliased_left_i];
+  }
+  weights[1] = crossgl_param_array_writeback_1_result;]=])
+add_test(NAME cglc_build_opengl_aliased_function_parameter_array_write_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_OPENGL_ALIASED_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-aliased-function-parameter-array-write.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLAliasedFunctionParameterArrayWriteUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_ALIASED_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLAliasedFunctionParameterArrayWriteUnsupportedShader|functionConstants.0.name=COUNT|functionConstants.0.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_ALIASED_LOCAL_FEATURE_FIELDS}"
+    -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_opengl_nested_expression_function_parameter_array_write_planned_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-nested-expression-function-parameter-array-write.cglb
     -DMODE=planned-build-failure
     -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-write
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=blendAliased.left|message=aliased helper array"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=rewrite.weights|message=fixed-size local array copy"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_nested_function_parameter_array_write_source_package
   COMMAND ${CMAKE_COMMAND}

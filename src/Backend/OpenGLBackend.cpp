@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -1763,6 +1764,7 @@ struct OpenGLArrayWriteBackArgument {
 struct OpenGLArrayWriteBackRewrite {
   const HIRExpression *call = nullptr;
   std::vector<OpenGLArrayWriteBackArgument> arguments;
+  std::vector<std::pair<std::size_t, std::string>> argumentOverrides;
 };
 
 std::string openGLInternalIdentifierFragment(std::string_view value) {
@@ -1817,6 +1819,8 @@ const HIRExpression *openGLStatementDirectCallValue(
   return nullptr;
 }
 
+const HIRExpression *rootIdentifierExpression(const HIRExpression &expression);
+
 bool openGLForwardedFunctionParameterArrayCopyArgument(
     const HIRModule &module, const HIRFunction &caller,
     const HIRExpression &argument, const HIRStage *stage) {
@@ -1863,6 +1867,45 @@ bool openGLForwardedFunctionParameterArrayCopyArgument(
                          DirectResourceArrayArguments);
 }
 
+std::optional<std::string> openGLAliasedArrayCopyArgumentKey(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRExpression &argument, const HIRStage *stage) {
+  if (argument.kind != HIRExpressionKind::Identifier ||
+      !(openGLLocalArrayCopyArgument(module, caller, argument, stage) ||
+        openGLForwardedFunctionParameterArrayCopyArgument(module, caller,
+                                                          argument, stage))) {
+    return std::nullopt;
+  }
+  return argument.value;
+}
+
+bool openGLCallArgumentHasAliasedFixedArrayParameter(
+    const HIRModule &module, const HIRFunction &callee,
+    const HIRExpression &call, std::size_t parameterIndex) {
+  if (call.children.size() <= parameterIndex) {
+    return false;
+  }
+  const HIRExpression *writtenRoot =
+      rootIdentifierExpression(call.children[parameterIndex]);
+  if (writtenRoot == nullptr) {
+    return false;
+  }
+
+  for (std::size_t index = 0; index < callee.parameters.size(); ++index) {
+    if (index == parameterIndex || call.children.size() <= index ||
+        functionParameterArrayShape(module, callee.parameters[index].type) !=
+            HIRFunctionParameterArrayShape::FixedSize) {
+      continue;
+    }
+    const HIRExpression *otherRoot = rootIdentifierExpression(
+        call.children[index]);
+    if (otherRoot != nullptr && otherRoot->value == writtenRoot->value) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
     const HIRStatement &statement, const OpenGLEmitContext &context) {
   if (context.module == nullptr || context.hirStage == nullptr ||
@@ -1886,11 +1929,63 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
     return std::nullopt;
   }
 
+  std::map<std::string, std::size_t> aliasTemporaryByKey;
   for (std::size_t index = 0; index < callee->parameters.size(); ++index) {
     const HIRParameter &parameter = callee->parameters[index];
     if (writtenParameters.count(parameter.name) == 0 ||
-        index >= call->children.size() ||
-        !(openGLStorageBufferFieldArrayCopyArgument(
+        index >= call->children.size()) {
+      continue;
+    }
+
+    if (openGLCallArgumentHasAliasedFixedArrayParameter(*context.module,
+                                                        *callee, *call,
+                                                        index)) {
+      const std::optional<std::string> aliasKey =
+          openGLAliasedArrayCopyArgumentKey(
+              *context.module, *context.function, call->children[index],
+              context.hirStage);
+      if (!aliasKey.has_value()) {
+        continue;
+      }
+
+      std::size_t temporaryIndex = 0;
+      const auto existingTemporary = aliasTemporaryByKey.find(*aliasKey);
+      if (existingTemporary == aliasTemporaryByKey.end()) {
+        OpenGLArrayWriteBackArgument argument;
+        argument.argumentIndex = index;
+        argument.type = parameter.type;
+        argument.argument = &call->children[index];
+        argument.temporaryName =
+            openGLArrayWriteBackTemporaryName(*call, parameter, context);
+        temporaryIndex = rewrite.arguments.size();
+        aliasTemporaryByKey.emplace(*aliasKey, temporaryIndex);
+        rewrite.arguments.push_back(std::move(argument));
+      } else {
+        temporaryIndex = existingTemporary->second;
+      }
+
+      const std::string &temporaryName =
+          rewrite.arguments[temporaryIndex].temporaryName;
+      for (std::size_t aliasIndex = 0; aliasIndex < callee->parameters.size();
+           ++aliasIndex) {
+        if (aliasIndex >= call->children.size() ||
+            functionParameterArrayShape(
+                *context.module, callee->parameters[aliasIndex].type) !=
+                HIRFunctionParameterArrayShape::FixedSize) {
+          continue;
+        }
+        const std::optional<std::string> otherAliasKey =
+            openGLAliasedArrayCopyArgumentKey(
+                *context.module, *context.function, call->children[aliasIndex],
+                context.hirStage);
+        if (otherAliasKey.has_value() && *otherAliasKey == *aliasKey) {
+          rewrite.argumentOverrides.emplace_back(aliasIndex, temporaryName);
+        }
+      }
+      continue;
+    }
+
+    if (!(openGLStorageBufferFieldArrayCopyArgument(
               *context.module, *context.function, call->children[index],
               context.hirStage) ||
           openGLForwardedFunctionParameterArrayCopyArgument(
@@ -1904,6 +1999,8 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
     argument.argument = &call->children[index];
     argument.temporaryName =
         openGLArrayWriteBackTemporaryName(*call, parameter, context);
+    rewrite.argumentOverrides.emplace_back(argument.argumentIndex,
+                                           argument.temporaryName);
     rewrite.arguments.push_back(std::move(argument));
   }
 
@@ -1916,11 +2013,15 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
 std::vector<std::pair<std::size_t, std::string>>
 openGLArrayWriteBackArgumentOverrides(
     const OpenGLArrayWriteBackRewrite &rewrite) {
-  std::vector<std::pair<std::size_t, std::string>> overrides;
-  overrides.reserve(rewrite.arguments.size());
-  for (const OpenGLArrayWriteBackArgument &argument : rewrite.arguments) {
-    overrides.emplace_back(argument.argumentIndex, argument.temporaryName);
-  }
+  std::vector<std::pair<std::size_t, std::string>> overrides =
+      rewrite.argumentOverrides;
+  std::sort(overrides.begin(), overrides.end(),
+            [](const auto &left, const auto &right) {
+              return left.first < right.first ||
+                     (left.first == right.first && left.second < right.second);
+            });
+  overrides.erase(std::unique(overrides.begin(), overrides.end()),
+                  overrides.end());
   return overrides;
 }
 
@@ -2013,10 +2114,20 @@ void emitOpenGLStatementWithArrayWriteBack(
         << ";\n";
     break;
   case HIRStatementKind::Assignment:
-    out << spaces << emitExpression(statement.target, context) << " = "
-        << emitCallWithArgumentOverrides(*rewrite.call, context, overrides)
+  {
+    const std::string resultName =
+        "crossgl_param_array_writeback_" +
+        std::to_string(nextOpenGLTemporaryIndex(context)) + "_result";
+    out << spaces << glslDeclarator(*context.module, statement.value.type,
+                                    resultName)
+        << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                  overrides)
         << ";\n";
-    break;
+    emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+    out << spaces << emitExpression(statement.target, context) << " = "
+        << resultName << ";\n";
+    return;
+  }
   case HIRStatementKind::Expression:
     out << spaces << emitCallWithArgumentOverrides(*rewrite.call, context,
                                                    overrides)
@@ -3086,28 +3197,46 @@ bool openGLStorageBufferFieldArrayCopyArgument(const HIRModule &module,
 bool openGLFunctionParameterArrayWriteArgumentAliases(
     const HIRModule &module, const HIRFunction &function,
     const HIRExpression &call, std::size_t parameterIndex) {
-  if (call.children.size() <= parameterIndex) {
-    return false;
-  }
-  const HIRExpression *writtenRoot =
-      rootIdentifierExpression(call.children[parameterIndex]);
-  if (writtenRoot == nullptr) {
+  return openGLCallArgumentHasAliasedFixedArrayParameter(
+      module, function, call, parameterIndex);
+}
+
+bool openGLFunctionParameterArrayWriteAliasCallSupportedInContext(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRExpression &call,
+    std::size_t parameterIndex, const HIRStage *stage) {
+  const std::optional<std::string> writtenAliasKey =
+      openGLAliasedArrayCopyArgumentKey(module, caller,
+                                        call.children[parameterIndex], stage);
+  if (!writtenAliasKey.has_value()) {
     return false;
   }
 
-  for (std::size_t index = 0; index < function.parameters.size(); ++index) {
+  bool foundAlias = false;
+  for (std::size_t index = 0; index < callee.parameters.size(); ++index) {
     if (index == parameterIndex || call.children.size() <= index ||
-        functionParameterArrayShape(module, function.parameters[index].type) !=
+        functionParameterArrayShape(module, callee.parameters[index].type) !=
             HIRFunctionParameterArrayShape::FixedSize) {
       continue;
     }
+    const std::optional<std::string> otherAliasKey =
+        openGLAliasedArrayCopyArgumentKey(module, caller, call.children[index],
+                                          stage);
+    if (otherAliasKey.has_value() && *otherAliasKey == *writtenAliasKey) {
+      foundAlias = true;
+      continue;
+    }
+
+    const HIRExpression *writtenRoot =
+        rootIdentifierExpression(call.children[parameterIndex]);
     const HIRExpression *otherRoot = rootIdentifierExpression(
         call.children[index]);
-    if (otherRoot != nullptr && otherRoot->value == writtenRoot->value) {
-      return true;
+    if (writtenRoot != nullptr && otherRoot != nullptr &&
+        otherRoot->value == writtenRoot->value) {
+      return false;
     }
   }
-  return false;
+  return foundAlias;
 }
 
 bool openGLFunctionParameterArrayWriteCallSupportedInContext(
@@ -3115,10 +3244,14 @@ bool openGLFunctionParameterArrayWriteCallSupportedInContext(
     const HIRFunction &callee, const HIRExpression &call,
     std::size_t parameterIndex, const HIRStage *stage,
     bool allowStorageBufferFieldWriteBack) {
-  if (call.children.size() <= parameterIndex ||
-      openGLFunctionParameterArrayWriteArgumentAliases(
-          module, callee, call, parameterIndex)) {
+  if (call.children.size() <= parameterIndex) {
     return false;
+  }
+  if (openGLFunctionParameterArrayWriteArgumentAliases(
+          module, callee, call, parameterIndex)) {
+    return allowStorageBufferFieldWriteBack &&
+           openGLFunctionParameterArrayWriteAliasCallSupportedInContext(
+               module, caller, callee, call, parameterIndex, stage);
   }
   if (openGLLocalArrayCopyArgument(module, caller,
                                    call.children[parameterIndex], stage)) {
