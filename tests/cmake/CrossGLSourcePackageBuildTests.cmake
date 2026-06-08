@@ -1615,6 +1615,23 @@ add_test(NAME cglc_build_directx_matrix_storage_buffer_source_package
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=transforms.sourceType=mat4*|transforms.hlslType=RWStructuredBuffer<float4x4>|transforms.bindingClass=uav|transforms.descriptorType=UAV|transforms.argumentIndex=0|transforms.set=0|transforms.binding=0|values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=1|values.set=0|values.binding=1"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_MATRIX_STORAGE_BUFFER_SOURCE_SNIPPET [=[mat4 transform = transforms[0];
+  transforms[1] = transform;
+  values[0] = 1.0;]=])
+add_test(NAME cglc_build_opengl_matrix_storage_buffer_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_MATRIX_STORAGE_BUFFER_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-matrix-storage-buffer-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLMatrixStorageBufferShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_MATRIX_STORAGE_BUFFER_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLMatrixStorageBufferShader|nativeBinary=backend/opengl/OpenGLMatrixStorageBufferShader.glsl|resources.0.name=transforms|resources.0.kind=buffer|resources.0.type=mat4*|resources.1.name=values|resources.1.kind=buffer|resources.1.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=transforms.sourceType=mat4*|transforms.bindingClass=storage-buffer|transforms.argumentIndex=0|transforms.set=0|transforms.binding=0|transforms.storageBufferLayout.elementType=mat4|transforms.storageBufferLayout.elementSizeBytes=64|transforms.storageBufferLayout.arrayStrideBytes=64|transforms.storageBufferLayout.alignmentBytes=16|transforms.storageBufferLayout.layout=std430|values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=1|values.set=0|values.binding=1|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET [=[float3 columnProduct = mul(transform, source);
   float3 rowProduct = mul(source, transform);
   float3x3 composed = mul(transform, basis);

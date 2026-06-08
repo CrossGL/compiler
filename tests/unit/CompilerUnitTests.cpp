@@ -24513,8 +24513,8 @@ shader OpenGLSourcePredicateSupportedShader {
   constexpr std::string_view storageBufferElementSource = R"(
 shader OpenGLSourcePredicateUnsupportedStorageElementShader {
   struct Particle {
+    double transform;
     float mass;
-    mat2 transform;
   }
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -38692,8 +38692,8 @@ void testOpenGLStorageBufferElementTypeUnsupportedDiagnostic() {
   constexpr std::string_view source = R"(
 shader OpenGLStructBufferUnsupportedShader {
   struct Particle {
+    double transform;
     float mass;
-    mat2 transform;
   }
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -39468,6 +39468,112 @@ shader DirectXStructMatrixStorageBufferShader {
              structDirectX.find("transforms[1].matrix = transforms[0].matrix;") !=
                  std::string::npos,
          "DirectX backend emits struct storage buffers with matrix fields");
+}
+
+void testOpenGLMatrixStorageBufferGLSL() {
+  constexpr std::string_view source = R"(
+shader OpenGLMatrixStorageBufferShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer mat4* transforms;
+    layout(set = 0, binding = 1) buffer float* values;
+    void main() {
+      mat4 transform = transforms[0];
+      transforms[1] = transform;
+      values[0] = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "OpenGL matrix storage-buffer source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::openglTextualBackendSupported(*hir),
+         "OpenGL source package supports matrix storage-buffer elements");
+  expect(!crossgl::openglHasUnsupportedStorageBufferElementType(*hir),
+         "OpenGL matrix storage-buffer element gate accepts mat4 buffers");
+
+  const std::string opengl = crossgl::generateOpenGLSource(*hir);
+  expect(opengl.find("layout(binding = 0, std430) buffer transforms_Buffer") !=
+                 std::string::npos &&
+             opengl.find("  mat4 transforms[];") != std::string::npos &&
+             opengl.find("layout(binding = 1, std430) buffer values_Buffer") !=
+                 std::string::npos &&
+             opengl.find("  float values[];") != std::string::npos,
+         "OpenGL backend emits matrix storage-buffer resources");
+  expect(opengl.find("mat4 transform = transforms[0];") != std::string::npos &&
+             opengl.find("transforms[1] = transform;") != std::string::npos &&
+             opengl.find("values[0] = 1.0;") != std::string::npos,
+         "OpenGL backend reads and writes matrix storage-buffer values");
+
+  const crossgl::ReflectionDocument reflection =
+      crossgl::buildReflectionDocument(
+          *hir, crossgl::TargetKind::OpenGL,
+          "/tmp/OpenGLMatrixStorageBufferShader.glsl");
+  const crossgl::ReflectionTargetResourceBinding *transforms =
+      findTargetResourceBinding(reflection, "transforms");
+  expect(transforms != nullptr && transforms->storageBufferLayout.has_value() &&
+             transforms->storageBufferLayout->layout == "std430" &&
+             transforms->storageBufferLayout->elementType == "mat4" &&
+             transforms->storageBufferLayout->elementSizeBytes == 64 &&
+             transforms->storageBufferLayout->arrayStrideBytes == 64 &&
+             transforms->storageBufferLayout->alignmentBytes == 16,
+         "OpenGL reflection records matrix storage-buffer std430 ABI");
+
+  const std::vector<crossgl::TargetCapability> openglMissing =
+      crossgl::missingTargetCapabilities(*hir, crossgl::TargetKind::OpenGL);
+  expect(!hasCapability(openglMissing, crossgl::TargetKind::OpenGL, "backend",
+                        "glsl-lowering") &&
+             !hasCapability(openglMissing, crossgl::TargetKind::OpenGL,
+                            "diagnostic",
+                            "opengl.unsupported-storage-buffer-element-type"),
+         "OpenGL matrix storage-buffer source satisfies GLSL and diagnostic "
+         "capabilities");
+
+  constexpr std::string_view structSource = R"(
+shader OpenGLStructMatrixStorageBufferShader {
+  struct Transform {
+    mat4 matrix;
+    float weight;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Transform* transforms;
+    void main() {
+      transforms[1].matrix = transforms[0].matrix;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> structHir = parseHIR(structSource);
+  expect(structHir.has_value(),
+         "OpenGL struct matrix storage-buffer source builds HIR");
+  if (!structHir) {
+    return;
+  }
+
+  expect(crossgl::openglTextualBackendSupported(*structHir),
+         "OpenGL source package supports matrix fields in storage-buffer "
+         "structs");
+  const std::string structOpenGL = crossgl::generateOpenGLSource(*structHir);
+  expect(structOpenGL.find("struct Transform") != std::string::npos &&
+             structOpenGL.find("  mat4 matrix;") != std::string::npos &&
+             structOpenGL.find(
+                 "layout(binding = 0, std430) buffer transforms_Buffer") !=
+                 std::string::npos &&
+             structOpenGL.find("  Transform transforms[];") !=
+                 std::string::npos &&
+             structOpenGL.find(
+                 "transforms[1].matrix = transforms[0].matrix;") !=
+                 std::string::npos,
+         "OpenGL backend emits struct storage buffers with matrix fields");
 }
 
 void testDirectXFoldedNestedFunctionParameterArrayHLSL() {
@@ -52003,6 +52109,7 @@ int main() {
   testDirectXMatrixFunctionParameterArrayHLSL();
   testDirectXMatrixConstructorHLSL();
   testDirectXMatrixStorageBufferHLSL();
+  testOpenGLMatrixStorageBufferGLSL();
   testDirectXFoldedNestedFunctionParameterArrayHLSL();
   testDirectXNestedLocalFunctionParameterArrayHLSL();
   testDirectXFunctionParameterArrayUnsupportedDiagnostics();

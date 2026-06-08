@@ -257,7 +257,7 @@ std::string glslStructFieldType(const HIRModule &module, const HIRType &type) {
 
 bool glslStorageBufferScalarTypeSupported(std::string_view name) {
   return name == "float" || name == "int" || name == "uint" ||
-         name == "bool" || isVectorType(name);
+         name == "bool" || isVectorType(name) || isMatrixType(name);
 }
 
 bool openglStructStorageBufferElementSupported(const HIRModule &module,
@@ -3433,8 +3433,8 @@ bool diagnoseOpenGLUnsupportedStorageBufferElementType(
       "OpenGL source package does not yet support storage-buffer element "
       "type(s): " +
           joinNames(elementTypes) +
-          "; supported storage-buffer elements are scalar/vector types, "
-          "structs with scalar/vector leaf fields, and direct final "
+          "; supported storage-buffer elements are scalar/vector/matrix types, "
+          "structs with scalar/vector/matrix leaf fields, and direct final "
           "runtime-array tail fields on singleton storage-buffer blocks");
   return true;
 }
