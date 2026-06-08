@@ -1,4 +1,4 @@
-shader VulkanFunctionParameterResourceArrayUnsupportedShader {
+shader VulkanFunctionParameterResourceArrayShader {
   const int COUNT = 2;
 
   compute {

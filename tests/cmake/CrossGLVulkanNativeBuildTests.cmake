@@ -2552,6 +2552,24 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_SNIPPET=OpIEqual %bool %param_readDynamicRow_row %const_int__1"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_function_parameter_resource_array_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_FUNCTION_PARAMETER_RESOURCE_ARRAY_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-function-parameter-resource-array-native.cglb
+      -DEXPECTED_MODULE=VulkanFunctionParameterResourceArrayShader
+      -DEXPECTED_STORAGE_ELEMENT=vec4
+      -DEXPECTED_STORAGE_STRIDE=16
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanFunctionParameterResourceArrayShader|artifacts.backendAssembly=backend/vulkan/VulkanFunctionParameterResourceArrayShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanFunctionParameterResourceArrayShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanFunctionParameterResourceArrayShader|nativeBinary=backend/vulkan/VulkanFunctionParameterResourceArrayShader.spv|resources.0.name=values|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.2.name=linearSamplers|resources.2.kind=sampler|resources.2.type=sampler[COUNT]|workgroupSizes.0.entryPoint=compute_main|functionConstants.0.name=COUNT|functionConstants.0.value=2"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|functionConstants=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|colorMaps.sourceType=sampler2D[COUNT]|colorMaps.bindingClass=sampledImage|colorMaps.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE|colorMaps.storageClass=UniformConstant|colorMaps.arrayElementCount=2|linearSamplers.sourceType=sampler[COUNT]|linearSamplers.bindingClass=sampler|linearSamplers.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLER|linearSamplers.storageClass=UniformConstant|linearSamplers.arrayElementCount=2"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|descriptor-array.kind=resource|sampled-texture.kind=resource|sampler-state.kind=resource|texture-sample.kind=operation|texture-explicit-lod.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      "-DEXPECTED_SPVASM_SNIPPET=%func_sampleFirst = OpFunction %vec4 None %fn_vec4__"
+      "-DEXPECTED_SPVASM_CONTAINS=OpAccessChain %ptr_UniformConstant_sampledImage_sampler2D %resource_colorMaps %const_int__0|OpAccessChain %ptr_UniformConstant_sampler_sampler %resource_linearSamplers %const_int__0|OpFunctionCall %vec4 %func_sampleFirst"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_storage_image_read_write_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>

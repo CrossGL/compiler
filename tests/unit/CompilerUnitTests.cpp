@@ -40478,6 +40478,73 @@ shader OpenGLFunctionParameterArrayWriteShader {
            "promising caller write-through");
   }
 
+  constexpr std::string_view storageWriteThroughSource = R"(
+shader OpenGLFunctionParameterArrayWriteThroughShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float rewriteWeight(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      float value = rewriteWeight(particles[0].weights);
+      particles[1].weights[0] = value;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> storageWriteThroughHir =
+      parseHIR(storageWriteThroughSource);
+  expect(storageWriteThroughHir.has_value(),
+         "OpenGL storage helper array write-through source builds HIR");
+  if (storageWriteThroughHir) {
+    expect(crossgl::openglTextualBackendSupported(*storageWriteThroughHir),
+           "OpenGL supports direct storage-buffer field array helper "
+           "write-through via local copy lowering");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayWrite(
+               *storageWriteThroughHir),
+           "OpenGL helper array write gate accepts direct storage-buffer field "
+           "write-through calls");
+
+    crossgl::DiagnosticEngine storageWriteDiagnostics;
+    expect(!crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayWrite(
+               *storageWriteThroughHir, storageWriteDiagnostics) &&
+               storageWriteDiagnostics.diagnostics().empty(),
+           "OpenGL helper array write diagnostic stays silent for lowered "
+           "storage-buffer field write-through calls");
+
+    const std::string storageWriteOpenGL =
+        crossgl::generateOpenGLSource(*storageWriteThroughHir);
+    expect(storageWriteOpenGL.find(
+               "float crossgl_param_array_writeback_0_rewriteWeight_weights"
+               "[COUNT];") != std::string::npos &&
+               storageWriteOpenGL.find(
+                   "crossgl_param_array_writeback_0_rewriteWeight_weights"
+                   "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] "
+                   "= particles[0].weights"
+                   "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];") !=
+                   std::string::npos &&
+               storageWriteOpenGL.find(
+                   "float value = rewriteWeight("
+                   "crossgl_param_array_writeback_0_rewriteWeight_weights);") !=
+                   std::string::npos &&
+               storageWriteOpenGL.find(
+                   "particles[0].weights"
+                   "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] "
+                   "= crossgl_param_array_writeback_0_rewriteWeight_weights"
+                   "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];") !=
+                   std::string::npos,
+           "OpenGL backend emits copy-in, rewritten helper call, and copy-out "
+           "for storage-buffer field array write-through");
+  }
+
   constexpr std::string_view nestedWriteThroughSource = R"(
 shader OpenGLNestedFunctionParameterArrayWriteShader {
   const int ROWS = 2;
@@ -40693,7 +40760,7 @@ shader VulkanFunctionParameterArrayShader {
          "arguments");
 
   constexpr std::string_view resourceArraySource = R"(
-shader VulkanFunctionParameterResourceArrayUnsupportedShader {
+shader VulkanFunctionParameterResourceArrayShader {
   const int COUNT = 2;
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -40721,15 +40788,69 @@ shader VulkanFunctionParameterResourceArrayUnsupportedShader {
     const std::string resourceArrayAssembly =
         crossgl::generateVulkanPrototypeAssembly(*resourceArrayHir,
                                                  resourceArrayDiagnostics);
-    expect(resourceArrayAssembly.empty(),
-           "Vulkan prototype does not emit assembly for unsupported direct "
-           "resource-array helper arguments");
+    expect(!resourceArrayDiagnostics.hasErrors(),
+           "Vulkan prototype lowers fixed sampled resource-array helper "
+           "arguments without diagnostics");
+    expect(resourceArrayAssembly.find(
+               "%func_sampleFirst = OpFunction %vec4 None %fn_vec4__") !=
+               std::string::npos &&
+               resourceArrayAssembly.find(
+                   "%param_sampleFirst_maps = OpFunctionParameter") ==
+                   std::string::npos &&
+               resourceArrayAssembly.find(
+                   "%param_sampleFirst_samplers = OpFunctionParameter") ==
+                   std::string::npos &&
+               resourceArrayAssembly.find(
+                   "OpAccessChain %ptr_UniformConstant_sampledImage_sampler2D "
+                   "%resource_colorMaps %const_int__0") != std::string::npos &&
+               resourceArrayAssembly.find(
+                   "OpAccessChain %ptr_UniformConstant_sampler_sampler "
+                   "%resource_linearSamplers %const_int__0") !=
+                   std::string::npos &&
+               resourceArrayAssembly.find(
+                   "OpFunctionCall %vec4 %func_sampleFirst\n") !=
+                   std::string::npos,
+           "Vulkan prototype erases sampled resource-array helper parameters "
+           "and aliases helper indexing to original descriptors");
+  }
+
+  constexpr std::string_view dynamicResourceArrayIndexSource = R"(
+shader VulkanFunctionParameterResourceArrayDynamicIndexShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[COUNT];
+    layout(set = 0, binding = 5) sampler linearSamplers[COUNT];
+    vec4 sampleAt(sampler2D maps[COUNT], sampler samplers[COUNT], int index) {
+      return textureLod(maps[index], samplers[0], vec2(0.5, 0.5), 0.0);
+    }
+    void main() {
+      vec4 color = sampleAt(colorMaps, linearSamplers, 0);
+      values[0] = color;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicResourceArrayIndexHir =
+      parseHIR(dynamicResourceArrayIndexSource);
+  expect(dynamicResourceArrayIndexHir.has_value(),
+         "Vulkan resource-array dynamic-index fixture builds HIR");
+  if (dynamicResourceArrayIndexHir) {
+    crossgl::DiagnosticEngine dynamicDiagnostics;
+    const std::string dynamicAssembly =
+        crossgl::generateVulkanPrototypeAssembly(*dynamicResourceArrayIndexHir,
+                                                 dynamicDiagnostics);
+    expect(dynamicAssembly.empty(),
+           "Vulkan prototype rejects dynamic helper resource-array indices");
     expect(hasDiagnosticMessageFragment(
-               resourceArrayDiagnostics.diagnostics(),
-               "vulkan.prototype-unsupported-function-parameter-array",
-               "direct-resource-array-arguments=unsupported"),
-           "Vulkan prototype diagnostic names direct resource-array helper "
-           "arguments");
+               dynamicDiagnostics.diagnostics(),
+               "vulkan.prototype-unsupported-function-parameter-resource-array",
+               "requires literal or folded constant indices"),
+           "Vulkan prototype diagnostic names dynamic helper resource-array "
+           "indices");
   }
 }
 

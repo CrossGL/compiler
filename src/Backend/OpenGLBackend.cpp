@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -192,6 +193,21 @@ std::string glslFunctionParameterValueType(const HIRModule &module,
 
 std::string glslArraySuffix(const HIRType &type) {
   return type.arraySize.has_value() ? "[" + *type.arraySize + "]" : "";
+}
+
+std::vector<std::string_view> openGLArrayDimensions(std::string_view arraySize) {
+  std::vector<std::string_view> dimensions;
+  std::size_t begin = 0;
+  while (begin <= arraySize.size()) {
+    const std::size_t separator = arraySize.find("][", begin);
+    if (separator == std::string_view::npos) {
+      dimensions.push_back(arraySize.substr(begin));
+      break;
+    }
+    dimensions.push_back(arraySize.substr(begin, separator - begin));
+    begin = separator + 2;
+  }
+  return dimensions;
 }
 
 bool isSupportedFunctionValueType(const HIRModule &module,
@@ -1008,6 +1024,8 @@ unsupportedOpenGLRuntimeTailBlockIndexLabels(const HIRModule &module) {
 
 struct OpenGLEmitContext {
   const HIRModule *module = nullptr;
+  const HIRStage *hirStage = nullptr;
+  const HIRFunction *function = nullptr;
   const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr;
   std::string stage;
   std::string backendEntryPoint;
@@ -1018,10 +1036,22 @@ struct OpenGLEmitContext {
   std::set<std::string> combinedShadowCompareLodSamplers;
   std::unordered_map<std::string, std::string> identifierRemaps;
   std::set<std::string> localIdentifiers;
+  std::shared_ptr<std::size_t> nextTemporaryIndex;
 };
 
 std::string emitExpression(const HIRExpression &expression,
                            const OpenGLEmitContext &context);
+std::set<std::string>
+writtenOpenGLFunctionParameterArrayNames(const HIRModule &module,
+                                         const HIRFunction &function);
+bool openGLLocalArrayCopyArgument(const HIRModule &module,
+                                  const HIRFunction &caller,
+                                  const HIRExpression &argument,
+                                  const HIRStage *stage);
+bool openGLStorageBufferFieldArrayCopyArgument(const HIRModule &module,
+                                               const HIRFunction &caller,
+                                               const HIRExpression &argument,
+                                               const HIRStage *stage);
 
 bool isOpenGLWorkgroupBarrierCallName(std::string_view name) {
   return name == "workgroupBarrier" || name == "barrier";
@@ -1250,6 +1280,7 @@ void collectOpenGLIdentifierRemaps(const HIRStatement &statement,
 OpenGLEmitContext makeOpenGLFunctionEmitContext(
     const OpenGLEmitContext &baseContext, const HIRFunction &function) {
   OpenGLEmitContext context = baseContext;
+  context.function = &function;
   context.localIdentifiers = openGLFunctionLocalIdentifiers(function);
   for (const HIRParameter &parameter : function.parameters) {
     registerOpenGLIdentifierRemap(context, parameter.name);
@@ -1272,8 +1303,33 @@ std::string emitFieldName(std::string_view name,
   return emitIdentifierName(name, context);
 }
 
-std::string emitCall(const HIRExpression &expression,
-                     const OpenGLEmitContext &context) {
+const HIRFunction *findOpenGLEmitFunction(const OpenGLEmitContext &context,
+                                          std::string_view name) {
+  if (context.hirStage == nullptr) {
+    return nullptr;
+  }
+  for (const HIRFunction &function : context.hirStage->functions) {
+    if (function.name == name) {
+      return &function;
+    }
+  }
+  return nullptr;
+}
+
+std::optional<std::string> openGLCallArgumentOverride(
+    std::size_t index,
+    const std::vector<std::pair<std::size_t, std::string>> &overrides) {
+  for (const auto &[overrideIndex, value] : overrides) {
+    if (overrideIndex == index) {
+      return value;
+    }
+  }
+  return std::nullopt;
+}
+
+std::string emitCallWithArgumentOverrides(
+    const HIRExpression &expression, const OpenGLEmitContext &context,
+    const std::vector<std::pair<std::size_t, std::string>> &overrides) {
   if (isOpenGLWorkgroupBarrierCall(expression)) {
     return "barrier()";
   }
@@ -1290,7 +1346,12 @@ std::string emitCall(const HIRExpression &expression,
       if (index != 0) {
         out << ", ";
       }
-      out << emitExpression(expression.children[index], context);
+      if (const std::optional<std::string> override =
+              openGLCallArgumentOverride(index, overrides)) {
+        out << *override;
+      } else {
+        out << emitExpression(expression.children[index], context);
+      }
     }
     out << ")";
     return out.str();
@@ -1301,10 +1362,20 @@ std::string emitCall(const HIRExpression &expression,
     if (index != 0) {
       out << ", ";
     }
-    out << emitExpression(expression.children[index], context);
+    if (const std::optional<std::string> override =
+            openGLCallArgumentOverride(index, overrides)) {
+      out << *override;
+    } else {
+      out << emitExpression(expression.children[index], context);
+    }
   }
   out << ")";
   return out.str();
+}
+
+std::string emitCall(const HIRExpression &expression,
+                     const OpenGLEmitContext &context) {
+  return emitCallWithArgumentOverrides(expression, context, {});
 }
 
 struct OpenGLTextureSampleOperands {
@@ -1682,10 +1753,226 @@ std::string emitForUpdate(const HIRStatement &statement,
                                                         context);
 }
 
+struct OpenGLArrayWriteBackArgument {
+  std::size_t argumentIndex = 0;
+  HIRType type;
+  const HIRExpression *argument = nullptr;
+  std::string temporaryName;
+};
+
+struct OpenGLArrayWriteBackRewrite {
+  const HIRExpression *call = nullptr;
+  std::vector<OpenGLArrayWriteBackArgument> arguments;
+};
+
+std::string openGLInternalIdentifierFragment(std::string_view value) {
+  std::string fragment;
+  fragment.reserve(value.size());
+  for (const char character : value) {
+    const bool alnum =
+        (character >= 'a' && character <= 'z') ||
+        (character >= 'A' && character <= 'Z') ||
+        (character >= '0' && character <= '9');
+    fragment.push_back(alnum ? character : '_');
+  }
+  return fragment.empty() ? "value" : fragment;
+}
+
+std::size_t nextOpenGLTemporaryIndex(const OpenGLEmitContext &context) {
+  if (context.nextTemporaryIndex == nullptr) {
+    return 0;
+  }
+  const std::size_t index = *context.nextTemporaryIndex;
+  ++(*context.nextTemporaryIndex);
+  return index;
+}
+
+std::string openGLArrayWriteBackTemporaryName(
+    const HIRExpression &call, const HIRParameter &parameter,
+    const OpenGLEmitContext &context) {
+  return "crossgl_param_array_writeback_" +
+         std::to_string(nextOpenGLTemporaryIndex(context)) + "_" +
+         openGLInternalIdentifierFragment(call.value) + "_" +
+         openGLInternalIdentifierFragment(parameter.name);
+}
+
+const HIRExpression *openGLStatementDirectCallValue(
+    const HIRStatement &statement) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+  case HIRStatementKind::Assignment:
+  case HIRStatementKind::Expression:
+    return statement.value.kind == HIRExpressionKind::Call ? &statement.value
+                                                           : nullptr;
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    return nullptr;
+  }
+  return nullptr;
+}
+
+std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
+    const HIRStatement &statement, const OpenGLEmitContext &context) {
+  if (context.module == nullptr || context.hirStage == nullptr ||
+      context.function == nullptr) {
+    return std::nullopt;
+  }
+  const HIRExpression *call = openGLStatementDirectCallValue(statement);
+  if (call == nullptr) {
+    return std::nullopt;
+  }
+  const HIRFunction *callee = findOpenGLEmitFunction(context, call->value);
+  if (callee == nullptr || call->children.size() != callee->parameters.size()) {
+    return std::nullopt;
+  }
+
+  OpenGLArrayWriteBackRewrite rewrite;
+  rewrite.call = call;
+  const std::set<std::string> writtenParameters =
+      writtenOpenGLFunctionParameterArrayNames(*context.module, *callee);
+  if (writtenParameters.empty()) {
+    return std::nullopt;
+  }
+
+  for (std::size_t index = 0; index < callee->parameters.size(); ++index) {
+    const HIRParameter &parameter = callee->parameters[index];
+    if (writtenParameters.count(parameter.name) == 0 ||
+        index >= call->children.size() ||
+        !openGLStorageBufferFieldArrayCopyArgument(
+            *context.module, *context.function, call->children[index],
+            context.hirStage)) {
+      continue;
+    }
+    OpenGLArrayWriteBackArgument argument;
+    argument.argumentIndex = index;
+    argument.type = parameter.type;
+    argument.argument = &call->children[index];
+    argument.temporaryName =
+        openGLArrayWriteBackTemporaryName(*call, parameter, context);
+    rewrite.arguments.push_back(std::move(argument));
+  }
+
+  if (rewrite.arguments.empty()) {
+    return std::nullopt;
+  }
+  return rewrite;
+}
+
+std::vector<std::pair<std::size_t, std::string>>
+openGLArrayWriteBackArgumentOverrides(
+    const OpenGLArrayWriteBackRewrite &rewrite) {
+  std::vector<std::pair<std::size_t, std::string>> overrides;
+  overrides.reserve(rewrite.arguments.size());
+  for (const OpenGLArrayWriteBackArgument &argument : rewrite.arguments) {
+    overrides.emplace_back(argument.argumentIndex, argument.temporaryName);
+  }
+  return overrides;
+}
+
+void emitOpenGLArrayElementCopyLoop(std::ostringstream &out,
+                                    std::string_view destination,
+                                    std::string_view source,
+                                    const HIRType &type,
+                                    std::size_t indentation,
+                                    std::string_view indexName) {
+  if (!type.arraySize.has_value()) {
+    return;
+  }
+  const std::vector<std::string_view> dimensions =
+      openGLArrayDimensions(*type.arraySize);
+  if (dimensions.size() != 1) {
+    return;
+  }
+  const std::string spaces(indentation, ' ');
+  const std::string innerSpaces(indentation + 2, ' ');
+  out << spaces << "for (int " << indexName << " = 0; " << indexName
+      << " < " << dimensions.front() << "; ++" << indexName << ") {\n";
+  out << innerSpaces << destination << "[" << indexName << "] = " << source
+      << "[" << indexName << "];\n";
+  out << spaces << "}\n";
+}
+
+void emitOpenGLArrayWriteBackCopiesBefore(
+    std::ostringstream &out, const OpenGLArrayWriteBackRewrite &rewrite,
+    std::size_t indentation, const OpenGLEmitContext &context) {
+  const std::string spaces(indentation, ' ');
+  for (const OpenGLArrayWriteBackArgument &argument : rewrite.arguments) {
+    out << spaces << glslDeclarator(*context.module, argument.type,
+                                    argument.temporaryName)
+        << ";\n";
+    const std::string source = emitExpression(*argument.argument, context);
+    emitOpenGLArrayElementCopyLoop(out, argument.temporaryName, source,
+                                   argument.type, indentation,
+                                   argument.temporaryName + "_i");
+  }
+}
+
+void emitOpenGLArrayWriteBackCopiesAfter(
+    std::ostringstream &out, const OpenGLArrayWriteBackRewrite &rewrite,
+    std::size_t indentation, const OpenGLEmitContext &context) {
+  for (const OpenGLArrayWriteBackArgument &argument : rewrite.arguments) {
+    const std::string destination = emitExpression(*argument.argument, context);
+    emitOpenGLArrayElementCopyLoop(out, destination, argument.temporaryName,
+                                   argument.type, indentation,
+                                   argument.temporaryName + "_i");
+  }
+}
+
+void emitOpenGLStatementWithArrayWriteBack(
+    std::ostringstream &out, const HIRStatement &statement,
+    std::size_t indentation, const OpenGLEmitContext &context,
+    const OpenGLArrayWriteBackRewrite &rewrite) {
+  const std::string spaces(indentation, ' ');
+  const std::vector<std::pair<std::size_t, std::string>> overrides =
+      openGLArrayWriteBackArgumentOverrides(rewrite);
+  emitOpenGLArrayWriteBackCopiesBefore(out, rewrite, indentation, context);
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    out << spaces << glslDeclarator(*context.module, statement.declaredType,
+                                    emitIdentifierName(statement.name, context))
+        << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                  overrides)
+        << ";\n";
+    break;
+  case HIRStatementKind::Assignment:
+    out << spaces << emitExpression(statement.target, context) << " = "
+        << emitCallWithArgumentOverrides(*rewrite.call, context, overrides)
+        << ";\n";
+    break;
+  case HIRStatementKind::Expression:
+    out << spaces << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                   overrides)
+        << ";\n";
+    break;
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    break;
+  }
+  emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+}
+
 void emitStatement(std::ostringstream &out, const HIRStatement &statement,
                    std::size_t indentation,
                    const OpenGLEmitContext &context) {
   const std::string spaces(indentation, ' ');
+  if (const std::optional<OpenGLArrayWriteBackRewrite> rewrite =
+          openGLArrayWriteBackRewrite(statement, context)) {
+    emitOpenGLStatementWithArrayWriteBack(out, statement, indentation, context,
+                                          *rewrite);
+    return;
+  }
   switch (statement.kind) {
   case HIRStatementKind::Declaration:
     out << spaces << glslDeclarator(*context.module, statement.declaredType,
@@ -2668,6 +2955,42 @@ bool openGLLocalArrayCopyArgument(const HIRModule &module,
                            DirectResourceArrayArguments);
 }
 
+bool openGLStorageBufferFieldArrayCopyArgument(const HIRModule &module,
+                                               const HIRFunction &caller,
+                                               const HIRExpression &argument,
+                                               const HIRStage *stage) {
+  if (functionParameterArrayShape(module, argument.type) !=
+          HIRFunctionParameterArrayShape::FixedSize ||
+      !argument.type.arraySize.has_value() ||
+      openGLArrayDimensions(*argument.type.arraySize).size() != 1) {
+    return false;
+  }
+
+  const std::vector<HIRFunctionParameterArrayCallFeature> features =
+      functionParameterArrayCallArgumentFeatures(module, caller, argument,
+                                                 stage);
+  if (openGLFunctionParameterArrayCallFeaturesSupport(module, argument.type,
+                                                      features) !=
+      HIRFunctionParameterArrayCallFeatureSupport::Supported) {
+    return false;
+  }
+  return openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           StorageBufferFieldArguments) &&
+         !openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           LocalArrayArguments) &&
+         !openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           FunctionParameterArguments) &&
+         !openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           NestedStructFieldArguments) &&
+         !openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           DirectResourceArrayArguments);
+}
+
 bool openGLFunctionParameterArrayWriteArgumentAliases(
     const HIRModule &module, const HIRFunction &function,
     const HIRExpression &call, std::size_t parameterIndex) {
@@ -2695,27 +3018,118 @@ bool openGLFunctionParameterArrayWriteArgumentAliases(
   return false;
 }
 
+bool openGLFunctionParameterArrayWriteCallSupportedInContext(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRExpression &call,
+    std::size_t parameterIndex, const HIRStage *stage,
+    bool allowStorageBufferFieldWriteBack) {
+  if (call.children.size() <= parameterIndex ||
+      openGLFunctionParameterArrayWriteArgumentAliases(
+          module, callee, call, parameterIndex)) {
+    return false;
+  }
+  if (openGLLocalArrayCopyArgument(module, caller,
+                                   call.children[parameterIndex], stage)) {
+    return true;
+  }
+  return allowStorageBufferFieldWriteBack &&
+         openGLStorageBufferFieldArrayCopyArgument(
+             module, caller, call.children[parameterIndex], stage);
+}
+
+bool openGLStatementValueDirectlyCalls(const HIRStatement &statement,
+                                       const HIRFunction &function) {
+  const HIRExpression *call = openGLStatementDirectCallValue(statement);
+  return call != nullptr && call->value == function.name;
+}
+
+bool openGLExpressionTreeSupportsFunctionArrayWriteCalls(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRExpression &expression,
+    const HIRExpression *directCall,
+    std::size_t parameterIndex, const HIRStage *stage) {
+  bool supported = true;
+  auto visitor = [&](const HIRExpression &candidate) {
+    if (&candidate != directCall &&
+        candidate.kind == HIRExpressionKind::Call &&
+        candidate.value == callee.name &&
+        !openGLFunctionParameterArrayWriteCallSupportedInContext(
+            module, caller, callee, candidate, parameterIndex, stage, false)) {
+      supported = false;
+    }
+  };
+  visitExpressionTree(expression, visitor);
+  return supported;
+}
+
+bool openGLFunctionParameterArrayWriteStatementSupported(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRStatement &statement,
+    std::size_t parameterIndex, const HIRStage *stage,
+    bool allowDirectStatementWriteBack) {
+  const HIRExpression *directCall =
+      openGLStatementValueDirectlyCalls(statement, callee)
+          ? openGLStatementDirectCallValue(statement)
+          : nullptr;
+  if (directCall != nullptr) {
+    if (!openGLFunctionParameterArrayWriteCallSupportedInContext(
+            module, caller, callee, *directCall, parameterIndex, stage,
+            allowDirectStatementWriteBack)) {
+      return false;
+    }
+  }
+  if (!openGLExpressionTreeSupportsFunctionArrayWriteCalls(
+          module, caller, callee, statement.target, directCall, parameterIndex,
+          stage) ||
+      !openGLExpressionTreeSupportsFunctionArrayWriteCalls(
+          module, caller, callee, statement.value, directCall, parameterIndex,
+          stage)) {
+    return false;
+  }
+
+  for (const HIRStatement &initializer : statement.initializer) {
+    if (!openGLFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, initializer, parameterIndex, stage, false)) {
+      return false;
+    }
+  }
+  for (const HIRStatement &update : statement.update) {
+    if (!openGLFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, update, parameterIndex, stage, false)) {
+      return false;
+    }
+  }
+  for (const HIRStatement &child : statement.body) {
+    if (!openGLFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, child, parameterIndex, stage, true)) {
+      return false;
+    }
+  }
+  for (const HIRStatement &child : statement.elseBody) {
+    if (!openGLFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, child, parameterIndex, stage, true)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool openGLFunctionParameterArrayWriteUsesOnlyLocalCopyArguments(
     const HIRModule &module, const HIRFunction &function,
     std::size_t parameterIndex) {
   bool supported = true;
   for (const HIRStage &stage : module.stages) {
     for (const HIRFunction &caller : stage.functions) {
-      auto visitor = [&](const HIRExpression &expression) {
-        if (!supported || expression.kind != HIRExpressionKind::Call ||
-            expression.value != function.name) {
-          return;
+      for (const HIRStatement &statement : caller.body) {
+        if (!supported) {
+          break;
         }
-        if (expression.children.size() <= parameterIndex ||
-            !openGLLocalArrayCopyArgument(module, caller,
-                                          expression.children[parameterIndex],
-                                          &stage) ||
-            openGLFunctionParameterArrayWriteArgumentAliases(
-                module, function, expression, parameterIndex)) {
+        if (!openGLFunctionParameterArrayWriteStatementSupported(
+                module, caller, function, statement, parameterIndex, &stage,
+                true)) {
           supported = false;
         }
-      };
-      visitFunctionExpressions(caller, visitor);
+      }
     }
   }
   return supported;
@@ -3219,10 +3633,12 @@ OpenGLEmitContext makeOpenGLEmitContext(
     const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr) {
   OpenGLEmitContext context;
   context.module = &module;
+  context.hirStage = &stage;
   context.resourceBindings = resourceBindings;
   context.stage = stage.stage;
   context.backendEntryPoint = stage.stage + "_" + stage.entryPointName;
   context.useCombinedSamplerResources = useCombinedSamplerResources;
+  context.nextTemporaryIndex = std::make_shared<std::size_t>(0);
   const OpenGLSupportContext supportContext{&module, &stage, nullptr};
   std::set<std::string> combinedSamplerCandidates;
   std::set<std::string> nonCombinedSamplerUses;

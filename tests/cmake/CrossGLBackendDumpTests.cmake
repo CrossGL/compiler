@@ -2156,12 +2156,12 @@ add_test(NAME cglc_dump_backend_opengl_dynamic_nested_local_function_parameter_a
 add_test(NAME cglc_dump_backend_opengl_function_parameter_array_write_scaffold
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
+    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
     -DTARGET=opengl
-    -DSTAGE=backend
-    -DMODE=dump-stage-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-write
-    "-DEXPECTED_STDERR_FRAGMENT=TargetLegalizationResult: state=rejected"
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=float crossgl_param_array_writeback_0_rewriteWeight_weights\\[COUNT\\]"
+    "-DMUST_CONTAIN=float value = rewriteWeight\\(crossgl_param_array_writeback_0_rewriteWeight_weights\\);"
+    "-DMUST_CONTAIN=particles\\[0\\]\\.weights\\[crossgl_param_array_writeback_0_rewriteWeight_weights_i\\] = crossgl_param_array_writeback_0_rewriteWeight_weights\\[crossgl_param_array_writeback_0_rewriteWeight_weights_i\\];"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_opengl_nested_function_parameter_array_write_scaffold
   COMMAND ${CMAKE_COMMAND}

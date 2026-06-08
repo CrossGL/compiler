@@ -1404,6 +1404,53 @@ bool isPrototypeFunctionArrayParameterType(
   return isPrototypeArithmeticType(prototypeArrayInnermostElementType(type));
 }
 
+std::optional<HIRResourceKind> vulkanPrototypeResourceArrayParameterKind(
+    const HIRType &type, const PrototypeConstantMap &constants) {
+  if (!prototypeArrayTypeHasFixedDimensions(type, constants)) {
+    return std::nullopt;
+  }
+  const std::vector<std::string_view> dimensions =
+      prototypeArrayDimensions(*type.arraySize);
+  if (dimensions.size() != 1) {
+    return std::nullopt;
+  }
+  const HIRType elementType = arrayElementType(type);
+  const std::string elementName = baseTypeName(elementType);
+  if (isTextureResourceType(elementName)) {
+    return HIRResourceKind::Texture;
+  }
+  if (isSamplerResourceType(elementName)) {
+    return HIRResourceKind::Sampler;
+  }
+  return std::nullopt;
+}
+
+bool isVulkanPrototypeResourceArrayParameterType(
+    const HIRType &type, const PrototypeConstantMap &constants) {
+  return vulkanPrototypeResourceArrayParameterKind(type, constants).has_value();
+}
+
+bool isVulkanPrototypeErasedResourceArrayParameter(
+    const HIRParameter &parameter, const PrototypeConstantMap &constants,
+    bool entryPoint) {
+  return !entryPoint &&
+         isVulkanPrototypeResourceArrayParameterType(parameter.type, constants);
+}
+
+std::optional<HIRResource> vulkanPrototypePseudoResourceForParameter(
+    const HIRParameter &parameter, const PrototypeConstantMap &constants) {
+  const std::optional<HIRResourceKind> kind =
+      vulkanPrototypeResourceArrayParameterKind(parameter.type, constants);
+  if (!kind.has_value()) {
+    return std::nullopt;
+  }
+  HIRResource resource;
+  resource.name = parameter.name;
+  resource.kind = *kind;
+  resource.type = parameter.type;
+  return resource;
+}
+
 std::string prototypeFunctionArrayParameterUnsupportedDetail(
     const HIRType &type, const PrototypeConstantMap &constants) {
   if (!type.arraySize.has_value()) {
@@ -2425,6 +2472,9 @@ bool isPrototypeDirectResourceArrayArgument(
          resource->second.type.arraySize.has_value();
 }
 
+using VulkanPrototypeResourceArrayParameterAliasMap =
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>>;
+
 const HIRFunction *findVulkanPrototypeCallableFunction(const HIRModule &module,
                                                        const HIRStage &stage,
                                                        std::string_view name) {
@@ -2441,13 +2491,153 @@ const HIRFunction *findVulkanPrototypeCallableFunction(const HIRModule &module,
   return nullptr;
 }
 
+const HIRResource *findVulkanPrototypeStageResource(const HIRStage &stage,
+                                                   std::string_view name) {
+  for (const HIRResource &resource : stage.resources) {
+    if (resource.name == name) {
+      return &resource;
+    }
+  }
+  return nullptr;
+}
+
+HIRFunctionParameterArrayCallFeatureSupport
+vulkanPrototypeFunctionParameterArrayCallFeatureSupport(
+    const HIRParameter &parameter,
+    HIRFunctionParameterArrayCallFeature feature,
+    const PrototypeConstantMap &constants) {
+  if (feature ==
+      HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments) {
+    return isVulkanPrototypeResourceArrayParameterType(parameter.type, constants)
+               ? HIRFunctionParameterArrayCallFeatureSupport::Supported
+               : HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+  }
+  if (isVulkanPrototypeResourceArrayParameterType(parameter.type, constants) &&
+      feature ==
+          HIRFunctionParameterArrayCallFeature::FunctionParameterArguments) {
+    return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+  }
+  return functionParameterArrayCallFeatureSupport(feature);
+}
+
+bool collectVulkanPrototypeResourceArrayParameterAliases(
+    const HIRModule &module, const HIRStage &stage,
+    VulkanPrototypeResourceArrayParameterAliasMap &aliases,
+    DiagnosticEngine *diagnostics) {
+  const PrototypeConstantMap constants = prototypeConstants(module);
+  std::set<std::string> unsupportedLabels;
+
+  auto visitor = [&](const HIRFunction &caller, const HIRExpression &expression) {
+    if (expression.kind != HIRExpressionKind::Call) {
+      return;
+    }
+    const HIRFunction *callee =
+        findVulkanPrototypeCallableFunction(module, stage, expression.value);
+    if (callee == nullptr) {
+      return;
+    }
+    const std::size_t argumentCount =
+        std::min(expression.children.size(), callee->parameters.size());
+    for (std::size_t index = 0; index < argumentCount; ++index) {
+      const HIRParameter &parameter = callee->parameters[index];
+      const std::optional<HIRResourceKind> parameterKind =
+          vulkanPrototypeResourceArrayParameterKind(parameter.type, constants);
+      if (!parameterKind.has_value()) {
+        continue;
+      }
+      const HIRExpression &argument = expression.children[index];
+      if (argument.kind != HIRExpressionKind::Identifier) {
+        unsupportedLabels.insert(
+            "caller '" + caller.name + "' -> callee '" + callee->name +
+            "' parameter '" + parameter.name +
+            "': requires a direct descriptor-array argument");
+        continue;
+      }
+      const HIRResource *resource =
+          findVulkanPrototypeStageResource(stage, argument.value);
+      if (resource == nullptr || resource->kind != *parameterKind ||
+          !resource->type.arraySize.has_value() ||
+          !samePrototypeType(resource->type, parameter.type)) {
+        unsupportedLabels.insert(
+            "caller '" + caller.name + "' -> callee '" + callee->name +
+            "' parameter '" + parameter.name +
+            "': direct argument '" + argument.value +
+            "' is not a matching fixed-size descriptor array");
+        continue;
+      }
+      std::string &alias = aliases[callee->name][parameter.name];
+      if (alias.empty()) {
+        alias = resource->name;
+      } else if (alias != resource->name) {
+        unsupportedLabels.insert(
+            "callee '" + callee->name + "' parameter '" + parameter.name +
+            "': multiple descriptor-array sources are not supported");
+      }
+    }
+  };
+
+  for (const HIRFunction &function : module.functions) {
+    auto expressionVisitor = [&](const HIRExpression &expression) {
+      visitor(function, expression);
+    };
+    visitFunctionExpressions(function, expressionVisitor);
+  }
+  for (const HIRFunction &function : stage.functions) {
+    auto expressionVisitor = [&](const HIRExpression &expression) {
+      visitor(function, expression);
+    };
+    visitFunctionExpressions(function, expressionVisitor);
+  }
+
+  for (const HIRFunction &function : module.functions) {
+    for (const HIRParameter &parameter : function.parameters) {
+      if (isVulkanPrototypeResourceArrayParameterType(parameter.type,
+                                                     constants) &&
+          aliases[function.name].find(parameter.name) ==
+              aliases[function.name].end()) {
+        unsupportedLabels.insert("callee '" + function.name + "' parameter '" +
+                                 parameter.name +
+                                 "': no direct descriptor-array call source");
+      }
+    }
+  }
+  for (const HIRFunction &function : stage.functions) {
+    for (const HIRParameter &parameter : function.parameters) {
+      if (isVulkanPrototypeResourceArrayParameterType(parameter.type,
+                                                     constants) &&
+          aliases[function.name].find(parameter.name) ==
+              aliases[function.name].end()) {
+        unsupportedLabels.insert("callee '" + function.name + "' parameter '" +
+                                 parameter.name +
+                                 "': no direct descriptor-array call source");
+      }
+    }
+  }
+
+  if (!unsupportedLabels.empty()) {
+    if (diagnostics != nullptr) {
+      diagnostics->error(
+          "vulkan.prototype-unsupported-function-parameter-resource-array",
+          "Vulkan prototype helper resource array parameters require one "
+          "matching direct descriptor-array source per helper parameter; "
+          "unsupported resource-array helper call(s): " +
+              joinNames(unsupportedLabels));
+    }
+    return false;
+  }
+  return true;
+}
+
 void appendUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
     std::set<std::string> &labels, std::string_view caller,
     std::string_view callee, std::string_view parameter,
-    const std::vector<HIRFunctionParameterArrayCallFeature> &features) {
+    const HIRParameter &calleeParameter,
+    const std::vector<HIRFunctionParameterArrayCallFeature> &features,
+    const PrototypeConstantMap &constants) {
   for (HIRFunctionParameterArrayCallFeature feature : features) {
     const HIRFunctionParameterArrayCallFeatureSupport support =
-        functionParameterArrayCallFeatureSupport(feature);
+        vulkanPrototypeFunctionParameterArrayCallFeatureSupport(
+            calleeParameter, feature, constants);
     if (support == HIRFunctionParameterArrayCallFeatureSupport::Supported) {
       continue;
     }
@@ -2462,6 +2652,7 @@ void appendUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
 void collectUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
     const HIRModule &module, const HIRStage &stage, const HIRFunction &caller,
     std::set<std::string> &labels) {
+  const PrototypeConstantMap constants = prototypeConstants(module);
   auto visitor = [&](const HIRExpression &expression) {
     if (expression.kind != HIRExpressionKind::Call) {
       return;
@@ -2483,7 +2674,8 @@ void collectUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
           functionParameterArrayCallArgumentFeatures(
               module, caller, expression.children[index], &stage);
       appendUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
-          labels, caller.name, callee->name, parameter.name, features);
+          labels, caller.name, callee->name, parameter.name, parameter,
+          features, constants);
     }
   };
   visitFunctionExpressions(caller, visitor);
@@ -2492,6 +2684,12 @@ void collectUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
 bool diagnoseUnsupportedVulkanPrototypeFunctionArrayCallFeatures(
     const HIRModule &module, const HIRStage &stage,
     DiagnosticEngine &diagnostics) {
+  VulkanPrototypeResourceArrayParameterAliasMap aliases;
+  if (!collectVulkanPrototypeResourceArrayParameterAliases(module, stage,
+                                                          aliases,
+                                                          &diagnostics)) {
+    return true;
+  }
   std::set<std::string> unsupportedLabels;
   for (const HIRFunction &function : module.functions) {
     collectUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
@@ -2952,6 +3150,18 @@ bool prototypeDescriptorExpressionSupported(
       diagnostics.error("vulkan.prototype-unsupported-assignment-target",
                         "Vulkan prototype descriptor array indices must be "
                         "scalar int values");
+      return false;
+    }
+    if (const auto local = locals.find(resourceName);
+        local != locals.end() &&
+        isVulkanPrototypeResourceArrayParameterType(local->second,
+                                                    constants) &&
+        !prototypeStaticArrayIndexValue(expression.children[1], constants)
+             .has_value()) {
+      diagnostics.error(
+          "vulkan.prototype-unsupported-function-parameter-resource-array",
+          "Vulkan prototype helper resource array indexing in this native "
+          "slice requires literal or folded constant indices");
       return false;
     }
     return true;
@@ -3946,12 +4156,7 @@ bool prototypeExpressionSupported(
     }
     for (const HIRExpression &child : expression.children) {
       if (isPrototypeDirectResourceArrayArgument(child, resources)) {
-        diagnostics.error(
-            "vulkan.prototype-unsupported-function-parameter-array",
-            "Vulkan prototype helper array calls do not support direct "
-            "resource-array argument '" +
-                child.value + "'; pass a fixed-size data array field instead");
-        return false;
+        continue;
       }
       if (!prototypeExpressionSupported(child, locals, resources, constants,
                                         structs, diagnostics)) {
@@ -4912,14 +5117,20 @@ bool prototypeBodySupported(const HIRFunction &function,
   }
   for (const HIRParameter &parameter : function.parameters) {
     if (parameter.type.arraySize.has_value()) {
-      if (!isPrototypeFunctionArrayParameterType(parameter.type, constants)) {
+      if (const std::optional<HIRResource> resource =
+              vulkanPrototypePseudoResourceForParameter(parameter, constants);
+          resource.has_value()) {
+        resources[parameter.name] = *resource;
+      } else if (!isPrototypeFunctionArrayParameterType(parameter.type,
+                                                       constants)) {
         diagnostics.error(
             "vulkan.prototype-unsupported-function-parameter-array",
             "Vulkan prototype helper function parameter array '" +
                 parameter.name + "' of type '" + formatType(parameter.type) +
                 "' is not in the native slice; supported shape is a "
-                "one-dimensional fixed-size scalar/vector numeric array, but "
-                "this parameter uses " +
+                "one-dimensional fixed-size scalar/vector numeric array or "
+                "sampled texture/sampler descriptor array, but this parameter "
+                "uses " +
                 prototypeFunctionArrayParameterUnsupportedDetail(
                     parameter.type, constants));
         return false;
@@ -5087,7 +5298,9 @@ bool prototypeFunctionParameterArraysSupported(const HIRFunction &function,
       continue;
     }
     if (!entryPoint &&
-        isPrototypeFunctionArrayParameterType(parameter.type, constants)) {
+        (isPrototypeFunctionArrayParameterType(parameter.type, constants) ||
+         isVulkanPrototypeResourceArrayParameterType(parameter.type,
+                                                    constants))) {
       continue;
     }
     const std::string arrayKind =
@@ -5097,7 +5310,8 @@ bool prototypeFunctionParameterArraysSupported(const HIRFunction &function,
             ? "entry-point array parameters remain outside the Vulkan "
               "prototype ABI"
             : "supported native shape is a one-dimensional fixed-size "
-              "scalar/vector numeric helper array, but this parameter uses " +
+              "scalar/vector numeric helper array or sampled texture/sampler "
+              "descriptor helper array, but this parameter uses " +
                   prototypeFunctionArrayParameterUnsupportedDetail(
                       parameter.type, constants);
     diagnostics.error(
@@ -5248,6 +5462,7 @@ struct PrototypeSPIRVFunctionInfo {
   std::string functionTypeId;
   HIRType returnType;
   std::vector<HIRType> parameterTypes;
+  std::vector<bool> erasedResourceArrayParameters;
   bool entry = false;
 };
 
@@ -5280,6 +5495,8 @@ public:
         registerUniformConstantDescriptor(resource);
       }
     }
+    collectVulkanPrototypeResourceArrayParameterAliases(
+        module, stage, resourceArrayParameterAliases_, nullptr);
     registerFunctionSignatures(module, stage);
   }
 
@@ -5367,8 +5584,14 @@ private:
     info.returnType = function.returnType;
     info.entry = isEntry;
     info.parameterTypes.reserve(function.parameters.size());
+    info.erasedResourceArrayParameters.reserve(function.parameters.size());
     for (const HIRParameter &parameter : function.parameters) {
-      info.parameterTypes.push_back(parameter.type);
+      const bool erased = isVulkanPrototypeErasedResourceArrayParameter(
+          parameter, constants_, isEntry);
+      info.erasedResourceArrayParameters.push_back(erased);
+      if (!erased) {
+        info.parameterTypes.push_back(parameter.type);
+      }
     }
     info.functionTypeId =
         ensureFunctionType(info.returnType, info.parameterTypes);
@@ -5389,6 +5612,7 @@ private:
     variableLines_.clear();
     instructionLines_.clear();
     currentReturnType_ = function.returnType;
+    currentFunctionName_ = function.name;
     bool terminated = false;
 
     const std::string returnTypeId = ensureType(function.returnType);
@@ -5403,7 +5627,12 @@ private:
     output.entryLabel =
         "%entry_" + sanitizeIdFragment(functionInfo->second.id.substr(1));
 
-    for (const HIRParameter &parameter : function.parameters) {
+    for (std::size_t index = 0; index < function.parameters.size(); ++index) {
+      const HIRParameter &parameter = function.parameters[index];
+      if (index < functionInfo->second.erasedResourceArrayParameters.size() &&
+          functionInfo->second.erasedResourceArrayParameters[index]) {
+        continue;
+      }
       const std::string parameterTypeId = ensureType(parameter.type);
       if (parameterTypeId.empty()) {
         return false;
@@ -5448,6 +5677,7 @@ private:
     output.hasTerminator = terminated;
     module_.addFunction(std::move(output));
     locals_.clear();
+    currentFunctionName_.clear();
     variableLines_.clear();
     instructionLines_.clear();
     return true;
@@ -7858,10 +8088,26 @@ private:
     return "";
   }
 
+  std::string resolveDescriptorResourceName(std::string_view name) const {
+    if (!currentFunctionName_.empty()) {
+      if (const auto functionAliases =
+              resourceArrayParameterAliases_.find(currentFunctionName_);
+          functionAliases != resourceArrayParameterAliases_.end()) {
+        if (const auto alias = functionAliases->second.find(std::string(name));
+            alias != functionAliases->second.end()) {
+          return alias->second;
+        }
+      }
+    }
+    return std::string(name);
+  }
+
   std::optional<PrototypeSPIRVValue> emitUniformConstantDescriptorLoad(
       const HIRExpression &expression, HIRResourceKind expectedKind) {
     if (expression.kind == HIRExpressionKind::Identifier) {
-      const auto descriptor = uniformConstantDescriptors_.find(expression.value);
+      const std::string resourceName =
+          resolveDescriptorResourceName(expression.value);
+      const auto descriptor = uniformConstantDescriptors_.find(resourceName);
       if (descriptor == uniformConstantDescriptors_.end() ||
           descriptor->second.kind != expectedKind) {
         diagnostics_.error("vulkan.prototype-unsupported-resource",
@@ -7899,7 +8145,8 @@ private:
       return std::nullopt;
     }
 
-    const std::string &resourceName = expression.children[0].value;
+    const std::string resourceName =
+        resolveDescriptorResourceName(expression.children[0].value);
     const auto descriptor = uniformConstantDescriptors_.find(resourceName);
     if (descriptor == uniformConstantDescriptors_.end() ||
         descriptor->second.kind != expectedKind) {
@@ -8561,7 +8808,8 @@ private:
       return std::nullopt;
     }
     const PrototypeSPIRVFunctionInfo &info = function->second;
-    if (expression.children.size() != info.parameterTypes.size()) {
+    if (info.function == nullptr ||
+        expression.children.size() != info.function->parameters.size()) {
       diagnostics_.error("vulkan.prototype-unsupported-expression",
                          "Vulkan prototype helper call argument count does "
                          "not match helper signature");
@@ -8569,20 +8817,48 @@ private:
     }
 
     std::vector<PrototypeSPIRVValue> arguments;
-    arguments.reserve(expression.children.size());
+    arguments.reserve(info.parameterTypes.size());
+    std::size_t abiParameterIndex = 0;
     for (std::size_t index = 0; index < expression.children.size(); ++index) {
+      const HIRParameter &parameter = info.function->parameters[index];
+      if (index < info.erasedResourceArrayParameters.size() &&
+          info.erasedResourceArrayParameters[index]) {
+        const HIRExpression &argumentExpression = expression.children[index];
+        if (argumentExpression.kind != HIRExpressionKind::Identifier) {
+          diagnostics_.error(
+              "vulkan.prototype-unsupported-function-parameter-resource-array",
+              "Vulkan prototype helper resource array parameters require "
+              "direct descriptor-array arguments");
+          return std::nullopt;
+        }
+        const std::string expectedAlias =
+            resourceArrayParameterAliases_[info.function->name][parameter.name];
+        if (argumentExpression.value != expectedAlias) {
+          diagnostics_.error(
+              "vulkan.prototype-unsupported-function-parameter-resource-array",
+              "Vulkan prototype helper resource array parameter '" +
+                  parameter.name +
+                  "' is specialized to descriptor array '" + expectedAlias +
+                  "'");
+          return std::nullopt;
+        }
+        continue;
+      }
       std::optional<PrototypeSPIRVValue> argument =
           emitExpression(expression.children[index]);
       if (!argument.has_value()) {
         return std::nullopt;
       }
-      if (!samePrototypeType(argument->type, info.parameterTypes[index])) {
+      if (abiParameterIndex >= info.parameterTypes.size() ||
+          !samePrototypeType(argument->type,
+                             info.parameterTypes[abiParameterIndex])) {
         diagnostics_.error("vulkan.prototype-unsupported-type",
                            "Vulkan prototype helper calls do not insert "
                            "argument casts");
         return std::nullopt;
       }
       arguments.push_back(*argument);
+      ++abiParameterIndex;
     }
 
     const std::string returnTypeId = ensureType(info.returnType);
@@ -9666,7 +9942,9 @@ private:
   std::unordered_map<std::string, PrototypeSPIRVLocal> locals_;
   std::vector<PrototypeLoopLabels> loopLabels_;
   std::unordered_map<std::string, PrototypeSPIRVFunctionInfo> functions_;
+  VulkanPrototypeResourceArrayParameterAliasMap resourceArrayParameterAliases_;
   HIRType currentReturnType_;
+  std::string currentFunctionName_;
   StorageLayoutContext layoutContext_;
   PrototypeStructMap structs_;
   PrototypeConstantMap constants_;

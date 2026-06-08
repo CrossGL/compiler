@@ -15,15 +15,13 @@
       ],
       "coverage": [
         {
-          "kind": "planned-failure",
-          "name": "cglc_build_opengl_function_parameter_array_write_planned_failure",
-          "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
+          "kind": "support-matrix",
+          "name": "cglc_build_opengl_function_parameter_array_write_source_package",
           "coverage_categories": [
             "HIRExpressionKind::IndexAccess",
-            "HIRStatementKind::Assignment",
-            "diagnostic:opengl.unsupported-function-parameter-array-write"
+            "HIRStatementKind::Assignment"
           ],
-          "requirement": "Unsupported helper array writes stay rejected with a targeted package diagnostic."
+          "requirement": "Direct OpenGL storage-buffer field helper array writes lower through explicit copy-in/write-back source package coverage."
         },
         {
           "kind": "support-matrix",
@@ -323,12 +321,12 @@
       "coverage": [
         {
           "kind": "planned-failure",
-          "name": "cglc_build_opengl_function_parameter_array_write_planned_failure",
+          "name": "cglc_build_opengl_forwarded_function_parameter_array_write_planned_failure",
           "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
           "coverage_categories": [
             "diagnostic:opengl.unsupported-function-parameter-array-write"
           ],
-          "requirement": "Unsupported array write shapes retain planned-failure diagnostics."
+          "requirement": "Unsupported forwarded helper array write shapes retain planned-failure diagnostics."
         },
         {
           "kind": "diagnostic",

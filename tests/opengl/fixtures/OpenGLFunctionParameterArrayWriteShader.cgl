@@ -1,4 +1,4 @@
-shader OpenGLFunctionParameterArrayWriteUnsupportedShader {
+shader OpenGLFunctionParameterArrayWriteShader {
   const int COUNT = 2;
 
   struct Particle {

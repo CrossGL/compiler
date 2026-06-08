@@ -4497,18 +4497,6 @@ add_test(NAME cglc_build_vulkan_function_parameter_array_planned_failure
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_vulkan_function_parameter_resource_array_planned_failure
-  COMMAND ${CMAKE_COMMAND}
-    -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_VULKAN_FUNCTION_PARAMETER_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
-    -DTARGET=vulkan
-    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-function-parameter-resource-array.cglb
-    -DMODE=planned-build-failure
-    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=vulkan"
-    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -6501,16 +6489,26 @@ add_test(NAME cglc_build_opengl_local_function_parameter_array_write_source_pack
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_LOCAL_FEATURE_FIELDS}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_function_parameter_array_write_planned_failure
+set(CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewriteWeight_weights[COUNT];
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  float value = rewriteWeight(crossgl_param_array_writeback_0_rewriteWeight_weights);
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }]=])
+add_test(NAME cglc_build_opengl_function_parameter_array_write_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
+    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-function-parameter-array-write.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-write
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=rewriteWeight.weights|message=fixed-size local array copy"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLFunctionParameterArrayWriteShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLFunctionParameterArrayWriteShader|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storage-buffer|particles.argumentIndex=0|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.arrayStrideBytes=8|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.fields.0.name=weights|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=4"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_RESOURCE_FEATURE_FIELDS}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_forwarded_function_parameter_array_write_planned_failure
   COMMAND ${CMAKE_COMMAND}
