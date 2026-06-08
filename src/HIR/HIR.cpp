@@ -581,8 +581,71 @@ bool isFloatVectorType(const HIRType &type) {
          (name == "vec2" || name == "vec3" || name == "vec4");
 }
 
+std::optional<std::size_t> matrixDimensionFromHIRTypeName(std::string_view name) {
+  if (name == "mat2" || name == "mat2x2") {
+    return std::size_t{2};
+  }
+  if (name == "mat3" || name == "mat3x3") {
+    return std::size_t{3};
+  }
+  if (name == "mat4" || name == "mat4x4") {
+    return std::size_t{4};
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t> matrixDimensionFromType(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return std::nullopt;
+  }
+  return matrixDimensionFromHIRTypeName(baseTypeName(type));
+}
+
+bool isMatrixValueType(const HIRType &type) {
+  return matrixDimensionFromType(type).has_value();
+}
+
+bool isFloatMatrixType(const HIRType &type) { return isMatrixValueType(type); }
+
+bool isMatrixVectorOperandPair(const HIRType &matrixType,
+                               const HIRType &vectorType) {
+  const std::optional<std::size_t> matrixDimension =
+      matrixDimensionFromType(matrixType);
+  const std::optional<std::size_t> vectorWidth =
+      vectorWidthFromName(baseTypeName(vectorType));
+  return matrixDimension.has_value() && vectorWidth.has_value() &&
+         *matrixDimension == *vectorWidth && isFloatVectorType(vectorType);
+}
+
 bool isArithmeticBinaryOperator(std::string_view op) {
   return op == "+" || op == "-" || op == "*" || op == "/" || op == "%";
+}
+
+std::optional<HIRType> inferMatrixArithmeticType(const HIRType &left,
+                                                 const HIRType &right,
+                                                 std::string_view op) {
+  if (!isArithmeticBinaryOperator(op)) {
+    return std::nullopt;
+  }
+
+  const bool leftMatrix = isMatrixValueType(left);
+  const bool rightMatrix = isMatrixValueType(right);
+  if (!leftMatrix && !rightMatrix) {
+    return std::nullopt;
+  }
+
+  if (leftMatrix && rightMatrix) {
+    return left;
+  }
+  if ((leftMatrix && isScalarNumericType(right)) ||
+      (rightMatrix && isScalarNumericType(left))) {
+    return leftMatrix ? left : right;
+  }
+  if ((leftMatrix && isFloatVectorType(right)) ||
+      (rightMatrix && isFloatVectorType(left))) {
+    return leftMatrix ? right : left;
+  }
+  return leftMatrix ? left : right;
 }
 
 HIRType inferTextureSampleType(const std::vector<HIRExpression> &arguments,
@@ -1456,6 +1519,10 @@ private:
 
     const std::string leftName = baseTypeName(left);
     const std::string rightName = baseTypeName(right);
+    if (const std::optional<HIRType> matrixType =
+            inferMatrixArithmeticType(left, right, op)) {
+      return *matrixType;
+    }
     if (isVectorType(leftName)) {
       return left;
     }
@@ -4284,6 +4351,77 @@ void validateVectorScalarArithmeticExpression(const HIRExpression &expression,
   }
 }
 
+void validateMatrixArithmeticExpression(const HIRExpression &expression,
+                                        DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Binary &&
+      isArithmeticBinaryOperator(expression.value) &&
+      expression.children.size() >= 2) {
+    const HIRType &left = expression.children[0].type;
+    const HIRType &right = expression.children[1].type;
+    const bool leftMatrix = isMatrixValueType(left);
+    const bool rightMatrix = isMatrixValueType(right);
+    if (leftMatrix || rightMatrix) {
+      const std::string expressionDescription =
+          formatType(left) + " " + expression.value + " " + formatType(right);
+      const auto report = [&](std::string message,
+                              const SourceLocation &location) {
+        diagnostics.error("sema.matrix-arithmetic", std::move(message), location);
+      };
+
+      if (expression.value == "%") {
+        report("matrix arithmetic does not support operator '%'; got '" +
+                   expressionDescription + "'",
+               expression.location);
+      } else if (leftMatrix && rightMatrix) {
+        if ((expression.value != "+" && expression.value != "-" &&
+             expression.value != "*") ||
+            !sameType(left, right)) {
+          report("matrix arithmetic requires matching matrix operands with "
+                 "operators '+', '-', or '*'; got '" +
+                     expressionDescription + "'",
+                 expression.location);
+        }
+      } else if ((leftMatrix && isScalarNumericType(right)) ||
+                 (rightMatrix && isScalarNumericType(left))) {
+        const HIRType &scalar = leftMatrix ? right : left;
+        const SourceLocation &scalarLocation =
+            leftMatrix ? expression.children[1].location
+                       : expression.children[0].location;
+        if (expression.value != "*") {
+          report("matrix-scalar arithmetic supports only operator '*'; got '" +
+                     expressionDescription + "'",
+                 expression.location);
+        } else if (isFloatMatrixType(leftMatrix ? left : right) &&
+                   !isFloatScalarType(scalar)) {
+          report("float matrix-scalar arithmetic requires the scalar operand to "
+                 "be float; got '" +
+                     expressionDescription + "'",
+                 scalarLocation);
+        }
+      } else if ((leftMatrix && isNumericAggregateType(right)) ||
+                 (rightMatrix && isNumericAggregateType(left))) {
+        if (expression.value != "*" ||
+            !(isMatrixVectorOperandPair(left, right) ||
+              isMatrixVectorOperandPair(right, left))) {
+          report("matrix-vector arithmetic supports only operator '*' with "
+                 "matching float matrix/vector dimensions; got '" +
+                     expressionDescription + "'",
+                 expression.location);
+        }
+      } else {
+        report("matrix arithmetic requires a compatible matrix, vector, or "
+               "scalar numeric operand; got '" +
+                   expressionDescription + "'",
+               expression.location);
+      }
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateMatrixArithmeticExpression(child, diagnostics);
+  }
+}
+
 void validateUnaryOperatorExpression(const HIRExpression &expression,
                                      DiagnosticEngine &diagnostics) {
   if (expression.kind == HIRExpressionKind::Unary && expression.children.size() == 1) {
@@ -5122,6 +5260,7 @@ void validateExpressionSemantics(const HIRExpression &expression,
   validateImageAccessExpression(expression, resources, diagnostics);
   validateVectorSwizzleExpression(expression, diagnostics);
   validateVectorScalarArithmeticExpression(expression, diagnostics);
+  validateMatrixArithmeticExpression(expression, diagnostics);
   validateUnaryOperatorExpression(expression, diagnostics);
   validateBinaryOperatorExpression(expression, diagnostics);
   validateSelectExpression(expression, diagnostics);

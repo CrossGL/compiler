@@ -1,0 +1,9 @@
+shader BadScalarMatrixShader {
+  compute {
+    void main() {
+      mat3 transform = mat3(1.0);
+      mat3 bad = 2 * transform;
+      return;
+    }
+  }
+}

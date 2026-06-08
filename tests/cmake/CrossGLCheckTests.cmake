@@ -1312,6 +1312,16 @@ add_test(NAME cglc_check_vector_scalar_compute
   COMMAND cglc check ${CROSSGL_VECTOR_SCALAR_COMPUTE_SHADER})
 add_test(NAME cglc_check_vector_scalar_cast_compute
   COMMAND cglc check ${CROSSGL_VECTOR_SCALAR_CAST_COMPUTE_SHADER})
+add_test(NAME cglc_check_matrix_scalar_arithmetic_compute
+  COMMAND cglc check ${CROSSGL_MATRIX_SCALAR_ARITHMETIC_COMPUTE_SHADER})
+add_test(NAME cglc_check_matrix_scalar_arithmetic_hir_types
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_SCALAR_ARITHMETIC_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=decl mat3 scaled = transform \\* 2\\.0 : mat3[^\n]*\n      decl mat3 rescaled = 0\\.5 \\* transform : mat3[^\n]*\n      decl mat3 inferred = transform \\* 0\\.25 : mat3[^\n]*\n      assign inferred : mat3 = inferred \\* 4\\.0 : mat3"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_vector_buffer_compute
   COMMAND cglc check ${CROSSGL_VECTOR_BUFFER_COMPUTE_SHADER})
 add_test(NAME cglc_check_vector_buffer_compute_hir_vec4_load_store
@@ -2357,6 +2367,33 @@ add_test(NAME cglc_check_compound_assignment_vector_scalar_failure
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=16"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=float vector-scalar arithmetic requires the scalar operand to be float|message=vec4 + int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_matrix_scalar_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_MATRIX_SCALAR_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.matrix-arithmetic
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=float matrix-scalar arithmetic requires the scalar operand to be float|message=mat3 * int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_scalar_matrix_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SCALAR_MATRIX_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.matrix-arithmetic
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=float matrix-scalar arithmetic requires the scalar operand to be float|message=int * mat3"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_matrix_modulo_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_MATRIX_MODULO_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.matrix-arithmetic
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=matrix arithmetic does not support operator '%'|message=mat3 % float"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_scalar_constructor_failure
   COMMAND ${CMAKE_COMMAND}
