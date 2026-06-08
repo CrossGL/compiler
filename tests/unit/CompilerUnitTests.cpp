@@ -45029,6 +45029,8 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
   helper.name = "sumWeights";
   helper.parameters.push_back({arrayType("float", "COLS"), "weights"});
   helper.parameters.push_back({arrayType("vec4", "ROWS][COLS"), "grid"});
+  helper.parameters.push_back(
+      {arrayType("mat2x2", "ROWS][COLS"), "transforms"});
   crossgl::HIRStatement helperReturn;
   helperReturn.kind = crossgl::HIRStatementKind::Return;
   helperReturn.value = literal("0.0", "float");
@@ -45042,12 +45044,16 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
       {arrayType("float", "COLS"), "weights"});
   forwardingHelper.parameters.push_back(
       {arrayType("vec4", "ROWS][COLS"), "grid"});
+  forwardingHelper.parameters.push_back(
+      {arrayType("mat2x2", "ROWS][COLS"), "transforms"});
   crossgl::HIRExpression forwardedCall =
       expression(crossgl::HIRExpressionKind::Call, "sumWeights", type("float"));
   forwardedCall.children.push_back(
       identifier("weights", arrayType("float", "COLS")));
   forwardedCall.children.push_back(
       identifier("grid", arrayType("vec4", "ROWS][COLS")));
+  forwardedCall.children.push_back(
+      identifier("transforms", arrayType("mat2x2", "ROWS][COLS")));
   crossgl::HIRStatement forwardingReturn;
   forwardingReturn.kind = crossgl::HIRStatementKind::Return;
   forwardingReturn.value = std::move(forwardedCall);
@@ -45069,10 +45075,18 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
   gridDeclaration.name = "grid";
   mainFunction.body.push_back(std::move(gridDeclaration));
 
+  crossgl::HIRStatement transformsDeclaration;
+  transformsDeclaration.kind = crossgl::HIRStatementKind::Declaration;
+  transformsDeclaration.declaredType = arrayType("mat2x2", "ROWS][COLS");
+  transformsDeclaration.name = "transforms";
+  mainFunction.body.push_back(std::move(transformsDeclaration));
+
   crossgl::HIRExpression call = expression(crossgl::HIRExpressionKind::Call,
                                            "forwardWeights", type("float"));
   call.children.push_back(identifier("weights", arrayType("float", "COLS")));
   call.children.push_back(identifier("grid", arrayType("vec4", "ROWS][COLS")));
+  call.children.push_back(
+      identifier("transforms", arrayType("mat2x2", "ROWS][COLS")));
   crossgl::HIRStatement callStatement;
   callStatement.kind = crossgl::HIRStatementKind::Expression;
   callStatement.value = std::move(call);
@@ -45090,19 +45104,26 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
 
   const std::string metal = crossgl::generateMetalSource(module);
   expect(metal.find("float sumWeights(array<float, COLS> weights, "
-                    "array<array<float4, COLS>, ROWS> grid)") !=
+                    "array<array<float4, COLS>, ROWS> grid, "
+                    "array<array<float2x2, COLS>, ROWS> transforms)") !=
              std::string::npos,
          "Metal backend emits fixed-size helper array parameters");
   expect(metal.find("float forwardWeights(array<float, COLS> weights, "
-                    "array<array<float4, COLS>, ROWS> grid)") !=
+                    "array<array<float4, COLS>, ROWS> grid, "
+                    "array<array<float2x2, COLS>, ROWS> transforms)") !=
              std::string::npos,
          "Metal backend emits fixed-size forwarding helper array parameters");
-  expect(metal.find("return sumWeights(weights, grid);") != std::string::npos,
+  expect(metal.find("return sumWeights(weights, grid, transforms);") !=
+             std::string::npos,
          "Metal backend preserves helper-to-helper array parameter forwarding");
   expect(metal.find("array<array<float4, COLS>, ROWS> grid;") !=
              std::string::npos,
          "Metal backend emits nested fixed-size local arrays");
-  expect(metal.find("forwardWeights(weights, grid);") != std::string::npos,
+  expect(metal.find("array<array<float2x2, COLS>, ROWS> transforms;") !=
+             std::string::npos,
+         "Metal backend maps matrix aliases in nested fixed-size local arrays");
+  expect(metal.find("forwardWeights(weights, grid, transforms);") !=
+             std::string::npos,
          "Metal backend preserves helper calls with fixed-size array arguments");
   expect(metal.find("ROWS][COLS") == std::string::npos,
          "Metal backend does not emit flattened multidimensional array sizes");
