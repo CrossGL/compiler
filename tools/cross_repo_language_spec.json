@@ -231,9 +231,9 @@
         },
         {
           "id": "compiler/tests/fixtures/StorageBufferUnsizedDescriptorArrayUnsupportedShader.cgl",
-          "source_sha256": "714a0055ca071f44f129d129396bcce5daf18d1b54633f7d7c5a817af155e6c8",
-          "translator_ast_sha256": "2b5ff7a638d699b9e60ccfc2f57f9d0ef30bab9199233233edd59ffa6b490e30",
-          "compiler_hir_sha256": "dab4e27232c915c951adfc8dd5c1caa8bb21b12d95a29e6cc07abc77ed1b0bac"
+          "source_sha256": "3ec5c851171e18cc00f6c9c25a9cc50a0f8273186cce90a42d190be923bf425c",
+          "translator_ast_sha256": "f1af7e4d4bd120bd027ee997a097db191e1e387d5a5b2364b62b740ecaa608ba",
+          "compiler_hir_sha256": "36bcc7b8a51c80bcc4ec8bb09e2edb973a2a852d5c6f176e7f6981d03d27a920"
         },
         {
           "id": "compiler/tests/fixtures/VulkanTextureSamplerArrayAccessUnsupportedShader.cgl",
