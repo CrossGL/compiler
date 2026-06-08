@@ -1649,56 +1649,6 @@ bool reflectionAddressSpacesMatch(
          canonicalReflectionAddressSpace(*bindingAddressSpace);
 }
 
-bool objectStringMemberEquals(std::string_view object, std::string_view key,
-                              std::string_view expected) {
-  const std::optional<std::string> value = objectStringMember(object, key);
-  return value && *value == expected;
-}
-
-bool reflectionTargetBindingObjectMatches(
-    std::string_view object,
-    const PackageReflectionTargetResourceBindingRecord &binding) {
-  return objectStringMemberEquals(object, "target", binding.target) &&
-         objectStringMemberEquals(object, "stage", binding.stage) &&
-         objectStringMemberEquals(object, "entryPoint", binding.entryPoint) &&
-         objectStringMemberEquals(object, "name", binding.name) &&
-         objectStringMemberEquals(object, "kind", binding.kind) &&
-         objectStringMemberEquals(object, "sourceType", binding.sourceType);
-}
-
-std::optional<std::string_view> findReflectionTargetBindingObject(
-    const PackageMetadata &metadata,
-    const PackageReflectionTargetResourceBindingRecord &binding) {
-  const std::optional<std::string_view> bindings =
-      findObjectMemberValue(metadata.documents.reflection,
-                            "targetResourceBindings");
-  if (!bindings) {
-    return std::nullopt;
-  }
-  const std::optional<std::vector<std::string_view>> elements =
-      jsonArrayElements(*bindings);
-  if (!elements) {
-    return std::nullopt;
-  }
-  for (std::string_view element : *elements) {
-    if (reflectionTargetBindingObjectMatches(element, binding)) {
-      return element;
-    }
-  }
-  return std::nullopt;
-}
-
-std::optional<std::uintmax_t> reflectionBindingArrayElementCount(
-    const PackageMetadata &metadata,
-    const PackageReflectionTargetResourceBindingRecord &binding) {
-  const std::optional<std::string_view> bindingObject =
-      findReflectionTargetBindingObject(metadata, binding);
-  if (!bindingObject) {
-    return std::nullopt;
-  }
-  return objectUnsignedMember(*bindingObject, "arrayElementCount");
-}
-
 std::optional<std::uintmax_t>
 fixedArrayElementCountFromDimensions(std::string_view arrayDimensionsJson) {
   const std::optional<std::vector<std::string_view>> dimensions =
@@ -1754,7 +1704,6 @@ void diagnoseReflectionBindingArrayMismatch(
 }
 
 void verifyReflectionBindingResourceFields(
-    const PackageMetadata &metadata,
     const PackageReflectionResourceRecord &resource,
     const PackageReflectionTargetResourceBindingRecord &binding,
     DiagnosticEngine &diagnostics) {
@@ -1771,14 +1720,17 @@ void verifyReflectionBindingResourceFields(
   }
   const std::optional<std::uintmax_t> resourceFixedArrayElementCount =
       fixedArrayElementCountFromDimensions(resource.arrayDimensionsJson);
-  const std::optional<std::uintmax_t> bindingArrayElementCount =
-      reflectionBindingArrayElementCount(metadata, binding);
-  if (resourceFixedArrayElementCount && bindingArrayElementCount &&
-      *resourceFixedArrayElementCount != *bindingArrayElementCount) {
+  if (resourceFixedArrayElementCount && !binding.arrayElementCount) {
+    diagnoseReflectionBindingArrayMismatch(
+        binding, "arrayElementCount",
+        std::to_string(*resourceFixedArrayElementCount), "<missing>",
+        diagnostics);
+  } else if (resourceFixedArrayElementCount &&
+             *resourceFixedArrayElementCount != *binding.arrayElementCount) {
     diagnoseReflectionBindingArrayMismatch(
         binding, "arrayElementCount",
         std::to_string(*resourceFixedArrayElementCount),
-        std::to_string(*bindingArrayElementCount), diagnostics);
+        std::to_string(*binding.arrayElementCount), diagnostics);
   }
   if (binding.set != resource.set) {
     diagnoseReflectionBindingMismatch(binding, "set",
@@ -1863,8 +1815,7 @@ void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
     const PackageReflectionResourceRecord *resource =
         findReflectionResourceForBinding(metadata, binding);
     if (resource != nullptr) {
-      verifyReflectionBindingResourceFields(metadata, *resource, binding,
-                                            diagnostics);
+      verifyReflectionBindingResourceFields(*resource, binding, diagnostics);
       continue;
     }
 

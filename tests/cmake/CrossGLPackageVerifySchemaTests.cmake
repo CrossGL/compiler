@@ -296,6 +296,17 @@ crossgl_add_package_verify_json_failure_schema_test(
     "diagnostics=1")
 
 crossgl_add_package_verify_json_failure_schema_test(
+  NAME cglc_package_verify_json_schema_selected_target_resource_binding_array_element_count_missing_failure
+  FAILURE_KIND selected-target-resource-binding-array-element-count-missing
+  TARGET directx
+  INPUT ${CROSSGL_DIRECTX_STORAGE_IMAGE_DESCRIPTOR_ARRAY_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/selected-target-resource-binding-array-element-count-missing-verify-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=false|summary.module=DirectXStorageImageDescriptorArrayShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.reflection-target-resource-binding-array-mismatch|diagnostics.0.message=reflection selected-target resource binding 'colorImages' arrayElementCount must match reflected resource array metadata: expected 2, got <missing>"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=1")
+
+crossgl_add_package_verify_json_failure_schema_test(
   NAME cglc_package_verify_json_schema_selected_target_resource_binding_array_dimensions_mismatch_failure
   FAILURE_KIND selected-target-resource-binding-array-dimensions-mismatch
   TARGET directx

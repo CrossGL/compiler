@@ -460,6 +460,8 @@ void collectReflectionTargetResourceBindings(
         optionalStringMemberValue(bindingObject, "addressSpace");
     record.storageImageFormat =
         optionalStringMemberValue(bindingObject, "storageImageFormat");
+    record.arrayElementCount =
+        objectUnsignedMember(bindingObject, "arrayElementCount");
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(bindingObject, "arrayDimensions", "[]");
     bindingsOut.push_back(std::move(record));

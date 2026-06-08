@@ -169,6 +169,7 @@ struct PackageReflectionTargetResourceBindingRecord {
   std::optional<std::uintmax_t> binding;
   std::optional<std::string> addressSpace;
   std::optional<std::string> storageImageFormat;
+  std::optional<std::uintmax_t> arrayElementCount;
   std::string arrayDimensionsJson = "[]";
 };
 
