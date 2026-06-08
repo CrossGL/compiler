@@ -198,6 +198,19 @@ bool isNumericScalarVectorOrMatrixType(std::string_view name) {
   return isNumericScalarOrVectorType(name) || isMatrixType(name);
 }
 
+std::optional<std::size_t> matrixDimensionFromName(std::string_view name) {
+  if (name == "mat2" || name == "mat2x2") {
+    return std::size_t{2};
+  }
+  if (name == "mat3" || name == "mat3x3") {
+    return std::size_t{3};
+  }
+  if (name == "mat4" || name == "mat4x4") {
+    return std::size_t{4};
+  }
+  return std::nullopt;
+}
+
 bool isSupportedLocalArrayType(const HIRModule &module, const HIRType &type) {
   if (!type.arraySize.has_value() ||
       functionParameterArrayShape(module, type) !=
@@ -1653,6 +1666,157 @@ std::string emitTextureCompare(const HIRExpression &expression,
          emitExpression(*operands->depth, context) + ")";
 }
 
+std::string emitDirectXFloatMatrixScalar(std::string expression,
+                                         const HIRType &type) {
+  const std::string baseName = baseTypeName(type);
+  if (baseName == "int" || baseName == "uint") {
+    return "float(" + expression + ")";
+  }
+  return expression;
+}
+
+std::string hlslSubscriptBase(std::string expression) {
+  if (expression.find_first_of(" \t+-*/?:,()") == std::string::npos) {
+    return expression;
+  }
+  return "(" + expression + ")";
+}
+
+bool appendDirectXMatrixConstructorScalars(
+    const HIRExpression &expression, const DirectXEmitContext &context,
+    std::vector<std::string> &scalars) {
+  const std::string baseName = baseTypeName(expression.type);
+  if (isNumericScalarTypeName(baseName)) {
+    scalars.push_back(emitDirectXFloatMatrixScalar(
+        emitExpression(expression, context), expression.type));
+    return true;
+  }
+
+  const std::optional<std::size_t> width = vectorWidthFromName(baseName);
+  if (!width.has_value()) {
+    return false;
+  }
+  const HIRType componentType = scalarTypeForVector(baseName);
+  if (!isNumericScalarTypeName(baseTypeName(componentType))) {
+    return false;
+  }
+
+  const std::string vectorExpression =
+      hlslSubscriptBase(emitExpression(expression, context));
+  for (std::size_t index = 0; index < *width; ++index) {
+    scalars.push_back(emitDirectXFloatMatrixScalar(
+        vectorExpression + "[" + std::to_string(index) + "]", componentType));
+  }
+  return true;
+}
+
+std::string emitDirectXMatrixFromColumnMajorScalars(
+    const HIRType &matrixType, const std::vector<std::string> &scalars) {
+  const std::optional<std::size_t> dimension =
+      matrixDimensionFromName(baseTypeName(matrixType));
+  if (!dimension.has_value() || scalars.size() != (*dimension * *dimension)) {
+    return hlslType(matrixType) + "(/* unsupported */)";
+  }
+
+  std::ostringstream out;
+  out << hlslType(matrixType) << "(";
+  bool first = true;
+  for (std::size_t row = 0; row < *dimension; ++row) {
+    for (std::size_t column = 0; column < *dimension; ++column) {
+      if (!first) {
+        out << ", ";
+      }
+      first = false;
+      out << scalars[column * *dimension + row];
+    }
+  }
+  out << ")";
+  return out.str();
+}
+
+std::string emitDirectXMatrixFromScalar(const HIRExpression &expression,
+                                        const DirectXEmitContext &context) {
+  const std::optional<std::size_t> dimension =
+      matrixDimensionFromName(baseTypeName(expression.type));
+  if (!dimension.has_value() || expression.children.empty()) {
+    return hlslType(expression.type) + "(/* unsupported */)";
+  }
+
+  const std::string diagonal = emitDirectXFloatMatrixScalar(
+      emitExpression(expression.children.front(), context),
+      expression.children.front().type);
+  std::vector<std::string> scalars;
+  scalars.reserve(*dimension * *dimension);
+  for (std::size_t column = 0; column < *dimension; ++column) {
+    for (std::size_t row = 0; row < *dimension; ++row) {
+      scalars.push_back(column == row ? diagonal : "0.0");
+    }
+  }
+  return emitDirectXMatrixFromColumnMajorScalars(expression.type, scalars);
+}
+
+std::string emitDirectXMatrixFromMatrix(const HIRExpression &expression,
+                                        const DirectXEmitContext &context) {
+  if (expression.children.empty()) {
+    return hlslType(expression.type) + "(/* unsupported */)";
+  }
+  const HIRExpression &source = expression.children.front();
+  if (sameType(expression.type, source.type)) {
+    return emitExpression(source, context);
+  }
+
+  const std::optional<std::size_t> targetDimension =
+      matrixDimensionFromName(baseTypeName(expression.type));
+  const std::optional<std::size_t> sourceDimension =
+      matrixDimensionFromName(baseTypeName(source.type));
+  if (!targetDimension.has_value() || !sourceDimension.has_value()) {
+    return hlslType(expression.type) + "(/* unsupported */)";
+  }
+
+  const std::string sourceExpression =
+      hlslSubscriptBase(emitExpression(source, context));
+  std::vector<std::string> scalars;
+  scalars.reserve(*targetDimension * *targetDimension);
+  for (std::size_t column = 0; column < *targetDimension; ++column) {
+    for (std::size_t row = 0; row < *targetDimension; ++row) {
+      if (column < *sourceDimension && row < *sourceDimension) {
+        scalars.push_back(sourceExpression + "[" + std::to_string(row) + "][" +
+                          std::to_string(column) + "]");
+      } else {
+        scalars.push_back(column == row ? "1.0" : "0.0");
+      }
+    }
+  }
+  return emitDirectXMatrixFromColumnMajorScalars(expression.type, scalars);
+}
+
+std::string emitDirectXMatrixConstructor(const HIRExpression &expression,
+                                         const DirectXEmitContext &context) {
+  if (expression.children.size() == 1) {
+    const std::string sourceBaseName =
+        baseTypeName(expression.children.front().type);
+    if (isNumericScalarTypeName(sourceBaseName)) {
+      return emitDirectXMatrixFromScalar(expression, context);
+    }
+    if (isMatrixType(sourceBaseName)) {
+      return emitDirectXMatrixFromMatrix(expression, context);
+    }
+  }
+
+  std::vector<std::string> scalars;
+  const std::optional<std::size_t> dimension =
+      matrixDimensionFromName(baseTypeName(expression.type));
+  if (dimension.has_value()) {
+    scalars.reserve(*dimension * *dimension);
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (!appendDirectXMatrixConstructorScalars(child, context, scalars)) {
+      return hlslType(expression.type) + "(/* unsupported */)";
+    }
+  }
+  return emitDirectXMatrixFromColumnMajorScalars(expression.type, scalars);
+}
+
 std::string emitExpression(const HIRExpression &expression,
                            const DirectXEmitContext &context) {
   switch (expression.kind) {
@@ -1688,6 +1852,9 @@ std::string emitExpression(const HIRExpression &expression,
                : "NonUniformResourceIndex(" +
                      emitExpression(expression.children.front(), context) + ")";
   case HIRExpressionKind::Constructor: {
+    if (isMatrixType(baseTypeName(expression.type))) {
+      return emitDirectXMatrixConstructor(expression, context);
+    }
     std::ostringstream out;
     out << hlslType(expression.type) << "(";
     for (std::size_t index = 0; index < expression.children.size(); ++index) {

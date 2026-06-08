@@ -39085,6 +39085,64 @@ shader DirectXMatrixFunctionParameterArrayShader {
          "and local-declaration capabilities");
 }
 
+void testDirectXMatrixConstructorHLSL() {
+  constexpr std::string_view source = R"(
+shader DirectXMatrixConstructorShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    void main() {
+      mat2 flattened = mat2(1.0, 2.0, 3.0, 4.0);
+      mat2 diagonal = mat2(5.0);
+      mat3 expanded = mat3(flattened);
+      vec3 c0 = vec3(1.0, 2.0, 3.0);
+      vec3 c1 = vec3(4.0, 5.0, 6.0);
+      vec3 c2 = vec3(7.0, 8.0, 9.0);
+      mat3 basis = mat3(c0, c1, c2);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "DirectX matrix-constructor source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::directxTextualBackendSupported(*hir),
+         "DirectX source package supports matrix constructors");
+  const std::string directx = crossgl::generateDirectXSource(*hir);
+  expect(directx.find(
+             "float2x2 flattened = float2x2(1.0, 3.0, 2.0, 4.0);") !=
+             std::string::npos,
+         "DirectX backend transposes flattened matrix constructor scalars to "
+         "HLSL row order");
+  expect(directx.find(
+             "float2x2 diagonal = float2x2(5.0, 0.0, 0.0, 5.0);") !=
+             std::string::npos,
+         "DirectX backend expands scalar diagonal matrix constructors");
+  expect(directx.find(
+             "float3x3 expanded = float3x3(flattened[0][0], "
+             "flattened[0][1], 0.0, flattened[1][0], flattened[1][1], "
+             "0.0, 0.0, 0.0, 1.0);") != std::string::npos,
+         "DirectX backend expands smaller source matrices into identity-filled "
+         "larger matrices");
+  expect(directx.find(
+             "float3x3 basis = float3x3(c0[0], c1[0], c2[0], c0[1], "
+             "c1[1], c2[1], c0[2], c1[2], c2[2]);") !=
+             std::string::npos,
+         "DirectX backend lowers vector-column matrix constructors to HLSL "
+         "row-order scalar constructors");
+
+  const std::vector<crossgl::TargetCapability> directxMissing =
+      crossgl::missingTargetCapabilities(*hir, crossgl::TargetKind::DirectX);
+  expect(!hasCapability(directxMissing, crossgl::TargetKind::DirectX,
+                        "operation", "matrix-constructor"),
+         "DirectX matrix constructor source satisfies matrix-constructor "
+         "capability");
+}
+
 void testDirectXFoldedNestedFunctionParameterArrayHLSL() {
   constexpr std::string_view source = R"(
 shader DirectXFoldedNestedFunctionParameterArrayShader {
@@ -51431,6 +51489,7 @@ int main() {
   testDirectXFunctionParameterArrayHLSL();
   testDirectXLocalFunctionParameterArrayHLSL();
   testDirectXMatrixFunctionParameterArrayHLSL();
+  testDirectXMatrixConstructorHLSL();
   testDirectXFoldedNestedFunctionParameterArrayHLSL();
   testDirectXNestedLocalFunctionParameterArrayHLSL();
   testDirectXFunctionParameterArrayUnsupportedDiagnostics();
