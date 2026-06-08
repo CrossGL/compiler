@@ -633,6 +633,182 @@
       }
     },
     {
+      "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "sampled-texture-sampler-binding",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.texture",
+        "hir.sampler",
+        "hir.sampled_resource.descriptor_array",
+        "hir.texture_lod",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @VulkanTextureSamplerCubeArrayLodShader attributes {source = \"tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [1, 1, 1]",
+        "  hir.resource @values {set = 0, binding = 0, kind = \"storageBuffer\"}",
+        "  hir.resource @skyMaps {set = 0, binding = 2, kind = \"sampledTexture\"}",
+        "  hir.resource @skySamplers {set = 0, binding = 5, kind = \"sampler\"}",
+        "  hir.storage_buffer @values : !hir.storage_buffer<!hir.vec4>",
+        "  hir.texture @skyMaps : !hir.texture<cube, sampled, f32>",
+        "  hir.sampler @skySamplers {comparison = false} : !hir.sampler",
+        "  %sample = hir.texture_lod @shadowMap, @comparisonSampler, %uv, %lod : !hir.vec2, !hir.f32 -> !hir.vec4",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "texture_declaration",
+          "sampler_declaration",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "texture_sample_lod",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "vec4_scalar",
+          "vec4_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "texture_sample_result_type",
+          "texture_coordinate_type",
+          "explicit_lod_scalar",
+          "constructor_cast_expression",
+          "scalar_literals"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.descriptors[].descriptorArray",
+          "resourceFacts.descriptors[].arraySize",
+          "resourceFacts.descriptors[].indexingMode",
+          "resourceFacts.descriptors[].fixedDescriptorIndices",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.textures[].name",
+          "resourceFacts.textures[].type",
+          "resourceFacts.textures[].sampledType",
+          "resourceFacts.textures[].dimension",
+          "resourceFacts.textures[].arrayed",
+          "resourceFacts.textures[].comparison",
+          "resourceFacts.textures[].set",
+          "resourceFacts.textures[].binding",
+          "resourceFacts.textures[].descriptorArray",
+          "resourceFacts.textures[].arraySize",
+          "resourceFacts.textures[].indexingMode",
+          "resourceFacts.textures[].fixedDescriptorIndices",
+          "resourceFacts.samplers",
+          "resourceFacts.samplers[].name",
+          "resourceFacts.samplers[].type",
+          "resourceFacts.samplers[].comparison",
+          "resourceFacts.samplers[].set",
+          "resourceFacts.samplers[].binding",
+          "resourceFacts.samplers[].descriptorArray",
+          "resourceFacts.samplers[].arraySize",
+          "resourceFacts.samplers[].indexingMode",
+          "resourceFacts.samplers[].fixedDescriptorIndices"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+          "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+          "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+          "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+          "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.texture_declaration",
+          "sourceLocationFacts.sampler_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.texture_sample_lod",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.vec4_scalar",
+          "typeFacts.vec4_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.texture_sample_result_type",
+          "typeFacts.texture_coordinate_type",
+          "typeFacts.explicit_lod_scalar",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.scalar_literals",
+          "resourceFacts.localSize"
+        ]
+      }
+    },
+    {
       "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "stage": "compute",
       "entryPoint": "main",
@@ -995,7 +1171,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -1066,6 +1243,15 @@
             "shader_module"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1084,7 +1270,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "compute_stage",
@@ -1155,6 +1342,15 @@
             "stage"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1173,7 +1369,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "entry_point",
@@ -1244,6 +1441,15 @@
             "entryPoint"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1262,7 +1468,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [],
       "typeFactsRequired": [],
@@ -1325,6 +1532,14 @@
             "resourceFacts.localSize"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1343,7 +1558,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "return_statement"
@@ -1406,6 +1622,14 @@
             "return_statement"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1424,7 +1648,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -1517,6 +1742,19 @@
         },
         {
           "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "source_file",
@@ -1687,7 +1925,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_declaration"
@@ -1801,6 +2040,25 @@
             "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1816,7 +2074,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_element_type"
@@ -1901,6 +2160,23 @@
             "resourceFacts.targetIndependentResourceMetadata[].access"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1959,6 +2235,69 @@
       ]
     },
     {
+      "operation": "hir.sampled_resource.descriptor_array",
+      "textualForm": "hir.sampled_resource.descriptor_array ...",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Catalogs one fixed-size sampled texture plus sampler descriptor-array fixture with literal descriptor indices; it does not admit runtime descriptor arrays, dynamic indexing, nonuniform indexing, storage-image descriptor arrays, or backend descriptor-indexing policy.",
+      "allowedHirFamilies": [
+        "sampled_textures_and_samplers",
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "texture_declaration",
+        "sampler_declaration"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [
+        "resourceFacts.descriptors[].descriptorArray",
+        "resourceFacts.descriptors[].arraySize",
+        "resourceFacts.descriptors[].indexingMode",
+        "resourceFacts.descriptors[].fixedDescriptorIndices",
+        "resourceFacts.textures[].descriptorArray",
+        "resourceFacts.textures[].arraySize",
+        "resourceFacts.textures[].indexingMode",
+        "resourceFacts.textures[].fixedDescriptorIndices",
+        "resourceFacts.samplers[].descriptorArray",
+        "resourceFacts.samplers[].arraySize",
+        "resourceFacts.samplers[].indexingMode",
+        "resourceFacts.samplers[].fixedDescriptorIndices",
+        "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+        "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "texture_declaration",
+            "sampler_declaration",
+            "resourceFacts.descriptors[].descriptorArray",
+            "resourceFacts.descriptors[].arraySize",
+            "resourceFacts.descriptors[].indexingMode",
+            "resourceFacts.descriptors[].fixedDescriptorIndices",
+            "resourceFacts.textures[].descriptorArray",
+            "resourceFacts.textures[].arraySize",
+            "resourceFacts.textures[].indexingMode",
+            "resourceFacts.textures[].fixedDescriptorIndices",
+            "resourceFacts.samplers[].descriptorArray",
+            "resourceFacts.samplers[].arraySize",
+            "resourceFacts.samplers[].indexingMode",
+            "resourceFacts.samplers[].fixedDescriptorIndices",
+            "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+            "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+            "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+            "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
       "operation": "hir.texture",
       "textualForm": "hir.texture @${resourceName} : !hir.texture<2d, sampled, f32>",
       "emissionStatus": "not-emitted-report-only",
@@ -1968,7 +2307,8 @@
         "resources_layouts_and_storage"
       ],
       "fixtures": [
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "texture_declaration"
@@ -2008,6 +2348,26 @@
             "resourceFacts.targetIndependentResourceMetadata[].access"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "texture_declaration",
+            "resourceFacts.textures[].name",
+            "resourceFacts.textures[].type",
+            "resourceFacts.textures[].sampledType",
+            "resourceFacts.textures[].dimension",
+            "resourceFacts.textures[].arrayed",
+            "resourceFacts.textures[].comparison",
+            "resourceFacts.textures[].set",
+            "resourceFacts.textures[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2021,7 +2381,8 @@
         "resources_layouts_and_storage"
       ],
       "fixtures": [
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "sampler_declaration"
@@ -2055,6 +2416,23 @@
             "resourceFacts.targetIndependentResourceMetadata[].access"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "sampler_declaration",
+            "resourceFacts.samplers[].name",
+            "resourceFacts.samplers[].type",
+            "resourceFacts.samplers[].comparison",
+            "resourceFacts.samplers[].set",
+            "resourceFacts.samplers[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2068,7 +2446,8 @@
         "expressions_operators_and_intrinsics"
       ],
       "fixtures": [
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "texture_sample_lod",
@@ -2081,6 +2460,17 @@
       "fixtureCoverage": [
         {
           "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "texture_sample_lod",
+            "texture_sample_result_type",
+            "texture_coordinate_type",
+            "explicit_lod_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "texture_sample_lod",
@@ -2269,7 +2659,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_write"
@@ -2311,6 +2702,14 @@
         },
         {
           "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "storage_buffer_write"
@@ -2362,18 +2761,20 @@
     "productionLinked": false
   },
   "coverageSummary": {
-    "fixtureCount": 7,
-    "operationCount": 21,
-    "resourceBoundFixtureCount": 5,
+    "fixtureCount": 8,
+    "operationCount": 22,
+    "resourceBoundFixtureCount": 6,
     "resourceBoundFixtures": [
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ],
-    "sampledTextureSamplerFixtureCount": 1,
+    "sampledTextureSamplerFixtureCount": 2,
     "sampledTextureSamplerFixtures": [
+      "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
     ],
     "storageImageFixtureCount": 1,
@@ -2386,6 +2787,7 @@
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ],
@@ -2405,6 +2807,7 @@
         "hir.resource",
         "hir.storage_buffer",
         "hir.storage_buffer.descriptor_array",
+        "hir.sampled_resource.descriptor_array",
         "hir.texture",
         "hir.sampler",
         "hir.texture_lod",
@@ -2428,6 +2831,7 @@
         "hir.resource",
         "hir.storage_buffer",
         "hir.storage_buffer.descriptor_array",
+        "hir.sampled_resource.descriptor_array",
         "hir.texture",
         "hir.sampler",
         "hir.texture_lod",

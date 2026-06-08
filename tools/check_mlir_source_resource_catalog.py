@@ -262,12 +262,24 @@ RESOURCE_TEXTURE_ITEM_FIELDS = (
     "resourceFacts.textures[].set",
     "resourceFacts.textures[].binding",
 )
+RESOURCE_TEXTURE_OPTIONAL_ITEM_FIELDS = (
+    ("descriptorArray", "resourceFacts.textures[].descriptorArray"),
+    ("arraySize", "resourceFacts.textures[].arraySize"),
+    ("indexingMode", "resourceFacts.textures[].indexingMode"),
+    ("fixedDescriptorIndices", "resourceFacts.textures[].fixedDescriptorIndices"),
+)
 RESOURCE_SAMPLER_ITEM_FIELDS = (
     "resourceFacts.samplers[].name",
     "resourceFacts.samplers[].type",
     "resourceFacts.samplers[].comparison",
     "resourceFacts.samplers[].set",
     "resourceFacts.samplers[].binding",
+)
+RESOURCE_SAMPLER_OPTIONAL_ITEM_FIELDS = (
+    ("descriptorArray", "resourceFacts.samplers[].descriptorArray"),
+    ("arraySize", "resourceFacts.samplers[].arraySize"),
+    ("indexingMode", "resourceFacts.samplers[].indexingMode"),
+    ("fixedDescriptorIndices", "resourceFacts.samplers[].fixedDescriptorIndices"),
 )
 RESOURCE_METADATA_ITEM_FIELDS = (
     "resourceFacts.targetIndependentResourceMetadata[].stage",
@@ -468,11 +480,19 @@ def expected_resource_manifest_fields(resource_facts: dict[str, Any]) -> list[st
     if resource_facts.get("storageImages"):
         fields.extend(RESOURCE_STORAGE_IMAGE_ITEM_FIELDS)
     fields.append("resourceFacts.textures")
-    if resource_facts.get("textures"):
+    textures = resource_facts.get("textures")
+    if isinstance(textures, list) and textures:
         fields.extend(RESOURCE_TEXTURE_ITEM_FIELDS)
+        fields.extend(
+            optional_item_fields(textures, RESOURCE_TEXTURE_OPTIONAL_ITEM_FIELDS)
+        )
     fields.append("resourceFacts.samplers")
-    if resource_facts.get("samplers"):
+    samplers = resource_facts.get("samplers")
+    if isinstance(samplers, list) and samplers:
         fields.extend(RESOURCE_SAMPLER_ITEM_FIELDS)
+        fields.extend(
+            optional_item_fields(samplers, RESOURCE_SAMPLER_OPTIONAL_ITEM_FIELDS)
+        )
     return fields
 
 
@@ -512,6 +532,56 @@ def optional_item_fields(
         if any(isinstance(item, dict) and key in item for item in records):
             fields.append(field)
     return fields
+
+
+def check_fixed_descriptor_array_fields(
+    record: dict[str, Any], field: str, errors: list[str]
+) -> None:
+    has_array_fact = any(
+        key in record
+        for key in (
+            "descriptorArray",
+            "arraySize",
+            "indexingMode",
+            "fixedDescriptorIndices",
+        )
+    )
+    if not has_array_fact:
+        return
+    if record.get("descriptorArray") is not True:
+        errors.append(f"{CATALOG_PATH}: {field}.descriptorArray must be true")
+    array_size = record.get("arraySize")
+    if not isinstance(array_size, int) or array_size <= 0:
+        errors.append(f"{CATALOG_PATH}: {field}.arraySize must be a positive integer")
+    if record.get("indexingMode") != "fixed-literal":
+        errors.append(f"{CATALOG_PATH}: {field}.indexingMode must be 'fixed-literal'")
+    indices = record.get("fixedDescriptorIndices")
+    if (
+        not isinstance(indices, list)
+        or not indices
+        or not all(isinstance(index, int) for index in indices)
+    ):
+        errors.append(
+            f"{CATALOG_PATH}: {field}.fixedDescriptorIndices must be a "
+            "non-empty integer list"
+        )
+    elif isinstance(array_size, int) and any(
+        index < 0 or index >= array_size for index in indices
+    ):
+        errors.append(
+            f"{CATALOG_PATH}: {field}.fixedDescriptorIndices must be within "
+            "fixed arraySize"
+        )
+
+
+def check_descriptor_array_records(
+    records: object, field: str, errors: list[str]
+) -> None:
+    if not isinstance(records, list):
+        return
+    for index, item in enumerate(records):
+        if isinstance(item, dict):
+            check_fixed_descriptor_array_fields(item, f"{field}[{index}]", errors)
 
 
 def expected_source_resource_entrypoint_fields(
@@ -1370,6 +1440,17 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
                 f"{CATALOG_PATH}: fixtures[{index}].resourceFacts."
                 "missingManifestFields must be empty"
             )
+        for collection in (
+            "descriptors",
+            "storageBuffers",
+            "textures",
+            "samplers",
+        ):
+            check_descriptor_array_records(
+                resource_facts.get(collection),
+                f"fixtures[{index}].resourceFacts.{collection}",
+                errors,
+            )
 
         metadata = require_object(
             record.get("targetIndependentResourceMetadata"),
@@ -1394,6 +1475,11 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
                 "targetIndependentResourceMetadata.missingManifestFields "
                 "must be empty"
             )
+        check_descriptor_array_records(
+            metadata.get("records"),
+            f"fixtures[{index}].targetIndependentResourceMetadata.records",
+            errors,
+        )
 
         source_resource_entrypoint = require_object(
             record.get("sourceResourceEntrypointPreservation"),

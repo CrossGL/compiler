@@ -1765,6 +1765,217 @@
       ]
     },
     {
+      "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+      "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
+      "loweringStatus": "eligible-report-only",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics",
+        "resources_layouts_and_storage",
+        "sampled_textures_and_samplers"
+      ],
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "compute",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "storage_buffer_declaration",
+            "texture_declaration",
+            "sampler_declaration",
+            "local_variable_declarations",
+            "scalar_expression_statements",
+            "texture_sample_lod",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "sampled-texture-sampler-binding",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "void_entry_point",
+            "vec4_scalar",
+            "vec4_pointer_storage_buffer",
+            "storage_buffer_element_type",
+            "texture_sample_result_type",
+            "texture_coordinate_type",
+            "explicit_lod_scalar",
+            "constructor_cast_expression",
+            "scalar_literals"
+          ]
+        },
+        "controlFlowCategory": "straight-line"
+      },
+      "boundaryFactCoverage": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "texture_declaration",
+          "sampler_declaration",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "texture_sample_lod",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.descriptors[].descriptorArray",
+          "resourceFacts.descriptors[].arraySize",
+          "resourceFacts.descriptors[].indexingMode",
+          "resourceFacts.descriptors[].fixedDescriptorIndices",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.textures[].name",
+          "resourceFacts.textures[].type",
+          "resourceFacts.textures[].sampledType",
+          "resourceFacts.textures[].dimension",
+          "resourceFacts.textures[].arrayed",
+          "resourceFacts.textures[].comparison",
+          "resourceFacts.textures[].set",
+          "resourceFacts.textures[].binding",
+          "resourceFacts.textures[].descriptorArray",
+          "resourceFacts.textures[].arraySize",
+          "resourceFacts.textures[].indexingMode",
+          "resourceFacts.textures[].fixedDescriptorIndices",
+          "resourceFacts.samplers",
+          "resourceFacts.samplers[].name",
+          "resourceFacts.samplers[].type",
+          "resourceFacts.samplers[].comparison",
+          "resourceFacts.samplers[].set",
+          "resourceFacts.samplers[].binding",
+          "resourceFacts.samplers[].descriptorArray",
+          "resourceFacts.samplers[].arraySize",
+          "resourceFacts.samplers[].indexingMode",
+          "resourceFacts.samplers[].fixedDescriptorIndices"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+          "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+          "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+          "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+          "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "vec4_scalar",
+          "vec4_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "texture_sample_result_type",
+          "texture_coordinate_type",
+          "explicit_lod_scalar",
+          "constructor_cast_expression",
+          "scalar_literals"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.texture_declaration",
+          "sourceLocationFacts.sampler_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.texture_sample_lod",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.vec4_scalar",
+          "typeFacts.vec4_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.texture_sample_result_type",
+          "typeFacts.texture_coordinate_type",
+          "typeFacts.explicit_lod_scalar",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.scalar_literals",
+          "resourceFacts.localSize"
+        ]
+      },
+      "requiredPreservation": [
+        "source_file",
+        "source_map_debug_contracts",
+        "compute_stage",
+        "entry_point",
+        "descriptor_set_binding",
+        "target_independent_resource_metadata",
+        "fixed_sampled_texture_sampler_descriptor_array",
+        "storage_buffer_element_type",
+        "sampled_texture_binding",
+        "sampler_binding",
+        "texture_sample_lod"
+      ]
+    },
+    {
       "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
       "experimentSlice": "direct-storage-image-resource",
       "loweringStatus": "eligible-report-only",
@@ -1904,11 +2115,11 @@
   "ineligibleFixtureFamilies": [
     {
       "id": "remaining_texture_image_intrinsics",
-      "reason": "Direct sampled texture plus sampler LOD facts, direct read_write storage-image load/store facts, and one fixed storage-buffer descriptor-array catalog fixture are admitted; sampled-resource descriptor arrays, storage-image descriptor arrays, nonuniform texture or image indexing, compare helpers, access-qualified storage images, image atomics, and manual texture intrinsics remain blocked."
+      "reason": "Direct sampled texture plus sampler LOD facts, direct read_write storage-image load/store facts, one fixed storage-buffer descriptor-array catalog fixture, and one fixed sampled texture plus sampler descriptor-array catalog fixture are admitted; storage-image descriptor arrays, nonuniform texture or image indexing, compare helpers, access-qualified storage images, image atomics, and manual texture intrinsics remain blocked."
     },
     {
       "id": "descriptor_indexing_and_nonuniform",
-      "reason": "Only fixed literal storage-buffer descriptor-array indices from the admitted catalog fixture are report-only evidence; runtime descriptor arrays, dynamic indexes, and nonuniform metadata remain blocked until target-independent indexing facts and checks are updated deliberately."
+      "reason": "Only fixed literal storage-buffer and sampled texture/sampler descriptor-array indices from admitted catalog fixtures are report-only evidence; runtime descriptor arrays, dynamic indexes, and nonuniform metadata remain blocked until target-independent indexing facts and checks are updated deliberately."
     },
     {
       "id": "backend_policy_and_package_schema",

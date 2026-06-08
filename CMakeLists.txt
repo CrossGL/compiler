@@ -50,6 +50,7 @@ set(CROSSGL_MLIR_EXPERIMENT_FIXTURES
   tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl
   tests/fixtures/IfComputeShader.cgl
   tests/fixtures/VulkanTextureSamplerLodShader.cgl
+  tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl
   tests/frontend/fixtures/StorageImageHIRShader.cgl
 )
 set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS

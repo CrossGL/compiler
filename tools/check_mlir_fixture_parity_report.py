@@ -157,6 +157,18 @@ RESOURCE_ITEM_OPTIONAL_FIELDS = {
             "resourceFacts.storageBuffers[].fixedDescriptorIndices",
         ),
     ),
+    "textures": (
+        ("descriptorArray", "resourceFacts.textures[].descriptorArray"),
+        ("arraySize", "resourceFacts.textures[].arraySize"),
+        ("indexingMode", "resourceFacts.textures[].indexingMode"),
+        ("fixedDescriptorIndices", "resourceFacts.textures[].fixedDescriptorIndices"),
+    ),
+    "samplers": (
+        ("descriptorArray", "resourceFacts.samplers[].descriptorArray"),
+        ("arraySize", "resourceFacts.samplers[].arraySize"),
+        ("indexingMode", "resourceFacts.samplers[].indexingMode"),
+        ("fixedDescriptorIndices", "resourceFacts.samplers[].fixedDescriptorIndices"),
+    ),
     RESOURCE_METADATA_COLLECTION: (
         (
             "descriptorArray",
@@ -636,8 +648,7 @@ def check_resource_facts(
                         f"{item_field}.{integer_field} must be a non-negative integer"
                     )
             require_string(descriptor.get("name"), f"{item_field}.name", errors)
-            if descriptor.get("kind") == "storageBuffer":
-                check_fixed_descriptor_array_fields(descriptor, item_field, errors)
+            check_fixed_descriptor_array_fields(descriptor, item_field, errors)
 
     storage_buffers = resource_facts.get("storageBuffers")
     if isinstance(storage_buffers, list):
@@ -724,10 +735,10 @@ def check_resource_facts(
             texture = require_object(item, item_field, errors)
             if not texture:
                 continue
-            require_exact_keys(
+            require_resource_item_keys(
                 texture,
                 item_field,
-                RESOURCE_ITEM_REQUIRED_KEYS["textures"],
+                "textures",
                 errors,
             )
             require_string(texture.get("name"), f"{item_field}.name", errors)
@@ -746,6 +757,7 @@ def check_resource_facts(
                     errors.append(
                         f"{item_field}.{integer_field} must be a non-negative integer"
                     )
+            check_fixed_descriptor_array_fields(texture, item_field, errors)
 
     samplers = resource_facts.get("samplers")
     if isinstance(samplers, list):
@@ -754,10 +766,10 @@ def check_resource_facts(
             sampler = require_object(item, item_field, errors)
             if not sampler:
                 continue
-            require_exact_keys(
+            require_resource_item_keys(
                 sampler,
                 item_field,
-                RESOURCE_ITEM_REQUIRED_KEYS["samplers"],
+                "samplers",
                 errors,
             )
             require_string(sampler.get("name"), f"{item_field}.name", errors)
@@ -770,6 +782,7 @@ def check_resource_facts(
                     errors.append(
                         f"{item_field}.{integer_field} must be a non-negative integer"
                     )
+            check_fixed_descriptor_array_fields(sampler, item_field, errors)
 
     metadata = resource_facts.get(RESOURCE_METADATA_COLLECTION)
     if isinstance(metadata, list):
@@ -824,8 +837,7 @@ def check_resource_facts(
                     )
             if record.get("targetIndependent") is not True:
                 errors.append(f"{item_field}.targetIndependent must be true")
-            if kind == "storageBuffer":
-                check_fixed_descriptor_array_fields(record, item_field, errors)
+            check_fixed_descriptor_array_fields(record, item_field, errors)
 
     if isinstance(descriptors, list) and isinstance(storage_buffers, list):
         descriptor_names = {
@@ -2339,7 +2351,7 @@ def build_report_fields(record: dict[str, Any]) -> dict[str, object]:
         record["resourceFacts"], "self-test.resourceFacts", []
     )
     blocked_family_ids = [
-        "textures_samplers_images_and_intrinsics",
+        "remaining_texture_image_intrinsics",
         "descriptor_indexing_and_nonuniform",
         "crosstl_examples_and_backend_policy",
     ]
@@ -2491,7 +2503,7 @@ def valid_self_test_inventory() -> dict[str, Any]:
         "fixtures": fixtures,
         "unsupportedHirFamilies": [
             {
-                "id": "textures_samplers_images_and_intrinsics",
+                "id": "remaining_texture_image_intrinsics",
                 "reason": (
                     "Texture, sampler, image, and texture intrinsic HIR families "
                     "are outside the fixture-limited MLIR experiment."

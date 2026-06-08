@@ -24,15 +24,16 @@
     ]
   },
   "coverageSummary": {
-    "operationCount": 21,
+    "operationCount": 22,
     "typeFactCount": 26,
-    "fixtureCount": 7,
+    "fixtureCount": 8,
     "fixtures": [
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/MinimalComputeShader.cgl",
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ]
@@ -44,6 +45,7 @@
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ],
@@ -53,6 +55,7 @@
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ],
@@ -87,7 +90,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -153,6 +157,16 @@
         {
           "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "experimentSlice": "fixed-storage-buffer-descriptor-array-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "source_file",
@@ -189,7 +203,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -255,6 +270,16 @@
         {
           "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "experimentSlice": "fixed-storage-buffer-descriptor-array-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "compute_stage",
@@ -291,7 +316,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -357,6 +383,16 @@
         {
           "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "experimentSlice": "fixed-storage-buffer-descriptor-array-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "entry_point",
@@ -392,7 +428,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -452,6 +489,15 @@
         {
           "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "experimentSlice": "fixed-storage-buffer-descriptor-array-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "resourceFacts.localSize"
@@ -486,7 +532,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -546,6 +593,15 @@
         {
           "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "experimentSlice": "fixed-storage-buffer-descriptor-array-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "return_statement"
@@ -586,7 +642,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -676,6 +733,20 @@
         {
           "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "experimentSlice": "fixed-storage-buffer-descriptor-array-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "source_file",
@@ -900,7 +971,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -1002,6 +1074,26 @@
             "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1037,7 +1129,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -1097,6 +1190,24 @@
         {
           "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
           "experimentSlice": "direct-storage-image-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "storage_buffer_element_type",
@@ -1175,6 +1286,75 @@
       ]
     },
     {
+      "operation": "hir.sampled_resource.descriptor_array",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs one fixed-size sampled texture plus sampler descriptor-array fixture with literal descriptor indices; it does not admit runtime descriptor arrays, dynamic indexing, nonuniform indexing, storage-image descriptor arrays, or backend descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "sampled_textures_and_samplers",
+        "resources_layouts_and_storage"
+      ],
+      "preserves": [
+        "resource_bindings",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "texture_declaration",
+        "sampler_declaration",
+        "resourceFacts.descriptors[].descriptorArray",
+        "resourceFacts.descriptors[].arraySize",
+        "resourceFacts.descriptors[].indexingMode",
+        "resourceFacts.descriptors[].fixedDescriptorIndices",
+        "resourceFacts.textures[].descriptorArray",
+        "resourceFacts.textures[].arraySize",
+        "resourceFacts.textures[].indexingMode",
+        "resourceFacts.textures[].fixedDescriptorIndices",
+        "resourceFacts.samplers[].descriptorArray",
+        "resourceFacts.samplers[].arraySize",
+        "resourceFacts.samplers[].indexingMode",
+        "resourceFacts.samplers[].fixedDescriptorIndices",
+        "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+        "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+      ],
+      "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "texture_declaration",
+            "sampler_declaration",
+            "resourceFacts.descriptors[].descriptorArray",
+            "resourceFacts.descriptors[].arraySize",
+            "resourceFacts.descriptors[].indexingMode",
+            "resourceFacts.descriptors[].fixedDescriptorIndices",
+            "resourceFacts.textures[].descriptorArray",
+            "resourceFacts.textures[].arraySize",
+            "resourceFacts.textures[].indexingMode",
+            "resourceFacts.textures[].fixedDescriptorIndices",
+            "resourceFacts.samplers[].descriptorArray",
+            "resourceFacts.samplers[].arraySize",
+            "resourceFacts.samplers[].indexingMode",
+            "resourceFacts.samplers[].fixedDescriptorIndices",
+            "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+            "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+            "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+            "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
       "operation": "hir.texture",
       "coverageStatus": "boundary-inventory-only",
       "emissionStatus": "boundary-inventory-only",
@@ -1209,12 +1389,34 @@
         "resourceFacts.targetIndependentResourceMetadata[].access"
       ],
       "fixtures": [
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
           "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
           "experimentSlice": "sampled-texture-sampler-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "texture_declaration",
+            "resourceFacts.textures[].name",
+            "resourceFacts.textures[].type",
+            "resourceFacts.textures[].sampledType",
+            "resourceFacts.textures[].dimension",
+            "resourceFacts.textures[].arrayed",
+            "resourceFacts.textures[].comparison",
+            "resourceFacts.textures[].set",
+            "resourceFacts.textures[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "texture_declaration",
@@ -1267,12 +1469,31 @@
         "resourceFacts.targetIndependentResourceMetadata[].access"
       ],
       "fixtures": [
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
           "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
           "experimentSlice": "sampled-texture-sampler-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "sampler_declaration",
+            "resourceFacts.samplers[].name",
+            "resourceFacts.samplers[].type",
+            "resourceFacts.samplers[].comparison",
+            "resourceFacts.samplers[].set",
+            "resourceFacts.samplers[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "sampler_declaration",
@@ -1316,12 +1537,25 @@
         "explicit_lod_scalar"
       ],
       "fixtures": [
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
           "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
           "experimentSlice": "sampled-texture-sampler-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "texture_sample_lod",
+            "texture_sample_result_type",
+            "texture_coordinate_type",
+            "explicit_lod_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "texture_sample_lod",
@@ -1556,7 +1790,8 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
-        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -1598,6 +1833,15 @@
         {
           "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "experimentSlice": "fixed-storage-buffer-descriptor-array-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+          "experimentSlice": "fixed-sampled-texture-sampler-descriptor-array-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "storage_buffer_write"
@@ -1701,6 +1945,7 @@
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ]
@@ -1710,6 +1955,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
       ]
     },
@@ -1772,6 +2018,7 @@
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
       ]
     },
@@ -1783,6 +2030,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ]
@@ -1808,6 +2056,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
       ]
     },
@@ -1816,6 +2065,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
       ]
     },
@@ -1856,6 +2106,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ]
@@ -1865,6 +2116,7 @@
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ]
@@ -1879,6 +2131,7 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ]
@@ -1887,11 +2140,11 @@
   "blockedCoverage": [
     {
       "id": "remaining_texture_image_intrinsics",
-      "reason": "Direct sampled texture plus sampler LOD facts, direct read_write storage-image load/store facts, and one fixed storage-buffer descriptor-array catalog fixture are admitted; sampled-resource descriptor arrays, storage-image descriptor arrays, nonuniform texture or image indexing, compare helpers, access-qualified storage images, image atomics, and manual texture intrinsics remain blocked."
+      "reason": "Direct sampled texture plus sampler LOD facts, direct read_write storage-image load/store facts, one fixed storage-buffer descriptor-array catalog fixture, and one fixed sampled texture plus sampler descriptor-array catalog fixture are admitted; storage-image descriptor arrays, nonuniform texture or image indexing, compare helpers, access-qualified storage images, image atomics, and manual texture intrinsics remain blocked."
     },
     {
       "id": "descriptor_indexing_and_nonuniform",
-      "reason": "Only fixed literal storage-buffer descriptor-array indices from the admitted catalog fixture are report-only evidence; runtime descriptor arrays, dynamic indexes, and nonuniform metadata remain blocked until target-independent indexing facts and checks are updated deliberately."
+      "reason": "Only fixed literal storage-buffer and sampled texture/sampler descriptor-array indices from admitted catalog fixtures are report-only evidence; runtime descriptor arrays, dynamic indexes, and nonuniform metadata remain blocked until target-independent indexing facts and checks are updated deliberately."
     },
     {
       "id": "backend_policy_and_package_schema",
