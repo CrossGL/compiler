@@ -147,6 +147,8 @@ RESOURCE_ITEM_OPTIONAL_FIELDS = {
             "fixedDescriptorIndices",
             "resourceFacts.descriptors[].fixedDescriptorIndices",
         ),
+        ("nonuniformMarker", "resourceFacts.descriptors[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.descriptors[].indexExpression"),
     ),
     "storageBuffers": (
         ("descriptorArray", "resourceFacts.storageBuffers[].descriptorArray"),
@@ -156,6 +158,8 @@ RESOURCE_ITEM_OPTIONAL_FIELDS = {
             "fixedDescriptorIndices",
             "resourceFacts.storageBuffers[].fixedDescriptorIndices",
         ),
+        ("nonuniformMarker", "resourceFacts.storageBuffers[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.storageBuffers[].indexExpression"),
     ),
     "storageImages": (
         ("descriptorArray", "resourceFacts.storageImages[].descriptorArray"),
@@ -165,18 +169,24 @@ RESOURCE_ITEM_OPTIONAL_FIELDS = {
             "fixedDescriptorIndices",
             "resourceFacts.storageImages[].fixedDescriptorIndices",
         ),
+        ("nonuniformMarker", "resourceFacts.storageImages[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.storageImages[].indexExpression"),
     ),
     "textures": (
         ("descriptorArray", "resourceFacts.textures[].descriptorArray"),
         ("arraySize", "resourceFacts.textures[].arraySize"),
         ("indexingMode", "resourceFacts.textures[].indexingMode"),
         ("fixedDescriptorIndices", "resourceFacts.textures[].fixedDescriptorIndices"),
+        ("nonuniformMarker", "resourceFacts.textures[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.textures[].indexExpression"),
     ),
     "samplers": (
         ("descriptorArray", "resourceFacts.samplers[].descriptorArray"),
         ("arraySize", "resourceFacts.samplers[].arraySize"),
         ("indexingMode", "resourceFacts.samplers[].indexingMode"),
         ("fixedDescriptorIndices", "resourceFacts.samplers[].fixedDescriptorIndices"),
+        ("nonuniformMarker", "resourceFacts.samplers[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.samplers[].indexExpression"),
     ),
     RESOURCE_METADATA_COLLECTION: (
         (
@@ -191,6 +201,14 @@ RESOURCE_ITEM_OPTIONAL_FIELDS = {
         (
             "fixedDescriptorIndices",
             "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices",
+        ),
+        (
+            "nonuniformMarker",
+            "resourceFacts.targetIndependentResourceMetadata[].nonuniformMarker",
+        ),
+        (
+            "indexExpression",
+            "resourceFacts.targetIndependentResourceMetadata[].indexExpression",
         ),
     ),
 }
@@ -582,6 +600,8 @@ def check_fixed_descriptor_array_fields(
             "arraySize",
             "indexingMode",
             "fixedDescriptorIndices",
+            "nonuniformMarker",
+            "indexExpression",
         )
     )
     if not has_array_fact:
@@ -591,21 +611,47 @@ def check_fixed_descriptor_array_fields(
     array_size = record.get("arraySize")
     if not isinstance(array_size, int) or array_size <= 0:
         errors.append(f"{field}.arraySize must be a positive integer")
-    if record.get("indexingMode") != "fixed-literal":
-        errors.append(f"{field}.indexingMode must be 'fixed-literal'")
-    indices = record.get("fixedDescriptorIndices")
-    if (
-        not isinstance(indices, list)
-        or not indices
-        or not all(isinstance(index, int) for index in indices)
-    ):
+    indexing_mode = record.get("indexingMode")
+    if indexing_mode == "fixed-literal":
+        indices = record.get("fixedDescriptorIndices")
+        if (
+            not isinstance(indices, list)
+            or not indices
+            or not all(isinstance(index, int) for index in indices)
+        ):
+            errors.append(
+                f"{field}.fixedDescriptorIndices must be a non-empty integer list"
+            )
+        elif isinstance(array_size, int) and any(
+            index < 0 or index >= array_size for index in indices
+        ):
+            errors.append(
+                f"{field}.fixedDescriptorIndices must be within fixed arraySize"
+            )
+        if "nonuniformMarker" in record:
+            errors.append(
+                f"{field}.nonuniformMarker is only valid for nonuniform-marker"
+            )
+        if "indexExpression" in record:
+            errors.append(
+                f"{field}.indexExpression is only valid for nonuniform-marker"
+            )
+    elif indexing_mode == "nonuniform-marker":
+        if "fixedDescriptorIndices" in record:
+            errors.append(
+                f"{field}.fixedDescriptorIndices must be absent for nonuniform-marker"
+            )
+        if record.get("nonuniformMarker") is not True:
+            errors.append(f"{field}.nonuniformMarker must be true")
+        if (
+            not isinstance(record.get("indexExpression"), str)
+            or not record["indexExpression"]
+        ):
+            errors.append(f"{field}.indexExpression must be a non-empty string")
+    else:
         errors.append(
-            f"{field}.fixedDescriptorIndices must be a non-empty integer list"
+            f"{field}.indexingMode must be 'fixed-literal' or 'nonuniform-marker'"
         )
-    elif isinstance(array_size, int) and any(
-        index < 0 or index >= array_size for index in indices
-    ):
-        errors.append(f"{field}.fixedDescriptorIndices must be within fixed arraySize")
 
 
 def check_resource_facts(

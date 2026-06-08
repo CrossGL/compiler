@@ -277,6 +277,11 @@ def textual_form_for_operation(operation: str) -> str:
             "hir.image_store @${image}, ${coordinates}, ${value} "
             ": !hir.ivec2, !hir.vec4"
         )
+    if operation == "hir.storage_image.nonuniform_descriptor_array":
+        return (
+            "hir.storage_image.nonuniform_descriptor_array @${image}"
+            "[nonuniform(${indexExpression})]"
+        )
     if operation == "hir.if":
         return "hir.if ${condition} : !hir.bool { ... } else { ... }"
     if operation == "hir.scalar_compare":
