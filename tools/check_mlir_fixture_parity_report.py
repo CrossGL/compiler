@@ -109,7 +109,17 @@ RESOURCE_ITEM_FIELDS = {
         "resourceFacts.storageBuffers[].addressSpace",
         "resourceFacts.storageBuffers[].writeAccess",
     ),
-    "storageImages": ("resourceFacts.storageImages[]",),
+    "storageImages": (
+        "resourceFacts.storageImages[].name",
+        "resourceFacts.storageImages[].type",
+        "resourceFacts.storageImages[].elementType",
+        "resourceFacts.storageImages[].format",
+        "resourceFacts.storageImages[].dimension",
+        "resourceFacts.storageImages[].arrayed",
+        "resourceFacts.storageImages[].access",
+        "resourceFacts.storageImages[].set",
+        "resourceFacts.storageImages[].binding",
+    ),
     "textures": (
         "resourceFacts.textures[].name",
         "resourceFacts.textures[].type",
@@ -149,6 +159,17 @@ RESOURCE_ITEM_REQUIRED_KEYS = {
         "elementType",
         "addressSpace",
         "writeAccess",
+    ),
+    "storageImages": (
+        "name",
+        "type",
+        "elementType",
+        "format",
+        "dimension",
+        "arrayed",
+        "access",
+        "set",
+        "binding",
     ),
     "textures": (
         "name",
@@ -198,6 +219,7 @@ LOWERING_EVIDENCE_STATUS = "report-only"
 RESOURCE_MODE_EMPTY = "empty-resource-facts"
 RESOURCE_MODE_STORAGE_BUFFER = "single-storage-buffer-binding"
 RESOURCE_MODE_TEXTURE_SAMPLER = "sampled-texture-sampler-binding"
+RESOURCE_MODE_STORAGE_IMAGE = "direct-storage-image-binding"
 CONTROL_FLOW_CATEGORY_STRAIGHT_LINE = "straight-line"
 CONTROL_FLOW_CATEGORY_STRUCTURED_IF_ELSE = "structured-if-else"
 HIR_OPT_LEVEL_FOR_PARITY = "O0"
@@ -407,6 +429,8 @@ def expected_control_flow_report(
 
 
 def expected_resource_mode(resource_facts: dict[str, Any]) -> str:
+    if resource_facts.get("storageImages"):
+        return RESOURCE_MODE_STORAGE_IMAGE
     if resource_facts.get("textures") or resource_facts.get("samplers"):
         return RESOURCE_MODE_TEXTURE_SAMPLER
     has_resource_binding = any(
@@ -479,12 +503,6 @@ def check_resource_facts(
         if not isinstance(resource_facts.get(collection), list):
             errors.append(f"{field}.{collection} must be a list")
             continue
-        if collection == "storageImages" and resource_facts[collection]:
-            errors.append(
-                f"{field}.{collection} must stay empty until its HIR family is "
-                "admitted with blocked-family rationale updated"
-            )
-
     descriptors = resource_facts.get("descriptors")
     if isinstance(descriptors, list):
         for index, item in enumerate(descriptors):
@@ -502,11 +520,12 @@ def check_resource_facts(
                 errors.append(f"{item_field}.stage must match fixture stage")
             if descriptor.get("kind") not in {
                 "storageBuffer",
+                "storageImage",
                 "sampledTexture",
                 "sampler",
             }:
                 errors.append(
-                    f"{item_field}.kind must be 'storageBuffer', "
+                    f"{item_field}.kind must be 'storageBuffer', 'storageImage', "
                     "'sampledTexture', or 'sampler'"
                 )
             for integer_field in ("set", "binding"):
@@ -553,6 +572,41 @@ def check_resource_facts(
                 errors.append(f"{item_field}.addressSpace must be 'storage'")
             if not isinstance(storage_buffer.get("writeAccess"), bool):
                 errors.append(f"{item_field}.writeAccess must be a boolean")
+
+    storage_images = resource_facts.get("storageImages")
+    if isinstance(storage_images, list):
+        for index, item in enumerate(storage_images):
+            item_field = f"{field}.storageImages[{index}]"
+            storage_image = require_object(item, item_field, errors)
+            if not storage_image:
+                continue
+            require_exact_keys(
+                storage_image,
+                item_field,
+                RESOURCE_ITEM_REQUIRED_KEYS["storageImages"],
+                errors,
+            )
+            require_string(storage_image.get("name"), f"{item_field}.name", errors)
+            require_string(storage_image.get("type"), f"{item_field}.type", errors)
+            require_string(
+                storage_image.get("elementType"),
+                f"{item_field}.elementType",
+                errors,
+            )
+            require_string(storage_image.get("format"), f"{item_field}.format", errors)
+            require_string(
+                storage_image.get("dimension"), f"{item_field}.dimension", errors
+            )
+            if not isinstance(storage_image.get("arrayed"), bool):
+                errors.append(f"{item_field}.arrayed must be a boolean")
+            if storage_image.get("access") != "read_write":
+                errors.append(f"{item_field}.access must be 'read_write'")
+            for integer_field in ("set", "binding"):
+                value = storage_image.get(integer_field)
+                if not isinstance(value, int) or value < 0:
+                    errors.append(
+                        f"{item_field}.{integer_field} must be a non-negative integer"
+                    )
 
     textures = resource_facts.get("textures")
     if isinstance(textures, list):
@@ -624,9 +678,14 @@ def check_resource_facts(
             if record.get("stage") != stage:
                 errors.append(f"{item_field}.stage must match fixture stage")
             kind = record.get("kind")
-            if kind not in {"storageBuffer", "sampledTexture", "sampler"}:
+            if kind not in {
+                "storageBuffer",
+                "storageImage",
+                "sampledTexture",
+                "sampler",
+            }:
                 errors.append(
-                    f"{item_field}.kind must be 'storageBuffer', "
+                    f"{item_field}.kind must be 'storageBuffer', 'storageImage', "
                     "'sampledTexture', or 'sampler'"
                 )
             require_string(record.get("name"), f"{item_field}.name", errors)
@@ -635,13 +694,17 @@ def check_resource_facts(
                 record.get("elementType"), f"{item_field}.elementType", errors
             )
             expected_address_space = (
-                "storage" if kind == "storageBuffer" else "uniform_constant"
+                "storage"
+                if kind in {"storageBuffer", "storageImage"}
+                else "uniform_constant"
             )
             if record.get("addressSpace") != expected_address_space:
                 errors.append(
                     f"{item_field}.addressSpace must be {expected_address_space!r}"
                 )
-            expected_access = "read_write" if kind == "storageBuffer" else "read"
+            expected_access = (
+                "read_write" if kind in {"storageBuffer", "storageImage"} else "read"
+            )
             if record.get("access") != expected_access:
                 errors.append(f"{item_field}.access must be {expected_access!r}")
             for integer_field in ("set", "binding"):
@@ -692,6 +755,46 @@ def check_resource_facts(
                 errors.append(
                     f"{field} target-independent resource metadata set/binding "
                     "must match descriptor set/binding"
+                )
+    if isinstance(descriptors, list) and isinstance(storage_images, list):
+        descriptor_names = {
+            item.get("name")
+            for item in descriptors
+            if isinstance(item, dict) and item.get("kind") == "storageImage"
+        }
+        storage_image_names = {
+            item.get("name") for item in storage_images if isinstance(item, dict)
+        }
+        if descriptor_names != storage_image_names:
+            errors.append(
+                f"{field} storageImage descriptor names must match "
+                "resourceFacts.storageImages names"
+            )
+        if isinstance(metadata, list):
+            metadata_names = {
+                item.get("name")
+                for item in metadata
+                if isinstance(item, dict) and item.get("kind") == "storageImage"
+            }
+            if descriptor_names != metadata_names:
+                errors.append(
+                    f"{field} target-independent resource metadata names must match "
+                    "storageImage descriptor names"
+                )
+            descriptor_bindings = {
+                (item.get("name"), item.get("set"), item.get("binding"))
+                for item in descriptors
+                if isinstance(item, dict) and item.get("kind") == "storageImage"
+            }
+            metadata_bindings = {
+                (item.get("name"), item.get("set"), item.get("binding"))
+                for item in metadata
+                if isinstance(item, dict) and item.get("kind") == "storageImage"
+            }
+            if descriptor_bindings != metadata_bindings:
+                errors.append(
+                    f"{field} target-independent resource metadata set/binding "
+                    "must match storageImage descriptor set/binding"
                 )
     if isinstance(descriptors, list) and isinstance(textures, list):
         descriptor_names = {
@@ -1356,13 +1459,15 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
         "hasReturn": "return" in lines,
         "hasAssignment": any(line.startswith("assign ") for line in lines),
         "hasStorageRead": any(
-            not line.startswith("assign ") and re.search(r"\b\w+\[\d+\]", line)
+            not line.startswith("assign ") and re.search(r"\b\w+\[[^\]]+\]", line)
             for line in lines
         ),
         "hasStorageWrite": any(
-            line.startswith("assign ") and re.search(r"\b\w+\[\d+\]", line)
+            line.startswith("assign ") and re.search(r"\b\w+\[[^\]]+\]", line)
             for line in lines
         ),
+        "hasImageLoad": any("imageLoad(" in line for line in lines),
+        "hasImageStore": any("imageStore(" in line for line in lines),
     }
 
     module_pattern = re.compile(r"^module\s+([A-Za-z_][A-Za-z0-9_]*)$")
@@ -1378,6 +1483,8 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
     resource_pattern = re.compile(
         r"^resource\s+([A-Za-z_][A-Za-z0-9_]*)\s+(.+?)\s+"
         r"([A-Za-z_][A-Za-z0-9_]*)\s+"
+        r"(?:access\s+[A-Za-z_][A-Za-z0-9_]*\s+)?"
+        r"(?:format\s+[A-Za-z0-9_]+\s+)?"
         r"set\s+([0-9]+)\s+binding\s+([0-9]+)$"
     )
     declaration_pattern = re.compile(
@@ -1562,6 +1669,11 @@ def check_hir_text_parity(
         for item in resource_facts.get("storageBuffers", [])
         if isinstance(item, dict)
     }
+    storage_images_by_name = {
+        item.get("name"): item
+        for item in resource_facts.get("storageImages", [])
+        if isinstance(item, dict)
+    }
     for index, descriptor in enumerate(resource_facts.get("descriptors", [])):
         if not isinstance(descriptor, dict):
             continue
@@ -1569,6 +1681,7 @@ def check_hir_text_parity(
         kind = descriptor.get("kind")
         hir_kind = {
             "storageBuffer": "buffer",
+            "storageImage": "storage_image",
             "sampledTexture": "texture",
             "sampler": "sampler",
         }.get(kind)
@@ -1580,6 +1693,13 @@ def check_hir_text_parity(
             source_type = (
                 storage_buffer.get("type")
                 if isinstance(storage_buffer, dict)
+                else descriptor.get("sourceType")
+            )
+        elif kind == "storageImage":
+            storage_image = storage_images_by_name.get(name)
+            source_type = (
+                storage_image.get("type")
+                if isinstance(storage_image, dict)
                 else descriptor.get("sourceType")
             )
         elif kind == "sampledTexture":
@@ -1623,6 +1743,10 @@ def check_hir_text_parity(
         errors.append(f"{field}: HIR text must include a storage-buffer read")
     if "storage_buffer_write" in source_facts and not facts["hasStorageWrite"]:
         errors.append(f"{field}: HIR text must include a storage-buffer write")
+    if "storage_image_load" in source_facts and not facts["hasImageLoad"]:
+        errors.append(f"{field}: HIR text must include an imageLoad call")
+    if "storage_image_store" in source_facts and not facts["hasImageStore"]:
+        errors.append(f"{field}: HIR text must include an imageStore call")
     if "return_statement" in source_facts and not facts["hasReturn"]:
         errors.append(f"{field}: HIR text must include return")
     if CONTROL_FLOW_FAMILY in allowed_families:
@@ -1683,6 +1807,11 @@ def check_hir_source_map_parity(
     type_triples = facts["typeTriples"]
     expression_tuples = facts["expressionTuples"]
     statement_triples = facts["statementTriples"]
+    storage_buffer_names = {
+        item.get("name")
+        for item in record.get("resourceFacts", {}).get("storageBuffers", [])
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
 
     if (
         "void_entry_point" in type_facts
@@ -1777,15 +1906,32 @@ def check_hir_source_map_parity(
     ):
         errors.append(f"{field}: HIR source-map missing storage-buffer declaration")
     if "storage_buffer_read" in source_facts and not any(
-        statement == "decl" and kind == "identifier" and value == "values"
+        statement == "decl" and kind == "identifier" and value in storage_buffer_names
         for statement, kind, value, _ in expression_tuples
     ):
         errors.append(f"{field}: HIR source-map missing storage-buffer read")
     if "storage_buffer_write" in source_facts and not any(
-        statement == "assign" and kind == "identifier" and value == "values"
+        statement == "assign" and kind == "identifier" and value in storage_buffer_names
         for statement, kind, value, _ in expression_tuples
     ):
         errors.append(f"{field}: HIR source-map missing storage-buffer write")
+    if "storage_image_declaration" in source_facts and not any(
+        owner == "resource-type"
+        and isinstance(typ, str)
+        and (typ.endswith("image2D") or typ.endswith("image2DArray"))
+        for owner, _, typ in type_triples
+    ):
+        errors.append(f"{field}: HIR source-map missing storage-image declaration")
+    if "storage_image_load" in source_facts and not any(
+        kind == "call" and value == "imageLoad"
+        for _, kind, value, _ in expression_tuples
+    ):
+        errors.append(f"{field}: HIR source-map missing imageLoad call")
+    if "storage_image_store" in source_facts and not any(
+        kind == "call" and value == "imageStore"
+        for _, kind, value, _ in expression_tuples
+    ):
+        errors.append(f"{field}: HIR source-map missing imageStore call")
 
 
 def check_fixture_hir_dump_parity(

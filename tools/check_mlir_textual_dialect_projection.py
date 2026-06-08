@@ -250,6 +250,11 @@ def textual_form_for_operation(operation: str) -> str:
         return "hir.storage_buffer @${resourceName} : !hir.storage_buffer<!hir.f32>"
     if operation == "hir.texture":
         return "hir.texture @${resourceName} : !hir.texture<2d, sampled, f32>"
+    if operation == "hir.storage_image":
+        return (
+            'hir.storage_image @${resourceName} {access = "${access}"} '
+            ": !hir.storage_image<${dimension}, ${format}>"
+        )
     if operation == "hir.sampler":
         return (
             "hir.sampler @${resourceName} {comparison = ${comparison}} : !hir.sampler"
@@ -264,6 +269,13 @@ def textual_form_for_operation(operation: str) -> str:
         return (
             "hir.texture_lod @${texture}, @${sampler}, ${coordinates}, ${lod} "
             ": !hir.vec2, !hir.f32 -> !hir.vec4"
+        )
+    if operation == "hir.image_load":
+        return "hir.image_load @${image}, ${coordinates} : !hir.ivec2 -> !hir.vec4"
+    if operation == "hir.image_store":
+        return (
+            "hir.image_store @${image}, ${coordinates}, ${value} "
+            ": !hir.ivec2, !hir.vec4"
         )
     if operation == "hir.if":
         return "hir.if ${condition} : !hir.bool { ... } else { ... }"
@@ -295,6 +307,7 @@ def hir_type_name(source_type: str) -> str:
 def resource_lines(resource_facts: dict[str, Any]) -> list[str]:
     descriptors = resource_facts.get("descriptors")
     storage_buffers = resource_facts.get("storageBuffers")
+    storage_images = resource_facts.get("storageImages")
     textures = resource_facts.get("textures")
     samplers = resource_facts.get("samplers")
     lines: list[str] = []
@@ -330,6 +343,18 @@ def resource_lines(resource_facts: dict[str, Any]) -> list[str]:
             sampled = "sampled"
             lines.append(
                 f"  hir.texture @{name} : !hir.texture<{dimension}, {sampled}, {sampled_type}>"
+            )
+    if isinstance(storage_images, list):
+        for storage_image in storage_images:
+            if not isinstance(storage_image, dict):
+                continue
+            name = scalar_value(storage_image, "name", "image")
+            dimension = scalar_value(storage_image, "dimension", "2d")
+            image_format = scalar_value(storage_image, "format", "rgba32f")
+            access = scalar_value(storage_image, "access", "read_write")
+            lines.append(
+                f'  hir.storage_image @{name} {{access = "{access}"}} : '
+                f"!hir.storage_image<{dimension}, {image_format}>"
             )
     if isinstance(samplers, list):
         for sampler in samplers:
@@ -369,6 +394,14 @@ def textual_module_skeleton(
         lines.append(
             "  %sample = hir.texture_lod @shadowMap, @comparisonSampler, "
             "%uv, %lod : !hir.vec2, !hir.f32 -> !hir.vec4"
+        )
+    if "hir.image_load" in string_list(boundary_record.get("expectedOperations")):
+        lines.append(
+            "  %pixel = hir.image_load @colorImage, %xy : !hir.ivec2 -> !hir.vec4"
+        )
+    if "hir.image_store" in string_list(boundary_record.get("expectedOperations")):
+        lines.append(
+            "  hir.image_store @colorImage, %xy, %pixel : !hir.ivec2, !hir.vec4"
         )
     lines.extend(
         [
@@ -508,9 +541,20 @@ def derive_catalog(root: Path) -> dict[str, Any]:
         for item in fixtures
         if item.get("resourceFactMode") == "sampled-texture-sampler-binding"
     ]
+    storage_image_resource_bound = [
+        item["path"]
+        for item in fixtures
+        if item.get("resourceFactMode") == "direct-storage-image-binding"
+    ]
     resource_bound = [
-        *storage_buffer_resource_bound,
-        *texture_sampler_resource_bound,
+        item["path"]
+        for item in fixtures
+        if item.get("resourceFactMode")
+        in {
+            "single-storage-buffer-binding",
+            "direct-storage-image-binding",
+            "sampled-texture-sampler-binding",
+        }
     ]
     operation_prefix = source_authority.get("operationPrefix", "hir.")
     if not isinstance(operation_prefix, str):
@@ -566,6 +610,8 @@ def derive_catalog(root: Path) -> dict[str, Any]:
             "resourceBoundFixtures": resource_bound,
             "sampledTextureSamplerFixtureCount": len(texture_sampler_resource_bound),
             "sampledTextureSamplerFixtures": texture_sampler_resource_bound,
+            "storageImageFixtureCount": len(storage_image_resource_bound),
+            "storageImageFixtures": storage_image_resource_bound,
             "fixtures": [item["path"] for item in fixtures],
             "operationNamingBoundary": {
                 "operationPrefix": operation_prefix,

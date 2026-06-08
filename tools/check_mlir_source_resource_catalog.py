@@ -226,6 +226,17 @@ RESOURCE_STORAGE_BUFFER_ITEM_FIELDS = (
     "resourceFacts.storageBuffers[].addressSpace",
     "resourceFacts.storageBuffers[].writeAccess",
 )
+RESOURCE_STORAGE_IMAGE_ITEM_FIELDS = (
+    "resourceFacts.storageImages[].name",
+    "resourceFacts.storageImages[].type",
+    "resourceFacts.storageImages[].elementType",
+    "resourceFacts.storageImages[].format",
+    "resourceFacts.storageImages[].dimension",
+    "resourceFacts.storageImages[].arrayed",
+    "resourceFacts.storageImages[].access",
+    "resourceFacts.storageImages[].set",
+    "resourceFacts.storageImages[].binding",
+)
 RESOURCE_TEXTURE_ITEM_FIELDS = (
     "resourceFacts.textures[].name",
     "resourceFacts.textures[].type",
@@ -417,6 +428,8 @@ def expected_resource_manifest_fields(resource_facts: dict[str, Any]) -> list[st
     if resource_facts.get("storageBuffers"):
         fields.extend(RESOURCE_STORAGE_BUFFER_ITEM_FIELDS)
     fields.append("resourceFacts.storageImages")
+    if resource_facts.get("storageImages"):
+        fields.extend(RESOURCE_STORAGE_IMAGE_ITEM_FIELDS)
     fields.append("resourceFacts.textures")
     if resource_facts.get("textures"):
         fields.extend(RESOURCE_TEXTURE_ITEM_FIELDS)
@@ -1061,6 +1074,11 @@ def derive_catalog(root: Path) -> dict[str, Any]:
         for item in fixtures
         if item.get("resourceFactMode") == "sampled-texture-sampler-binding"
     ]
+    storage_image_bound = [
+        item["path"]
+        for item in fixtures
+        if item.get("resourceFactMode") == "direct-storage-image-binding"
+    ]
     resource_free = [
         item["path"]
         for item in fixtures
@@ -1095,11 +1113,17 @@ def derive_catalog(root: Path) -> dict[str, Any]:
         "resourceContract": {
             "targetIndependentMetadataField": RESOURCE_METADATA_COLLECTION,
             "resourceFieldModeValues": [
+                "direct-storage-image-binding",
                 "empty-resource-facts",
                 "sampled-texture-sampler-binding",
                 "single-storage-buffer-binding",
             ],
-            "resourceBoundFixtures": [*resource_bound, *texture_sampler_bound],
+            "resourceBoundFixtures": [
+                *resource_bound,
+                *storage_image_bound,
+                *texture_sampler_bound,
+            ],
+            "storageImageFixtures": storage_image_bound,
             "sampledTextureSamplerFixtures": texture_sampler_bound,
             "resourceFreeFixtures": resource_free,
         },
@@ -1109,7 +1133,9 @@ def derive_catalog(root: Path) -> dict[str, Any]:
         "coverageSummary": {
             "fixtureCount": len(fixtures),
             "resourceBoundFixtureCount": len(resource_bound)
+            + len(storage_image_bound)
             + len(texture_sampler_bound),
+            "storageImageFixtureCount": len(storage_image_bound),
             "sampledTextureSamplerFixtureCount": len(texture_sampler_bound),
             "resourceFreeFixtureCount": len(resource_free),
             "targetIndependentTypeFactCount": len(type_facts),

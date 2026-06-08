@@ -651,6 +651,193 @@
           "resourceFacts.localSize"
         ]
       }
+    },
+    {
+      "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "direct-storage-image-resource",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "direct-storage-image-binding",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.storage_buffer.read",
+        "hir.image_load",
+        "hir.image_store",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @StorageImageHIRShader attributes {source = \"tests/frontend/fixtures/StorageImageHIRShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [8, 8, 1]",
+        "  hir.resource @colorImage {set = 0, binding = 0, kind = \"storageImage\"}",
+        "  hir.resource @colorAtlas {set = 0, binding = 1, kind = \"storageImage\"}",
+        "  hir.resource @labelImage {set = 0, binding = 2, kind = \"storageImage\"}",
+        "  hir.resource @labelAtlas {set = 0, binding = 3, kind = \"storageImage\"}",
+        "  hir.resource @maskImage {set = 0, binding = 4, kind = \"storageImage\"}",
+        "  hir.resource @maskAtlas {set = 0, binding = 5, kind = \"storageImage\"}",
+        "  hir.resource @colors {set = 0, binding = 6, kind = \"storageBuffer\"}",
+        "  hir.resource @labels {set = 0, binding = 7, kind = \"storageBuffer\"}",
+        "  hir.resource @masks {set = 0, binding = 8, kind = \"storageBuffer\"}",
+        "  hir.resource @layers {set = 0, binding = 9, kind = \"storageBuffer\"}",
+        "  hir.storage_buffer @colors : !hir.storage_buffer<!hir.vec4>",
+        "  hir.storage_buffer @labels : !hir.storage_buffer<!hir.ivec4>",
+        "  hir.storage_buffer @masks : !hir.storage_buffer<!hir.uvec4>",
+        "  hir.storage_buffer @layers : !hir.storage_buffer<!hir.i32>",
+        "  hir.storage_image @colorImage {access = \"read_write\"} : !hir.storage_image<2d, rgba32f>",
+        "  hir.storage_image @colorAtlas {access = \"read_write\"} : !hir.storage_image<2d_array, rgba32f>",
+        "  hir.storage_image @labelImage {access = \"read_write\"} : !hir.storage_image<2d, rgba32i>",
+        "  hir.storage_image @labelAtlas {access = \"read_write\"} : !hir.storage_image<2d_array, rgba32i>",
+        "  hir.storage_image @maskImage {access = \"read_write\"} : !hir.storage_image<2d, rgba32ui>",
+        "  hir.storage_image @maskAtlas {access = \"read_write\"} : !hir.storage_image<2d_array, rgba32ui>",
+        "  %pixel = hir.image_load @colorImage, %xy : !hir.ivec2 -> !hir.vec4",
+        "  hir.image_store @colorImage, %xy, %pixel : !hir.ivec2, !hir.vec4",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_image_declaration",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "scalar_expression_statements",
+          "storage_buffer_read",
+          "storage_image_load",
+          "storage_image_store",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "uint_scalar",
+          "int_scalar",
+          "vec4_scalar",
+          "ivec4_scalar",
+          "uvec4_scalar",
+          "vec4_pointer_storage_buffer",
+          "ivec4_pointer_storage_buffer",
+          "uvec4_pointer_storage_buffer",
+          "int_pointer_storage_buffer",
+          "storage_buffer_element_type",
+          "storage_image_result_type",
+          "storage_image_coordinate_type",
+          "constructor_cast_expression",
+          "binary_expression_result_types"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.storageImages[].name",
+          "resourceFacts.storageImages[].type",
+          "resourceFacts.storageImages[].elementType",
+          "resourceFacts.storageImages[].format",
+          "resourceFacts.storageImages[].dimension",
+          "resourceFacts.storageImages[].arrayed",
+          "resourceFacts.storageImages[].access",
+          "resourceFacts.storageImages[].set",
+          "resourceFacts.storageImages[].binding",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_image_declaration",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.scalar_expression_statements",
+          "sourceLocationFacts.storage_buffer_read",
+          "sourceLocationFacts.storage_image_load",
+          "sourceLocationFacts.storage_image_store",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.uint_scalar",
+          "typeFacts.int_scalar",
+          "typeFacts.vec4_scalar",
+          "typeFacts.ivec4_scalar",
+          "typeFacts.uvec4_scalar",
+          "typeFacts.vec4_pointer_storage_buffer",
+          "typeFacts.ivec4_pointer_storage_buffer",
+          "typeFacts.uvec4_pointer_storage_buffer",
+          "typeFacts.int_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.storage_image_result_type",
+          "typeFacts.storage_image_coordinate_type",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.binary_expression_result_types",
+          "resourceFacts.localSize"
+        ]
+      }
     }
   ],
   "operations": [
@@ -667,7 +854,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -720,6 +908,15 @@
             "shader_module"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -736,7 +933,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "compute_stage",
@@ -789,6 +987,15 @@
             "stage"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -805,7 +1012,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "entry_point",
@@ -858,6 +1066,15 @@
             "entryPoint"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -874,7 +1091,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [],
       "typeFactsRequired": [],
@@ -921,6 +1139,14 @@
             "resourceFacts.localSize"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -937,7 +1163,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "return_statement"
@@ -984,6 +1211,14 @@
             "return_statement"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1000,7 +1235,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -1067,6 +1303,19 @@
         },
         {
           "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "source_file",
@@ -1216,7 +1465,8 @@
       "fixtures": [
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_declaration"
@@ -1292,6 +1542,25 @@
             "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1306,7 +1575,8 @@
       "fixtures": [
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_element_type"
@@ -1360,6 +1630,23 @@
         },
         {
           "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "storage_buffer_element_type",
@@ -1512,6 +1799,123 @@
       ]
     },
     {
+      "operation": "hir.storage_image",
+      "textualForm": "hir.storage_image @${resourceName} {access = \"${access}\"} : !hir.storage_image<${dimension}, ${format}>",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Carries direct storage-image resource type, descriptor, format, dimension, read_write access, and target-independent metadata facts for the admitted storage-image fixture.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_declaration"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [
+        "resourceFacts.storageImages[].name",
+        "resourceFacts.storageImages[].type",
+        "resourceFacts.storageImages[].elementType",
+        "resourceFacts.storageImages[].format",
+        "resourceFacts.storageImages[].dimension",
+        "resourceFacts.storageImages[].arrayed",
+        "resourceFacts.storageImages[].access",
+        "resourceFacts.storageImages[].set",
+        "resourceFacts.storageImages[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+        "resourceFacts.targetIndependentResourceMetadata[].elementType",
+        "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+        "resourceFacts.targetIndependentResourceMetadata[].access"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_declaration",
+            "resourceFacts.storageImages[].name",
+            "resourceFacts.storageImages[].type",
+            "resourceFacts.storageImages[].elementType",
+            "resourceFacts.storageImages[].format",
+            "resourceFacts.storageImages[].dimension",
+            "resourceFacts.storageImages[].arrayed",
+            "resourceFacts.storageImages[].access",
+            "resourceFacts.storageImages[].set",
+            "resourceFacts.storageImages[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_load",
+      "textualForm": "hir.image_load @${image}, ${coordinates} : !hir.ivec2 -> !hir.vec4",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Represents direct storage-image load calls as report-only HIR dialect shapes without lowering to target instructions.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_load",
+        "storage_image_result_type",
+        "storage_image_coordinate_type"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_load",
+            "storage_image_result_type",
+            "storage_image_coordinate_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.image_store",
+      "textualForm": "hir.image_store @${image}, ${coordinates}, ${value} : !hir.ivec2, !hir.vec4",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Represents direct storage-image store calls as report-only HIR dialect shapes while preserving source and resource facts.",
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_image_store",
+        "storage_image_coordinate_type"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_image_store",
+            "storage_image_coordinate_type"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
       "operation": "hir.storage_buffer.read",
       "textualForm": "hir.storage_buffer.read @${resourceName}[${index}] : !hir.f32",
       "emissionStatus": "not-emitted-report-only",
@@ -1521,7 +1925,8 @@
         "expressions_operators_and_intrinsics"
       ],
       "fixtures": [
-        "tests/fixtures/IfComputeShader.cgl"
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_read"
@@ -1531,6 +1936,14 @@
       "fixtureCoverage": [
         {
           "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_read"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "storage_buffer_read"
@@ -1551,7 +1964,8 @@
       "fixtures": [
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_write"
@@ -1577,6 +1991,14 @@
         },
         {
           "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "storage_buffer_write"
@@ -1628,24 +2050,30 @@
     "productionLinked": false
   },
   "coverageSummary": {
-    "fixtureCount": 5,
-    "operationCount": 17,
-    "resourceBoundFixtureCount": 3,
+    "fixtureCount": 6,
+    "operationCount": 20,
+    "resourceBoundFixtureCount": 4,
     "resourceBoundFixtures": [
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
-      "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+      "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ],
     "sampledTextureSamplerFixtureCount": 1,
     "sampledTextureSamplerFixtures": [
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+    ],
+    "storageImageFixtureCount": 1,
+    "storageImageFixtures": [
+      "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ],
     "fixtures": [
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/MinimalComputeShader.cgl",
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
-      "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+      "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ],
     "operationNamingBoundary": {
       "operationPrefix": "hir.",
@@ -1665,6 +2093,9 @@
         "hir.texture",
         "hir.sampler",
         "hir.texture_lod",
+        "hir.storage_image",
+        "hir.image_load",
+        "hir.image_store",
         "hir.storage_buffer.read",
         "hir.storage_buffer.write",
         "hir.if"
@@ -1684,6 +2115,9 @@
         "hir.texture",
         "hir.sampler",
         "hir.texture_lod",
+        "hir.storage_image",
+        "hir.image_load",
+        "hir.image_store",
         "hir.storage_buffer.read",
         "hir.storage_buffer.write",
         "hir.if"

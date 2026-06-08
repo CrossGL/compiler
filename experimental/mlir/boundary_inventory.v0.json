@@ -52,7 +52,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -79,7 +80,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -105,7 +107,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -133,7 +136,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "workgroup_size",
@@ -159,7 +163,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -186,7 +191,8 @@
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -293,7 +299,8 @@
       "fixtures": [
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -329,7 +336,8 @@
       "fixtures": [
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "typed_hir_facts",
@@ -448,6 +456,97 @@
       ]
     },
     {
+      "operation": "hir.storage_image",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries direct storage-image resource type, descriptor, format, dimension, read_write access, and target-independent metadata facts for the admitted storage-image fixture.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "src/HIR/HIRDialect.cpp",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_declaration",
+        "resourceFacts.storageImages[].name",
+        "resourceFacts.storageImages[].type",
+        "resourceFacts.storageImages[].elementType",
+        "resourceFacts.storageImages[].format",
+        "resourceFacts.storageImages[].dimension",
+        "resourceFacts.storageImages[].arrayed",
+        "resourceFacts.storageImages[].access",
+        "resourceFacts.storageImages[].set",
+        "resourceFacts.storageImages[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+        "resourceFacts.targetIndependentResourceMetadata[].elementType",
+        "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+        "resourceFacts.targetIndependentResourceMetadata[].access"
+      ]
+    },
+    {
+      "operation": "hir.image_load",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents direct storage-image load calls as report-only HIR dialect shapes without lowering to target instructions.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "src/HIR/HIRDialect.cpp",
+        "src/IR/IRPrinter.cpp"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_load",
+        "storage_image_result_type",
+        "storage_image_coordinate_type"
+      ]
+    },
+    {
+      "operation": "hir.image_store",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents direct storage-image store calls as report-only HIR dialect shapes while preserving source and resource facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "src/HIR/HIRDialect.cpp",
+        "src/IR/IRPrinter.cpp"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_store",
+        "storage_image_coordinate_type"
+      ]
+    },
+    {
       "operation": "hir.storage_buffer.read",
       "emissionStatus": "boundary-inventory-only",
       "role": "Represents the structured-if fixture's storage-buffer read fact only.",
@@ -459,7 +558,8 @@
         "expressions_operators_and_intrinsics"
       ],
       "fixtures": [
-        "tests/fixtures/IfComputeShader.cgl"
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -484,7 +584,8 @@
       "fixtures": [
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -524,6 +625,42 @@
     }
   ],
   "fixtureBoundary": [
+    {
+      "path": "tests/fixtures/IfComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.read",
+        "hir.storage_buffer.write",
+        "hir.if",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "single-storage-buffer-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
     {
       "path": "tests/fixtures/MinimalComputeShader.cgl",
       "expectedOperations": [
@@ -618,23 +755,22 @@
       }
     },
     {
-      "path": "tests/fixtures/IfComputeShader.cgl",
+      "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "expectedOperations": [
         "hir.module",
         "hir.compute_stage",
         "hir.entry_point",
         "hir.workgroup_size",
-        "hir.scalar_declare",
-        "hir.scalar_expr",
         "hir.resource",
         "hir.storage_buffer",
-        "hir.storage_buffer.read",
+        "hir.texture",
+        "hir.sampler",
+        "hir.texture_lod",
         "hir.storage_buffer.write",
-        "hir.if",
         "hir.return",
         "hir.source_location_anchor"
       ],
-      "resourceFactMode": "single-storage-buffer-binding",
+      "resourceFactMode": "sampled-texture-sampler-binding",
       "requiredPreservation": [
         "source_locations",
         "source_map_debug_contracts",
@@ -654,22 +790,25 @@
       }
     },
     {
-      "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
       "expectedOperations": [
         "hir.module",
         "hir.compute_stage",
         "hir.entry_point",
         "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
         "hir.resource",
         "hir.storage_buffer",
-        "hir.texture",
-        "hir.sampler",
-        "hir.texture_lod",
+        "hir.storage_image",
+        "hir.storage_buffer.read",
+        "hir.image_load",
+        "hir.image_store",
         "hir.storage_buffer.write",
         "hir.return",
         "hir.source_location_anchor"
       ],
-      "resourceFactMode": "sampled-texture-sampler-binding",
+      "resourceFactMode": "direct-storage-image-binding",
       "requiredPreservation": [
         "source_locations",
         "source_map_debug_contracts",
