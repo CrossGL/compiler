@@ -2410,7 +2410,7 @@ bool expressionSupported(const HIRExpression &expression,
     return selectExpressionSupported(expression, context);
   }
   return expressionSupportedByPolicy(
-      expression, isSupportedValueType,
+      expression,
       [&](const HIRExpression &child) {
         return expressionSupported(child, context);
       },
@@ -2419,6 +2419,12 @@ bool expressionSupported(const HIRExpression &expression,
       },
       [&](const HIRExpression &compare) {
         return textureCompareSupported(compare, context);
+      },
+      [&](const HIRExpression &constructor) {
+        return backendConstructorShapeSupported(
+            constructor, isSupportedValueType, [&](const HIRExpression &child) {
+              return expressionSupported(child, context);
+            });
       });
 }
 

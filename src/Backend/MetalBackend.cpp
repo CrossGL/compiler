@@ -559,6 +559,9 @@ std::string mapMetalIdentifier(std::string_view text) {
       {"uvec2", "uint2"},   {"uvec3", "uint3"},   {"uvec4", "uint4"},
       {"bvec2", "bool2"},   {"bvec3", "bool3"},   {"bvec4", "bool4"},
       {"mat2", "float2x2"}, {"mat3", "float3x3"}, {"mat4", "float4x4"},
+      {"mat2x2", "float2x2"},
+      {"mat3x3", "float3x3"},
+      {"mat4x4", "float4x4"},
   };
   auto it = names.find(text);
   return it == names.end() ? std::string(text) : it->second;
@@ -3482,6 +3485,37 @@ bool validateMetalNonUniformDescriptorIndexes(const HIRModule &module,
   return valid;
 }
 
+bool isMetalConstructorTypeSupported(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string baseName = baseTypeName(type);
+  return baseName == "bool" || isNumericScalarTypeName(baseName) ||
+         isVectorType(baseName) || isMatrixType(baseName);
+}
+
+bool validateMetalConstructorExpressions(const HIRModule &module,
+                                         DiagnosticEngine &diagnostics) {
+  bool valid = true;
+  auto visitor = [&](const HIRExpression &expression) {
+    if (expression.kind != HIRExpressionKind::Constructor ||
+        backendConstructorShapeSupported(
+            expression, isMetalConstructorTypeSupported,
+            [](const HIRExpression &) { return true; })) {
+      return;
+    }
+    diagnostics.error(
+        "metal.unsupported-constructor",
+        "Metal backend cannot emit constructor '" + expression.value +
+            "' with result type '" + formatType(expression.type) +
+            "' and " + std::to_string(expression.children.size()) +
+            " operand(s)");
+    valid = false;
+  };
+  visitModuleExpressions(module, visitor, true);
+  return valid;
+}
+
 bool validateMetalResources(const HIRModule &module,
                             DiagnosticEngine &diagnostics) {
   bool valid = true;
@@ -3561,6 +3595,7 @@ bool validateMetalResources(const HIRModule &module,
       validateMetalFunctionParameterArrayCalls(module, diagnostics) && valid;
   valid =
       validateMetalNonUniformDescriptorIndexes(module, diagnostics) && valid;
+  valid = validateMetalConstructorExpressions(module, diagnostics) && valid;
   valid = validateMetalStorageBufferArrayIndexes(module, diagnostics) && valid;
   valid = validateMetalRuntimeTailBlockIndexes(module, diagnostics) && valid;
   if (!valid) {

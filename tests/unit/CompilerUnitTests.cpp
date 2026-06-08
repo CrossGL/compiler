@@ -3788,6 +3788,9 @@ bool expressionPolicyValueTypeSupported(const crossgl::HIRType &type) {
 
 bool expressionPolicySupported(const crossgl::HIRExpression &expression);
 
+bool expressionPolicyConstructorSupported(
+    const crossgl::HIRExpression &expression);
+
 bool expressionPolicyTextureSampleSupported(
     const crossgl::HIRExpression &expression) {
   return expression.value == "textureLod" && expression.children.size() == 1 &&
@@ -3801,11 +3804,19 @@ bool expressionPolicyTextureCompareSupported(
          expressionPolicySupported(expression.children.front());
 }
 
+bool expressionPolicyConstructorSupported(
+    const crossgl::HIRExpression &expression) {
+  return crossgl::backendConstructorShapeSupported(
+      expression, expressionPolicyValueTypeSupported,
+      expressionPolicySupported);
+}
+
 bool expressionPolicySupported(const crossgl::HIRExpression &expression) {
   return crossgl::expressionSupportedByPolicy(
-      expression, expressionPolicyValueTypeSupported, expressionPolicySupported,
+      expression, expressionPolicySupported,
       expressionPolicyTextureSampleSupported,
-      expressionPolicyTextureCompareSupported);
+      expressionPolicyTextureCompareSupported,
+      expressionPolicyConstructorSupported);
 }
 
 void testBackendExpressionSupportPolicyHelper() {
@@ -3815,17 +3826,19 @@ void testBackendExpressionSupportPolicyHelper() {
     result.value = std::move(value);
     return result;
   };
-  auto typedExpression = [&](crossgl::HIRExpressionKind kind,
-                             crossgl::HIRType type,
-                             std::vector<crossgl::HIRExpression> children = {}) {
-    crossgl::HIRExpression result = expression(kind);
-    result.type = std::move(type);
-    result.children = std::move(children);
-    return result;
-  };
+  auto typedExpression =
+      [&](crossgl::HIRExpressionKind kind, std::string value,
+          crossgl::HIRType type,
+          std::vector<crossgl::HIRExpression> children = {}) {
+        crossgl::HIRExpression result = expression(kind, std::move(value));
+        result.type = std::move(type);
+        result.children = std::move(children);
+        return result;
+      };
 
-  const crossgl::HIRExpression literal =
+  crossgl::HIRExpression literal =
       expression(crossgl::HIRExpressionKind::Literal, "1.0");
+  literal.type = crossgl::HIRType{"float", std::nullopt};
   expect(expressionPolicySupported(literal),
          "expression support policy accepts literals");
 
@@ -3867,25 +3880,31 @@ void testBackendExpressionSupportPolicyHelper() {
          "expression support policy rejects oversized two-child expressions");
 
   const crossgl::HIRExpression constructor = typedExpression(
-      crossgl::HIRExpressionKind::Constructor,
+      crossgl::HIRExpressionKind::Constructor, "float",
       crossgl::HIRType{"float", std::nullopt}, {literal});
   expect(expressionPolicySupported(constructor),
          "expression support policy accepts supported constructors");
 
   const crossgl::HIRExpression emptyConstructor = typedExpression(
-      crossgl::HIRExpressionKind::Constructor,
+      crossgl::HIRExpressionKind::Constructor, "float",
       crossgl::HIRType{"float", std::nullopt});
-  expect(expressionPolicySupported(emptyConstructor),
-         "expression support policy preserves constructor arity compatibility");
+  expect(!expressionPolicySupported(emptyConstructor),
+         "expression support policy rejects empty constructors");
+
+  const crossgl::HIRExpression mismatchedConstructor = typedExpression(
+      crossgl::HIRExpressionKind::Constructor, "vec2",
+      crossgl::HIRType{"float", std::nullopt}, {literal});
+  expect(!expressionPolicySupported(mismatchedConstructor),
+         "expression support policy rejects mismatched constructors");
 
   const crossgl::HIRExpression unsupportedConstructor = typedExpression(
-      crossgl::HIRExpressionKind::Constructor,
+      crossgl::HIRExpressionKind::Constructor, "vec4",
       crossgl::HIRType{"vec4", std::nullopt}, {literal});
   expect(!expressionPolicySupported(unsupportedConstructor),
          "expression support policy rejects unsupported constructor types");
 
   const crossgl::HIRExpression constructorWithUnsupportedChild =
-      typedExpression(crossgl::HIRExpressionKind::Constructor,
+      typedExpression(crossgl::HIRExpressionKind::Constructor, "float",
                       crossgl::HIRType{"float", std::nullopt},
                       {expression(crossgl::HIRExpressionKind::Call, "f")});
   expect(!expressionPolicySupported(constructorWithUnsupportedChild),
@@ -37261,6 +37280,62 @@ shader MetalNativeSupportPredicateSupportedShader {
   expect(!std::filesystem::exists(supportedPackageDir),
          "Metal native support predicate does not create package output for "
          "supported shaders");
+
+  auto type = [](std::string name) {
+    return crossgl::HIRType{std::move(name), std::nullopt};
+  };
+  auto expression = [](crossgl::HIRExpressionKind kind, std::string value,
+                       crossgl::HIRType expressionType = {}) {
+    crossgl::HIRExpression result;
+    result.kind = kind;
+    result.value = std::move(value);
+    result.type = std::move(expressionType);
+    return result;
+  };
+  auto literal = [&](std::string value, crossgl::HIRType expressionType) {
+    return expression(crossgl::HIRExpressionKind::Literal, std::move(value),
+                      std::move(expressionType));
+  };
+  auto expressionStatement = [](crossgl::HIRExpression value) {
+    crossgl::HIRStatement statement;
+    statement.kind = crossgl::HIRStatementKind::Expression;
+    statement.value = std::move(value);
+    return statement;
+  };
+  auto constructor = [&](std::string name, crossgl::HIRType expressionType,
+                         std::vector<crossgl::HIRExpression> children) {
+    crossgl::HIRExpression result = expression(
+        crossgl::HIRExpressionKind::Constructor, std::move(name),
+        std::move(expressionType));
+    result.children = std::move(children);
+    return result;
+  };
+
+  crossgl::HIRModule matAliasModule = simpleModule();
+  matAliasModule.stages.front().functions.front().body.push_back(
+      expressionStatement(constructor("mat2x2", type("mat2x2"),
+                                      {literal("1.0", type("float"))})));
+  crossgl::DiagnosticEngine matAliasDiagnostics;
+  expect(crossgl::metalNativeBackendSupported(matAliasModule,
+                                              matAliasDiagnostics),
+         "Metal native support predicate accepts mat2x2 constructor aliases");
+  const std::string matAliasMetal = crossgl::generateMetalSource(matAliasModule);
+  expect(matAliasMetal.find("float2x2(1.0)") != std::string::npos,
+         "Metal source emission maps mat2x2 constructors to float2x2");
+
+  crossgl::HIRModule invalidConstructorModule = simpleModule();
+  invalidConstructorModule.stages.front().functions.front().body.push_back(
+      expressionStatement(constructor("vec3", type("vec2"),
+                                      {literal("0.0", type("float")),
+                                       literal("1.0", type("float"))})));
+  crossgl::DiagnosticEngine invalidConstructorDiagnostics;
+  expect(!crossgl::metalNativeBackendSupported(
+             invalidConstructorModule, invalidConstructorDiagnostics),
+         "Metal native support predicate rejects malformed constructors");
+  expect(hasDiagnostic(invalidConstructorDiagnostics.diagnostics(),
+                       "metal.unsupported-constructor"),
+         "Metal native support predicate reports malformed constructor "
+         "diagnostics");
 
   constexpr std::string_view unsupportedSource = R"(
 shader MetalNativeSupportPredicateStorageBufferNonUniformShader {
