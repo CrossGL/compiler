@@ -41606,6 +41606,37 @@ shader VulkanFoldedNestedLocalFunctionParameterArrayShader {
 }
 
 void testVulkanFunctionParameterArrayDiagnostics() {
+  constexpr std::string_view entryParameterSource = R"(
+shader VulkanEntryFunctionParameterArrayUnsupportedShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    float readWeight(float weights[COUNT]) {
+      return weights[0];
+    }
+    void main(float weights[COUNT]) {
+      float total = readWeight(weights);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> entryParameterDiagnostics =
+      collectVulkanPrototypeDiagnostics(entryParameterSource);
+  const crossgl::Diagnostic *entryParameterDiagnostic = findDiagnostic(
+      entryParameterDiagnostics,
+      "vulkan.prototype-unsupported-entry-point-function-parameter-array");
+  expect(entryParameterDiagnostic != nullptr &&
+             entryParameterDiagnostic->message.find(
+                 "entry-point array parameters remain outside the Vulkan "
+                 "prototype ABI") != std::string::npos &&
+             !hasDiagnostic(
+                 entryParameterDiagnostics,
+                 "vulkan.prototype-unsupported-function-parameter-array"),
+         "Vulkan entry-point array parameters use the entry ABI diagnostic "
+         "instead of the helper ABI diagnostic");
+
   constexpr std::string_view writeThroughSource = R"(
 shader VulkanFunctionParameterArrayWriteShader {
   const int COUNT = 2;

@@ -5553,13 +5553,17 @@ bool prototypeFunctionParameterArraysSupported(const HIRFunction &function,
               "descriptor helper array, but this parameter uses " +
                   prototypeFunctionArrayParameterUnsupportedDetail(
                       parameter.type, constants);
-    diagnostics.error(
-        "vulkan.prototype-unsupported-function-parameter-array",
-        "Vulkan prototype SPIR-V lowering does not support " + arrayKind +
-            " function parameter array '" +
-            parameter.name + "' of type '" + formatType(parameter.type) +
-            "' in " + std::string(context) + " function '" + function.name +
-            "'; " + detail);
+    const char *diagnosticCode =
+        entryPoint
+            ? "vulkan.prototype-unsupported-entry-point-function-parameter-array"
+            : "vulkan.prototype-unsupported-function-parameter-array";
+    diagnostics.error(diagnosticCode,
+                      "Vulkan prototype SPIR-V lowering does not support " +
+                          arrayKind + " function parameter array '" +
+                          parameter.name + "' of type '" +
+                          formatType(parameter.type) + "' in " +
+                          std::string(context) + " function '" +
+                          function.name + "'; " + detail);
     return false;
   }
   return true;
