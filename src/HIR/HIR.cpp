@@ -1720,12 +1720,14 @@ public:
              std::set<std::string> mutableLocals = {},
              const UserFunctionSignatureMap &functionSignatures =
                  emptyUserFunctionSignatures(),
-             std::set<std::string> readOnlyVariables = {})
+             std::set<std::string> readOnlyVariables = {},
+             std::set<std::string> resourceHandleVariables = {})
       : tokens_(tokens), knownTypeNames_(knownTypeNames), structs_(structs),
         variables_(std::move(variables)), diagnostics_(diagnostics),
         mutableLocals_(std::move(mutableLocals)),
         functionSignatures_(functionSignatures),
-        readOnlyVariables_(std::move(readOnlyVariables)) {}
+        readOnlyVariables_(std::move(readOnlyVariables)),
+        resourceHandleVariables_(std::move(resourceHandleVariables)) {}
 
   std::vector<HIRStatement> parse() {
     std::vector<HIRStatement> statements;
@@ -1931,6 +1933,7 @@ private:
         variables_[statement.name] = statement.declaredType;
         mutableLocals_.insert(statement.name);
         readOnlyVariables_.erase(statement.name);
+        resourceHandleVariables_.erase(statement.name);
         statement.rawTokens.clear();
         return statement;
       }
@@ -1949,6 +1952,7 @@ private:
         variables_[statement.name] = statement.declaredType;
         mutableLocals_.insert(statement.name);
         readOnlyVariables_.erase(statement.name);
+        resourceHandleVariables_.erase(statement.name);
         statement.rawTokens.clear();
         return statement;
       }
@@ -1991,6 +1995,7 @@ private:
       variables_[statement.name] = statement.declaredType;
       mutableLocals_.insert(statement.name);
       readOnlyVariables_.erase(statement.name);
+      resourceHandleVariables_.erase(statement.name);
       statement.rawTokens.clear();
       return statement;
     }
@@ -2003,6 +2008,7 @@ private:
       variables_[statement.name] = statement.declaredType;
       mutableLocals_.insert(statement.name);
       readOnlyVariables_.erase(statement.name);
+      resourceHandleVariables_.erase(statement.name);
       statement.rawTokens.clear();
       return statement;
     }
@@ -2060,6 +2066,8 @@ private:
     const std::unordered_map<std::string, HIRType> outerVariables = variables_;
     const std::set<std::string> outerMutableLocals = mutableLocals_;
     const std::set<std::string> outerReadOnlyVariables = readOnlyVariables_;
+    const std::set<std::string> outerResourceHandleVariables =
+        resourceHandleVariables_;
     if (!headerParts[0].empty()) {
       statement.initializer.push_back(parseStatement(headerParts[0]));
     }
@@ -2081,6 +2089,7 @@ private:
     variables_ = outerVariables;
     mutableLocals_ = outerMutableLocals;
     readOnlyVariables_ = outerReadOnlyVariables;
+    resourceHandleVariables_ = outerResourceHandleVariables;
     statement.rawTokens.clear();
     return statement;
   }
@@ -2288,6 +2297,8 @@ private:
     const std::unordered_map<std::string, HIRType> outerVariables = variables_;
     const std::set<std::string> outerMutableLocals = mutableLocals_;
     const std::set<std::string> outerReadOnlyVariables = readOnlyVariables_;
+    const std::set<std::string> outerResourceHandleVariables =
+        resourceHandleVariables_;
     const std::string selectorName = makeUniqueLocalName("__crossgl_selector",
                                                          selector.type);
     HIRStatement selectorDeclaration;
@@ -2306,6 +2317,7 @@ private:
       variables_ = outerVariables;
       mutableLocals_ = outerMutableLocals;
       readOnlyVariables_ = outerReadOnlyVariables;
+      resourceHandleVariables_ = outerResourceHandleVariables;
       return makeUnsupportedSwitchFallback(std::move(statement),
                                            tokens.front().location);
     }
@@ -2316,6 +2328,7 @@ private:
     variables_ = outerVariables;
     mutableLocals_ = outerMutableLocals;
     readOnlyVariables_ = outerReadOnlyVariables;
+    resourceHandleVariables_ = outerResourceHandleVariables;
     statement.rawTokens.clear();
     return statement;
   }
@@ -2792,7 +2805,27 @@ private:
     return nullptr;
   }
 
+  const HIRExpression *
+  assignmentTargetDirectIdentifier(const HIRExpression &expression) const {
+    const HIRExpression *current = &expression;
+    while ((current->kind == HIRExpressionKind::Group ||
+            current->kind == HIRExpressionKind::NonUniform) &&
+           !current->children.empty()) {
+      current = &current->children.front();
+    }
+    return current->kind == HIRExpressionKind::Identifier ? current : nullptr;
+  }
+
   void validateAssignmentTargetWritable(const HIRExpression &target) {
+    const HIRExpression *direct = assignmentTargetDirectIdentifier(target);
+    if (direct != nullptr && resourceHandleVariables_.contains(direct->value)) {
+      diagnostics_.error(
+          "sema.assignment-target-readonly",
+          "assignment target '" + direct->value + "' is a resource handle",
+          direct->location);
+      return;
+    }
+
     const HIRExpression *root = assignmentTargetRootIdentifier(target);
     if (root == nullptr || !readOnlyVariables_.contains(root->value)) {
       return;
@@ -2843,6 +2876,7 @@ private:
     variables_[statement.name] = statement.declaredType;
     mutableLocals_.insert(statement.name);
     readOnlyVariables_.erase(statement.name);
+    resourceHandleVariables_.erase(statement.name);
     return statement;
   }
 
@@ -3210,6 +3244,7 @@ private:
   std::set<std::string> mutableLocals_;
   const UserFunctionSignatureMap &functionSignatures_;
   std::set<std::string> readOnlyVariables_;
+  std::set<std::string> resourceHandleVariables_;
   std::size_t index_ = 0;
 };
 
@@ -3352,6 +3387,7 @@ HIRFunction convertFunction(
 
   std::unordered_map<std::string, HIRType> variables;
   std::set<std::string> readOnlyVariables;
+  std::set<std::string> resourceHandleVariables;
   for (const auto &[name, type] : constantTypes) {
     variables[name] = type;
     readOnlyVariables.insert(name);
@@ -3361,7 +3397,13 @@ HIRFunction convertFunction(
     readOnlyVariables.insert(name);
   }
   for (const HIRResource &resource : resources) {
+    if (resource.name.empty()) {
+      continue;
+    }
     variables[resource.name] = resource.type;
+    if (resource.kind != HIRResourceKind::Shared) {
+      resourceHandleVariables.insert(resource.name);
+    }
   }
   addComputeInvocationBuiltinTypes(variables, stage);
   addComputeInvocationBuiltinReadOnlyVariables(readOnlyVariables, stage);
@@ -3370,13 +3412,15 @@ HIRFunction convertFunction(
                               parameter.location};
     variables[hirParameter.name] = hirParameter.type;
     readOnlyVariables.erase(hirParameter.name);
+    resourceHandleVariables.erase(hirParameter.name);
     hir.parameters.push_back(std::move(hirParameter));
   }
 
   hir.body =
       BodyParser(function.bodyTokens, knownTypeNames, structs,
                  std::move(variables), diagnostics, {}, functionSignatures,
-                 std::move(readOnlyVariables))
+                 std::move(readOnlyVariables),
+                 std::move(resourceHandleVariables))
           .parse();
   return hir;
 }

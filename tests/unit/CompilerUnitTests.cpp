@@ -5892,6 +5892,15 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
     result.children.push_back(std::move(base));
     return result;
   };
+  auto index = [&](crossgl::HIRExpression base, crossgl::HIRExpression offset,
+                   crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::IndexAccess, "",
+                   std::move(expressionType));
+    result.children.push_back(std::move(base));
+    result.children.push_back(std::move(offset));
+    return result;
+  };
   auto select = [&](crossgl::HIRExpression condition,
                     crossgl::HIRExpression trueValue,
                     crossgl::HIRExpression falseValue,
@@ -6227,6 +6236,41 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       std::move(computeBuiltinAssignmentTargetModule),
       "opt.hir-assignment-target-readonly",
       "HIR typed-symbol validation rejects assignments to compute built-ins");
+
+  crossgl::HIRModule resourceHandleAssignmentTargetModule = simpleModule();
+  resourceHandleAssignmentTargetModule.stages.front().resources.push_back(
+      crossgl::HIRResource{crossgl::HIRResourceKind::Buffer, type("float*"),
+                           "values"});
+  crossgl::HIRFunction &resourceHandleAssignmentTargetMain =
+      resourceHandleAssignmentTargetModule.stages.front().functions.front();
+  resourceHandleAssignmentTargetMain.returnType = type("void");
+  resourceHandleAssignmentTargetMain.body.push_back(assignment(
+      identifier("values", type("float*")),
+      identifier("values", type("float*"))));
+  expectInvalidTypedSymbol(
+      std::move(resourceHandleAssignmentTargetModule),
+      "opt.hir-assignment-target-readonly",
+      "HIR typed-symbol validation rejects direct assignments to resource "
+      "handles");
+
+  crossgl::HIRModule storageBufferElementAssignmentTargetModule = simpleModule();
+  storageBufferElementAssignmentTargetModule.stages.front().resources.push_back(
+      crossgl::HIRResource{crossgl::HIRResourceKind::Buffer, type("float*"),
+                           "values"});
+  crossgl::HIRFunction &storageBufferElementAssignmentTargetMain =
+      storageBufferElementAssignmentTargetModule.stages.front()
+          .functions.front();
+  storageBufferElementAssignmentTargetMain.returnType = type("void");
+  storageBufferElementAssignmentTargetMain.body.push_back(assignment(
+      index(identifier("values", type("float*")),
+            literal("0", type("int")), type("float")),
+      literal("1.0", type("float"))));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(storageBufferElementAssignmentTargetModule)),
+             "opt.hir-assignment-target-readonly"),
+         "HIR typed-symbol validation keeps storage-buffer element writes "
+         "writable");
 
   crossgl::HIRModule shadowedConstantAssignmentTargetModule = simpleModule();
   shadowedConstantAssignmentTargetModule.constants.push_back(
@@ -50260,6 +50304,57 @@ shader BadCBufferAssignmentShader {
   expect(hasDiagnostic(cbufferAssignmentDiagnostics,
                        "sema.assignment-target-readonly"),
          "assignments to cbuffer fields produce a diagnostic");
+
+  constexpr std::string_view resourceHandleAssignmentSource = R"(
+shader BadResourceHandleAssignmentShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) uniform sampler2D colorMap;
+    layout(set = 0, binding = 2) uniform image2D colorImage;
+    void main() {
+      values = values;
+      colorMap = colorMap;
+      colorImage = colorImage;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> resourceHandleAssignmentDiagnostics =
+      collectDiagnostics(resourceHandleAssignmentSource);
+  expect(hasDiagnosticCodeAndMessage(resourceHandleAssignmentDiagnostics,
+                                     "sema.assignment-target-readonly",
+                                     "target 'values' is a resource handle") &&
+             hasDiagnosticCodeAndMessage(
+                 resourceHandleAssignmentDiagnostics,
+                 "sema.assignment-target-readonly",
+                 "target 'colorMap' is a resource handle") &&
+             hasDiagnosticCodeAndMessage(
+                 resourceHandleAssignmentDiagnostics,
+                 "sema.assignment-target-readonly",
+                 "target 'colorImage' is a resource handle"),
+         "direct assignments to descriptor resource handles produce "
+         "diagnostics");
+
+  constexpr std::string_view storageBufferElementAssignmentSource = R"(
+shader StorageBufferElementAssignmentShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values;
+    void main() {
+      values[0] = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic>
+      storageBufferElementAssignmentDiagnostics =
+          collectDiagnostics(storageBufferElementAssignmentSource);
+  expect(!hasDiagnostic(storageBufferElementAssignmentDiagnostics,
+                        "sema.assignment-target-readonly"),
+         "storage-buffer element writes remain writable");
 
   constexpr std::string_view localShadowSource = R"(
 shader LocalConstantShadowAssignmentShader {
