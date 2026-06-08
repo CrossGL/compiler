@@ -850,35 +850,100 @@ def validate_resource_link(
         )
 
 
+DESCRIPTOR_METADATA_OPTIONS = {
+    "vulkan": {
+        "descriptor": {
+            "uniform-buffer": (
+                ("VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER", "uniform_buffer"),
+                ("uniformBuffer", "uniform-buffer"),
+            ),
+            "storage-buffer": (
+                ("VK_DESCRIPTOR_TYPE_STORAGE_BUFFER", "storage_buffer"),
+                ("storageBuffer", "storage-buffer"),
+            ),
+            "texture": (
+                ("VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE", "combined_image_sampler"),
+                ("sampledImage", "sampled-texture"),
+            ),
+            "storage-image": (
+                ("VK_DESCRIPTOR_TYPE_STORAGE_IMAGE", "storage_image"),
+                ("storageImage", "storage-image"),
+            ),
+            "sampler": (("VK_DESCRIPTOR_TYPE_SAMPLER",), ("sampler",)),
+        },
+    },
+    "directx": {
+        "registerBinding": {
+            "uniform-buffer": (("CBV",), ("constant-buffer",)),
+            "storage-buffer": (("UAV",), ("uav",)),
+            "texture": (("SRV",), ("srv",)),
+            "storage-image": (("UAV",), ("uav",)),
+            "sampler": (("Sampler",), ("sampler",)),
+        },
+    },
+    "metal": {
+        "kernelArgument": {
+            "uniform-buffer": (None, ("buffer", "uniform-buffer")),
+            "storage-buffer": (None, ("buffer",)),
+            "texture": (None, ("texture",)),
+            "storage-image": (None, ("texture",)),
+            "sampler": (None, ("sampler",)),
+        },
+    },
+    "opengl": {
+        "programResourceBinding": {
+            "uniform-buffer": (None, ("uniform-buffer",)),
+            "storage-buffer": (None, ("storage-buffer",)),
+            "texture": (None, ("texture",)),
+            "storage-image": (None, ("image",)),
+            "sampler": (None, ("sampler",)),
+        },
+    },
+}
+
+
+def normalized_resource_metadata_kind(record, resource):
+    kind = resource["kind"]
+    address_space = resource.get("addressSpace", record.get("addressSpace"))
+
+    if kind in {"uniform", "uniform_buffer"}:
+        return "uniform-buffer"
+    if kind in {"storageBuffer", "storage_buffer"}:
+        return "storage-buffer"
+    if kind == "buffer":
+        if address_space in {"Uniform", "uniform", "constant", "constant-buffer"}:
+            return "uniform-buffer"
+        if address_space in {
+            "StorageBuffer",
+            "storage",
+            "shader-storage",
+            "buffer",
+            "device",
+            "unordered-access",
+        }:
+            return "storage-buffer"
+    if kind == "texture":
+        return "texture"
+    if kind in {"storage_image", "storageImage"}:
+        return "storage-image"
+    if kind == "sampler":
+        return "sampler"
+    return None
+
+
 def expected_descriptor_metadata_options(record, resource):
-    if record["target"] != "vulkan" or record["abi"] != "descriptor":
+    target_options = DESCRIPTOR_METADATA_OPTIONS.get(record["target"])
+    if target_options is None:
         return None
 
-    kind = resource["kind"]
-    address_space = resource.get("addressSpace")
-    if kind == "buffer" and address_space in {"Uniform", "uniform"}:
-        return (
-            ("VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER", "uniform_buffer"),
-            ("uniformBuffer", "uniform-buffer"),
-        )
-    if kind == "buffer" and address_space in {"StorageBuffer", "storage"}:
-        return (
-            ("VK_DESCRIPTOR_TYPE_STORAGE_BUFFER", "storage_buffer"),
-            ("storageBuffer", "storage-buffer"),
-        )
-    if kind == "texture":
-        return (
-            ("VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE", "combined_image_sampler"),
-            ("sampledImage", "sampled-texture"),
-        )
-    if kind == "storage_image":
-        return (
-            ("VK_DESCRIPTOR_TYPE_STORAGE_IMAGE", "storage_image"),
-            ("storageImage", "storage-image"),
-        )
-    if kind == "sampler":
-        return (("VK_DESCRIPTOR_TYPE_SAMPLER",), ("sampler",))
-    return None
+    abi_options = target_options.get(record["abi"])
+    if abi_options is None:
+        return None
+
+    metadata_kind = normalized_resource_metadata_kind(record, resource)
+    if metadata_kind is None:
+        return None
+    return abi_options.get(metadata_kind)
 
 
 def add_allowed_diagnostic(
@@ -916,16 +981,17 @@ def validate_descriptor_metadata(
         return
 
     expected_descriptor_types, expected_binding_classes = expected
-    add_allowed_diagnostic(
-        diagnostics,
-        path,
-        "descriptor-type-mismatch",
-        f"{record_path}.descriptorType",
-        record.get("descriptorType"),
-        expected_descriptor_types,
-        "source resource descriptorType",
-        target,
-    )
+    if expected_descriptor_types is not None:
+        add_allowed_diagnostic(
+            diagnostics,
+            path,
+            "descriptor-type-mismatch",
+            f"{record_path}.descriptorType",
+            record.get("descriptorType"),
+            expected_descriptor_types,
+            "source resource descriptorType",
+            target,
+        )
     add_allowed_diagnostic(
         diagnostics,
         path,

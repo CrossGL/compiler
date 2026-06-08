@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "module": "GraphicsAbiDirectXDescriptorMetadataMismatch",
+  "target": "directx",
+  "entryPoints": [
+    {
+      "stage": "fragment",
+      "sourceName": "fs_main",
+      "backendName": "fragment_fs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-directx-descriptor-metadata.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    }
+  ],
+  "vertexInputs": [],
+  "varyings": [],
+  "fragmentOutputs": [],
+  "builtins": [],
+  "resources": [
+    {
+      "stage": "fragment",
+      "name": "Camera",
+      "kind": "buffer",
+      "type": "CameraUniforms",
+      "arrayDimensions": [],
+      "set": 0,
+      "binding": 0,
+      "addressSpace": "uniform",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-directx-descriptor-metadata.cgl",
+        "line": 2,
+        "column": 1,
+        "offset": 10,
+        "length": 4,
+        "endLine": 2,
+        "endColumn": 5,
+        "endOffset": 14
+      }
+    }
+  ],
+  "abiRecords": [
+    {
+      "target": "directx",
+      "stage": "fragment",
+      "entryPoint": "fragment_fs_main",
+      "name": "Camera",
+      "kind": "buffer",
+      "sourceType": "CameraUniforms",
+      "hlslType": "ConstantBuffer<CameraUniforms>",
+      "descriptorType": "SRV",
+      "addressSpace": "uniform",
+      "abi": "registerBinding",
+      "bindingClass": "srv",
+      "argumentIndex": 0,
+      "set": 0,
+      "binding": 0,
+      "arrayDimensions": [],
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-directx-descriptor-metadata.cgl",
+        "line": 3,
+        "column": 1,
+        "offset": 20,
+        "length": 4,
+        "endLine": 3,
+        "endColumn": 5,
+        "endOffset": 24
+      }
+    }
+  ]
+}

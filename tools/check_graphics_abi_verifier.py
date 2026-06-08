@@ -427,6 +427,94 @@ def check_descriptor_type_mismatch(root, tmp_dir):
     return errors
 
 
+def check_descriptor_metadata_fixture(
+    root, tmp_dir, case_name, expected_codes, expected_summary
+):
+    fixture = root / "tests" / "graphics-abi" / f"{case_name}.json"
+    result = run_verifier(root, fixture)
+    errors = []
+    if result.returncode == 0:
+        errors.append(f"{case_name}: expected verifier failure")
+    try:
+        report = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return [f"{case_name}: verifier output is not JSON: {exc}"]
+
+    errors.extend(validate_report_schema(root, tmp_dir, case_name, result.stdout))
+    expect_counts(errors, case_name, report)
+    codes = [diagnostic.get("code") for diagnostic in report.get("diagnostics", [])]
+    if codes != expected_codes:
+        errors.append(
+            f"{case_name}: expected diagnostic codes {expected_codes!r}, got {codes!r}"
+        )
+    if report.get("summary") != expected_summary:
+        errors.append(f"{case_name}: unexpected summary {report.get('summary')!r}")
+    return errors
+
+
+def check_directx_descriptor_metadata_mismatch(root, tmp_dir):
+    return check_descriptor_metadata_fixture(
+        root,
+        tmp_dir,
+        "invalid-directx-descriptor-metadata",
+        [
+            "graphics.abi.descriptor-type-mismatch",
+            "graphics.abi.binding-class-mismatch",
+        ],
+        {
+            "module": "GraphicsAbiDirectXDescriptorMetadataMismatch",
+            "target": "directx",
+            "entryPointCount": 1,
+            "vertexInputCount": 0,
+            "varyingCount": 0,
+            "fragmentOutputCount": 0,
+            "builtinCount": 0,
+            "resourceCount": 1,
+            "abiRecordCount": 1,
+        },
+    )
+
+
+def check_metal_binding_class_mismatch(root, tmp_dir):
+    return check_descriptor_metadata_fixture(
+        root,
+        tmp_dir,
+        "invalid-metal-binding-class",
+        ["graphics.abi.binding-class-mismatch"],
+        {
+            "module": "GraphicsAbiMetalBindingClassMismatch",
+            "target": "metal",
+            "entryPointCount": 1,
+            "vertexInputCount": 0,
+            "varyingCount": 0,
+            "fragmentOutputCount": 0,
+            "builtinCount": 0,
+            "resourceCount": 1,
+            "abiRecordCount": 1,
+        },
+    )
+
+
+def check_opengl_binding_class_mismatch(root, tmp_dir):
+    return check_descriptor_metadata_fixture(
+        root,
+        tmp_dir,
+        "invalid-opengl-binding-class",
+        ["graphics.abi.binding-class-mismatch"],
+        {
+            "module": "GraphicsAbiOpenGLBindingClassMismatch",
+            "target": "opengl",
+            "entryPointCount": 1,
+            "vertexInputCount": 0,
+            "varyingCount": 0,
+            "fragmentOutputCount": 0,
+            "builtinCount": 0,
+            "resourceCount": 1,
+            "abiRecordCount": 1,
+        },
+    )
+
+
 def check_duplicate_source_coordinate(root, tmp_dir):
     fixture = root / "tests" / "graphics-abi" / "invalid-source-coordinate.json"
     result = run_verifier(root, fixture)
@@ -686,6 +774,9 @@ def main():
         errors.extend(check_binding_identity_failure(root, tmp_dir))
         errors.extend(check_resource_order_mismatch(root, tmp_dir))
         errors.extend(check_descriptor_type_mismatch(root, tmp_dir))
+        errors.extend(check_directx_descriptor_metadata_mismatch(root, tmp_dir))
+        errors.extend(check_metal_binding_class_mismatch(root, tmp_dir))
+        errors.extend(check_opengl_binding_class_mismatch(root, tmp_dir))
         errors.extend(check_duplicate_source_coordinate(root, tmp_dir))
         errors.extend(check_varying_producer_consumer_mismatch(root, tmp_dir))
         errors.extend(check_interface_record_failures(root, tmp_dir))
@@ -699,7 +790,7 @@ def main():
             )
         return 1
 
-    print("validated 12 graphics ABI verifier fixtures and report semantics")
+    print("validated 15 graphics ABI verifier fixtures and report semantics")
     return 0
 
 
