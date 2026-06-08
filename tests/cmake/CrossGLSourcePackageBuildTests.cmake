@@ -4501,18 +4501,29 @@ add_test(NAME cglc_build_directx_planned_failure
     -DMODE=planned-build-failure
     -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-call-feature
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=direct-resource-array-arguments=unsupported|message=struct-elements=unsupported|message=value-copy-read-only"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=struct-elements=unsupported|message=value-copy-read-only"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_directx_function_parameter_resource_array_planned_failure
+set(CROSSGL_DIRECTX_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET [=[void consumeMaps(Texture2D<float4> maps[COUNT]) {
+  return;
+}
+
+[numthreads(1, 1, 1)]
+void compute_main(uint3 crossgl_GlobalInvocationID : SV_DispatchThreadID) {
+  consumeMaps(colorMaps);
+  values[0] = float4(1.0, 0.0, 0.0, 1.0);]=])
+add_test(NAME cglc_build_directx_function_parameter_resource_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
+    -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_RESOURCE_ARRAY_SHADER}
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-function-parameter-resource-array.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-call-feature
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=direct-resource-array-arguments=unsupported|message=value-copy-read-only"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXFunctionParameterResourceArrayShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXFunctionParameterResourceArrayShader|nativeBinary=backend/directx/DirectXFunctionParameterResourceArrayShader.dxil|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=values|resources.0.kind=buffer|resources.0.type=vec4*|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.1.arrayDimensions.0.kind=fixed|resources.1.arrayDimensions.0.elementCount=2|workgroupSizes.0.entryPoint=compute_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|functionConstants=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.hlslType=RWStructuredBuffer<float4>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0|colorMaps.sourceType=sampler2D[COUNT]|colorMaps.hlslType=Texture2D<float4>|colorMaps.bindingClass=srv|colorMaps.descriptorType=SRV|colorMaps.argumentIndex=2|colorMaps.set=0|colorMaps.binding=2|colorMaps.arraySize=COUNT|colorMaps.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|sampled-texture.kind=resource|fixed-array.kind=layout|descriptor-array.kind=resource|function-parameter-array.kind=array|storage-buffer-write.kind=operation|index-access.kind=operation|vector-constructor.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_resource_unsupported_planned_failure
   COMMAND ${CMAKE_COMMAND}
@@ -4559,7 +4570,7 @@ crossgl_add_python_expect_test(
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/diagnostics-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=schemaVersion=1|diagnostics.0.target=directx"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=direct-resource-array-arguments=unsupported|message=struct-elements=unsupported|message=value-copy-read-only")
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=struct-elements=unsupported|message=value-copy-read-only")
 add_test(NAME cglc_build_vulkan_diagnostics_json_target_capability_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

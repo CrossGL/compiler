@@ -544,6 +544,38 @@ std::string hlslStorageImageType(const HIRType &type,
   return "";
 }
 
+std::string hlslFunctionParameterResourceType(const HIRModule &module,
+                                              const HIRType &type) {
+  if (functionParameterArrayShape(module, type) !=
+      HIRFunctionParameterArrayShape::FixedSize) {
+    return "";
+  }
+  if (isSupportedTextureTypeName(type.name)) {
+    return hlslTextureType(type);
+  }
+  if (type.name == "sampler") {
+    return "SamplerState";
+  }
+  if (type.name == "comparison_sampler") {
+    return "SamplerComparisonState";
+  }
+  return "";
+}
+
+std::string hlslFunctionParameterDeclarator(const HIRModule *module,
+                                            const HIRType &type,
+                                            std::string_view name) {
+  if (module != nullptr) {
+    const std::string resourceType =
+        hlslFunctionParameterResourceType(*module, type);
+    if (!resourceType.empty()) {
+      return resourceType + " " + std::string(name) + "[" + *type.arraySize +
+             "]";
+    }
+  }
+  return hlslDeclarator(module, type, name);
+}
+
 bool isSupportedTextureResource(const HIRResource &resource) {
   return resource.kind == HIRResourceKind::Texture &&
          !hlslTextureType(resource.type).empty();
@@ -3106,13 +3138,35 @@ findCallableFunction(const std::vector<const HIRFunction *> &functions,
   return nullptr;
 }
 
+HIRFunctionParameterArrayCallFeatureSupport
+directxFunctionParameterArrayCallFeatureSupport(
+    HIRFunctionParameterArrayCallFeature feature) {
+  if (feature ==
+      HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments) {
+    return HIRFunctionParameterArrayCallFeatureSupport::Supported;
+  }
+  return functionParameterArrayCallFeatureSupport(feature);
+}
+
+HIRFunctionParameterArrayCallFeatureSupport
+directxFunctionParameterArrayCallFeaturesSupport(
+    std::span<const HIRFunctionParameterArrayCallFeature> features) {
+  for (HIRFunctionParameterArrayCallFeature feature : features) {
+    if (directxFunctionParameterArrayCallFeatureSupport(feature) ==
+        HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
+      return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+    }
+  }
+  return HIRFunctionParameterArrayCallFeatureSupport::Supported;
+}
+
 void appendUnsupportedFunctionParameterArrayCallFeatures(
     std::set<std::string> &labels, std::string_view caller,
     std::string_view callee, std::string_view parameter,
     std::span<const HIRFunctionParameterArrayCallFeature> features) {
   for (HIRFunctionParameterArrayCallFeature feature : features) {
     const HIRFunctionParameterArrayCallFeatureSupport support =
-        functionParameterArrayCallFeatureSupport(feature);
+        directxFunctionParameterArrayCallFeatureSupport(feature);
     if (support == HIRFunctionParameterArrayCallFeatureSupport::Supported) {
       continue;
     }
@@ -3260,7 +3314,7 @@ bool directxLocalArrayCopyArgument(const HIRModule &module,
                                                  stage);
   const std::span<const HIRFunctionParameterArrayCallFeature> featureSpan{
       features.data(), features.size()};
-  if (functionParameterArrayCallFeaturesSupport(featureSpan) !=
+  if (directxFunctionParameterArrayCallFeaturesSupport(featureSpan) !=
       HIRFunctionParameterArrayCallFeatureSupport::Supported) {
     return false;
   }
@@ -3355,6 +3409,9 @@ bool functionParametersSupported(const HIRFunction &function) {
 
 bool isSupportedFunctionValueType(const HIRModule &module,
                                   const HIRType &type) {
+  if (!hlslFunctionParameterResourceType(module, type).empty()) {
+    return true;
+  }
   if (type.name == "void" || (!type.name.empty() && type.name.back() == '*')) {
     return false;
   }
@@ -3463,7 +3520,7 @@ bool functionsSupported(const HIRModule &module, const HIRStage &stage,
       }
       continue;
     }
-    if (!helperFunctionSupported(function, context)) {
+    if (!stageFunctionSupported(module, stage, function, false, context)) {
       return false;
     }
   }
@@ -3807,7 +3864,8 @@ bool directxSourcePackageSupported(const HIRModule &module,
       "manual explicit-lod shadow compare fallback sampling, scalar constants, "
       "fixed-size descriptor arrays, one unbounded descriptor array per HLSL "
       "register class when binding metadata remains unambiguous, helper "
-      "functions with fixed-size scalar/vector/matrix array parameters, "
+      "functions with fixed-size scalar/vector/matrix array parameters and "
+      "read-only fixed-size direct texture/sampler resource-array parameters, "
       "fixed-size numeric "
       "scalar/vector/matrix local arrays, including fixed nested local "
       "arrays, workgroup/shared memory declarations, statement-form and "
@@ -4004,7 +4062,8 @@ void emitFunction(std::ostringstream &out, const HIRFunction &function,
       out << ", ";
     }
     const HIRParameter &parameter = function.parameters[index];
-    out << hlslDeclarator(context.module, parameter.type, parameter.name);
+    out << hlslFunctionParameterDeclarator(context.module, parameter.type,
+                                           parameter.name);
   }
   out << ") {\n";
   for (const HIRStatement &statement : function.body) {

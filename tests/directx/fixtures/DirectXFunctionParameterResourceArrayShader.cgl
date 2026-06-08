@@ -1,4 +1,4 @@
-shader DirectXFunctionParameterResourceArrayUnsupportedShader {
+shader DirectXFunctionParameterResourceArrayShader {
   const int COUNT = 2;
 
   compute {

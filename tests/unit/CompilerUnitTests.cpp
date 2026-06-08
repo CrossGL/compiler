@@ -39696,11 +39696,12 @@ shader DirectXFunctionParameterArrayUnsupportedShader {
              "directx.unsupported-function-parameter-array-call-feature",
              "struct-elements"),
          "DirectX helper array diagnostic names struct element arrays");
-  expect(hasDiagnosticMessageFragment(
+  expect(!hasDiagnosticMessageFragment(
              diagnostics.diagnostics(),
              "directx.unsupported-function-parameter-array-call-feature",
              "direct-resource-array-arguments"),
-         "DirectX helper array diagnostic names direct resource arrays");
+         "DirectX helper array diagnostic does not reject direct resource "
+         "arrays");
   expect(hasDiagnosticMessageFragment(
              diagnostics.diagnostics(),
              "directx.unsupported-function-parameter-array-call-feature",
@@ -39709,14 +39710,13 @@ shader DirectXFunctionParameterArrayUnsupportedShader {
 
   const std::string directx =
       crossgl::printBackendIR(*hir, crossgl::TargetKind::DirectX);
-  expect(directx.find("direct-resource-array-arguments") !=
-                 std::string::npos &&
+  expect(directx.find("direct-resource-array-arguments") == std::string::npos &&
              directx.find("struct-elements") != std::string::npos &&
              directx.find("value-copy-read-only") != std::string::npos,
          "DirectX backend dump explains unsupported helper array call features");
 
   constexpr std::string_view directResourceOnlySource = R"(
-shader DirectXFunctionParameterResourceArrayUnsupportedShader {
+shader DirectXFunctionParameterResourceArrayShader {
   const int COUNT = 2;
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -39739,22 +39739,31 @@ shader DirectXFunctionParameterResourceArrayUnsupportedShader {
   expect(directResourceOnlyHir.has_value(),
          "DirectX direct resource-array parameter source builds HIR");
   if (directResourceOnlyHir) {
+    expect(crossgl::directxTextualBackendSupported(*directResourceOnlyHir),
+           "DirectX supports direct resource-array helper arguments");
+    expect(!crossgl::directxHasUnsupportedFunctionParameterArrayCallFeature(
+               *directResourceOnlyHir),
+           "DirectX no longer reports direct resource-array helper arguments "
+           "as unsupported");
     crossgl::DiagnosticEngine directResourceOnlyDiagnostics;
-    expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
+    expect(!crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
                *directResourceOnlyHir, directResourceOnlyDiagnostics),
-           "DirectX emits direct resource-array helper argument diagnostic");
-    expect(hasDiagnosticMessageFragment(
-               directResourceOnlyDiagnostics.diagnostics(),
-               "directx.unsupported-function-parameter-array-call-feature",
-               "direct-resource-array-arguments=unsupported"),
-           "DirectX isolated direct resource-array diagnostic names the "
-           "rejected feature");
+           "DirectX does not emit direct resource-array helper argument "
+           "diagnostics");
     expect(!hasDiagnosticMessageFragment(
                directResourceOnlyDiagnostics.diagnostics(),
                "directx.unsupported-function-parameter-array-call-feature",
                "struct-elements"),
            "DirectX isolated direct resource-array diagnostic does not depend "
            "on struct-element rejection");
+    const std::string directResourceOnlyHlsl =
+        crossgl::generateDirectXSource(*directResourceOnlyHir);
+    expect(directResourceOnlyHlsl.find("void consumeMaps(Texture2D<float4> "
+                                       "maps[COUNT])") != std::string::npos &&
+               directResourceOnlyHlsl.find("consumeMaps(colorMaps);") !=
+                   std::string::npos,
+           "DirectX emits helper parameters for direct texture resource "
+           "arrays");
   }
 
   constexpr std::string_view writeThroughSource = R"(
