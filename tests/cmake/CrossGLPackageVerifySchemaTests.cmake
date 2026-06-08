@@ -1,5 +1,12 @@
 function(crossgl_add_package_verify_json_schema_test)
-  set(one_value_args NAME TARGET INPUT OUTPUT MANIFEST_MUTATION_KIND)
+  set(one_value_args
+    NAME
+    TARGET
+    INPUT
+    OUTPUT
+    LOGICAL_INPUT
+    SOURCE_REMAP
+    MANIFEST_MUTATION_KIND)
   set(multi_value_args
     EXPECTED_JSON_FIELDS
     EXPECTED_JSON_FIELD_ONE_OF
@@ -7,6 +14,9 @@ function(crossgl_add_package_verify_json_schema_test)
     EXPECTED_MANIFEST_JSON_FIELDS
     EXPECTED_MANIFEST_JSON_ARRAY_CONTAINS
     EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS
+    EXPECTED_DEBUG_METADATA_JSON_FIELDS
+    EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS
+    EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS)
   cmake_parse_arguments(CROSSGL_VERIFY_SCHEMA "" "${one_value_args}"
@@ -45,6 +55,26 @@ function(crossgl_add_package_verify_json_schema_test)
       -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-verify-v1.schema.json
       -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
       -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+  if(CROSSGL_VERIFY_SCHEMA_LOGICAL_INPUT)
+    list(APPEND verify_schema_definitions
+      "-DLOGICAL_INPUT=${CROSSGL_VERIFY_SCHEMA_LOGICAL_INPUT}")
+  endif()
+  if(CROSSGL_VERIFY_SCHEMA_SOURCE_REMAP)
+    list(APPEND verify_schema_definitions
+      "-DSOURCE_REMAP=${CROSSGL_VERIFY_SCHEMA_SOURCE_REMAP}")
+  endif()
+  if(CROSSGL_VERIFY_SCHEMA_EXPECTED_DEBUG_METADATA_JSON_FIELDS)
+    list(APPEND verify_schema_definitions
+      "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_DEBUG_METADATA_JSON_FIELDS}")
+  endif()
+  if(CROSSGL_VERIFY_SCHEMA_EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS)
+    list(APPEND verify_schema_definitions
+      "-DEXPECTED_HIR_SOURCE_MAP_JSON_FIELDS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS}")
+  endif()
+  if(CROSSGL_VERIFY_SCHEMA_EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS)
+    list(APPEND verify_schema_definitions
+      "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS}")
+  endif()
   if(CROSSGL_VERIFY_SCHEMA_MANIFEST_MUTATION_KIND)
     list(APPEND verify_schema_definitions
       "-DMANIFEST_MUTATION_KIND=${CROSSGL_VERIFY_SCHEMA_MANIFEST_MUTATION_KIND}")
@@ -258,6 +288,36 @@ crossgl_add_package_verify_json_schema_test(
     "schemaVersion=1|target=directx|module=StorageBufferComputeShader|artifacts.backendSource=backend/directx/StorageBufferComputeShader.hlsl|artifacts.nativeBinary=backend/directx/StorageBufferComputeShader.dxil|artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
     "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+  EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
+    "toolchainProvenance.tools=1|validationDiagnostics=0")
+
+set(CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json")
+file(SHA256 "${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE}"
+     CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SHA256)
+file(SIZE "${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE}"
+     CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SIZE_BYTES)
+crossgl_add_package_verify_json_schema_test(
+  NAME cglc_package_verify_json_schema_directx_source_package_logical_source_remap
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test-directx-source-remap-package-verify-schema.cglb
+  LOGICAL_INPUT generated/from-translator.cgl
+  SOURCE_REMAP ${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE}
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=true|summary.module=StorageBufferComputeShader|summary.target=directx|summary.artifactCount=7|summary.debugArtifactsPresent=true|diagnosticCounts.error=0"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=0"
+  EXPECTED_MANIFEST_JSON_FIELDS
+    "schemaVersion=1|target=directx|module=StorageBufferComputeShader|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.sourceRemap=ir/source-remap-provenance.json"
+  EXPECTED_DEBUG_METADATA_JSON_FIELDS
+    "hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+  EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS
+    "hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+  EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS
+    "schemaVersion=1|kind=crossgl.sourceRemapProvenance|contractVersion=source-remap-provenance-v1|target=directx|generatedFile=generated/from-translator.cgl|mappingCount=1|sourceRemap.sha256.value=${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SHA256}|sourceRemap.sizeBytes=${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}"
+  EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
     "toolchainProvenance.tools=1|validationDiagnostics=0")
 
