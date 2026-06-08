@@ -142,9 +142,10 @@ bool diagnoseUnsupportedStorageBufferElementType(
           " source package does not yet support storage-buffer element "
           "type(s): " +
           joinNames(elementTypes) +
-          "; supported storage-buffer elements are scalar/vector types and "
-          "structs with scalar/vector leaf fields, including nested structs "
-          "and fixed-size scalar/vector or nested-struct array fields");
+          "; supported storage-buffer elements are target-supported "
+          "scalar/vector/matrix types and structs with supported leaf fields, "
+          "including nested structs and fixed-size supported leaf or "
+          "nested-struct array fields");
   return true;
 }
 

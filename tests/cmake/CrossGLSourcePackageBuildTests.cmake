@@ -1598,6 +1598,23 @@ add_test(NAME cglc_build_directx_matrix_constructor_source_package
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|vector-constructor.kind=operation|matrix-constructor.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_MATRIX_STORAGE_BUFFER_SOURCE_SNIPPET [=[float4x4 transform = transforms[0];
+  transforms[1] = transform;
+  values[0] = 1.0;]=])
+add_test(NAME cglc_build_directx_matrix_storage_buffer_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_MATRIX_STORAGE_BUFFER_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-matrix-storage-buffer-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXMatrixStorageBufferShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_MATRIX_STORAGE_BUFFER_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXMatrixStorageBufferShader|nativeBinary=backend/directx/DirectXMatrixStorageBufferShader.dxil|resources.0.name=transforms|resources.0.kind=buffer|resources.0.type=mat4*|resources.1.name=values|resources.1.kind=buffer|resources.1.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=transforms.sourceType=mat4*|transforms.hlslType=RWStructuredBuffer<float4x4>|transforms.bindingClass=uav|transforms.descriptorType=UAV|transforms.argumentIndex=0|transforms.set=0|transforms.binding=0|values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=1|values.set=0|values.binding=1"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET [=[float3 columnProduct = mul(transform, source);
   float3 rowProduct = mul(source, transform);
   float3x3 composed = mul(transform, basis);
@@ -4506,7 +4523,7 @@ add_test(NAME cglc_build_directx_graphics_resource_unsupported_planned_failure
     -DMODE=planned-build-failure
     -DEXPECTED_DIAGNOSTIC=directx.unsupported-graphics-resource
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array storage buffers, and texture/sampler resources|message=stage 'vertex' resource 'debugMatrices'|message=kind storage-buffer|message=type mat4*|message=unsupported storage-buffer element type 'mat4'|message=stage 'fragment' resource 'debugValues'|message=type vec4*[]|message=runtime storage-buffer descriptor arrays are not supported|message=register conflict for register(u4, space0)"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array storage buffers, and texture/sampler resources|message=stage 'vertex' resource 'debugMatrices'|message=kind storage-buffer|message=type mat4*|message=stage 'fragment' resource 'debugValues'|message=type vec4*[]|message=runtime storage-buffer descriptor arrays are not supported|message=register conflict for register(u4, space0)"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_LOCAL_FUNCTION_PARAMETER_ARRAY_SOURCE_SNIPPET [=[float sumWeights(float weights[COUNT]) {
   return weights[0] + weights[1];

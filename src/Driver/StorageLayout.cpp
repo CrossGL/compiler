@@ -46,6 +46,26 @@ std::optional<std::size_t> vectorStorageWidth(const HIRType &type) {
   return vectorWidthFromName(type.name);
 }
 
+std::optional<std::size_t> matrixStorageDimension(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return std::nullopt;
+  }
+  if (type.name == "mat2" || type.name == "mat2x2") {
+    return std::size_t{2};
+  }
+  if (type.name == "mat3" || type.name == "mat3x3") {
+    return std::size_t{3};
+  }
+  if (type.name == "mat4" || type.name == "mat4x4") {
+    return std::size_t{4};
+  }
+  return std::nullopt;
+}
+
+std::size_t matrixColumnAlignmentBytes(std::size_t dimension) {
+  return dimension == 2 ? std::size_t{8} : std::size_t{16};
+}
+
 std::optional<std::size_t> storageElementSizeBytes(const HIRType &type) {
   if (type.arraySize.has_value()) {
     return std::nullopt;
@@ -56,6 +76,16 @@ std::optional<std::size_t> storageElementSizeBytes(const HIRType &type) {
   }
   if (const std::optional<std::size_t> width = vectorStorageWidth(type)) {
     return *width * 4;
+  }
+  if (const std::optional<std::size_t> dimension =
+          matrixStorageDimension(type)) {
+    const std::size_t columnSize = *dimension * 4;
+    const std::optional<std::size_t> columnStride =
+        checkedStorageAlignTo(columnSize, matrixColumnAlignmentBytes(*dimension));
+    if (!columnStride.has_value()) {
+      return std::nullopt;
+    }
+    return checkedStorageMultiply(*columnStride, *dimension);
   }
   return std::nullopt;
 }
@@ -70,6 +100,10 @@ std::optional<std::size_t> storageAlignmentBytes(const HIRType &type) {
   }
   if (const std::optional<std::size_t> width = vectorStorageWidth(type)) {
     return *width == 2 ? 8 : 16;
+  }
+  if (const std::optional<std::size_t> dimension =
+          matrixStorageDimension(type)) {
+    return matrixColumnAlignmentBytes(*dimension);
   }
   return std::nullopt;
 }

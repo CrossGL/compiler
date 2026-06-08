@@ -39372,6 +39372,104 @@ shader DirectXMatrixConstructorShader {
          "capability");
 }
 
+void testDirectXMatrixStorageBufferHLSL() {
+  constexpr std::string_view source = R"(
+shader DirectXMatrixStorageBufferShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer mat4* transforms;
+    layout(set = 0, binding = 1) buffer float* values;
+    void main() {
+      mat4 transform = transforms[0];
+      transforms[1] = transform;
+      values[0] = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "DirectX matrix storage-buffer source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::directxTextualBackendSupported(*hir),
+         "DirectX source package supports matrix storage-buffer elements");
+  expect(!crossgl::directxHasUnsupportedStorageBufferElementType(*hir),
+         "DirectX matrix storage-buffer element gate accepts mat4 buffers");
+
+  const std::string directx = crossgl::generateDirectXSource(*hir);
+  expect(directx.find("RWStructuredBuffer<float4x4> transforms : "
+                      "register(u0, space0);") != std::string::npos &&
+             directx.find("RWStructuredBuffer<float> values : register(u1, "
+                          "space0);") != std::string::npos,
+         "DirectX backend emits matrix storage-buffer resources");
+  expect(directx.find("float4x4 transform = transforms[0];") !=
+                 std::string::npos &&
+             directx.find("transforms[1] = transform;") != std::string::npos &&
+             directx.find("values[0] = 1.0;") != std::string::npos,
+         "DirectX backend reads and writes matrix storage-buffer values");
+
+  const crossgl::ReflectionDocument reflection =
+      crossgl::buildReflectionDocument(*hir, crossgl::TargetKind::DirectX,
+                                       "/tmp/DirectXMatrixStorageBufferShader.dxil");
+  const crossgl::ReflectionTargetResourceBinding *transforms =
+      findTargetResourceBinding(reflection, "transforms");
+  expect(transforms != nullptr && transforms->hlslType.has_value() &&
+             *transforms->hlslType == "RWStructuredBuffer<float4x4>" &&
+             transforms->descriptorType == "UAV",
+         "DirectX reflection records matrix storage-buffer HLSL ABI");
+
+  const std::vector<crossgl::TargetCapability> directxMissing =
+      crossgl::missingTargetCapabilities(*hir, crossgl::TargetKind::DirectX);
+  expect(!hasCapability(directxMissing, crossgl::TargetKind::DirectX,
+                        "backend", "hlsl-lowering") &&
+             !hasCapability(directxMissing, crossgl::TargetKind::DirectX,
+                            "diagnostic",
+                            "directx.unsupported-storage-buffer-element-type"),
+         "DirectX matrix storage-buffer source satisfies HLSL and diagnostic "
+         "capabilities");
+
+  constexpr std::string_view structSource = R"(
+shader DirectXStructMatrixStorageBufferShader {
+  struct Transform {
+    mat4 matrix;
+    float weight;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Transform* transforms;
+    void main() {
+      transforms[1].matrix = transforms[0].matrix;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> structHir = parseHIR(structSource);
+  expect(structHir.has_value(),
+         "DirectX struct matrix storage-buffer source builds HIR");
+  if (!structHir) {
+    return;
+  }
+
+  expect(crossgl::directxTextualBackendSupported(*structHir),
+         "DirectX source package supports matrix fields in storage-buffer "
+         "structs");
+  const std::string structDirectX = crossgl::generateDirectXSource(*structHir);
+  expect(structDirectX.find("struct Transform") != std::string::npos &&
+             structDirectX.find("float4x4 matrix;") != std::string::npos &&
+             structDirectX.find("RWStructuredBuffer<Transform> transforms : "
+                                "register(u0, space0);") !=
+                 std::string::npos &&
+             structDirectX.find("transforms[1].matrix = transforms[0].matrix;") !=
+                 std::string::npos,
+         "DirectX backend emits struct storage buffers with matrix fields");
+}
+
 void testDirectXFoldedNestedFunctionParameterArrayHLSL() {
   constexpr std::string_view source = R"(
 shader DirectXFoldedNestedFunctionParameterArrayShader {
@@ -43852,6 +43950,44 @@ shader Vec3LayoutConformance {
        "vec3",
        12,
        16,
+       16,
+       {}},
+      {"shared-mat3-storage-layout",
+       R"(
+shader Mat3LayoutConformance {
+  compute {
+    layout(set = 0, binding = 0) buffer mat3* transforms;
+    void main() {
+      return;
+    }
+  }
+}
+)",
+       crossgl::TargetKind::Vulkan,
+       "/tmp/Mat3LayoutConformance.spv",
+       "std430",
+       "mat3",
+       48,
+       48,
+       16,
+       {}},
+      {"shared-mat4-storage-layout",
+       R"(
+shader Mat4LayoutConformance {
+  compute {
+    layout(set = 0, binding = 0) buffer mat4* transforms;
+    void main() {
+      return;
+    }
+  }
+}
+)",
+       crossgl::TargetKind::Vulkan,
+       "/tmp/Mat4LayoutConformance.spv",
+       "std430",
+       "mat4",
+       64,
+       64,
        16,
        {}},
       {"metal-vec3-buffer",
@@ -51825,6 +51961,7 @@ int main() {
   testDirectXLocalFunctionParameterArrayHLSL();
   testDirectXMatrixFunctionParameterArrayHLSL();
   testDirectXMatrixConstructorHLSL();
+  testDirectXMatrixStorageBufferHLSL();
   testDirectXFoldedNestedFunctionParameterArrayHLSL();
   testDirectXNestedLocalFunctionParameterArrayHLSL();
   testDirectXFunctionParameterArrayUnsupportedDiagnostics();

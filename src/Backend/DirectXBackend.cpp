@@ -325,7 +325,7 @@ std::string hlslStructFieldType(const HIRModule &module, const HIRType &type) {
 }
 
 bool hlslStorageBufferScalarTypeSupported(std::string_view name) {
-  return isNumericScalarOrVectorType(name) && !hlslTypeName(name).empty();
+  return isNumericScalarVectorOrMatrixType(name) && !hlslTypeName(name).empty();
 }
 
 bool hlslUniformBufferScalarTypeSupported(std::string_view name) {
@@ -405,7 +405,8 @@ std::string hlslStorageBufferElementType(const HIRModule &module,
     return atomicType;
   }
   const std::string baseName = baseTypeName(type);
-  if (!type.arraySize.has_value() && isNumericScalarOrVectorType(baseName)) {
+  if (!type.arraySize.has_value() &&
+      isNumericScalarVectorOrMatrixType(baseName)) {
     const std::string valueType = hlslType(type);
     if (!valueType.empty()) {
       return valueType;
@@ -3685,10 +3686,10 @@ bool diagnoseDirectXUnsupportedStorageBufferElementType(
       "DirectX source package does not yet support storage-buffer element "
       "type(s): " +
           joinNames(elementTypes) +
-          "; supported storage-buffer elements are scalar/vector types, "
-          "top-level atomic<int>/atomic<uint> scalar elements, and structs "
-          "with scalar/vector leaf fields, including nested structs and "
-          "fixed-size scalar/vector or nested-struct array fields");
+          "; supported storage-buffer elements are scalar/vector/matrix "
+          "types, top-level atomic<int>/atomic<uint> scalar elements, and "
+          "structs with supported leaf fields, including nested structs and "
+          "fixed-size supported leaf or nested-struct array fields");
   return true;
 }
 
@@ -4481,10 +4482,10 @@ std::string generateDirectXBackendIR(
       out << "// directx textual scaffold does not yet support storage-buffer "
              "element types ("
           << joinNames(bufferElementTypes)
-          << "); scalar/vector storage-buffer elements, top-level "
+          << "); scalar/vector/matrix storage-buffer elements, top-level "
              "atomic<int>/atomic<uint> scalar elements, and structs with "
-             "scalar/vector leaf fields, including fixed-size array fields, "
-             "are supported\n";
+             "supported leaf fields, including fixed-size array fields, are "
+             "supported\n";
     }
     const std::set<std::string> unsupportedMixedSamplers =
         unsupportedMixedSamplerStateUsageLabels(module);
