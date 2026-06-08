@@ -552,11 +552,69 @@ void renderSpirvFunctionSkeleton(std::ostringstream &out, const HIRStage &stage)
       << "    }\n";
 }
 
+bool moduleUsesRuntimeTextureSamplerDescriptorArray(const HIRModule &module) {
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &resource : stage.resources) {
+      if (isRuntimeDescriptorArray(resource) &&
+          (resource.kind == HIRResourceKind::Texture ||
+           resource.kind == HIRResourceKind::Sampler)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool moduleUsesNonUniformRuntimeTextureSamplerDescriptorArray(
+    const HIRModule &module) {
+  std::unordered_map<std::string, HIRResource> runtimeResources;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &resource : stage.resources) {
+      if (isRuntimeDescriptorArray(resource) &&
+          (resource.kind == HIRResourceKind::Texture ||
+           resource.kind == HIRResourceKind::Sampler)) {
+        runtimeResources.emplace(stage.stage + "\n" + resource.name, resource);
+      }
+    }
+  }
+  if (runtimeResources.empty()) {
+    return false;
+  }
+
+  for (const HIRNonUniformDescriptorIndexUse &use :
+       collectNonUniformDescriptorIndexUses(module)) {
+    const auto resource =
+        runtimeResources.find(use.stage + "\n" + use.resource);
+    if (resource == runtimeResources.end()) {
+      continue;
+    }
+    if (resource->second.kind == HIRResourceKind::Texture ||
+        resource->second.kind == HIRResourceKind::Sampler) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void renderSpirvModuleSkeleton(std::ostringstream &out, const HIRModule &module) {
+  const bool usesRuntimeDescriptorArray =
+      moduleUsesRuntimeTextureSamplerDescriptorArray(module);
+  const bool usesSampledImageNonUniformDescriptorIndex =
+      moduleUsesNonUniformRuntimeTextureSamplerDescriptorArray(module);
   out << "spirv.module @" << module.name
       << " attributes {addressing_model = \"Logical\", memory_model = \"GLSL450\", "
       << "target_env = \"" << kVulkanNativeTargetEnv << "\"} {\n";
   out << "  spirv.Capability Shader\n";
+  if (usesRuntimeDescriptorArray) {
+    out << "  spirv.Capability RuntimeDescriptorArrayEXT\n";
+  }
+  if (usesSampledImageNonUniformDescriptorIndex) {
+    out << "  spirv.Capability ShaderNonUniformEXT\n";
+    out << "  spirv.Capability SampledImageArrayNonUniformIndexingEXT\n";
+  }
+  if (usesRuntimeDescriptorArray || usesSampledImageNonUniformDescriptorIndex) {
+    out << "  spirv.Extension \"SPV_EXT_descriptor_indexing\"\n";
+  }
   out << "  spirv.MemoryModel Logical GLSL450\n";
   for (const HIRStage &stage : module.stages) {
     const std::string entryPoint = stage.stage + "_" + stage.entryPointName;
