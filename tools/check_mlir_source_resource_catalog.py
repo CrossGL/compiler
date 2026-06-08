@@ -252,6 +252,15 @@ RESOURCE_STORAGE_IMAGE_ITEM_FIELDS = (
     "resourceFacts.storageImages[].set",
     "resourceFacts.storageImages[].binding",
 )
+RESOURCE_STORAGE_IMAGE_OPTIONAL_ITEM_FIELDS = (
+    ("descriptorArray", "resourceFacts.storageImages[].descriptorArray"),
+    ("arraySize", "resourceFacts.storageImages[].arraySize"),
+    ("indexingMode", "resourceFacts.storageImages[].indexingMode"),
+    (
+        "fixedDescriptorIndices",
+        "resourceFacts.storageImages[].fixedDescriptorIndices",
+    ),
+)
 RESOURCE_TEXTURE_ITEM_FIELDS = (
     "resourceFacts.textures[].name",
     "resourceFacts.textures[].type",
@@ -477,8 +486,14 @@ def expected_resource_manifest_fields(resource_facts: dict[str, Any]) -> list[st
             )
         )
     fields.append("resourceFacts.storageImages")
-    if resource_facts.get("storageImages"):
+    storage_images = resource_facts.get("storageImages")
+    if isinstance(storage_images, list) and storage_images:
         fields.extend(RESOURCE_STORAGE_IMAGE_ITEM_FIELDS)
+        fields.extend(
+            optional_item_fields(
+                storage_images, RESOURCE_STORAGE_IMAGE_OPTIONAL_ITEM_FIELDS
+            )
+        )
     fields.append("resourceFacts.textures")
     textures = resource_facts.get("textures")
     if isinstance(textures, list) and textures:
@@ -1443,6 +1458,7 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
         for collection in (
             "descriptors",
             "storageBuffers",
+            "storageImages",
             "textures",
             "samplers",
         ):

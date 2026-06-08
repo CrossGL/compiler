@@ -3995,6 +3995,750 @@
           ]
         }
       }
+    },
+    {
+      "path": "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+      "productionFacing": false,
+      "sourceLineage": {
+        "sourceLanguage": "CrossGL",
+        "sourceLanguageVersion": "v0",
+        "specAnchor": "docs/language/crosstl-frontend-language-spec-v0.json",
+        "contractAnchor": "tools/cross_repo_language_contract.json",
+        "fixtureKind": "checked-in-source-fixture",
+        "productionInput": false
+      },
+      "stage": "compute",
+      "entryPoint": "main",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics",
+        "resources_layouts_and_storage",
+        "direct_storage_images"
+      ],
+      "sourceLocationFacts": [
+        "source_file",
+        "shader_module",
+        "compute_stage",
+        "entry_point",
+        "layout_local_size",
+        "storage_image_declaration",
+        "storage_buffer_declaration",
+        "local_variable_declarations",
+        "scalar_expression_statements",
+        "storage_buffer_read",
+        "storage_image_load",
+        "storage_image_store",
+        "storage_buffer_write",
+        "return_statement"
+      ],
+      "typeFacts": [
+        "void_entry_point",
+        "uint_scalar",
+        "int_scalar",
+        "vec4_scalar",
+        "ivec4_scalar",
+        "uvec4_scalar",
+        "vec4_pointer_storage_buffer",
+        "ivec4_pointer_storage_buffer",
+        "uvec4_pointer_storage_buffer",
+        "int_pointer_storage_buffer",
+        "storage_buffer_element_type",
+        "storage_image_result_type",
+        "storage_image_coordinate_type",
+        "constructor_cast_expression",
+        "binary_expression_result_types"
+      ],
+      "resourceFacts": {
+        "localSize": [
+          8,
+          8,
+          1
+        ],
+        "descriptors": [
+          {
+            "stage": "compute",
+            "name": "colorImages",
+            "kind": "storageImage",
+            "set": 0,
+            "binding": 0,
+            "descriptorArray": true,
+            "arraySize": 2,
+            "indexingMode": "fixed-literal",
+            "fixedDescriptorIndices": [
+              0
+            ]
+          },
+          {
+            "stage": "compute",
+            "name": "labelAtlases",
+            "kind": "storageImage",
+            "set": 0,
+            "binding": 3,
+            "descriptorArray": true,
+            "arraySize": 2,
+            "indexingMode": "fixed-literal",
+            "fixedDescriptorIndices": [
+              1
+            ]
+          },
+          {
+            "stage": "compute",
+            "name": "slots",
+            "kind": "storageBuffer",
+            "set": 0,
+            "binding": 6
+          },
+          {
+            "stage": "compute",
+            "name": "colors",
+            "kind": "storageBuffer",
+            "set": 0,
+            "binding": 7
+          },
+          {
+            "stage": "compute",
+            "name": "labels",
+            "kind": "storageBuffer",
+            "set": 0,
+            "binding": 8
+          },
+          {
+            "stage": "compute",
+            "name": "masks",
+            "kind": "storageBuffer",
+            "set": 0,
+            "binding": 9
+          }
+        ],
+        "storageBuffers": [
+          {
+            "name": "slots",
+            "type": "int*",
+            "elementType": "int",
+            "addressSpace": "storage",
+            "writeAccess": true
+          },
+          {
+            "name": "colors",
+            "type": "vec4*",
+            "elementType": "vec4",
+            "addressSpace": "storage",
+            "writeAccess": true
+          },
+          {
+            "name": "labels",
+            "type": "ivec4*",
+            "elementType": "ivec4",
+            "addressSpace": "storage",
+            "writeAccess": true
+          },
+          {
+            "name": "masks",
+            "type": "uvec4*",
+            "elementType": "uvec4",
+            "addressSpace": "storage",
+            "writeAccess": true
+          }
+        ],
+        "storageImages": [
+          {
+            "name": "colorImages",
+            "type": "image2D[2]",
+            "elementType": "vec4",
+            "format": "rgba32f",
+            "dimension": "2d",
+            "arrayed": false,
+            "access": "read_write",
+            "set": 0,
+            "binding": 0,
+            "descriptorArray": true,
+            "arraySize": 2,
+            "indexingMode": "fixed-literal",
+            "fixedDescriptorIndices": [
+              0
+            ]
+          },
+          {
+            "name": "labelAtlases",
+            "type": "iimage2DArray[2]",
+            "elementType": "ivec4",
+            "format": "rgba32i",
+            "dimension": "2d_array",
+            "arrayed": true,
+            "access": "read_write",
+            "set": 0,
+            "binding": 3,
+            "descriptorArray": true,
+            "arraySize": 2,
+            "indexingMode": "fixed-literal",
+            "fixedDescriptorIndices": [
+              1
+            ]
+          }
+        ],
+        "textures": [],
+        "samplers": [],
+        "targetIndependentResourceMetadata": [
+          {
+            "stage": "compute",
+            "name": "colorImages",
+            "kind": "storageImage",
+            "sourceType": "image2D[2]",
+            "elementType": "vec4",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 0,
+            "targetIndependent": true,
+            "descriptorArray": true,
+            "arraySize": 2,
+            "indexingMode": "fixed-literal",
+            "fixedDescriptorIndices": [
+              0
+            ]
+          },
+          {
+            "stage": "compute",
+            "name": "labelAtlases",
+            "kind": "storageImage",
+            "sourceType": "iimage2DArray[2]",
+            "elementType": "ivec4",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 3,
+            "targetIndependent": true,
+            "descriptorArray": true,
+            "arraySize": 2,
+            "indexingMode": "fixed-literal",
+            "fixedDescriptorIndices": [
+              1
+            ]
+          },
+          {
+            "stage": "compute",
+            "name": "slots",
+            "kind": "storageBuffer",
+            "sourceType": "int*",
+            "elementType": "int",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 6,
+            "targetIndependent": true
+          },
+          {
+            "stage": "compute",
+            "name": "colors",
+            "kind": "storageBuffer",
+            "sourceType": "vec4*",
+            "elementType": "vec4",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 7,
+            "targetIndependent": true
+          },
+          {
+            "stage": "compute",
+            "name": "labels",
+            "kind": "storageBuffer",
+            "sourceType": "ivec4*",
+            "elementType": "ivec4",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 8,
+            "targetIndependent": true
+          },
+          {
+            "stage": "compute",
+            "name": "masks",
+            "kind": "storageBuffer",
+            "sourceType": "uvec4*",
+            "elementType": "uvec4",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 9,
+            "targetIndependent": true
+          }
+        ]
+      },
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "compute",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "storage_image_declaration",
+            "storage_buffer_declaration",
+            "local_variable_declarations",
+            "scalar_expression_statements",
+            "storage_buffer_read",
+            "storage_image_load",
+            "storage_image_store",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "direct-storage-image-binding",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "void_entry_point",
+            "uint_scalar",
+            "int_scalar",
+            "vec4_scalar",
+            "ivec4_scalar",
+            "uvec4_scalar",
+            "vec4_pointer_storage_buffer",
+            "ivec4_pointer_storage_buffer",
+            "uvec4_pointer_storage_buffer",
+            "int_pointer_storage_buffer",
+            "storage_buffer_element_type",
+            "storage_image_result_type",
+            "storage_image_coordinate_type",
+            "constructor_cast_expression",
+            "binary_expression_result_types"
+          ]
+        },
+        "controlFlowCategory": "straight-line"
+      },
+      "parityRequirements": {
+        "sourceLocations": {
+          "required": true,
+          "fields": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "storage_image_declaration",
+            "storage_buffer_declaration",
+            "local_variable_declarations",
+            "scalar_expression_statements",
+            "storage_buffer_read",
+            "storage_image_load",
+            "storage_image_store",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "typeFacts": {
+          "required": true,
+          "fields": [
+            "void_entry_point",
+            "uint_scalar",
+            "int_scalar",
+            "vec4_scalar",
+            "ivec4_scalar",
+            "uvec4_scalar",
+            "vec4_pointer_storage_buffer",
+            "ivec4_pointer_storage_buffer",
+            "uvec4_pointer_storage_buffer",
+            "int_pointer_storage_buffer",
+            "storage_buffer_element_type",
+            "storage_image_result_type",
+            "storage_image_coordinate_type",
+            "constructor_cast_expression",
+            "binary_expression_result_types"
+          ]
+        },
+        "entryPoint": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint",
+            "resourceFacts.localSize"
+          ]
+        },
+        "resources": {
+          "required": true,
+          "fields": [
+            "resourceFacts.localSize",
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.descriptors[].descriptorArray",
+            "resourceFacts.descriptors[].arraySize",
+            "resourceFacts.descriptors[].indexingMode",
+            "resourceFacts.descriptors[].fixedDescriptorIndices",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageImages",
+            "resourceFacts.storageImages[].name",
+            "resourceFacts.storageImages[].type",
+            "resourceFacts.storageImages[].elementType",
+            "resourceFacts.storageImages[].format",
+            "resourceFacts.storageImages[].dimension",
+            "resourceFacts.storageImages[].arrayed",
+            "resourceFacts.storageImages[].access",
+            "resourceFacts.storageImages[].set",
+            "resourceFacts.storageImages[].binding",
+            "resourceFacts.storageImages[].descriptorArray",
+            "resourceFacts.storageImages[].arraySize",
+            "resourceFacts.storageImages[].indexingMode",
+            "resourceFacts.storageImages[].fixedDescriptorIndices",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ]
+        },
+        "targetIndependentResourceMetadata": {
+          "required": true,
+          "fields": [
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+            "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+            "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+            "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+            "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+          ]
+        },
+        "diagnosticsProvenance": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_image_declaration",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.storage_image_load",
+            "sourceLocationFacts.storage_image_store",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.uint_scalar",
+            "typeFacts.int_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.ivec4_scalar",
+            "typeFacts.uvec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.ivec4_pointer_storage_buffer",
+            "typeFacts.uvec4_pointer_storage_buffer",
+            "typeFacts.int_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.storage_image_result_type",
+            "typeFacts.storage_image_coordinate_type",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.binary_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        },
+        "sourceMapDebugPreservation": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_image_declaration",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.storage_image_load",
+            "sourceLocationFacts.storage_image_store",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.uint_scalar",
+            "typeFacts.int_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.ivec4_scalar",
+            "typeFacts.uvec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.ivec4_pointer_storage_buffer",
+            "typeFacts.uvec4_pointer_storage_buffer",
+            "typeFacts.int_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.storage_image_result_type",
+            "typeFacts.storage_image_coordinate_type",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.binary_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        }
+      },
+      "parityReportFields": {
+        "sourceFile": {
+          "required": true,
+          "fields": [
+            "path",
+            "sourceLocationFacts.source_file"
+          ]
+        },
+        "entryPoint": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint"
+          ]
+        },
+        "entryPointIdentity": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "localSize": {
+          "required": true,
+          "fields": [
+            "resourceFacts.localSize"
+          ]
+        },
+        "workgroupSize": {
+          "required": true,
+          "fields": [
+            "resourceFacts.localSize",
+            "sourceLocationFacts.layout_local_size"
+          ]
+        },
+        "resourceBindings": {
+          "required": true,
+          "fields": [
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.descriptors[].descriptorArray",
+            "resourceFacts.descriptors[].arraySize",
+            "resourceFacts.descriptors[].indexingMode",
+            "resourceFacts.descriptors[].fixedDescriptorIndices",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageImages",
+            "resourceFacts.storageImages[].name",
+            "resourceFacts.storageImages[].type",
+            "resourceFacts.storageImages[].elementType",
+            "resourceFacts.storageImages[].format",
+            "resourceFacts.storageImages[].dimension",
+            "resourceFacts.storageImages[].arrayed",
+            "resourceFacts.storageImages[].access",
+            "resourceFacts.storageImages[].set",
+            "resourceFacts.storageImages[].binding",
+            "resourceFacts.storageImages[].descriptorArray",
+            "resourceFacts.storageImages[].arraySize",
+            "resourceFacts.storageImages[].indexingMode",
+            "resourceFacts.storageImages[].fixedDescriptorIndices",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ]
+        },
+        "targetIndependentResourceMetadata": {
+          "required": true,
+          "fields": [
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+            "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+            "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+            "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+            "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+          ]
+        },
+        "typeFacts": {
+          "required": true,
+          "fields": [
+            "typeFacts.void_entry_point",
+            "typeFacts.uint_scalar",
+            "typeFacts.int_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.ivec4_scalar",
+            "typeFacts.uvec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.ivec4_pointer_storage_buffer",
+            "typeFacts.uvec4_pointer_storage_buffer",
+            "typeFacts.int_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.storage_image_result_type",
+            "typeFacts.storage_image_coordinate_type",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.binary_expression_result_types"
+          ]
+        },
+        "diagnosticsProvenance": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_image_declaration",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.storage_image_load",
+            "sourceLocationFacts.storage_image_store",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.uint_scalar",
+            "typeFacts.int_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.ivec4_scalar",
+            "typeFacts.uvec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.ivec4_pointer_storage_buffer",
+            "typeFacts.uvec4_pointer_storage_buffer",
+            "typeFacts.int_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.storage_image_result_type",
+            "typeFacts.storage_image_coordinate_type",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.binary_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        },
+        "sourceMapDebugPreservation": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_image_declaration",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.storage_image_load",
+            "sourceLocationFacts.storage_image_store",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.uint_scalar",
+            "typeFacts.int_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.ivec4_scalar",
+            "typeFacts.uvec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.ivec4_pointer_storage_buffer",
+            "typeFacts.uvec4_pointer_storage_buffer",
+            "typeFacts.int_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.storage_image_result_type",
+            "typeFacts.storage_image_coordinate_type",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.binary_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        },
+        "controlFlowSlice": {
+          "required": true,
+          "slice": "none",
+          "fields": []
+        },
+        "blockedFamilyRationale": {
+          "required": true,
+          "fields": [
+            "unsupportedHirFamilies[].id",
+            "unsupportedHirFamilies[].reason"
+          ],
+          "families": [
+            "remaining_texture_image_intrinsics",
+            "descriptor_indexing_and_nonuniform",
+            "crosstl_examples_and_backend_policy"
+          ]
+        }
+      }
     }
   ],
   "allowedHirFamilies": [
@@ -4046,19 +4790,20 @@
     {
       "id": "direct_storage_images",
       "fixtures": [
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl"
       ],
-      "reason": "Only direct compute storage-image descriptors with read_write access, 2D/2D-array dimensions, default rgba32 formats, and imageLoad/imageStore source facts are recorded as report-only catalog evidence."
+      "reason": "Direct compute storage-image descriptors and fixed literal-index storage-image descriptor-array facts with read_write access, 2D/2D-array dimensions, formats, and imageLoad/imageStore source facts are recorded as report-only catalog evidence."
     }
   ],
   "unsupportedHirFamilies": [
     {
       "id": "remaining_texture_image_intrinsics",
-      "reason": "Direct sampled texture plus sampler LOD facts, direct read_write storage-image load/store facts, one fixed storage-buffer descriptor-array catalog fixture, and one fixed sampled texture plus sampler descriptor-array catalog fixture are admitted; storage-image descriptor arrays, nonuniform texture or image indexing, compare helpers, access-qualified storage images, image atomics, and manual texture intrinsics remain blocked."
+      "reason": "Direct sampled texture plus sampler LOD facts, direct read_write storage-image load/store facts, one fixed storage-buffer descriptor-array catalog fixture, one fixed sampled texture plus sampler descriptor-array catalog fixture, and one literal-index fixed storage-image descriptor-array catalog fixture are admitted; dynamic or nonuniform storage-image descriptor indexing, access-qualified storage-image arrays, storage-image atomics, compare helpers, and manual texture intrinsics remain blocked."
     },
     {
       "id": "descriptor_indexing_and_nonuniform",
-      "reason": "Only fixed literal storage-buffer and sampled texture/sampler descriptor-array indices from admitted catalog fixtures are report-only evidence; runtime descriptor arrays, dynamic indexes, and nonuniform metadata remain blocked until target-independent indexing facts and checks are updated deliberately."
+      "reason": "Only fixed literal storage-buffer, sampled texture/sampler, and storage-image descriptor-array indices from admitted catalog fixtures are report-only evidence; runtime descriptor arrays, dynamic indexes, folded-symbolic indexes outside cataloged literal facts, nonuniform indexing metadata, and backend descriptor-indexing policy remain blocked."
     },
     {
       "id": "crosstl_examples_and_backend_policy",
@@ -4101,6 +4846,11 @@
         "id": "storage_buffer_descriptor_array_fixture_locations",
         "required": true,
         "description": "The storage-buffer descriptor-array fixture must name fixed-array buffer declaration, local declarations, read/write statements, and return provenance."
+      },
+      {
+        "id": "storage_image_descriptor_array_fixture_locations",
+        "required": true,
+        "description": "The storage-image descriptor-array fixture must name fixed-array image declarations, local declarations, image load/store calls, storage-buffer read/write statements, and return provenance."
       }
     ],
     "types": [
@@ -4128,6 +4878,11 @@
         "id": "storage_buffer_descriptor_array_type_facts",
         "required": true,
         "description": "The storage-buffer descriptor-array fixture must name struct pointer array resource type evidence, element type, scalar local type, binary expression results, and assignment result facts."
+      },
+      {
+        "id": "storage_image_descriptor_array_type_facts",
+        "required": true,
+        "description": "The storage-image descriptor-array fixture must preserve storage-image result and coordinate types, vector result types, pointer storage-buffer types, constructor casts, and binary expression result facts."
       }
     ],
     "resources": [
@@ -4175,6 +4930,11 @@
         "id": "storage_buffer_descriptor_array_fixed_binding",
         "required": true,
         "description": "The storage-buffer descriptor-array fixture records a fixed-size storage-buffer descriptor array at set 0 binding 0 with only literal descriptor indices 0 and 1."
+      },
+      {
+        "id": "storage_image_descriptor_array_fixed_binding",
+        "required": true,
+        "description": "The storage-image descriptor-array fixture records fixed-size storage-image descriptor arrays at set 0 bindings 0 and 3 with only literal descriptor indices 0 and 1 admitted as report-only evidence."
       }
     ],
     "targetIndependentResourceMetadata": [
@@ -4212,6 +4972,11 @@
         "id": "storage_buffer_descriptor_array_metadata_matches_descriptor",
         "required": true,
         "description": "The storage-buffer descriptor-array fixture target-independent metadata must match descriptor name, stage, set, binding, source type, element type, storage address space, read_write access, fixed array size, and literal descriptor indices."
+      },
+      {
+        "id": "storage_image_descriptor_array_metadata_matches_descriptor",
+        "required": true,
+        "description": "The storage-image descriptor-array fixture target-independent metadata must match descriptor name, stage, set, binding, source type, element type, storage address space, read_write access, fixed array size, and literal descriptor indices."
       }
     ],
     "diagnosticsProvenance": [

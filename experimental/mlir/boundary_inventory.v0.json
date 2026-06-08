@@ -54,6 +54,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
@@ -84,6 +85,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
@@ -113,6 +115,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
@@ -144,6 +147,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
@@ -173,6 +177,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
@@ -203,6 +208,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
@@ -315,6 +321,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
@@ -354,6 +361,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
       "preserves": [
@@ -413,7 +421,7 @@
       "operation": "hir.sampled_resource.descriptor_array",
       "coverageStatus": "admitted-report-only",
       "emissionStatus": "not-emitted",
-      "role": "Catalogs one fixed-size sampled texture plus sampler descriptor-array fixture with literal descriptor indices; it does not admit runtime descriptor arrays, dynamic indexing, nonuniform indexing, storage-image descriptor arrays, or backend descriptor-indexing policy.",
+      "role": "Catalogs one fixed-size sampled texture plus sampler descriptor-array fixture with literal descriptor indices; storage-image descriptor-array facts are cataloged separately, and runtime descriptor arrays, dynamic indexing, nonuniform indexing, and backend descriptor-indexing policy remain blocked.",
       "authorityAnchors": [
         "experimental/mlir/fixture_inventory.json",
         "experimental/mlir/experiment_manifest.json"
@@ -448,6 +456,47 @@
       ],
       "fixtures": [
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.storage_image.descriptor_array",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs fixed-size storage-image descriptor-array resources in one HIR fixture when the descriptor uses literal indices; it does not admit runtime descriptor arrays, folded-symbolic indexes outside cataloged literal facts, dynamic indexing, nonuniform indexing, storage-image atomics, or backend descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "direct_storage_images"
+      ],
+      "preserves": [
+        "resource_bindings",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_declaration",
+        "typeFacts.storage_image_result_type",
+        "typeFacts.storage_image_coordinate_type",
+        "resourceFacts.descriptors[].descriptorArray",
+        "resourceFacts.descriptors[].arraySize",
+        "resourceFacts.descriptors[].indexingMode",
+        "resourceFacts.descriptors[].fixedDescriptorIndices",
+        "resourceFacts.storageImages[].format",
+        "resourceFacts.storageImages[].dimension",
+        "resourceFacts.storageImages[].access",
+        "resourceFacts.storageImages[].descriptorArray",
+        "resourceFacts.storageImages[].arraySize",
+        "resourceFacts.storageImages[].indexingMode",
+        "resourceFacts.storageImages[].fixedDescriptorIndices",
+        "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+        "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl"
       ]
     },
     {
@@ -566,7 +615,8 @@
         "resources_layouts_and_storage"
       ],
       "fixtures": [
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -604,7 +654,8 @@
         "expressions_operators_and_intrinsics"
       ],
       "fixtures": [
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -631,7 +682,8 @@
         "expressions_operators_and_intrinsics"
       ],
       "fixtures": [
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -657,6 +709,7 @@
       "fixtures": [
         "tests/fixtures/IfComputeShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "preserves": [
@@ -684,6 +737,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
       ],
@@ -997,16 +1051,56 @@
         "targetIndependentResourceMetadata": true,
         "sourceMapDebugPreservation": true
       }
+    },
+    {
+      "path": "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.storage_image.descriptor_array",
+        "hir.storage_buffer.read",
+        "hir.image_load",
+        "hir.image_store",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "direct-storage-image-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "fixed_storage_image_descriptor_array",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
     }
   ],
   "blockedFamilies": [
     {
       "id": "remaining_texture_image_intrinsics",
-      "reason": "Direct sampled texture plus sampler LOD facts, direct read_write storage-image load/store facts, one fixed storage-buffer descriptor-array catalog fixture, and one fixed sampled texture plus sampler descriptor-array catalog fixture are admitted; storage-image descriptor arrays, nonuniform texture or image indexing, compare helpers, access-qualified storage images, image atomics, and manual texture intrinsics remain blocked."
+      "reason": "Direct sampled texture plus sampler LOD facts, direct read_write storage-image load/store facts, one fixed storage-buffer descriptor-array catalog fixture, one fixed sampled texture plus sampler descriptor-array catalog fixture, and one literal-index fixed storage-image descriptor-array catalog fixture are admitted; dynamic or nonuniform storage-image descriptor indexing, access-qualified storage-image arrays, storage-image atomics, compare helpers, and manual texture intrinsics remain blocked."
     },
     {
       "id": "descriptor_indexing_and_nonuniform",
-      "reason": "Only fixed literal storage-buffer and sampled texture/sampler descriptor-array indices from admitted catalog fixtures are report-only evidence; runtime descriptor arrays, dynamic indexes, and nonuniform metadata remain blocked until target-independent indexing facts and checks are updated deliberately."
+      "reason": "Only fixed literal storage-buffer, sampled texture/sampler, and storage-image descriptor-array indices from admitted catalog fixtures are report-only evidence; runtime descriptor arrays, dynamic indexes, folded-symbolic indexes outside cataloged literal facts, nonuniform indexing metadata, and backend descriptor-indexing policy remain blocked."
     },
     {
       "id": "crosstl_examples_and_backend_policy",

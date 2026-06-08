@@ -157,6 +157,15 @@ RESOURCE_ITEM_OPTIONAL_FIELDS = {
             "resourceFacts.storageBuffers[].fixedDescriptorIndices",
         ),
     ),
+    "storageImages": (
+        ("descriptorArray", "resourceFacts.storageImages[].descriptorArray"),
+        ("arraySize", "resourceFacts.storageImages[].arraySize"),
+        ("indexingMode", "resourceFacts.storageImages[].indexingMode"),
+        (
+            "fixedDescriptorIndices",
+            "resourceFacts.storageImages[].fixedDescriptorIndices",
+        ),
+    ),
     "textures": (
         ("descriptorArray", "resourceFacts.textures[].descriptorArray"),
         ("arraySize", "resourceFacts.textures[].arraySize"),
@@ -700,10 +709,10 @@ def check_resource_facts(
             storage_image = require_object(item, item_field, errors)
             if not storage_image:
                 continue
-            require_exact_keys(
+            require_resource_item_keys(
                 storage_image,
                 item_field,
-                RESOURCE_ITEM_REQUIRED_KEYS["storageImages"],
+                "storageImages",
                 errors,
             )
             require_string(storage_image.get("name"), f"{item_field}.name", errors)
@@ -727,6 +736,7 @@ def check_resource_facts(
                     errors.append(
                         f"{item_field}.{integer_field} must be a non-negative integer"
                     )
+            check_fixed_descriptor_array_fields(storage_image, item_field, errors)
 
     textures = resource_facts.get("textures")
     if isinstance(textures, list):
@@ -1696,6 +1706,15 @@ def collect_hir_source_map_facts(json_text: str) -> dict[str, Any]:
     }
 
 
+def is_storage_image_source_type(source_type: object) -> bool:
+    if not isinstance(source_type, str):
+        return False
+    scalar_source_type = re.sub(r"\[[0-9]+\]$", "", source_type)
+    return scalar_source_type.endswith("image2D") or scalar_source_type.endswith(
+        "image2DArray"
+    )
+
+
 def source_location_matches(
     location: object, fixture: str, field: str, errors: list[str]
 ) -> None:
@@ -2039,9 +2058,7 @@ def check_hir_source_map_parity(
     ):
         errors.append(f"{field}: HIR source-map missing storage-buffer write")
     if "storage_image_declaration" in source_facts and not any(
-        owner == "resource-type"
-        and isinstance(typ, str)
-        and (typ.endswith("image2D") or typ.endswith("image2DArray"))
+        owner == "resource-type" and is_storage_image_source_type(typ)
         for owner, _, typ in type_triples
     ):
         errors.append(f"{field}: HIR source-map missing storage-image declaration")
@@ -2726,6 +2743,27 @@ def run_self_test() -> list[str]:
                 f"{CONTROL_FLOW_CATEGORY_STRUCTURED_IF_ELSE!r}",
             )
         )
+
+        storage_image_types = [
+            "image2D",
+            "image2DArray",
+            "iimage2D",
+            "uimage2DArray",
+            "image2D[2]",
+            "iimage2DArray[2]",
+        ]
+        for source_type in storage_image_types:
+            if not is_storage_image_source_type(source_type):
+                errors.append(
+                    "self-test failed to classify storage-image source type "
+                    f"{source_type!r}"
+                )
+        for source_type in ("sampler2D[2]", "float*", "image3D[2]"):
+            if is_storage_image_source_type(source_type):
+                errors.append(
+                    "self-test incorrectly classified non-storage-image source "
+                    f"type {source_type!r}"
+                )
 
         missing_source_map_debug_field = copy.deepcopy(inventory)
         missing_source_map_debug_field["fixtures"][0][REPORT_FIELD_KEY][
