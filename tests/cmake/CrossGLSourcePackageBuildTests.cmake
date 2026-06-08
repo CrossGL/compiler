@@ -6658,12 +6658,37 @@ add_test(NAME cglc_build_opengl_aliased_function_parameter_array_write_source_pa
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_ALIASED_LOCAL_FEATURE_FIELDS}"
     -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_nested_expression_function_parameter_array_write_planned_failure
+set(CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewrite_weights[COUNT];
+  for (int crossgl_param_array_writeback_0_rewrite_weights_i = 0; crossgl_param_array_writeback_0_rewrite_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_weights_i) {
+    crossgl_param_array_writeback_0_rewrite_weights[crossgl_param_array_writeback_0_rewrite_weights_i] = particles[0].weights[crossgl_param_array_writeback_0_rewrite_weights_i];
+  }
+  float crossgl_param_array_writeback_1_result = rewrite(crossgl_param_array_writeback_0_rewrite_weights);
+  for (int crossgl_param_array_writeback_0_rewrite_weights_i = 0; crossgl_param_array_writeback_0_rewrite_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_weights_i) {
+    particles[0].weights[crossgl_param_array_writeback_0_rewrite_weights_i] = crossgl_param_array_writeback_0_rewrite_weights[crossgl_param_array_writeback_0_rewrite_weights_i];
+  }
+  particles[1].weights[0] = crossgl_param_array_writeback_1_result + 1.0;]=])
+set(CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_FEATURE_FIELDS
+    "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|fixed-array-field.kind=layout|storage-buffer.kind=resource|function-parameter-array.kind=array|scalar-vector-elements.kind=array|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|scalar-arithmetic.kind=operation")
+add_test(NAME cglc_build_opengl_nested_expression_function_parameter_array_write_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
     -DTARGET=opengl
-    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-nested-expression-function-parameter-array-write.cglb
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-nested-expression-function-parameter-array-write-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLNestedExpressionFunctionParameterArrayWriteUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLNestedExpressionFunctionParameterArrayWriteUnsupportedShader|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storage-buffer|particles.argumentIndex=0|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.arrayStrideBytes=8|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.fields.0.name=weights|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=4"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_FEATURE_FIELDS}"
+    -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_opengl_nested_expression_function_parameter_array_write_planned_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/opengl/fixtures/OpenGLNestedExpressionFunctionParameterArrayWriteRhsUnsupportedShader.cgl
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-nested-expression-function-parameter-array-write-rhs-unsupported.cglb
     -DMODE=planned-build-failure
     -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-write
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}

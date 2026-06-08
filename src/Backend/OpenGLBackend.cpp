@@ -1765,6 +1765,7 @@ struct OpenGLArrayWriteBackRewrite {
   const HIRExpression *call = nullptr;
   std::vector<OpenGLArrayWriteBackArgument> arguments;
   std::vector<std::pair<std::size_t, std::string>> argumentOverrides;
+  bool materializeNestedCallResult = false;
 };
 
 std::string openGLInternalIdentifierFragment(std::string_view value) {
@@ -1820,6 +1821,95 @@ const HIRExpression *openGLStatementDirectCallValue(
 }
 
 const HIRExpression *rootIdentifierExpression(const HIRExpression &expression);
+
+const HIRExpression *openGLTransparentExpression(
+    const HIRExpression &expression) {
+  const HIRExpression *current = &expression;
+  while (current->kind == HIRExpressionKind::Group &&
+         current->children.size() == 1) {
+    current = &current->children.front();
+  }
+  return current;
+}
+
+bool openGLExpressionContainsNode(const HIRExpression &expression,
+                                  const HIRExpression &node) {
+  if (&expression == &node) {
+    return true;
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (openGLExpressionContainsNode(child, node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool openGLExpressionContainsCallLikeEvaluation(
+    const HIRExpression &expression) {
+  switch (expression.kind) {
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+  case HIRExpressionKind::TextureSample:
+    return true;
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::Group:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Binary:
+  case HIRExpressionKind::Select:
+    break;
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (openGLExpressionContainsCallLikeEvaluation(child)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const HIRExpression *openGLNestedArrayWriteBackStatementCall(
+    const HIRStatement &statement) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+  case HIRStatementKind::Assignment:
+    break;
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    return nullptr;
+  }
+
+  const HIRExpression *value = openGLTransparentExpression(statement.value);
+  if (value->kind != HIRExpressionKind::Binary ||
+      value->children.size() != 2 ||
+      openGLExpressionContainsCallLikeEvaluation(value->children[1])) {
+    return nullptr;
+  }
+  if (statement.kind == HIRStatementKind::Assignment &&
+      openGLExpressionContainsCallLikeEvaluation(statement.target)) {
+    return nullptr;
+  }
+
+  const HIRExpression *left = openGLTransparentExpression(value->children[0]);
+  if (left->kind != HIRExpressionKind::Call || left->type.name == "void" ||
+      left->type.arraySize.has_value()) {
+    return nullptr;
+  }
+  return left;
+}
 
 bool openGLForwardedFunctionParameterArrayCopyArgument(
     const HIRModule &module, const HIRFunction &caller,
@@ -1906,23 +1996,19 @@ bool openGLCallArgumentHasAliasedFixedArrayParameter(
   return false;
 }
 
-std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
-    const HIRStatement &statement, const OpenGLEmitContext &context) {
+std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewriteForCall(
+    const HIRExpression &call, const OpenGLEmitContext &context) {
   if (context.module == nullptr || context.hirStage == nullptr ||
       context.function == nullptr) {
     return std::nullopt;
   }
-  const HIRExpression *call = openGLStatementDirectCallValue(statement);
-  if (call == nullptr) {
-    return std::nullopt;
-  }
-  const HIRFunction *callee = findOpenGLEmitFunction(context, call->value);
-  if (callee == nullptr || call->children.size() != callee->parameters.size()) {
+  const HIRFunction *callee = findOpenGLEmitFunction(context, call.value);
+  if (callee == nullptr || call.children.size() != callee->parameters.size()) {
     return std::nullopt;
   }
 
   OpenGLArrayWriteBackRewrite rewrite;
-  rewrite.call = call;
+  rewrite.call = &call;
   const std::set<std::string> writtenParameters =
       writtenOpenGLFunctionParameterArrayNames(*context.module, *callee);
   if (writtenParameters.empty()) {
@@ -1933,16 +2019,16 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
   for (std::size_t index = 0; index < callee->parameters.size(); ++index) {
     const HIRParameter &parameter = callee->parameters[index];
     if (writtenParameters.count(parameter.name) == 0 ||
-        index >= call->children.size()) {
+        index >= call.children.size()) {
       continue;
     }
 
     if (openGLCallArgumentHasAliasedFixedArrayParameter(*context.module,
-                                                        *callee, *call,
+                                                        *callee, call,
                                                         index)) {
       const std::optional<std::string> aliasKey =
           openGLAliasedArrayCopyArgumentKey(
-              *context.module, *context.function, call->children[index],
+              *context.module, *context.function, call.children[index],
               context.hirStage);
       if (!aliasKey.has_value()) {
         continue;
@@ -1954,9 +2040,9 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
         OpenGLArrayWriteBackArgument argument;
         argument.argumentIndex = index;
         argument.type = parameter.type;
-        argument.argument = &call->children[index];
+        argument.argument = &call.children[index];
         argument.temporaryName =
-            openGLArrayWriteBackTemporaryName(*call, parameter, context);
+            openGLArrayWriteBackTemporaryName(call, parameter, context);
         temporaryIndex = rewrite.arguments.size();
         aliasTemporaryByKey.emplace(*aliasKey, temporaryIndex);
         rewrite.arguments.push_back(std::move(argument));
@@ -1968,7 +2054,7 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
           rewrite.arguments[temporaryIndex].temporaryName;
       for (std::size_t aliasIndex = 0; aliasIndex < callee->parameters.size();
            ++aliasIndex) {
-        if (aliasIndex >= call->children.size() ||
+        if (aliasIndex >= call.children.size() ||
             functionParameterArrayShape(
                 *context.module, callee->parameters[aliasIndex].type) !=
                 HIRFunctionParameterArrayShape::FixedSize) {
@@ -1976,7 +2062,7 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
         }
         const std::optional<std::string> otherAliasKey =
             openGLAliasedArrayCopyArgumentKey(
-                *context.module, *context.function, call->children[aliasIndex],
+                *context.module, *context.function, call.children[aliasIndex],
                 context.hirStage);
         if (otherAliasKey.has_value() && *otherAliasKey == *aliasKey) {
           rewrite.argumentOverrides.emplace_back(aliasIndex, temporaryName);
@@ -1986,19 +2072,19 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
     }
 
     if (!(openGLStorageBufferFieldArrayCopyArgument(
-              *context.module, *context.function, call->children[index],
+              *context.module, *context.function, call.children[index],
               context.hirStage) ||
           openGLForwardedFunctionParameterArrayCopyArgument(
-              *context.module, *context.function, call->children[index],
+              *context.module, *context.function, call.children[index],
               context.hirStage))) {
       continue;
     }
     OpenGLArrayWriteBackArgument argument;
     argument.argumentIndex = index;
     argument.type = parameter.type;
-    argument.argument = &call->children[index];
+    argument.argument = &call.children[index];
     argument.temporaryName =
-        openGLArrayWriteBackTemporaryName(*call, parameter, context);
+        openGLArrayWriteBackTemporaryName(call, parameter, context);
     rewrite.argumentOverrides.emplace_back(argument.argumentIndex,
                                            argument.temporaryName);
     rewrite.arguments.push_back(std::move(argument));
@@ -2006,6 +2092,25 @@ std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
 
   if (rewrite.arguments.empty()) {
     return std::nullopt;
+  }
+  return rewrite;
+}
+
+std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
+    const HIRStatement &statement, const OpenGLEmitContext &context) {
+  if (const HIRExpression *call = openGLStatementDirectCallValue(statement)) {
+    return openGLArrayWriteBackRewriteForCall(*call, context);
+  }
+
+  const HIRExpression *nestedCall =
+      openGLNestedArrayWriteBackStatementCall(statement);
+  if (nestedCall == nullptr) {
+    return std::nullopt;
+  }
+  std::optional<OpenGLArrayWriteBackRewrite> rewrite =
+      openGLArrayWriteBackRewriteForCall(*nestedCall, context);
+  if (rewrite.has_value()) {
+    rewrite->materializeNestedCallResult = true;
   }
   return rewrite;
 }
@@ -2097,10 +2202,106 @@ void emitOpenGLArrayWriteBackCopiesAfter(
   }
 }
 
+std::string emitOpenGLExpressionWithCallReplacement(
+    const HIRExpression &expression, const HIRExpression &call,
+    std::string_view replacement, const OpenGLEmitContext &context) {
+  if (&expression == &call) {
+    return std::string(replacement);
+  }
+  if (!openGLExpressionContainsNode(expression, call)) {
+    return emitExpression(expression, context);
+  }
+
+  switch (expression.kind) {
+  case HIRExpressionKind::Group:
+    return expression.children.empty()
+               ? "()"
+               : "(" + emitOpenGLExpressionWithCallReplacement(
+                           expression.children.front(), call, replacement,
+                           context) +
+                     ")";
+  case HIRExpressionKind::Binary:
+    if (expression.children.size() != 2) {
+      return "/* unsupported */";
+    }
+    return emitOpenGLExpressionWithCallReplacement(
+               expression.children[0], call, replacement, context) +
+           " " + expression.value + " " +
+           emitOpenGLExpressionWithCallReplacement(
+               expression.children[1], call, replacement, context);
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::Select:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+  case HIRExpressionKind::TextureSample:
+    break;
+  }
+  return "/* unsupported */";
+}
+
+void emitOpenGLNestedExpressionWithArrayWriteBack(
+    std::ostringstream &out, const HIRStatement &statement,
+    std::size_t indentation, const OpenGLEmitContext &context,
+    const OpenGLArrayWriteBackRewrite &rewrite) {
+  const std::string spaces(indentation, ' ');
+  const std::vector<std::pair<std::size_t, std::string>> overrides =
+      openGLArrayWriteBackArgumentOverrides(rewrite);
+  const std::string resultName =
+      "crossgl_param_array_writeback_" +
+      std::to_string(nextOpenGLTemporaryIndex(context)) + "_result";
+
+  emitOpenGLArrayWriteBackCopiesBefore(out, rewrite, indentation, context);
+  out << spaces << glslDeclarator(*context.module, rewrite.call->type,
+                                  resultName)
+      << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                overrides)
+      << ";\n";
+  emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+
+  const std::string value =
+      emitOpenGLExpressionWithCallReplacement(statement.value, *rewrite.call,
+                                              resultName, context);
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    out << spaces << glslDeclarator(*context.module, statement.declaredType,
+                                    emitIdentifierName(statement.name, context))
+        << " = " << value << ";\n";
+    return;
+  case HIRStatementKind::Assignment:
+    out << spaces << emitExpression(statement.target, context) << " = "
+        << value << ";\n";
+    return;
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    break;
+  }
+}
+
 void emitOpenGLStatementWithArrayWriteBack(
     std::ostringstream &out, const HIRStatement &statement,
     std::size_t indentation, const OpenGLEmitContext &context,
     const OpenGLArrayWriteBackRewrite &rewrite) {
+  if (rewrite.materializeNestedCallResult) {
+    emitOpenGLNestedExpressionWithArrayWriteBack(out, statement, indentation,
+                                                context, rewrite);
+    return;
+  }
+
   const std::string spaces(indentation, ' ');
   const std::vector<std::pair<std::size_t, std::string>> overrides =
       openGLArrayWriteBackArgumentOverrides(rewrite);
@@ -3296,23 +3497,34 @@ bool openGLFunctionParameterArrayWriteStatementSupported(
     const HIRFunction &callee, const HIRStatement &statement,
     std::size_t parameterIndex, const HIRStage *stage,
     bool allowDirectStatementWriteBack) {
-  const HIRExpression *directCall =
+  const HIRExpression *supportedWriteBackCall =
       openGLStatementValueDirectlyCalls(statement, callee)
           ? openGLStatementDirectCallValue(statement)
           : nullptr;
-  if (directCall != nullptr) {
+  if (supportedWriteBackCall != nullptr) {
     if (!openGLFunctionParameterArrayWriteCallSupportedInContext(
-            module, caller, callee, *directCall, parameterIndex, stage,
+            module, caller, callee, *supportedWriteBackCall, parameterIndex, stage,
             allowDirectStatementWriteBack)) {
       return false;
     }
+  } else if (allowDirectStatementWriteBack) {
+    const HIRExpression *nestedCall =
+        openGLNestedArrayWriteBackStatementCall(statement);
+    if (nestedCall != nullptr && nestedCall->value == callee.name) {
+      if (!openGLFunctionParameterArrayWriteCallSupportedInContext(
+              module, caller, callee, *nestedCall, parameterIndex, stage,
+              true)) {
+        return false;
+      }
+      supportedWriteBackCall = nestedCall;
+    }
   }
   if (!openGLExpressionTreeSupportsFunctionArrayWriteCalls(
-          module, caller, callee, statement.target, directCall, parameterIndex,
-          stage) ||
+          module, caller, callee, statement.target, supportedWriteBackCall,
+          parameterIndex, stage) ||
       !openGLExpressionTreeSupportsFunctionArrayWriteCalls(
-          module, caller, callee, statement.value, directCall, parameterIndex,
-          stage)) {
+          module, caller, callee, statement.value, supportedWriteBackCall,
+          parameterIndex, stage)) {
     return false;
   }
 
