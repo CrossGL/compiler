@@ -4103,7 +4103,9 @@ bool validateMetalRuntimeResourceDescriptorArrayPolicy(
               name +
               "' only when it is declared but not indexed, sampled, or "
               "otherwise referenced; runtime descriptor table element access is "
-              "not implemented yet");
+              "not implemented yet because the current Metal table ABI is "
+              "opaque and MSL sampling requires a typed argument-buffer "
+              "texture/sampler array field");
       valid = false;
     }
   }

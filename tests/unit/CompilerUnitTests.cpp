@@ -43652,6 +43652,46 @@ shader MetalRuntimeSamplerDescriptorArraySampleUnsupportedShader {
            "unused-only policy");
   }
 
+  constexpr std::string_view metalRuntimeTextureSamplerSampleSource = R"(
+shader MetalRuntimeTextureSamplerDescriptorArraySampleUnsupportedShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) uniform sampler2D maps[];
+    layout(set = 0, binding = 2) sampler linearSamplers[];
+    void main() {
+      values[0] = textureLod(maps[0], linearSamplers[0],
+                             vec2(0.0, 0.0), 0.0);
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> metalRuntimeTextureSamplerSampleHir =
+      parseHIR(metalRuntimeTextureSamplerSampleSource);
+  expect(metalRuntimeTextureSamplerSampleHir.has_value(),
+         "Metal sampled runtime texture/sampler descriptor-array source builds "
+         "HIR");
+  if (metalRuntimeTextureSamplerSampleHir) {
+    crossgl::DiagnosticEngine metalRuntimeTextureSamplerSampleDiagnostics;
+    expect(!crossgl::metalNativeBackendSupported(
+               *metalRuntimeTextureSamplerSampleHir,
+               metalRuntimeTextureSamplerSampleDiagnostics),
+           "Metal rejects sampled runtime texture plus sampler descriptor "
+           "arrays before compiling");
+    expect(hasDiagnostic(
+               metalRuntimeTextureSamplerSampleDiagnostics.diagnostics(),
+               "metal.unsupported-runtime-resource-array"),
+           "Metal sampled runtime texture/sampler descriptor arrays report "
+           "targeted diagnostic");
+    expect(hasDiagnosticMessageFragment(
+               metalRuntimeTextureSamplerSampleDiagnostics.diagnostics(),
+               "metal.unsupported-runtime-resource-array",
+               "current Metal table ABI is opaque"),
+           "Metal sampled runtime texture/sampler descriptor array diagnostic "
+           "explains why element access remains blocked");
+  }
+
   constexpr std::string_view resourceSource = R"(
 shader RuntimeResourceArrayShader {
   compute {

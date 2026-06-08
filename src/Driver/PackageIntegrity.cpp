@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <limits>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -411,6 +412,49 @@ parseJsonStringArray(std::string_view value) {
       skipWhitespace(value, position);
       return position == value.size()
                  ? std::optional<std::vector<std::string>>(std::move(strings))
+                 : std::nullopt;
+    }
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+std::optional<std::vector<std::string_view>>
+jsonArrayElements(std::string_view value) {
+  std::vector<std::string_view> elements;
+  std::size_t position = 0;
+  skipWhitespace(value, position);
+  if (position >= value.size() || value[position] != '[') {
+    return std::nullopt;
+  }
+  ++position;
+  skipWhitespace(value, position);
+  if (position < value.size() && value[position] == ']') {
+    ++position;
+    skipWhitespace(value, position);
+    return position == value.size()
+               ? std::optional<std::vector<std::string_view>>(std::move(elements))
+               : std::nullopt;
+  }
+
+  while (position < value.size()) {
+    const std::size_t elementBegin = position;
+    if (!skipJsonValue(value, position)) {
+      return std::nullopt;
+    }
+    elements.push_back(value.substr(elementBegin, position - elementBegin));
+    skipWhitespace(value, position);
+    if (position < value.size() && value[position] == ',') {
+      ++position;
+      skipWhitespace(value, position);
+      continue;
+    }
+    if (position < value.size() && value[position] == ']') {
+      ++position;
+      skipWhitespace(value, position);
+      return position == value.size()
+                 ? std::optional<std::vector<std::string_view>>(
+                       std::move(elements))
                  : std::nullopt;
     }
     return std::nullopt;
@@ -1605,6 +1649,84 @@ bool reflectionAddressSpacesMatch(
          canonicalReflectionAddressSpace(*bindingAddressSpace);
 }
 
+bool objectStringMemberEquals(std::string_view object, std::string_view key,
+                              std::string_view expected) {
+  const std::optional<std::string> value = objectStringMember(object, key);
+  return value && *value == expected;
+}
+
+bool reflectionTargetBindingObjectMatches(
+    std::string_view object,
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return objectStringMemberEquals(object, "target", binding.target) &&
+         objectStringMemberEquals(object, "stage", binding.stage) &&
+         objectStringMemberEquals(object, "entryPoint", binding.entryPoint) &&
+         objectStringMemberEquals(object, "name", binding.name) &&
+         objectStringMemberEquals(object, "kind", binding.kind) &&
+         objectStringMemberEquals(object, "sourceType", binding.sourceType);
+}
+
+std::optional<std::string_view> findReflectionTargetBindingObject(
+    const PackageMetadata &metadata,
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  const std::optional<std::string_view> bindings =
+      findObjectMemberValue(metadata.documents.reflection,
+                            "targetResourceBindings");
+  if (!bindings) {
+    return std::nullopt;
+  }
+  const std::optional<std::vector<std::string_view>> elements =
+      jsonArrayElements(*bindings);
+  if (!elements) {
+    return std::nullopt;
+  }
+  for (std::string_view element : *elements) {
+    if (reflectionTargetBindingObjectMatches(element, binding)) {
+      return element;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::uintmax_t> reflectionBindingArrayElementCount(
+    const PackageMetadata &metadata,
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  const std::optional<std::string_view> bindingObject =
+      findReflectionTargetBindingObject(metadata, binding);
+  if (!bindingObject) {
+    return std::nullopt;
+  }
+  return objectUnsignedMember(*bindingObject, "arrayElementCount");
+}
+
+std::optional<std::uintmax_t>
+fixedArrayElementCountFromDimensions(std::string_view arrayDimensionsJson) {
+  const std::optional<std::vector<std::string_view>> dimensions =
+      jsonArrayElements(arrayDimensionsJson);
+  if (!dimensions || dimensions->empty()) {
+    return std::nullopt;
+  }
+
+  std::uintmax_t product = 1;
+  for (std::string_view dimension : *dimensions) {
+    const std::optional<std::string> kind = objectStringMember(dimension, "kind");
+    if (!kind || *kind != "fixed") {
+      return std::nullopt;
+    }
+    const std::optional<std::uintmax_t> elementCount =
+        objectUnsignedMember(dimension, "elementCount");
+    if (!elementCount) {
+      return std::nullopt;
+    }
+    if (*elementCount != 0 &&
+        product > std::numeric_limits<std::uintmax_t>::max() / *elementCount) {
+      return std::nullopt;
+    }
+    product *= *elementCount;
+  }
+  return product;
+}
+
 void diagnoseReflectionBindingMismatch(
     const PackageReflectionTargetResourceBindingRecord &binding,
     std::string field, std::string expected, std::string actual,
@@ -1618,7 +1740,21 @@ void diagnoseReflectionBindingMismatch(
                     binding.location);
 }
 
+void diagnoseReflectionBindingArrayMismatch(
+    const PackageReflectionTargetResourceBindingRecord &binding,
+    std::string field, std::string expected, std::string actual,
+    DiagnosticEngine &diagnostics) {
+  diagnostics.error(diagnosticCode("reflection-target-resource-binding-array-"
+                                   "mismatch"),
+                    "reflection selected-target resource binding " +
+                        reflectionTargetBindingLabel(binding) + " " + field +
+                        " must match reflected resource array metadata: expected " +
+                        expected + ", got " + actual,
+                    binding.location);
+}
+
 void verifyReflectionBindingResourceFields(
+    const PackageMetadata &metadata,
     const PackageReflectionResourceRecord &resource,
     const PackageReflectionTargetResourceBindingRecord &binding,
     DiagnosticEngine &diagnostics) {
@@ -1628,10 +1764,21 @@ void verifyReflectionBindingResourceFields(
         "'" + binding.sourceType + "'", diagnostics);
   }
   if (binding.arrayDimensionsJson != resource.arrayDimensionsJson) {
-    diagnoseReflectionBindingMismatch(binding, "arrayDimensions",
-                                      resource.arrayDimensionsJson,
-                                      binding.arrayDimensionsJson,
-                                      diagnostics);
+    diagnoseReflectionBindingArrayMismatch(binding, "arrayDimensions",
+                                           resource.arrayDimensionsJson,
+                                           binding.arrayDimensionsJson,
+                                           diagnostics);
+  }
+  const std::optional<std::uintmax_t> resourceFixedArrayElementCount =
+      fixedArrayElementCountFromDimensions(resource.arrayDimensionsJson);
+  const std::optional<std::uintmax_t> bindingArrayElementCount =
+      reflectionBindingArrayElementCount(metadata, binding);
+  if (resourceFixedArrayElementCount && bindingArrayElementCount &&
+      *resourceFixedArrayElementCount != *bindingArrayElementCount) {
+    diagnoseReflectionBindingArrayMismatch(
+        binding, "arrayElementCount",
+        std::to_string(*resourceFixedArrayElementCount),
+        std::to_string(*bindingArrayElementCount), diagnostics);
   }
   if (binding.set != resource.set) {
     diagnoseReflectionBindingMismatch(binding, "set",
@@ -1716,7 +1863,8 @@ void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
     const PackageReflectionResourceRecord *resource =
         findReflectionResourceForBinding(metadata, binding);
     if (resource != nullptr) {
-      verifyReflectionBindingResourceFields(*resource, binding, diagnostics);
+      verifyReflectionBindingResourceFields(metadata, *resource, binding,
+                                            diagnostics);
       continue;
     }
 
