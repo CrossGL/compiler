@@ -44025,6 +44025,9 @@ shader MetalStorageBufferDynamicDescriptorArrayShader {
          "Metal dynamic descriptor-index source emits buffer selector helper");
   expect(metal.find("switch (descriptorIndex)") != std::string::npos,
          "Metal dynamic descriptor-index source emits selector switch");
+  expect(metal.find("if (descriptorIndex < 0 || descriptorIndex >= 2)") !=
+             std::string::npos,
+         "Metal dynamic descriptor-index selector guards descriptor bounds");
   expect(metal.find("float first = "
                     "cgl_select_compute_values(descriptor, values_0, values_1)"
                     "[0];") != std::string::npos,
@@ -44037,13 +44040,16 @@ void testMetalStorageBufferOutOfRangeDescriptorArrayIndexDiagnostic() {
   constexpr std::string_view source = R"(
 shader MetalStorageBufferOutOfRangeDescriptorArrayUnsupportedShader {
   const int BAD_INDEX = 2;
+  const int NEGATIVE_INDEX = -1;
 
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
     layout(set = 0, binding = 0) buffer float* values[2];
     void main() {
       float first = values[BAD_INDEX][0];
-      values[0][1] = first;
+      float second = values[+BAD_INDEX][0];
+      float third = values[NEGATIVE_INDEX][0];
+      values[0][1] = first + second + third;
       return;
     }
   }
@@ -44057,11 +44063,14 @@ shader MetalStorageBufferOutOfRangeDescriptorArrayUnsupportedShader {
     return;
   }
 
-  expect(!hir->constants.empty() &&
-             hir->constants.front().name == "BAD_INDEX" &&
-             hir->constants.front().foldedValue.has_value() &&
-             *hir->constants.front().foldedValue == "2",
-         "Metal out-of-range descriptor-index fixture records the folded index");
+  expect(hir->constants.size() == 2 &&
+             hir->constants[0].name == "BAD_INDEX" &&
+             hir->constants[0].foldedValue.has_value() &&
+             *hir->constants[0].foldedValue == "2" &&
+             hir->constants[1].name == "NEGATIVE_INDEX" &&
+             hir->constants[1].foldedValue.has_value() &&
+             *hir->constants[1].foldedValue == "-1",
+         "Metal out-of-range descriptor-index fixture records folded indexes");
 
   const crossgl::HIRStage &stage = hir->stages.front();
   expect(stage.resources.size() == 1 &&
@@ -44088,6 +44097,10 @@ shader MetalStorageBufferOutOfRangeDescriptorArrayUnsupportedShader {
              diagnostics.diagnostics(),
              "metal.unsupported-storage-buffer-array-index", "index 2"),
          "Metal out-of-range descriptor-index failure reports the folded index");
+  expect(hasDiagnosticMessageFragment(
+             diagnostics.diagnostics(),
+             "metal.unsupported-storage-buffer-array-index", "index -1"),
+         "Metal out-of-range descriptor-index failure reports negative folded indexes");
   expect(hasDiagnosticMessageFragment(
              diagnostics.diagnostics(),
              "metal.unsupported-storage-buffer-array-index",

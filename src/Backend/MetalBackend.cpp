@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -1540,9 +1541,109 @@ std::optional<std::size_t> parseMetalNonNegativeIndex(std::string_view text) {
   return value;
 }
 
+std::optional<std::int64_t> parseMetalSignedIndex(std::string_view text) {
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  if (text.back() == 'u' || text.back() == 'U') {
+    text.remove_suffix(1);
+  }
+  if (text.empty()) {
+    return std::nullopt;
+  }
+
+  bool negative = false;
+  if (text.front() == '+' || text.front() == '-') {
+    negative = text.front() == '-';
+    text.remove_prefix(1);
+  }
+  if (text.empty()) {
+    return std::nullopt;
+  }
+
+  std::uint64_t magnitude = 0;
+  const std::uint64_t maxMagnitude =
+      negative
+          ? static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) +
+                1u
+          : static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max());
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return std::nullopt;
+    }
+    const std::uint64_t digit =
+        static_cast<std::uint64_t>(character - '0');
+    if (magnitude > (maxMagnitude - digit) / 10u) {
+      return std::nullopt;
+    }
+    magnitude = magnitude * 10u + digit;
+  }
+  if (negative) {
+    if (magnitude == maxMagnitude) {
+      return std::numeric_limits<std::int64_t>::min();
+    }
+    return -static_cast<std::int64_t>(magnitude);
+  }
+  return static_cast<std::int64_t>(magnitude);
+}
+
+std::optional<std::int64_t>
+metalDescriptorArraySignedIndexValue(const HIRExpression &expression,
+                                     const MetalRenderContext &context) {
+  if ((expression.kind == HIRExpressionKind::Group ||
+       expression.kind == HIRExpressionKind::NonUniform) &&
+      expression.children.size() == 1) {
+    return metalDescriptorArraySignedIndexValue(expression.children.front(),
+                                               context);
+  }
+  if (expression.kind == HIRExpressionKind::Unary &&
+      expression.children.size() == 1 &&
+      (expression.value == "+" || expression.value == "-")) {
+    const std::optional<std::int64_t> childIndex =
+        metalDescriptorArraySignedIndexValue(expression.children.front(),
+                                            context);
+    if (!childIndex.has_value()) {
+      return std::nullopt;
+    }
+    if (expression.value == "+") {
+      return childIndex;
+    }
+    if (*childIndex == std::numeric_limits<std::int64_t>::min()) {
+      return std::nullopt;
+    }
+    return -*childIndex;
+  }
+  if (expression.kind == HIRExpressionKind::Literal) {
+    return parseMetalSignedIndex(expression.value);
+  }
+  if (expression.kind == HIRExpressionKind::Identifier &&
+      context.constants != nullptr) {
+    if (context.localIdentifiers.count(expression.value) != 0) {
+      return std::nullopt;
+    }
+    for (const HIRConstant &constant : *context.constants) {
+      if (constant.name == expression.value &&
+          constant.foldedValue.has_value()) {
+        return parseMetalSignedIndex(*constant.foldedValue);
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 std::optional<std::size_t>
 metalDescriptorArrayIndexValue(const HIRExpression &expression,
                                const MetalRenderContext &context) {
+  const std::optional<std::int64_t> signedIndex =
+      metalDescriptorArraySignedIndexValue(expression, context);
+  if (signedIndex.has_value() && *signedIndex >= 0) {
+    return static_cast<std::size_t>(*signedIndex);
+  }
+  if (signedIndex.has_value()) {
+    return std::nullopt;
+  }
   if ((expression.kind == HIRExpressionKind::Group ||
        expression.kind == HIRExpressionKind::NonUniform) &&
       expression.children.size() == 1) {
@@ -2460,6 +2561,11 @@ void renderMetalStorageBufferDescriptorSelector(
         << metalStorageBufferArrayElementName(resource.name, arrayIndex);
   }
   out << ") {\n";
+  out << "  if (descriptorIndex < 0 || descriptorIndex >= "
+      << *descriptorCount << ") {\n";
+  out << "    return " << metalStorageBufferArrayElementName(resource.name, 0)
+      << ";\n";
+  out << "  }\n";
   out << "  switch (descriptorIndex) {\n";
   for (std::size_t arrayIndex = 0; arrayIndex < *descriptorCount;
        ++arrayIndex) {
@@ -3061,6 +3167,8 @@ bool validateMetalStorageBufferArrayIndexExpression(
         metalArrayElementCount(resource->type, context.constants);
     const std::optional<std::size_t> descriptorIndex =
         metalDescriptorArrayIndexValue(expression.children[1], context);
+    const std::optional<std::int64_t> signedDescriptorIndex =
+        metalDescriptorArraySignedIndexValue(expression.children[1], context);
     if (expression.children[1].kind == HIRExpressionKind::NonUniform) {
       // Target-specific nonuniform policy is reported separately.
     } else if (!descriptorCount.has_value()) {
@@ -3075,6 +3183,14 @@ bool validateMetalStorageBufferArrayIndexExpression(
                         "Metal expanded storage-buffer descriptor array '" +
                             resource->name + "' index " +
                             std::to_string(*descriptorIndex) +
+                            " is outside the fixed descriptor count");
+      return false;
+    } else if (signedDescriptorIndex.has_value() &&
+               *signedDescriptorIndex < 0) {
+      diagnostics.error("metal.unsupported-storage-buffer-array-index",
+                        "Metal expanded storage-buffer descriptor array '" +
+                            resource->name + "' index " +
+                            std::to_string(*signedDescriptorIndex) +
                             " is outside the fixed descriptor count");
       return false;
     }

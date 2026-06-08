@@ -5948,6 +5948,23 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalStorageBufferFoldedDescriptorArrayShader"
       "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[DESCRIPTOR_COUNT]|values.metalType=device float*|values.bindingClass=buffer|values.arraySize=DESCRIPTOR_COUNT|values.arrayElementCount=2|values.storageBufferLayout.elementType=float|values.storageBufferLayout.layout=metal-device"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_STORAGE_BUFFER_DYNAMIC_DESCRIPTOR_ARRAY_PACKAGE_SOURCE_SNIPPET [=[device float* cgl_select_compute_values(int descriptorIndex, device float* values_0, device float* values_1) {
+  if (descriptorIndex < 0 || descriptorIndex >= 2) {
+    return values_0;
+  }
+  switch (descriptorIndex) {]=])
+  add_test(NAME cglc_build_metal_storage_buffer_dynamic_descriptor_array_native_package
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalStorageBufferDynamicDescriptorArrayShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-storage-buffer-dynamic-descriptor-array-package.cglb
+      -DEXPECTED_MODULE=MetalStorageBufferDynamicDescriptorArrayShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_STORAGE_BUFFER_DYNAMIC_DESCRIPTOR_ARRAY_PACKAGE_SOURCE_SNIPPET}"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalStorageBufferDynamicDescriptorArrayShader"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[2]|values.metalType=device float*|values.bindingClass=buffer|values.argumentIndex=0|values.arraySize=2|values.arrayElementCount=2|values.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_mixed_resource_descriptor_array_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
