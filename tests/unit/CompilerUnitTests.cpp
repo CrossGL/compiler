@@ -40315,6 +40315,46 @@ shader VulkanFunctionParameterArrayShader {
          "Vulkan prototype emits by-value array parameters, constant element "
          "extraction, parameter forwarding, and storage-field array call "
          "arguments");
+
+  constexpr std::string_view resourceArraySource = R"(
+shader VulkanFunctionParameterResourceArrayUnsupportedShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[COUNT];
+    layout(set = 0, binding = 5) sampler linearSamplers[COUNT];
+    vec4 sampleFirst(sampler2D maps[COUNT], sampler samplers[COUNT]) {
+      return textureLod(maps[0], samplers[0], vec2(0.5, 0.5), 0.0);
+    }
+    void main() {
+      vec4 color = sampleFirst(colorMaps, linearSamplers);
+      values[0] = color;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> resourceArrayHir =
+      parseHIR(resourceArraySource);
+  expect(resourceArrayHir.has_value(),
+         "Vulkan resource-array parameter fixture builds HIR");
+  if (resourceArrayHir) {
+    crossgl::DiagnosticEngine resourceArrayDiagnostics;
+    const std::string resourceArrayAssembly =
+        crossgl::generateVulkanPrototypeAssembly(*resourceArrayHir,
+                                                 resourceArrayDiagnostics);
+    expect(resourceArrayAssembly.empty(),
+           "Vulkan prototype does not emit assembly for unsupported direct "
+           "resource-array helper arguments");
+    expect(hasDiagnosticMessageFragment(
+               resourceArrayDiagnostics.diagnostics(),
+               "vulkan.prototype-unsupported-function-parameter-array",
+               "direct-resource-array-arguments=unsupported"),
+           "Vulkan prototype diagnostic names direct resource-array helper "
+           "arguments");
+  }
 }
 
 void testVulkanLocalFunctionParameterArraySPIRV() {

@@ -1,5 +1,6 @@
 #include "crossgl/Backend/VulkanBackend.h"
 
+#include "crossgl/Backend/BackendExpressions.h"
 #include "crossgl/Backend/BackendPlan.h"
 #include "crossgl/Backend/BackendHIR.h"
 #include "crossgl/Backend/ResourceArrays.h"
@@ -2422,6 +2423,95 @@ bool isPrototypeDirectResourceArrayArgument(
          resource->second.kind != HIRResourceKind::Shared &&
          resource->second.kind != HIRResourceKind::Value &&
          resource->second.type.arraySize.has_value();
+}
+
+const HIRFunction *findVulkanPrototypeCallableFunction(const HIRModule &module,
+                                                       const HIRStage &stage,
+                                                       std::string_view name) {
+  for (const HIRFunction &function : stage.functions) {
+    if (function.name == name) {
+      return &function;
+    }
+  }
+  for (const HIRFunction &function : module.functions) {
+    if (function.name == name) {
+      return &function;
+    }
+  }
+  return nullptr;
+}
+
+void appendUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
+    std::set<std::string> &labels, std::string_view caller,
+    std::string_view callee, std::string_view parameter,
+    const std::vector<HIRFunctionParameterArrayCallFeature> &features) {
+  for (HIRFunctionParameterArrayCallFeature feature : features) {
+    const HIRFunctionParameterArrayCallFeatureSupport support =
+        functionParameterArrayCallFeatureSupport(feature);
+    if (support == HIRFunctionParameterArrayCallFeatureSupport::Supported) {
+      continue;
+    }
+    labels.insert("caller '" + std::string(caller) + "' -> callee '" +
+                  std::string(callee) + "' parameter '" +
+                  std::string(parameter) +
+                  "': " + functionParameterArrayCallFeatureName(feature) + "=" +
+                  functionParameterArrayCallFeatureSupportName(support));
+  }
+}
+
+void collectUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
+    const HIRModule &module, const HIRStage &stage, const HIRFunction &caller,
+    std::set<std::string> &labels) {
+  auto visitor = [&](const HIRExpression &expression) {
+    if (expression.kind != HIRExpressionKind::Call) {
+      return;
+    }
+    const HIRFunction *callee =
+        findVulkanPrototypeCallableFunction(module, stage, expression.value);
+    if (callee == nullptr) {
+      return;
+    }
+    const std::size_t argumentCount =
+        std::min(expression.children.size(), callee->parameters.size());
+    for (std::size_t index = 0; index < argumentCount; ++index) {
+      const HIRParameter &parameter = callee->parameters[index];
+      if (functionParameterArrayShape(module, parameter.type) !=
+          HIRFunctionParameterArrayShape::FixedSize) {
+        continue;
+      }
+      const std::vector<HIRFunctionParameterArrayCallFeature> features =
+          functionParameterArrayCallArgumentFeatures(
+              module, caller, expression.children[index], &stage);
+      appendUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
+          labels, caller.name, callee->name, parameter.name, features);
+    }
+  };
+  visitFunctionExpressions(caller, visitor);
+}
+
+bool diagnoseUnsupportedVulkanPrototypeFunctionArrayCallFeatures(
+    const HIRModule &module, const HIRStage &stage,
+    DiagnosticEngine &diagnostics) {
+  std::set<std::string> unsupportedLabels;
+  for (const HIRFunction &function : module.functions) {
+    collectUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
+        module, stage, function, unsupportedLabels);
+  }
+  for (const HIRFunction &function : stage.functions) {
+    collectUnsupportedVulkanPrototypeFunctionArrayCallFeatureLabels(
+        module, stage, function, unsupportedLabels);
+  }
+  if (unsupportedLabels.empty()) {
+    return false;
+  }
+  diagnostics.error(
+      "vulkan.prototype-unsupported-function-parameter-array",
+      "Vulkan prototype helper array calls do not support unsupported "
+      "fixed-size helper array call feature(s): " +
+          joinNames(unsupportedLabels) +
+          "; the shared function-parameter array call ABI is value-copy "
+          "read-only");
+  return true;
 }
 
 bool prototypeLocalArrayElementAccessSupported(
@@ -13701,6 +13791,10 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
     diagnostics.error("vulkan.prototype-missing-entry",
                       "Vulkan prototype binary emission requires a compute "
                       "entry function");
+    return false;
+  }
+  if (diagnoseUnsupportedVulkanPrototypeFunctionArrayCallFeatures(
+          module, *stage, diagnostics)) {
     return false;
   }
   if (!prototypeFunctionParameterArraysSupported(module, *stage, diagnostics)) {

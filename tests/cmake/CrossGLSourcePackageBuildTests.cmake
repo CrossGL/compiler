@@ -4463,6 +4463,18 @@ add_test(NAME cglc_build_vulkan_function_parameter_array_planned_failure
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_vulkan_function_parameter_resource_array_planned_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_VULKAN_FUNCTION_PARAMETER_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
+    -DTARGET=vulkan
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-function-parameter-resource-array.cglb
+    -DMODE=planned-build-failure
+    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=vulkan"
+    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -6316,6 +6328,18 @@ add_test(NAME cglc_build_opengl_function_parameter_resource_array_planned_failur
     -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-call-feature
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=sampleFirst.maps|message=sampleFirst.samplers|message=direct-resource-array-arguments"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_metal_function_parameter_resource_array_planned_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_METAL_FUNCTION_PARAMETER_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
+    -DTARGET=metal
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-function-parameter-resource-array.cglb
+    -DMODE=planned-build-failure
+    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=metal"
+    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=metal.backend.native-metal-package|missingCapabilities=metal.diagnostic.metal.unsupported-function-parameter-array-call-feature"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'metal' cannot build a package for this module|message=metal.backend.native-metal-package|message=metal.diagnostic.metal.unsupported-function-parameter-array-call-feature"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_local_function_parameter_array_source_package
   COMMAND ${CMAKE_COMMAND}
