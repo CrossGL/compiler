@@ -5933,7 +5933,7 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-storage-buffer-array.cglb
       -DEXPECTED_MODULE=StorageBufferArrayAccessShader
       -DMODE=metal-build
-      "-DEXPECTED_METAL_SOURCE_SNIPPET=device float* values_1 [[buffer(1)]]"
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=values_0[1] = first + 1.0;"
       "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=StorageBufferArrayAccessShader"
       "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[2]|values.metalType=device float*|values.bindingClass=buffer|values.arraySize=2|values.arrayElementCount=2|values.storageBufferLayout.elementType=float|values.storageBufferLayout.layout=metal-device"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
