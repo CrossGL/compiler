@@ -40782,6 +40782,137 @@ shader OpenGLFunctionParameterArrayWriteThroughShader {
            "for storage-buffer field array write-through");
   }
 
+  constexpr std::string_view rhsNestedExpressionWriteThroughSource = R"(
+shader OpenGLNestedExpressionFunctionParameterArrayWriteRhsUnsupportedShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float rewrite(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      float bias = particles[1].weights[0];
+      particles[1].weights[0] = bias + rewrite(particles[0].weights);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> rhsNestedExpressionWriteThroughHir =
+      parseHIR(rhsNestedExpressionWriteThroughSource);
+  expect(rhsNestedExpressionWriteThroughHir.has_value(),
+         "OpenGL RHS nested-expression helper array write-through source "
+         "builds HIR");
+  if (rhsNestedExpressionWriteThroughHir) {
+    expect(crossgl::openglTextualBackendSupported(
+               *rhsNestedExpressionWriteThroughHir),
+           "OpenGL supports RHS nested-expression helper array write-through "
+           "via local copy lowering");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayWrite(
+               *rhsNestedExpressionWriteThroughHir),
+           "OpenGL helper array write gate accepts RHS nested-expression "
+           "write-through calls");
+
+    crossgl::DiagnosticEngine rhsNestedExpressionWriteDiagnostics;
+    expect(!crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayWrite(
+               *rhsNestedExpressionWriteThroughHir,
+               rhsNestedExpressionWriteDiagnostics) &&
+               rhsNestedExpressionWriteDiagnostics.diagnostics().empty(),
+           "OpenGL helper array write diagnostic stays silent for lowered RHS "
+           "nested-expression write-through calls");
+    expect(crossgl::openGLSourcePackageSupported(
+               *rhsNestedExpressionWriteThroughHir,
+               rhsNestedExpressionWriteDiagnostics) &&
+               rhsNestedExpressionWriteDiagnostics.diagnostics().empty(),
+           "OpenGL source package predicate accepts RHS nested-expression "
+           "helper array write-through calls");
+
+    const std::string rhsNestedExpressionWriteOpenGL =
+        crossgl::generateOpenGLSource(*rhsNestedExpressionWriteThroughHir);
+    expect(containsInOrder(
+               rhsNestedExpressionWriteOpenGL,
+               {"float bias = particles[1].weights[0];",
+                "float crossgl_param_array_writeback_1_lhs = bias;",
+                "float crossgl_param_array_writeback_0_rewrite_weights[COUNT];",
+                "crossgl_param_array_writeback_0_rewrite_weights"
+                "[crossgl_param_array_writeback_0_rewrite_weights_i] = "
+                "particles[0].weights"
+                "[crossgl_param_array_writeback_0_rewrite_weights_i];",
+                "float crossgl_param_array_writeback_2_result = rewrite("
+                "crossgl_param_array_writeback_0_rewrite_weights);",
+                "particles[0].weights"
+                "[crossgl_param_array_writeback_0_rewrite_weights_i] = "
+                "crossgl_param_array_writeback_0_rewrite_weights"
+                "[crossgl_param_array_writeback_0_rewrite_weights_i];",
+                "particles[1].weights[0] = "
+                "crossgl_param_array_writeback_1_lhs + "
+                "crossgl_param_array_writeback_2_result;"}) &&
+               rhsNestedExpressionWriteOpenGL.find(
+                   "particles[1].weights[0] = bias + "
+                   "rewrite(particles[0].weights);") == std::string::npos,
+           "OpenGL backend materializes RHS nested helper calls before "
+           "copy-back and preserves the rewritten RHS expression");
+  }
+
+  constexpr std::string_view unsafeRhsNestedExpressionWriteThroughSource = R"(
+shader OpenGLUnsafeNestedExpressionFunctionParameterArrayWriteShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float readOffset() {
+      return particles[1].weights[0];
+    }
+    float rewrite(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      particles[1].weights[0] = readOffset() + rewrite(particles[0].weights);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> unsafeRhsNestedExpressionWriteThroughHir =
+      parseHIR(unsafeRhsNestedExpressionWriteThroughSource);
+  expect(unsafeRhsNestedExpressionWriteThroughHir.has_value(),
+         "OpenGL unsafe RHS nested-expression helper array write-through "
+         "source builds HIR");
+  if (unsafeRhsNestedExpressionWriteThroughHir) {
+    expect(!crossgl::openglTextualBackendSupported(
+               *unsafeRhsNestedExpressionWriteThroughHir),
+           "OpenGL keeps RHS nested-expression helper array write-through "
+           "rejected when the other operand has call-like evaluation");
+    expect(crossgl::openglHasUnsupportedFunctionParameterArrayWrite(
+               *unsafeRhsNestedExpressionWriteThroughHir),
+           "OpenGL helper array write gate still rejects unsafe RHS "
+           "nested-expression write-through calls");
+
+    crossgl::DiagnosticEngine unsafeRhsNestedExpressionWriteDiagnostics;
+    expect(crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayWrite(
+               *unsafeRhsNestedExpressionWriteThroughHir,
+               unsafeRhsNestedExpressionWriteDiagnostics),
+           "OpenGL unsafe RHS nested-expression helper array write-through "
+           "emits a diagnostic");
+    expect(hasDiagnosticMessageFragment(
+               unsafeRhsNestedExpressionWriteDiagnostics.diagnostics(),
+               "opengl.unsupported-function-parameter-array-write",
+               "rewrite.weights"),
+           "OpenGL unsafe RHS nested-expression write diagnostic names the "
+           "rejected helper array parameter");
+  }
+
   constexpr std::string_view nestedStorageWriteThroughSource = R"(
 shader OpenGLNestedStorageFunctionParameterArrayWriteShader {
   const int ROWS = 2;

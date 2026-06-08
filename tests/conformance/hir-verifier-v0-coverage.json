@@ -341,15 +341,6 @@
       ],
       "coverage": [
         {
-          "kind": "planned-failure",
-          "name": "cglc_build_opengl_nested_expression_function_parameter_array_write_planned_failure",
-          "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
-          "coverage_categories": [
-            "diagnostic:opengl.unsupported-function-parameter-array-write"
-          ],
-          "requirement": "Unsupported OpenGL nested-expression helper array writeback shapes retain planned-failure diagnostics."
-        },
-        {
           "kind": "diagnostic",
           "name": "cglc_check_storage_image_atomic_failure",
           "diagnostic_code": "sema.storage-image-atomic",
@@ -456,6 +447,15 @@
             "diagnostic:opt.hir-vector-constructor"
           ],
           "requirement": "Malformed vector constructor arity and component domains fail closed in typed HIR validation."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testOpenGLFunctionParameterArrayGLSL",
+          "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
+          "coverage_categories": [
+            "diagnostic:opengl.unsupported-function-parameter-array-write"
+          ],
+          "requirement": "Unsupported OpenGL nested-expression helper array writeback shapes with unsafe call-like operands retain diagnostics while the RHS literal/source-package form is supported."
         }
       ]
     },

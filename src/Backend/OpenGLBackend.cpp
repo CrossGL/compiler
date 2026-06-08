@@ -1874,6 +1874,22 @@ bool openGLExpressionContainsCallLikeEvaluation(
   return false;
 }
 
+const HIRExpression *openGLNestedArrayWriteBackBinaryOperandCall(
+    const HIRExpression &candidateExpression,
+    const HIRExpression &otherExpression) {
+  if (openGLExpressionContainsCallLikeEvaluation(otherExpression)) {
+    return nullptr;
+  }
+
+  const HIRExpression *candidate =
+      openGLTransparentExpression(candidateExpression);
+  if (candidate->kind != HIRExpressionKind::Call ||
+      candidate->type.name == "void" || candidate->type.arraySize.has_value()) {
+    return nullptr;
+  }
+  return candidate;
+}
+
 const HIRExpression *openGLNestedArrayWriteBackStatementCall(
     const HIRStatement &statement) {
   switch (statement.kind) {
@@ -1894,8 +1910,7 @@ const HIRExpression *openGLNestedArrayWriteBackStatementCall(
 
   const HIRExpression *value = openGLTransparentExpression(statement.value);
   if (value->kind != HIRExpressionKind::Binary ||
-      value->children.size() != 2 ||
-      openGLExpressionContainsCallLikeEvaluation(value->children[1])) {
+      value->children.size() != 2) {
     return nullptr;
   }
   if (statement.kind == HIRStatementKind::Assignment &&
@@ -1903,12 +1918,34 @@ const HIRExpression *openGLNestedArrayWriteBackStatementCall(
     return nullptr;
   }
 
-  const HIRExpression *left = openGLTransparentExpression(value->children[0]);
-  if (left->kind != HIRExpressionKind::Call || left->type.name == "void" ||
-      left->type.arraySize.has_value()) {
+  if (const HIRExpression *left =
+          openGLNestedArrayWriteBackBinaryOperandCall(value->children[0],
+                                                     value->children[1])) {
+    return left;
+  }
+  if (value->value == "&&" || value->value == "||") {
     return nullptr;
   }
-  return left;
+  return openGLNestedArrayWriteBackBinaryOperandCall(value->children[1],
+                                                    value->children[0]);
+}
+
+const HIRExpression *openGLNestedArrayWriteBackRhsSibling(
+    const HIRStatement &statement, const HIRExpression &call) {
+  const HIRExpression *value = openGLTransparentExpression(statement.value);
+  if (value->kind != HIRExpressionKind::Binary ||
+      value->children.size() != 2) {
+    return nullptr;
+  }
+
+  const HIRExpression *right = openGLTransparentExpression(value->children[1]);
+  return right == &call ? &value->children[0] : nullptr;
+}
+
+bool openGLExpressionCanReevaluateAfterWriteBack(
+    const HIRExpression &expression) {
+  const HIRExpression *transparent = openGLTransparentExpression(expression);
+  return transparent->kind == HIRExpressionKind::Literal;
 }
 
 bool openGLForwardedFunctionParameterArrayCopyArgument(
@@ -2202,13 +2239,25 @@ void emitOpenGLArrayWriteBackCopiesAfter(
   }
 }
 
-std::string emitOpenGLExpressionWithCallReplacement(
-    const HIRExpression &expression, const HIRExpression &call,
-    std::string_view replacement, const OpenGLEmitContext &context) {
-  if (&expression == &call) {
-    return std::string(replacement);
+std::string emitOpenGLExpressionWithReplacements(
+    const HIRExpression &expression,
+    const std::vector<std::pair<const HIRExpression *, std::string>>
+        &replacements,
+    const OpenGLEmitContext &context) {
+  for (const auto &[node, replacement] : replacements) {
+    if (&expression == node) {
+      return replacement;
+    }
   }
-  if (!openGLExpressionContainsNode(expression, call)) {
+  bool containsReplacement = false;
+  for (const auto &[node, replacement] : replacements) {
+    (void)replacement;
+    if (openGLExpressionContainsNode(expression, *node)) {
+      containsReplacement = true;
+      break;
+    }
+  }
+  if (!containsReplacement) {
     return emitExpression(expression, context);
   }
 
@@ -2216,19 +2265,18 @@ std::string emitOpenGLExpressionWithCallReplacement(
   case HIRExpressionKind::Group:
     return expression.children.empty()
                ? "()"
-               : "(" + emitOpenGLExpressionWithCallReplacement(
-                           expression.children.front(), call, replacement,
-                           context) +
+               : "(" + emitOpenGLExpressionWithReplacements(
+                           expression.children.front(), replacements, context) +
                      ")";
   case HIRExpressionKind::Binary:
     if (expression.children.size() != 2) {
       return "/* unsupported */";
     }
-    return emitOpenGLExpressionWithCallReplacement(
-               expression.children[0], call, replacement, context) +
+    return emitOpenGLExpressionWithReplacements(
+               expression.children[0], replacements, context) +
            " " + expression.value + " " +
-           emitOpenGLExpressionWithCallReplacement(
-               expression.children[1], call, replacement, context);
+           emitOpenGLExpressionWithReplacements(
+               expression.children[1], replacements, context);
   case HIRExpressionKind::Empty:
   case HIRExpressionKind::Identifier:
   case HIRExpressionKind::Literal:
@@ -2254,6 +2302,21 @@ void emitOpenGLNestedExpressionWithArrayWriteBack(
   const std::string spaces(indentation, ' ');
   const std::vector<std::pair<std::size_t, std::string>> overrides =
       openGLArrayWriteBackArgumentOverrides(rewrite);
+  const HIRExpression *rhsSibling =
+      openGLNestedArrayWriteBackRhsSibling(statement, *rewrite.call);
+  if (rhsSibling != nullptr &&
+      openGLExpressionCanReevaluateAfterWriteBack(*rhsSibling)) {
+    rhsSibling = nullptr;
+  }
+  std::string rhsSiblingName;
+  if (rhsSibling != nullptr) {
+    rhsSiblingName = "crossgl_param_array_writeback_" +
+                     std::to_string(nextOpenGLTemporaryIndex(context)) +
+                     "_lhs";
+    out << spaces << glslDeclarator(*context.module, rhsSibling->type,
+                                    rhsSiblingName)
+        << " = " << emitExpression(*rhsSibling, context) << ";\n";
+  }
   const std::string resultName =
       "crossgl_param_array_writeback_" +
       std::to_string(nextOpenGLTemporaryIndex(context)) + "_result";
@@ -2266,9 +2329,14 @@ void emitOpenGLNestedExpressionWithArrayWriteBack(
       << ";\n";
   emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
 
+  std::vector<std::pair<const HIRExpression *, std::string>> replacements = {
+      {rewrite.call, resultName}};
+  if (rhsSibling != nullptr) {
+    replacements.emplace_back(rhsSibling, rhsSiblingName);
+  }
   const std::string value =
-      emitOpenGLExpressionWithCallReplacement(statement.value, *rewrite.call,
-                                              resultName, context);
+      emitOpenGLExpressionWithReplacements(statement.value, replacements,
+                                           context);
   switch (statement.kind) {
   case HIRStatementKind::Declaration:
     out << spaces << glslDeclarator(*context.module, statement.declaredType,
