@@ -47,6 +47,10 @@ VERIFY_DIAGNOSTIC_CODE_PREFIX = "package.verify."
 LEGACY_REQUIREMENTS_FALLBACK_CODE = (
     "package.verify.legacy-artifact-requirements-fallback"
 )
+SYNTHETIC_STORAGE_IMAGE_ARRAY_SOURCE_COORDINATES = {
+    "maskAtlases": {"stage": "compute", "set": 0, "binding": 1},
+    "unsignedAtlases": {"stage": "compute", "set": 0, "binding": 1},
+}
 
 
 def package_artifact_requirement_evidence_ids(requirements):
@@ -275,7 +279,9 @@ def reflection_target_binding_coordinate(target, record):
     raise ValueError(f"unsupported storage-image parity target {target!r}")
 
 
-def expected_storage_image_array_target_coordinate(target):
+def expected_storage_image_array_target_coordinate(target, resource):
+    source_set = resource.get("set")
+    source_binding = resource.get("binding")
     if target == "directx":
         return {
             "target": "directx",
@@ -285,9 +291,9 @@ def expected_storage_image_array_target_coordinate(target):
             "addressSpace": "unordered-access",
             "registerClass": "uav",
             "descriptorType": "UAV",
-            "registerSpace": 0,
-            "register": 1,
-            "argumentIndex": 1,
+            "registerSpace": source_set,
+            "register": source_binding,
+            "argumentIndex": source_binding,
         }
     if target == "opengl":
         return {
@@ -297,9 +303,9 @@ def expected_storage_image_array_target_coordinate(target):
             "abi": "programResourceBinding",
             "addressSpace": "image",
             "bindingClass": "image",
-            "programResourceBinding": 1,
-            "sourceSet": 0,
-            "sourceBinding": 1,
+            "programResourceBinding": source_binding,
+            "sourceSet": source_set,
+            "sourceBinding": source_binding,
         }
     if target == "metal":
         return {
@@ -309,9 +315,9 @@ def expected_storage_image_array_target_coordinate(target):
             "abi": "kernelArgument",
             "addressSpace": "texture",
             "bindingClass": "texture",
-            "argumentIndex": 1,
-            "sourceSet": 0,
-            "sourceBinding": 1,
+            "argumentIndex": source_binding,
+            "sourceSet": source_set,
+            "sourceBinding": source_binding,
         }
     if target == "vulkan":
         return {
@@ -323,10 +329,31 @@ def expected_storage_image_array_target_coordinate(target):
             "bindingClass": "storageImage",
             "descriptorType": "VK_DESCRIPTOR_TYPE_STORAGE_IMAGE",
             "storageClass": "UniformConstant",
-            "descriptorSet": 0,
-            "descriptorBinding": 1,
+            "descriptorSet": source_set,
+            "descriptorBinding": source_binding,
         }
     raise ValueError(f"unsupported storage-image parity target {target!r}")
+
+
+def expected_synthetic_storage_image_array_source_coordinate(array_name):
+    return dict(SYNTHETIC_STORAGE_IMAGE_ARRAY_SOURCE_COORDINATES[array_name])
+
+
+def expected_array_element_count(resource):
+    if resource.get("arrayElementCount") is not None:
+        return resource.get("arrayElementCount")
+    dimensions = resource.get("arrayDimensions")
+    if not isinstance(dimensions, list) or not dimensions:
+        return None
+    element_count = 1
+    for dimension in dimensions:
+        if not isinstance(dimension, dict):
+            return None
+        dimension_count = dimension.get("elementCount")
+        if dimension_count is None:
+            return None
+        element_count *= dimension_count
+    return element_count
 
 
 def expected_target_legalization_health(evidence):
@@ -783,6 +810,7 @@ def expect_storage_image_binding_parity(
     manifest,
     payload,
     atomic=False,
+    expected_source_coordinate=None,
 ):
     errors = []
 
@@ -801,11 +829,11 @@ def expect_storage_image_binding_parity(
         )
         return errors
 
-    source_coordinate = {
-        "stage": "compute",
-        "set": 0,
-        "binding": 1,
-    }
+    source_coordinate = (
+        expected_source_coordinate
+        if expected_source_coordinate is not None
+        else reflection_source_coordinate(resource)
+    )
     expect_equal(
         errors,
         case_name,
@@ -825,7 +853,7 @@ def expect_storage_image_binding_parity(
         case_name,
         f"reflection.targetResourceBindings.{array_name}.targetCoordinate",
         reflection_target_binding_coordinate(target, binding),
-        expected_storage_image_array_target_coordinate(target),
+        expected_storage_image_array_target_coordinate(target, resource),
     )
     expect_equal(
         errors,
@@ -839,7 +867,7 @@ def expect_storage_image_binding_parity(
         case_name,
         f"reflection.targetResourceBindings.{array_name}.arrayElementCount",
         binding.get("arrayElementCount"),
-        2,
+        expected_array_element_count(resource),
     )
 
     if target not in {"directx", "opengl"}:
@@ -2304,6 +2332,11 @@ def run_cases(root, cglc):
                             manifest,
                             payload,
                             atomic=atomic,
+                            expected_source_coordinate=(
+                                expected_synthetic_storage_image_array_source_coordinate(
+                                    "unsignedAtlases" if atomic else "maskAtlases"
+                                )
+                            ),
                         )
                     ),
                 )
