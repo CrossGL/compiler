@@ -1131,6 +1131,19 @@ bool isPrototypeFloatVectorType(const HIRType &type) {
           type.name == "vec4");
 }
 
+bool isPrototypeFloatMatrixVectorMultiply(const HIRType &matrixType,
+                                          const HIRType &vectorType,
+                                          const HIRType &resultType) {
+  const std::optional<std::size_t> matrixDimension =
+      prototypeMatrixDimension(matrixType);
+  const std::optional<std::size_t> vectorWidth =
+      prototypeVectorWidth(vectorType);
+  return matrixDimension.has_value() && vectorWidth.has_value() &&
+         *matrixDimension == *vectorWidth &&
+         isPrototypeFloatVectorType(vectorType) &&
+         samePrototypeType(vectorType, resultType);
+}
+
 bool isPrototypeFloatScalarOrVectorType(const HIRType &type) {
   return isPrototypeFloatScalarType(type) || isPrototypeFloatVectorType(type);
 }
@@ -3576,14 +3589,22 @@ bool prototypeExpressionSupported(
     const HIRType rightType =
         prototypeExpressionType(expression.children[1], locals, resources,
                                 constants);
-    if (!isPrototypeArithmeticType(leftType) ||
-        !isPrototypeArithmeticType(rightType)) {
+    const bool matrixVectorMultiply =
+        expression.value == "*" &&
+        isPrototypeFloatMatrixVectorMultiply(leftType, rightType,
+                                             expression.type);
+    if (!matrixVectorMultiply &&
+        (!isPrototypeArithmeticType(leftType) ||
+         !isPrototypeArithmeticType(rightType))) {
       diagnostics.error("vulkan.prototype-unsupported-expression",
                         "Vulkan prototype binary emission supports only "
-                        "numeric operands");
+                        "numeric operands or square matrix-vector multiply");
       return false;
     }
     if (isPrototypeArithmeticOperator(expression.value)) {
+      if (matrixVectorMultiply) {
+        return true;
+      }
       if (samePrototypeType(leftType, rightType)) {
         if (!samePrototypeType(leftType, expression.type)) {
           diagnostics.error("vulkan.prototype-unsupported-expression",
@@ -8614,6 +8635,20 @@ private:
 
       PrototypeSPIRVValue leftValue = *left;
       PrototypeSPIRVValue rightValue = *right;
+      if (expression.value == "*" &&
+          isPrototypeFloatMatrixVectorMultiply(leftValue.type, rightValue.type,
+                                               expression.type)) {
+        const std::string typeId = ensureType(expression.type);
+        if (typeId.empty()) {
+          return std::nullopt;
+        }
+        const std::string resultId = nextTemp();
+        instructionLines_.push_back(resultId + " = OpMatrixTimesVector " +
+                                    typeId + " " + leftValue.id + " " +
+                                    rightValue.id);
+        return PrototypeSPIRVValue{expression.type, resultId};
+      }
+
       if (isPrototypeFloatVectorScalarArithmetic(leftValue.type, rightValue.type,
                                                  expression.type)) {
         if (expression.value == "*") {

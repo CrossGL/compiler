@@ -991,6 +991,11 @@
       "translator_ast_sha256": "b82e9b220391d89a7b8d367fc9edb7e6c38b0e341b3027de4e25befcdf882b2f",
       "compiler_hir_sha256": "6fa2024aef24e0bea62e1a3985156c3f5b1ad9bb7268bd48e7a7231245c17d96"
     },
+    "compiler/tests/fixtures/MatrixVectorArithmeticComputeShader.cgl": {
+      "source_sha256": "865c5bd1952bc58902116f105556dc3cc9b1a98f58907472835532eddd470d8e",
+      "translator_ast_sha256": "fe291173060e82f7f77da4a3b2194dcbf3a06fbcdd8f4e953c1c9a73322c3c50",
+      "compiler_hir_sha256": "2fd485357b08ec6cc932e1372bb6e629c93c9091cc81bddf91d4c32d26ca6f77"
+    },
     "compiler/tests/fixtures/MetalMultiSetResourceShader.cgl": {
       "source_sha256": "0c910356a4db1c2017dc981180a61c6752bd6899a19af6d1ef6343d9c79a90d2",
       "translator_ast_sha256": "207cf24eb4fe5f5296ea4dd7107bdd4542544fc60ae77cce2cf49a0faa799717",

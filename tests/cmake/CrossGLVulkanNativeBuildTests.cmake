@@ -2113,6 +2113,22 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_matrix_vector_arithmetic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_MATRIX_VECTOR_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-matrix-vector-arithmetic.cglb
+      -DEXPECTED_MODULE=MatrixVectorArithmeticComputeShader
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=MatrixVectorArithmeticComputeShader|nativeBinary=backend/vulkan/MatrixVectorArithmeticComputeShader.spv|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|values.set=0|values.binding=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|vector-constructor.kind=operation|index-access.kind=operation|matrix-constructor.kind=operation|vector-arithmetic.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_SPVASM_CONTAINS=%mat3 = OpTypeMatrix %vec3 3|%ptr_Function_mat3 = OpTypePointer Function %mat3|OpMatrixTimesVector %vec3|OpStore %var_result"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_vector_local_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
