@@ -40,6 +40,7 @@ class TargetExpectation:
     source_package_supported: bool
     package_mode: str
     missing_capabilities: tuple[str, ...]
+    required_capabilities: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -271,7 +272,9 @@ def expected_core_evidence(record: dict[str, Any]) -> list[str]:
     mode = record["packageMode"]
     state = "legalized" if record["packageBuildSupported"] else "rejected"
     support_status = mode if record["packageBuildSupported"] else "unsupported"
-    reason = "source-package-available" if mode == "source-package" else mode
+    reason = record.get("packageDecisionReason")
+    if not isinstance(reason, str) or not reason:
+        reason = "source-package-available" if mode == "source-package" else mode
     prefix = f"target-legalization.v1.{target}"
     evidence = [
         f"{prefix}.decision",
@@ -332,6 +335,13 @@ def compare_target_record_to_expectation(
         f"{path}.missingCapabilities",
         record.get("missingCapabilities"),
         expected.missing_capabilities,
+    )
+    expect_contains(
+        errors,
+        case_name,
+        f"{path}.requiredCapabilities",
+        record.get("requiredCapabilities"),
+        expected.required_capabilities,
     )
     expected_evidence = expected_core_evidence(record)
     expect_equal(
@@ -832,6 +842,23 @@ def check_alignment_case(
 
 
 def alignment_cases() -> tuple[AlignmentCase, ...]:
+    runtime_texture_capabilities = (
+        "{target}.resource.runtime-descriptor-array",
+        "{target}.resource.runtime-texture-descriptor-array",
+        "{target}.layout.runtime-array",
+    )
+    runtime_texture_sampler_capabilities = (
+        "{target}.resource.runtime-descriptor-array",
+        "{target}.resource.runtime-texture-descriptor-array",
+        "{target}.resource.runtime-sampler-descriptor-array",
+        "{target}.layout.runtime-array",
+    )
+
+    def required_runtime_capabilities(
+        target: str, capabilities: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        return tuple(capability.format(target=target) for capability in capabilities)
+
     return (
         AlignmentCase(
             name="simple-source-packages",
@@ -873,6 +900,9 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
                         "directx.backend.hlsl-lowering",
                         "directx.diagnostic.directx.unsupported-runtime-resource-array",
                     ),
+                    required_capabilities=required_runtime_capabilities(
+                        "directx", runtime_texture_capabilities
+                    ),
                 ),
                 TargetExpectation(
                     target="opengl",
@@ -883,8 +913,70 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
                         "opengl.backend.glsl-lowering",
                         "opengl.diagnostic.opengl.unsupported-runtime-resource-array",
                     ),
+                    required_capabilities=required_runtime_capabilities(
+                        "opengl", runtime_texture_capabilities
+                    ),
                 ),
             ),
+        ),
+        AlignmentCase(
+            name="runtime-texture-sampler-array-support-and-rejections",
+            fixture=Path(
+                "tests/directx/fixtures/"
+                "DirectXRuntimeTextureSamplerResourceArrayShader.cgl"
+            ),
+            targets=(
+                TargetExpectation(
+                    target="metal",
+                    package_build_supported=False,
+                    source_package_supported=False,
+                    package_mode="unsupported",
+                    missing_capabilities=(
+                        "metal.backend.native-metal-package",
+                        "metal.diagnostic.metal.unsupported-runtime-resource-array",
+                    ),
+                    required_capabilities=required_runtime_capabilities(
+                        "metal", runtime_texture_sampler_capabilities
+                    ),
+                ),
+                TargetExpectation(
+                    target="vulkan",
+                    package_build_supported=True,
+                    source_package_supported=False,
+                    package_mode="native",
+                    missing_capabilities=(),
+                    required_capabilities=required_runtime_capabilities(
+                        "vulkan", runtime_texture_sampler_capabilities
+                    ),
+                ),
+                TargetExpectation(
+                    target="directx",
+                    package_build_supported=True,
+                    source_package_supported=True,
+                    package_mode="source-package",
+                    missing_capabilities=SOURCE_PACKAGE_OPTIONAL_NATIVE_CAPABILITIES[
+                        "directx"
+                    ],
+                    required_capabilities=required_runtime_capabilities(
+                        "directx", runtime_texture_sampler_capabilities
+                    ),
+                ),
+                TargetExpectation(
+                    target="opengl",
+                    package_build_supported=False,
+                    source_package_supported=False,
+                    package_mode="unsupported",
+                    missing_capabilities=(
+                        "opengl.backend.glsl-lowering",
+                        "opengl.diagnostic.opengl.unsupported-runtime-resource-array",
+                    ),
+                    required_capabilities=required_runtime_capabilities(
+                        "opengl", runtime_texture_sampler_capabilities
+                    ),
+                ),
+            ),
+            recommended_target="vulkan",
+            recommended_package_mode="native",
         ),
         AlignmentCase(
             name="native-target-fallback-source-package-recommendation",

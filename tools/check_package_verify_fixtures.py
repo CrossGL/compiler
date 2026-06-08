@@ -21,6 +21,7 @@ from check_package_integrity_fixtures import (
     package_path,
     rewrite_debug_metadata_locations,
     rewrite_manifest,
+    STORAGE_IMAGE_ARRAY_ELEMENT_COUNT,
     write_nonuniform_diagnostics,
     write_nonuniform_reflection,
     write_storage_image_reflection,
@@ -3152,6 +3153,30 @@ def run_cases(root, cglc):
                 manifest,
                 "sourceType must match reflected resource",
                 "package.verify.reflection-target-resource-identity-mismatch",
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-binding-array-dimensions-mismatch"
+        )
+        reflection_array_dimensions_mismatch = write_storage_image_reflection(
+            package, manifest
+        )
+        reflection_array_dimensions_mismatch["targetResourceBindings"][1][
+            "arrayDimensions"
+        ][0]["elementCount"] = STORAGE_IMAGE_ARRAY_ELEMENT_COUNT + 1
+        write_json(package / "reflection.json", reflection_array_dimensions_mismatch)
+        errors.extend(
+            expect_reflection_binding_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-binding-array-dimensions-mismatch",
+                package,
+                source,
+                manifest,
+                "arrayDimensions must match reflected resource array metadata",
+                "package.verify.reflection-target-resource-binding-array-mismatch",
             )
         )
 

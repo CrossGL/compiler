@@ -827,6 +827,66 @@ function(crossgl_mutate_package_reflection package_path mutation_kind)
     string(JSON mutated_reflection ERROR_VARIABLE reflection_error SET
       "${reflection}" targetResourceBindings ${selected_binding_index}
       arrayElementCount "${mutated_array_element_count}")
+  elseif(mutation_kind STREQUAL
+         "selected-target-resource-binding-array-dimensions-mismatch")
+    string(JSON selected_target ERROR_VARIABLE manifest_error GET
+      "${manifest}" target)
+    if(NOT manifest_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read manifest target for ${mutation_kind}: ${manifest_error}")
+    endif()
+    string(JSON binding_count ERROR_VARIABLE reflection_error LENGTH
+      "${reflection}" targetResourceBindings)
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read reflection targetResourceBindings for ${mutation_kind}: ${reflection_error}")
+    endif()
+    if(binding_count LESS 1)
+      message(FATAL_ERROR
+        "cannot mutate selected-target resource binding arrayDimensions; reflection has no targetResourceBindings")
+    endif()
+
+    set(selected_binding_index -1)
+    set(selected_binding_dimension_element_count "")
+    math(EXPR last_binding_index "${binding_count} - 1")
+    foreach(binding_index RANGE 0 ${last_binding_index})
+      string(JSON binding_target ERROR_VARIABLE target_error GET
+        "${reflection}" targetResourceBindings ${binding_index} target)
+      if(NOT target_error STREQUAL "NOTFOUND")
+        continue()
+      endif()
+      if(NOT binding_target STREQUAL "${selected_target}")
+        continue()
+      endif()
+      string(JSON dimension_count ERROR_VARIABLE dimensions_error LENGTH
+        "${reflection}" targetResourceBindings ${binding_index}
+        arrayDimensions)
+      if(NOT dimensions_error STREQUAL "NOTFOUND")
+        continue()
+      endif()
+      if(NOT dimension_count GREATER 0)
+        continue()
+      endif()
+      string(JSON dimension_element_count ERROR_VARIABLE element_count_error GET
+        "${reflection}" targetResourceBindings ${binding_index}
+        arrayDimensions 0 elementCount)
+      if(NOT element_count_error STREQUAL "NOTFOUND")
+        continue()
+      endif()
+      set(selected_binding_index ${binding_index})
+      set(selected_binding_dimension_element_count ${dimension_element_count})
+      break()
+    endforeach()
+    if(selected_binding_index EQUAL -1)
+      message(FATAL_ERROR
+        "cannot mutate selected-target resource binding arrayDimensions; no selected-target binding has arrayDimensions")
+    endif()
+
+    math(EXPR mutated_dimension_element_count
+      "${selected_binding_dimension_element_count} + 1")
+    string(JSON mutated_reflection ERROR_VARIABLE reflection_error SET
+      "${reflection}" targetResourceBindings ${selected_binding_index}
+      arrayDimensions 0 elementCount "${mutated_dimension_element_count}")
   else()
     message(FATAL_ERROR "unknown REFLECTION_MUTATION_KIND: ${mutation_kind}")
   endif()
@@ -2774,6 +2834,14 @@ elseif(MODE STREQUAL "package-verify-json-failure")
     crossgl_mutate_package_reflection(
       "${package_path}"
       "selected-target-resource-binding-array-element-count-mismatch")
+  elseif(FAILURE_KIND STREQUAL
+         "selected-target-resource-binding-array-dimensions-mismatch")
+    if(DEFINED INPUT)
+      list(APPEND verify_command --source "${INPUT}")
+    endif()
+    crossgl_mutate_package_reflection(
+      "${package_path}"
+      "selected-target-resource-binding-array-dimensions-mismatch")
   elseif(FAILURE_KIND STREQUAL "malformed-package-artifact-requirements" OR
          FAILURE_KIND STREQUAL "target-conflicting-package-artifact-requirements")
     if(DEFINED INPUT)
