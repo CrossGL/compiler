@@ -487,7 +487,7 @@
           "sha256": "313320a0295ff536f534f1fd9bfd08012e9652c3df38f84c86330725b7f7033f"
         }
       ],
-      "fixture_count": 12,
+      "fixture_count": 14,
       "fixtures": [
         {
           "id": "compiler/tests/fixtures/ResourceShader.cgl",
@@ -544,10 +544,22 @@
           "compiler_hir_sha256": "0a5aea5264d36fca73f21a1daa069204c52ce0c25a43751990ac3d36b81518b5"
         },
         {
+          "id": "compiler/tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+          "source_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+          "translator_ast_sha256": "be666268e6b2ac023fae869b0eba390d36ba81e8f4ecae17137f77d6078ad897",
+          "compiler_hir_sha256": "8c7cee5669034eab58ee28da18468edc8cfd0b5c44436d10d276fb9ddc7a0b26"
+        },
+        {
           "id": "compiler/tests/fixtures/StorageImageExplicitFormatShader.cgl",
           "source_sha256": "45f88a12264cec4a3bf6eb6ffe7e63f6d9ceeb3964fad7703c64a0ea35a69703",
           "translator_ast_sha256": "5cdb4f73eec8445f4103a7e49f9f057d69ab53fb644d24aee69d329d47ee879e",
           "compiler_hir_sha256": "5bdbfab809bef13da265856ff054ef4f0ff3954bb215cd71641faede1c0e33ed"
+        },
+        {
+          "id": "compiler/tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
+          "source_sha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
+          "translator_ast_sha256": "8cf4eb2121b0238ae72d69064e2e2c741aa979b9c88393eaeaa2f902e34a7525",
+          "compiler_hir_sha256": "f9d6bce9ed065f66b5e3da2cdddcc882a0b0ffb6a0addc752d83ebad2998cf3a"
         },
         {
           "id": "compiler/tests/fixtures/StorageImageAtomicShader.cgl",

@@ -123,7 +123,9 @@
         "compiler/tests/fixtures/StorageBufferComputeShader.cgl",
         "compiler/tests/fixtures/StorageBufferArrayAccessShader.cgl",
         "compiler/tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "compiler/tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
         "compiler/tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "compiler/tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
         "compiler/tests/fixtures/StorageImageAtomicShader.cgl",
         "compiler/tests/fixtures/MetalMultiSetResourceShader.cgl"
       ]
