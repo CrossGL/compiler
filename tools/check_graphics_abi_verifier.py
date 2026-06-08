@@ -427,6 +427,61 @@ def check_descriptor_type_mismatch(root, tmp_dir):
     return errors
 
 
+def check_source_array_element_count_mismatch(root, tmp_dir):
+    fixture = (
+        root
+        / "tests"
+        / "graphics-abi"
+        / "invalid-source-array-element-count-mismatch.json"
+    )
+    result = run_verifier(root, fixture)
+    errors = []
+    if result.returncode == 0:
+        errors.append(
+            "invalid-source-array-element-count-mismatch: expected verifier failure"
+        )
+    try:
+        report = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return [
+            "invalid-source-array-element-count-mismatch: verifier output is not "
+            f"JSON: {exc}"
+        ]
+
+    errors.extend(
+        validate_report_schema(
+            root,
+            tmp_dir,
+            "invalid-source-array-element-count-mismatch",
+            result.stdout,
+        )
+    )
+    expect_counts(errors, "invalid-source-array-element-count-mismatch", report)
+    codes = [diagnostic.get("code") for diagnostic in report.get("diagnostics", [])]
+    expected_codes = ["graphics.abi.source-array-element-count-mismatch"]
+    if codes != expected_codes:
+        errors.append(
+            "invalid-source-array-element-count-mismatch: expected diagnostic codes "
+            f"{expected_codes!r}, got {codes!r}"
+        )
+    if report.get("summary") != {
+        "module": "GraphicsAbiSourceArrayElementCountMismatch",
+        "target": "vulkan",
+        "entryPointCount": 1,
+        "vertexInputCount": 0,
+        "varyingCount": 0,
+        "fragmentOutputCount": 0,
+        "builtinCount": 0,
+        "resourceCount": 1,
+        "abiRecordCount": 1,
+    }:
+        errors.append(
+            "invalid-source-array-element-count-mismatch: unexpected summary "
+            f"{report.get('summary')!r}"
+        )
+    return errors
+
+
 def check_descriptor_metadata_fixture(
     root, tmp_dir, case_name, expected_codes, expected_summary
 ):
@@ -774,6 +829,7 @@ def main():
         errors.extend(check_binding_identity_failure(root, tmp_dir))
         errors.extend(check_resource_order_mismatch(root, tmp_dir))
         errors.extend(check_descriptor_type_mismatch(root, tmp_dir))
+        errors.extend(check_source_array_element_count_mismatch(root, tmp_dir))
         errors.extend(check_directx_descriptor_metadata_mismatch(root, tmp_dir))
         errors.extend(check_metal_binding_class_mismatch(root, tmp_dir))
         errors.extend(check_opengl_binding_class_mismatch(root, tmp_dir))
@@ -790,7 +846,7 @@ def main():
             )
         return 1
 
-    print("validated 15 graphics ABI verifier fixtures and report semantics")
+    print("validated 16 graphics ABI verifier fixtures and report semantics")
     return 0
 
 

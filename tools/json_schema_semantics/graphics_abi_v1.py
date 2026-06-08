@@ -87,6 +87,18 @@ def validate_storage_image_format(errors, path, document, record_label):
         )
 
 
+def fixed_array_dimension_product(dimensions):
+    if not dimensions:
+        return None
+
+    product = 1
+    for dimension in dimensions:
+        if dimension["kind"] != "fixed" or "elementCount" not in dimension:
+            return None
+        product *= dimension["elementCount"]
+    return product
+
+
 def validate_builtins(errors, builtins):
     for index, record in enumerate(builtins):
         record_path = f"$.builtins[{index}]"
@@ -177,6 +189,17 @@ def validate_abi_record_link(
         resource.get("arrayDimensions", []),
         "source resource arrayDimensions",
     )
+    source_fixed_product = fixed_array_dimension_product(
+        resource.get("arrayDimensions", [])
+    )
+    if source_fixed_product is not None:
+        add_equal_error(
+            errors,
+            f"{record_path}.arrayElementCount",
+            record.get("arrayElementCount"),
+            source_fixed_product,
+            "source resource arrayElementCount",
+        )
     for field in ("set", "binding"):
         if field in resource or field in record:
             add_equal_error(

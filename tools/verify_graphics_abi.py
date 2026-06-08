@@ -786,6 +786,18 @@ def validate_varyings(diagnostics, path, varyings, entries_by_name, target):
             locations[coordinate] = index
 
 
+def fixed_array_dimension_product(dimensions):
+    if not dimensions:
+        return None
+
+    product = 1
+    for dimension in dimensions:
+        if dimension["kind"] != "fixed" or "elementCount" not in dimension:
+            return None
+        product *= dimension["elementCount"]
+    return product
+
+
 def validate_resource_link(
     diagnostics,
     path,
@@ -814,6 +826,20 @@ def validate_resource_link(
         "source resource arrayDimensions",
         target,
     )
+    source_fixed_product = fixed_array_dimension_product(
+        resource.get("arrayDimensions", [])
+    )
+    if source_fixed_product is not None:
+        add_equal_diagnostic(
+            diagnostics,
+            path,
+            "source-array-element-count-mismatch",
+            f"{record_path}.arrayElementCount",
+            record.get("arrayElementCount"),
+            source_fixed_product,
+            "source resource arrayElementCount",
+            target,
+        )
     for field in ("set", "binding"):
         if field in resource or field in record:
             add_equal_diagnostic(
