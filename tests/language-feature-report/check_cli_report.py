@@ -228,6 +228,16 @@ def require_feature_source_location(
     )
 
 
+def require_feature_status(
+    report: dict[str, Any], group: str, feature_id: str, status: str
+) -> None:
+    feature = feature_by_id(report, group, feature_id)
+    require(
+        feature["status"] == status,
+        f"{group} feature {feature_id!r} should have status {status!r}",
+    )
+
+
 def require_snapshot_aggregate_features(report: dict[str, Any]) -> None:
     for group, expected in SNAPSHOT_AGGREGATE_FEATURES.items():
         missing = sorted(expected.difference(feature_ids(report, group)))
@@ -300,6 +310,57 @@ def check_resource_shader(cglc: Path, root: Path) -> None:
             for record in fixture_evidence(report)
         ),
         "ordinary fixture evidence id should preserve the source path",
+    )
+
+
+def check_storage_image_descriptor_array_shader(
+    cglc: Path,
+    root: Path,
+    fixture_name: str,
+    expected_memory_features: set[str] | None = None,
+) -> None:
+    source = root / "tests/fixtures" / fixture_name
+    report = run_report(cglc, root, source)
+
+    require(
+        report["module"]["sourcePath"] == f"tests/fixtures/{fixture_name}",
+        "storage image fixture source path should be root-relative",
+    )
+    require(
+        report["module"]["sourceSha256"]
+        == sha256_text(source.read_text(encoding="utf-8")),
+        "storage image fixture source hash mismatch",
+    )
+
+    expected_resource_features = {
+        "resource.storage-image",
+        "resource.descriptor-array",
+        "resource.nonuniform-descriptor-index",
+    }
+    expected_layout_features = {
+        "layout.storage-image-format",
+        "layout.set-binding",
+        "layout.fixed-array",
+    }
+    expected_memory_features = expected_memory_features or set()
+
+    for feature_id in expected_resource_features:
+        require_feature_status(report, "resources", feature_id, "package-supported")
+        require_feature_source_location(report, "resources", feature_id)
+    for feature_id in expected_memory_features:
+        require_feature_status(report, "memory", feature_id, "package-supported")
+        require_feature_source_location(report, "memory", feature_id)
+    for feature_id in expected_layout_features:
+        require_feature_status(report, "layout", feature_id, "accepted-source")
+        require_feature_source_location(report, "layout", feature_id)
+
+    require(
+        any(
+            record["id"] == f"fixture:tests/fixtures/{fixture_name}"
+            and record["path"] == f"tests/fixtures/{fixture_name}"
+            for record in fixture_evidence(report)
+        ),
+        "storage image fixture evidence id should preserve the source path",
     )
 
 
@@ -380,6 +441,17 @@ def main() -> int:
 
     root = args.root.resolve()
     check_resource_shader(args.cglc.resolve(), root)
+    check_storage_image_descriptor_array_shader(
+        args.cglc.resolve(),
+        root,
+        "StorageImageExplicitFormatDescriptorArrayShader.cgl",
+    )
+    check_storage_image_descriptor_array_shader(
+        args.cglc.resolve(),
+        root,
+        "StorageImageAtomicDescriptorArrayShader.cgl",
+        expected_memory_features={"memory.storage-image-atomic"},
+    )
     check_spaced_source_path_schema(args.cglc.resolve(), root)
     check_target_limited_shader(args.cglc.resolve(), root)
     print("cglc language feature report CLI OK")
