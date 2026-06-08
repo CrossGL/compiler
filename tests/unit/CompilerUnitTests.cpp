@@ -39995,20 +39995,88 @@ shader DirectXFunctionParameterArrayWriteShader {
   if (!writeHir) {
     return;
   }
-  expect(!crossgl::directxTextualBackendSupported(*writeHir),
-         "DirectX source package gates writes through helper array parameters");
-  expect(crossgl::directxHasUnsupportedFunctionParameterArrayWrite(*writeHir),
-         "DirectX analysis detects writes through helper array parameters");
+  expect(crossgl::directxTextualBackendSupported(*writeHir),
+         "DirectX source package supports direct storage-buffer field helper "
+         "array writeback");
+  expect(!crossgl::directxHasUnsupportedFunctionParameterArrayWrite(*writeHir),
+         "DirectX helper array write gate accepts direct storage-buffer field "
+         "writeback");
 
   crossgl::DiagnosticEngine writeDiagnostics;
-  expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
+  expect(!crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
              *writeHir, writeDiagnostics),
-         "DirectX helper array write diagnostic emits a diagnostic");
+         "DirectX helper array write diagnostic stays silent for direct "
+         "storage-buffer field writeback");
+
+  const std::string writeHlsl = crossgl::generateDirectXSource(*writeHir);
+  expect(writeHlsl.find(
+             "float crossgl_param_array_writeback_0_rewriteWeight_weights"
+             "[COUNT];") != std::string::npos &&
+             writeHlsl.find(
+                 "crossgl_param_array_writeback_0_rewriteWeight_weights"
+                 "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+                 "particles[0].weights"
+                 "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];") !=
+                 std::string::npos &&
+             writeHlsl.find(
+                 "float value = rewriteWeight("
+                 "crossgl_param_array_writeback_0_rewriteWeight_weights);") !=
+                 std::string::npos &&
+             writeHlsl.find(
+                 "particles[0].weights"
+                 "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+                 "crossgl_param_array_writeback_0_rewriteWeight_weights"
+                 "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];") !=
+                 std::string::npos &&
+             writeHlsl.find("particles[1].weights[0] = value;") !=
+                 std::string::npos,
+         "DirectX backend copies a direct storage-buffer field array into a "
+         "temporary, calls the helper, and copies mutations back");
+
+  constexpr std::string_view nestedExpressionWriteSource = R"(
+shader DirectXNestedExpressionFunctionParameterArrayWriteUnsupportedShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float rewriteWeight(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      particles[1].weights[0] = rewriteWeight(particles[0].weights) + 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> nestedExpressionWriteHir =
+      parseHIR(nestedExpressionWriteSource);
+  expect(nestedExpressionWriteHir.has_value(),
+         "DirectX nested-expression parameter-array write source builds HIR");
+  if (!nestedExpressionWriteHir) {
+    return;
+  }
+  expect(!crossgl::directxTextualBackendSupported(*nestedExpressionWriteHir),
+         "DirectX keeps nested-expression helper array writeback rejected");
+  expect(crossgl::directxHasUnsupportedFunctionParameterArrayWrite(
+             *nestedExpressionWriteHir),
+         "DirectX analysis detects nested-expression helper array writeback");
+
+  crossgl::DiagnosticEngine nestedExpressionDiagnostics;
+  expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
+             *nestedExpressionWriteHir, nestedExpressionDiagnostics),
+         "DirectX nested-expression helper array writeback emits a diagnostic");
   expect(hasDiagnosticMessageFragment(
-             writeDiagnostics.diagnostics(),
+             nestedExpressionDiagnostics.diagnostics(),
              "directx.unsupported-function-parameter-array-write",
-             "value-copy-read-only"),
-         "DirectX helper array write diagnostic names the shared call ABI");
+             "direct non-aliased storage-buffer field array arguments"),
+         "DirectX nested-expression helper array write diagnostic describes "
+         "the remaining supported writeback shape");
 
   constexpr std::string_view nestedWriteThroughSource = R"(
 shader DirectXNestedFunctionParameterArrayWriteUnsupportedShader {
