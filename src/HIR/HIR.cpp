@@ -4496,7 +4496,7 @@ bool isAtomicReadModifyWriteValueType(const HIRType &type,
   return normalized.name == expected;
 }
 
-const HIRExpression &unwrapAtomicTargetExpression(
+const HIRExpression &unwrapTransparentTargetExpression(
     const HIRExpression &expression) {
   const HIRExpression *current = &expression;
   while ((current->kind == HIRExpressionKind::Group ||
@@ -4508,10 +4508,52 @@ const HIRExpression &unwrapAtomicTargetExpression(
 }
 
 bool isAtomicReadModifyWriteAssignableTarget(const HIRExpression &expression) {
-  const HIRExpression &target = unwrapAtomicTargetExpression(expression);
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
   return target.kind == HIRExpressionKind::Identifier ||
          target.kind == HIRExpressionKind::IndexAccess ||
          target.kind == HIRExpressionKind::MemberAccess;
+}
+
+bool isAssignableTargetExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
+  switch (target.kind) {
+  case HIRExpressionKind::Identifier:
+    return true;
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::MemberAccess:
+    return !target.children.empty() &&
+           isAssignableTargetExpression(target.children.front());
+  default:
+    return false;
+  }
+}
+
+const HIRExpression &
+assignmentTargetDiagnosticExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty() &&
+      !isAssignableTargetExpression(target.children.front())) {
+    return assignmentTargetDiagnosticExpression(target.children.front());
+  }
+  return target;
+}
+
+void validateAssignmentTargetSemantics(const HIRStatement &statement,
+                                       DiagnosticEngine &diagnostics) {
+  if (statement.kind != HIRStatementKind::Assignment ||
+      statement.target.kind == HIRExpressionKind::Empty ||
+      isAssignableTargetExpression(statement.target)) {
+    return;
+  }
+  const HIRExpression &target =
+      assignmentTargetDiagnosticExpression(statement.target);
+  diagnostics.error("sema.assignment-target-lvalue",
+                    "assignment target must be an assignable storage location, "
+                    "got '" +
+                        expressionKindName(target.kind) + "' expression",
+                    target.location);
 }
 
 void validateAtomicReadModifyWriteExpression(const HIRExpression &expression,
@@ -4788,6 +4830,7 @@ void validateStatementSemantics(const HIRStatement &statement,
   validateControlTransferStatement(statement, stage, loopDepth, diagnostics);
   validateReturnStatementSemantics(statement, returnType, structNames,
                                    diagnostics);
+  validateAssignmentTargetSemantics(statement, diagnostics);
   validateAtomicReadModifyWriteValueUse(statement, diagnostics);
   validateExpressionSemantics(statement.target, stage, resources, diagnostics,
                               functionSignatures);

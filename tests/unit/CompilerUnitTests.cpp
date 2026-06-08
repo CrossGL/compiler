@@ -5884,6 +5884,14 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
     result.children.push_back(std::move(right));
     return result;
   };
+  auto member = [&](crossgl::HIRExpression base, std::string name,
+                    crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::MemberAccess, std::move(name),
+                   std::move(expressionType));
+    result.children.push_back(std::move(base));
+    return result;
+  };
   auto select = [&](crossgl::HIRExpression condition,
                     crossgl::HIRExpression trueValue,
                     crossgl::HIRExpression falseValue,
@@ -6140,6 +6148,23 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       moduleWithVoidStageStatement(std::move(mismatchedAssignmentBlock)),
       "opt.hir-assignment-type",
       "HIR typed-symbol validation diagnoses assignment type mismatches");
+
+  crossgl::HIRModule nonAssignableAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &nonAssignableAssignmentTargetMain =
+      nonAssignableAssignmentTargetModule.stages.front().functions.front();
+  nonAssignableAssignmentTargetMain.body.push_back(
+      declaration("value", type("vec2")));
+  nonAssignableAssignmentTargetMain.body.push_back(
+      declaration("other", type("vec2")));
+  nonAssignableAssignmentTargetMain.body.push_back(assignment(
+      member(binary("+", identifier("value", type("vec2")),
+                    identifier("other", type("vec2")), type("vec2")),
+             "x", type("float")),
+      literal("2.0", type("float"))));
+  expectInvalidTypedSymbol(
+      std::move(nonAssignableAssignmentTargetModule),
+      "opt.hir-assignment-target-lvalue",
+      "HIR typed-symbol validation rejects non-assignable assignment targets");
 
   crossgl::HIRModule mismatchedReturnModule = simpleModule();
   crossgl::HIRFunction &mismatchedReturnMain =

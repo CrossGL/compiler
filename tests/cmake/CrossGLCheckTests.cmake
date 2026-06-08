@@ -2528,6 +2528,16 @@ add_test(NAME cglc_check_assignment_value_type_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=15"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment RHS must be type 'int', got 'bool'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_assignment_target_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_ASSIGNMENT_TARGET_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target must be an assignable storage location, got 'literal' expression"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_void_return_value_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

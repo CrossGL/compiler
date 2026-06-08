@@ -1,0 +1,9 @@
+shader BadAssignmentTargetShader {
+  compute {
+    void main() {
+      int value = 1;
+      1 = value;
+      return;
+    }
+  }
+}

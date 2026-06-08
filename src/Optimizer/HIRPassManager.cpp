@@ -1854,7 +1854,7 @@ std::string hirAtomicReadModifyWriteDiagnosticStem(std::string_view name) {
   return std::string(hirAtomicIntegerReadModifyWriteDiagnosticStem(name));
 }
 
-const HIRExpression &unwrapHIRAtomicReadModifyWriteTargetExpression(
+const HIRExpression &unwrapHIRTransparentTargetExpression(
     const HIRExpression &expression) {
   const HIRExpression *current = &expression;
   while ((current->kind == HIRExpressionKind::Group ||
@@ -1867,11 +1867,36 @@ const HIRExpression &unwrapHIRAtomicReadModifyWriteTargetExpression(
 
 bool isHIRAtomicReadModifyWriteAssignableTarget(
     const HIRExpression &expression) {
-  const HIRExpression &target =
-      unwrapHIRAtomicReadModifyWriteTargetExpression(expression);
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
   return target.kind == HIRExpressionKind::Identifier ||
          target.kind == HIRExpressionKind::IndexAccess ||
          target.kind == HIRExpressionKind::MemberAccess;
+}
+
+bool isHIRAssignableTargetExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  switch (target.kind) {
+  case HIRExpressionKind::Identifier:
+    return true;
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::MemberAccess:
+    return !target.children.empty() &&
+           isHIRAssignableTargetExpression(target.children.front());
+  default:
+    return false;
+  }
+}
+
+const HIRExpression &
+hirAssignmentTargetDiagnosticExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty() &&
+      !isHIRAssignableTargetExpression(target.children.front())) {
+    return hirAssignmentTargetDiagnosticExpression(target.children.front());
+  }
+  return target;
 }
 
 void validateHIRAtomicReadModifyWriteLValue(
@@ -2308,6 +2333,17 @@ void validateHIRStatementTypedSymbols(
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " value", symbols,
                                       typedContext, diagnostics);
+    if (!isEmptyHIRExpressionSlot(statement.target) &&
+        !isHIRAssignableTargetExpression(statement.target)) {
+      const HIRExpression &target =
+          hirAssignmentTargetDiagnosticExpression(statement.target);
+      diagnostics.error("opt.hir-assignment-target-lvalue",
+                        "HIR " + statementContext +
+                            " target must be an assignable storage location, "
+                            "got '" +
+                            expressionKindName(target.kind) + "' expression",
+                        target.location);
+    }
     const std::optional<HIRType> targetType =
         hirExpressionEffectiveType(statement.target, symbols);
     const std::optional<HIRType> valueType =
