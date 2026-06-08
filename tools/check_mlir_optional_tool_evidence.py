@@ -27,6 +27,13 @@ EVIDENCE_TEST = "cglc_mlir_optional_tool_evidence"
 VERIFIER_INPUT_LIST = "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS"
 VERIFIER_INPUT = "tests/fixtures/mlir/minimal_compute_builtin_module.mlir"
 MINIMAL_FIXTURE = "tests/fixtures/MinimalComputeShader.cgl"
+SCALAR_EXPRESSION_VERIFIER_TEST = (
+    "cglc_mlir_experiment_scalar_expression_compute_verifier"
+)
+SCALAR_EXPRESSION_VERIFIER_INPUT = (
+    "tests/fixtures/mlir/scalar_expression_compute_builtin_module.mlir"
+)
+SCALAR_EXPRESSION_FIXTURE = "tests/fixtures/ScalarExpressionComputeShader.cgl"
 STORAGE_BUFFER_VERIFIER_TEST = "cglc_mlir_experiment_storage_buffer_compute_verifier"
 STORAGE_BUFFER_VERIFIER_INPUT = (
     "tests/fixtures/mlir/storage_buffer_compute_builtin_module.mlir"
@@ -60,6 +67,7 @@ REQUIRED_GATE_FACTS = (
     "MLIR_FOUND=TRUE",
     f"target {GATE_TARGET}",
     VERIFIER_INPUT,
+    SCALAR_EXPRESSION_VERIFIER_INPUT,
     STORAGE_BUFFER_VERIFIER_INPUT,
     "mlir-opt discovery",
     "mlir-opt --version probe",
@@ -76,6 +84,53 @@ MINIMAL_REQUIRED_VERIFIER_MARKERS = (
     "crossgl_type_fact_void_entry_point = true",
     "crossgl_resource_count = 0",
     'crossgl_resource_metadata = "target-independent:none"',
+    "crossgl_real_mlir_smoke = true",
+)
+SCALAR_EXPRESSION_REQUIRED_VERIFIER_MARKERS = (
+    f'crossgl_fixture = "{SCALAR_EXPRESSION_FIXTURE}"',
+    'crossgl_entry_point = "main"',
+    "crossgl_source_location_fact_source_file = true",
+    "crossgl_source_location_fact_shader_module = true",
+    "crossgl_source_location_fact_compute_stage = true",
+    "crossgl_source_location_fact_entry_point = true",
+    "crossgl_source_location_fact_layout_local_size = true",
+    "crossgl_source_location_fact_local_variable_declarations = true",
+    "crossgl_source_location_fact_scalar_expression_statements = true",
+    "crossgl_source_location_fact_return_statement = true",
+    "crossgl_type_fact_void_entry_point = true",
+    "crossgl_type_fact_float_scalar = true",
+    "crossgl_type_fact_int_scalar = true",
+    "crossgl_type_fact_bool_scalar = true",
+    "crossgl_type_fact_scalar_literals = true",
+    "crossgl_type_fact_constructor_cast_expression = true",
+    "crossgl_type_fact_binary_expression_result_types = true",
+    "crossgl_type_fact_comparison_expression_result_type = true",
+    "crossgl_scalar_local_count = 4",
+    'crossgl_scalar_local_0_name = "base"',
+    'crossgl_scalar_local_0_type = "float"',
+    'crossgl_scalar_local_1_name = "scaled"',
+    'crossgl_scalar_local_1_type = "float"',
+    'crossgl_scalar_local_2_name = "count"',
+    'crossgl_scalar_local_2_type = "int"',
+    'crossgl_scalar_local_3_name = "keep"',
+    'crossgl_scalar_local_3_type = "bool"',
+    "crossgl_scalar_expression_count = 4",
+    "crossgl_scalar_expression_fact_float_literal = true",
+    "crossgl_scalar_expression_fact_int_literal = true",
+    "crossgl_scalar_expression_fact_binary_add = true",
+    "crossgl_scalar_expression_fact_binary_multiply = true",
+    "crossgl_scalar_expression_fact_constructor_cast = true",
+    "crossgl_scalar_expression_fact_comparison_greater_than = true",
+    "crossgl_scalar_expression_fact_comparison_result_bool = true",
+    "crossgl_resource_count = 0",
+    "crossgl_resource_fact_descriptors_empty = true",
+    "crossgl_resource_fact_storage_buffers_empty = true",
+    "crossgl_resource_fact_storage_images_empty = true",
+    "crossgl_resource_fact_textures_empty = true",
+    "crossgl_resource_fact_samplers_empty = true",
+    "crossgl_target_independent_resource_metadata_empty = true",
+    'crossgl_resource_metadata = "target-independent:none"',
+    'crossgl_scalar_expression_metadata = "locals:base:float,scaled:float,count:int,keep:bool;expressions:literal,binary,constructor_cast,comparison"',
     "crossgl_real_mlir_smoke = true",
 )
 STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS = (
@@ -128,6 +183,7 @@ STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS = (
 )
 REQUIRED_VERIFIER_MARKERS_BY_INPUT = {
     VERIFIER_INPUT: MINIMAL_REQUIRED_VERIFIER_MARKERS,
+    SCALAR_EXPRESSION_VERIFIER_INPUT: SCALAR_EXPRESSION_REQUIRED_VERIFIER_MARKERS,
     STORAGE_BUFFER_VERIFIER_INPUT: STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS,
 }
 VERIFIER_FIXTURES = (
@@ -142,6 +198,30 @@ VERIFIER_FIXTURES = (
             "sourceLocationFacts.entry_point",
             "sourceLocationFacts.layout_local_size",
             "typeFacts.void_entry_point",
+            "resourceFacts.localSize",
+            "resourceFacts.targetIndependentResourceMetadata",
+        ),
+    },
+    {
+        "key": "scalar_expression_compute",
+        "ctest": SCALAR_EXPRESSION_VERIFIER_TEST,
+        "input": SCALAR_EXPRESSION_VERIFIER_INPUT,
+        "fixture": SCALAR_EXPRESSION_FIXTURE,
+        "coveredFacts": (
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.int_scalar",
+            "typeFacts.bool_scalar",
+            "typeFacts.scalar_literals",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.binary_expression_result_types",
+            "typeFacts.comparison_expression_result_type",
             "resourceFacts.localSize",
             "resourceFacts.targetIndependentResourceMetadata",
         ),
@@ -199,8 +279,17 @@ REQUIRED_VERIFIER_FACT_MARKERS = (
     "crossgl_source_location_fact_compute_stage",
     "crossgl_source_location_fact_entry_point",
     "crossgl_source_location_fact_layout_local_size",
+    "crossgl_source_location_fact_local_variable_declarations",
+    "crossgl_source_location_fact_scalar_expression_statements",
     "crossgl_source_location_fact_return_statement",
     "crossgl_type_fact_void_entry_point",
+    "crossgl_type_fact_int_scalar",
+    "crossgl_type_fact_bool_scalar",
+    "crossgl_type_fact_scalar_literals",
+    "crossgl_type_fact_constructor_cast_expression",
+    "crossgl_type_fact_comparison_expression_result_type",
+    "crossgl_scalar_local_count",
+    "crossgl_scalar_expression_count",
     "crossgl_source_location_fact_storage_buffer_declaration",
     "crossgl_source_location_fact_storage_buffer_write",
     "crossgl_type_fact_float_pointer_storage_buffer",
@@ -364,6 +453,7 @@ def check_manifest_contract(root: Path, errors: list[str]) -> None:
         "structured verifier skip diagnostics",
         "report-only source/resource catalog",
         "source/resource/entrypoint preservation fields",
+        "scalar expression metadata facts",
         "storage-buffer resource facts",
     }
     for fixture in VERIFIER_FIXTURES:
@@ -508,6 +598,8 @@ def check_cmake_metadata_contract(root: Path, errors: list[str]) -> None:
         "versionProbeAttempted",
         "CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_REQUIRED_MARKERS",
         "CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_OUTPUT_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_REQUIRED_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_OUTPUT_MARKERS",
         "CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_REQUIRED_MARKERS",
         "CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_OUTPUT_MARKERS",
         "CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS",
@@ -1522,6 +1614,10 @@ def write_minimal_repo(root: Path) -> Path:
     (root / VERIFIER_INPUT).write_text(
         verifier_input_text(MINIMAL_REQUIRED_VERIFIER_MARKERS), encoding="utf-8"
     )
+    (root / SCALAR_EXPRESSION_VERIFIER_INPUT).write_text(
+        verifier_input_text(SCALAR_EXPRESSION_REQUIRED_VERIFIER_MARKERS),
+        encoding="utf-8",
+    )
     (root / STORAGE_BUFFER_VERIFIER_INPUT).write_text(
         verifier_input_text(STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS),
         encoding="utf-8",
@@ -1546,6 +1642,7 @@ def write_minimal_repo(root: Path) -> Path:
         f"""
 set({VERIFIER_INPUT_LIST}
   {VERIFIER_INPUT}
+  {SCALAR_EXPRESSION_VERIFIER_INPUT}
   {STORAGE_BUFFER_VERIFIER_INPUT}
 )
 """,
@@ -1595,6 +1692,7 @@ set({VERIFIER_INPUT_LIST}
                                 "structured verifier skip diagnostics",
                                 "report-only source/resource catalog",
                                 "source/resource/entrypoint preservation fields",
+                                "scalar expression metadata facts",
                                 "storage-buffer resource facts",
                             ],
                             "normalBuildRequired": False,
@@ -1614,6 +1712,21 @@ set({VERIFIER_INPUT_LIST}
         *REQUIRED_VERIFIER_FACT_MARKERS,
         "crossgl_resource_count",
         "target-independent:none",
+        "crossgl_real_mlir_smoke",
+    )
+    scalar_output_markers = (
+        "crossgl_fixture",
+        SCALAR_EXPRESSION_FIXTURE,
+        "crossgl_entry_point",
+        "crossgl_source_location_fact_local_variable_declarations",
+        "crossgl_source_location_fact_scalar_expression_statements",
+        "crossgl_type_fact_int_scalar",
+        "crossgl_type_fact_bool_scalar",
+        "crossgl_type_fact_constructor_cast_expression",
+        "crossgl_type_fact_comparison_expression_result_type",
+        "crossgl_scalar_local_count",
+        "crossgl_scalar_expression_count",
+        "locals:base:float,scaled:float,count:int,keep:bool",
         "crossgl_real_mlir_smoke",
     )
     storage_output_markers = (
@@ -1645,6 +1758,16 @@ set({VERIFIER_INPUT_LIST}
         )
         + "\n"
         + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_REQUIRED_MARKERS",
+            SCALAR_EXPRESSION_REQUIRED_VERIFIER_MARKERS,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_OUTPUT_MARKERS",
+            scalar_output_markers,
+        )
+        + "\n"
+        + cmake_string_list(
             "CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_REQUIRED_MARKERS",
             STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS,
         )
@@ -1656,6 +1779,7 @@ set({VERIFIER_INPUT_LIST}
         + f"""
 set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS
   "minimal_compute|{VERIFIER_TEST}|{MINIMAL_FIXTURE}|{VERIFIER_INPUT}"
+  "scalar_expression_compute|{SCALAR_EXPRESSION_VERIFIER_TEST}|{SCALAR_EXPRESSION_FIXTURE}|{SCALAR_EXPRESSION_VERIFIER_INPUT}"
   "storage_buffer_compute|{STORAGE_BUFFER_VERIFIER_TEST}|{STORAGE_BUFFER_FIXTURE}|{STORAGE_BUFFER_VERIFIER_INPUT}")
 set(CROSSGL_MLIR_EXPERIMENT_OPTIONAL_TOOL_EVIDENCE
   "${{CMAKE_CURRENT_BINARY_DIR}}/mlir/optional_tool_evidence.v0.json")
