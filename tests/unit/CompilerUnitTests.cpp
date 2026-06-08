@@ -45770,45 +45770,70 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
                                     "struct-elements",
                                     "struct-elements");
 
-  crossgl::HIRModule directResourceCallModule;
-  directResourceCallModule.name = "MetalDirectResourceArrayCallShader";
-
-  crossgl::HIRFunction directResourceHelper;
-  directResourceHelper.returnType = type("void");
-  directResourceHelper.name = "consumeTextures";
-  directResourceHelper.parameters.push_back(
-      {arrayType("texture2D", "2"), "textures"});
-  crossgl::HIRStatement directResourceHelperReturn;
-  directResourceHelperReturn.kind = crossgl::HIRStatementKind::Return;
-  directResourceHelper.body.push_back(std::move(directResourceHelperReturn));
-  directResourceCallModule.functions.push_back(std::move(directResourceHelper));
-
-  crossgl::HIRFunction directResourceMain;
-  directResourceMain.returnType = type("void");
-  directResourceMain.name = "main";
-  crossgl::HIRExpression directResourceCall = expression(
-      crossgl::HIRExpressionKind::Call, "consumeTextures", type("void"));
-  directResourceCall.children.push_back(
-      identifier("textures", arrayType("texture2D", "2")));
-  crossgl::HIRStatement directResourceCallStatement;
-  directResourceCallStatement.kind = crossgl::HIRStatementKind::Expression;
-  directResourceCallStatement.value = std::move(directResourceCall);
-  directResourceMain.body.push_back(std::move(directResourceCallStatement));
-  crossgl::HIRStatement directResourceMainReturn;
-  directResourceMainReturn.kind = crossgl::HIRStatementKind::Return;
-  directResourceMain.body.push_back(std::move(directResourceMainReturn));
-
-  crossgl::HIRStage directResourceStage;
-  directResourceStage.stage = "compute";
-  directResourceStage.entryPointName = "main";
-  directResourceStage.resources.push_back(
-      {crossgl::HIRResourceKind::Texture, arrayType("texture2D", "2"),
-       "textures"});
-  directResourceStage.functions.push_back(std::move(directResourceMain));
-  directResourceCallModule.stages.push_back(std::move(directResourceStage));
-  expectUnsupportedArrayCallFeature(std::move(directResourceCallModule),
-                                    "direct-resource-array-arguments",
-                                    "direct-resource-array");
+  constexpr std::string_view directResourceArraySource = R"(
+shader MetalFunctionParameterResourceArrayShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[COUNT];
+    layout(set = 0, binding = 5) sampler linearSamplers[COUNT];
+    vec4 sampleFirst(sampler2D maps[COUNT], sampler samplers[COUNT]) {
+      return textureLod(maps[0], samplers[0], vec2(0.5, 0.5), 0.0);
+    }
+    void main() {
+      vec4 color = sampleFirst(colorMaps, linearSamplers);
+      values[0] = color;
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> directResourceArrayHir =
+      parseHIR(directResourceArraySource);
+  expect(directResourceArrayHir.has_value(),
+         "Metal direct resource-array helper fixture builds HIR");
+  if (directResourceArrayHir) {
+    crossgl::DiagnosticEngine supportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(*directResourceArrayHir,
+                                                supportDiagnostics),
+           "Metal supports fixed-size sampled resource arrays passed to helper "
+           "parameters");
+    expect(supportDiagnostics.diagnostics().empty(),
+           "Metal sampled resource-array helper support emits no diagnostics");
+    const std::string directResourceMetal =
+        crossgl::generateMetalSource(*directResourceArrayHir);
+    expect(directResourceMetal.find(
+               "float4 sampleFirst(array<texture2d<float>, COUNT> maps, "
+               "array<sampler, COUNT> samplers)") != std::string::npos &&
+               directResourceMetal.find(
+                   "return maps[0].sample(samplers[0], float2(0.5, 0.5), "
+                   "level(0.0));") != std::string::npos &&
+               directResourceMetal.find(
+                   "float4 color = sampleFirst(colorMaps, linearSamplers);") !=
+                   std::string::npos,
+           "Metal emits sampled resource-array helper parameters and "
+           "helper-side texture sampling");
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-function-parameter-resource-array-helper-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+      crossgl::DiagnosticEngine buildDiagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*directResourceArrayHir, packageDir,
+                                    buildDiagnostics);
+      expect(result.success,
+             "Metal sampled resource-array helper parameter source compiles to "
+             "metallib");
+      expect(!buildDiagnostics.hasErrors(),
+             "Metal sampled resource-array helper parameter build has no "
+             "diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal sampled resource-array helper parameter metallib exists");
+    }
+  }
 
   constexpr std::string_view aritySource = R"(
 shader MetalFunctionCallArityShader {

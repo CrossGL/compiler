@@ -6184,6 +6184,28 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|storage-image.kind=resource|descriptor-array.kind=resource|fixed-array.kind=layout|read-write.kind=storageImage|2d-dimension.kind=storageImage|2d_array-dimension.kind=storageImage|array-dimension.kind=storageImage|r32i-format.kind=storageImage|r32ui-format.kind=storageImage|storage-buffer.kind=resource|nonuniform-descriptor-index.kind=operation|nonuniform-storage-image-descriptor-index.kind=operation|storage-image-read.kind=operation|storage-image-write.kind=operation|storage-image-atomic-add.kind=operation|storage-image-atomic-exchange.kind=operation|storage-image-atomic-min.kind=operation|storage-image-atomic-max.kind=operation|storage-image-atomic-and.kind=operation|storage-image-atomic-or.kind=operation|storage-image-atomic-xor.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET [=[float4 sampleFirst(array<texture2d<float>, COUNT> maps, array<sampler, COUNT> samplers) {
+  return maps[0].sample(samplers[0], float2(0.5, 0.5), level(0.0));
+}
+
+kernel void compute_main(device float4* values [[buffer(0)]], array<texture2d<float>, COUNT> colorMaps [[texture(2)]], array<sampler, COUNT> linearSamplers [[sampler(5)]]) {
+  float4 color = sampleFirst(colorMaps, linearSamplers);
+  values[0] = color;]=])
+  add_test(NAME cglc_build_metal_function_parameter_resource_array_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_METAL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-function-parameter-resource-array.cglb
+      -DEXPECTED_MODULE=MetalFunctionParameterResourceArrayShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalFunctionParameterResourceArrayShader|artifacts.backendSource=backend/metal/MetalFunctionParameterResourceArrayShader.metal|artifacts.intermediate=backend/metal/MetalFunctionParameterResourceArrayShader.air|artifacts.nativeBinary=backend/metal/MetalFunctionParameterResourceArrayShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalFunctionParameterResourceArrayShader|nativeBinary=backend/metal/MetalFunctionParameterResourceArrayShader.metallib|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=values|resources.0.kind=buffer|resources.0.type=vec4*|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.2.name=linearSamplers|resources.2.kind=sampler|resources.2.type=sampler[COUNT]|workgroupSizes.0.entryPoint=compute_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|functionConstants=1|workgroupSizes=1|manualTextureCompareKernels=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.metalType=device float4*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=vec4|values.storageBufferLayout.layout=metal-device|colorMaps.sourceType=sampler2D[COUNT]|colorMaps.metalType=array<texture2d<float>, COUNT>|colorMaps.bindingClass=texture|colorMaps.argumentIndex=2|colorMaps.arraySize=COUNT|colorMaps.arrayElementCount=2|linearSamplers.sourceType=sampler[COUNT]|linearSamplers.metalType=array<sampler, COUNT>|linearSamplers.bindingClass=sampler|linearSamplers.argumentIndex=5|linearSamplers.arraySize=COUNT|linearSamplers.arrayElementCount=2"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|sampled-texture.kind=resource|sampler-state.kind=resource|fixed-array.kind=layout|descriptor-array.kind=resource|function-parameter-array.kind=array|texture-sample.kind=operation|texture-explicit-lod.kind=operation|index-access.kind=operation|vector-constructor.kind=operation|local-declaration.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_function_parameter_array_write_source_package
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -6399,18 +6421,6 @@ add_test(NAME cglc_build_opengl_function_parameter_resource_array_source_package
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|functionConstants=1|workgroupSizes=1"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.bindingClass=storage-buffer|colorMaps.bindingClass=texture|colorMaps.arraySize=COUNT|colorMaps.arrayElementCount=2|linearSamplers.bindingClass=sampler|linearSamplers.arraySize=COUNT|linearSamplers.arrayElementCount=2"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|native-glsl-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|sampled-texture.kind=resource|sampler-state.kind=resource|fixed-array.kind=layout|descriptor-array.kind=resource|function-parameter-array.kind=array|texture-sample.kind=operation|index-access.kind=operation|vector-constructor.kind=operation|storage-buffer-write.kind=operation"
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_metal_function_parameter_resource_array_planned_failure
-  COMMAND ${CMAKE_COMMAND}
-    -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_METAL_FUNCTION_PARAMETER_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
-    -DTARGET=metal
-    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-function-parameter-resource-array.cglb
-    -DMODE=planned-build-failure
-    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=metal"
-    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=metal.backend.native-metal-package|missingCapabilities=metal.diagnostic.metal.unsupported-function-parameter-array-call-feature"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'metal' cannot build a package for this module|message=metal.backend.native-metal-package|message=metal.diagnostic.metal.unsupported-function-parameter-array-call-feature"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_local_function_parameter_array_source_package
   COMMAND ${CMAKE_COMMAND}

@@ -1,4 +1,4 @@
-shader MetalFunctionParameterResourceArrayUnsupportedShader {
+shader MetalFunctionParameterResourceArrayShader {
   const int COUNT = 2;
 
   compute {

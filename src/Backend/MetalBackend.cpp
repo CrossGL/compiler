@@ -3402,11 +3402,57 @@ const HIRFunction *findMetalCallableFunction(const HIRModule &module,
   return nullptr;
 }
 
+HIRFunctionParameterArrayCallFeatureSupport
+metalFunctionParameterArrayCallFeatureSupport(
+    HIRFunctionParameterArrayCallFeature feature) {
+  if (feature ==
+      HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments) {
+    return HIRFunctionParameterArrayCallFeatureSupport::Supported;
+  }
+  return functionParameterArrayCallFeatureSupport(feature);
+}
+
+bool metalSampledTextureOrSamplerArrayParameterSupported(const HIRModule &module,
+                                                         const HIRType &type) {
+  return functionParameterArrayShape(module, type) ==
+             HIRFunctionParameterArrayShape::FixedSize &&
+         (isTextureResourceType(type.name) || isSamplerResourceType(type.name));
+}
+
+HIRFunctionParameterArrayCallFeatureSupport
+metalFunctionParameterArrayCallFeatureSupport(
+    const HIRModule &module, const HIRType &parameterType,
+    HIRFunctionParameterArrayCallFeature feature) {
+  if (feature ==
+          HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments &&
+      !metalSampledTextureOrSamplerArrayParameterSupported(module,
+                                                           parameterType)) {
+    return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+  }
+  return metalFunctionParameterArrayCallFeatureSupport(feature);
+}
+
+HIRFunctionParameterArrayCallFeatureSupport
+metalFunctionParameterArrayCallFeaturesSupport(
+    const HIRModule &module, const HIRType &parameterType,
+    std::span<const HIRFunctionParameterArrayCallFeature> features) {
+  for (HIRFunctionParameterArrayCallFeature feature : features) {
+    if (metalFunctionParameterArrayCallFeatureSupport(module, parameterType,
+                                                      feature) ==
+        HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
+      return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+    }
+  }
+  return HIRFunctionParameterArrayCallFeatureSupport::Supported;
+}
+
 std::string unsupportedMetalFunctionParameterArrayCallFeatures(
+    const HIRModule &module, const HIRType &parameterType,
     const std::vector<HIRFunctionParameterArrayCallFeature> &features) {
   std::string result;
   for (const HIRFunctionParameterArrayCallFeature feature : features) {
-    if (functionParameterArrayCallFeatureSupport(feature) !=
+    if (metalFunctionParameterArrayCallFeatureSupport(module, parameterType,
+                                                      feature) !=
         HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
       continue;
     }
@@ -3457,7 +3503,8 @@ bool validateMetalFunctionParameterArrayCallExpression(
     const std::vector<HIRFunctionParameterArrayCallFeature> features =
         functionParameterArrayCallArgumentFeatures(
             module, caller, expression.children[argumentIndex], stage);
-    if (functionParameterArrayCallFeaturesSupport(
+    if (metalFunctionParameterArrayCallFeaturesSupport(
+            module, parameter.type,
             std::span<const HIRFunctionParameterArrayCallFeature>{
                 features.data(), features.size()}) ==
         HIRFunctionParameterArrayCallFeatureSupport::Supported) {
@@ -3470,7 +3517,8 @@ bool validateMetalFunctionParameterArrayCallExpression(
             std::to_string(argumentIndex) + " passed to helper function '" +
             callee->name + "' from function '" + caller.name +
             "' because function-parameter array feature(s) " +
-            unsupportedMetalFunctionParameterArrayCallFeatures(features) +
+            unsupportedMetalFunctionParameterArrayCallFeatures(
+                module, parameter.type, features) +
             " are unsupported for Metal's value-copy helper-array "
             "ABI");
     valid = false;
