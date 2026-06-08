@@ -4,6 +4,7 @@
 #include "crossgl/Backend/BackendHIR.h"
 #include "crossgl/Backend/BackendIntrinsics.h"
 #include "crossgl/Backend/BackendPlan.h"
+#include "crossgl/Backend/ResourceArrays.h"
 #include "crossgl/Backend/TargetLegalization.h"
 #include "crossgl/Backend/TextureCompare.h"
 #include "crossgl/Basic/Json.h"
@@ -29,8 +30,8 @@ namespace {
 
 constexpr std::string_view kRawStatementBackendInputDiagnostic =
     "opt.hir-raw-statement-backend-input";
-constexpr std::string_view kMetalRuntimeTextureDescriptorArrayTableType =
-    "CrossGLMetalRuntimeTextureDescriptorArrayTable";
+constexpr std::string_view kMetalRuntimeResourceDescriptorArrayTableType =
+    "CrossGLMetalRuntimeResourceDescriptorArrayTable";
 
 bool containsRawStatement(const std::vector<HIRStatement> &statements) {
   for (const HIRStatement &statement : statements) {
@@ -374,17 +375,22 @@ bool isMetalCubeArrayTexture(std::string_view name) {
          name == "samplerCubeArrayShadow";
 }
 
-bool isMetalRuntimeTextureDescriptorArray(const HIRResource &resource) {
-  return resource.kind == HIRResourceKind::Texture &&
+bool isMetalRuntimeResourceDescriptorArray(const HIRResource &resource) {
+  return (resource.kind == HIRResourceKind::Texture ||
+          resource.kind == HIRResourceKind::Sampler) &&
          isRuntimeArrayType(resource.type);
 }
 
-std::string metalRuntimeTextureDescriptorArrayTableParameterType() {
+std::string metalRuntimeResourceDescriptorArrayTableParameterType() {
   return "constant " +
-         std::string(kMetalRuntimeTextureDescriptorArrayTableType) + "&";
+         std::string(kMetalRuntimeResourceDescriptorArrayTableType) + "&";
 }
 
 std::string mapMetalResourceType(const HIRResource &resource) {
+  if (isMetalRuntimeResourceDescriptorArray(resource)) {
+    return metalRuntimeResourceDescriptorArrayTableParameterType();
+  }
+
   switch (resource.kind) {
   case HIRResourceKind::Uniform:
     return "constant " + mapMetalType(pointerlessType(resource.type)) + "&";
@@ -393,9 +399,6 @@ std::string mapMetalResourceType(const HIRResource &resource) {
   case HIRResourceKind::Shared:
     return "threadgroup " + mapMetalType(bufferElementType(resource.type));
   case HIRResourceKind::Texture:
-    if (isMetalRuntimeTextureDescriptorArray(resource)) {
-      return metalRuntimeTextureDescriptorArrayTableParameterType();
-    }
     return mapMetalType(pointerlessType(resource.type));
   case HIRResourceKind::StorageImage:
     if (const std::optional<std::string> storageImageType =
@@ -431,7 +434,7 @@ std::string metalResourceAttributeName(HIRResourceKind kind) {
 }
 
 std::string metalResourceAttributeName(const HIRResource &resource) {
-  if (isMetalRuntimeTextureDescriptorArray(resource)) {
+  if (isMetalRuntimeResourceDescriptorArray(resource)) {
     return "buffer";
   }
   return metalResourceAttributeName(resource.kind);
@@ -2581,10 +2584,10 @@ void renderMetalStorageBufferDescriptorSelector(
   out << "}\n\n";
 }
 
-bool moduleUsesMetalRuntimeTextureDescriptorArray(const HIRModule &module) {
+bool moduleUsesMetalRuntimeResourceDescriptorArray(const HIRModule &module) {
   for (const HIRStage &stage : module.stages) {
     for (const HIRResource &resource : stage.resources) {
-      if (isMetalRuntimeTextureDescriptorArray(resource)) {
+      if (isMetalRuntimeResourceDescriptorArray(resource)) {
         return true;
       }
     }
@@ -2653,8 +2656,8 @@ std::string generateMetalSource(const HIRModule &module) {
       deriveMetalGraphicsIORoles(module);
   out << "#include <metal_stdlib>\n";
   out << "using namespace metal;\n\n";
-  if (moduleUsesMetalRuntimeTextureDescriptorArray(module)) {
-    out << "struct " << kMetalRuntimeTextureDescriptorArrayTableType << " {\n"
+  if (moduleUsesMetalRuntimeResourceDescriptorArray(module)) {
+    out << "struct " << kMetalRuntimeResourceDescriptorArrayTableType << " {\n"
         << "  uint _crossgl_reserved;\n"
         << "};\n\n";
   }
@@ -2724,14 +2727,14 @@ std::string generateMetalSource(const HIRModule &module) {
 }
 
 std::string metalResourceABIType(const HIRResource &resource) {
-  if (isMetalRuntimeTextureDescriptorArray(resource)) {
-    return metalRuntimeTextureDescriptorArrayTableParameterType();
+  if (isMetalRuntimeResourceDescriptorArray(resource)) {
+    return metalRuntimeResourceDescriptorArrayTableParameterType();
   }
   return mapMetalResourceType(resource);
 }
 
 std::string metalResourceAddressSpace(const HIRResource &resource) {
-  if (isMetalRuntimeTextureDescriptorArray(resource)) {
+  if (isMetalRuntimeResourceDescriptorArray(resource)) {
     return "constant";
   }
   switch (resource.kind) {
@@ -4021,12 +4024,13 @@ bool validateMetalConstructorExpressions(const HIRModule &module,
   return valid;
 }
 
-std::string metalRuntimeTextureDescriptorArrayLabel(const HIRStage &stage,
-                                                    const HIRResource &resource) {
-  return "stage '" + stage.stage + "' resource '" + resource.name + "'";
+std::string metalRuntimeResourceDescriptorArrayLabel(
+    const HIRStage &stage, const HIRResource &resource) {
+  return "stage '" + stage.stage + "' resource '" + resource.name + "' (" +
+         resourceKindLabel(resource.kind) + ")";
 }
 
-std::string joinMetalRuntimeTextureDescriptorArrayLabels(
+std::string joinMetalRuntimeResourceDescriptorArrayLabels(
     const std::vector<std::string> &labels) {
   std::ostringstream out;
   for (std::size_t index = 0; index < labels.size(); ++index) {
@@ -4038,56 +4042,67 @@ std::string joinMetalRuntimeTextureDescriptorArrayLabels(
   return out.str();
 }
 
-bool validateMetalRuntimeTextureDescriptorArrayPolicy(
+bool validateMetalRuntimeResourceDescriptorArrayPolicy(
     const HIRModule &module, DiagnosticEngine &diagnostics) {
   bool valid = true;
   std::vector<std::string> labels;
+  std::vector<std::string> textureLabels;
+  std::vector<std::string> samplerLabels;
   for (const HIRStage &stage : module.stages) {
     for (const HIRResource &resource : stage.resources) {
-      if (isMetalRuntimeTextureDescriptorArray(resource)) {
-        labels.push_back(metalRuntimeTextureDescriptorArrayLabel(stage, resource));
+      if (isMetalRuntimeResourceDescriptorArray(resource)) {
+        std::string label =
+            metalRuntimeResourceDescriptorArrayLabel(stage, resource);
+        labels.push_back(label);
+        if (resource.kind == HIRResourceKind::Texture) {
+          textureLabels.push_back(std::move(label));
+        } else if (resource.kind == HIRResourceKind::Sampler) {
+          samplerLabels.push_back(std::move(label));
+        }
       }
     }
   }
 
-  if (labels.size() > 1) {
+  if (textureLabels.size() > 1 || samplerLabels.size() > 1) {
     diagnostics.error(
         "metal.unsupported-runtime-resource-array",
         "Metal backend currently supports only one unused runtime texture "
-        "descriptor array through the argument-buffer table ABI; unsupported "
-        "runtime texture descriptor arrays: " +
-            joinMetalRuntimeTextureDescriptorArrayLabels(labels));
+        "descriptor array and one unused runtime sampler descriptor array "
+        "through the argument-buffer table ABI; unsupported runtime "
+        "descriptor arrays: " +
+            joinMetalRuntimeResourceDescriptorArrayLabels(labels));
     valid = false;
   }
 
   for (const HIRStage &stage : module.stages) {
-    std::set<std::string> runtimeTextureArrays;
+    std::set<std::string> runtimeResourceArrays;
     for (const HIRResource &resource : stage.resources) {
-      if (isMetalRuntimeTextureDescriptorArray(resource)) {
-        runtimeTextureArrays.insert(resource.name);
+      if (isMetalRuntimeResourceDescriptorArray(resource)) {
+        runtimeResourceArrays.insert(resource.name);
       }
     }
-    if (runtimeTextureArrays.empty()) {
+    if (runtimeResourceArrays.empty()) {
       continue;
     }
 
-    std::set<std::string> usedRuntimeTextureArrays;
+    std::set<std::string> usedRuntimeResourceArrays;
     auto visitor = [&](const HIRExpression &expression) {
       if (expression.kind == HIRExpressionKind::Identifier &&
-          runtimeTextureArrays.contains(expression.value)) {
-        usedRuntimeTextureArrays.insert(expression.value);
+          runtimeResourceArrays.contains(expression.value)) {
+        usedRuntimeResourceArrays.insert(expression.value);
       }
     };
     for (const HIRFunction &function : stage.functions) {
       visitFunctionExpressions(function, visitor);
     }
-    for (const std::string &name : usedRuntimeTextureArrays) {
+    for (const std::string &name : usedRuntimeResourceArrays) {
       diagnostics.error(
           "metal.unsupported-runtime-resource-array",
-          "Metal backend currently supports runtime texture descriptor array '" +
+          "Metal backend currently supports runtime texture/sampler descriptor "
+          "array '" +
               name +
               "' only when it is declared but not indexed, sampled, or "
-              "otherwise referenced; runtime texture table element access is "
+              "otherwise referenced; runtime descriptor table element access is "
               "not implemented yet");
       valid = false;
     }
@@ -4152,7 +4167,7 @@ bool validateMetalResources(const HIRModule &module,
         continue;
       }
       if (isRuntimeArrayType(resource.type)) {
-        if (isMetalRuntimeTextureDescriptorArray(resource)) {
+        if (isMetalRuntimeResourceDescriptorArray(resource)) {
           continue;
         }
         diagnostics.error(
@@ -4181,7 +4196,8 @@ bool validateMetalResources(const HIRModule &module,
   valid = validateMetalConstructorExpressions(module, diagnostics) && valid;
   valid = validateMetalStorageBufferArrayIndexes(module, diagnostics) && valid;
   valid = validateMetalRuntimeTailBlockIndexes(module, diagnostics) && valid;
-  valid = validateMetalRuntimeTextureDescriptorArrayPolicy(module, diagnostics) &&
+  valid = validateMetalRuntimeResourceDescriptorArrayPolicy(module,
+                                                           diagnostics) &&
           valid;
   if (!valid) {
     return false;

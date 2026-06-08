@@ -43425,11 +43425,11 @@ shader MetalRuntimeTextureDescriptorArrayPolicyShader {
   const std::string metalRuntimeTextureTableSourceText =
       crossgl::generateMetalSource(*metalRuntimeTextureTableHir);
   expect(metalRuntimeTextureTableSourceText.find(
-             "struct CrossGLMetalRuntimeTextureDescriptorArrayTable") !=
+             "struct CrossGLMetalRuntimeResourceDescriptorArrayTable") !=
              std::string::npos,
          "Metal runtime texture descriptor-array source emits table type");
   expect(metalRuntimeTextureTableSourceText.find(
-             "constant CrossGLMetalRuntimeTextureDescriptorArrayTable& maps "
+             "constant CrossGLMetalRuntimeResourceDescriptorArrayTable& maps "
              "[[buffer(1)]]") != std::string::npos,
          "Metal runtime texture descriptor-array source emits table parameter");
   expect(metalRuntimeTextureTableSourceText.find("array<texture2d<float>") ==
@@ -43445,7 +43445,7 @@ shader MetalRuntimeTextureDescriptorArrayPolicyShader {
   expect(metalRuntimeMapsBinding != nullptr &&
              metalRuntimeMapsBinding->sourceType == "sampler2D[]" &&
              metalRuntimeMapsBinding->metalType ==
-                 "constant CrossGLMetalRuntimeTextureDescriptorArrayTable&" &&
+                 "constant CrossGLMetalRuntimeResourceDescriptorArrayTable&" &&
              metalRuntimeMapsBinding->addressSpace == "constant" &&
              metalRuntimeMapsBinding->bindingClass == "buffer" &&
              metalRuntimeMapsBinding->argumentIndex == 1 &&
@@ -43515,6 +43515,43 @@ shader MetalRuntimeTextureDescriptorArraySampleUnsupportedShader {
                "metal.unsupported-runtime-resource-array",
                "not indexed, sampled, or otherwise referenced"),
            "Metal sampled runtime texture descriptor array diagnostic explains unused-only policy");
+  }
+
+  constexpr std::string_view metalRuntimeSamplerSampleSource = R"(
+shader MetalRuntimeSamplerDescriptorArraySampleUnsupportedShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) uniform sampler2D map;
+    layout(set = 0, binding = 2) sampler linearSamplers[];
+    void main() {
+      values[0] = textureLod(map, linearSamplers[0], vec2(0.0, 0.0), 0.0);
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> metalRuntimeSamplerSampleHir =
+      parseHIR(metalRuntimeSamplerSampleSource);
+  expect(metalRuntimeSamplerSampleHir.has_value(),
+         "Metal sampled runtime sampler descriptor-array source builds HIR");
+  if (metalRuntimeSamplerSampleHir) {
+    crossgl::DiagnosticEngine metalRuntimeSamplerSampleDiagnostics;
+    expect(!crossgl::metalNativeBackendSupported(
+               *metalRuntimeSamplerSampleHir,
+               metalRuntimeSamplerSampleDiagnostics),
+           "Metal rejects sampled runtime sampler descriptor arrays before "
+           "compiling");
+    expect(hasDiagnostic(metalRuntimeSamplerSampleDiagnostics.diagnostics(),
+                         "metal.unsupported-runtime-resource-array"),
+           "Metal sampled runtime sampler descriptor arrays report targeted "
+           "diagnostic");
+    expect(hasDiagnosticMessageFragment(
+               metalRuntimeSamplerSampleDiagnostics.diagnostics(),
+               "metal.unsupported-runtime-resource-array",
+               "not indexed, sampled, or otherwise referenced"),
+           "Metal sampled runtime sampler descriptor array diagnostic explains "
+           "unused-only policy");
   }
 
   constexpr std::string_view resourceSource = R"(
@@ -43664,19 +43701,64 @@ shader VulkanRuntimeTextureDescriptorArrayConflictShader {
              "opengl.unsupported-runtime-resource-array", "linearSamplers"),
          "OpenGL runtime resource array diagnostic names the sampler array");
 
-  const std::filesystem::path metalResourcePackageDir =
-      unitTestTempDirectoryPath() /
-      "crossgl-unit-runtime-resource-array-metal.cglb";
-  std::filesystem::remove_all(metalResourcePackageDir, removeError);
-  crossgl::DiagnosticEngine runtimeResourceMetalDiagnostics;
-  const crossgl::MetalBuildResult runtimeResourceMetalResult =
-      crossgl::buildMetalBinary(*resourceHir, metalResourcePackageDir,
-                                runtimeResourceMetalDiagnostics);
-  expect(!runtimeResourceMetalResult.success,
-         "Metal build rejects runtime resource arrays before compiling");
-  expect(hasDiagnostic(runtimeResourceMetalDiagnostics.diagnostics(),
-                       "metal.unsupported-runtime-resource-array"),
-         "Metal build reports runtime resource array diagnostic");
+  crossgl::DiagnosticEngine runtimeResourceMetalSupportDiagnostics;
+  expect(crossgl::metalNativeBackendSupported(
+             *resourceHir, runtimeResourceMetalSupportDiagnostics),
+         "Metal accepts one unused runtime texture descriptor array and one "
+         "unused runtime sampler descriptor array");
+  expect(runtimeResourceMetalSupportDiagnostics.diagnostics().empty(),
+         "Metal unused runtime resource descriptor arrays have no diagnostics");
+  const std::string runtimeResourceMetalSource =
+      crossgl::generateMetalSource(*resourceHir);
+  expect(runtimeResourceMetalSource.find(
+             "constant CrossGLMetalRuntimeResourceDescriptorArrayTable& maps "
+             "[[buffer(1)]]") != std::string::npos &&
+             runtimeResourceMetalSource.find(
+                 "constant CrossGLMetalRuntimeResourceDescriptorArrayTable& "
+                 "linearSamplers [[buffer(2)]]") != std::string::npos,
+         "Metal source emits table parameters for unused runtime texture and "
+         "sampler descriptor arrays");
+  const crossgl::ReflectionTargetResourceBinding *metalSamplersBinding =
+      findTargetResourceBinding(metalReflection, "linearSamplers");
+  expect(mapsBinding != nullptr &&
+             mapsBinding->metalType ==
+                 "constant CrossGLMetalRuntimeResourceDescriptorArrayTable&" &&
+             mapsBinding->bindingClass == "buffer" &&
+             mapsBinding->argumentIndex == 1 &&
+             metalSamplersBinding != nullptr &&
+             metalSamplersBinding->sourceType == "sampler[]" &&
+             metalSamplersBinding->metalType ==
+                 "constant CrossGLMetalRuntimeResourceDescriptorArrayTable&" &&
+             metalSamplersBinding->addressSpace == "constant" &&
+             metalSamplersBinding->bindingClass == "buffer" &&
+             metalSamplersBinding->argumentIndex == 2 &&
+             metalSamplersBinding->arraySize ==
+                 std::optional<std::string>{""} &&
+             !metalSamplersBinding->arrayElementCount.has_value() &&
+             metalSamplersBinding->arrayDimensions.size() == 1 &&
+             metalSamplersBinding->arrayDimensions[0].kind == "runtime",
+         "Metal reflection records runtime texture and sampler descriptor "
+         "arrays as table-backed buffer arguments");
+  if (crossgl::findExecutable("xcrun")) {
+    const std::filesystem::path metalResourcePackageDir =
+        unitTestTempDirectoryPath() /
+        "crossgl-unit-runtime-resource-array-metal.cglb";
+    std::filesystem::remove_all(metalResourcePackageDir, removeError);
+    crossgl::DiagnosticEngine runtimeResourceMetalDiagnostics;
+    const crossgl::MetalBuildResult runtimeResourceMetalResult =
+        crossgl::buildMetalBinary(*resourceHir, metalResourcePackageDir,
+                                  runtimeResourceMetalDiagnostics);
+    expect(runtimeResourceMetalResult.success,
+           "Metal native path builds unused runtime texture/sampler "
+           "descriptor-array tables");
+    expect(!runtimeResourceMetalDiagnostics.hasErrors(),
+           "Metal unused runtime resource descriptor-array build has no "
+           "diagnostics");
+    expect(!runtimeResourceMetalResult.metallibPath.empty() &&
+               std::filesystem::exists(runtimeResourceMetalResult.metallibPath),
+           "Metal unused runtime resource descriptor-array build produces a "
+           "metallib");
+  }
 
   constexpr std::string_view nonFinalRuntimeFieldSource = R"(
 shader RuntimeArrayNonFinalShader {
