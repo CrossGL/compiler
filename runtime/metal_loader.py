@@ -1027,7 +1027,12 @@ def _copy_descriptor_array_metadata(
     summary: dict[str, Any],
     record: dict[str, Any],
 ) -> None:
-    for field_name in ("arrayDimensions", "arrayElementCount"):
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
         if field_name in record:
             summary[field_name] = record.get(field_name)
 

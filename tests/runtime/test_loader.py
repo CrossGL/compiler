@@ -901,6 +901,81 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             self.assertEqual(binding_metadata["descriptorType"], "UAV")
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_loader_summary_exposes_storage_image_metadata_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            storage_metadata = {
+                "storageImageFormat": "rgba8",
+                "storageImageAccess": "read_write",
+            }
+            reflection["resources"][0].update(
+                {
+                    "name": "OutputImage",
+                    "kind": "storageImage",
+                    "type": "RWTexture2D<float4>",
+                    "set": 2,
+                    "binding": 4,
+                    **storage_metadata,
+                }
+            )
+            reflection["targetResourceBindings"][0].update(
+                {
+                    "name": "OutputImage",
+                    "kind": "storageImage",
+                    "sourceType": "RWTexture2D<float4>",
+                    "addressSpace": "uav",
+                    "abi": {"space": 2, "register": "u4"},
+                    "set": 2,
+                    "binding": 4,
+                    "bindingClass": "uav",
+                    "descriptorType": "UAV",
+                    "hlslType": "RWTexture2D<float4>",
+                    **storage_metadata,
+                }
+            )
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "RuntimeLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "loader must not parse source for storage image metadata\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "directx")
+
+            summary = plan.to_summary()
+            reflection_summary = summary["reflectionResources"]
+            contract_reflection = summary["metadataContract"]["reflectionInputs"]
+            resource = reflection_summary["resources"][0]
+            target_binding = reflection_summary["targetResourceBindings"][0]
+            binding_metadata = summary["targetResourceBindingMetadata"]["bindings"][0]
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertFalse(plan.source_parsing_required)
+            self.assertEqual(resource["storageImageFormat"], "rgba8")
+            self.assertEqual(resource["storageImageAccess"], "read_write")
+            self.assertEqual(target_binding["storageImageFormat"], "rgba8")
+            self.assertEqual(target_binding["storageImageAccess"], "read_write")
+            self.assertEqual(binding_metadata["storageImageFormat"], "rgba8")
+            self.assertEqual(binding_metadata["storageImageAccess"], "read_write")
+            self.assertEqual(
+                contract_reflection["resources"][0]["storageImageFormat"],
+                "rgba8",
+            )
+            self.assertEqual(
+                contract_reflection["targetResourceBindings"][0][
+                    "storageImageAccess"
+                ],
+                "read_write",
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_opengl_summary_exposes_descriptor_array_binding_metadata_without_source_parse(
         self,
     ) -> None:

@@ -316,7 +316,12 @@ def _target_binding_summary(record: dict[str, Any] | None) -> dict[str, Any] | N
         "descriptorType": record.get("descriptorType"),
         "abi": record.get("abi"),
     }
-    for field_name in ("arrayDimensions", "arrayElementCount"):
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
         if field_name in record:
             summary[field_name] = record.get(field_name)
     return summary

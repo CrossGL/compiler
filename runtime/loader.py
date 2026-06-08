@@ -587,6 +587,8 @@ class RuntimeLoaderPlan:
                         "name",
                         "kind",
                         "type",
+                        "storageImageFormat",
+                        "storageImageAccess",
                         "arrayDimensions",
                         "arrayElementCount",
                         "set",
@@ -606,6 +608,8 @@ class RuntimeLoaderPlan:
                         "kind",
                         "bindingClass",
                         "descriptorType",
+                        "storageImageFormat",
+                        "storageImageAccess",
                         "arrayDimensions",
                         "arrayElementCount",
                         "abi",
@@ -1262,7 +1266,12 @@ def _target_resource_binding_metadata_record(
             "kind": record.get("kind"),
         },
     }
-    for field_name in ("arrayDimensions", "arrayElementCount"):
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
         if field_name in record:
             summary[field_name] = record.get(field_name)
     return summary
