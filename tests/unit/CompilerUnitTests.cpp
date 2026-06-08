@@ -39518,6 +39518,68 @@ shader OpenGLLocalFunctionParameterArrayShader {
            "declaration, and index access capabilities");
   }
 
+  constexpr std::string_view matrixLocalArraySource = R"(
+shader OpenGLMatrixFunctionParameterArrayShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    mat2 readTransform(mat2 transforms[COUNT], int index) {
+      return transforms[index];
+    }
+    void main() {
+      mat2 transforms[COUNT];
+      transforms[0] = mat2(1.0, 0.0, 0.0, 1.0);
+      transforms[1] = mat2(0.5, 0.0, 0.0, 0.5);
+      mat2 selected = readTransform(transforms, 1);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> matrixLocalArrayHir =
+      parseHIR(matrixLocalArraySource);
+  expect(matrixLocalArrayHir.has_value(),
+         "OpenGL matrix function parameter array source builds HIR");
+  if (matrixLocalArrayHir) {
+    expect(crossgl::openglTextualBackendSupported(*matrixLocalArrayHir),
+           "OpenGL supports fixed-size matrix local arrays passed to helper "
+           "array parameters");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayCallFeatures(
+               *matrixLocalArrayHir),
+           "OpenGL classifier accepts matrix local array helper calls");
+    const std::string matrixLocalArrayOpenGL =
+        crossgl::generateOpenGLSource(*matrixLocalArrayHir);
+    expect(matrixLocalArrayOpenGL.find(
+               "mat2 readTransform(mat2 transforms[COUNT], int index)") !=
+                   std::string::npos &&
+               matrixLocalArrayOpenGL.find("return transforms[index];") !=
+                   std::string::npos &&
+               matrixLocalArrayOpenGL.find("mat2 transforms[COUNT];") !=
+                   std::string::npos &&
+               matrixLocalArrayOpenGL.find(
+                   "transforms[0] = mat2(1.0, 0.0, 0.0, 1.0);") !=
+                   std::string::npos &&
+               matrixLocalArrayOpenGL.find(
+                   "mat2 selected = readTransform(transforms, 1);") !=
+                   std::string::npos,
+           "OpenGL GLSL source preserves fixed-size matrix helper arrays and "
+           "local matrix array arguments");
+    const std::vector<crossgl::TargetCapability> matrixOpenGLMissing =
+        crossgl::missingTargetCapabilities(*matrixLocalArrayHir,
+                                           crossgl::TargetKind::OpenGL);
+    expect(!hasCapability(matrixOpenGLMissing, crossgl::TargetKind::OpenGL,
+                          "backend", "glsl-lowering") &&
+               !hasCapability(matrixOpenGLMissing,
+                              crossgl::TargetKind::OpenGL, "array",
+                              "matrix-elements") &&
+               !hasCapability(matrixOpenGLMissing,
+                              crossgl::TargetKind::OpenGL, "operation",
+                              "matrix-constructor"),
+           "OpenGL matrix local helper support satisfies GLSL lowering, "
+           "matrix-elements, and matrix-constructor capabilities");
+  }
+
   constexpr std::string_view foldedLocalArraySource = R"(
 shader OpenGLFoldedLocalFunctionParameterArrayShader {
   const int COUNT = 4;

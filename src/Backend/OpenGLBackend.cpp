@@ -131,7 +131,8 @@ bool isSupportedFixedSizeLocalArrayValueType(const HIRType &type) {
          baseName == "vec2" || baseName == "vec3" || baseName == "vec4" ||
          baseName == "ivec2" || baseName == "ivec3" ||
          baseName == "ivec4" || baseName == "uvec2" ||
-         baseName == "uvec3" || baseName == "uvec4";
+         baseName == "uvec3" || baseName == "uvec4" ||
+         isMatrixType(baseName);
 }
 
 bool isSupportedLocalDeclarationType(const HIRType &type) {
@@ -3241,7 +3242,8 @@ void diagnoseOpenGLSourceUnsupported(DiagnosticEngine &diagnostics) {
       "scalar integer storage-buffer and workgroup shared-memory atomic "
       "expression statements and declaration/assignment captures, compute "
       "workgroup barrier expression statements, "
-      "fixed-size function parameter arrays, fixed-size numeric local arrays "
+      "fixed-size function parameter arrays, fixed-size numeric and matrix "
+      "local arrays "
       "(including fixed nested arrays with literal/folded or dynamic helper "
       "read indices) passed to helper array parameters with callee-local "
       "parameter writes, fixed-size struct-element helper arrays, same-stage "
