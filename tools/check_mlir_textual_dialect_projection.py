@@ -373,6 +373,27 @@ def resource_lines(resource_facts: dict[str, Any]) -> list[str]:
     return lines
 
 
+def storage_image_name_for_access(
+    resource_facts: dict[str, Any], allowed_access: set[str], fallback: str
+) -> str:
+    storage_images = resource_facts.get("storageImages")
+    if not isinstance(storage_images, list):
+        return fallback
+    for storage_image in storage_images:
+        if not isinstance(storage_image, dict):
+            continue
+        name = storage_image.get("name")
+        access = storage_image.get("access")
+        if isinstance(name, str) and access in allowed_access:
+            return name
+    for storage_image in storage_images:
+        if isinstance(storage_image, dict) and isinstance(
+            storage_image.get("name"), str
+        ):
+            return storage_image["name"]
+    return fallback
+
+
 def textual_module_skeleton(
     fixture_path: str,
     fixture: dict[str, Any],
@@ -401,12 +422,18 @@ def textual_module_skeleton(
             "%uv, %lod : !hir.vec2, !hir.f32 -> !hir.vec4"
         )
     if "hir.image_load" in string_list(boundary_record.get("expectedOperations")):
+        load_image = storage_image_name_for_access(
+            resource_facts, {"read", "read_write"}, "colorImage"
+        )
         lines.append(
-            "  %pixel = hir.image_load @colorImage, %xy : !hir.ivec2 -> !hir.vec4"
+            f"  %pixel = hir.image_load @{load_image}, %xy : !hir.ivec2 -> !hir.vec4"
         )
     if "hir.image_store" in string_list(boundary_record.get("expectedOperations")):
+        store_image = storage_image_name_for_access(
+            resource_facts, {"write", "read_write"}, "colorImage"
+        )
         lines.append(
-            "  hir.image_store @colorImage, %xy, %pixel : !hir.ivec2, !hir.vec4"
+            f"  hir.image_store @{store_image}, %xy, %pixel : !hir.ivec2, !hir.vec4"
         )
     lines.extend(
         [

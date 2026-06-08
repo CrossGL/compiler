@@ -301,6 +301,7 @@ RESOURCE_MODE_STORAGE_IMAGE = "direct-storage-image-binding"
 CONTROL_FLOW_CATEGORY_STRAIGHT_LINE = "straight-line"
 CONTROL_FLOW_CATEGORY_STRUCTURED_IF_ELSE = "structured-if-else"
 HIR_OPT_LEVEL_FOR_PARITY = "O0"
+STORAGE_IMAGE_ACCESS_VALUES = {"read", "write", "read_write"}
 
 
 def read_text(path: Path) -> str:
@@ -774,8 +775,11 @@ def check_resource_facts(
             )
             if not isinstance(storage_image.get("arrayed"), bool):
                 errors.append(f"{item_field}.arrayed must be a boolean")
-            if storage_image.get("access") != "read_write":
-                errors.append(f"{item_field}.access must be 'read_write'")
+            if storage_image.get("access") not in STORAGE_IMAGE_ACCESS_VALUES:
+                errors.append(
+                    f"{item_field}.access must be one of "
+                    f"{sorted(STORAGE_IMAGE_ACCESS_VALUES)!r}"
+                )
             for integer_field in ("set", "binding"):
                 value = storage_image.get(integer_field)
                 if not isinstance(value, int) or value < 0:
@@ -880,11 +884,16 @@ def check_resource_facts(
                 errors.append(
                     f"{item_field}.addressSpace must be {expected_address_space!r}"
                 )
-            expected_access = (
-                "read_write" if kind in {"storageBuffer", "storageImage"} else "read"
-            )
-            if record.get("access") != expected_access:
-                errors.append(f"{item_field}.access must be {expected_access!r}")
+            if kind == "storageImage":
+                if record.get("access") not in STORAGE_IMAGE_ACCESS_VALUES:
+                    errors.append(
+                        f"{item_field}.access must be one of "
+                        f"{sorted(STORAGE_IMAGE_ACCESS_VALUES)!r}"
+                    )
+            else:
+                expected_access = "read_write" if kind == "storageBuffer" else "read"
+                if record.get("access") != expected_access:
+                    errors.append(f"{item_field}.access must be {expected_access!r}")
             for integer_field in ("set", "binding"):
                 value = record.get(integer_field)
                 if not isinstance(value, int) or value < 0:
@@ -2787,6 +2796,62 @@ def run_self_test() -> list[str]:
                 "stale-control-flow-category",
                 "controlFlowCategory must be "
                 f"{CONTROL_FLOW_CATEGORY_STRUCTURED_IF_ELSE!r}",
+            )
+        )
+
+        bad_storage_image_access = copy.deepcopy(inventory)
+        bad_resource_facts = bad_storage_image_access["fixtures"][1]["resourceFacts"]
+        bad_resource_facts["descriptors"].append(
+            {
+                "stage": "compute",
+                "name": "image",
+                "kind": "storageImage",
+                "set": 0,
+                "binding": 1,
+            }
+        )
+        bad_resource_facts["storageImages"].append(
+            {
+                "name": "image",
+                "type": "image2D",
+                "elementType": "vec4",
+                "format": "rgba32f",
+                "dimension": "2d",
+                "arrayed": False,
+                "access": "read_only",
+                "set": 0,
+                "binding": 1,
+            }
+        )
+        bad_resource_facts["targetIndependentResourceMetadata"].append(
+            {
+                "stage": "compute",
+                "name": "image",
+                "kind": "storageImage",
+                "sourceType": "image2D",
+                "elementType": "vec4",
+                "addressSpace": "storage",
+                "access": "read_only",
+                "set": 0,
+                "binding": 1,
+                "targetIndependent": True,
+            }
+        )
+        bad_storage_image_access["fixtures"][1][PARITY_REQUIREMENT_KEY] = (
+            build_parity_requirements(bad_storage_image_access["fixtures"][1])
+        )
+        bad_storage_image_access["fixtures"][1][REPORT_FIELD_KEY] = build_report_fields(
+            bad_storage_image_access["fixtures"][1]
+        )
+        bad_storage_image_access["fixtures"][1][LOWERING_EVIDENCE_KEY] = (
+            build_lowering_evidence(bad_storage_image_access["fixtures"][1])
+        )
+        errors.extend(
+            expect_self_test_failure(
+                root,
+                bad_storage_image_access,
+                "invalid-storage-image-access",
+                "access must be one of ['read', 'read_write', 'write']",
             )
         )
 
