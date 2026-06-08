@@ -969,9 +969,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 "rgba8",
             )
             self.assertEqual(
-                contract_reflection["targetResourceBindings"][0][
-                    "storageImageAccess"
-                ],
+                contract_reflection["targetResourceBindings"][0]["storageImageAccess"],
                 "read_write",
             )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])

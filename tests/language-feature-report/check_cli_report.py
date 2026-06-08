@@ -167,8 +167,7 @@ def target_gate_by_id(
     ]
     require(
         len(matches) == 1,
-        f"expected exactly one {target} target gate {gate_id!r}, "
-        f"got {len(matches)}",
+        f"expected exactly one {target} target gate {gate_id!r}, got {len(matches)}",
     )
     return matches[0]
 
@@ -494,9 +493,7 @@ def check_target_resource_array_gate(cglc: Path, root: Path) -> None:
     )
     report = run_report(cglc, root, source)
 
-    resource_array_gate = target_gate_by_id(
-        report, "vulkan", "target.resource-arrays"
-    )
+    resource_array_gate = target_gate_by_id(report, "vulkan", "target.resource-arrays")
     require(
         resource_array_gate["targetVersion"] == "v0",
         "resource-array gate should use target version v0",
@@ -544,9 +541,7 @@ def check_target_resource_array_gate(cglc: Path, root: Path) -> None:
     )
     unsupported_facts = report["facts"]["unsupported"]
     resource_array_facts = [
-        fact
-        for fact in unsupported_facts
-        if fact["factId"] == "target.resource-arrays"
+        fact for fact in unsupported_facts if fact["factId"] == "target.resource-arrays"
     ]
     require(
         len(resource_array_facts) == 1,
