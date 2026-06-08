@@ -157,6 +157,22 @@ def feature_by_id(
     raise AssertionError(f"missing {group} feature {feature_id!r}")
 
 
+def target_gate_by_id(
+    report: dict[str, Any], target: str, gate_id: str
+) -> dict[str, Any]:
+    matches = [
+        gate
+        for gate in report["targetFeatureGates"]
+        if gate["target"] == target and gate["gateId"] == gate_id
+    ]
+    require(
+        len(matches) == 1,
+        f"expected exactly one {target} target gate {gate_id!r}, "
+        f"got {len(matches)}",
+    )
+    return matches[0]
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -472,37 +488,77 @@ def check_spaced_source_path_schema(cglc: Path, root: Path) -> None:
         )
 
 
-def check_target_limited_shader(cglc: Path, root: Path) -> None:
-    source = root / "tests/fixtures/RuntimeResourceArrayUnsupportedShader.cgl"
+def check_target_resource_array_gate(cglc: Path, root: Path) -> None:
+    source = (
+        root / "tests/fixtures/StorageBufferUnsizedDescriptorArrayUnsupportedShader.cgl"
+    )
     report = run_report(cglc, root, source)
 
-    gate_ids = {gate["gateId"] for gate in report["targetFeatureGates"]}
-    require("target.resource-arrays" in gate_ids, "missing resource-array gate")
-    resource_array_gate = next(
-        gate
-        for gate in report["targetFeatureGates"]
-        if gate["gateId"] == "target.resource-arrays"
+    resource_array_gate = target_gate_by_id(
+        report, "vulkan", "target.resource-arrays"
     )
-    target = resource_array_gate["target"]
+    require(
+        resource_array_gate["targetVersion"] == "v0",
+        "resource-array gate should use target version v0",
+    )
+    require(
+        resource_array_gate["packageMode"] == "unavailable",
+        "resource-array gate should report unavailable package mode",
+    )
+    require(
+        resource_array_gate["featureFamily"] == "resources",
+        "resource-array gate should be a resources gate",
+    )
+    require(
+        resource_array_gate["status"] == "planned-failure",
+        "resource-array gate should report planned-failure status",
+    )
+    required_capabilities = set(resource_array_gate["requiredCapabilities"])
+    require(
+        "vulkan.backend.vulkan-prototype-package" in required_capabilities,
+        "resource-array gate should cite the vulkan package capability",
+    )
+    require(
+        "vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
+        in required_capabilities,
+        "resource-array gate should cite the vulkan runtime resource array "
+        "diagnostic capability",
+    )
+    diagnostic_codes = set(resource_array_gate["diagnosticCodes"])
+    require(
+        "vulkan.prototype-unsupported-runtime-resource-array" in diagnostic_codes,
+        "resource-array gate should expose the vulkan resource-array diagnostic",
+    )
     evidence_ids = set(resource_array_gate["evidenceIds"])
     require(
-        any(
-            evidence_id.startswith(f"target-contract:{target}.package-mode.")
-            for evidence_id in evidence_ids
-        ),
+        "compatibility:target.resource-arrays" in evidence_ids,
+        "target gate should cite resource-array compatibility evidence",
+    )
+    require(
+        "target-contract:vulkan.package-mode.unsupported" in evidence_ids,
         "target gate should cite projection package-mode evidence",
     )
     require(
-        f"target-contract:{target}.support.unsupported" in evidence_ids,
+        "target-contract:vulkan.support.unsupported" in evidence_ids,
         "target gate should cite unsupported projection support evidence",
     )
     unsupported_facts = report["facts"]["unsupported"]
-    require(unsupported_facts, "expected target unsupported fact")
+    resource_array_facts = [
+        fact
+        for fact in unsupported_facts
+        if fact["factId"] == "target.resource-arrays"
+    ]
     require(
-        any(
-            fact["classification"] == "target.unsupported" for fact in unsupported_facts
-        ),
-        "missing target.unsupported classification",
+        len(resource_array_facts) == 1,
+        "expected one target.resource-arrays unsupported fact",
+    )
+    require(
+        resource_array_facts[0]["classification"] == "target.unsupported",
+        "resource-array fact should use target.unsupported classification",
+    )
+    require(
+        set(resource_array_facts[0]["evidenceIds"]) == evidence_ids,
+        "resource-array fact should cite the resource-array gate evidence",
     )
 
 
@@ -571,7 +627,7 @@ def main() -> int:
         },
     )
     check_spaced_source_path_schema(args.cglc.resolve(), root)
-    check_target_limited_shader(args.cglc.resolve(), root)
+    check_target_resource_array_gate(args.cglc.resolve(), root)
     print("cglc language feature report CLI OK")
     return 0
 
