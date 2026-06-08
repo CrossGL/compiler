@@ -2139,6 +2139,230 @@ bool isHIRSelectBranchOperandPair(const HIRType &left, const HIRType &right) {
          (isHIRScalarNumericType(left) && isHIRScalarNumericType(right));
 }
 
+bool isHIRScalarNumericConstructorType(const HIRType &type) {
+  return isHIRScalarNumericType(type);
+}
+
+bool isHIRConstructorComponentConvertible(const HIRType &targetComponentType,
+                                          const HIRType &sourceComponentType) {
+  const HIRType target = stripTypeQualifier(targetComponentType);
+  const HIRType source = stripTypeQualifier(sourceComponentType);
+  if (sameType(target, source)) {
+    return true;
+  }
+  if (isScalarBoolType(target) || isScalarBoolType(source)) {
+    return false;
+  }
+  return isHIRScalarNumericType(target) && isHIRScalarNumericType(source);
+}
+
+std::optional<HIRType> hirScalarOrVectorComponentType(const HIRType &type) {
+  if (type.name.empty() || type.arraySize.has_value()) {
+    return std::nullopt;
+  }
+  const std::string typeBase = baseTypeName(type);
+  if (isVectorType(typeBase)) {
+    return scalarTypeForVector(typeBase);
+  }
+  if (isHIRScalarNumericType(type) || isScalarBoolType(type)) {
+    return stripTypeQualifier(type);
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t> hirConstructorConstituentWidth(
+    const HIRExpression &operand, const HIRType &operandType,
+    const HIRType &componentType, std::string_view constructorName,
+    std::string_view diagnosticCode, std::string_view constructorKind,
+    const std::string &context, DiagnosticEngine &diagnostics, bool &valid) {
+  const std::optional<HIRType> operandComponentType =
+      hirScalarOrVectorComponentType(operandType);
+  if (!operandComponentType.has_value()) {
+    if (operandType.name.empty()) {
+      return std::nullopt;
+    }
+    diagnostics.error(
+        std::string(diagnosticCode),
+        "HIR " + context + " " + std::string(constructorKind) +
+            " constructor '" + std::string(constructorName) +
+            "' requires scalar or vector operands convertible to component "
+            "type '" +
+            formatType(componentType) + "', got '" + formatType(operandType) +
+            "'",
+        operand.location);
+    valid = false;
+    return std::size_t{0};
+  }
+  if (!isHIRConstructorComponentConvertible(componentType,
+                                            *operandComponentType)) {
+    diagnostics.error(
+        std::string(diagnosticCode),
+        "HIR " + context + " " + std::string(constructorKind) +
+            " constructor '" + std::string(constructorName) +
+            "' requires scalar or vector operands convertible to component "
+            "type '" +
+            formatType(componentType) + "', got '" + formatType(operandType) +
+            "'",
+        operand.location);
+    valid = false;
+    return std::size_t{0};
+  }
+
+  const std::string operandBase = baseTypeName(operandType);
+  if (isVectorType(operandBase)) {
+    return vectorWidthFromName(operandBase);
+  }
+  return std::size_t{1};
+}
+
+void validateHIRVectorConstructorTypedExpression(
+    const HIRExpression &expression, const HIRType &constructorType,
+    const std::string &context, const HIRSymbolTable &symbols,
+    DiagnosticEngine &diagnostics) {
+  const std::string targetBase = baseTypeName(constructorType);
+  const std::optional<std::size_t> targetWidth =
+      vectorWidthFromName(targetBase);
+  if (!targetWidth.has_value() || constructorType.arraySize.has_value()) {
+    return;
+  }
+
+  const HIRType componentType = scalarTypeForVector(targetBase);
+  std::size_t componentCount = 0;
+  bool allOperandWidthsKnown = true;
+  bool valid = true;
+  for (const HIRExpression &operand : expression.children) {
+    const std::optional<HIRType> operandType =
+        hirExpressionEffectiveType(operand, symbols);
+    if (!operandType.has_value()) {
+      allOperandWidthsKnown = false;
+      continue;
+    }
+    const std::optional<std::size_t> operandWidth =
+        hirConstructorConstituentWidth(
+            operand, *operandType, componentType, expression.value,
+            "opt.hir-vector-constructor", "vector", context, diagnostics,
+            valid);
+    if (!operandWidth.has_value()) {
+      allOperandWidthsKnown = false;
+      continue;
+    }
+    componentCount += *operandWidth;
+  }
+
+  const bool scalarSplat =
+      expression.children.size() == 1 && componentCount == std::size_t{1};
+  if (valid && allOperandWidthsKnown && !scalarSplat &&
+      componentCount != *targetWidth) {
+    diagnostics.error("opt.hir-vector-constructor",
+                      "HIR " + context + " vector constructor '" +
+                          expression.value + "' expects " +
+                          std::to_string(*targetWidth) +
+                          " scalar components, got " +
+                          std::to_string(componentCount),
+                      expression.location);
+  }
+}
+
+void validateHIRMatrixConstructorTypedExpression(
+    const HIRExpression &expression, const HIRType &constructorType,
+    const std::string &context, const HIRSymbolTable &symbols,
+    DiagnosticEngine &diagnostics) {
+  const std::string targetBase = baseTypeName(constructorType);
+  const std::optional<std::size_t> targetElementCount =
+      matrixElementCountFromName(targetBase);
+  if (!targetElementCount.has_value() || constructorType.arraySize.has_value()) {
+    return;
+  }
+
+  if (expression.children.size() == 1) {
+    const std::optional<HIRType> sourceType =
+        hirExpressionEffectiveType(expression.children.front(), symbols);
+    if (!sourceType.has_value() || sourceType->name.empty()) {
+      return;
+    }
+    if (!sourceType->arraySize.has_value()) {
+      const std::string sourceBase = baseTypeName(*sourceType);
+      if (isMatrixType(sourceBase) || isHIRScalarNumericType(*sourceType)) {
+        return;
+      }
+    }
+  }
+
+  const HIRType componentType{"float", std::nullopt};
+  std::size_t componentCount = 0;
+  bool allOperandTypesKnown = true;
+  bool valid = true;
+  for (const HIRExpression &operand : expression.children) {
+    const std::optional<HIRType> operandType =
+        hirExpressionEffectiveType(operand, symbols);
+    if (!operandType.has_value()) {
+      allOperandTypesKnown = false;
+      continue;
+    }
+    const std::optional<std::size_t> operandWidth =
+        hirConstructorConstituentWidth(
+            operand, *operandType, componentType, expression.value,
+            "opt.hir-matrix-constructor", "matrix", context, diagnostics,
+            valid);
+    if (!operandWidth.has_value()) {
+      allOperandTypesKnown = false;
+      continue;
+    }
+    componentCount += *operandWidth;
+  }
+
+  if (valid && allOperandTypesKnown && componentCount != *targetElementCount) {
+    diagnostics.error("opt.hir-matrix-constructor",
+                      "HIR " + context + " matrix constructor '" +
+                          expression.value + "' expects " +
+                          std::to_string(*targetElementCount) +
+                          " scalar components, got " +
+                          std::to_string(componentCount),
+                      expression.location);
+  }
+}
+
+void validateHIRConstructorTypedExpression(
+    const HIRExpression &expression, const std::string &context,
+    const HIRSymbolTable &symbols, DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::Constructor ||
+      expression.value.empty()) {
+    return;
+  }
+
+  const HIRType constructorType{expression.value, std::nullopt,
+                               expression.location};
+  if (isHIRScalarNumericConstructorType(constructorType)) {
+    if (expression.children.size() != 1) {
+      diagnostics.error("opt.hir-scalar-constructor",
+                        "HIR " + context + " scalar numeric constructor '" +
+                            expression.value +
+                            "' expects exactly one operand, got " +
+                            std::to_string(expression.children.size()),
+                        expression.location);
+      return;
+    }
+
+    const std::optional<HIRType> sourceType =
+        hirExpressionEffectiveType(expression.children.front(), symbols);
+    if (sourceType.has_value() && !sourceType->name.empty() &&
+        !isHIRScalarNumericType(*sourceType)) {
+      diagnostics.error("opt.hir-scalar-constructor",
+                        "HIR " + context + " scalar numeric constructor '" +
+                            expression.value +
+                            "' requires a scalar numeric operand, got '" +
+                            formatType(*sourceType) + "'",
+                        expression.children.front().location);
+    }
+    return;
+  }
+
+  validateHIRVectorConstructorTypedExpression(expression, constructorType,
+                                             context, symbols, diagnostics);
+  validateHIRMatrixConstructorTypedExpression(expression, constructorType,
+                                             context, symbols, diagnostics);
+}
+
 void validateHIRUnaryOperatorOperandTypes(const HIRExpression &expression,
                                           const std::string &context,
                                           const HIRSymbolTable &symbols,
@@ -2377,6 +2601,8 @@ void validateHIRExpressionTypedSymbols(
         expression, constructorType, context, "opt.hir-constructor-type",
         typedContext, diagnostics);
   }
+  validateHIRConstructorTypedExpression(expression, context, symbols,
+                                        diagnostics);
 
   if (const std::optional<HIRType> callResultType =
           hirKnownCallResultType(expression, symbols)) {

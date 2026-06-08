@@ -82,11 +82,14 @@ REQUIRED_COVERAGE_CATEGORIES = (
     "diagnostic:opt.hir-duplicate-resource",
     "diagnostic:opt.hir-duplicate-resource-binding",
     "diagnostic:opt.hir-expression-shape",
+    "diagnostic:opt.hir-matrix-constructor",
     "diagnostic:opt.hir-missing-entry-point",
     "diagnostic:opt.hir-resource-shape",
     "diagnostic:opt.hir-runtime-resource-array-shape",
+    "diagnostic:opt.hir-scalar-constructor",
     "diagnostic:opt.hir-statement-shape",
     "diagnostic:opt.hir-storage-image-runtime-descriptor-array",
+    "diagnostic:opt.hir-vector-constructor",
     "diagnostic:sema.storage-image-atomic",
 )
 ALLOWED_NON_HIR_COVERAGE_CATEGORIES = frozenset(
@@ -1105,17 +1108,20 @@ SELF_TEST_DIAGNOSTIC_COVERAGE = (
     ),
     ("testSelfDiagnosticDuplicateResourceValidation", "opt.hir-duplicate-resource"),
     ("testSelfDiagnosticExpressionShapeValidation", "opt.hir-expression-shape"),
+    ("testSelfDiagnosticMatrixConstructorValidation", "opt.hir-matrix-constructor"),
     ("testSelfDiagnosticMissingEntryPointValidation", "opt.hir-missing-entry-point"),
     ("testSelfDiagnosticResourceShapeValidation", "opt.hir-resource-shape"),
     (
         "testSelfDiagnosticRuntimeResourceArrayShapeValidation",
         "opt.hir-runtime-resource-array-shape",
     ),
+    ("testSelfDiagnosticScalarConstructorValidation", "opt.hir-scalar-constructor"),
     ("testSelfDiagnosticStatementShapeValidation", "opt.hir-statement-shape"),
     (
         "testSelfDiagnosticStorageImageRuntimeArrayValidation",
         "opt.hir-storage-image-runtime-descriptor-array",
     ),
+    ("testSelfDiagnosticVectorConstructorValidation", "opt.hir-vector-constructor"),
     ("testSelfDiagnosticStorageImageAtomicValidation", "sema.storage-image-atomic"),
 )
 

@@ -7119,6 +7119,121 @@ void testHIRForInitializerTypedSymbolScope() {
          "a for initializer declaration");
 }
 
+crossgl::HIRType constructorVerifierType(std::string name) {
+  return crossgl::HIRType{std::move(name), std::nullopt};
+}
+
+crossgl::HIRExpression constructorVerifierLiteral(std::string value,
+                                                  std::string typeName) {
+  crossgl::HIRExpression expression;
+  expression.kind = crossgl::HIRExpressionKind::Literal;
+  expression.value = std::move(value);
+  expression.type = constructorVerifierType(std::move(typeName));
+  return expression;
+}
+
+crossgl::HIRExpression constructorVerifierConstructor(
+    std::string name, std::vector<crossgl::HIRExpression> operands) {
+  crossgl::HIRExpression expression;
+  expression.kind = crossgl::HIRExpressionKind::Constructor;
+  expression.type = constructorVerifierType(name);
+  expression.value = std::move(name);
+  expression.children = std::move(operands);
+  return expression;
+}
+
+std::vector<crossgl::Diagnostic> constructorVerifierDiagnostics(
+    crossgl::HIRExpression expression) {
+  crossgl::HIRStatement statement;
+  statement.kind = crossgl::HIRStatementKind::Expression;
+  statement.value = std::move(expression);
+
+  crossgl::HIRModule module = simpleModule();
+  crossgl::HIRFunction &main = module.stages.front().functions.front();
+  main.returnType = constructorVerifierType("void");
+  main.body.push_back(std::move(statement));
+  return collectDefaultHIRValidationDiagnostics(std::move(module));
+}
+
+void testHIROptimizationPipelineScalarConstructorValidation() {
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "float", {constructorVerifierLiteral("true", "bool")})),
+             "opt.hir-scalar-constructor"),
+         "HIR typed-symbol validation diagnoses scalar constructor operand "
+         "domain mismatches");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "float", {constructorVerifierLiteral("1", "int")})),
+             "opt.hir-scalar-constructor"),
+         "HIR typed-symbol validation accepts scalar numeric constructor casts");
+}
+
+void testHIROptimizationPipelineVectorConstructorValidation() {
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "vec3", {constructorVerifierLiteral("1.0", "float"),
+                          constructorVerifierLiteral("2.0", "float")})),
+             "opt.hir-vector-constructor"),
+         "HIR typed-symbol validation diagnoses short vector constructors");
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "vec3",
+                 {constructorVerifierConstructor(
+                      "vec2", {constructorVerifierLiteral("1.0", "float"),
+                               constructorVerifierLiteral("2.0", "float")}),
+                  constructorVerifierLiteral("true", "bool")})),
+             "opt.hir-vector-constructor"),
+         "HIR typed-symbol validation diagnoses vector constructor component "
+         "domain mismatches");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "bvec2", {constructorVerifierLiteral("true", "bool"),
+                           constructorVerifierLiteral("false", "bool")})),
+             "opt.hir-vector-constructor"),
+         "HIR typed-symbol validation accepts bool vector constructors");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "vec3",
+                 {constructorVerifierConstructor(
+                      "vec2", {constructorVerifierLiteral("1.0", "float"),
+                               constructorVerifierLiteral("2.0", "float")}),
+                  constructorVerifierLiteral("3.0", "float")})),
+             "opt.hir-vector-constructor"),
+         "HIR typed-symbol validation accepts flattened vector constructors");
+}
+
+void testHIROptimizationPipelineMatrixConstructorValidation() {
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "mat2", {constructorVerifierLiteral("1.0", "float"),
+                          constructorVerifierLiteral("0.0", "float"),
+                          constructorVerifierLiteral("0.0", "float")})),
+             "opt.hir-matrix-constructor"),
+         "HIR typed-symbol validation diagnoses short matrix constructors");
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "mat2", {constructorVerifierLiteral("1.0", "float"),
+                          constructorVerifierLiteral("0.0", "float"),
+                          constructorVerifierLiteral("0.0", "float"),
+                          constructorVerifierLiteral("true", "bool")})),
+             "opt.hir-matrix-constructor"),
+         "HIR typed-symbol validation diagnoses matrix constructor component "
+         "domain mismatches");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "mat2", {constructorVerifierLiteral("1.0", "float")})),
+             "opt.hir-matrix-constructor"),
+         "HIR typed-symbol validation accepts matrix scalar splat constructors");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "mat2", {constructorVerifierConstructor(
+                             "mat2", {constructorVerifierLiteral("1.0",
+                                                                 "float")})})),
+             "opt.hir-matrix-constructor"),
+         "HIR typed-symbol validation accepts matrix-from-matrix constructors");
+}
+
 void testHIROptimizationPipelineRuntimeResourceArrayShapeValidation() {
   crossgl::HIRModule module = simpleModule();
   module.stages.front().resources.push_back(
@@ -51292,6 +51407,9 @@ int main() {
   testHIROptimizationPipelineStatementShapeValidation();
   testHIRBackendInputRawStatementValidation();
   testHIROptimizationPipelineTypedSymbolValidation();
+  testHIROptimizationPipelineScalarConstructorValidation();
+  testHIROptimizationPipelineVectorConstructorValidation();
+  testHIROptimizationPipelineMatrixConstructorValidation();
   testHIROptimizationPipelineRuntimeResourceArrayShapeValidation();
   testHIROptimizationPipelineStorageImageRuntimeArrayValidation();
   testHIRTextureExpressionTypedValidation();

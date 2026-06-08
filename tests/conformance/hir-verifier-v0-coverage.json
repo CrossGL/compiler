@@ -368,6 +368,15 @@
         },
         {
           "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineMatrixConstructorValidation",
+          "diagnostic_code": "opt.hir-matrix-constructor",
+          "coverage_categories": [
+            "diagnostic:opt.hir-matrix-constructor"
+          ],
+          "requirement": "Malformed matrix constructor arity and component domains fail closed in typed HIR validation."
+        },
+        {
+          "kind": "diagnostic",
           "name": "testHIROptimizationPipelineMissingEntryPointValidation",
           "diagnostic_code": "opt.hir-missing-entry-point",
           "coverage_categories": [
@@ -395,6 +404,15 @@
         },
         {
           "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineScalarConstructorValidation",
+          "diagnostic_code": "opt.hir-scalar-constructor",
+          "coverage_categories": [
+            "diagnostic:opt.hir-scalar-constructor"
+          ],
+          "requirement": "Malformed scalar constructor arity and operand domains fail closed in typed HIR validation."
+        },
+        {
+          "kind": "diagnostic",
           "name": "testHIROptimizationPipelineStatementShapeValidation",
           "diagnostic_code": "opt.hir-statement-shape",
           "coverage_categories": [
@@ -410,6 +428,15 @@
             "diagnostic:opt.hir-storage-image-runtime-descriptor-array"
           ],
           "requirement": "Runtime storage-image descriptor arrays fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineVectorConstructorValidation",
+          "diagnostic_code": "opt.hir-vector-constructor",
+          "coverage_categories": [
+            "diagnostic:opt.hir-vector-constructor"
+          ],
+          "requirement": "Malformed vector constructor arity and component domains fail closed in typed HIR validation."
         }
       ]
     },

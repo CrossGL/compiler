@@ -962,6 +962,38 @@ kernel void compute_main(device Particle* particles [[buffer(0)]]) {
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|fixed-array.kind=layout|fixed-array-field.kind=layout|index-access.kind=operation|local-declaration.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_TRANSITIVE_HELPER_RESOURCE_SOURCE_SNIPPET [=[float writeResult(float value, device float* values) {
+  values[0] = value;
+  return value;
+}
+
+float forwardResult(float value, device float* values) {
+  return writeResult(value + 1.0, values);
+}
+
+kernel void compute_main(device float* values [[buffer(0)]]) {
+  float base = values[1];
+  float result = forwardResult(base, values);
+  values[2] = result;]=])
+  add_test(NAME cglc_build_metal_transitive_helper_resource_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalTransitiveHelperResourceShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-transitive-helper-resource.cglb
+      -DEXPECTED_MODULE=MetalTransitiveHelperResourceShader
+      -DMODE=metal-build
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ float*
+      -DEXPECTED_METAL_BUFFER_NAME=values
+      "-DEXPECTED_METAL_STORE_SNIPPET=values[2] = result;"
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_TRANSITIVE_HELPER_RESOURCE_SOURCE_SNIPPET}"
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalTransitiveHelperResourceShader|nativeBinary=backend/metal/MetalTransitiveHelperResourceShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.addressSpace=device|values.bindingClass=buffer|values.argumentIndex=0|values.set=0|values.binding=0|values.abi=kernelArgument|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-arithmetic.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   set(CROSSGL_METAL_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_SOURCE_SNIPPET [=[float rewriteWeight(array<float, COUNT> weights) {
   weights[0] = 1.0;
   return weights[0];
