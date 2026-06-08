@@ -1479,6 +1479,12 @@ bool hasReflectionTargetResourceBindingIdentity(
          !binding.kind.empty();
 }
 
+bool hasReflectionTargetResourceBindingDuplicateIdentity(
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return !binding.stage.empty() && !binding.entryPoint.empty() &&
+         !binding.name.empty();
+}
+
 bool reflectionIdentityMatches(
     const PackageReflectionResourceRecord &resource,
     const PackageReflectionTargetResourceBindingRecord &binding) {
@@ -1486,11 +1492,25 @@ bool reflectionIdentityMatches(
          resource.kind == binding.kind;
 }
 
+bool reflectionTargetBindingDuplicateIdentityMatches(
+    const PackageReflectionTargetResourceBindingRecord &left,
+    const PackageReflectionTargetResourceBindingRecord &right) {
+  return left.target == right.target && left.stage == right.stage &&
+         left.entryPoint == right.entryPoint && left.name == right.name &&
+         left.kind == right.kind;
+}
+
 std::string reflectionIdentityLabel(std::string_view stage,
                                     std::string_view name,
                                     std::string_view kind) {
   return "stage '" + std::string(stage) + "' name '" + std::string(name) +
          "' kind '" + std::string(kind) + "'";
+}
+
+std::string reflectionTargetBindingDuplicateIdentityLabel(
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return "stage '" + binding.stage + "' entryPoint '" + binding.entryPoint +
+         "' name '" + binding.name + "' kind '" + binding.kind + "'";
 }
 
 std::string reflectionResourceLabel(
@@ -1643,6 +1663,34 @@ void verifyReflectionBindingResourceFields(
 
 void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
                                             DiagnosticEngine &diagnostics) {
+  for (auto binding = metadata.reflectionTargetResourceBindings.begin();
+       binding != metadata.reflectionTargetResourceBindings.end(); ++binding) {
+    if (binding->target != metadata.target ||
+        !hasReflectionTargetResourceBindingDuplicateIdentity(*binding)) {
+      continue;
+    }
+    const auto duplicate =
+        std::find_if(metadata.reflectionTargetResourceBindings.begin(), binding,
+                     [&](const PackageReflectionTargetResourceBindingRecord
+                             &candidate) {
+                       return candidate.target == metadata.target &&
+                              hasReflectionTargetResourceBindingDuplicateIdentity(
+                                  candidate) &&
+                              reflectionTargetBindingDuplicateIdentityMatches(
+                                  candidate, *binding);
+                     });
+    if (duplicate == binding) {
+      continue;
+    }
+    diagnostics.error(
+        diagnosticCode("reflection-target-resource-binding-duplicate"),
+        "reflection selected-target resource binding " +
+            reflectionTargetBindingDuplicateIdentityLabel(*binding) +
+            " duplicates an earlier binding for target '" + metadata.target +
+            "'",
+        binding->location);
+  }
+
   for (const PackageReflectionResourceRecord &resource :
        metadata.reflectionResources) {
     if (!hasReflectionResourceIdentity(resource)) {

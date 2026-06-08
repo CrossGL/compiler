@@ -709,6 +709,85 @@ function(crossgl_mutate_package_manifest package_path mutation_kind)
   file(WRITE "${manifest_path}" "${mutated_manifest}")
 endfunction()
 
+function(crossgl_mutate_package_reflection package_path mutation_kind)
+  if("${mutation_kind}" STREQUAL "")
+    return()
+  endif()
+
+  set(manifest_path "${package_path}/manifest.json")
+  set(reflection_path "${package_path}/reflection.json")
+  if(NOT EXISTS "${manifest_path}")
+    message(FATAL_ERROR
+      "cannot mutate package reflection; manifest does not exist: ${manifest_path}")
+  endif()
+  if(NOT EXISTS "${reflection_path}")
+    message(FATAL_ERROR
+      "cannot mutate package reflection; file does not exist: ${reflection_path}")
+  endif()
+
+  file(READ "${manifest_path}" manifest)
+  file(READ "${reflection_path}" reflection)
+  if(mutation_kind STREQUAL "duplicate-selected-target-resource-binding")
+    string(JSON selected_target ERROR_VARIABLE manifest_error GET
+      "${manifest}" target)
+    if(NOT manifest_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read manifest target for ${mutation_kind}: ${manifest_error}")
+    endif()
+    string(JSON binding_count ERROR_VARIABLE reflection_error LENGTH
+      "${reflection}" targetResourceBindings)
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read reflection targetResourceBindings for ${mutation_kind}: ${reflection_error}")
+    endif()
+    if(binding_count LESS 1)
+      message(FATAL_ERROR
+        "cannot duplicate selected-target resource binding; reflection has no targetResourceBindings")
+    endif()
+
+    set(selected_binding_index -1)
+    math(EXPR last_binding_index "${binding_count} - 1")
+    foreach(binding_index RANGE 0 ${last_binding_index})
+      string(JSON binding_target ERROR_VARIABLE target_error GET
+        "${reflection}" targetResourceBindings ${binding_index} target)
+      if(target_error STREQUAL "NOTFOUND" AND
+         binding_target STREQUAL "${selected_target}")
+        set(selected_binding_index ${binding_index})
+        break()
+      endif()
+    endforeach()
+    if(selected_binding_index EQUAL -1)
+      message(FATAL_ERROR
+        "cannot duplicate selected-target resource binding; no binding for ${selected_target}")
+    endif()
+
+    string(JSON duplicate_binding ERROR_VARIABLE reflection_error GET
+      "${reflection}" targetResourceBindings ${selected_binding_index})
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to clone selected-target resource binding for ${mutation_kind}: ${reflection_error}")
+    endif()
+    string(JSON duplicate_binding ERROR_VARIABLE reflection_error SET
+      "${duplicate_binding}" abi
+      "{\"mutatedForDuplicateFixture\":true,\"space\":999,\"register\":\"u999\"}")
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to mutate duplicate resource binding ABI for ${mutation_kind}: ${reflection_error}")
+    endif()
+    string(JSON mutated_reflection ERROR_VARIABLE reflection_error SET
+      "${reflection}" targetResourceBindings ${binding_count}
+      "${duplicate_binding}")
+  else()
+    message(FATAL_ERROR "unknown REFLECTION_MUTATION_KIND: ${mutation_kind}")
+  endif()
+
+  if(NOT reflection_error STREQUAL "NOTFOUND")
+    message(FATAL_ERROR
+      "failed to mutate package reflection for ${mutation_kind}: ${reflection_error}")
+  endif()
+  file(WRITE "${reflection_path}" "${mutated_reflection}")
+endfunction()
+
 function(crossgl_validate_manifest_json_schema json)
   if(NOT DEFINED MANIFEST_JSON_SCHEMA)
     return()
@@ -2631,6 +2710,12 @@ elseif(MODE STREQUAL "package-verify-json-failure")
            "      },\n      {\n        \"name\": \"glslangValidator\",\n        \"role\": \"validator\",\n        \"version\": \"fixture\",\n        \"executable\": \"glslangValidator\"\n      }\n    ],"
            descriptor "${descriptor}")
     file(WRITE "${descriptor_path}" "${descriptor}")
+  elseif(FAILURE_KIND STREQUAL "duplicate-selected-target-resource-binding")
+    if(DEFINED INPUT)
+      list(APPEND verify_command --source "${INPUT}")
+    endif()
+    crossgl_mutate_package_reflection(
+      "${package_path}" "duplicate-selected-target-resource-binding")
   elseif(FAILURE_KIND STREQUAL "malformed-package-artifact-requirements" OR
          FAILURE_KIND STREQUAL "target-conflicting-package-artifact-requirements")
     if(DEFINED INPUT)

@@ -273,6 +273,17 @@ crossgl_add_package_verify_json_failure_schema_test(
   EXPECTED_JSON_ARRAY_LENGTHS
     "diagnostics=1|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds=6|summary.targetLegalizationEvidence.missingEvidence=0")
 
+crossgl_add_package_verify_json_failure_schema_test(
+  NAME cglc_package_verify_json_schema_duplicate_selected_target_resource_binding_failure
+  FAILURE_KIND duplicate-selected-target-resource-binding
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/duplicate-selected-target-resource-binding-verify-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.reflection-target-resource-binding-duplicate|diagnostics.0.message=reflection selected-target resource binding stage 'compute' entryPoint 'compute_main' name 'values' kind 'buffer' duplicates an earlier binding for target 'directx'"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=1")
+
 crossgl_add_package_verify_json_schema_test(
   NAME cglc_package_verify_json_schema_directx_source_package
   TARGET directx
