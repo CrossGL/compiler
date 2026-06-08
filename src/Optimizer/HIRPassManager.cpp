@@ -1267,6 +1267,7 @@ bool validateHIRBackendInput(HIRModule &module,
 }
 
 using HIRSymbolTable = std::unordered_map<std::string, HIRType>;
+using HIRReadOnlySymbolSet = std::set<std::string>;
 
 struct HIRTypedSymbolContext {
   std::set<std::string> structNames;
@@ -1955,6 +1956,20 @@ const HIRExpression *hirDuplicateSwizzleAssignmentTargetExpression(
   return nullptr;
 }
 
+const HIRExpression *
+hirAssignmentTargetRootIdentifier(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  if (target.kind == HIRExpressionKind::Identifier) {
+    return &target;
+  }
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty()) {
+    return hirAssignmentTargetRootIdentifier(target.children.front());
+  }
+  return nullptr;
+}
+
 void validateHIRAtomicReadModifyWriteLValue(
     const HIRExpression &expression, const std::string &context,
     const HIRSymbolTable &symbols, DiagnosticEngine &diagnostics) {
@@ -2331,21 +2346,25 @@ void validateHIRConditionType(const HIRExpression &condition,
 void validateHIRStatementTypedSymbols(
     const HIRStatement &statement, const HIRType &returnType,
     HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
+    HIRReadOnlySymbolSet &readOnlySymbols,
     DiagnosticEngine &diagnostics, const std::string &context);
 
 void validateHIRStatementBlockTypedSymbols(
     std::span<const HIRStatement> statements, const HIRType &returnType,
     HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
+    HIRReadOnlySymbolSet &readOnlySymbols,
     DiagnosticEngine &diagnostics, const std::string &context) {
   for (const HIRStatement &statement : statements) {
     validateHIRStatementTypedSymbols(statement, returnType, symbols,
-                                     typedContext, diagnostics, context);
+                                     typedContext, readOnlySymbols, diagnostics,
+                                     context);
   }
 }
 
 void validateHIRStatementTypedSymbols(
     const HIRStatement &statement, const HIRType &returnType,
     HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
+    HIRReadOnlySymbolSet &readOnlySymbols,
     DiagnosticEngine &diagnostics, const std::string &context) {
   const std::string statementContext =
       context + " " + statementKindName(statement.kind) + " statement";
@@ -2379,6 +2398,7 @@ void validateHIRStatementTypedSymbols(
     }
     if (!statement.name.empty()) {
       symbols[statement.name] = statement.declaredType;
+      readOnlySymbols.erase(statement.name);
     }
     break;
   }
@@ -2409,6 +2429,14 @@ void validateHIRStatementTypedSymbols(
                             "' cannot write the same vector component more "
                             "than once",
                         target->location);
+    }
+    if (const HIRExpression *root =
+            hirAssignmentTargetRootIdentifier(statement.target);
+        root != nullptr && readOnlySymbols.contains(root->value)) {
+      diagnostics.error("opt.hir-assignment-target-readonly",
+                        "HIR " + statementContext + " target '" + root->value +
+                            "' is read-only",
+                        root->location);
     }
     const std::optional<HIRType> targetType =
         hirExpressionEffectiveType(statement.target, symbols);
@@ -2464,8 +2492,10 @@ void validateHIRStatementTypedSymbols(
     break;
   case HIRStatementKind::Block: {
     HIRSymbolTable blockSymbols = symbols;
+    HIRReadOnlySymbolSet blockReadOnlySymbols = readOnlySymbols;
     validateHIRStatementBlockTypedSymbols(statement.body, returnType,
                                           blockSymbols, typedContext,
+                                          blockReadOnlySymbols,
                                           diagnostics,
                                           statementContext + " body");
     break;
@@ -2477,20 +2507,26 @@ void validateHIRStatementTypedSymbols(
     validateHIRConditionType(statement.value, statementContext, symbols,
                              diagnostics);
     HIRSymbolTable thenSymbols = symbols;
+    HIRReadOnlySymbolSet thenReadOnlySymbols = readOnlySymbols;
     validateHIRStatementBlockTypedSymbols(statement.body, returnType,
                                           thenSymbols, typedContext,
+                                          thenReadOnlySymbols,
                                           diagnostics, statementContext + " body");
     HIRSymbolTable elseSymbols = symbols;
+    HIRReadOnlySymbolSet elseReadOnlySymbols = readOnlySymbols;
     validateHIRStatementBlockTypedSymbols(statement.elseBody, returnType,
                                           elseSymbols, typedContext,
+                                          elseReadOnlySymbols,
                                           diagnostics, statementContext + " else");
     break;
   }
   case HIRStatementKind::For: {
     HIRSymbolTable loopSymbols = symbols;
+    HIRReadOnlySymbolSet loopReadOnlySymbols = readOnlySymbols;
     for (const HIRStatement &initializer : statement.initializer) {
       validateHIRStatementTypedSymbols(initializer, returnType, loopSymbols,
-                                       typedContext, diagnostics,
+                                       typedContext, loopReadOnlySymbols,
+                                       diagnostics,
                                        statementContext + " initializer");
     }
     validateHIRExpressionTypedSymbols(statement.value,
@@ -2502,12 +2538,15 @@ void validateHIRStatementTypedSymbols(
     }
     for (const HIRStatement &update : statement.update) {
       validateHIRStatementTypedSymbols(update, returnType, loopSymbols,
-                                       typedContext, diagnostics,
+                                       typedContext, loopReadOnlySymbols,
+                                       diagnostics,
                                        statementContext + " update");
     }
     HIRSymbolTable bodySymbols = loopSymbols;
+    HIRReadOnlySymbolSet bodyReadOnlySymbols = loopReadOnlySymbols;
     validateHIRStatementBlockTypedSymbols(statement.body, returnType,
-                                          bodySymbols, typedContext, diagnostics,
+                                          bodySymbols, typedContext,
+                                          bodyReadOnlySymbols, diagnostics,
                                           statementContext + " body");
     break;
   }
@@ -2561,6 +2600,23 @@ HIRSymbolTable baseHIRSymbolsForFunction(
   return symbols;
 }
 
+HIRReadOnlySymbolSet baseHIRReadOnlySymbolsForFunction(
+    const HIRFunction &function, const HIRTypedSymbolContext &typedContext) {
+  HIRReadOnlySymbolSet readOnlySymbols;
+  for (const auto &[name, _] : typedContext.constants) {
+    readOnlySymbols.insert(name);
+  }
+  for (const auto &[name, _] : typedContext.globalCBufferFields) {
+    readOnlySymbols.insert(name);
+  }
+  for (const HIRParameter &parameter : function.parameters) {
+    if (!parameter.name.empty()) {
+      readOnlySymbols.erase(parameter.name);
+    }
+  }
+  return readOnlySymbols;
+}
+
 HIRSymbolTable stageHIRSymbolsForFunction(
     const HIRFunction &function, const HIRStage &stage,
     const HIRTypedSymbolContext &typedContext) {
@@ -2601,8 +2657,28 @@ HIRSymbolTable stageHIRSymbolsForFunction(
   return symbols;
 }
 
+HIRReadOnlySymbolSet stageHIRReadOnlySymbolsForFunction(
+    const HIRFunction &function, const HIRStage &stage,
+    const HIRTypedSymbolContext &typedContext) {
+  HIRReadOnlySymbolSet readOnlySymbols =
+      baseHIRReadOnlySymbolsForFunction(function, typedContext);
+  if (stage.stage == "compute") {
+    readOnlySymbols.insert("gl_GlobalInvocationID");
+    readOnlySymbols.insert("gl_LocalInvocationID");
+    readOnlySymbols.insert("gl_WorkGroupID");
+    readOnlySymbols.insert("gl_NumWorkGroups");
+  }
+  for (const HIRParameter &parameter : function.parameters) {
+    if (!parameter.name.empty()) {
+      readOnlySymbols.erase(parameter.name);
+    }
+  }
+  return readOnlySymbols;
+}
+
 void validateHIRFunctionTypedSymbols(
     const HIRFunction &function, HIRSymbolTable symbols,
+    HIRReadOnlySymbolSet readOnlySymbols,
     const HIRTypedSymbolContext &typedContext, DiagnosticEngine &diagnostics,
     const std::string &context) {
   const std::string functionName =
@@ -2617,8 +2693,8 @@ void validateHIRFunctionTypedSymbols(
                        typedContext, diagnostics);
   }
   validateHIRStatementBlockTypedSymbols(function.body, function.returnType,
-                                        symbols, typedContext, diagnostics,
-                                        functionContext);
+                                        symbols, typedContext, readOnlySymbols,
+                                        diagnostics, functionContext);
 }
 
 void validateHIRResourceTypedSymbols(const HIRResource &resource,
@@ -2713,6 +2789,7 @@ bool validateHIRTypedSymbols(HIRModule &module, DiagnosticEngine &diagnostics) {
   for (const HIRFunction &function : module.functions) {
     validateHIRFunctionTypedSymbols(
         function, baseHIRSymbolsForFunction(function, typedContext),
+        baseHIRReadOnlySymbolsForFunction(function, typedContext),
         typedContext, diagnostics, "top-level");
   }
 
@@ -2730,6 +2807,7 @@ bool validateHIRTypedSymbols(HIRModule &module, DiagnosticEngine &diagnostics) {
       validateHIRFunctionTypedSymbols(
           function,
           stageHIRSymbolsForFunction(function, stage, stageTypedContext),
+          stageHIRReadOnlySymbolsForFunction(function, stage, stageTypedContext),
           stageTypedContext, diagnostics, "stage '" + stageLabel + "'");
     }
   }

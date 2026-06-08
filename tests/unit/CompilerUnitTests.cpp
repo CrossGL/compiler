@@ -5943,6 +5943,14 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
     statement.value = std::move(value);
     return statement;
   };
+  auto constant = [&](std::string name, crossgl::HIRType constantType,
+                      crossgl::HIRExpression value) {
+    crossgl::HIRConstant result;
+    result.name = std::move(name);
+    result.type = std::move(constantType);
+    result.value = std::move(value);
+    return result;
+  };
   auto returnStatement = [](crossgl::HIRExpression value = {}) {
     crossgl::HIRStatement statement;
     statement.kind = crossgl::HIRStatementKind::Return;
@@ -6179,6 +6187,45 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       "opt.hir-assignment-target-swizzle-duplicate",
       "HIR typed-symbol validation rejects duplicate-component swizzle "
       "assignment targets");
+
+  crossgl::HIRModule constantAssignmentTargetModule = simpleModule();
+  constantAssignmentTargetModule.constants.push_back(
+      constant("COUNT", type("int"), literal("1", type("int"))));
+  crossgl::HIRFunction &constantAssignmentTargetMain =
+      constantAssignmentTargetModule.stages.front().functions.front();
+  constantAssignmentTargetMain.body.push_back(
+      assignment(identifier("COUNT", type("int")), literal("2", type("int"))));
+  expectInvalidTypedSymbol(
+      std::move(constantAssignmentTargetModule),
+      "opt.hir-assignment-target-readonly",
+      "HIR typed-symbol validation rejects assignments to constants");
+
+  crossgl::HIRModule computeBuiltinAssignmentTargetModule = simpleModule();
+  computeBuiltinAssignmentTargetModule.stages.front().stage = "compute";
+  crossgl::HIRFunction &computeBuiltinAssignmentTargetMain =
+      computeBuiltinAssignmentTargetModule.stages.front().functions.front();
+  computeBuiltinAssignmentTargetMain.body.push_back(assignment(
+      member(identifier("gl_NumWorkGroups", type("uvec3")), "x", type("uint")),
+      literal("1u", type("uint"))));
+  expectInvalidTypedSymbol(
+      std::move(computeBuiltinAssignmentTargetModule),
+      "opt.hir-assignment-target-readonly",
+      "HIR typed-symbol validation rejects assignments to compute built-ins");
+
+  crossgl::HIRModule shadowedConstantAssignmentTargetModule = simpleModule();
+  shadowedConstantAssignmentTargetModule.constants.push_back(
+      constant("COUNT", type("int"), literal("1", type("int"))));
+  crossgl::HIRFunction &shadowedConstantAssignmentTargetMain =
+      shadowedConstantAssignmentTargetModule.stages.front().functions.front();
+  shadowedConstantAssignmentTargetMain.body.push_back(
+      declaration("COUNT", type("int"), literal("1", type("int"))));
+  shadowedConstantAssignmentTargetMain.body.push_back(
+      assignment(identifier("COUNT", type("int")), literal("2", type("int"))));
+  expect(!hasDiagnosticCode(collectDefaultHIRValidationDiagnostics(
+                                shadowedConstantAssignmentTargetModule),
+                            "opt.hir-assignment-target-readonly"),
+         "HIR typed-symbol validation lets locals shadow constants before "
+         "assignment");
 
   crossgl::HIRModule mismatchedReturnModule = simpleModule();
   crossgl::HIRFunction &mismatchedReturnMain =
@@ -50142,6 +50189,83 @@ shader DuplicateSwizzleReadShader {
          "duplicate vector swizzle reads remain valid");
 }
 
+void testAssignmentTargetReadOnlyDiagnostics() {
+  constexpr std::string_view constantAssignmentSource = R"(
+shader BadConstantAssignmentShader {
+  const int COUNT = 1;
+  compute {
+    void main() {
+      COUNT = 2;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> constantAssignmentDiagnostics =
+      collectDiagnostics(constantAssignmentSource);
+  expect(hasDiagnostic(constantAssignmentDiagnostics,
+                       "sema.assignment-target-readonly"),
+         "assignments to top-level constants produce a diagnostic");
+
+  constexpr std::string_view builtinAssignmentSource = R"(
+shader BadComputeBuiltinAssignmentShader {
+  compute {
+    void main() {
+      gl_GlobalInvocationID.x = 1u;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> builtinAssignmentDiagnostics =
+      collectDiagnostics(builtinAssignmentSource);
+  expect(hasDiagnostic(builtinAssignmentDiagnostics,
+                       "sema.assignment-target-readonly"),
+         "assignments to compute built-ins produce a diagnostic");
+
+  constexpr std::string_view localShadowSource = R"(
+shader LocalConstantShadowAssignmentShader {
+  const int COUNT = 1;
+  compute {
+    void main() {
+      int COUNT = 0;
+      COUNT = 2;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> localShadowDiagnostics =
+      collectDiagnostics(localShadowSource);
+  expect(!hasDiagnostic(localShadowDiagnostics, "sema.assignment-target-readonly"),
+         "mutable locals can shadow constants before assignment");
+
+  constexpr std::string_view parameterShadowSource = R"(
+shader ParameterConstantShadowAssignmentShader {
+  const int COUNT = 1;
+  int bump(int COUNT) {
+    COUNT = COUNT + 1;
+    return COUNT;
+  }
+  compute {
+    void main() {
+      int value = bump(COUNT);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> parameterShadowDiagnostics =
+      collectDiagnostics(parameterShadowSource);
+  expect(!hasDiagnostic(parameterShadowDiagnostics,
+                        "sema.assignment-target-readonly"),
+         "parameters can shadow constants before assignment");
+}
+
 } // namespace
 
 int main() {
@@ -50468,6 +50592,7 @@ int main() {
   testStorageImageDiagnostics();
   testTextureSampleDiagnostics();
   testVectorSwizzleDiagnostics();
+  testAssignmentTargetReadOnlyDiagnostics();
 
   std::error_code cleanupError;
   std::filesystem::remove_all(unitTempDirectory, cleanupError);
