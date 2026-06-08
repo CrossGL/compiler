@@ -178,6 +178,54 @@
         "productionLinked": false,
         "pseudoMlirInput": false,
         "mustMatchCMake": true
+      },
+      {
+        "path": "tests/fixtures/mlir/storage_buffer_compute_builtin_module.mlir",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "fixture": "tests/fixtures/StorageBufferComputeShader.cgl",
+        "coveredFixtureFacts": [
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.storage_buffer_write",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.float_pointer_storage_buffer",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.binary_expression_result_types",
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "verifierTool": "mlir-opt",
+        "verifierTest": "cglc_mlir_experiment_storage_buffer_compute_verifier",
+        "loweringStatus": "optional-tool-gated-smoke",
+        "productionLinked": false,
+        "pseudoMlirInput": false,
+        "mustMatchCMake": true
       }
     ],
     "verifierParityScaffold": {
@@ -2875,17 +2923,79 @@
           "MLIR_FOUND",
           "target crossgl_mlir_experiment",
           "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+          "verifierInputs",
+          "verifierRegistrations",
           "mlir-opt discovery",
           "default-off no mlir-opt probe proof",
           "CTest skip labels and regex",
           "structured verifier skip diagnostics",
           "report-only source/resource catalog",
-          "source/resource/entrypoint preservation fields"
+          "source/resource/entrypoint preservation fields",
+          "storage-buffer resource facts"
         ],
         "normalBuildRequired": false,
         "productionLinked": false
       },
       "skipWhenUnavailable": "The deterministic real MLIR minimal compute verifier CTest reports default-off or toolchain-unavailable optional skips instead of failing normal builds."
+    },
+    {
+      "name": "cglc_mlir_experiment_storage_buffer_compute_verifier",
+      "kind": "ctest",
+      "requiresInstalledMlirToolchain": true,
+      "optionalToolGated": true,
+      "normalBuildRequired": false,
+      "gate": [
+        "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON",
+        "MLIR_FOUND=TRUE",
+        "mlir-opt available",
+        "mlir-opt --version probe succeeds",
+        "tests/fixtures/mlir/storage_buffer_compute_builtin_module.mlir"
+      ],
+      "skipEvidence": {
+        "reportsOption": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL",
+        "reportsCMakePackage": "MLIR_FOUND",
+        "reportsTarget": "crossgl_mlir_experiment",
+        "statusValues": [
+          "default-off",
+          "toolchain-unavailable"
+        ],
+        "skipWhenOptionOff": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=OFF; real MLIR verifier disabled by default",
+        "skipWhenMlirMissing": "MLIR_FOUND=FALSE",
+        "skipWhenTargetMissing": "target crossgl_mlir_experiment not created",
+        "skipWhenVerifierToolMissing": "mlir-opt not found",
+        "skipWhenVerifierToolProbeFails": "mlir-opt --version probe failed"
+      },
+      "evidenceRecord": {
+        "kind": "crossgl-mlir-optional-tool-evidence-v0",
+        "generatedPath": "mlir/optional_tool_evidence.v0.json",
+        "generatedBy": "tests/cmake/CrossGLMLIRExperimentTests.cmake",
+        "checker": "tools/check_mlir_optional_tool_evidence.py",
+        "statusValues": [
+          "default-off",
+          "toolchain-unavailable",
+          "toolchain-available"
+        ],
+        "records": [
+          "CROSSGL_ENABLE_MLIR_EXPERIMENTAL",
+          "CROSSGL_ENABLE_MLIR_EXPERIMENTAL default",
+          "CROSSGL_ENABLE_MLIR_EXPERIMENTAL actual",
+          "MLIR_FOUND",
+          "target crossgl_mlir_experiment",
+          "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+          "verifierInputs",
+          "verifierRegistrations",
+          "mlir-opt discovery",
+          "default-off no mlir-opt probe proof",
+          "CTest skip labels and regex",
+          "structured verifier skip diagnostics",
+          "report-only source/resource catalog",
+          "source/resource/entrypoint preservation fields",
+          "storage-buffer resource facts"
+        ],
+        "normalBuildRequired": false,
+        "productionLinked": false
+      },
+      "skipWhenUnavailable": "The deterministic real MLIR storage-buffer compute verifier CTest reports default-off or toolchain-unavailable optional skips instead of failing normal builds."
     },
     {
       "name": "manifest_and_policy_audits",
