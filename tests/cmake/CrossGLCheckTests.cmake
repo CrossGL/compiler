@@ -2328,6 +2328,16 @@ add_test(NAME cglc_check_width_swizzle_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=22"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=invalid vector swizzle 'z'|message=type 'vec2'|message=within the vector width"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_duplicate_swizzle_assignment_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DUPLICATE_SWIZZLE_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-swizzle-duplicate
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=13"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target swizzle 'xx' cannot write the same vector component more than once"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_vector_scalar_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

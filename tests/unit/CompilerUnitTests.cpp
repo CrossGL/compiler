@@ -6166,6 +6166,20 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       "opt.hir-assignment-target-lvalue",
       "HIR typed-symbol validation rejects non-assignable assignment targets");
 
+  crossgl::HIRModule duplicateSwizzleAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &duplicateSwizzleAssignmentTargetMain =
+      duplicateSwizzleAssignmentTargetModule.stages.front().functions.front();
+  duplicateSwizzleAssignmentTargetMain.body.push_back(
+      declaration("color", type("vec4")));
+  duplicateSwizzleAssignmentTargetMain.body.push_back(assignment(
+      member(identifier("color", type("vec4")), "xx", type("vec2")),
+      literal("vec2(0.0, 1.0)", type("vec2"))));
+  expectInvalidTypedSymbol(
+      std::move(duplicateSwizzleAssignmentTargetModule),
+      "opt.hir-assignment-target-swizzle-duplicate",
+      "HIR typed-symbol validation rejects duplicate-component swizzle "
+      "assignment targets");
+
   crossgl::HIRModule mismatchedReturnModule = simpleModule();
   crossgl::HIRFunction &mismatchedReturnMain =
       mismatchedReturnModule.stages.front().functions.front();
@@ -50107,6 +50121,25 @@ shader BadWidthSwizzleShader {
       collectDiagnostics(widthSource);
   expect(hasDiagnostic(widthDiagnostics, "sema.invalid-swizzle"),
          "out-of-range vector swizzle components produce a diagnostic");
+
+  constexpr std::string_view duplicateReadSource = R"(
+shader DuplicateSwizzleReadShader {
+  compute {
+    void main() {
+      vec4 color = vec4(1.0, 2.0, 3.0, 4.0);
+      vec2 same = color.xx;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> duplicateReadDiagnostics =
+      collectDiagnostics(duplicateReadSource);
+  expect(!hasDiagnostic(duplicateReadDiagnostics, "sema.invalid-swizzle") &&
+             !hasDiagnostic(duplicateReadDiagnostics,
+                            "sema.assignment-target-swizzle-duplicate"),
+         "duplicate vector swizzle reads remain valid");
 }
 
 } // namespace

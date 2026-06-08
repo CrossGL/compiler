@@ -7,6 +7,7 @@
 #include "crossgl/HIR/TypeSemantics.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iomanip>
 #include <limits>
@@ -269,6 +270,23 @@ HIRType swizzleType(const HIRType &base, std::string_view member) {
     return makeType("vec" + std::to_string(indices->size()));
   }
   return {};
+}
+
+bool swizzleHasDuplicateComponents(const HIRType &base,
+                                   std::string_view member) {
+  const std::optional<std::vector<std::size_t>> indices =
+      swizzleComponentIndices(base, member);
+  if (!indices.has_value()) {
+    return false;
+  }
+  std::array<bool, 4> seen{};
+  for (const std::size_t index : *indices) {
+    if (seen[index]) {
+      return true;
+    }
+    seen[index] = true;
+  }
+  return false;
 }
 
 HIRType inferSelectType(const HIRType &thenType, const HIRType &elseType) {
@@ -4540,6 +4558,24 @@ assignmentTargetDiagnosticExpression(const HIRExpression &expression) {
   return target;
 }
 
+const HIRExpression *
+duplicateSwizzleAssignmentTargetExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty()) {
+    if (target.kind == HIRExpressionKind::MemberAccess) {
+      const HIRExpression &base = target.children.front();
+      if (isVectorType(baseTypeName(base.type)) &&
+          swizzleHasDuplicateComponents(base.type, target.value)) {
+        return &target;
+      }
+    }
+    return duplicateSwizzleAssignmentTargetExpression(target.children.front());
+  }
+  return nullptr;
+}
+
 void validateAssignmentTargetSemantics(const HIRStatement &statement,
                                        DiagnosticEngine &diagnostics) {
   if (statement.kind != HIRStatementKind::Assignment ||
@@ -4554,6 +4590,22 @@ void validateAssignmentTargetSemantics(const HIRStatement &statement,
                     "got '" +
                         expressionKindName(target.kind) + "' expression",
                     target.location);
+}
+
+void validateAssignmentTargetSwizzleSemantics(
+    const HIRStatement &statement, DiagnosticEngine &diagnostics) {
+  if (statement.kind != HIRStatementKind::Assignment ||
+      statement.target.kind == HIRExpressionKind::Empty) {
+    return;
+  }
+  if (const HIRExpression *target =
+          duplicateSwizzleAssignmentTargetExpression(statement.target)) {
+    diagnostics.error("sema.assignment-target-swizzle-duplicate",
+                      "assignment target swizzle '" + target->value +
+                          "' cannot write the same vector component more than "
+                          "once",
+                      target->location);
+  }
 }
 
 void validateAtomicReadModifyWriteExpression(const HIRExpression &expression,
@@ -4831,6 +4883,7 @@ void validateStatementSemantics(const HIRStatement &statement,
   validateReturnStatementSemantics(statement, returnType, structNames,
                                    diagnostics);
   validateAssignmentTargetSemantics(statement, diagnostics);
+  validateAssignmentTargetSwizzleSemantics(statement, diagnostics);
   validateAtomicReadModifyWriteValueUse(statement, diagnostics);
   validateExpressionSemantics(statement.target, stage, resources, diagnostics,
                               functionSignatures);

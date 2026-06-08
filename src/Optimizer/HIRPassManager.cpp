@@ -1899,6 +1899,62 @@ hirAssignmentTargetDiagnosticExpression(const HIRExpression &expression) {
   return target;
 }
 
+bool hirVectorSwizzleHasDuplicateComponents(const HIRType &baseType,
+                                            std::string_view member) {
+  const std::string baseName = baseTypeName(baseType);
+  const std::optional<std::size_t> width = vectorWidthFromName(baseName);
+  if (!isVectorType(baseName) || !width.has_value() || member.empty() ||
+      member.size() > 4) {
+    return false;
+  }
+
+  static constexpr std::string_view sets[] = {"xyzw", "rgba", "stpq"};
+  const std::string_view *selectedSet = nullptr;
+  for (const std::string_view &set : sets) {
+    if (set.find(member.front()) != std::string_view::npos) {
+      selectedSet = &set;
+      break;
+    }
+  }
+  if (selectedSet == nullptr) {
+    return false;
+  }
+
+  std::array<bool, 4> seen{};
+  for (const char component : member) {
+    const std::size_t index = selectedSet->find(component);
+    if (index == std::string_view::npos || index >= *width) {
+      return false;
+    }
+    if (seen[index]) {
+      return true;
+    }
+    seen[index] = true;
+  }
+  return false;
+}
+
+const HIRExpression *hirDuplicateSwizzleAssignmentTargetExpression(
+    const HIRExpression &expression, const HIRSymbolTable &symbols) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty()) {
+    if (target.kind == HIRExpressionKind::MemberAccess) {
+      const HIRExpression &base = target.children.front();
+      const std::optional<HIRType> baseType =
+          hirExpressionEffectiveType(base, symbols);
+      if (baseType.has_value() &&
+          hirVectorSwizzleHasDuplicateComponents(*baseType, target.value)) {
+        return &target;
+      }
+    }
+    return hirDuplicateSwizzleAssignmentTargetExpression(
+        target.children.front(), symbols);
+  }
+  return nullptr;
+}
+
 void validateHIRAtomicReadModifyWriteLValue(
     const HIRExpression &expression, const std::string &context,
     const HIRSymbolTable &symbols, DiagnosticEngine &diagnostics) {
@@ -2343,6 +2399,16 @@ void validateHIRStatementTypedSymbols(
                             "got '" +
                             expressionKindName(target.kind) + "' expression",
                         target.location);
+    }
+    if (const HIRExpression *target =
+            hirDuplicateSwizzleAssignmentTargetExpression(statement.target,
+                                                          symbols)) {
+      diagnostics.error("opt.hir-assignment-target-swizzle-duplicate",
+                        "HIR " + statementContext +
+                            " target swizzle '" + target->value +
+                            "' cannot write the same vector component more "
+                            "than once",
+                        target->location);
     }
     const std::optional<HIRType> targetType =
         hirExpressionEffectiveType(statement.target, symbols);
