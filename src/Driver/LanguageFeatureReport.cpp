@@ -662,8 +662,11 @@ void collectModuleFeatures(const HIRModule &module, FeatureCollector &features,
   }
 }
 
-void collectFrontendLayoutLocations(const ShaderModule &module,
-                                    FeatureCollector &features) {
+void collectFrontendMetadataFeatures(const ShaderModule &module,
+                                     FeatureCollector &features,
+                                     const std::string &fixtureEvidenceId) {
+  const std::vector<std::string> resourceEvidence = {
+      fixtureEvidenceId, "spec-index:grammar.resources"};
   for (const StageDecl &stage : module.stages) {
     if (stage.workgroupSize.has_value()) {
       features.addLayoutLocation("layout.local-size",
@@ -677,6 +680,11 @@ void collectFrontendLayoutLocations(const ShaderModule &module,
       if (resource.storageImageFormat.has_value()) {
         features.addLayoutLocation("layout.storage-image-format",
                                    resource.storageImageFormatLocation);
+      }
+      if (resource.storageImageAccessQualifier.has_value()) {
+        features.addResource("resource.storage-image-access-qualifier",
+                             "accepted-source", resourceEvidence,
+                             {resource.storageImageAccessLocation});
       }
     }
   }
@@ -1185,7 +1193,8 @@ std::optional<std::string> languageFeatureReportJson(
   FeatureCollector featureCollector(sourcePath);
   collectModuleFeatures(module->hir, featureCollector, evidence,
                         fixtureEvidenceId);
-  collectFrontendLayoutLocations(module->ast, featureCollector);
+  collectFrontendMetadataFeatures(module->ast, featureCollector,
+                                  fixtureEvidenceId);
   FeatureRecordGroups features = featureCollector.groups();
 
   std::map<std::string, FactRecord> unsupportedFactMap;

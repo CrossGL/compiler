@@ -228,6 +228,39 @@ def require_feature_source_location(
     )
 
 
+def source_lines_for_feature(
+    report: dict[str, Any], group: str, feature_id: str, source_text: str
+) -> list[str]:
+    source_lines = normalize_text(source_text).splitlines()
+    feature = feature_by_id(report, group, feature_id)
+    lines: list[str] = []
+    for location in feature["sourceLocations"]:
+        line_index = location["line"] - 1
+        require(
+            0 <= line_index < len(source_lines),
+            f"{group} feature {feature_id!r} source line should be in range",
+        )
+        lines.append(source_lines[line_index])
+    return lines
+
+
+def require_feature_lines_include(
+    report: dict[str, Any],
+    group: str,
+    feature_id: str,
+    source_text: str,
+    expected_fragments: set[str],
+) -> None:
+    lines = source_lines_for_feature(report, group, feature_id, source_text)
+    require(lines, f"{group} feature {feature_id!r} should have source lines")
+    for fragment in expected_fragments:
+        require(
+            any(fragment in line for line in lines),
+            f"{group} feature {feature_id!r} should cite source containing "
+            f"{fragment!r}",
+        )
+
+
 def require_feature_status(
     report: dict[str, Any], group: str, feature_id: str, status: str
 ) -> None:
@@ -317,9 +350,14 @@ def check_storage_image_descriptor_array_shader(
     cglc: Path,
     root: Path,
     fixture_name: str,
+    expected_storage_image_declarations: set[str],
+    expected_format_declarations: set[str],
+    expected_nonuniform_uses: set[str],
     expected_memory_features: set[str] | None = None,
+    expected_atomic_uses: set[str] | None = None,
 ) -> None:
     source = root / "tests/fixtures" / fixture_name
+    source_text = source.read_text(encoding="utf-8")
     report = run_report(cglc, root, source)
 
     require(
@@ -327,15 +365,15 @@ def check_storage_image_descriptor_array_shader(
         "storage image fixture source path should be root-relative",
     )
     require(
-        report["module"]["sourceSha256"]
-        == sha256_text(source.read_text(encoding="utf-8")),
+        report["module"]["sourceSha256"] == sha256_text(source_text),
         "storage image fixture source hash mismatch",
     )
 
     expected_resource_features = {
-        "resource.storage-image",
-        "resource.descriptor-array",
-        "resource.nonuniform-descriptor-index",
+        "resource.storage-image": "package-supported",
+        "resource.descriptor-array": "package-supported",
+        "resource.nonuniform-descriptor-index": "package-supported",
+        "resource.storage-image-access-qualifier": "accepted-source",
     }
     expected_layout_features = {
         "layout.storage-image-format",
@@ -344,8 +382,8 @@ def check_storage_image_descriptor_array_shader(
     }
     expected_memory_features = expected_memory_features or set()
 
-    for feature_id in expected_resource_features:
-        require_feature_status(report, "resources", feature_id, "package-supported")
+    for feature_id, status in expected_resource_features.items():
+        require_feature_status(report, "resources", feature_id, status)
         require_feature_source_location(report, "resources", feature_id)
     for feature_id in expected_memory_features:
         require_feature_status(report, "memory", feature_id, "package-supported")
@@ -353,6 +391,41 @@ def check_storage_image_descriptor_array_shader(
     for feature_id in expected_layout_features:
         require_feature_status(report, "layout", feature_id, "accepted-source")
         require_feature_source_location(report, "layout", feature_id)
+
+    for feature_id in {
+        "resource.storage-image",
+        "resource.descriptor-array",
+        "resource.storage-image-access-qualifier",
+    }:
+        require_feature_lines_include(
+            report,
+            "resources",
+            feature_id,
+            source_text,
+            expected_storage_image_declarations,
+        )
+    require_feature_lines_include(
+        report,
+        "layout",
+        "layout.storage-image-format",
+        source_text,
+        expected_format_declarations,
+    )
+    require_feature_lines_include(
+        report,
+        "resources",
+        "resource.nonuniform-descriptor-index",
+        source_text,
+        expected_nonuniform_uses,
+    )
+    if expected_atomic_uses is not None:
+        require_feature_lines_include(
+            report,
+            "memory",
+            "memory.storage-image-atomic",
+            source_text,
+            expected_atomic_uses,
+        )
 
     require(
         any(
@@ -445,12 +518,57 @@ def main() -> int:
         args.cglc.resolve(),
         root,
         "StorageImageExplicitFormatDescriptorArrayShader.cgl",
+        expected_storage_image_declarations={
+            "readonly uniform image2D colorImages[IMAGE_COUNT]",
+            "readonly uniform iimage2D labelImages[IMAGE_COUNT]",
+            "readonly uniform uimage2DArray maskAtlases[ATLAS_COUNT]",
+            "writeonly uniform uimage2DArray outputAtlases[ATLAS_COUNT]",
+        },
+        expected_format_declarations={
+            "binding = 0, format = r32f",
+            "binding = 1, format = r32i",
+            "binding = 2, format = r32ui",
+            "binding = 3, format = r32ui",
+        },
+        expected_nonuniform_uses={
+            "colorImages[nonuniform(imageSlot)]",
+            "labelImages[nonuniform(imageSlot)]",
+            "maskAtlases[nonuniform(atlasSlot)]",
+            "outputAtlases[nonuniform(atlasSlot)]",
+        },
     )
     check_storage_image_descriptor_array_shader(
         args.cglc.resolve(),
         root,
         "StorageImageAtomicDescriptorArrayShader.cgl",
+        expected_storage_image_declarations={
+            "readwrite uniform iimage2D signedCounters[IMAGE_COUNT]",
+            "readwrite uniform uimage2D unsignedCounters[IMAGE_COUNT]",
+            "readwrite uniform iimage2DArray signedAtlases[IMAGE_COUNT]",
+            "readwrite uniform uimage2DArray unsignedAtlases[IMAGE_COUNT]",
+        },
+        expected_format_declarations={
+            "binding = 1, format = r32i",
+            "binding = 2, format = r32ui",
+            "binding = 3, format = r32i",
+            "binding = 4, format = r32ui",
+        },
+        expected_nonuniform_uses={
+            "signedCounters[nonuniform(slot)]",
+            "unsignedCounters[nonuniform(slot)]",
+            "signedAtlases[nonuniform(slot)]",
+            "unsignedAtlases[nonuniform(slot)]",
+        },
         expected_memory_features={"memory.storage-image-atomic"},
+        expected_atomic_uses={
+            "imageAtomicAdd",
+            "imageAtomicMin",
+            "imageAtomicMax",
+            "imageAtomicAnd",
+            "imageAtomicOr",
+            "imageAtomicExchange",
+            "imageAtomicXor",
+        },
     )
     check_spaced_source_path_schema(args.cglc.resolve(), root)
     check_target_limited_shader(args.cglc.resolve(), root)
