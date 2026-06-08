@@ -1,0 +1,1 @@
+$.reflection.targetResourceBindings[0].arrayElementCount: required for fixed descriptor array binding

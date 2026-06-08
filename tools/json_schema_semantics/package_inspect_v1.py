@@ -305,6 +305,47 @@ def validate_embedded_reflection_semantics(errors, reflection):
         errors.append(embedded_reflection_error_path(error))
 
 
+def fixed_array_element_count(dimensions):
+    if not dimensions:
+        return None
+
+    product = 1
+    for dimension in dimensions:
+        if dimension.get("kind") != "fixed" or "elementCount" not in dimension:
+            return None
+        product *= dimension["elementCount"]
+    return product
+
+
+def validate_descriptor_array_binding_metadata(errors, reflection):
+    resources = reflection.get("resources")
+    bindings = reflection.get("targetResourceBindings")
+    if not isinstance(resources, list) or not isinstance(bindings, list):
+        return
+
+    resource_map = {}
+    for resource in resources:
+        key = (resource.get("stage"), resource.get("name"), resource.get("kind"))
+        resource_map.setdefault(key, resource)
+
+    for index, binding in enumerate(bindings):
+        key = (binding.get("stage"), binding.get("name"), binding.get("kind"))
+        resource = resource_map.get(key)
+        if resource is None:
+            continue
+
+        fixed_product = fixed_array_element_count(resource.get("arrayDimensions", []))
+        if fixed_product is None:
+            continue
+
+        binding_path = f"$.reflection.targetResourceBindings[{index}]"
+        if "arrayElementCount" not in binding:
+            errors.append(
+                f"{binding_path}.arrayElementCount: required for fixed descriptor "
+                "array binding"
+            )
+
+
 def validate_manifest_summary(errors, summary, manifest, reflection):
     if "module" in manifest:
         add_equal_error(
@@ -1717,6 +1758,7 @@ def validate_semantics(instance):
     validate_artifacts(errors, summary, instance["artifacts"], manifest)
     validate_manifest_summary(errors, summary, manifest, reflection)
     validate_embedded_reflection_semantics(errors, reflection)
+    validate_descriptor_array_binding_metadata(errors, reflection)
     validate_package_artifact_requirements(
         errors,
         package_artifact_requirements,

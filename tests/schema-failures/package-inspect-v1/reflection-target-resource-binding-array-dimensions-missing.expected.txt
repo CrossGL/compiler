@@ -1,0 +1,1 @@
+$.reflection.targetResourceBindings[0].arrayDimensions: expected source resource arrayDimensions [{'source': 'TEXTURE_COUNT', 'kind': 'fixed', 'elementCount': 4}], got []
