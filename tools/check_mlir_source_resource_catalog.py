@@ -219,12 +219,27 @@ RESOURCE_DESCRIPTOR_ITEM_FIELDS = (
     "resourceFacts.descriptors[].set",
     "resourceFacts.descriptors[].binding",
 )
+RESOURCE_DESCRIPTOR_OPTIONAL_ITEM_FIELDS = (
+    ("descriptorArray", "resourceFacts.descriptors[].descriptorArray"),
+    ("arraySize", "resourceFacts.descriptors[].arraySize"),
+    ("indexingMode", "resourceFacts.descriptors[].indexingMode"),
+    ("fixedDescriptorIndices", "resourceFacts.descriptors[].fixedDescriptorIndices"),
+)
 RESOURCE_STORAGE_BUFFER_ITEM_FIELDS = (
     "resourceFacts.storageBuffers[].name",
     "resourceFacts.storageBuffers[].type",
     "resourceFacts.storageBuffers[].elementType",
     "resourceFacts.storageBuffers[].addressSpace",
     "resourceFacts.storageBuffers[].writeAccess",
+)
+RESOURCE_STORAGE_BUFFER_OPTIONAL_ITEM_FIELDS = (
+    ("descriptorArray", "resourceFacts.storageBuffers[].descriptorArray"),
+    ("arraySize", "resourceFacts.storageBuffers[].arraySize"),
+    ("indexingMode", "resourceFacts.storageBuffers[].indexingMode"),
+    (
+        "fixedDescriptorIndices",
+        "resourceFacts.storageBuffers[].fixedDescriptorIndices",
+    ),
 )
 RESOURCE_STORAGE_IMAGE_ITEM_FIELDS = (
     "resourceFacts.storageImages[].name",
@@ -265,6 +280,18 @@ RESOURCE_METADATA_ITEM_FIELDS = (
     "resourceFacts.targetIndependentResourceMetadata[].set",
     "resourceFacts.targetIndependentResourceMetadata[].binding",
     "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+)
+RESOURCE_METADATA_OPTIONAL_ITEM_FIELDS = (
+    (
+        "descriptorArray",
+        "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+    ),
+    ("arraySize", "resourceFacts.targetIndependentResourceMetadata[].arraySize"),
+    ("indexingMode", "resourceFacts.targetIndependentResourceMetadata[].indexingMode"),
+    (
+        "fixedDescriptorIndices",
+        "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices",
+    ),
 )
 PARITY_COVERAGE_MATRIX_KEYS = ("status", "dimensions", "fixtures")
 PARITY_COVERAGE_MATRIX_STATUS_COVERED = "covered"
@@ -422,11 +449,21 @@ def prefixed_fact_fields(prefix: str, facts: list[str]) -> list[str]:
 def expected_resource_manifest_fields(resource_facts: dict[str, Any]) -> list[str]:
     fields = ["resourceFacts.localSize"]
     fields.append("resourceFacts.descriptors")
-    if resource_facts.get("descriptors"):
+    descriptors = resource_facts.get("descriptors")
+    if isinstance(descriptors, list) and descriptors:
         fields.extend(RESOURCE_DESCRIPTOR_ITEM_FIELDS)
+        fields.extend(
+            optional_item_fields(descriptors, RESOURCE_DESCRIPTOR_OPTIONAL_ITEM_FIELDS)
+        )
     fields.append("resourceFacts.storageBuffers")
-    if resource_facts.get("storageBuffers"):
+    storage_buffers = resource_facts.get("storageBuffers")
+    if isinstance(storage_buffers, list) and storage_buffers:
         fields.extend(RESOURCE_STORAGE_BUFFER_ITEM_FIELDS)
+        fields.extend(
+            optional_item_fields(
+                storage_buffers, RESOURCE_STORAGE_BUFFER_OPTIONAL_ITEM_FIELDS
+            )
+        )
     fields.append("resourceFacts.storageImages")
     if resource_facts.get("storageImages"):
         fields.extend(RESOURCE_STORAGE_IMAGE_ITEM_FIELDS)
@@ -446,7 +483,11 @@ def expected_resource_binding_fields(resource_facts: dict[str, Any]) -> list[str
 def expected_metadata_manifest_fields(metadata: dict[str, Any]) -> list[str]:
     records = metadata.get("records")
     if isinstance(records, list) and records:
-        return [RESOURCE_METADATA_COLLECTION, *RESOURCE_METADATA_ITEM_FIELDS]
+        return [
+            RESOURCE_METADATA_COLLECTION,
+            *RESOURCE_METADATA_ITEM_FIELDS,
+            *optional_item_fields(records, RESOURCE_METADATA_OPTIONAL_ITEM_FIELDS),
+        ]
     return [RESOURCE_METADATA_COLLECTION]
 
 
@@ -455,8 +496,22 @@ def expected_metadata_manifest_fields_for_resource(
 ) -> list[str]:
     records = resource_facts.get("targetIndependentResourceMetadata")
     if isinstance(records, list) and records:
-        return [RESOURCE_METADATA_COLLECTION, *RESOURCE_METADATA_ITEM_FIELDS]
+        return [
+            RESOURCE_METADATA_COLLECTION,
+            *RESOURCE_METADATA_ITEM_FIELDS,
+            *optional_item_fields(records, RESOURCE_METADATA_OPTIONAL_ITEM_FIELDS),
+        ]
     return [RESOURCE_METADATA_COLLECTION]
+
+
+def optional_item_fields(
+    records: list[Any], optional_fields: tuple[tuple[str, str], ...]
+) -> list[str]:
+    fields: list[str] = []
+    for key, field in optional_fields:
+        if any(isinstance(item, dict) and key in item for item in records):
+            fields.append(field)
+    return fields
 
 
 def expected_source_resource_entrypoint_fields(

@@ -1552,6 +1552,469 @@
       }
     },
     {
+      "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "productionFacing": false,
+      "sourceLineage": {
+        "sourceLanguage": "CrossGL",
+        "sourceLanguageVersion": "v0",
+        "specAnchor": "docs/language/crosstl-frontend-language-spec-v0.json",
+        "contractAnchor": "tools/cross_repo_language_contract.json",
+        "fixtureKind": "checked-in-source-fixture",
+        "productionInput": false
+      },
+      "stage": "compute",
+      "entryPoint": "main",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics",
+        "resources_layouts_and_storage"
+      ],
+      "sourceLocationFacts": [
+        "source_file",
+        "shader_module",
+        "compute_stage",
+        "entry_point",
+        "layout_local_size",
+        "storage_buffer_declaration",
+        "local_variable_declarations",
+        "storage_buffer_read",
+        "storage_buffer_write",
+        "return_statement"
+      ],
+      "typeFacts": [
+        "void_entry_point",
+        "float_scalar",
+        "storage_buffer_element_type",
+        "binary_expression_result_types",
+        "assignment_expression_result_types"
+      ],
+      "resourceFacts": {
+        "localSize": [
+          1,
+          1,
+          1
+        ],
+        "descriptors": [
+          {
+            "stage": "compute",
+            "name": "particles",
+            "kind": "storageBuffer",
+            "set": 0,
+            "binding": 0,
+            "descriptorArray": true,
+            "arraySize": 2,
+            "indexingMode": "fixed-literal",
+            "fixedDescriptorIndices": [
+              0,
+              1
+            ]
+          }
+        ],
+        "storageBuffers": [
+          {
+            "name": "particles",
+            "type": "Particle*[2]",
+            "elementType": "Particle",
+            "addressSpace": "storage",
+            "writeAccess": true,
+            "descriptorArray": true,
+            "arraySize": 2,
+            "indexingMode": "fixed-literal",
+            "fixedDescriptorIndices": [
+              0,
+              1
+            ]
+          }
+        ],
+        "storageImages": [],
+        "textures": [],
+        "samplers": [],
+        "targetIndependentResourceMetadata": [
+          {
+            "stage": "compute",
+            "name": "particles",
+            "kind": "storageBuffer",
+            "sourceType": "Particle*[2]",
+            "elementType": "Particle",
+            "addressSpace": "storage",
+            "access": "read_write",
+            "set": 0,
+            "binding": 0,
+            "targetIndependent": true,
+            "descriptorArray": true,
+            "arraySize": 2,
+            "indexingMode": "fixed-literal",
+            "fixedDescriptorIndices": [
+              0,
+              1
+            ]
+          }
+        ]
+      },
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "compute",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "storage_buffer_declaration",
+            "local_variable_declarations",
+            "storage_buffer_read",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "single-storage-buffer-binding",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "void_entry_point",
+            "float_scalar",
+            "storage_buffer_element_type",
+            "binary_expression_result_types",
+            "assignment_expression_result_types"
+          ]
+        },
+        "controlFlowCategory": "straight-line"
+      },
+      "parityRequirements": {
+        "sourceLocations": {
+          "required": true,
+          "fields": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "storage_buffer_declaration",
+            "local_variable_declarations",
+            "storage_buffer_read",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "typeFacts": {
+          "required": true,
+          "fields": [
+            "void_entry_point",
+            "float_scalar",
+            "storage_buffer_element_type",
+            "binary_expression_result_types",
+            "assignment_expression_result_types"
+          ]
+        },
+        "entryPoint": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint",
+            "resourceFacts.localSize"
+          ]
+        },
+        "resources": {
+          "required": true,
+          "fields": [
+            "resourceFacts.localSize",
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.descriptors[].descriptorArray",
+            "resourceFacts.descriptors[].arraySize",
+            "resourceFacts.descriptors[].indexingMode",
+            "resourceFacts.descriptors[].fixedDescriptorIndices",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageBuffers[].descriptorArray",
+            "resourceFacts.storageBuffers[].arraySize",
+            "resourceFacts.storageBuffers[].indexingMode",
+            "resourceFacts.storageBuffers[].fixedDescriptorIndices",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ]
+        },
+        "targetIndependentResourceMetadata": {
+          "required": true,
+          "fields": [
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+            "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+            "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+            "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+            "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+          ]
+        },
+        "diagnosticsProvenance": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.binary_expression_result_types",
+            "typeFacts.assignment_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        },
+        "sourceMapDebugPreservation": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.binary_expression_result_types",
+            "typeFacts.assignment_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        }
+      },
+      "parityReportFields": {
+        "sourceFile": {
+          "required": true,
+          "fields": [
+            "path",
+            "sourceLocationFacts.source_file"
+          ]
+        },
+        "entryPoint": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint"
+          ]
+        },
+        "entryPointIdentity": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "localSize": {
+          "required": true,
+          "fields": [
+            "resourceFacts.localSize"
+          ]
+        },
+        "workgroupSize": {
+          "required": true,
+          "fields": [
+            "resourceFacts.localSize",
+            "sourceLocationFacts.layout_local_size"
+          ]
+        },
+        "resourceBindings": {
+          "required": true,
+          "fields": [
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.descriptors[].descriptorArray",
+            "resourceFacts.descriptors[].arraySize",
+            "resourceFacts.descriptors[].indexingMode",
+            "resourceFacts.descriptors[].fixedDescriptorIndices",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageBuffers[].descriptorArray",
+            "resourceFacts.storageBuffers[].arraySize",
+            "resourceFacts.storageBuffers[].indexingMode",
+            "resourceFacts.storageBuffers[].fixedDescriptorIndices",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ]
+        },
+        "targetIndependentResourceMetadata": {
+          "required": true,
+          "fields": [
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+            "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+            "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+            "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+            "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+          ]
+        },
+        "typeFacts": {
+          "required": true,
+          "fields": [
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.binary_expression_result_types",
+            "typeFacts.assignment_expression_result_types"
+          ]
+        },
+        "diagnosticsProvenance": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.binary_expression_result_types",
+            "typeFacts.assignment_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        },
+        "sourceMapDebugPreservation": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.binary_expression_result_types",
+            "typeFacts.assignment_expression_result_types",
+            "resourceFacts.localSize"
+          ]
+        },
+        "controlFlowSlice": {
+          "required": true,
+          "slice": "none",
+          "fields": []
+        },
+        "blockedFamilyRationale": {
+          "required": true,
+          "fields": [
+            "unsupportedHirFamilies[].id",
+            "unsupportedHirFamilies[].reason"
+          ],
+          "families": [
+            "remaining_texture_image_intrinsics",
+            "descriptor_indexing_and_nonuniform",
+            "crosstl_examples_and_backend_policy"
+          ]
+        }
+      }
+    },
+    {
       "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "productionFacing": false,
       "sourceLineage": {
@@ -2968,11 +3431,11 @@
   "unsupportedHirFamilies": [
     {
       "id": "remaining_texture_image_intrinsics",
-      "reason": "Direct sampled texture plus sampler LOD facts and direct read_write storage-image load/store facts are admitted; descriptor arrays, nonuniform texture or image indexing, compare helpers, access-qualified storage images, image atomics, and manual texture intrinsics remain blocked."
+      "reason": "Direct sampled texture plus sampler LOD facts, direct read_write storage-image load/store facts, and one fixed storage-buffer descriptor-array catalog fixture are admitted; sampled-resource descriptor arrays, storage-image descriptor arrays, nonuniform texture or image indexing, compare helpers, access-qualified storage images, image atomics, and manual texture intrinsics remain blocked."
     },
     {
       "id": "descriptor_indexing_and_nonuniform",
-      "reason": "Descriptor arrays, dynamic indexing, and nonuniform metadata are unsupported by the MLIR experiment."
+      "reason": "Only fixed literal storage-buffer descriptor-array indices from the admitted catalog fixture are report-only evidence; runtime descriptor arrays, dynamic indexes, and nonuniform metadata remain unsupported by the MLIR experiment."
     },
     {
       "id": "crosstl_examples_and_backend_policy",
@@ -3010,6 +3473,11 @@
         "id": "structured_if_fixture_locations",
         "required": true,
         "description": "The structured-if fixture must name the if statement, branch assignment statements, storage-buffer read/write statements, and return statement provenance."
+      },
+      {
+        "id": "storage_buffer_descriptor_array_fixture_locations",
+        "required": true,
+        "description": "The storage-buffer descriptor-array fixture must name fixed-array buffer declaration, local declarations, read/write statements, and return provenance."
       }
     ],
     "types": [
@@ -3032,6 +3500,11 @@
         "id": "structured_if_type_facts",
         "required": true,
         "description": "The structured-if fixture must name branch-condition bool facts, branch assignment result facts, unary negation result facts, and reused storage-buffer scalar type facts."
+      },
+      {
+        "id": "storage_buffer_descriptor_array_type_facts",
+        "required": true,
+        "description": "The storage-buffer descriptor-array fixture must name struct pointer array resource type evidence, element type, scalar local type, binary expression results, and assignment result facts."
       }
     ],
     "resources": [
@@ -3074,6 +3547,11 @@
         "id": "fixture_resource_parity_fields",
         "required": true,
         "description": "Each admitted fixture must name resource parity fields, including explicit empty texture, sampler, image, descriptor, and storage-buffer families when absent."
+      },
+      {
+        "id": "storage_buffer_descriptor_array_fixed_binding",
+        "required": true,
+        "description": "The storage-buffer descriptor-array fixture records a fixed-size storage-buffer descriptor array at set 0 binding 0 with only literal descriptor indices 0 and 1."
       }
     ],
     "targetIndependentResourceMetadata": [
@@ -3106,6 +3584,11 @@
         "id": "storage_image_resource_metadata_matches_descriptors",
         "required": true,
         "description": "The storage-image fixture target-independent metadata must match descriptor names, stage, set, binding, source type, element type, address space, and read_write access for direct storage-image resources."
+      },
+      {
+        "id": "storage_buffer_descriptor_array_metadata_matches_descriptor",
+        "required": true,
+        "description": "The storage-buffer descriptor-array fixture target-independent metadata must match descriptor name, stage, set, binding, source type, element type, storage address space, read_write access, fixed array size, and literal descriptor indices."
       }
     ],
     "diagnosticsProvenance": [

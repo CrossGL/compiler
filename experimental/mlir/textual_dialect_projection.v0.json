@@ -494,6 +494,145 @@
       }
     },
     {
+      "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "fixed-storage-buffer-descriptor-array-resource",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "single-storage-buffer-binding",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer.descriptor_array",
+        "hir.storage_buffer.read",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @StorageBufferStructArrayFieldDescriptorArrayShader attributes {source = \"tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [1, 1, 1]",
+        "  hir.resource @particles {set = 0, binding = 0, kind = \"storageBuffer\"}",
+        "  hir.storage_buffer @particles : !hir.storage_buffer<!hir.Particle>",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "storage_buffer_declaration",
+          "local_variable_declarations",
+          "storage_buffer_read",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "float_scalar",
+          "storage_buffer_element_type",
+          "binary_expression_result_types",
+          "assignment_expression_result_types"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.descriptors[].descriptorArray",
+          "resourceFacts.descriptors[].arraySize",
+          "resourceFacts.descriptors[].indexingMode",
+          "resourceFacts.descriptors[].fixedDescriptorIndices",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageBuffers[].descriptorArray",
+          "resourceFacts.storageBuffers[].arraySize",
+          "resourceFacts.storageBuffers[].indexingMode",
+          "resourceFacts.storageBuffers[].fixedDescriptorIndices",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+          "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+          "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+          "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+          "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.storage_buffer_read",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.float_scalar",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.binary_expression_result_types",
+          "typeFacts.assignment_expression_result_types",
+          "resourceFacts.localSize"
+        ]
+      }
+    },
+    {
       "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "stage": "compute",
       "entryPoint": "main",
@@ -855,7 +994,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -917,6 +1057,15 @@
             "shader_module"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -934,7 +1083,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "compute_stage",
@@ -996,6 +1146,15 @@
             "stage"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1013,7 +1172,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "entry_point",
@@ -1075,6 +1235,15 @@
             "entryPoint"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1092,7 +1261,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [],
       "typeFactsRequired": [],
@@ -1147,6 +1317,14 @@
             "resourceFacts.localSize"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1164,7 +1342,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "return_statement"
@@ -1219,6 +1398,14 @@
             "return_statement"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1236,7 +1423,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -1326,6 +1514,19 @@
             "return_statement"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1341,7 +1542,8 @@
       "fixtures": [
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
-        "tests/fixtures/IfComputeShader.cgl"
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "local_variable_declarations",
@@ -1376,6 +1578,15 @@
             "float_scalar"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "local_variable_declarations",
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1391,7 +1602,8 @@
       "fixtures": [
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
-        "tests/fixtures/IfComputeShader.cgl"
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "float_scalar"
@@ -1417,6 +1629,14 @@
         },
         {
           "path": "tests/fixtures/IfComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "float_scalar"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "float_scalar"
@@ -1466,7 +1686,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_declaration"
@@ -1545,6 +1766,25 @@
         },
         {
           "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "storage_buffer_declaration",
@@ -1659,6 +1899,60 @@
             "resourceFacts.targetIndependentResourceMetadata[].elementType",
             "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
             "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.descriptor_array",
+      "textualForm": "hir.storage_buffer.descriptor_array ...",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Catalogs one fixed-size storage-buffer descriptor-array resource with literal descriptor indices; it does not admit runtime descriptor arrays, dynamic indexing, nonuniform indexing, or backend descriptor-indexing policy.",
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "storage_buffer_declaration",
+        "storage_buffer_element_type"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [
+        "resourceFacts.descriptors[].descriptorArray",
+        "resourceFacts.descriptors[].arraySize",
+        "resourceFacts.descriptors[].indexingMode",
+        "resourceFacts.descriptors[].fixedDescriptorIndices",
+        "resourceFacts.storageBuffers[].descriptorArray",
+        "resourceFacts.storageBuffers[].arraySize",
+        "resourceFacts.storageBuffers[].indexingMode",
+        "resourceFacts.storageBuffers[].fixedDescriptorIndices",
+        "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+        "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "storage_buffer_element_type",
+            "resourceFacts.descriptors[].descriptorArray",
+            "resourceFacts.descriptors[].arraySize",
+            "resourceFacts.descriptors[].indexingMode",
+            "resourceFacts.descriptors[].fixedDescriptorIndices",
+            "resourceFacts.storageBuffers[].descriptorArray",
+            "resourceFacts.storageBuffers[].arraySize",
+            "resourceFacts.storageBuffers[].indexingMode",
+            "resourceFacts.storageBuffers[].fixedDescriptorIndices",
+            "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+            "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+            "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+            "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
           ],
           "missingRequiredFacts": []
         }
@@ -1926,7 +2220,8 @@
       ],
       "fixtures": [
         "tests/fixtures/IfComputeShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_read"
@@ -1949,6 +2244,14 @@
             "storage_buffer_read"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_read"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1965,7 +2268,8 @@
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
-        "tests/frontend/fixtures/StorageImageHIRShader.cgl"
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_write"
@@ -1999,6 +2303,14 @@
         },
         {
           "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "storage_buffer_write"
@@ -2050,12 +2362,13 @@
     "productionLinked": false
   },
   "coverageSummary": {
-    "fixtureCount": 6,
-    "operationCount": 20,
-    "resourceBoundFixtureCount": 4,
+    "fixtureCount": 7,
+    "operationCount": 21,
+    "resourceBoundFixtureCount": 5,
     "resourceBoundFixtures": [
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
+      "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ],
@@ -2072,6 +2385,7 @@
       "tests/fixtures/MinimalComputeShader.cgl",
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
+      "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl"
     ],
@@ -2090,6 +2404,7 @@
         "hir.scalar_compare",
         "hir.resource",
         "hir.storage_buffer",
+        "hir.storage_buffer.descriptor_array",
         "hir.texture",
         "hir.sampler",
         "hir.texture_lod",
@@ -2112,6 +2427,7 @@
         "hir.scalar_compare",
         "hir.resource",
         "hir.storage_buffer",
+        "hir.storage_buffer.descriptor_array",
         "hir.texture",
         "hir.sampler",
         "hir.texture_lod",

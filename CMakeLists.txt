@@ -47,6 +47,7 @@ set(CROSSGL_MLIR_EXPERIMENT_FIXTURES
   tests/fixtures/MinimalComputeShader.cgl
   tests/fixtures/ScalarExpressionComputeShader.cgl
   tests/fixtures/StorageBufferComputeShader.cgl
+  tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl
   tests/fixtures/IfComputeShader.cgl
   tests/fixtures/VulkanTextureSamplerLodShader.cgl
   tests/frontend/fixtures/StorageImageHIRShader.cgl

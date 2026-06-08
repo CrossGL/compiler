@@ -138,6 +138,41 @@ RESOURCE_ITEM_FIELDS = {
         "resourceFacts.samplers[].binding",
     ),
 }
+RESOURCE_ITEM_OPTIONAL_FIELDS = {
+    "descriptors": (
+        ("descriptorArray", "resourceFacts.descriptors[].descriptorArray"),
+        ("arraySize", "resourceFacts.descriptors[].arraySize"),
+        ("indexingMode", "resourceFacts.descriptors[].indexingMode"),
+        (
+            "fixedDescriptorIndices",
+            "resourceFacts.descriptors[].fixedDescriptorIndices",
+        ),
+    ),
+    "storageBuffers": (
+        ("descriptorArray", "resourceFacts.storageBuffers[].descriptorArray"),
+        ("arraySize", "resourceFacts.storageBuffers[].arraySize"),
+        ("indexingMode", "resourceFacts.storageBuffers[].indexingMode"),
+        (
+            "fixedDescriptorIndices",
+            "resourceFacts.storageBuffers[].fixedDescriptorIndices",
+        ),
+    ),
+    RESOURCE_METADATA_COLLECTION: (
+        (
+            "descriptorArray",
+            "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        ),
+        ("arraySize", "resourceFacts.targetIndependentResourceMetadata[].arraySize"),
+        (
+            "indexingMode",
+            "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        ),
+        (
+            "fixedDescriptorIndices",
+            "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices",
+        ),
+    ),
+}
 TARGET_INDEPENDENT_RESOURCE_METADATA_FIELDS = (
     "resourceFacts.targetIndependentResourceMetadata",
     "resourceFacts.targetIndependentResourceMetadata[].stage",
@@ -194,6 +229,10 @@ RESOURCE_ITEM_REQUIRED_KEYS = {
         "binding",
         "targetIndependent",
     ),
+}
+RESOURCE_ITEM_OPTIONAL_KEYS = {
+    collection: tuple(key for key, _ in fields)
+    for collection, fields in RESOURCE_ITEM_OPTIONAL_FIELDS.items()
 }
 CONTROL_FLOW_FAMILY = "control_flow_and_statements"
 CONTROL_FLOW_SOURCE_FACTS = (
@@ -341,6 +380,7 @@ def expected_resource_binding_fields(resource_facts: dict[str, Any]) -> list[str
         value = resource_facts.get(collection)
         if isinstance(value, list) and value:
             fields.extend(RESOURCE_ITEM_FIELDS[collection])
+            fields.extend(optional_resource_item_fields(collection, value))
     return fields
 
 
@@ -356,8 +396,19 @@ def expected_target_independent_resource_metadata_fields(
 ) -> list[str]:
     metadata = resource_facts.get(RESOURCE_METADATA_COLLECTION)
     if isinstance(metadata, list) and metadata:
-        return list(TARGET_INDEPENDENT_RESOURCE_METADATA_FIELDS)
+        return [
+            *TARGET_INDEPENDENT_RESOURCE_METADATA_FIELDS,
+            *optional_resource_item_fields(RESOURCE_METADATA_COLLECTION, metadata),
+        ]
     return [f"resourceFacts.{RESOURCE_METADATA_COLLECTION}"]
+
+
+def optional_resource_item_fields(collection: str, records: list[Any]) -> list[str]:
+    fields: list[str] = []
+    for key, field in RESOURCE_ITEM_OPTIONAL_FIELDS.get(collection, ()):
+        if any(isinstance(item, dict) and key in item for item in records):
+            fields.append(field)
+    return fields
 
 
 def prefixed_fact_fields(prefix: str, facts: list[str]) -> list[str]:
@@ -486,6 +537,56 @@ def require_exact_keys(
         errors.append(f"{field} has unknown key(s): {', '.join(stale)}")
 
 
+def require_resource_item_keys(
+    value: dict[str, Any], field: str, collection: str, errors: list[str]
+) -> None:
+    required = set(RESOURCE_ITEM_REQUIRED_KEYS[collection])
+    optional = set(RESOURCE_ITEM_OPTIONAL_KEYS.get(collection, ()))
+    actual = set(value)
+    missing = sorted(required - actual)
+    stale = sorted(actual - required - optional)
+    if missing:
+        errors.append(f"{field} missing required key(s): {', '.join(missing)}")
+    if stale:
+        errors.append(f"{field} has unknown key(s): {', '.join(stale)}")
+
+
+def check_fixed_descriptor_array_fields(
+    record: dict[str, Any], field: str, errors: list[str]
+) -> None:
+    has_array_fact = any(
+        key in record
+        for key in (
+            "descriptorArray",
+            "arraySize",
+            "indexingMode",
+            "fixedDescriptorIndices",
+        )
+    )
+    if not has_array_fact:
+        return
+    if record.get("descriptorArray") is not True:
+        errors.append(f"{field}.descriptorArray must be true for array facts")
+    array_size = record.get("arraySize")
+    if not isinstance(array_size, int) or array_size <= 0:
+        errors.append(f"{field}.arraySize must be a positive integer")
+    if record.get("indexingMode") != "fixed-literal":
+        errors.append(f"{field}.indexingMode must be 'fixed-literal'")
+    indices = record.get("fixedDescriptorIndices")
+    if (
+        not isinstance(indices, list)
+        or not indices
+        or not all(isinstance(index, int) for index in indices)
+    ):
+        errors.append(
+            f"{field}.fixedDescriptorIndices must be a non-empty integer list"
+        )
+    elif isinstance(array_size, int) and any(
+        index < 0 or index >= array_size for index in indices
+    ):
+        errors.append(f"{field}.fixedDescriptorIndices must be within fixed arraySize")
+
+
 def check_resource_facts(
     resource_facts: dict[str, Any],
     field: str,
@@ -510,10 +611,10 @@ def check_resource_facts(
             descriptor = require_object(item, item_field, errors)
             if not descriptor:
                 continue
-            require_exact_keys(
+            require_resource_item_keys(
                 descriptor,
                 item_field,
-                RESOURCE_ITEM_REQUIRED_KEYS["descriptors"],
+                "descriptors",
                 errors,
             )
             if descriptor.get("stage") != stage:
@@ -535,6 +636,8 @@ def check_resource_facts(
                         f"{item_field}.{integer_field} must be a non-negative integer"
                     )
             require_string(descriptor.get("name"), f"{item_field}.name", errors)
+            if descriptor.get("kind") == "storageBuffer":
+                check_fixed_descriptor_array_fields(descriptor, item_field, errors)
 
     storage_buffers = resource_facts.get("storageBuffers")
     if isinstance(storage_buffers, list):
@@ -543,10 +646,10 @@ def check_resource_facts(
             storage_buffer = require_object(item, item_field, errors)
             if not storage_buffer:
                 continue
-            require_exact_keys(
+            require_resource_item_keys(
                 storage_buffer,
                 item_field,
-                RESOURCE_ITEM_REQUIRED_KEYS["storageBuffers"],
+                "storageBuffers",
                 errors,
             )
             require_string(storage_buffer.get("name"), f"{item_field}.name", errors)
@@ -558,12 +661,17 @@ def check_resource_facts(
                 f"{item_field}.elementType",
                 errors,
             )
-            if source_type is not None and not source_type.endswith("*"):
+            if source_type is not None and not (
+                source_type.endswith("*") or re.fullmatch(r".+\*\[\d+\]", source_type)
+            ):
                 errors.append(f"{item_field}.type must be a pointer resource type")
             if (
                 source_type is not None
                 and element_type is not None
                 and source_type != f"{element_type}*"
+                and not re.fullmatch(
+                    rf"{re.escape(element_type)}\*\[\d+\]", source_type
+                )
             ):
                 errors.append(
                     f"{item_field}.type must match elementType with a pointer suffix"
@@ -572,6 +680,7 @@ def check_resource_facts(
                 errors.append(f"{item_field}.addressSpace must be 'storage'")
             if not isinstance(storage_buffer.get("writeAccess"), bool):
                 errors.append(f"{item_field}.writeAccess must be a boolean")
+            check_fixed_descriptor_array_fields(storage_buffer, item_field, errors)
 
     storage_images = resource_facts.get("storageImages")
     if isinstance(storage_images, list):
@@ -669,10 +778,10 @@ def check_resource_facts(
             record = require_object(item, item_field, errors)
             if not record:
                 continue
-            require_exact_keys(
+            require_resource_item_keys(
                 record,
                 item_field,
-                RESOURCE_ITEM_REQUIRED_KEYS[RESOURCE_METADATA_COLLECTION],
+                RESOURCE_METADATA_COLLECTION,
                 errors,
             )
             if record.get("stage") != stage:
@@ -715,6 +824,8 @@ def check_resource_facts(
                     )
             if record.get("targetIndependent") is not True:
                 errors.append(f"{item_field}.targetIndependent must be true")
+            if kind == "storageBuffer":
+                check_fixed_descriptor_array_fields(record, item_field, errors)
 
     if isinstance(descriptors, list) and isinstance(storage_buffers, list):
         descriptor_names = {
