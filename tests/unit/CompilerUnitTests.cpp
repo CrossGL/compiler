@@ -29693,6 +29693,107 @@ shader VulkanGraphicsHelperFunctionShader {
   std::filesystem::remove_all(packageDir, error);
 }
 
+void testVulkanGraphicsMatrixConstructorPrototypeAssembly() {
+  constexpr std::string_view source = R"(
+shader VulkanGraphicsMatrixConstructorShader {
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+  fragment {
+    mat3 basisFromSeed(mat2 seed) {
+      return mat3(seed);
+    }
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      mat2 flattened = mat2(1.0, 0.0, 0.0, 1.0);
+      mat2 diagonal = mat2(1.0);
+      mat3 expanded = basisFromSeed(flattened);
+      mat3 basis = mat3(vec3(1.0, 0.0, 0.0),
+                        vec3(0.0, 1.0, 0.0),
+                        vec3(0.0, 0.0, 1.0));
+      output.color = vec4(input.uv, 0.0, 1.0);
+      return output;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "Vulkan graphics matrix-constructor source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  crossgl::DiagnosticEngine supportDiagnostics;
+  expect(crossgl::vulkanPrototypeBinarySupported(*hir, supportDiagnostics) &&
+             !supportDiagnostics.hasErrors(),
+         "Vulkan graphics prototype support accepts local/helper matrix "
+         "constructors");
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assembly.empty() && !assemblyDiagnostics.hasErrors(),
+         "Vulkan graphics matrix-constructor assembly has no diagnostics");
+  expect(assembly.find("OpTypeMatrix") != std::string::npos &&
+             assembly.find("OpCompositeConstruct") != std::string::npos,
+         "Vulkan graphics prototype emits matrix composite types and "
+         "constructors");
+  expect(assembly.find("OpCompositeExtract") != std::string::npos &&
+             assembly.find("%func_fragment_basisFromSeed") !=
+                 std::string::npos &&
+             assembly.find("OpFunctionCall") != std::string::npos,
+         "Vulkan graphics prototype lowers matrix helper parameter and return "
+         "paths");
+
+  if (!crossgl::findExecutable("spirv-as") ||
+      !crossgl::findExecutable("spirv-val")) {
+    return;
+  }
+
+  const std::filesystem::path packageDir =
+      unitTestTempDirectoryPath() /
+      "crossgl-vulkan-graphics-matrix-constructor-prototype-test";
+  std::error_code error;
+  std::filesystem::remove_all(packageDir, error);
+
+  crossgl::DiagnosticEngine buildDiagnostics;
+  const crossgl::VulkanBuildResult result =
+      crossgl::buildVulkanPrototypeBinary(*hir, packageDir, buildDiagnostics);
+  expect(result.success,
+         "Vulkan graphics matrix-constructor prototype binary assembles and "
+         "validates");
+  expect(!buildDiagnostics.hasErrors(),
+         "Vulkan graphics matrix-constructor prototype binary build has no "
+         "diagnostics");
+  expect(std::filesystem::exists(result.assemblyPath),
+         "Vulkan graphics matrix-constructor prototype assembly file exists");
+  expect(std::filesystem::exists(result.spvPath),
+         "Vulkan graphics matrix-constructor SPIR-V binary exists");
+
+  std::filesystem::remove_all(packageDir, error);
+}
+
 void testVulkanGraphicsIfPrototypeAssembly() {
   constexpr std::string_view source = R"(
 shader VulkanGraphicsIfShader {
@@ -51261,6 +51362,7 @@ int main() {
   testVulkanGraphicsNonUniformDescriptorArrayPrototypeAssembly();
   testVulkanGraphicsLoopPrototypeAssembly();
   testVulkanGraphicsHelperFunctionPrototypeAssembly();
+  testVulkanGraphicsMatrixConstructorPrototypeAssembly();
   testVulkanGraphicsIfPrototypeAssembly();
   testVulkanGraphicsConditionalDiscardPrototypeAssembly();
   testVulkanGraphicsIfBranchLocalDeclarationsPrototypeAssembly();

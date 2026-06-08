@@ -9530,6 +9530,10 @@ bool vulkanGraphicsScalarVectorTypeSupported(const HIRType &type) {
          type.name == "bvec3" || type.name == "bvec4";
 }
 
+bool vulkanGraphicsMatrixTypeSupported(const HIRType &type) {
+  return prototypeMatrixDimension(type).has_value();
+}
+
 const HIRField *vulkanGraphicsFindField(const HIRStruct &structure,
                                         std::string_view name) {
   for (const HIRField &field : structure.fields) {
@@ -9811,6 +9815,7 @@ bool vulkanGraphicsVaryingsSupported(const HIRModule &module,
 bool vulkanGraphicsValueTypeSupported(const HIRModule &module,
                                       const HIRType &type) {
   return vulkanGraphicsScalarVectorTypeSupported(type) ||
+         vulkanGraphicsMatrixTypeSupported(type) ||
          (type.name != "void" && !type.arraySize.has_value() &&
           vulkanGraphicsStructType(module, type) != nullptr);
 }
@@ -10731,12 +10736,58 @@ vulkanGraphicsConstructorConstituentWidth(const HIRType &type,
   return vulkanGraphicsVectorSize(type.name);
 }
 
+std::optional<std::size_t>
+vulkanGraphicsMatrixConstructorConstituentWidth(const HIRType &type) {
+  if (isPrototypeNumericScalarType(type)) {
+    return std::size_t{1};
+  }
+  if (!vulkanGraphicsScalarVectorTypeSupported(type) ||
+      !vulkanGraphicsIsVector(type.name)) {
+    return std::nullopt;
+  }
+  const HIRType componentType = vulkanGraphicsVectorComponentType(type);
+  if (!isPrototypeNumericScalarType(componentType)) {
+    return std::nullopt;
+  }
+  return vulkanGraphicsVectorSize(type.name);
+}
+
+bool vulkanGraphicsMatrixConstructorSupported(
+    const HIRExpression &expression) {
+  const std::optional<std::size_t> dimension =
+      prototypeMatrixDimension(expression.type);
+  if (!dimension.has_value() ||
+      expression.value != baseTypeName(expression.type) ||
+      expression.children.empty()) {
+    return false;
+  }
+
+  if (expression.children.size() == 1) {
+    const HIRType &sourceType = expression.children.front().type;
+    if (vulkanGraphicsTypeEquals(sourceType, expression.type) ||
+        vulkanGraphicsMatrixTypeSupported(sourceType) ||
+        isPrototypeNumericScalarType(sourceType)) {
+      return true;
+    }
+  }
+
+  std::size_t constituentWidth = 0;
+  for (const HIRExpression &child : expression.children) {
+    const std::optional<std::size_t> childWidth =
+        vulkanGraphicsMatrixConstructorConstituentWidth(child.type);
+    if (!childWidth.has_value()) {
+      return false;
+    }
+    constituentWidth += *childWidth;
+  }
+  return constituentWidth == (*dimension * *dimension);
+}
+
 bool vulkanGraphicsConstructorSupported(const HIRModule &module,
                                         const HIRStage &stage,
                                         const HIRExpression &expression,
                                         bool allowStageHelpers) {
-  if (!vulkanGraphicsScalarVectorTypeSupported(expression.type) ||
-      expression.value != expression.type.name || expression.children.empty()) {
+  if (expression.children.empty()) {
     return false;
   }
 
@@ -10745,6 +10796,15 @@ bool vulkanGraphicsConstructorSupported(const HIRModule &module,
                                            allowStageHelpers)) {
       return false;
     }
+  }
+
+  if (vulkanGraphicsMatrixTypeSupported(expression.type)) {
+    return vulkanGraphicsMatrixConstructorSupported(expression);
+  }
+
+  if (!vulkanGraphicsScalarVectorTypeSupported(expression.type) ||
+      expression.value != expression.type.name) {
+    return false;
   }
 
   const std::size_t targetWidth = vulkanGraphicsVectorSize(expression.type.name);
@@ -10996,6 +11056,10 @@ private:
       const std::string scalarId = typeId(scalar);
       types_ << id << " = OpTypeVector " << scalarId << " "
              << vulkanGraphicsVectorSize(type.name) << "\n";
+    } else if (vulkanGraphicsMatrixTypeSupported(type)) {
+      const std::string columnType = typeId(prototypeMatrixColumnType(type));
+      types_ << id << " = OpTypeMatrix " << columnType << " "
+             << *prototypeMatrixDimension(type) << "\n";
     } else if (const HIRStruct *structure =
                    vulkanGraphicsStructType(module_, type)) {
       std::vector<std::string> memberTypes;
@@ -11286,6 +11350,19 @@ private:
     uintConstants_[key] = id;
     const std::string uintType = typeId(HIRType{"uint", std::nullopt});
     types_ << id << " = OpConstant " << uintType << " " << value << "\n";
+    return id;
+  }
+
+  std::string floatConstant(std::string_view value) {
+    const std::string key = "float|" + std::string(value);
+    if (const auto found = literalConstants_.find(key);
+        found != literalConstants_.end()) {
+      return found->second;
+    }
+    const std::string id = freshId();
+    literalConstants_[key] = id;
+    types_ << id << " = OpConstant " << typeId(HIRType{"float", std::nullopt})
+           << " " << value << "\n";
     return id;
   }
 
@@ -12215,8 +12292,234 @@ private:
     return EmitValue{expression.type, intConstant(0)};
   }
 
+  std::optional<EmitValue> emitGraphicsFloatScalarValue(const EmitValue &value) {
+    const HIRType floatType{"float", std::nullopt};
+    if (vulkanGraphicsTypeEquals(value.type, floatType)) {
+      return value;
+    }
+    const std::string opcode =
+        prototypeScalarConversionOpcode(value.type, floatType);
+    if (opcode.empty() || opcode == "identity") {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-graphics-body",
+          "Vulkan graphics prototype matrix constructors require numeric "
+          "scalar constituents convertible to float");
+      return std::nullopt;
+    }
+    const std::string id = freshId();
+    functions_ << id << " = " << opcode << " " << typeId(floatType) << " "
+               << value.id << "\n";
+    return EmitValue{floatType, id};
+  }
+
+  bool appendGraphicsMatrixConstructorScalars(
+      FunctionContext &context, const HIRExpression &expression,
+      std::vector<std::string> &scalars) {
+    const EmitValue value = emitExpression(context, expression);
+    if (isPrototypeNumericScalarType(value.type)) {
+      const std::optional<EmitValue> scalar =
+          emitGraphicsFloatScalarValue(value);
+      if (!scalar.has_value()) {
+        return false;
+      }
+      scalars.push_back(scalar->id);
+      return true;
+    }
+
+    if (!vulkanGraphicsScalarVectorTypeSupported(value.type) ||
+        !vulkanGraphicsIsVector(value.type.name)) {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-graphics-body",
+          "Vulkan graphics prototype matrix constructors require numeric "
+          "scalar/vector constituents or a single scalar/matrix operand");
+      return false;
+    }
+
+    const HIRType componentType = vulkanGraphicsVectorComponentType(value.type);
+    if (!isPrototypeNumericScalarType(componentType)) {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-graphics-body",
+          "Vulkan graphics prototype matrix constructors require numeric "
+          "scalar/vector constituents");
+      return false;
+    }
+
+    const std::size_t width = vulkanGraphicsVectorSize(value.type.name);
+    for (std::size_t index = 0; index < width; ++index) {
+      const std::string component = freshId();
+      functions_ << component << " = OpCompositeExtract "
+                 << typeId(componentType) << " " << value.id << " " << index
+                 << "\n";
+      const std::optional<EmitValue> scalar =
+          emitGraphicsFloatScalarValue(EmitValue{componentType, component});
+      if (!scalar.has_value()) {
+        return false;
+      }
+      scalars.push_back(scalar->id);
+    }
+    return true;
+  }
+
+  std::optional<EmitValue>
+  emitGraphicsMatrixColumn(const HIRType &columnType,
+                           const std::vector<std::string> &scalars,
+                           std::size_t firstScalar) {
+    const std::size_t width = vulkanGraphicsVectorSize(columnType.name);
+    if (firstScalar + width > scalars.size()) {
+      diagnostics_.error("vulkan.prototype-unsupported-graphics-body",
+                         "Vulkan graphics prototype matrix constructor "
+                         "column has too few scalar constituents");
+      return std::nullopt;
+    }
+    const std::string id = freshId();
+    functions_ << id << " = OpCompositeConstruct " << typeId(columnType);
+    for (std::size_t index = 0; index < width; ++index) {
+      functions_ << " " << scalars[firstScalar + index];
+    }
+    functions_ << "\n";
+    return EmitValue{columnType, id};
+  }
+
+  std::optional<EmitValue>
+  emitGraphicsMatrixFromScalars(const HIRType &matrixType,
+                                const std::vector<std::string> &scalars) {
+    const std::optional<std::size_t> dimension =
+        prototypeMatrixDimension(matrixType);
+    if (!dimension.has_value() || scalars.size() != (*dimension * *dimension)) {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-graphics-body",
+          "Vulkan graphics prototype matrix constructors require constituents "
+          "matching the result matrix element count");
+      return std::nullopt;
+    }
+
+    const HIRType columnType = prototypeMatrixColumnType(matrixType);
+    std::vector<std::string> columns;
+    columns.reserve(*dimension);
+    for (std::size_t column = 0; column < *dimension; ++column) {
+      const std::optional<EmitValue> columnValue =
+          emitGraphicsMatrixColumn(columnType, scalars, column * *dimension);
+      if (!columnValue.has_value()) {
+        return std::nullopt;
+      }
+      columns.push_back(columnValue->id);
+    }
+
+    const std::string id = freshId();
+    functions_ << id << " = OpCompositeConstruct " << typeId(matrixType);
+    for (const std::string &column : columns) {
+      functions_ << " " << column;
+    }
+    functions_ << "\n";
+    return EmitValue{matrixType, id};
+  }
+
+  std::optional<EmitValue> emitGraphicsMatrixFromScalar(
+      const HIRType &matrixType, const EmitValue &sourceScalar) {
+    const std::optional<EmitValue> diagonal =
+        emitGraphicsFloatScalarValue(sourceScalar);
+    if (!diagonal.has_value()) {
+      return std::nullopt;
+    }
+
+    const std::optional<std::size_t> dimension =
+        prototypeMatrixDimension(matrixType);
+    if (!dimension.has_value()) {
+      return std::nullopt;
+    }
+
+    std::vector<std::string> scalars;
+    scalars.reserve(*dimension * *dimension);
+    const std::string zero = floatConstant("0.0");
+    for (std::size_t column = 0; column < *dimension; ++column) {
+      for (std::size_t row = 0; row < *dimension; ++row) {
+        scalars.push_back(column == row ? diagonal->id : zero);
+      }
+    }
+    return emitGraphicsMatrixFromScalars(matrixType, scalars);
+  }
+
+  std::optional<EmitValue>
+  emitGraphicsMatrixFromMatrix(const HIRType &matrixType,
+                               const EmitValue &sourceMatrix) {
+    if (vulkanGraphicsTypeEquals(matrixType, sourceMatrix.type)) {
+      return sourceMatrix;
+    }
+    const std::optional<std::size_t> targetDimension =
+        prototypeMatrixDimension(matrixType);
+    const std::optional<std::size_t> sourceDimension =
+        prototypeMatrixDimension(sourceMatrix.type);
+    if (!targetDimension.has_value() || !sourceDimension.has_value()) {
+      return std::nullopt;
+    }
+
+    std::vector<std::string> scalars;
+    scalars.reserve(*targetDimension * *targetDimension);
+    const std::string zero = floatConstant("0.0");
+    const std::string one = floatConstant("1.0");
+    const std::string floatType = typeId(HIRType{"float", std::nullopt});
+    for (std::size_t column = 0; column < *targetDimension; ++column) {
+      for (std::size_t row = 0; row < *targetDimension; ++row) {
+        if (column < *sourceDimension && row < *sourceDimension) {
+          const std::string component = freshId();
+          functions_ << component << " = OpCompositeExtract " << floatType
+                     << " " << sourceMatrix.id << " " << column << " " << row
+                     << "\n";
+          scalars.push_back(component);
+        } else {
+          scalars.push_back(column == row ? one : zero);
+        }
+      }
+    }
+    return emitGraphicsMatrixFromScalars(matrixType, scalars);
+  }
+
+  EmitValue emitGraphicsMatrixConstructor(FunctionContext &context,
+                                          const HIRExpression &expression) {
+    if (expression.children.size() == 1) {
+      const EmitValue child =
+          emitExpression(context, expression.children.front());
+      if (isPrototypeNumericScalarType(child.type)) {
+        const std::optional<EmitValue> matrix =
+            emitGraphicsMatrixFromScalar(expression.type, child);
+        if (matrix.has_value()) {
+          return *matrix;
+        }
+      }
+      if (vulkanGraphicsMatrixTypeSupported(child.type)) {
+        const std::optional<EmitValue> matrix =
+            emitGraphicsMatrixFromMatrix(expression.type, child);
+        if (matrix.has_value()) {
+          return *matrix;
+        }
+      }
+    }
+
+    std::vector<std::string> scalars;
+    const std::optional<std::size_t> dimension =
+        prototypeMatrixDimension(expression.type);
+    if (dimension.has_value()) {
+      scalars.reserve(*dimension * *dimension);
+    }
+    for (const HIRExpression &child : expression.children) {
+      if (!appendGraphicsMatrixConstructorScalars(context, child, scalars)) {
+        return EmitValue{expression.type, intConstant(0)};
+      }
+    }
+    const std::optional<EmitValue> matrix =
+        emitGraphicsMatrixFromScalars(expression.type, scalars);
+    if (matrix.has_value()) {
+      return *matrix;
+    }
+    return EmitValue{expression.type, intConstant(0)};
+  }
+
   EmitValue emitConstructor(FunctionContext &context,
                             const HIRExpression &expression) {
+    if (vulkanGraphicsMatrixTypeSupported(expression.type)) {
+      return emitGraphicsMatrixConstructor(context, expression);
+    }
+
     std::vector<std::string> constituents;
     const std::size_t expectedComponents =
         vulkanGraphicsVectorSize(expression.type.name);
