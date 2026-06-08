@@ -850,6 +850,94 @@ def validate_resource_link(
         )
 
 
+def expected_descriptor_metadata_options(record, resource):
+    if record["target"] != "vulkan" or record["abi"] != "descriptor":
+        return None
+
+    kind = resource["kind"]
+    address_space = resource.get("addressSpace")
+    if kind == "buffer" and address_space in {"Uniform", "uniform"}:
+        return (
+            ("VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER", "uniform_buffer"),
+            ("uniformBuffer", "uniform-buffer"),
+        )
+    if kind == "buffer" and address_space in {"StorageBuffer", "storage"}:
+        return (
+            ("VK_DESCRIPTOR_TYPE_STORAGE_BUFFER", "storage_buffer"),
+            ("storageBuffer", "storage-buffer"),
+        )
+    if kind == "texture":
+        return (
+            ("VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE", "combined_image_sampler"),
+            ("sampledImage", "sampled-texture"),
+        )
+    if kind == "storage_image":
+        return (
+            ("VK_DESCRIPTOR_TYPE_STORAGE_IMAGE", "storage_image"),
+            ("storageImage", "storage-image"),
+        )
+    if kind == "sampler":
+        return (("VK_DESCRIPTOR_TYPE_SAMPLER",), ("sampler",))
+    return None
+
+
+def add_allowed_diagnostic(
+    diagnostics,
+    path,
+    code,
+    field_path,
+    actual,
+    expected_options,
+    expected_label,
+    target,
+):
+    if actual not in expected_options:
+        diagnostics.append(
+            make_diagnostic(
+                path,
+                code,
+                f"{field_path}: expected {expected_label} one of "
+                f"{list(expected_options)!r}, got {actual!r}",
+                target,
+            )
+        )
+
+
+def validate_descriptor_metadata(
+    diagnostics,
+    path,
+    record_path,
+    record,
+    resource,
+    target,
+):
+    expected = expected_descriptor_metadata_options(record, resource)
+    if expected is None:
+        return
+
+    expected_descriptor_types, expected_binding_classes = expected
+    add_allowed_diagnostic(
+        diagnostics,
+        path,
+        "descriptor-type-mismatch",
+        f"{record_path}.descriptorType",
+        record.get("descriptorType"),
+        expected_descriptor_types,
+        "source resource descriptorType",
+        target,
+    )
+    add_allowed_diagnostic(
+        diagnostics,
+        path,
+        "binding-class-mismatch",
+        f"{record_path}.bindingClass",
+        record.get("bindingClass"),
+        expected_binding_classes,
+        "source resource bindingClass",
+        target,
+    )
+
+
 def validate_semantics(path, instance):
     diagnostics = []
     target = instance["target"]
@@ -928,6 +1016,9 @@ def validate_semantics(path, instance):
             else:
                 previous_resource_index = resource_index
             validate_resource_link(
+                diagnostics, path, record_path, record, resource, record_target
+            )
+            validate_descriptor_metadata(
                 diagnostics, path, record_path, record, resource, record_target
             )
 
