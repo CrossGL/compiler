@@ -3325,15 +3325,22 @@ bool metalSupportsDynamicNestedHelperArrayRead(const HIRType &type) {
          isVectorType(baseName);
 }
 
+bool metalSupportsDynamicNestedHelperArrayWrite(const HIRType &type) {
+  const std::string baseName = baseTypeName(type);
+  return baseName == "bool" || isNumericScalarTypeName(baseName) ||
+         isVectorType(baseName) || isMatrixType(baseName);
+}
+
 std::set<std::string>
-metalUnsupportedDynamicNestedArrayParameterNames(const HIRModule &module,
-                                                 const HIRFunction &function) {
+metalUnsupportedDynamicNestedArrayParameterNames(
+    const HIRModule &module, const HIRFunction &function,
+    bool (*isSupported)(const HIRType &)) {
   std::set<std::string> names;
   for (const HIRParameter &parameter : function.parameters) {
     if (functionParameterArrayShape(module, parameter.type) ==
             HIRFunctionParameterArrayShape::FixedSize &&
         metalTypeHasNestedArray(parameter.type) &&
-        !metalSupportsDynamicNestedHelperArrayRead(parameter.type)) {
+        !isSupported(parameter.type)) {
       names.insert(parameter.name);
     }
   }
@@ -3468,7 +3475,8 @@ void collectMetalDynamicNestedFunctionParameterArrayReads(
     const HIRModule &module, const HIRFunction &function,
     std::set<std::string> &labels) {
   const std::set<std::string> parameterArrays =
-      metalUnsupportedDynamicNestedArrayParameterNames(module, function);
+      metalUnsupportedDynamicNestedArrayParameterNames(
+          module, function, metalSupportsDynamicNestedHelperArrayRead);
   if (parameterArrays.empty()) {
     return;
   }
@@ -3482,7 +3490,8 @@ void collectMetalDynamicNestedFunctionParameterArrayWrites(
     const HIRModule &module, const HIRFunction &function,
     std::set<std::string> &labels) {
   const std::set<std::string> parameterArrays =
-      metalUnsupportedDynamicNestedArrayParameterNames(module, function);
+      metalUnsupportedDynamicNestedArrayParameterNames(
+          module, function, metalSupportsDynamicNestedHelperArrayWrite);
   if (parameterArrays.empty()) {
     return;
   }
@@ -3540,7 +3549,7 @@ bool validateMetalDynamicNestedFunctionParameterArrayWrites(
   diagnostics.error(
       "metal.unsupported-dynamic-nested-helper-array-write",
       "Metal backend supports dynamic nested helper-array writes only for "
-      "fixed-size scalar/vector helper array parameter(s); unsupported "
+      "fixed-size scalar/vector/matrix helper array parameter(s); unsupported "
       "parameter(s): " +
           joinMetalLabels(labels) +
           "; use literal or folded constant indices for other nested helper "

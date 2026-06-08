@@ -2197,6 +2197,14 @@ add_test(NAME cglc_dump_backend_metal_nested_function_parameter_array_write_scaf
     -DMODE=dump-backend
     "-DMUST_CONTAIN=float rewriteGrid\\(array<array<float, COLS>, ROWS> grid\\).*grid\\[1\\]\\[2\\] = grid\\[0\\]\\[0\\] \\+ 1\\.0;"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_metal_dynamic_nested_matrix_function_parameter_array_write_scaffold
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.cgl
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=float2x2 rewriteGrid\\(array<array<float2x2, COLS>, ROWS> grid, int row, int col\\).*grid\\[row\\]\\[col\\] = grid\\[0\\]\\[0\\];"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_opengl_mixed_sampler_array_usage_scaffold
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

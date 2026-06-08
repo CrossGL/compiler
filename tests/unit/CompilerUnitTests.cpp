@@ -46752,20 +46752,91 @@ shader MetalDynamicNestedMatrixFunctionParameterArrayWriteShader {
          "Metal dynamic nested matrix parameter-array write source builds HIR");
   if (dynamicNestedMatrixWriteHir.has_value()) {
     crossgl::DiagnosticEngine supportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(*dynamicNestedMatrixWriteHir,
+                                                supportDiagnostics),
+           "Metal dynamic nested matrix helper array writes pass native "
+           "support preflight");
+    expect(!supportDiagnostics.hasErrors(),
+           "Metal dynamic nested matrix helper array writes have no preflight "
+           "diagnostics");
+
+    const std::string dynamicNestedMatrixMetal =
+        crossgl::generateMetalSource(*dynamicNestedMatrixWriteHir);
+    expect(dynamicNestedMatrixMetal.find(
+               "float2x2 rewriteGrid(array<array<float2x2, COLS>, ROWS> grid, "
+               "int row, int col)") != std::string::npos,
+           "Metal backend emits matrix nested helper array parameter for "
+           "dynamic writes");
+    expect(dynamicNestedMatrixMetal.find("grid[row][col] = grid[0][0];") !=
+               std::string::npos,
+           "Metal backend preserves dynamic matrix nested helper array write");
+
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-dynamic-nested-matrix-helper-array-write-native-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+
+      crossgl::DiagnosticEngine diagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*dynamicNestedMatrixWriteHir, packageDir,
+                                    diagnostics);
+      expect(result.success,
+             "Metal dynamic nested matrix helper array writes compile to "
+             "metallib");
+      expect(!diagnostics.hasErrors(),
+             "Metal dynamic nested matrix helper array write native build has "
+             "no diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal dynamic nested matrix helper array write metallib exists");
+    }
+  }
+
+  constexpr std::string_view dynamicNestedStructWriteSource = R"(
+shader MetalDynamicNestedStructFunctionParameterArrayWriteShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+  struct Payload {
+    float value;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    Payload rewriteGrid(Payload grid[ROWS][COLS], int row, int col) {
+      grid[row][col] = grid[0][0];
+      return grid[0][0];
+    }
+    void main() {
+      Payload localGrid[ROWS][COLS];
+      int row = 1;
+      int col = 0;
+      Payload selected = rewriteGrid(localGrid, row, col);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicNestedStructWriteHir =
+      parseHIR(dynamicNestedStructWriteSource);
+  expect(dynamicNestedStructWriteHir.has_value(),
+         "Metal dynamic nested struct parameter-array write source builds HIR");
+  if (dynamicNestedStructWriteHir.has_value()) {
+    crossgl::DiagnosticEngine supportDiagnostics;
     expect(!crossgl::metalNativeBackendSupported(
-               *dynamicNestedMatrixWriteHir, supportDiagnostics),
-           "Metal dynamic nested matrix helper array writes fail native "
+               *dynamicNestedStructWriteHir, supportDiagnostics),
+           "Metal dynamic nested struct helper array writes fail native "
            "support preflight");
     expect(hasDiagnosticCode(
                supportDiagnostics.diagnostics(),
                "metal.unsupported-dynamic-nested-helper-array-write"),
-           "Metal dynamic nested matrix helper array writes report target "
+           "Metal dynamic nested struct helper array writes report target "
            "diagnostic");
     expect(hasDiagnosticMessage(
                supportDiagnostics.diagnostics(),
                "metal.unsupported-dynamic-nested-helper-array-write",
                "function 'rewriteGrid' parameter 'grid'"),
-           "Metal dynamic nested matrix helper array write diagnostic names "
+           "Metal dynamic nested struct helper array write diagnostic names "
            "the helper parameter");
   }
 
