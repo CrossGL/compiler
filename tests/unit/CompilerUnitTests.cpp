@@ -786,8 +786,10 @@ void testHIRTypeSemanticsHelpers() {
          "HIR type semantics resolves builtins and declared structs");
   expect(crossgl::vectorWidthFromName("uvec3") ==
              std::optional<std::size_t>{3} &&
-             crossgl::scalarTypeForVector("bvec4").name == "bool",
-         "HIR type semantics exposes vector shape helpers");
+             crossgl::scalarTypeForVector("bvec4").name == "bool" &&
+             crossgl::matrixElementCountFromName("mat4x4") ==
+                 std::optional<std::size_t>{16},
+         "HIR type semantics exposes aggregate shape helpers");
   expect(crossgl::isScalarAggregateTypePair(
              crossgl::HIRType{"float", std::nullopt},
              crossgl::HIRType{"vec4", std::nullopt}) &&
@@ -49198,6 +49200,97 @@ shader BadSignedUnsignedScalarConstructorShader {
          "scalar-constructor Vulkan prototype SPIR-V binary exists");
 }
 
+void testAggregateConstructorDiagnostics() {
+  constexpr std::string_view validVectorSource = R"(
+shader ValidAggregateConstructorShader {
+  compute {
+    void main() {
+      vec2 xy = vec2(1.0, 2.0);
+      vec3 xyz = vec3(xy, 3.0);
+      vec3 converted = vec3(1, 2u, 3.0);
+      vec4 splat = vec4(1.0);
+      ivec2 indices = ivec2(0, 1);
+      uvec2 unsignedIndices = uvec2(0u, 1u);
+      ivec2 signedIndices = ivec2(unsignedIndices);
+      vec2 uv = vec2(indices);
+      bvec2 mask = bvec2(true, false);
+      mat4 identity = mat4(1.0);
+      mat2 transform = mat2(1.0, 0.0, 0.0, 1.0);
+      mat3 normal = mat3(identity);
+      mat3 basis = mat3(vec3(1.0, 0.0, 0.0),
+                        vec3(0.0, 1.0, 0.0),
+                        vec3(0.0, 0.0, 1.0));
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> validHir = parseHIR(validVectorSource);
+  expect(validHir.has_value(),
+         "aggregate constructors accept scalar splats and flattened operands");
+
+  constexpr std::string_view badVectorAritySource = R"(
+shader BadVectorConstructorArityShader {
+  compute {
+    void main() {
+      vec3 bad = vec3(1.0, 2.0);
+      return;
+    }
+  }
+}
+)";
+  const std::vector<crossgl::Diagnostic> badVectorArityDiagnostics =
+      collectDiagnostics(badVectorAritySource);
+  expect(hasDiagnostic(badVectorArityDiagnostics, "sema.vector-constructor"),
+         "vector constructors reject under-width operand lists");
+
+  constexpr std::string_view badVectorTypeSource = R"(
+shader BadVectorConstructorOperandTypeShader {
+  compute {
+    void main() {
+      vec3 bad = vec3(vec2(1.0, 2.0), true);
+      return;
+    }
+  }
+}
+)";
+  const std::vector<crossgl::Diagnostic> badVectorTypeDiagnostics =
+      collectDiagnostics(badVectorTypeSource);
+  expect(hasDiagnostic(badVectorTypeDiagnostics, "sema.vector-constructor"),
+         "vector constructors reject mismatched scalar component types");
+
+  constexpr std::string_view badMatrixAritySource = R"(
+shader BadMatrixConstructorArityShader {
+  compute {
+    void main() {
+      mat2 bad = mat2(1.0, 0.0, 0.0);
+      return;
+    }
+  }
+}
+)";
+  const std::vector<crossgl::Diagnostic> badMatrixArityDiagnostics =
+      collectDiagnostics(badMatrixAritySource);
+  expect(hasDiagnostic(badMatrixArityDiagnostics, "sema.matrix-constructor"),
+         "matrix constructors reject under-width operand lists");
+
+  constexpr std::string_view badMatrixTypeSource = R"(
+shader BadMatrixConstructorOperandTypeShader {
+  compute {
+    void main() {
+      mat2 bad = mat2(1.0, 0.0, 0.0, true);
+      return;
+    }
+  }
+}
+)";
+  const std::vector<crossgl::Diagnostic> badMatrixTypeDiagnostics =
+      collectDiagnostics(badMatrixTypeSource);
+  expect(hasDiagnostic(badMatrixTypeDiagnostics, "sema.matrix-constructor"),
+         "matrix constructors reject non-float scalar operands");
+}
+
 void testVulkanPrototypeVectorSwizzleAssembly() {
   constexpr std::string_view source = R"(
 shader VectorSwizzleComputeShader {
@@ -51035,6 +51128,7 @@ int main() {
   testVulkanPrototypeMathIntrinsicAssembly();
   testVulkanPrototypeVectorScalarArithmeticAssembly();
   testVulkanPrototypeScalarConstructorAssembly();
+  testAggregateConstructorDiagnostics();
   testVulkanPrototypeVectorSwizzleAssembly();
   testVulkanPrototypeVectorBufferAssembly();
   testVector3StorageBufferNativePaths();

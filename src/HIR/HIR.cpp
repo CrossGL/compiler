@@ -4496,43 +4496,206 @@ void validateUserFunctionCallExpression(
   }
 }
 
-void validateScalarConstructorExpression(const HIRExpression &expression,
-                                         DiagnosticEngine &diagnostics) {
-  if (expression.kind == HIRExpressionKind::Constructor &&
-      isScalarNumericConstructorType(expression.type)) {
-    bool valid = true;
-    if (expression.children.size() != 1) {
-      diagnostics.error("sema.scalar-constructor",
-                        "scalar numeric constructor '" + expression.value +
-                            "' expects exactly one operand, got " +
-                            std::to_string(expression.children.size()),
-                        expression.location);
-      valid = false;
-    }
+std::optional<HIRType> scalarOrVectorComponentType(const HIRType &type) {
+  if (type.arraySize.has_value() || type.name.empty()) {
+    return std::nullopt;
+  }
+  const std::string typeBase = baseTypeName(type);
+  if (isVectorType(typeBase)) {
+    return scalarTypeForVector(typeBase);
+  }
+  if (isScalarNumericType(type) || isScalarBoolType(type)) {
+    return HIRType{typeBase, std::nullopt};
+  }
+  return std::nullopt;
+}
 
-    if (valid && !expression.children.front().type.name.empty()) {
-      const HIRType &sourceType = expression.children.front().type;
-      if (!isScalarNumericType(sourceType)) {
-        diagnostics.error(
-            "sema.scalar-constructor",
-            "scalar numeric constructor '" + expression.value +
-                "' requires a scalar numeric operand, got '" +
-                formatType(sourceType) + "'",
-            expression.children.front().location);
-      } else if (isSignedUnsignedScalarPair(expression.type, sourceType)) {
-        if (!isComputeInvocationBuiltinIntConversion(expression, sourceType)) {
-          diagnostics.error(
-              "sema.scalar-constructor",
-              "signed/unsigned integer scalar constructors are not defined yet; "
-              "use an explicit bitcast operation once CrossGL adds one",
-              expression.children.front().location);
-        }
+bool constructorComponentConvertible(const HIRType &targetComponentType,
+                                     const HIRType &sourceComponentType) {
+  if (sameType(targetComponentType, sourceComponentType)) {
+    return true;
+  }
+  if (isScalarBoolType(targetComponentType) ||
+      isScalarBoolType(sourceComponentType)) {
+    return false;
+  }
+  return isScalarNumericType(targetComponentType) &&
+         isScalarNumericType(sourceComponentType);
+}
+
+std::optional<std::size_t>
+constructorConstituentWidth(const HIRExpression &operand,
+                            const HIRType &componentType,
+                            std::string_view constructorName,
+                            std::string_view diagnosticCode,
+                            std::string_view constructorKind,
+                            DiagnosticEngine &diagnostics, bool &valid) {
+  const std::optional<HIRType> operandComponentType =
+      scalarOrVectorComponentType(operand.type);
+  if (!operandComponentType.has_value()) {
+    if (operand.type.name.empty()) {
+      return std::nullopt;
+    }
+    diagnostics.error(
+        std::string(diagnosticCode),
+        std::string(constructorKind) + " constructor '" +
+            std::string(constructorName) +
+            "' requires scalar or vector operands convertible to component "
+            "type '" +
+            formatType(componentType) + "', got '" + formatType(operand.type) +
+            "'",
+        operand.location);
+    valid = false;
+    return std::size_t{0};
+  }
+  if (!constructorComponentConvertible(componentType, *operandComponentType)) {
+    diagnostics.error(
+        std::string(diagnosticCode),
+        std::string(constructorKind) + " constructor '" +
+            std::string(constructorName) +
+            "' requires scalar or vector operands convertible to component "
+            "type '" +
+            formatType(componentType) + "', got '" + formatType(operand.type) +
+            "'",
+        operand.location);
+    valid = false;
+    return std::size_t{0};
+  }
+
+  const std::string operandBase = baseTypeName(operand.type);
+  if (isVectorType(operandBase)) {
+    return vectorWidthFromName(operandBase);
+  }
+  return std::size_t{1};
+}
+
+void validateVectorConstructorExpression(const HIRExpression &expression,
+                                         DiagnosticEngine &diagnostics) {
+  const std::string targetBase = baseTypeName(expression.type);
+  const std::optional<std::size_t> targetWidth =
+      vectorWidthFromName(targetBase);
+  if (!targetWidth.has_value() || expression.type.arraySize.has_value()) {
+    return;
+  }
+
+  const HIRType componentType = scalarTypeForVector(targetBase);
+  std::size_t componentCount = 0;
+  bool allOperandWidthsKnown = true;
+  bool valid = true;
+  for (const HIRExpression &operand : expression.children) {
+    const std::optional<std::size_t> operandWidth =
+        constructorConstituentWidth(
+            operand, componentType, expression.value, "sema.vector-constructor",
+            "vector", diagnostics, valid);
+    if (!operandWidth.has_value()) {
+      allOperandWidthsKnown = false;
+      continue;
+    }
+    componentCount += *operandWidth;
+  }
+
+  const bool scalarSplat =
+      expression.children.size() == 1 && componentCount == std::size_t{1};
+  if (valid && allOperandWidthsKnown && !scalarSplat &&
+      componentCount != *targetWidth) {
+    diagnostics.error(
+        "sema.vector-constructor",
+        "vector constructor '" + expression.value + "' expects " +
+            std::to_string(*targetWidth) + " scalar components, got " +
+            std::to_string(componentCount),
+        expression.location);
+  }
+}
+
+void validateMatrixConstructorExpression(const HIRExpression &expression,
+                                         DiagnosticEngine &diagnostics) {
+  const std::string targetBase = baseTypeName(expression.type);
+  const std::optional<std::size_t> targetElementCount =
+      matrixElementCountFromName(targetBase);
+  if (!targetElementCount.has_value() || expression.type.arraySize.has_value()) {
+    return;
+  }
+
+  const HIRType componentType{"float", std::nullopt};
+  bool allOperandTypesKnown = true;
+  bool valid = true;
+  if (expression.children.size() == 1) {
+    const HIRType &sourceType = expression.children.front().type;
+    if (sourceType.name.empty()) {
+      return;
+    }
+    if (!sourceType.arraySize.has_value()) {
+      const std::string sourceBase = baseTypeName(sourceType);
+      if (isMatrixType(sourceBase) || isScalarNumericType(sourceType)) {
+        return;
       }
     }
   }
 
+  std::size_t componentCount = 0;
+  for (const HIRExpression &operand : expression.children) {
+    const std::optional<std::size_t> operandWidth =
+        constructorConstituentWidth(
+            operand, componentType, expression.value, "sema.matrix-constructor",
+            "matrix", diagnostics, valid);
+    if (!operandWidth.has_value()) {
+      allOperandTypesKnown = false;
+      continue;
+    }
+    componentCount += *operandWidth;
+  }
+
+  if (valid && allOperandTypesKnown && componentCount != *targetElementCount) {
+    diagnostics.error(
+        "sema.matrix-constructor",
+        "matrix constructor '" + expression.value + "' expects " +
+            std::to_string(*targetElementCount) + " scalar components, got " +
+            std::to_string(componentCount),
+        expression.location);
+  }
+}
+
+void validateConstructorExpression(const HIRExpression &expression,
+                                   DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Constructor) {
+    bool valid = true;
+    if (isScalarNumericConstructorType(expression.type)) {
+      if (expression.children.size() != 1) {
+        diagnostics.error("sema.scalar-constructor",
+                          "scalar numeric constructor '" + expression.value +
+                              "' expects exactly one operand, got " +
+                              std::to_string(expression.children.size()),
+                          expression.location);
+        valid = false;
+      }
+
+      if (valid && !expression.children.front().type.name.empty()) {
+        const HIRType &sourceType = expression.children.front().type;
+        if (!isScalarNumericType(sourceType)) {
+          diagnostics.error(
+              "sema.scalar-constructor",
+              "scalar numeric constructor '" + expression.value +
+                  "' requires a scalar numeric operand, got '" +
+                  formatType(sourceType) + "'",
+              expression.children.front().location);
+        } else if (isSignedUnsignedScalarPair(expression.type, sourceType)) {
+          if (!isComputeInvocationBuiltinIntConversion(expression, sourceType)) {
+            diagnostics.error(
+                "sema.scalar-constructor",
+                "signed/unsigned integer scalar constructors are not defined yet; "
+                "use an explicit bitcast operation once CrossGL adds one",
+                expression.children.front().location);
+          }
+        }
+      }
+    } else {
+      validateVectorConstructorExpression(expression, diagnostics);
+      validateMatrixConstructorExpression(expression, diagnostics);
+    }
+  }
+
   for (const HIRExpression &child : expression.children) {
-    validateScalarConstructorExpression(child, diagnostics);
+    validateConstructorExpression(child, diagnostics);
   }
 }
 
@@ -4964,7 +5127,7 @@ void validateExpressionSemantics(const HIRExpression &expression,
   validateSelectExpression(expression, diagnostics);
   validateIntrinsicCallExpression(expression, diagnostics);
   validateUserFunctionCallExpression(expression, functionSignatures, diagnostics);
-  validateScalarConstructorExpression(expression, diagnostics);
+  validateConstructorExpression(expression, diagnostics);
   validateIndexAccessExpression(expression, resources, diagnostics);
   validateNonUniformIndexExpression(expression, resources, diagnostics);
   validateAtomicReadModifyWriteExpression(expression, diagnostics);

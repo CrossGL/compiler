@@ -9470,6 +9470,10 @@ bool vulkanGraphicsExpressionSupported(const HIRModule &module,
                                        const HIRStage &stage,
                                        const HIRExpression &expression,
                                        bool allowStageHelpers = true);
+bool vulkanGraphicsConstructorSupported(const HIRModule &module,
+                                        const HIRStage &stage,
+                                        const HIRExpression &expression,
+                                        bool allowStageHelpers);
 std::optional<std::vector<std::size_t>>
 vulkanGraphicsSwizzleIndices(const HIRType &type, std::string_view member);
 bool vulkanGraphicsSwizzleResultTypeSupported(
@@ -10041,16 +10045,8 @@ bool vulkanGraphicsExpressionSupported(const HIRModule &module,
     }
     return vulkanGraphicsValueTypeSupported(module, expression.type);
   case HIRExpressionKind::Constructor:
-    if (!vulkanGraphicsScalarVectorTypeSupported(expression.type)) {
-      return false;
-    }
-    for (const HIRExpression &child : expression.children) {
-      if (!vulkanGraphicsExpressionSupported(module, stage, child,
-                                             allowStageHelpers)) {
-        return false;
-      }
-    }
-    return true;
+    return vulkanGraphicsConstructorSupported(module, stage, expression,
+                                              allowStageHelpers);
   case HIRExpressionKind::Binary:
     return expression.children.size() == 2 &&
            vulkanGraphicsExpressionSupported(module, stage,
@@ -10365,6 +10361,72 @@ bool vulkanGraphicsIsVector(std::string_view name) {
 
 HIRType vulkanGraphicsVectorComponentType(const HIRType &type) {
   return HIRType{vulkanGraphicsScalarTypeName(type.name), std::nullopt};
+}
+
+std::optional<std::size_t>
+vulkanGraphicsConstructorConstituentWidth(const HIRType &type,
+                                          const HIRType &componentType) {
+  if (type.arraySize.has_value()) {
+    return std::nullopt;
+  }
+  if (vulkanGraphicsTypeEquals(type, componentType)) {
+    return std::size_t{1};
+  }
+  if (!vulkanGraphicsIsVector(type.name)) {
+    return std::nullopt;
+  }
+  const HIRType childComponentType = vulkanGraphicsVectorComponentType(type);
+  if (!vulkanGraphicsTypeEquals(childComponentType, componentType)) {
+    return std::nullopt;
+  }
+  return vulkanGraphicsVectorSize(type.name);
+}
+
+bool vulkanGraphicsConstructorSupported(const HIRModule &module,
+                                        const HIRStage &stage,
+                                        const HIRExpression &expression,
+                                        bool allowStageHelpers) {
+  if (!vulkanGraphicsScalarVectorTypeSupported(expression.type) ||
+      expression.value != expression.type.name || expression.children.empty()) {
+    return false;
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    if (!vulkanGraphicsExpressionSupported(module, stage, child,
+                                           allowStageHelpers)) {
+      return false;
+    }
+  }
+
+  const std::size_t targetWidth = vulkanGraphicsVectorSize(expression.type.name);
+  if (targetWidth == 1) {
+    return expression.children.size() == 1 &&
+           vulkanGraphicsVectorSize(expression.children.front().type.name) ==
+               1;
+  }
+
+  if (expression.children.size() == 1 &&
+      vulkanGraphicsTypeEquals(expression.children.front().type,
+                               expression.type)) {
+    return true;
+  }
+
+  const HIRType componentType =
+      vulkanGraphicsVectorComponentType(expression.type);
+  std::size_t constituentWidth = 0;
+  for (const HIRExpression &child : expression.children) {
+    const std::optional<std::size_t> childWidth =
+        vulkanGraphicsConstructorConstituentWidth(child.type, componentType);
+    if (!childWidth.has_value()) {
+      return false;
+    }
+    constituentWidth += *childWidth;
+  }
+
+  if (expression.children.size() == 1 && constituentWidth == 1) {
+    return true;
+  }
+  return constituentWidth == targetWidth;
 }
 
 std::optional<std::vector<std::size_t>>

@@ -1,0 +1,8 @@
+shader BadVectorConstructorOperandTypeShader {
+  compute {
+    void main() {
+      vec3 bad = vec3(vec2(1.0, 2.0), true);
+      return;
+    }
+  }
+}
