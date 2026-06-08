@@ -1733,6 +1733,11 @@ def read_package(package_path: Path | str) -> RuntimePackage:
         raise PackageReadError("reflection.target does not match manifest.target")
 
     reflection_diagnostics: list[CompatibilityDiagnostic] = []
+    _append_reflection_target_binding_duplicate_diagnostics(
+        reflection_diagnostics,
+        target=target,
+        reflection=reflection,
+    )
     _append_reflection_target_abi_diagnostics(
         reflection_diagnostics,
         target=target,
@@ -3341,6 +3346,11 @@ def _append_reflection_consistency_diagnostics(
         target=target,
         reflection=reflection,
     )
+    _append_reflection_target_binding_duplicate_diagnostics(
+        diagnostics,
+        target=target,
+        reflection=reflection,
+    )
     _append_reflection_target_abi_diagnostics(
         diagnostics,
         target=target,
@@ -3556,6 +3566,73 @@ def _append_reflection_target_record_diagnostics(
                     actual=record_target,
                 )
             )
+
+
+def _append_reflection_target_binding_duplicate_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    target: str,
+    reflection: dict[str, Any],
+) -> None:
+    seen: dict[tuple[str, str, str, str | None], int] = {}
+    for index, record in enumerate(
+        _json_object_list(reflection.get("targetResourceBindings"))
+    ):
+        if record.get("target") != target:
+            continue
+        key = _target_resource_binding_identity(record)
+        if key is None:
+            continue
+        if key not in seen:
+            seen[key] = index
+            continue
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.reflection.target_resource_binding_duplicate",
+                message=(
+                    "reflection.targetResourceBindings entries must be unique "
+                    "for each target resource binding"
+                ),
+                document="reflection",
+                path=f"targetResourceBindings[{index}]",
+                expected={
+                    "uniqueTargetResourceBinding": {
+                        "target": target,
+                        "stage": key[0],
+                        "entryPoint": key[1],
+                        "name": key[2],
+                        "kind": key[3],
+                    }
+                },
+                actual={
+                    "duplicateOf": f"targetResourceBindings[{seen[key]}]",
+                    "target": target,
+                    "stage": key[0],
+                    "entryPoint": key[1],
+                    "name": key[2],
+                    "kind": key[3],
+                },
+            )
+        )
+
+
+def _target_resource_binding_identity(
+    record: dict[str, Any],
+) -> tuple[str, str, str, str | None] | None:
+    stage = record.get("stage")
+    entry_point = record.get("entryPoint")
+    name = record.get("name")
+    kind = record.get("kind")
+    if (
+        not isinstance(stage, str)
+        or not stage
+        or not isinstance(entry_point, str)
+        or not entry_point
+        or not isinstance(name, str)
+        or not name
+    ):
+        return None
+    return stage, entry_point, name, kind if isinstance(kind, str) else None
 
 
 def _append_reflection_target_abi_diagnostics(

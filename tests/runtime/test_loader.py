@@ -724,6 +724,40 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 summary["reflectionResources"]["targetResourceBindings"][0]["abi"],
                 {"buffer": 0},
             )
+            binding_metadata = summary["targetResourceBindingMetadata"]
+            self.assertEqual(
+                binding_metadata,
+                summary["metadataContract"]["targetResourceBindingMetadata"],
+            )
+            self.assertEqual(binding_metadata["schemaVersion"], 1)
+            self.assertEqual(binding_metadata["selectedTarget"], "metal")
+            self.assertEqual(binding_metadata["loaderTarget"], "metal")
+            self.assertEqual(binding_metadata["packageTarget"], "metal")
+            self.assertEqual(binding_metadata["bindingCount"], 1)
+            self.assertEqual(binding_metadata["skippedBindingCount"], 0)
+            self.assertEqual(
+                binding_metadata["bindings"][0],
+                {
+                    "target": "metal",
+                    "stage": "compute",
+                    "entryPoint": "runtime_loader_main",
+                    "name": "OutputBuffer",
+                    "kind": "storageBuffer",
+                    "bindingClass": "uav",
+                    "descriptorType": "UAV",
+                    "set": None,
+                    "binding": None,
+                    "argumentIndex": None,
+                    "abi": {"buffer": 0},
+                    "identity": {
+                        "target": "metal",
+                        "stage": "compute",
+                        "entryPoint": "runtime_loader_main",
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                    },
+                },
+            )
             self.assertEqual(summary["availableTargets"], ["metal"])
             self.assertEqual(
                 summary["targetAvailability"],

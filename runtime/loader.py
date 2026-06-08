@@ -248,6 +248,9 @@ class RuntimeLoaderPlan:
                 else None
             ),
             "reflectionInputs": self.reflection_resource_summary,
+            "targetResourceBindingMetadata": (
+                self.target_resource_binding_metadata_summary
+            ),
             "sourceInputs": [],
         }
 
@@ -610,6 +613,30 @@ class RuntimeLoaderPlan:
         }
 
     @property
+    def target_resource_binding_metadata_summary(self) -> dict[str, Any]:
+        target_bindings = self._reflection_records("targetResourceBindings")
+        selected_target = self.selected_target
+        if selected_target is None:
+            selected_target = self.loader_target
+        selected_bindings = tuple(
+            record
+            for record in target_bindings
+            if record.get("target") == selected_target
+        )
+        return {
+            "schemaVersion": 1,
+            "selectedTarget": self.selected_target,
+            "loaderTarget": self.loader_target,
+            "packageTarget": self.package_target,
+            "bindingCount": len(selected_bindings),
+            "skippedBindingCount": len(target_bindings) - len(selected_bindings),
+            "bindings": [
+                _target_resource_binding_metadata_record(record)
+                for record in selected_bindings
+            ],
+        }
+
+    @property
     def runtime_artifact(self) -> LoaderArtifactPlan | None:
         artifact = self.runtime_artifact_selection.artifact
         if artifact is None:
@@ -780,6 +807,9 @@ class RuntimeLoaderPlan:
             "artifactRoleCompatibility": self.artifact_role_compatibility,
             "artifactCompatibility": self.artifact_compatibility_summary,
             "reflectionResources": self.reflection_resource_summary,
+            "targetResourceBindingMetadata": (
+                self.target_resource_binding_metadata_summary
+            ),
             "artifactAvailability": self.compatibility_report.artifact_availability,
             "availability": self.availability_summary,
             "metadataContract": self.metadata_contract_summary,
@@ -1194,3 +1224,30 @@ def _summarize_reflection_record(
     keys: tuple[str, ...],
 ) -> dict[str, Any]:
     return {key: record[key] for key in keys if key in record}
+
+
+def _target_resource_binding_metadata_record(
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    abi = record.get("abi")
+    abi_summary = dict(abi) if isinstance(abi, dict) else abi
+    return {
+        "target": record.get("target"),
+        "stage": record.get("stage"),
+        "entryPoint": record.get("entryPoint"),
+        "name": record.get("name"),
+        "kind": record.get("kind"),
+        "bindingClass": record.get("bindingClass"),
+        "descriptorType": record.get("descriptorType"),
+        "set": record.get("set"),
+        "binding": record.get("binding"),
+        "argumentIndex": record.get("argumentIndex"),
+        "abi": abi_summary,
+        "identity": {
+            "target": record.get("target"),
+            "stage": record.get("stage"),
+            "entryPoint": record.get("entryPoint"),
+            "name": record.get("name"),
+            "kind": record.get("kind"),
+        },
+    }

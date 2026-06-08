@@ -6530,6 +6530,76 @@ class RuntimePackageReaderTests(unittest.TestCase):
             )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_compatibility_report_rejects_duplicate_target_resource_bindings(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime compatibility must not disambiguate duplicates from source\n",
+                encoding="utf-8",
+            )
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            duplicate = dict(reflection["targetResourceBindings"][0])
+            duplicate["abi"] = {"space": 1, "register": "u1"}
+            reflection["targetResourceBindings"].append(duplicate)
+            self._write_json(reflection_path, reflection)
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="directx",
+                )
+                selection = select_runtime_artifact(report, target="directx")
+
+            summary = report.to_summary()
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(report.status, "incompatible")
+            self.assertFalse(selection.selected)
+            self.assertIn(
+                "package.reflection.target_resource_binding_duplicate",
+                [diagnostic.code for diagnostic in report.reject_reasons],
+            )
+            diagnostic = next(
+                diagnostic
+                for diagnostic in summary["rejectReasons"]
+                if diagnostic["code"]
+                == "package.reflection.target_resource_binding_duplicate"
+            )
+            self.assertEqual(diagnostic["document"], "reflection")
+            self.assertEqual(diagnostic["path"], "targetResourceBindings[1]")
+            self.assertEqual(
+                diagnostic["expected"],
+                {
+                    "uniqueTargetResourceBinding": {
+                        "target": "directx",
+                        "stage": "compute",
+                        "entryPoint": "runtime_reader_main",
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                    }
+                },
+            )
+            self.assertEqual(
+                diagnostic["actual"],
+                {
+                    "duplicateOf": "targetResourceBindings[0]",
+                    "target": "directx",
+                    "stage": "compute",
+                    "entryPoint": "runtime_reader_main",
+                    "name": "OutputBuffer",
+                    "kind": "storageBuffer",
+                },
+            )
+            with self.assertRaisesRegex(PackageReadError, "unique"):
+                read_package(package_dir)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_compatibility_report_rejects_malformed_reflection_handoff_records(
         self,
     ) -> None:
