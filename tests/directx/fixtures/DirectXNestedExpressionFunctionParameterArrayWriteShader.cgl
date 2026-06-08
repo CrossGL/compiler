@@ -1,4 +1,4 @@
-shader DirectXNestedExpressionFunctionParameterArrayWriteUnsupportedShader {
+shader DirectXNestedExpressionFunctionParameterArrayWriteShader {
   const int COUNT = 2;
 
   struct Particle {
@@ -15,7 +15,7 @@ shader DirectXNestedExpressionFunctionParameterArrayWriteUnsupportedShader {
     }
 
     void main() {
-      particles[1].weights[0] = 1.0 + rewriteWeight(particles[0].weights);
+      particles[1].weights[0] = rewriteWeight(particles[0].weights) + 1.0;
       return;
     }
   }

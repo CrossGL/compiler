@@ -4604,6 +4604,29 @@ add_test(NAME cglc_build_directx_graphics_resource_unsupported_planned_failure
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array storage buffers, and texture/sampler resources|message=stage 'vertex' resource 'debugMatrices'|message=kind storage-buffer|message=type mat4*|message=stage 'fragment' resource 'debugValues'|message=type vec4*[]|message=runtime storage-buffer descriptor arrays are not supported|message=register conflict for register(u4, space0)"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewriteWeight_weights[COUNT];
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  float crossgl_param_array_writeback_1_result = rewriteWeight(crossgl_param_array_writeback_0_rewriteWeight_weights);
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  particles[1].weights[0] = crossgl_param_array_writeback_1_result + 1.0;]=])
+add_test(NAME cglc_build_directx_nested_expression_function_parameter_array_write_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-nested-expression-function-parameter-array-write.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXNestedExpressionFunctionParameterArrayWriteShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXNestedExpressionFunctionParameterArrayWriteShader|nativeBinary=backend/directx/DirectXNestedExpressionFunctionParameterArrayWriteShader.dxil|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.stage=compute|particles.entryPoint=compute_main|particles.sourceType=Particle*|particles.hlslType=RWStructuredBuffer<Particle>|particles.addressSpace=unordered-access|particles.abi=registerBinding|particles.bindingClass=uav|particles.descriptorType=UAV|particles.argumentIndex=0|particles.set=0|particles.binding=0"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|fixed-array.kind=layout|fixed-array-field.kind=layout|function-parameter-array.kind=array|scalar-vector-elements.kind=array|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|scalar-arithmetic.kind=operation|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_nested_expression_function_parameter_array_write_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4613,7 +4636,7 @@ add_test(NAME cglc_build_directx_nested_expression_function_parameter_array_writ
     -DMODE=planned-build-failure
     -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-write
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function 'rewriteWeight' parameter 'weights'|message=direct non-aliased storage-buffer field array arguments|message=statement's direct helper-call value"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function 'rewriteWeight' parameter 'weights'|message=direct non-aliased storage-buffer field array arguments|message=binary expression's left operand|message=right operand has no call-like evaluation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_LOCAL_FUNCTION_PARAMETER_ARRAY_SOURCE_SNIPPET [=[float sumWeights(float weights[COUNT]) {
   return weights[0] + weights[1];

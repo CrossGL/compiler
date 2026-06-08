@@ -2118,6 +2118,7 @@ struct DirectXArrayWriteBackRewrite {
   const HIRExpression *call = nullptr;
   std::vector<DirectXArrayWriteBackArgument> arguments;
   std::vector<std::pair<std::size_t, std::string>> argumentOverrides;
+  bool materializeNestedCallResult = false;
 };
 
 std::string directxInternalIdentifierFragment(std::string_view value) {
@@ -2169,18 +2170,104 @@ const HIRFunction *findDirectXEmitFunction(const DirectXEmitContext &context,
   return nullptr;
 }
 
-std::optional<DirectXArrayWriteBackRewrite> directxArrayWriteBackRewrite(
-    const HIRStatement &statement, const DirectXEmitContext &context) {
+const HIRExpression *directxTransparentExpression(
+    const HIRExpression &expression) {
+  const HIRExpression *current = &expression;
+  while (current->kind == HIRExpressionKind::Group &&
+         current->children.size() == 1) {
+    current = &current->children.front();
+  }
+  return current;
+}
+
+bool directxExpressionContainsNode(const HIRExpression &expression,
+                                   const HIRExpression &node) {
+  if (&expression == &node) {
+    return true;
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (directxExpressionContainsNode(child, node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool directxExpressionContainsCallLikeEvaluation(
+    const HIRExpression &expression) {
+  switch (expression.kind) {
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+  case HIRExpressionKind::TextureSample:
+    return true;
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::Group:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Binary:
+  case HIRExpressionKind::Select:
+    break;
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (directxExpressionContainsCallLikeEvaluation(child)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const HIRExpression *directxNestedArrayWriteBackStatementCall(
+    const HIRStatement &statement) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+  case HIRStatementKind::Assignment:
+    break;
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    return nullptr;
+  }
+
+  const HIRExpression *value = directxTransparentExpression(statement.value);
+  if (value->kind != HIRExpressionKind::Binary ||
+      value->children.size() != 2 ||
+      directxExpressionContainsCallLikeEvaluation(value->children[1])) {
+    return nullptr;
+  }
+  if (statement.kind == HIRStatementKind::Assignment &&
+      directxExpressionContainsCallLikeEvaluation(statement.target)) {
+    return nullptr;
+  }
+
+  const HIRExpression *left =
+      directxTransparentExpression(value->children[0]);
+  if (left->kind != HIRExpressionKind::Call || left->type.name == "void" ||
+      left->type.arraySize.has_value()) {
+    return nullptr;
+  }
+  return left;
+}
+
+std::optional<DirectXArrayWriteBackRewrite> directxArrayWriteBackRewriteForCall(
+    const HIRExpression &call, const DirectXEmitContext &context) {
   if (context.module == nullptr || context.stage == nullptr ||
       context.function == nullptr) {
     return std::nullopt;
   }
-  const HIRExpression *call = directxStatementDirectCallValue(statement);
-  if (call == nullptr) {
-    return std::nullopt;
-  }
-  const HIRFunction *callee = findDirectXEmitFunction(context, call->value);
-  if (callee == nullptr || call->children.size() != callee->parameters.size()) {
+  const HIRFunction *callee = findDirectXEmitFunction(context, call.value);
+  if (callee == nullptr || call.children.size() != callee->parameters.size()) {
     return std::nullopt;
   }
 
@@ -2191,15 +2278,15 @@ std::optional<DirectXArrayWriteBackRewrite> directxArrayWriteBackRewrite(
   }
 
   DirectXArrayWriteBackRewrite rewrite;
-  rewrite.call = call;
+  rewrite.call = &call;
   for (std::size_t index = 0; index < callee->parameters.size(); ++index) {
     const HIRParameter &parameter = callee->parameters[index];
     if (writtenParameters.count(parameter.name) == 0 ||
-        index >= call->children.size() ||
+        index >= call.children.size() ||
         directxFunctionParameterArrayWriteArgumentAliases(
-            *context.module, *callee, *call, index) ||
+            *context.module, *callee, call, index) ||
         !directxStorageBufferFieldArrayWriteBackArgument(
-            *context.module, *context.function, call->children[index],
+            *context.module, *context.function, call.children[index],
             context.stage)) {
       continue;
     }
@@ -2207,9 +2294,9 @@ std::optional<DirectXArrayWriteBackRewrite> directxArrayWriteBackRewrite(
     DirectXArrayWriteBackArgument argument;
     argument.argumentIndex = index;
     argument.type = parameter.type;
-    argument.argument = &call->children[index];
+    argument.argument = &call.children[index];
     argument.temporaryName =
-        directxArrayWriteBackTemporaryName(*call, parameter, context);
+        directxArrayWriteBackTemporaryName(call, parameter, context);
     rewrite.argumentOverrides.emplace_back(argument.argumentIndex,
                                            argument.temporaryName);
     rewrite.arguments.push_back(std::move(argument));
@@ -2217,6 +2304,25 @@ std::optional<DirectXArrayWriteBackRewrite> directxArrayWriteBackRewrite(
 
   if (rewrite.arguments.empty()) {
     return std::nullopt;
+  }
+  return rewrite;
+}
+
+std::optional<DirectXArrayWriteBackRewrite> directxArrayWriteBackRewrite(
+    const HIRStatement &statement, const DirectXEmitContext &context) {
+  if (const HIRExpression *call = directxStatementDirectCallValue(statement)) {
+    return directxArrayWriteBackRewriteForCall(*call, context);
+  }
+
+  const HIRExpression *nestedCall =
+      directxNestedArrayWriteBackStatementCall(statement);
+  if (nestedCall == nullptr) {
+    return std::nullopt;
+  }
+  std::optional<DirectXArrayWriteBackRewrite> rewrite =
+      directxArrayWriteBackRewriteForCall(*nestedCall, context);
+  if (rewrite.has_value()) {
+    rewrite->materializeNestedCallResult = true;
   }
   return rewrite;
 }
@@ -2308,10 +2414,106 @@ void emitDirectXArrayWriteBackCopiesAfter(
   }
 }
 
+std::string emitDirectXExpressionWithCallReplacement(
+    const HIRExpression &expression, const HIRExpression &call,
+    std::string_view replacement, const DirectXEmitContext &context) {
+  if (&expression == &call) {
+    return std::string(replacement);
+  }
+  if (!directxExpressionContainsNode(expression, call)) {
+    return emitExpression(expression, context);
+  }
+
+  switch (expression.kind) {
+  case HIRExpressionKind::Group:
+    return expression.children.empty()
+               ? "()"
+               : "(" + emitDirectXExpressionWithCallReplacement(
+                           expression.children.front(), call, replacement,
+                           context) +
+                     ")";
+  case HIRExpressionKind::Binary:
+    if (expression.children.size() != 2) {
+      return "/* unsupported */";
+    }
+    return emitDirectXExpressionWithCallReplacement(
+               expression.children[0], call, replacement, context) +
+           " " + expression.value + " " +
+           emitDirectXExpressionWithCallReplacement(
+               expression.children[1], call, replacement, context);
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::Select:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+  case HIRExpressionKind::TextureSample:
+    break;
+  }
+  return "/* unsupported */";
+}
+
+void emitDirectXNestedExpressionWithArrayWriteBack(
+    std::ostringstream &out, const HIRStatement &statement,
+    std::size_t indentation, const DirectXEmitContext &context,
+    const DirectXArrayWriteBackRewrite &rewrite) {
+  const std::string spaces(indentation, ' ');
+  const std::vector<std::pair<std::size_t, std::string>> overrides =
+      directxArrayWriteBackArgumentOverrides(rewrite);
+  const std::string resultName =
+      "crossgl_param_array_writeback_" +
+      std::to_string(nextDirectXTemporaryIndex(context)) + "_result";
+
+  emitDirectXArrayWriteBackCopiesBefore(out, rewrite, indentation, context);
+  out << spaces << hlslDeclarator(context.module, rewrite.call->type,
+                                  resultName)
+      << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                overrides)
+      << ";\n";
+  emitDirectXArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+
+  const std::string value =
+      emitDirectXExpressionWithCallReplacement(statement.value, *rewrite.call,
+                                               resultName, context);
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    out << spaces << hlslDeclarator(context.module, statement.declaredType,
+                                    statement.name)
+        << " = " << value << ";\n";
+    return;
+  case HIRStatementKind::Assignment:
+    out << spaces << emitExpression(statement.target, context) << " = "
+        << value << ";\n";
+    return;
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    break;
+  }
+}
+
 void emitDirectXStatementWithArrayWriteBack(
     std::ostringstream &out, const HIRStatement &statement,
     std::size_t indentation, const DirectXEmitContext &context,
     const DirectXArrayWriteBackRewrite &rewrite) {
+  if (rewrite.materializeNestedCallResult) {
+    emitDirectXNestedExpressionWithArrayWriteBack(out, statement, indentation,
+                                                 context, rewrite);
+    return;
+  }
+
   const std::string spaces(indentation, ' ');
   const std::vector<std::pair<std::size_t, std::string>> overrides =
       directxArrayWriteBackArgumentOverrides(rewrite);
@@ -3834,23 +4036,36 @@ bool directxFunctionParameterArrayWriteStatementSupported(
     const HIRFunction &callee, const HIRStatement &statement,
     std::size_t parameterIndex, const HIRStage *stage,
     bool allowDirectStatementWriteBack) {
-  const HIRExpression *directCall =
+  const HIRExpression *supportedWriteBackCall =
       directxStatementDirectCallValue(statement);
-  if (directCall != nullptr && directCall->value != callee.name) {
-    directCall = nullptr;
+  if (supportedWriteBackCall != nullptr &&
+      supportedWriteBackCall->value != callee.name) {
+    supportedWriteBackCall = nullptr;
   }
-  if (directCall != nullptr &&
-      !directxFunctionParameterArrayWriteCallSupportedInContext(
-          module, caller, callee, *directCall, parameterIndex, stage,
-          allowDirectStatementWriteBack)) {
-    return false;
+  if (supportedWriteBackCall != nullptr) {
+    if (!directxFunctionParameterArrayWriteCallSupportedInContext(
+            module, caller, callee, *supportedWriteBackCall, parameterIndex,
+            stage, allowDirectStatementWriteBack)) {
+      return false;
+    }
+  } else if (allowDirectStatementWriteBack) {
+    const HIRExpression *nestedCall =
+        directxNestedArrayWriteBackStatementCall(statement);
+    if (nestedCall != nullptr && nestedCall->value == callee.name) {
+      if (!directxFunctionParameterArrayWriteCallSupportedInContext(
+              module, caller, callee, *nestedCall, parameterIndex, stage,
+              true)) {
+        return false;
+      }
+      supportedWriteBackCall = nestedCall;
+    }
   }
   if (!directxExpressionTreeSupportsFunctionArrayWriteCalls(
-          module, caller, callee, statement.target, directCall, parameterIndex,
-          stage) ||
+          module, caller, callee, statement.target, supportedWriteBackCall,
+          parameterIndex, stage) ||
       !directxExpressionTreeSupportsFunctionArrayWriteCalls(
-          module, caller, callee, statement.value, directCall, parameterIndex,
-          stage)) {
+          module, caller, callee, statement.value, supportedWriteBackCall,
+          parameterIndex, stage)) {
     return false;
   }
 
@@ -4347,7 +4562,8 @@ bool diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
           "; DirectX currently lowers callee-local helper array writes for "
           "fixed-size local array copies and direct non-aliased "
           "storage-buffer field array arguments used as a statement's direct "
-          "helper-call value");
+          "helper-call value or as a binary expression's left operand when "
+          "the right operand has no call-like evaluation");
   return true;
 }
 
