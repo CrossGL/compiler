@@ -46430,33 +46430,6 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
     }
     return false;
   };
-  auto expectUnsupportedArrayCallFeature =
-      [&](crossgl::HIRModule invalidModule, std::string_view featureName,
-          std::string_view label) {
-        const std::filesystem::path packageDir =
-            unitTestTempDirectoryPath() /
-            ("crossgl-metal-unsupported-array-call-" + std::string(label));
-        std::error_code error;
-        std::filesystem::remove_all(packageDir, error);
-
-        crossgl::DiagnosticEngine diagnostics;
-        const crossgl::MetalBuildResult result =
-            crossgl::buildMetalBinary(invalidModule, packageDir, diagnostics);
-        expect(!result.success,
-               "Metal unsupported helper array call feature fails validation");
-        expect(hasDiagnosticCode(
-                   diagnostics.diagnostics(),
-                   "metal.unsupported-function-parameter-array-call-feature"),
-               "Metal unsupported helper array call feature reports target "
-               "diagnostic");
-        expect(hasDiagnosticMessage(
-                   diagnostics.diagnostics(),
-                   "metal.unsupported-function-parameter-array-call-feature",
-                   featureName),
-               "Metal unsupported helper array call diagnostic names the "
-               "rejected ABI feature");
-      };
-
   crossgl::HIRModule structElementCallModule;
   structElementCallModule.name = "MetalStructElementArrayCallShader";
   structElementCallModule.structs.push_back(
@@ -46497,9 +46470,23 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
   structElementStage.entryPointName = "main";
   structElementStage.functions.push_back(std::move(structElementMain));
   structElementCallModule.stages.push_back(std::move(structElementStage));
-  expectUnsupportedArrayCallFeature(std::move(structElementCallModule),
-                                    "struct-elements",
-                                    "struct-elements");
+  crossgl::DiagnosticEngine structElementSupportDiagnostics;
+  expect(crossgl::metalNativeBackendSupported(structElementCallModule,
+                                              structElementSupportDiagnostics),
+         "Metal struct-element helper array call passes native support "
+         "preflight");
+  expect(!structElementSupportDiagnostics.hasErrors(),
+         "Metal struct-element helper array call emits no preflight "
+         "diagnostics");
+  const std::string structElementMetal =
+      crossgl::generateMetalSource(structElementCallModule);
+  expect(structElementMetal.find(
+             "void consumePayloads(array<Payload, 2> payloads)") !=
+             std::string::npos,
+         "Metal backend emits struct-element helper array parameter");
+  expect(structElementMetal.find("consumePayloads(payloads);") !=
+             std::string::npos,
+         "Metal backend preserves struct-element helper array call");
 
   constexpr std::string_view directResourceArraySource = R"(
 shader MetalFunctionParameterResourceArrayShader {
@@ -46965,15 +46952,18 @@ shader MetalDynamicNestedStructFunctionParameterArrayWriteShader {
   }
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-    Payload rewriteGrid(Payload grid[ROWS][COLS], int row, int col) {
-      grid[row][col] = grid[0][0];
+    Payload rewriteGrid(Payload grid[ROWS][COLS], int row, int col, Payload replacement) {
+      grid[row][col] = replacement;
       return grid[0][0];
     }
     void main() {
       Payload localGrid[ROWS][COLS];
+      Payload seed;
+      seed.value = 1.0;
+      localGrid[0][0] = seed;
       int row = 1;
       int col = 0;
-      Payload selected = rewriteGrid(localGrid, row, col);
+      Payload selected = rewriteGrid(localGrid, row, col, seed);
       return;
     }
   }
@@ -46986,21 +46976,45 @@ shader MetalDynamicNestedStructFunctionParameterArrayWriteShader {
          "Metal dynamic nested struct parameter-array write source builds HIR");
   if (dynamicNestedStructWriteHir.has_value()) {
     crossgl::DiagnosticEngine supportDiagnostics;
-    expect(!crossgl::metalNativeBackendSupported(
+    expect(crossgl::metalNativeBackendSupported(
                *dynamicNestedStructWriteHir, supportDiagnostics),
-           "Metal dynamic nested struct helper array writes fail native "
+           "Metal dynamic nested struct helper array writes pass native "
            "support preflight");
-    expect(hasDiagnosticCode(
-               supportDiagnostics.diagnostics(),
-               "metal.unsupported-dynamic-nested-helper-array-write"),
-           "Metal dynamic nested struct helper array writes report target "
-           "diagnostic");
-    expect(hasDiagnosticMessage(
-               supportDiagnostics.diagnostics(),
-               "metal.unsupported-dynamic-nested-helper-array-write",
-               "function 'rewriteGrid' parameter 'grid'"),
-           "Metal dynamic nested struct helper array write diagnostic names "
-           "the helper parameter");
+    expect(!supportDiagnostics.hasErrors(),
+           "Metal dynamic nested struct helper array writes have no preflight "
+           "diagnostics");
+
+    const std::string dynamicNestedStructMetal =
+        crossgl::generateMetalSource(*dynamicNestedStructWriteHir);
+    expect(dynamicNestedStructMetal.find(
+               "Payload rewriteGrid(array<array<Payload, COLS>, ROWS> grid, "
+               "int row, int col, Payload replacement)") != std::string::npos,
+           "Metal backend emits struct nested helper array parameter for "
+           "dynamic writes");
+    expect(dynamicNestedStructMetal.find("grid[row][col] = replacement;") !=
+               std::string::npos,
+           "Metal backend preserves dynamic struct nested helper array write");
+
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-dynamic-nested-struct-helper-array-write-native-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+
+      crossgl::DiagnosticEngine diagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*dynamicNestedStructWriteHir, packageDir,
+                                    diagnostics);
+      expect(result.success,
+             "Metal dynamic nested struct helper array writes compile to "
+             "metallib");
+      expect(!diagnostics.hasErrors(),
+             "Metal dynamic nested struct helper array write native build has "
+             "no diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal dynamic nested struct helper array write metallib exists");
+    }
   }
 
   constexpr std::string_view entryArraySource = R"(

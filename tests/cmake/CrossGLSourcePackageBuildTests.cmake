@@ -6340,6 +6340,24 @@ kernel void compute_main(device float4* values [[buffer(0)]], array<texture2d<fl
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[Payload rewriteGrid(array<array<Payload, COLS>, ROWS> grid, int row, int col, Payload replacement) {
+  grid[row][col] = replacement;
+  return grid[0][0];
+}]=])
+  add_test(NAME cglc_build_metal_dynamic_nested_struct_function_parameter_array_write_source_package
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedStructFunctionParameterArrayWriteShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-dynamic-nested-struct-function-parameter-array-write-source.cglb
+      -DEXPECTED_MODULE=MetalDynamicNestedStructFunctionParameterArrayWriteShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayWriteShader|artifacts.backendSource=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.metal|artifacts.intermediate=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.air|artifacts.nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayWriteShader|nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=2|workgroupSizes.0.entryPoint=compute_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=0|targetResourceBindings=0|functionConstants=2|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   set(CROSSGL_METAL_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_TABLE_SNIPPET [=[kernel void compute_main(device float4* values [[buffer(0)]], constant CrossGLMetalRuntimeTextureDescriptorArrayTable& maps [[buffer(1)]]) {]=])
   add_test(NAME cglc_build_metal_runtime_texture_descriptor_array_policy_source_package
     COMMAND ${CMAKE_COMMAND}

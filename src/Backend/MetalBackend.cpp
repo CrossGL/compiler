@@ -3319,28 +3319,31 @@ bool metalTypeHasNestedArray(const HIRType &type) {
          splitMetalArrayDimensions(*type.arraySize).size() > 1;
 }
 
-bool metalSupportsDynamicNestedHelperArrayRead(const HIRType &type) {
+bool metalSupportsDynamicNestedHelperArrayRead(const HIRModule &,
+                                               const HIRType &type) {
   const std::string baseName = baseTypeName(type);
   return baseName == "bool" || isNumericScalarTypeName(baseName) ||
          isVectorType(baseName);
 }
 
-bool metalSupportsDynamicNestedHelperArrayWrite(const HIRType &type) {
+bool metalSupportsDynamicNestedHelperArrayWrite(const HIRModule &module,
+                                                const HIRType &type) {
   const std::string baseName = baseTypeName(type);
   return baseName == "bool" || isNumericScalarTypeName(baseName) ||
-         isVectorType(baseName) || isMatrixType(baseName);
+         isVectorType(baseName) || isMatrixType(baseName) ||
+         findStructByName(module.structs, baseName) != nullptr;
 }
 
 std::set<std::string>
 metalUnsupportedDynamicNestedArrayParameterNames(
     const HIRModule &module, const HIRFunction &function,
-    bool (*isSupported)(const HIRType &)) {
+    bool (*isSupported)(const HIRModule &, const HIRType &)) {
   std::set<std::string> names;
   for (const HIRParameter &parameter : function.parameters) {
     if (functionParameterArrayShape(module, parameter.type) ==
             HIRFunctionParameterArrayShape::FixedSize &&
         metalTypeHasNestedArray(parameter.type) &&
-        !isSupported(parameter.type)) {
+        !isSupported(module, parameter.type)) {
       names.insert(parameter.name);
     }
   }
@@ -3549,8 +3552,8 @@ bool validateMetalDynamicNestedFunctionParameterArrayWrites(
   diagnostics.error(
       "metal.unsupported-dynamic-nested-helper-array-write",
       "Metal backend supports dynamic nested helper-array writes only for "
-      "fixed-size scalar/vector/matrix helper array parameter(s); unsupported "
-      "parameter(s): " +
+      "fixed-size scalar/vector/matrix/struct helper array parameter(s); "
+      "unsupported parameter(s): " +
           joinMetalLabels(labels) +
           "; use literal or folded constant indices for other nested helper "
           "array element types in Metal source packages");
@@ -3579,7 +3582,8 @@ HIRFunctionParameterArrayCallFeatureSupport
 metalFunctionParameterArrayCallFeatureSupport(
     HIRFunctionParameterArrayCallFeature feature) {
   if (feature ==
-      HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments) {
+          HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments ||
+      feature == HIRFunctionParameterArrayCallFeature::StructElements) {
     return HIRFunctionParameterArrayCallFeatureSupport::Supported;
   }
   return functionParameterArrayCallFeatureSupport(feature);
