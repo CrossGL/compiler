@@ -377,10 +377,30 @@ directxRuntimeDescriptorRegisterClassKinds(HIRResourceKind kind) {
   return {};
 }
 
+std::set<std::string> directxRuntimeTextureArrayLabelsInRegisterSpace(
+    const HIRModule &module, const HIRResource &resource) {
+  std::set<std::string> labels;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &candidate : stage.resources) {
+      if (candidate.kind == HIRResourceKind::Texture &&
+          candidate.set == resource.set &&
+          isRuntimeDescriptorArray(candidate)) {
+        labels.insert(resourceArrayLabel(candidate));
+      }
+    }
+  }
+  return labels;
+}
+
 bool directxResourceArrayShapeSupported(const HIRModule &module,
                                         const HIRResource &resource) {
   if (!isDirectXDescriptorResourceKind(resource.kind)) {
     return false;
+  }
+  if (resource.kind == HIRResourceKind::Texture &&
+      isRuntimeDescriptorArray(resource)) {
+    return directxRuntimeTextureArrayLabelsInRegisterSpace(module, resource)
+               .size() == 1;
   }
   return runtimeDescriptorArraySupportedByPolicy(
       module, resource,

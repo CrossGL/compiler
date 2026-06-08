@@ -15089,11 +15089,13 @@ void testRuntimeDescriptorArrayPolicyHelper() {
     return crossgl::HIRType{std::move(name), std::move(arraySize)};
   };
   auto resource = [](crossgl::HIRResourceKind kind, crossgl::HIRType type,
-                     std::string name, std::size_t binding) {
+                     std::string name, std::size_t binding,
+                     std::size_t set = 0) {
     crossgl::HIRResource result;
     result.kind = kind;
     result.type = std::move(type);
     result.name = std::move(name);
+    result.set = set;
     result.binding = binding;
     return result;
   };
@@ -15286,6 +15288,38 @@ void testRuntimeDescriptorArrayPolicyHelper() {
                             "directx.unsupported-runtime-resource-array"),
          "target decisions accept DirectX runtime texture and sampler arrays "
          "when their register classes remain distinct");
+
+  crossgl::HIRModule distinctRegisterSpaceRuntimeModule = moduleWithResources({
+      resource(crossgl::HIRResourceKind::Buffer, type("vec4*"), "values", 0),
+      resource(crossgl::HIRResourceKind::Texture,
+               type("sampler2D", std::string{}), "maps", 1),
+      resource(crossgl::HIRResourceKind::Texture,
+               type("sampler2D", std::string{}), "detailMaps", 3, 1),
+      resource(crossgl::HIRResourceKind::Sampler, type("sampler"),
+               "linearSampler", 2),
+  });
+  expect(crossgl::directxTextualBackendSupported(
+             distinctRegisterSpaceRuntimeModule),
+         "DirectX scaffold accepts runtime texture arrays in distinct HLSL "
+         "register spaces");
+  const std::string distinctRegisterSpaceDirectX =
+      crossgl::generateDirectXSource(distinctRegisterSpaceRuntimeModule);
+  expect(distinctRegisterSpaceDirectX.find(
+             "Texture2D<float4> maps[] : register(t1, space0);") !=
+             std::string::npos &&
+             distinctRegisterSpaceDirectX.find(
+                 "Texture2D<float4> detailMaps[] : register(t3, space1);") !=
+                 std::string::npos,
+         "DirectX source emits distinct-space runtime texture arrays");
+  const crossgl::TargetPackageDecision distinctRegisterSpaceDecision =
+      crossgl::targetPackageDecision(distinctRegisterSpaceRuntimeModule,
+                                     crossgl::TargetKind::DirectX);
+  expect(distinctRegisterSpaceDecision.sourcePackageSupported &&
+             !hasCapability(distinctRegisterSpaceDecision.missingCapabilities,
+                            crossgl::TargetKind::DirectX, "diagnostic",
+                            "directx.unsupported-runtime-resource-array"),
+         "target decisions accept distinct-space DirectX runtime texture "
+         "descriptor arrays");
 
   crossgl::HIRModule sameRegisterClassRuntimeModule = moduleWithResources({
       resource(crossgl::HIRResourceKind::Buffer, type("vec4*"), "values", 0),

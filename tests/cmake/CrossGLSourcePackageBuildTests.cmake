@@ -6354,6 +6354,18 @@ add_test(NAME cglc_build_directx_runtime_texture_resource_array_source_package
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXRuntimeTextureResourceArrayShader"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.hlslType=RWStructuredBuffer<float4>|colorMaps.sourceType=sampler2D[]|colorMaps.hlslType=Texture2D<float4>|colorMaps.bindingClass=srv|colorMaps.descriptorType=SRV|colorMaps.arraySize=|colorMaps.arrayDimensions.0.kind=runtime|linearSampler.hlslType=SamplerState|linearSampler.bindingClass=sampler"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_runtime_texture_resource_array_distinct_spaces
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/directx/fixtures/DirectXRuntimeTextureResourceArraySpacesShader.cgl
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-runtime-texture-resource-array-spaces.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXRuntimeTextureResourceArraySpacesShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=Texture2D<float4> detailMaps[] : register(t3, space1);"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXRuntimeTextureResourceArraySpacesShader"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.hlslType=RWStructuredBuffer<float4>|colorMaps.sourceType=sampler2D[]|colorMaps.hlslType=Texture2D<float4>|colorMaps.bindingClass=srv|colorMaps.descriptorType=SRV|colorMaps.set=0|colorMaps.binding=1|colorMaps.arraySize=|colorMaps.arrayDimensions.0.kind=runtime|detailMaps.sourceType=sampler2D[]|detailMaps.hlslType=Texture2D<float4>|detailMaps.bindingClass=srv|detailMaps.descriptorType=SRV|detailMaps.set=1|detailMaps.binding=3|detailMaps.arraySize=|detailMaps.arrayDimensions.0.kind=runtime|linearSampler.hlslType=SamplerState|linearSampler.bindingClass=sampler"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_runtime_texture_resource_array_sampler_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
