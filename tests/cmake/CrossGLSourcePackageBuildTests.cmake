@@ -4486,6 +4486,17 @@ add_test(NAME cglc_build_directx_planned_failure
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=direct-resource-array-arguments=unsupported|message=struct-elements=unsupported|message=value-copy-read-only"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_function_parameter_resource_array_planned_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-function-parameter-resource-array.cglb
+    -DMODE=planned-build-failure
+    -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-call-feature
+    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=direct-resource-array-arguments=unsupported|message=value-copy-read-only"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_resource_unsupported_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

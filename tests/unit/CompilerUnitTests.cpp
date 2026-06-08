@@ -39503,6 +39503,48 @@ shader DirectXFunctionParameterArrayUnsupportedShader {
              directx.find("value-copy-read-only") != std::string::npos,
          "DirectX backend dump explains unsupported helper array call features");
 
+  constexpr std::string_view directResourceOnlySource = R"(
+shader DirectXFunctionParameterResourceArrayUnsupportedShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[COUNT];
+    void consumeMaps(sampler2D maps[COUNT]) {
+      return;
+    }
+    void main() {
+      consumeMaps(colorMaps);
+      values[0] = vec4(1.0, 0.0, 0.0, 1.0);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> directResourceOnlyHir =
+      parseHIR(directResourceOnlySource);
+  expect(directResourceOnlyHir.has_value(),
+         "DirectX direct resource-array parameter source builds HIR");
+  if (directResourceOnlyHir) {
+    crossgl::DiagnosticEngine directResourceOnlyDiagnostics;
+    expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
+               *directResourceOnlyHir, directResourceOnlyDiagnostics),
+           "DirectX emits direct resource-array helper argument diagnostic");
+    expect(hasDiagnosticMessageFragment(
+               directResourceOnlyDiagnostics.diagnostics(),
+               "directx.unsupported-function-parameter-array-call-feature",
+               "direct-resource-array-arguments=unsupported"),
+           "DirectX isolated direct resource-array diagnostic names the "
+           "rejected feature");
+    expect(!hasDiagnosticMessageFragment(
+               directResourceOnlyDiagnostics.diagnostics(),
+               "directx.unsupported-function-parameter-array-call-feature",
+               "struct-elements"),
+           "DirectX isolated direct resource-array diagnostic does not depend "
+           "on struct-element rejection");
+  }
+
   constexpr std::string_view writeThroughSource = R"(
 shader DirectXFunctionParameterArrayWriteShader {
   const int COUNT = 2;
