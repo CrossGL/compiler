@@ -2372,6 +2372,29 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       -DEXPECTED_STRUCT_FIELD_ARRAY_STRIDE=4
       -DMODE=metal-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_metal_runtime_array_dynamic_outer_index_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_RUNTIME_ARRAY_DYNAMIC_OUTER_INDEX_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-array-dynamic-outer-index.cglb
+      -DEXPECTED_MODULE=RuntimeArrayDynamicOuterIndexShader
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ RuntimePayload*
+      -DEXPECTED_METAL_BUFFER_NAME=payloads
+      "-DEXPECTED_METAL_STORE_SNIPPET=payloads[0].count = 1.0;"
+      -DEXPECTED_METAL_STRUCT=RuntimePayload
+      "-DEXPECTED_METAL_FIELD_SNIPPET=float count;"
+      -DEXPECTED_STORAGE_ELEMENT=RuntimePayload
+      -DEXPECTED_STORAGE_STRIDE=0
+      -DEXPECTED_STRUCT_FIELD=count
+      -DEXPECTED_STRUCT_FIELD_OFFSET=0
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=RuntimeArrayDynamicOuterIndexShader|artifacts.backendSource=backend/metal/RuntimeArrayDynamicOuterIndexShader.metal|artifacts.intermediate=backend/metal/RuntimeArrayDynamicOuterIndexShader.air|artifacts.nativeBinary=backend/metal/RuntimeArrayDynamicOuterIndexShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=RuntimeArrayDynamicOuterIndexShader|nativeBinary=backend/metal/RuntimeArrayDynamicOuterIndexShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=payloads.sourceType=RuntimePayload*|payloads.metalType=device RuntimePayload*|payloads.addressSpace=device|payloads.bindingClass=buffer|payloads.argumentIndex=0|payloads.set=0|payloads.binding=0|payloads.abi=kernelArgument|payloads.storageBufferLayout.elementType=RuntimePayload|payloads.storageBufferLayout.elementSizeBytes=4|payloads.storageBufferLayout.arrayStrideBytes=0|payloads.storageBufferLayout.layout=metal-device|payloads.storageBufferLayout.fields.0.name=count|payloads.storageBufferLayout.fields.0.offsetBytes=0"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|runtime-array.kind=layout|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=metal-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_runtime_vector_array_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>

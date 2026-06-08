@@ -42524,15 +42524,35 @@ shader RuntimeArrayDynamicOuterIndexShader {
         unitTestTempDirectoryPath() /
         "crossgl-unit-runtime-array-dynamic-metal.cglb";
     std::filesystem::remove_all(dynamicMetalPackageDir, removeError);
-    crossgl::DiagnosticEngine dynamicMetalDiagnostics;
-    const crossgl::MetalBuildResult dynamicMetalResult =
-        crossgl::buildMetalBinary(*dynamicOuterIndexHir, dynamicMetalPackageDir,
-                                  dynamicMetalDiagnostics);
-    expect(!dynamicMetalResult.success,
-           "Metal build rejects dynamic runtime-tail block indexes before compiling");
-    expect(hasDiagnostic(dynamicMetalDiagnostics.diagnostics(),
-                         "metal.unsupported-runtime-array-block-index"),
-           "Metal build reports dynamic runtime-tail block index diagnostic");
+    crossgl::DiagnosticEngine dynamicMetalSupportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(
+               *dynamicOuterIndexHir, dynamicMetalSupportDiagnostics),
+           "Metal backend accepts provably local-zero outer index for "
+           "runtime-tail blocks");
+    expect(!dynamicMetalSupportDiagnostics.hasErrors(),
+           "Metal local-zero runtime-tail block index has no preflight "
+           "diagnostics");
+
+    const std::string dynamicMetalSource =
+        crossgl::generateMetalSource(*dynamicOuterIndexHir);
+    expect(dynamicMetalSource.find("payloads[i].count = 1.0;") !=
+               std::string::npos,
+           "Metal backend preserves provably local-zero runtime-tail block "
+           "index in generated source");
+
+    if (crossgl::findExecutable("xcrun")) {
+      crossgl::DiagnosticEngine dynamicMetalDiagnostics;
+      const crossgl::MetalBuildResult dynamicMetalResult =
+          crossgl::buildMetalBinary(*dynamicOuterIndexHir,
+                                    dynamicMetalPackageDir,
+                                    dynamicMetalDiagnostics);
+      expect(dynamicMetalResult.success,
+             "Metal build accepts provably local-zero runtime-tail block "
+             "index");
+      expect(!dynamicMetalDiagnostics.hasErrors(),
+             "Metal local-zero runtime-tail block index build has no "
+             "diagnostics");
+    }
   }
 }
 

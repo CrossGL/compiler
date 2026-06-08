@@ -432,6 +432,7 @@ struct MetalRenderContext {
   const MetalFunctionResourceParameterMap *functionResourceParameters = nullptr;
   std::string_view stageName;
   std::set<std::string> localIdentifiers;
+  std::set<std::string> localZeroIndexIdentifiers;
 };
 
 const HIRResource *findMetalResource(const MetalRenderContext &context,
@@ -1543,6 +1544,42 @@ metalDescriptorArrayIndexValue(const HIRExpression &expression,
   return std::nullopt;
 }
 
+bool isMetalStaticZeroIndexExpression(
+    const HIRExpression &expression,
+    const std::vector<HIRConstant> *constants) {
+  if ((expression.kind == HIRExpressionKind::Group ||
+       expression.kind == HIRExpressionKind::NonUniform) &&
+      expression.children.size() == 1) {
+    return isMetalStaticZeroIndexExpression(expression.children.front(),
+                                           constants);
+  }
+  if (expression.kind == HIRExpressionKind::Unary && expression.value == "+" &&
+      expression.children.size() == 1) {
+    return isMetalStaticZeroIndexExpression(expression.children.front(),
+                                           constants);
+  }
+  if (expression.kind == HIRExpressionKind::Literal) {
+    const std::optional<std::size_t> index =
+        parseMetalNonNegativeIndex(expression.value);
+    return index.has_value() && *index == 0;
+  }
+  if (expression.kind != HIRExpressionKind::Identifier ||
+      constants == nullptr) {
+    return false;
+  }
+  for (const HIRConstant &constant : *constants) {
+    if (constant.name != expression.value || !constant.foldedValue.has_value() ||
+        constant.type.arraySize.has_value() ||
+        (constant.type.name != "int" && constant.type.name != "uint")) {
+      continue;
+    }
+    const std::optional<std::size_t> index =
+        parseMetalNonNegativeIndex(*constant.foldedValue);
+    return index.has_value() && *index == 0;
+  }
+  return false;
+}
+
 const HIRResource *
 metalStorageBufferDescriptorArrayResource(const HIRExpression &expression,
                                           const MetalRenderContext &context) {
@@ -1596,6 +1633,19 @@ std::optional<std::string> renderMetalStorageBufferDescriptorArrayIndexAccess(
 
 bool isMetalZeroIndexExpression(const HIRExpression &expression,
                                 const MetalRenderContext &context) {
+  if ((expression.kind == HIRExpressionKind::Group ||
+       expression.kind == HIRExpressionKind::NonUniform) &&
+      expression.children.size() == 1) {
+    return isMetalZeroIndexExpression(expression.children.front(), context);
+  }
+  if (expression.kind == HIRExpressionKind::Unary && expression.value == "+" &&
+      expression.children.size() == 1) {
+    return isMetalZeroIndexExpression(expression.children.front(), context);
+  }
+  if (expression.kind == HIRExpressionKind::Identifier &&
+      context.localZeroIndexIdentifiers.count(expression.value) != 0) {
+    return true;
+  }
   const std::optional<std::size_t> index =
       metalDescriptorArrayIndexValue(expression, context);
   return index.has_value() && *index == 0;
@@ -2190,22 +2240,64 @@ void appendMetalHelperResourceParameters(
   }
 }
 
-void collectMetalLocalIdentifiers(const HIRStatement &statement,
-                                  std::set<std::string> &identifiers) {
-  if (statement.kind == HIRStatementKind::Declaration) {
-    identifiers.insert(statement.name);
+bool isMetalIntegerIndexType(const HIRType &type) {
+  return !type.arraySize.has_value() &&
+         (type.name == "int" || type.name == "uint");
+}
+
+void collectMetalTokenIdentifierNames(const std::vector<Token> &tokens,
+                                      std::set<std::string> &names) {
+  for (const Token &token : tokens) {
+    if (token.kind == TokenKind::Identifier) {
+      names.insert(std::string(token.text));
+    }
   }
+}
+
+void collectMetalAssignedLocalIdentifiers(const HIRExpression &target,
+                                          std::set<std::string> &identifiers) {
+  if (target.kind == HIRExpressionKind::Identifier) {
+    identifiers.insert(target.value);
+  }
+}
+
+void collectMetalLocalZeroIndexMetadata(
+    const HIRStatement &statement, const std::vector<HIRConstant> *constants,
+    std::set<std::string> &localIdentifiers,
+    std::set<std::string> &zeroCandidates,
+    std::set<std::string> &invalidatedIdentifiers) {
+  if (statement.kind == HIRStatementKind::Declaration) {
+    if (localIdentifiers.count(statement.name) != 0) {
+      invalidatedIdentifiers.insert(statement.name);
+    }
+    localIdentifiers.insert(statement.name);
+    if (isMetalIntegerIndexType(statement.declaredType) &&
+        isMetalStaticZeroIndexExpression(statement.value, constants)) {
+      zeroCandidates.insert(statement.name);
+    }
+  } else if (statement.kind == HIRStatementKind::Assignment) {
+    collectMetalAssignedLocalIdentifiers(statement.target, invalidatedIdentifiers);
+  } else if (statement.kind == HIRStatementKind::Raw) {
+    collectMetalTokenIdentifierNames(statement.rawTokens, invalidatedIdentifiers);
+  }
+
+  collectMetalTokenIdentifierNames(statement.updateTokens,
+                                   invalidatedIdentifiers);
   for (const HIRStatement &initializer : statement.initializer) {
-    collectMetalLocalIdentifiers(initializer, identifiers);
+    collectMetalLocalZeroIndexMetadata(initializer, constants, localIdentifiers,
+                                       zeroCandidates, invalidatedIdentifiers);
   }
   for (const HIRStatement &update : statement.update) {
-    collectMetalLocalIdentifiers(update, identifiers);
+    collectMetalLocalZeroIndexMetadata(update, constants, localIdentifiers,
+                                       zeroCandidates, invalidatedIdentifiers);
   }
   for (const HIRStatement &child : statement.body) {
-    collectMetalLocalIdentifiers(child, identifiers);
+    collectMetalLocalZeroIndexMetadata(child, constants, localIdentifiers,
+                                       zeroCandidates, invalidatedIdentifiers);
   }
   for (const HIRStatement &child : statement.elseBody) {
-    collectMetalLocalIdentifiers(child, identifiers);
+    collectMetalLocalZeroIndexMetadata(child, constants, localIdentifiers,
+                                       zeroCandidates, invalidatedIdentifiers);
   }
 }
 
@@ -2215,8 +2307,18 @@ MetalRenderContext metalFunctionRenderContext(
   for (const HIRParameter &parameter : function.parameters) {
     context.localIdentifiers.insert(parameter.name);
   }
+
+  std::set<std::string> zeroCandidates;
+  std::set<std::string> invalidatedIdentifiers;
   for (const HIRStatement &statement : function.body) {
-    collectMetalLocalIdentifiers(statement, context.localIdentifiers);
+    collectMetalLocalZeroIndexMetadata(
+        statement, context.constants, context.localIdentifiers, zeroCandidates,
+        invalidatedIdentifiers);
+  }
+  for (const std::string &candidate : zeroCandidates) {
+    if (invalidatedIdentifiers.count(candidate) == 0) {
+      context.localZeroIndexIdentifiers.insert(candidate);
+    }
   }
   return context;
 }
@@ -2232,7 +2334,7 @@ std::string renderFunction(const HIRStage *stage, const HIRFunction &function,
   const MetalRenderContext context{
       &module.structs, &module.constants, resources, functionResourceParameters,
       stage == nullptr ? std::string_view{} : std::string_view{stage->stage},
-      {}};
+      {}, {}};
   const MetalRenderContext functionContext =
       metalFunctionRenderContext(context, function);
   std::ostringstream out;
@@ -2421,7 +2523,7 @@ std::string generateMetalSource(const HIRModule &module) {
   }
 
   const MetalRenderContext moduleContext{
-      &module.structs, &module.constants, nullptr, nullptr, {}, {}};
+      &module.structs, &module.constants, nullptr, nullptr, {}, {}, {}};
   for (const HIRConstant &constant : module.constants) {
     out << "constant " << mapMetalType(constant.type) << " " << constant.name
         << " = " << renderMetalExpression(constant.value, moduleContext)
@@ -2886,7 +2988,7 @@ bool validateMetalRuntimeTailBlockIndexes(const HIRModule &module,
     }
     const MetalRenderContext context{&module.structs, &module.constants,
                                      &stage.resources, nullptr, stage.stage,
-                                     {}};
+                                     {}, {}};
     for (const HIRFunction &function : stage.functions) {
       const MetalRenderContext functionContext =
           metalFunctionRenderContext(context, function);
@@ -2951,7 +3053,7 @@ bool validateMetalStorageBufferArrayIndexes(const HIRModule &module,
   for (const HIRStage &stage : module.stages) {
     const MetalRenderContext context{&module.structs, &module.constants,
                                      &stage.resources, nullptr, stage.stage,
-                                     {}};
+                                     {}, {}};
     for (const HIRFunction &function : stage.functions) {
       const MetalRenderContext functionContext =
           metalFunctionRenderContext(context, function);
@@ -3099,7 +3201,7 @@ std::string joinMetalLabels(const std::set<std::string> &labels) {
 bool metalIsStaticArrayIndexExpression(const HIRModule &module,
                                        const HIRExpression &expression) {
   const MetalRenderContext context{nullptr, &module.constants, nullptr, nullptr,
-                                   {}, {}};
+                                   {}, {}, {}};
   return metalDescriptorArrayIndexValue(expression, context).has_value();
 }
 
@@ -3637,7 +3739,7 @@ bool validateMetalNonUniformDescriptorIndexes(const HIRModule &module,
   bool valid = true;
   bool reported = false;
   const MetalRenderContext moduleContext{
-      &module.structs, &module.constants, nullptr, nullptr, {}, {}};
+      &module.structs, &module.constants, nullptr, nullptr, {}, {}, {}};
   for (const HIRConstant &constant : module.constants) {
     valid = validateMetalNonUniformDescriptorIndexExpression(
                 constant.value, moduleContext, diagnostics, reported, false,
@@ -3652,7 +3754,7 @@ bool validateMetalNonUniformDescriptorIndexes(const HIRModule &module,
   for (const HIRStage &stage : module.stages) {
     const MetalRenderContext stageContext{&module.structs, &module.constants,
                                           &stage.resources, nullptr,
-                                          stage.stage, {}};
+                                          stage.stage, {}, {}};
     for (const HIRFunction &function : stage.functions) {
       valid = validateMetalNonUniformDescriptorIndexFunction(
                   function, stageContext, diagnostics, reported) &&
