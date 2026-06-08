@@ -460,7 +460,7 @@
           "id": "translator/examples/gpu_computing/MatrixMultiplication.cgl",
           "source_sha256": "4c002060f3203388c1224a223696ab8b27f40a685a220a77707ebb4374c6c0c8",
           "translator_ast_sha256": "ff13d8f35d19149b7baafc5411783d3d5713f0712f4028f8514062d9d998329c",
-          "compiler_hir_sha256": "01d5f887afa85f0332ea4ca4a9e7da58c6733c459c38a7934d8fdcfa0b24f171"
+          "compiler_hir_sha256": "c59efe6c3142111d674b6e259593e0842440e1aae9f6a1c2c9dfa0d11772d87d"
         }
       ]
     },
