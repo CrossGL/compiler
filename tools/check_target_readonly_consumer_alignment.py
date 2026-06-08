@@ -921,13 +921,12 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
                 ),
                 TargetExpectation(
                     target="opengl",
-                    package_build_supported=False,
-                    source_package_supported=False,
-                    package_mode="unsupported",
-                    missing_capabilities=(
-                        "opengl.backend.glsl-lowering",
-                        "opengl.diagnostic.opengl.unsupported-storage-buffer-array",
-                    ),
+                    package_build_supported=True,
+                    source_package_supported=True,
+                    package_mode="source-package",
+                    missing_capabilities=SOURCE_PACKAGE_OPTIONAL_NATIVE_CAPABILITIES[
+                        "opengl"
+                    ],
                 ),
             ),
             recommended_target="directx",

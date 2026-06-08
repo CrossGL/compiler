@@ -35701,6 +35701,8 @@ shader UnsizedStorageBufferArrayUnsupportedShader {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
     layout(set = 0, binding = 0) buffer float* values[];
     void main() {
+      float first = values[0][0];
+      values[0][1] = first + 1.0;
       return;
     }
   }
@@ -35727,8 +35729,12 @@ shader UnsizedStorageBufferArrayUnsupportedShader {
   const std::string directx =
       crossgl::printBackendIR(*hir, crossgl::TargetKind::DirectX);
   expect(directx.find("RWStructuredBuffer<float> values[] : register(u0, "
-                      "space0);") != std::string::npos,
-         "DirectX backend emits an HLSL unbounded storage-buffer array");
+                      "space0);") != std::string::npos &&
+             directx.find("float first = values[0][0];") !=
+                 std::string::npos &&
+             directx.find("values[0][1] = first + 1.0;") !=
+                 std::string::npos,
+         "DirectX backend emits an HLSL unbounded storage-buffer array and access");
 
   const crossgl::ReflectionDocument directxReflection =
       crossgl::buildReflectionDocument(
@@ -35746,18 +35752,65 @@ shader UnsizedStorageBufferArrayUnsupportedShader {
              directxValuesBinding->arrayDimensions[0].kind == "runtime",
          "DirectX reflection preserves unbounded storage-buffer array metadata");
 
-  expect(!crossgl::openglTextualBackendSupported(*hir),
-         "OpenGL scaffold rejects unsized storage-buffer descriptor arrays");
-  expect(crossgl::openglHasUnsupportedStorageBufferArray(*hir),
-         "OpenGL buffer analysis reports unsized storage-buffer arrays");
+  expect(crossgl::openglTextualBackendSupported(*hir),
+         "OpenGL scaffold accepts a single unsized storage-buffer descriptor array");
+  expect(!crossgl::openglHasUnsupportedStorageBufferArray(*hir),
+         "OpenGL buffer analysis accepts a single unsized storage-buffer array");
   crossgl::DiagnosticEngine openglDiagnostics;
-  expect(crossgl::diagnoseOpenGLUnsupportedStorageBufferArray(*hir,
-                                                              openglDiagnostics),
-         "OpenGL unsized storage-buffer array helper emits a diagnostic");
-  expect(hasDiagnosticMessageFragment(
-             openglDiagnostics.diagnostics(),
-             "opengl.unsupported-storage-buffer-array", "values"),
-         "OpenGL unsized storage-buffer array diagnostic names the buffer");
+  expect(!crossgl::diagnoseOpenGLUnsupportedStorageBufferArray(
+             *hir, openglDiagnostics) &&
+             openglDiagnostics.diagnostics().empty(),
+         "OpenGL unsized storage-buffer array helper does not emit a diagnostic");
+
+  const std::string opengl =
+      crossgl::printBackendIR(*hir, crossgl::TargetKind::OpenGL);
+  expect(opengl.find("layout(binding = 0, std430) buffer values_Buffer") !=
+             std::string::npos &&
+             opengl.find("} values_Buffers[];") != std::string::npos &&
+             opengl.find("float first = values_Buffers[0].values[0];") !=
+                 std::string::npos &&
+             opengl.find("values_Buffers[0].values[1] = first + 1.0;") !=
+                 std::string::npos,
+         "OpenGL backend emits an unbounded storage-buffer block array and access");
+
+  const crossgl::ReflectionDocument openglReflection =
+      crossgl::buildReflectionDocument(
+          *hir, crossgl::TargetKind::OpenGL,
+          "/tmp/UnsizedStorageBufferArrayUnsupportedShader.glsl");
+  const crossgl::ReflectionTargetResourceBinding *openglValuesBinding =
+      findTargetResourceBinding(openglReflection, "values");
+  expect(openglValuesBinding != nullptr &&
+             openglValuesBinding->bindingClass == "storage-buffer" &&
+             openglValuesBinding->arraySize == "" &&
+             !openglValuesBinding->arrayElementCount.has_value() &&
+             openglValuesBinding->arrayDimensions.size() == 1 &&
+             openglValuesBinding->arrayDimensions[0].kind == "runtime" &&
+             openglValuesBinding->storageBufferLayout.has_value() &&
+             openglValuesBinding->storageBufferLayout->layout == "std430",
+         "OpenGL reflection preserves unbounded storage-buffer array metadata");
+
+  const std::vector<crossgl::TargetCapability> openglCapabilities =
+      crossgl::targetFeatureRequirements(*hir, crossgl::TargetKind::OpenGL);
+  expect(hasCapability(openglCapabilities, crossgl::TargetKind::OpenGL,
+                       "resource", "runtime-descriptor-array") &&
+             hasCapability(openglCapabilities, crossgl::TargetKind::OpenGL,
+                           "resource",
+                           "runtime-storage-buffer-descriptor-array") &&
+             hasCapability(openglCapabilities, crossgl::TargetKind::OpenGL,
+                           "layout", "runtime-array"),
+         "OpenGL target capabilities record unbounded storage-buffer "
+         "descriptor-array requirements");
+  const std::vector<crossgl::TargetCapability> openglMissing =
+      crossgl::missingTargetCapabilities(*hir, crossgl::TargetKind::OpenGL);
+  expect(!hasCapability(openglMissing, crossgl::TargetKind::OpenGL, "layout",
+                        "runtime-array") &&
+             !hasCapability(openglMissing, crossgl::TargetKind::OpenGL,
+                            "resource", "runtime-descriptor-array") &&
+             !hasCapability(openglMissing, crossgl::TargetKind::OpenGL,
+                            "resource",
+                            "runtime-storage-buffer-descriptor-array"),
+         "OpenGL target decisions accept single unbounded storage-buffer "
+         "descriptor arrays");
 }
 
 void testDirectXStorageBufferElementTypeUnsupportedDiagnostic() {
@@ -35939,6 +35992,67 @@ shader OpenGLStorageBufferArrayShader {
 
   std::filesystem::remove(inputPath, error);
   std::filesystem::remove_all(outputPath, error);
+}
+
+void testOpenGLUnsizedStructStorageBufferDescriptorArraySource() {
+  constexpr std::string_view source = R"(
+shader OpenGLUnsizedStructStorageBufferArrayShader {
+  struct Particle {
+    vec3 position;
+    float mass;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles[];
+    void main() {
+      float mass = particles[0][0].mass;
+      particles[0][1].mass = mass + 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "OpenGL unsized struct storage-buffer array fixture builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::openglTextualBackendSupported(*hir),
+         "OpenGL scaffold supports single unsized struct storage-buffer arrays");
+  const std::string opengl =
+      crossgl::printBackendIR(*hir, crossgl::TargetKind::OpenGL);
+  expect(opengl.find("struct Particle") != std::string::npos &&
+             opengl.find("layout(binding = 0, std430) buffer "
+                         "particles_Buffer") != std::string::npos &&
+             opengl.find("Particle particles[];") != std::string::npos &&
+             opengl.find("} particles_Buffers[];") != std::string::npos &&
+             opengl.find("float mass = particles_Buffers[0].particles[0].mass;") !=
+                 std::string::npos &&
+             opengl.find("particles_Buffers[0].particles[1].mass = mass + "
+                         "1.0;") != std::string::npos,
+         "OpenGL backend emits struct declarations and access for unbounded "
+         "storage-buffer block arrays");
+
+  const crossgl::ReflectionDocument openglReflection =
+      crossgl::buildReflectionDocument(
+          *hir, crossgl::TargetKind::OpenGL,
+          "/tmp/OpenGLUnsizedStructStorageBufferArrayShader.glsl");
+  const auto *particlesBinding =
+      findTargetResourceBinding(openglReflection, "particles");
+  expect(particlesBinding != nullptr &&
+             particlesBinding->bindingClass == "storage-buffer" &&
+             particlesBinding->arraySize == "" &&
+             !particlesBinding->arrayElementCount.has_value() &&
+             particlesBinding->arrayDimensions.size() == 1 &&
+             particlesBinding->arrayDimensions[0].kind == "runtime" &&
+             particlesBinding->storageBufferLayout.has_value() &&
+             particlesBinding->storageBufferLayout->layout == "std430" &&
+             particlesBinding->storageBufferLayout->elementType == "Particle",
+         "OpenGL reflection records runtime struct storage-buffer array "
+         "metadata");
 }
 
 void testStructStorageBufferDescriptorArraySourceAndReflection() {
@@ -51690,6 +51804,7 @@ int main() {
   testUnsizedStorageBufferDescriptorArrayDirectXSourceAndOpenGLDiagnostics();
   testDirectXStorageBufferElementTypeUnsupportedDiagnostic();
   testOpenGLStorageBufferDescriptorArraySourceAndReflection();
+  testOpenGLUnsizedStructStorageBufferDescriptorArraySource();
   testStructStorageBufferDescriptorArraySourceAndReflection();
   testVulkanStructStorageBufferDescriptorArrayFieldPaths();
   testMixedResourceDescriptorArraySourceAndReflection();

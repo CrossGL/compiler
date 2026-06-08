@@ -134,6 +134,12 @@ std::span<const HIRResourceKind> directxRuntimeDescriptorResourceKinds() {
   return kinds;
 }
 
+std::span<const HIRResourceKind> openGLRuntimeDescriptorResourceKinds() {
+  static constexpr std::array<HIRResourceKind, 1> kinds = {
+      HIRResourceKind::Buffer};
+  return kinds;
+}
+
 std::string runtimeDescriptorArrayCapabilityName(
     const HIRResource &resource) {
   return "runtime-" + resourceKindLabel(resource.kind) + "-descriptor-array";
@@ -154,6 +160,15 @@ bool directxRuntimeDescriptorArrayCapabilitiesSatisfied(
               .empty() &&
          !directxHasUnsupportedStorageBufferArray(module) &&
          !directxHasUnsupportedRuntimeResourceArray(module);
+}
+
+bool openGLRuntimeStorageBufferDescriptorArrayCapabilitiesSatisfied(
+    const HIRModule &module) {
+  return !runtimeDescriptorArrayLabels(
+              module, openGLRuntimeDescriptorResourceKinds())
+              .empty() &&
+         !openglHasUnsupportedStorageBufferArray(module) &&
+         !openglHasUnsupportedRuntimeResourceArray(module);
 }
 
 bool isVectorTypeName(std::string_view name) {
@@ -665,8 +680,18 @@ bool capabilitySatisfiedByTextualScaffold(
   }
   if (capability.kind == "resource") {
     if (isRuntimeDescriptorArrayCapabilityName(capability.name)) {
-      return capability.target == TargetKind::DirectX &&
-             directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
+      if (capability.target == TargetKind::DirectX) {
+        return directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
+      }
+      if (capability.target == TargetKind::OpenGL) {
+        if (capability.name == "runtime-descriptor-array" ||
+            capability.name == "runtime-storage-buffer-descriptor-array") {
+          return openGLRuntimeStorageBufferDescriptorArrayCapabilitiesSatisfied(
+              module);
+        }
+        return false;
+      }
+      return false;
     }
     return capability.name == "storage-buffer" ||
            capability.name == "uniform-buffer" ||
@@ -683,8 +708,14 @@ bool capabilitySatisfiedByTextualScaffold(
   }
   if (capability.kind == "layout") {
     if (capability.name == "runtime-array") {
-      return capability.target == TargetKind::DirectX &&
-             directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
+      if (capability.target == TargetKind::DirectX) {
+        return directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
+      }
+      if (capability.target == TargetKind::OpenGL) {
+        return openGLRuntimeStorageBufferDescriptorArrayCapabilitiesSatisfied(
+            module);
+      }
+      return false;
     }
     return capability.name == "vector-storage-buffer" ||
            capability.name == "fixed-array" ||

@@ -6283,17 +6283,38 @@ add_test(NAME cglc_build_directx_runtime_resource_array_source_package
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=RuntimeResourceArrayUnsupportedShader"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.hlslType=RWStructuredBuffer<float4>|maps.sourceType=sampler2D[]|maps.hlslType=Texture2D<float4>|maps.bindingClass=srv|maps.descriptorType=SRV|maps.arraySize=|maps.arrayDimensions.0.kind=runtime|linearSamplers.sourceType=sampler[]|linearSamplers.hlslType=SamplerState|linearSamplers.bindingClass=sampler|linearSamplers.descriptorType=Sampler|linearSamplers.arraySize=|linearSamplers.arrayDimensions.0.kind=runtime"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_unsized_storage_buffer_array_planned_failure
+add_test(NAME cglc_build_opengl_unsized_storage_buffer_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_STORAGE_BUFFER_UNSIZED_DESCRIPTOR_ARRAY_UNSUPPORTED_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-unsized-storage-buffer-array.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-storage-buffer-array
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=OpenGL source package requires fixed-size storage-buffer descriptor array|message=values|message=fixed descriptor array size"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=values_Buffers[0].values[1] = first + 1.0;"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=StorageBufferUnsizedDescriptorArrayUnsupportedShader"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[]|values.bindingClass=storage-buffer|values.abi=programResourceBinding|values.arraySize=|values.arrayDimensions.0.kind=runtime|values.storageBufferLayout.elementType=float|values.storageBufferLayout.layout=std430|values.storageBufferLayout.arrayStrideBytes=4"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
+  add_test(NAME cglc_build_opengl_unsized_storage_buffer_array_glsl_validated
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_STORAGE_BUFFER_UNSIZED_DESCRIPTOR_ARRAY_UNSUPPORTED_SHADER}
+      -DTARGET=opengl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-unsized-storage-buffer-array-validated.cglb
+      -DMODE=source-package-build
+      -DEXPECTED_SOURCE=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.comp.glsl
+      "-DEXPECTED_SOURCE_SNIPPET=} values_Buffers[];"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=StorageBufferUnsizedDescriptorArrayUnsupportedShader|artifacts.backendSource=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.comp.glsl|artifacts.nativeBinary=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.glsl|artifacts.nativeBinaryStatus=validated"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=StorageBufferUnsizedDescriptorArrayUnsupportedShader|nativeBinary=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.glsl"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[]|values.bindingClass=storage-buffer|values.arraySize=|values.arrayDimensions.0.kind=runtime|values.storageBufferLayout.layout=std430"
+      -DEXPECTED_NATIVE_BINARY=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.glsl
+      -DEXPECTED_NATIVE_BINARY_STATUS=validated
+      -DEXPECTED_DIAGNOSTIC=opengl.glsl-validated
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  crossgl_label_optional_native_test(
+    cglc_build_opengl_unsized_storage_buffer_array_glsl_validated opengl)
+endif()
 add_test(NAME cglc_build_opengl_runtime_resource_array_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

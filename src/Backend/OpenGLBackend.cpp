@@ -34,6 +34,9 @@ namespace {
 constexpr std::string_view kRawStatementBackendInputDiagnostic =
     "opt.hir-raw-statement-backend-input";
 constexpr std::string_view kOpenGLGLSLVersion = "450";
+constexpr HIRResourceKind kOpenGLStorageBufferRuntimeDescriptorArrayKinds[] = {
+    HIRResourceKind::Buffer,
+};
 
 bool containsRawStatement(const std::vector<HIRStatement> &statements) {
   for (const HIRStatement &statement : statements) {
@@ -1701,6 +1704,41 @@ bool constantsSupported(const HIRModule &module) {
 bool isSupportedUniformBufferResource(const HIRModule &module,
                                       const HIRResource &resource);
 
+bool openGLRuntimeStorageBufferDescriptorArraySupported(
+    const HIRModule &module, const HIRResource &resource) {
+  return isRuntimeDescriptorArray(resource) &&
+         runtimeDescriptorArraySupportedByPolicy(
+             module, resource,
+             RuntimeDescriptorArrayPolicy::AllowSingleUnboundedDescriptorArray,
+             kOpenGLStorageBufferRuntimeDescriptorArrayKinds);
+}
+
+bool isSupportedStorageBufferResource(const HIRModule &module,
+                                      const HIRResource &resource) {
+  return resource.kind == HIRResourceKind::Buffer &&
+         (supportedResourceArraySize(resource.type) ||
+          openGLRuntimeStorageBufferDescriptorArraySupported(module,
+                                                            resource)) &&
+         isSupportedStorageBufferElementType(module,
+                                             bufferElementType(resource.type));
+}
+
+std::set<std::string>
+unsupportedOpenGLStorageBufferArrayNames(const HIRModule &module) {
+  std::set<std::string> bufferArrays;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &resource : stage.resources) {
+      if (resource.kind == HIRResourceKind::Buffer &&
+          isRuntimeDescriptorArray(resource) &&
+          !openGLRuntimeStorageBufferDescriptorArraySupported(module,
+                                                              resource)) {
+        bufferArrays.insert(resource.name);
+      }
+    }
+  }
+  return bufferArrays;
+}
+
 bool resourcesSupported(const HIRModule &module, const HIRStage &stage) {
   for (const HIRResource &resource : stage.resources) {
     if (resource.kind == HIRResourceKind::Shared) {
@@ -1713,6 +1751,9 @@ bool resourcesSupported(const HIRModule &module, const HIRStage &stage) {
       continue;
     }
     if (isSupportedUniformBufferResource(module, resource)) {
+      continue;
+    }
+    if (isSupportedStorageBufferResource(module, resource)) {
       continue;
     }
     if (!resourceSupportedByPolicy(module, resource,
@@ -2063,8 +2104,7 @@ openGLStorageBufferStructDeclarations(const HIRModule &module,
   std::set<std::string> emitted;
   std::set<std::string> visiting;
   for (const HIRResource &resource : stage.resources) {
-    if (resource.kind != HIRResourceKind::Buffer ||
-        !supportedResourceArraySize(resource.type)) {
+    if (!isSupportedStorageBufferResource(module, resource)) {
       continue;
     }
     const HIRType elementType = bufferElementType(resource.type);
@@ -3212,8 +3252,7 @@ OpenGLEmitContext makeOpenGLEmitContext(
       continue;
     }
     if (resource.kind == HIRResourceKind::Buffer &&
-        resource.type.arraySize.has_value() &&
-        !resource.type.arraySize->empty()) {
+        resource.type.arraySize.has_value()) {
       context.storageBufferArrays.insert(resource.name);
     }
   }
@@ -3236,8 +3275,9 @@ void diagnoseOpenGLSourceUnsupported(DiagnosticEngine &diagnostics) {
       "comparison sampling, explicit-lod 2D/2D-array/cube/cube-array "
       "shadow texture comparison sampling, scalar constants, fixed-size "
       "uniform-buffer descriptor arrays, simple struct storage-buffer "
-      "elements, fixed-size storage-buffer descriptor arrays, direct final "
-      "runtime-array storage-buffer tails on singleton blocks, fixed-size "
+      "elements, fixed-size and single unbounded storage-buffer descriptor "
+      "arrays, direct final runtime-array storage-buffer tails on singleton "
+      "blocks, fixed-size "
       "numeric workgroup shared-memory declarations, "
       "scalar integer storage-buffer and workgroup shared-memory atomic "
       "expression statements and declaration/assignment captures, compute "
@@ -3286,7 +3326,7 @@ bool diagnoseOpenGLUnsupportedShadowCompareExplicitLodShape(
 }
 
 bool openglHasUnsupportedStorageBufferArray(const HIRModule &module) {
-  return hasUnsupportedStorageBufferArray(module);
+  return !unsupportedOpenGLStorageBufferArrayNames(module).empty();
 }
 
 bool openglHasUnsupportedRuntimeResourceArray(const HIRModule &module) {
@@ -3302,9 +3342,19 @@ bool diagnoseOpenGLUnsupportedRuntimeResourceArray(
 
 bool diagnoseOpenGLUnsupportedStorageBufferArray(
     const HIRModule &module, DiagnosticEngine &diagnostics) {
-  return diagnoseUnsupportedStorageBufferArray(
-      module, diagnostics, "opengl.unsupported-storage-buffer-array",
-      "OpenGL");
+  const std::set<std::string> bufferArrays =
+      unsupportedOpenGLStorageBufferArrayNames(module);
+  if (bufferArrays.empty()) {
+    return false;
+  }
+  diagnostics.error(
+      "opengl.unsupported-storage-buffer-array",
+      "OpenGL source package supports at most one unsized storage-buffer "
+      "descriptor array; unsupported unsized array(s): " +
+          joinNames(bufferArrays) +
+          "; use fixed descriptor array sizes or keep a single unbounded "
+          "storage-buffer descriptor array");
+  return true;
 }
 
 bool openglHasUnsupportedStorageBufferElementType(const HIRModule &module) {
@@ -4003,7 +4053,7 @@ std::string generateOpenGLBackendIR(const HIRModule &module) {
           << joinNames(unsupportedShadowCompareLod) << "\n";
     }
     const std::set<std::string> bufferArrays =
-        unsupportedStorageBufferArrayNames(module);
+        unsupportedOpenGLStorageBufferArrayNames(module);
     if (!bufferArrays.empty()) {
       out << "// opengl textual scaffold does not yet support storage-buffer "
              "descriptor arrays with unsized descriptor counts: "
