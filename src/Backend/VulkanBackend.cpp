@@ -630,8 +630,40 @@ bool isPrototypeVectorType(const HIRType &type) {
   return prototypeVectorWidth(type).has_value();
 }
 
+std::optional<std::size_t> prototypeMatrixDimension(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return std::nullopt;
+  }
+  if (type.name == "mat2" || type.name == "mat2x2") {
+    return std::size_t{2};
+  }
+  if (type.name == "mat3" || type.name == "mat3x3") {
+    return std::size_t{3};
+  }
+  if (type.name == "mat4" || type.name == "mat4x4") {
+    return std::size_t{4};
+  }
+  return std::nullopt;
+}
+
+bool isPrototypeMatrixType(const HIRType &type) {
+  return prototypeMatrixDimension(type).has_value();
+}
+
+HIRType prototypeMatrixColumnType(const HIRType &type) {
+  const std::optional<std::size_t> dimension = prototypeMatrixDimension(type);
+  if (dimension == std::size_t{2}) {
+    return HIRType{"vec2", std::nullopt};
+  }
+  if (dimension == std::size_t{3}) {
+    return HIRType{"vec3", std::nullopt};
+  }
+  return HIRType{"vec4", std::nullopt};
+}
+
 bool isPrototypeLocalType(const HIRType &type) {
-  return isPrototypeScalarType(type) || isPrototypeVectorType(type);
+  return isPrototypeScalarType(type) || isPrototypeVectorType(type) ||
+         isPrototypeMatrixType(type);
 }
 
 struct PrototypeComputeBuiltinInfo {
@@ -1024,14 +1056,73 @@ bool prototypeVectorConstructorSupported(const HIRExpression &expression,
   return true;
 }
 
-bool isPrototypeFloatScalarType(const HIRType &type) {
-  return type.name == "float" && !type.arraySize.has_value();
-}
-
 bool isPrototypeNumericScalarType(const HIRType &type) {
   return !type.arraySize.has_value() &&
          (type.name == "float" || type.name == "int" ||
           type.name == "uint");
+}
+
+std::optional<std::size_t>
+prototypeMatrixConstructorConstituentWidth(const HIRType &type) {
+  if (isPrototypeNumericScalarType(type)) {
+    return std::size_t{1};
+  }
+  if (!isPrototypeVectorType(type) ||
+      !isPrototypeNumericScalarType(prototypeVectorComponentType(type))) {
+    return std::nullopt;
+  }
+  return prototypeVectorWidth(type);
+}
+
+bool prototypeMatrixConstructorSupported(const HIRExpression &expression,
+                                         DiagnosticEngine &diagnostics) {
+  const std::optional<std::size_t> dimension =
+      prototypeMatrixDimension(expression.type);
+  if (!dimension.has_value() ||
+      expression.value != baseTypeName(expression.type) ||
+      expression.children.empty()) {
+    diagnostics.error(
+        "vulkan.prototype-unsupported-expression",
+        "Vulkan prototype matrix constructors require a mat2/mat3/mat4 "
+        "constructor name matching the result type");
+    return false;
+  }
+
+  if (expression.children.size() == 1) {
+    const HIRType &sourceType = expression.children.front().type;
+    if (samePrototypeType(sourceType, expression.type) ||
+        isPrototypeMatrixType(sourceType) ||
+        isPrototypeNumericScalarType(sourceType)) {
+      return true;
+    }
+  }
+
+  std::size_t constituentWidth = 0;
+  for (const HIRExpression &child : expression.children) {
+    const std::optional<std::size_t> childWidth =
+        prototypeMatrixConstructorConstituentWidth(child.type);
+    if (!childWidth.has_value()) {
+      diagnostics.error(
+          "vulkan.prototype-unsupported-expression",
+          "Vulkan prototype matrix constructors require numeric scalar/vector "
+          "constituents or a single scalar/matrix operand");
+      return false;
+    }
+    constituentWidth += *childWidth;
+  }
+
+  if (constituentWidth != (*dimension * *dimension)) {
+    diagnostics.error(
+        "vulkan.prototype-unsupported-expression",
+        "Vulkan prototype matrix constructors require constituents matching "
+        "the result matrix element count");
+    return false;
+  }
+  return true;
+}
+
+bool isPrototypeFloatScalarType(const HIRType &type) {
+  return type.name == "float" && !type.arraySize.has_value();
 }
 
 bool isPrototypeFloatVectorType(const HIRType &type) {
@@ -3640,6 +3731,9 @@ bool prototypeExpressionSupported(
         return false;
       }
     }
+    if (isPrototypeMatrixType(expression.type)) {
+      return prototypeMatrixConstructorSupported(expression, diagnostics);
+    }
     return prototypeVectorConstructorSupported(expression, diagnostics);
   }
   case HIRExpressionKind::NonUniform: {
@@ -4236,8 +4330,8 @@ bool prototypeDeclarationSupported(
                                              constants)) {
     diagnostics.error("vulkan.prototype-unsupported-type",
                       "Vulkan prototype binary emission supports only "
-                      "scalar int/float/bool, vec2/vec3/vec4, and "
-                      "fixed-size numeric array locals");
+                      "scalar int/float/bool, vec2/vec3/vec4, "
+                      "mat2/mat3/mat4, and fixed-size numeric array locals");
     return false;
   }
   if (statement.value.kind != HIRExpressionKind::Empty) {
@@ -5289,6 +5383,16 @@ private:
       id = "%" + sanitizeIdFragment(type.name);
       line = id + " = OpTypeVector " + componentType + " " +
              std::to_string(*width);
+    } else if (const std::optional<std::size_t> dimension =
+                   prototypeMatrixDimension(type);
+               dimension.has_value()) {
+      const std::string columnType = ensureType(prototypeMatrixColumnType(type));
+      if (columnType.empty()) {
+        return "";
+      }
+      id = "%" + sanitizeIdFragment(type.name);
+      line = id + " = OpTypeMatrix " + columnType + " " +
+             std::to_string(*dimension);
     } else if (const auto structure = structs_.find(type.name);
                structure != structs_.end()) {
       id = "%struct_" + sanitizeIdFragment(type.name);
@@ -6380,6 +6484,248 @@ private:
     instructionLines_.push_back(resultId + " = " + opcode + " " + typeId +
                                 " " + value->id);
     return PrototypeSPIRVValue{expression.type, resultId};
+  }
+
+  std::optional<PrototypeSPIRVValue>
+  emitFloatScalarValue(const PrototypeSPIRVValue &value) {
+    const HIRType floatType{"float", std::nullopt};
+    if (samePrototypeType(value.type, floatType)) {
+      return value;
+    }
+    const std::string opcode = prototypeScalarConversionOpcode(value.type,
+                                                               floatType);
+    if (opcode.empty() || opcode == "identity") {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-expression",
+          "Vulkan prototype matrix constructors require numeric scalar "
+          "constituents convertible to float");
+      return std::nullopt;
+    }
+    const std::string typeId = ensureType(floatType);
+    if (typeId.empty()) {
+      return std::nullopt;
+    }
+    const std::string resultId = nextTemp();
+    instructionLines_.push_back(resultId + " = " + opcode + " " + typeId +
+                                " " + value.id);
+    return PrototypeSPIRVValue{floatType, resultId};
+  }
+
+  bool appendMatrixConstructorScalars(const HIRExpression &expression,
+                                      std::vector<std::string> &scalars) {
+    std::optional<PrototypeSPIRVValue> value = emitExpression(expression);
+    if (!value.has_value()) {
+      return false;
+    }
+
+    if (isPrototypeNumericScalarType(value->type)) {
+      std::optional<PrototypeSPIRVValue> scalar = emitFloatScalarValue(*value);
+      if (!scalar.has_value()) {
+        return false;
+      }
+      scalars.push_back(scalar->id);
+      return true;
+    }
+
+    if (!isPrototypeVectorType(value->type) ||
+        !isPrototypeNumericScalarType(prototypeVectorComponentType(value->type))) {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-expression",
+          "Vulkan prototype matrix constructors require numeric scalar/vector "
+          "constituents or a single scalar/matrix operand");
+      return false;
+    }
+
+    const HIRType componentType = prototypeVectorComponentType(value->type);
+    const std::string componentTypeId = ensureType(componentType);
+    if (componentTypeId.empty()) {
+      return false;
+    }
+    const std::optional<std::size_t> width = prototypeVectorWidth(value->type);
+    if (!width.has_value()) {
+      return false;
+    }
+
+    for (std::size_t index = 0; index < *width; ++index) {
+      const std::string componentId = nextTemp();
+      instructionLines_.push_back(componentId + " = OpCompositeExtract " +
+                                  componentTypeId + " " + value->id + " " +
+                                  std::to_string(index));
+      std::optional<PrototypeSPIRVValue> scalar =
+          emitFloatScalarValue(PrototypeSPIRVValue{componentType, componentId});
+      if (!scalar.has_value()) {
+        return false;
+      }
+      scalars.push_back(scalar->id);
+    }
+    return true;
+  }
+
+  std::optional<std::string>
+  emitMatrixColumn(const HIRType &matrixType,
+                   std::span<const std::string> scalars) {
+    const std::optional<std::size_t> dimension =
+        prototypeMatrixDimension(matrixType);
+    if (!dimension.has_value() || scalars.size() != *dimension) {
+      return std::nullopt;
+    }
+    const HIRType columnType = prototypeMatrixColumnType(matrixType);
+    const std::string columnTypeId = ensureType(columnType);
+    if (columnTypeId.empty()) {
+      return std::nullopt;
+    }
+
+    const std::string columnId = nextTemp();
+    std::ostringstream instruction;
+    instruction << columnId << " = OpCompositeConstruct " << columnTypeId;
+    for (const std::string &scalar : scalars) {
+      instruction << " " << scalar;
+    }
+    instructionLines_.push_back(instruction.str());
+    return columnId;
+  }
+
+  std::optional<PrototypeSPIRVValue>
+  emitMatrixFromScalars(const HIRType &matrixType,
+                        const std::vector<std::string> &scalars) {
+    const std::optional<std::size_t> dimension =
+        prototypeMatrixDimension(matrixType);
+    if (!dimension.has_value() || scalars.size() != (*dimension * *dimension)) {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-expression",
+          "Vulkan prototype matrix constructors require constituents matching "
+          "the result matrix element count");
+      return std::nullopt;
+    }
+
+    std::vector<std::string> columns;
+    columns.reserve(*dimension);
+    for (std::size_t column = 0; column < *dimension; ++column) {
+      const std::size_t begin = column * *dimension;
+      const std::optional<std::string> columnId =
+          emitMatrixColumn(matrixType, std::span<const std::string>(
+                                           scalars.data() + begin, *dimension));
+      if (!columnId.has_value()) {
+        return std::nullopt;
+      }
+      columns.push_back(*columnId);
+    }
+
+    const std::string typeId = ensureType(matrixType);
+    if (typeId.empty()) {
+      return std::nullopt;
+    }
+    const std::string resultId = nextTemp();
+    std::ostringstream instruction;
+    instruction << resultId << " = OpCompositeConstruct " << typeId;
+    for (const std::string &column : columns) {
+      instruction << " " << column;
+    }
+    instructionLines_.push_back(instruction.str());
+    return PrototypeSPIRVValue{matrixType, resultId};
+  }
+
+  std::optional<PrototypeSPIRVValue>
+  emitMatrixFromScalar(const HIRType &matrixType,
+                       const PrototypeSPIRVValue &value) {
+    const std::optional<PrototypeSPIRVValue> diagonal =
+        emitFloatScalarValue(value);
+    if (!diagonal.has_value()) {
+      return std::nullopt;
+    }
+    const std::optional<std::size_t> dimension =
+        prototypeMatrixDimension(matrixType);
+    if (!dimension.has_value()) {
+      return std::nullopt;
+    }
+
+    const std::string zero =
+        ensureNumericConstant(HIRType{"float", std::nullopt}, "0.0");
+    std::vector<std::string> scalars;
+    scalars.reserve(*dimension * *dimension);
+    for (std::size_t column = 0; column < *dimension; ++column) {
+      for (std::size_t row = 0; row < *dimension; ++row) {
+        scalars.push_back(column == row ? diagonal->id : zero);
+      }
+    }
+    return emitMatrixFromScalars(matrixType, scalars);
+  }
+
+  std::optional<PrototypeSPIRVValue>
+  emitMatrixFromMatrix(const HIRType &matrixType,
+                       const PrototypeSPIRVValue &value) {
+    if (samePrototypeType(matrixType, value.type)) {
+      return value;
+    }
+    const std::optional<std::size_t> targetDimension =
+        prototypeMatrixDimension(matrixType);
+    const std::optional<std::size_t> sourceDimension =
+        prototypeMatrixDimension(value.type);
+    if (!targetDimension.has_value() || !sourceDimension.has_value()) {
+      return std::nullopt;
+    }
+
+    const HIRType floatType{"float", std::nullopt};
+    const std::string floatTypeId = ensureType(floatType);
+    if (floatTypeId.empty()) {
+      return std::nullopt;
+    }
+    const std::string zero = ensureNumericConstant(floatType, "0.0");
+    const std::string one = ensureNumericConstant(floatType, "1.0");
+
+    std::vector<std::string> scalars;
+    scalars.reserve(*targetDimension * *targetDimension);
+    for (std::size_t column = 0; column < *targetDimension; ++column) {
+      for (std::size_t row = 0; row < *targetDimension; ++row) {
+        if (column < *sourceDimension && row < *sourceDimension) {
+          const std::string componentId = nextTemp();
+          instructionLines_.push_back(
+              componentId + " = OpCompositeExtract " + floatTypeId + " " +
+              value.id + " " + std::to_string(column) + " " +
+              std::to_string(row));
+          scalars.push_back(componentId);
+        } else {
+          scalars.push_back(column == row ? one : zero);
+        }
+      }
+    }
+    return emitMatrixFromScalars(matrixType, scalars);
+  }
+
+  std::optional<PrototypeSPIRVValue> emitMatrixConstructor(
+      const HIRExpression &expression) {
+    if (!prototypeMatrixDimension(expression.type).has_value() ||
+        expression.children.empty()) {
+      diagnostics_.error("vulkan.prototype-unsupported-expression",
+                         "Vulkan prototype matrix constructors require a "
+                         "mat2/mat3/mat4 result type and operands");
+      return std::nullopt;
+    }
+
+    if (expression.children.size() == 1) {
+      std::optional<PrototypeSPIRVValue> value =
+          emitExpression(expression.children.front());
+      if (!value.has_value()) {
+        return std::nullopt;
+      }
+      if (isPrototypeMatrixType(value->type)) {
+        return emitMatrixFromMatrix(expression.type, *value);
+      }
+      if (isPrototypeNumericScalarType(value->type)) {
+        return emitMatrixFromScalar(expression.type, *value);
+      }
+    }
+
+    std::vector<std::string> scalars;
+    const std::optional<std::size_t> dimension =
+        prototypeMatrixDimension(expression.type);
+    scalars.reserve(dimension.value_or(0) * dimension.value_or(0));
+    for (const HIRExpression &child : expression.children) {
+      if (!appendMatrixConstructorScalars(child, scalars)) {
+        return std::nullopt;
+      }
+    }
+    return emitMatrixFromScalars(expression.type, scalars);
   }
 
   std::optional<PrototypeSPIRVValue>
@@ -8357,6 +8703,9 @@ private:
     case HIRExpressionKind::Constructor:
       if (isPrototypeNumericScalarType(expression.type)) {
         return emitScalarConstructor(expression);
+      }
+      if (isPrototypeMatrixType(expression.type)) {
+        return emitMatrixConstructor(expression);
       }
       return emitVectorConstructor(expression);
     case HIRExpressionKind::NonUniform:

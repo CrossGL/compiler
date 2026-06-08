@@ -49378,6 +49378,90 @@ shader BadSignedUnsignedScalarConstructorShader {
          "scalar-constructor Vulkan prototype SPIR-V binary exists");
 }
 
+void testVulkanPrototypeMatrixConstructorAssembly() {
+  constexpr std::string_view source = R"(
+shader MatrixConstructorComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    void main() {
+      mat2 flattened = mat2(1.0, 0.0, 0.0, 1.0);
+      mat2 diagonal = mat2(1.0);
+      mat3 expanded = mat3(flattened);
+      mat3 basis = mat3(vec3(1.0, 0.0, 0.0),
+                        vec3(0.0, 1.0, 0.0),
+                        vec3(0.0, 0.0, 1.0));
+      values[0] = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "matrix-constructor Vulkan compute source builds HIR");
+  if (!hir) {
+    return;
+  }
+  const std::vector<crossgl::HIRStatement> &body =
+      hir->stages.front().functions.front().body;
+  expect(body.size() >= 5, "matrix-constructor HIR keeps all body statements");
+  if (body.size() >= 4) {
+    expect(body[0].value.kind == crossgl::HIRExpressionKind::Constructor &&
+               body[0].value.type.name == "mat2",
+           "matrix-constructor HIR keeps flattened mat2 constructor");
+    expect(body[1].value.kind == crossgl::HIRExpressionKind::Constructor &&
+               body[1].value.type.name == "mat2",
+           "matrix-constructor HIR keeps scalar diagonal mat2 constructor");
+    expect(body[2].value.kind == crossgl::HIRExpressionKind::Constructor &&
+               body[2].value.type.name == "mat3",
+           "matrix-constructor HIR keeps matrix expansion constructor");
+    expect(body[3].value.kind == crossgl::HIRExpressionKind::Constructor &&
+               body[3].value.type.name == "mat3",
+           "matrix-constructor HIR keeps column-vector mat3 constructor");
+  }
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assemblyDiagnostics.hasErrors(),
+         "matrix-constructor Vulkan prototype assembly has no diagnostics");
+  expect(assembly.find("%mat2 = OpTypeMatrix %vec2 2") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly emits mat2 type");
+  expect(assembly.find("%mat3 = OpTypeMatrix %vec3 3") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly emits mat3 type");
+  expect(assembly.find("OpCompositeConstruct %mat2") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly constructs mat2 values");
+  expect(assembly.find("OpCompositeConstruct %mat3") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly constructs mat3 values");
+  expect(assembly.find("OpCompositeExtract %float") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly extracts source matrix "
+         "components for expansion");
+
+  if (!crossgl::findExecutable("spirv-as") ||
+      !crossgl::findExecutable("spirv-val")) {
+    return;
+  }
+
+  const std::filesystem::path packageDir =
+      unitTestTempDirectoryPath() /
+      "crossgl-vulkan-matrix-constructor-prototype-test";
+  std::error_code error;
+  std::filesystem::remove_all(packageDir, error);
+
+  crossgl::DiagnosticEngine buildDiagnostics;
+  const crossgl::VulkanBuildResult result =
+      crossgl::buildVulkanPrototypeBinary(*hir, packageDir, buildDiagnostics);
+  expect(result.success,
+         "matrix-constructor Vulkan prototype binary assembles and validates");
+  expect(!buildDiagnostics.hasErrors(),
+         "matrix-constructor Vulkan prototype binary build has no diagnostics");
+  expect(std::filesystem::exists(result.assemblyPath),
+         "matrix-constructor Vulkan prototype assembly file exists");
+  expect(std::filesystem::exists(result.spvPath),
+         "matrix-constructor Vulkan prototype SPIR-V binary exists");
+}
+
 void testAggregateConstructorDiagnostics() {
   constexpr std::string_view validVectorSource = R"(
 shader ValidAggregateConstructorShader {
@@ -51306,6 +51390,7 @@ int main() {
   testVulkanPrototypeMathIntrinsicAssembly();
   testVulkanPrototypeVectorScalarArithmeticAssembly();
   testVulkanPrototypeScalarConstructorAssembly();
+  testVulkanPrototypeMatrixConstructorAssembly();
   testAggregateConstructorDiagnostics();
   testVulkanPrototypeVectorSwizzleAssembly();
   testVulkanPrototypeVectorBufferAssembly();
