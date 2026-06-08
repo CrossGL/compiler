@@ -1144,6 +1144,14 @@ bool isPrototypeFloatMatrixVectorMultiplyOperandPair(
          samePrototypeType(vectorType, resultType);
 }
 
+bool isPrototypeFloatMatrixScalarMultiplyOperandPair(
+    const HIRType &matrixType, const HIRType &scalarType,
+    const HIRType &resultType) {
+  return prototypeMatrixDimension(matrixType).has_value() &&
+         isPrototypeFloatScalarType(scalarType) &&
+         samePrototypeType(matrixType, resultType);
+}
+
 struct PrototypeMatrixMultiplyLowering {
   std::string_view opcode;
   bool swapOperands = false;
@@ -1160,6 +1168,14 @@ prototypeMatrixMultiplyLowering(const HIRType &leftType,
   if (isPrototypeFloatMatrixVectorMultiplyOperandPair(rightType, leftType,
                                                       resultType)) {
     return PrototypeMatrixMultiplyLowering{"OpVectorTimesMatrix", false};
+  }
+  if (isPrototypeFloatMatrixScalarMultiplyOperandPair(leftType, rightType,
+                                                      resultType)) {
+    return PrototypeMatrixMultiplyLowering{"OpMatrixTimesScalar", false};
+  }
+  if (isPrototypeFloatMatrixScalarMultiplyOperandPair(rightType, leftType,
+                                                      resultType)) {
+    return PrototypeMatrixMultiplyLowering{"OpMatrixTimesScalar", true};
   }
   if (prototypeMatrixDimension(leftType).has_value() &&
       samePrototypeType(leftType, rightType) &&
