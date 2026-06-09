@@ -77,6 +77,19 @@ bool moduleContainsRawStatement(const HIRModule &module) {
   return false;
 }
 
+const SourceLocation &resourceDiagnosticLocation(const HIRResource &resource) {
+  if (!resource.nameSpan.file.empty()) {
+    return resource.nameSpan;
+  }
+  if (!resource.declarationSpan.file.empty()) {
+    return resource.declarationSpan;
+  }
+  if (!resource.layoutSpan.file.empty()) {
+    return resource.layoutSpan;
+  }
+  return resource.bindingSpan;
+}
+
 bool diagnoseRawStatementBackendInput(const HIRModule &module,
                                       DiagnosticEngine &diagnostics) {
   if (!moduleContainsRawStatement(module)) {
@@ -14671,7 +14684,8 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
               "vulkan.prototype-unsupported-runtime-resource-array",
               "Vulkan prototype uniform-buffer descriptor lowering does not "
               "yet support unsized/runtime resource array '" +
-                  resource.name + "'");
+                  resource.name + "'",
+              resourceDiagnosticLocation(resource));
           return false;
         }
         if (!prototypeArrayElementCount(resource.type, layoutContext).has_value()) {
@@ -14696,7 +14710,8 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
             "vulkan.prototype-unsupported-runtime-resource-array",
             "Vulkan prototype storage-buffer descriptor lowering does not yet "
             "support unsized/runtime resource array '" +
-                resource.name + "'");
+                resource.name + "'",
+            resourceDiagnosticLocation(resource));
         return false;
       }
       if (!prototypeArrayElementCount(resource.type, layoutContext).has_value()) {
@@ -14731,7 +14746,8 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
               "vulkan.prototype-unsupported-runtime-resource-array",
               "Vulkan prototype storage image descriptor lowering does not "
               "yet support unsized/runtime resource array '" +
-                  resource.name + "'");
+                  resource.name + "'",
+              resourceDiagnosticLocation(resource));
           return false;
         }
         if (!prototypeArrayElementCount(resource.type, layoutContext).has_value()) {
@@ -14751,7 +14767,8 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
                                                                  resource)) {
           diagnostics.error(
               "vulkan.prototype-unsupported-runtime-resource-array",
-              vulkanRuntimeDescriptorArrayUnsupportedMessage(module, resource));
+              vulkanRuntimeDescriptorArrayUnsupportedMessage(module, resource),
+              resourceDiagnosticLocation(resource));
           return false;
         }
         continue;
