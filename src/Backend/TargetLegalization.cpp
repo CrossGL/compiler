@@ -760,7 +760,8 @@ v0ResourceBindingEvidenceIds(const TargetLegalizationContract &contract) {
 bool isABIFactKind(std::string_view kind) {
   return kind == "addressingModel" || kind == "backend" ||
          kind == "binaryFormat" || kind == "capability" ||
-         kind == "memoryModel" || kind == "sourceLanguage" ||
+         kind == "extension" || kind == "memoryModel" ||
+         kind == "sourceLanguage" ||
          kind == "targetEnv" || kind == "toolchain" || kind == "validation";
 }
 

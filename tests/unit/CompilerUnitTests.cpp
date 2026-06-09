@@ -38335,6 +38335,18 @@ shader VulkanNonUniformDescriptorArrayIndexShader {
   expect(!hasCapability(openglMissing, crossgl::TargetKind::OpenGL,
                         "extension", "GL_EXT_nonuniform_qualifier"),
          "OpenGL nonuniform extension is satisfied by the source package");
+  const crossgl::TargetLegalizationResult openglLegalization =
+      crossgl::legalizeTarget(*hir, crossgl::TargetKind::OpenGL);
+  expect(hasABIRecord(openglLegalization.abiFacts.requiredRecords,
+                      crossgl::TargetKind::OpenGL, "extension",
+                      "GL_EXT_nonuniform_qualifier") &&
+             hasString(openglLegalization.abiFacts.requiredFacts,
+                       "opengl.extension.GL_EXT_nonuniform_qualifier") &&
+             hasString(
+                 openglLegalization.abiFacts.evidenceIds,
+                 "target-legalization.v1.opengl.abi.required.extension."
+                 "GL_EXT_nonuniform_qualifier"),
+         "OpenGL legalization ABI facts record nonuniform qualifier extension");
   const std::string openglReflectionJson =
       crossgl::reflectionJson(crossgl::buildReflectionDocument(
           *hir, crossgl::TargetKind::OpenGL,
@@ -38402,6 +38414,22 @@ shader VulkanNonUniformDescriptorArrayIndexShader {
                        "capability",
                        "StorageBufferArrayNonUniformIndexingEXT"),
          "target capability registry records storage-buffer nonuniform indexing");
+  const crossgl::TargetLegalizationResult vulkanLegalization =
+      crossgl::legalizeTarget(*hir, crossgl::TargetKind::Vulkan);
+  expect(hasABIRecord(vulkanLegalization.abiFacts.requiredRecords,
+                      crossgl::TargetKind::Vulkan, "extension",
+                      "SPV_EXT_descriptor_indexing") &&
+             hasString(vulkanLegalization.abiFacts.requiredFacts,
+                       "vulkan.extension.SPV_EXT_descriptor_indexing") &&
+             hasString(
+                 vulkanLegalization.abiFacts.evidenceIds,
+                 "target-legalization.v1.vulkan.abi.required.extension."
+                 "SPV_EXT_descriptor_indexing") &&
+             jsonHasStringValue(
+                 crossgl::targetLegalizationResultV0Json(vulkanLegalization),
+                 "target-legalization.v1.vulkan.abi.required.extension."
+                 "SPV_EXT_descriptor_indexing"),
+         "Vulkan legalization ABI facts record descriptor-indexing extension");
 
   const crossgl::ReflectionDocument reflection =
       crossgl::buildReflectionDocument(
