@@ -544,28 +544,6 @@ function(crossgl_add_directx_compute_fake_dxc_package_verify_test)
     "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.missingToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator")
   set(directx_fake_dxc_verify_manifest_array_lengths
     "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5")
-  if(CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
-     "planned" AND CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_TOOL_LOG)
-    set(directx_fake_dxc_verify_manifest_package_fields
-      "targetLegalizationToolRequirements.packageMode=source-package|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=0|targetLegalizationToolRequirements.optionalNativeToolMissing=false|targetLegalizationToolRequirements.optionalNativeToolStatus=available|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true")
-    set(directx_fake_dxc_verify_manifest_array_contains
-      "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.requiredToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator")
-    set(directx_fake_dxc_verify_manifest_array_lengths
-      "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=0|targetLegalizationToolRequirements.toolRequirementEvidenceIds=3")
-  endif()
-  if(CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
-     "emitted")
-    set(directx_fake_dxc_verify_summary_native_binary_status "null")
-    set(directx_fake_dxc_verify_manifest_native_binary_status_field "")
-    set(directx_fake_dxc_verify_raw_descriptor_native_binary_status_field "")
-    set(directx_fake_dxc_verify_manifest_package_fields
-      "targetLegalizationToolRequirements.packageMode=native|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=0|targetLegalizationToolRequirements.optionalNativeToolMissing=false|targetLegalizationToolRequirements.optionalNativeToolStatus=not-required|packageArtifactRequirements.packageMode=native|packageArtifactRequirements.requiresNativeBinaryStatus=false|packageArtifactRequirements.allowsPlannedNativeBinary=false|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=false")
-    set(directx_fake_dxc_verify_manifest_array_contains
-      "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.requiredToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator")
-    set(directx_fake_dxc_verify_manifest_array_lengths
-      "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=0|targetLegalizationToolRequirements.toolRequirementEvidenceIds=3")
-  endif()
-
   set(verify_definitions
     -DCGLC=$<TARGET_FILE:cglc>
     "-DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}"

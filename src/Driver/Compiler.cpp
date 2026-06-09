@@ -3345,8 +3345,11 @@ CompileResult compile(const CompileRequest &request) {
         return result;
       }
 
+      const SourcePackageArtifact directxArtifact{
+          directx.sourcePath, directx.nativeBinaryPath,
+          directx.nativeBinaryStatus};
       const bool finalized =
-          directx.nativeBinaryProduced
+          directxProjection.packageMode == TargetLegalizationPackageMode::Native
               ? finalizeDirectXNativePackageBuild(
                     backendHIR, target, sourceHash, packageDir,
                     directxProjection, directx, admission->decision.contract,
@@ -3355,12 +3358,8 @@ CompileResult compile(const CompileRequest &request) {
                     request.inputPath, stagedPackage, diagnostics)
               : finalizeSourcePackageBuild(
                     backendHIR, target, sourceHash, packageDir,
-                    directxProjection,
-                    SourcePackageArtifact{directx.sourcePath,
-                                          directx.nativeBinaryPath,
-                                          directx.nativeBinaryStatus},
-                    request.optimizationLevel, &directx, "",
-                    admission->decision.contract, debugMetadataPath,
+                    directxProjection, directxArtifact, request.optimizationLevel,
+                    &directx, "", admission->decision.contract, debugMetadataPath,
                     hirSourceMapPath, sourceRemapProvenancePath,
                     targetExplanationPath, request.inputPath, stagedPackage,
                     diagnostics);

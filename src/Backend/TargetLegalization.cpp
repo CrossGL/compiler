@@ -30,6 +30,16 @@ bool containsString(const std::vector<std::string> &values,
   return std::find(values.begin(), values.end(), value) != values.end();
 }
 
+bool isSourceFreeNativePackageArtifactRequirements(
+    const TargetPackageArtifactRequirements &requirements) {
+  return requirements.packageMode == TargetLegalizationPackageMode::Native &&
+         requirements.requiredPathArtifactKeys.size() == 1 &&
+         requirements.requiredPathArtifactKeys.front() == "nativeBinary" &&
+         !requirements.requiresNativeBinaryStatus &&
+         !requirements.allowsPlannedNativeBinary &&
+         !requirements.allowsPlannedNativeSourceEvidence;
+}
+
 bool sameStringVector(const std::vector<std::string> &lhs,
                       const std::vector<std::string> &rhs) {
   return lhs.size() == rhs.size() &&
@@ -2623,18 +2633,21 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
       !containsString(requirements.requiredPathArtifactKeys, "nativeBinary")) {
     return policy;
   }
+  const bool sourceFreeNativePackage =
+      isSourceFreeNativePackageArtifactRequirements(requirements);
 
   switch (resolvedTarget) {
   case TargetKind::Metal:
-    if (!containsString(requirements.requiredPathArtifactKeys,
-                        "backendSource") ||
-        !containsString(requirements.requiredPathArtifactKeys,
-                        "intermediate")) {
+    if (!sourceFreeNativePackage &&
+        (!containsString(requirements.requiredPathArtifactKeys,
+                         "backendSource") ||
+         !containsString(requirements.requiredPathArtifactKeys,
+                         "intermediate"))) {
       return policy;
     }
     policy.supported = true;
     policy.binaryKind = "metal.metallib";
-    policy.sourceArtifactKey = "backendSource";
+    policy.sourceArtifactKey = sourceFreeNativePackage ? "" : "backendSource";
     policy.nativeBinaryArtifactKey = "nativeBinary";
     policy.descriptorArtifactKey = "nativeArtifactDescriptor";
     policy.profileArtifactKey = "nativeProfile";
@@ -2654,13 +2667,14 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
                                       "xcrun", "metallib", "xcrun-metallib"}};
     break;
   case TargetKind::Vulkan:
-    if (!containsString(requirements.requiredPathArtifactKeys,
+    if (!sourceFreeNativePackage &&
+        !containsString(requirements.requiredPathArtifactKeys,
                         "backendAssembly")) {
       return policy;
     }
     policy.supported = true;
     policy.binaryKind = "vulkan.spirv-module";
-    policy.sourceArtifactKey = "backendAssembly";
+    policy.sourceArtifactKey = sourceFreeNativePackage ? "" : "backendAssembly";
     policy.nativeBinaryArtifactKey = "nativeBinary";
     policy.descriptorArtifactKey = "nativeArtifactDescriptor";
     policy.profileArtifactKey = "nativeProfile";
@@ -2686,7 +2700,7 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
   case TargetKind::DirectX:
     policy.supported = true;
     policy.binaryKind = "directx.dxil";
-    policy.sourceArtifactKey = "backendSource";
+    policy.sourceArtifactKey = sourceFreeNativePackage ? "" : "backendSource";
     policy.nativeBinaryArtifactKey = "nativeBinary";
     policy.descriptorArtifactKey = "nativeArtifactDescriptor";
     policy.validationStatus = "not-run";

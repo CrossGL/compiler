@@ -26095,6 +26095,71 @@ shader VulkanLegalizedBindingRequiredShader {
                              "missing-record");
 }
 
+void testNativePackageDescriptorPolicySupportsSourceFreeRequirements() {
+  auto sourceFreeRequirements =
+      [](crossgl::TargetKind target)
+      -> crossgl::TargetPackageArtifactRequirements {
+    crossgl::TargetPackageArtifactRequirements requirements;
+    requirements.target = target;
+    requirements.targetName = std::string(crossgl::targetName(target));
+    requirements.packageMode = crossgl::TargetLegalizationPackageMode::Native;
+    requirements.packageModeName = "native";
+    requirements.requiredPathArtifactKeys = {"nativeBinary"};
+    requirements.evidenceIds = {
+        "target-legalization.v1." + requirements.targetName +
+        ".package-artifacts.native",
+        "target-legalization.v1." + requirements.targetName +
+        ".package-artifact.required.nativeBinary"};
+    return requirements;
+  };
+
+  const crossgl::TargetNativePackageDescriptorPolicy metalPolicy =
+      crossgl::targetNativePackageDescriptorPolicy(
+          sourceFreeRequirements(crossgl::TargetKind::Metal));
+  expect(metalPolicy.supported &&
+             metalPolicy.target == crossgl::TargetKind::Metal &&
+             metalPolicy.binaryKind == "metal.metallib" &&
+             metalPolicy.sourceArtifactKey.empty() &&
+             metalPolicy.nativeBinaryArtifactKey == "nativeBinary" &&
+             metalPolicy.descriptorArtifactKey == "nativeArtifactDescriptor" &&
+             metalPolicy.profileArtifactKey == "nativeProfile" &&
+             metalPolicy.optimizationEvidenceModeName == "metal-xcrun-metal",
+         "Metal descriptor policy accepts source-free native requirements");
+
+  const crossgl::TargetNativePackageDescriptorPolicy vulkanPolicy =
+      crossgl::targetNativePackageDescriptorPolicy(
+          sourceFreeRequirements(crossgl::TargetKind::Vulkan));
+  expect(vulkanPolicy.supported &&
+             vulkanPolicy.target == crossgl::TargetKind::Vulkan &&
+             vulkanPolicy.binaryKind == "vulkan.spirv-module" &&
+             vulkanPolicy.sourceArtifactKey.empty() &&
+             vulkanPolicy.nativeBinaryArtifactKey == "nativeBinary" &&
+             vulkanPolicy.descriptorArtifactKey == "nativeArtifactDescriptor" &&
+             vulkanPolicy.profileArtifactKey == "nativeProfile" &&
+             vulkanPolicy.optimizationEvidenceModeName == "vulkan-spirv-opt",
+         "Vulkan descriptor policy accepts source-free native requirements");
+
+  const crossgl::TargetNativePackageDescriptorPolicy directxPolicy =
+      crossgl::targetNativePackageDescriptorPolicy(
+          sourceFreeRequirements(crossgl::TargetKind::DirectX));
+  expect(directxPolicy.supported &&
+             directxPolicy.target == crossgl::TargetKind::DirectX &&
+             directxPolicy.binaryKind == "directx.dxil" &&
+             directxPolicy.sourceArtifactKey.empty() &&
+             directxPolicy.nativeBinaryArtifactKey == "nativeBinary" &&
+             directxPolicy.descriptorArtifactKey == "nativeArtifactDescriptor" &&
+             directxPolicy.optimizationEvidenceModeName == "directx-dxc",
+         "DirectX descriptor policy accepts source-free native requirements");
+
+  crossgl::TargetPackageArtifactRequirements sourceFreeWithNativeStatus =
+      sourceFreeRequirements(crossgl::TargetKind::Metal);
+  sourceFreeWithNativeStatus.requiresNativeBinaryStatus = true;
+  expect(!crossgl::targetNativePackageDescriptorPolicy(
+              sourceFreeWithNativeStatus)
+              .supported,
+         "source-free native descriptor policy rejects native status policy drift");
+}
+
 void testPackageBuildStagingPreservesNonDirectoryOutput() {
   constexpr std::string_view source = R"(
 shader PackagePublishFailureShader {
@@ -54298,6 +54363,7 @@ int main() {
   testOpenGLSourcePackageRequiresLegalizedResourceBindings();
   testMetalNativePackageRequiresLegalizedResourceBindings();
   testVulkanNativePackageRequiresLegalizedResourceBindings();
+  testNativePackageDescriptorPolicySupportsSourceFreeRequirements();
   testPackageBuildStagingPreservesNonDirectoryOutput();
   testPackageReleaseReportArtifactInventory();
   testGcsReleasePublishPlansTypedUploadRequest();

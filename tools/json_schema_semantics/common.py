@@ -11,6 +11,7 @@ from package_target_contracts import (
 NATIVE_ARTIFACT_DESCRIPTOR = "nativeArtifactDescriptor"
 NATIVE_BINARY = "nativeBinary"
 NATIVE_PROFILE = "nativeProfile"
+SOURCE_FREE_NATIVE_PACKAGE_TARGETS = frozenset({"directx", "metal", "vulkan"})
 
 PACKAGE_TARGET_NATIVE_SUMMARY_STATUS = {
     "metal": "emitted",
@@ -142,6 +143,18 @@ def validate_normalized_package_path(errors, path, package_path):
         errors.append(f"{path}: expected normalized '/' path separators")
 
 
+def is_source_free_native_requirements(target, requirements):
+    return (
+        target in SOURCE_FREE_NATIVE_PACKAGE_TARGETS
+        and requirements["target"] == target
+        and requirements["packageMode"] == "native"
+        and requirements["requiredPathArtifacts"] == [NATIVE_BINARY]
+        and not requirements["requiresNativeBinaryStatus"]
+        and not requirements["allowsPlannedNativeBinary"]
+        and not requirements["allowsPlannedNativeSourceEvidence"]
+    )
+
+
 def validate_package_artifact_requirements(
     errors,
     path,
@@ -158,7 +171,9 @@ def validate_package_artifact_requirements(
         ),
         None,
     )
-    if contract is not None:
+    if contract is not None and not is_source_free_native_requirements(
+        target, requirements
+    ):
         expected_mode = (
             "source-package" if contract.allows_planned_native_binary else "native"
         )
@@ -266,12 +281,20 @@ def validate_release_package_artifacts_against_requirements(
         and requirements["allowsPlannedNativeSourceEvidence"]
     )
     descriptor = artifacts.get(NATIVE_ARTIFACT_DESCRIPTOR)
-    if (native_ready or planned_source_evidence) and descriptor is None:
-        descriptor_context = (
-            "planned native source evidence"
-            if planned_source_evidence and not native_ready
-            else "native readiness"
-        )
+    source_free_native = is_source_free_native_requirements(
+        package["target"], requirements
+    )
+    if (
+        native_ready or planned_source_evidence or source_free_native
+    ) and descriptor is None:
+        if source_free_native:
+            descriptor_context = "source-free native requirements"
+        else:
+            descriptor_context = (
+                "planned native source evidence"
+                if planned_source_evidence and not native_ready
+                else "native readiness"
+            )
         errors.append(
             f"{path}.artifacts.{NATIVE_ARTIFACT_DESCRIPTOR}: "
             f"{descriptor_context} requires descriptor artifact evidence"

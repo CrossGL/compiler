@@ -7,7 +7,6 @@
 #include "crossgl/Backend/OpenGLBackend.h"
 #include "crossgl/Backend/ResourceArrays.h"
 #include "crossgl/Backend/TargetCapabilityInventory.h"
-#include "crossgl/Backend/Toolchain.h"
 #include "crossgl/Backend/VulkanBackend.h"
 #include "crossgl/HIR/Intrinsics.h"
 #include "crossgl/HIR/TypeSemantics.h"
@@ -876,12 +875,7 @@ bool nativePackageSupported(const HIRModule &module, TargetKind target,
   case TargetKind::Vulkan:
     return vulkanPrototypeBinarySupported(module, nativeDiagnostics);
   case TargetKind::DirectX:
-    if (!directxSourcePackageSupported(module, nativeDiagnostics)) {
-      return false;
-    }
-    if (findExecutable("dxc").has_value()) {
-      return true;
-    }
+    directxSourcePackageSupported(module, nativeDiagnostics);
     return false;
   case TargetKind::OpenGL:
     return true;

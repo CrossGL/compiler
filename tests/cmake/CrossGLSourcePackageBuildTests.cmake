@@ -127,6 +127,8 @@ add_test(NAME cglc_build_directx_source_package_fake_dxc_success
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=note|diagnostics.1.code=directx.dxil-emitted"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=CrossGL opt-level O1 maps to DXC -O3|diagnostics.0.message=compute=cs_6_0|diagnostics.1.message=CrossGL opt-level O1 maps to DXC -O3|diagnostics.1.message=compute=cs_6_0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=targetLegalizationToolRequirements.packageMode=source-package|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|artifacts.nativeBinaryStatus=emitted"
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=targetDecision.selectedTargetPackageMode=source-package|targetDecision.selectedTargetSourcePackageSupported=true"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|sourceHash.algorithm=sha256|artifactPath=backend/directx/StorageBufferComputeShader.dxil|artifactHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O3|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=not-run"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value|artifactHash.value|sizeBytes"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
@@ -628,7 +630,7 @@ function(crossgl_add_directx_compute_fake_dxc_package_inspect_test)
     set(directx_fake_dxc_inspect_extra_json_paths
       "artifacts.1.sizeBytes|artifacts.1.sha256|nativeArtifactDescriptor.sourceHash|nativeArtifactDescriptor.artifactHash|nativeArtifactDescriptor.sizeBytes")
     set(directx_fake_dxc_inspect_extra_json_fields
-      "|nativeArtifactDescriptor.artifactPath=backend/directx/StorageBufferComputeShader.dxil|nativeArtifactDescriptor.optimizationLevel=O1|nativeArtifactDescriptor.optimizationEvidence.requestedLevel=O1|nativeArtifactDescriptor.optimizationEvidence.effectiveLevel=O3|nativeArtifactDescriptor.optimizationEvidence.policy=crossgl-to-dxc-optimization-map|nativeArtifactDescriptor.optimizationEvidence.status=applied|nativeArtifactDescriptor.optimizationEvidence.tool=dxc|nativeArtifactDescriptor.optimizationEvidence.toolFlag=-O3|nativeArtifactDescriptor.optimizationEvidence.profile=compute=cs_6_0|nativeArtifactDescriptor.validationStatus=not-run|nativeArtifactDescriptor.nativeBinaryStatus=null|nativeArtifactDescriptor.checks.nativeBinaryStatusMatchesPackage=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|nativeArtifactDescriptor.checks.validationStatusMatchesNativeStatus=true|packageArtifactRequirements.packageMode=native|packageArtifactRequirements.requiresNativeBinaryStatus=false|packageArtifactRequirements.allowsPlannedNativeBinary=false|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=false|targetLegalizationEvidence.packageMode=native|targetLegalizationEvidence.manifestToolRequirements.packageMode=native|targetLegalizationEvidence.manifestToolRequirements.missingToolCount=0|targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolStatus=not-required")
+      "|nativeArtifactDescriptor.artifactPath=backend/directx/StorageBufferComputeShader.dxil|nativeArtifactDescriptor.optimizationLevel=O1|nativeArtifactDescriptor.optimizationEvidence.requestedLevel=O1|nativeArtifactDescriptor.optimizationEvidence.effectiveLevel=O3|nativeArtifactDescriptor.optimizationEvidence.policy=crossgl-to-dxc-optimization-map|nativeArtifactDescriptor.optimizationEvidence.status=applied|nativeArtifactDescriptor.optimizationEvidence.tool=dxc|nativeArtifactDescriptor.optimizationEvidence.toolFlag=-O3|nativeArtifactDescriptor.optimizationEvidence.profile=compute=cs_6_0|nativeArtifactDescriptor.validationStatus=not-run|nativeArtifactDescriptor.nativeBinaryStatus=emitted|nativeArtifactDescriptor.checks.nativeBinaryStatusMatchesPackage=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|nativeArtifactDescriptor.checks.validationStatusMatchesNativeStatus=true|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true|targetLegalizationEvidence.packageMode=source-package|targetLegalizationEvidence.manifestToolRequirements.packageMode=source-package|targetLegalizationEvidence.manifestToolRequirements.missingToolCount=2|targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolStatus=missing")
     set(directx_fake_dxc_inspect_extra_native_descriptor_paths
       "sourceHash.value|artifactHash.value|sizeBytes")
     set(directx_fake_dxc_inspect_extra_native_descriptor_fields
@@ -645,15 +647,6 @@ function(crossgl_add_directx_compute_fake_dxc_package_inspect_test)
     "|nativeArtifactDescriptor.nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}")
   set(directx_fake_dxc_inspect_raw_descriptor_native_binary_status_field
     "|nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}")
-  if(CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
-     "emitted")
-    set(directx_fake_dxc_inspect_summary_native_binary_status "null")
-    set(directx_fake_dxc_inspect_manifest_native_binary_status_field "")
-    set(directx_fake_dxc_inspect_raw_descriptor_native_binary_status_field "")
-    set(directx_fake_dxc_inspect_descriptor_native_binary_status_field
-      "|nativeArtifactDescriptor.nativeBinaryStatus=null")
-  endif()
-
   set(inspect_definitions
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}

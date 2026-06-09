@@ -157,6 +157,15 @@ crossgl_add_required_python_test(
     --instance
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-basic.json")
 crossgl_add_required_python_test(
+  NAME cglc_manifest_v1_source_free_native_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/manifest-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/manifest-v1-source-free-native.json")
+crossgl_add_required_python_test(
   NAME cglc_source_remap_provenance_v1_json_schema
   COMMAND
     "${CROSSGL_PYTHON3}"
