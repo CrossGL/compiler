@@ -15227,11 +15227,23 @@ bool hasReflectionFeature(const crossgl::ReflectionDocument &document,
   return false;
 }
 
+const crossgl::ReflectionTargetFeature *findReflectionFeature(
+    const std::vector<crossgl::ReflectionTargetFeature> &features,
+    std::string_view target, std::string_view kind, std::string_view name) {
+  for (const crossgl::ReflectionTargetFeature &feature : features) {
+    if (feature.target == target && feature.kind == kind &&
+        feature.name == name) {
+      return &feature;
+    }
+  }
+  return nullptr;
+}
+
 bool sameReflectionTargetFeature(
     const crossgl::ReflectionTargetFeature &lhs,
     const crossgl::ReflectionTargetFeature &rhs) {
   return lhs.target == rhs.target && lhs.kind == rhs.kind &&
-         lhs.name == rhs.name;
+         lhs.name == rhs.name && lhs.evidenceIds == rhs.evidenceIds;
 }
 
 bool sameReflectionTargetFeatures(
@@ -21191,6 +21203,22 @@ shader TargetLegalizationShader {
                                   "dxc"),
          "reflection target features are projected from target legalization "
          "result and contract capability facts");
+  const crossgl::ReflectionTargetFeature *directxBackendFeature =
+      findReflectionFeature(directxReflection.targetFeatures, "directx",
+                            "backend", "native-dxil-package");
+  expect(directxBackendFeature != nullptr &&
+             hasString(directxBackendFeature->evidenceIds,
+                       "target-legalization.v1.directx.capability.required."
+                       "directx.backend.native-dxil-package") &&
+             std::any_of(directxBackendFeature->evidenceIds.begin(),
+                         directxBackendFeature->evidenceIds.end(),
+                         [](const std::string &evidenceId) {
+                           return evidenceId.find(
+                                      "target-legalization.v1.directx.abi.") ==
+                                  0;
+                         }) &&
+             directxBackendFeature->evidenceIds.size() >= 2,
+         "reflection target features merge capability and ABI evidence ids");
   crossgl::TargetLegalizationResult abiOnlyDirectxLegalization =
       directxLegalization;
   abiOnlyDirectxLegalization.requiredCapabilities.clear();
@@ -21208,6 +21236,9 @@ shader TargetLegalizationShader {
               abiOnlyDirectxContract);
   crossgl::ReflectionDocument abiOnlyReflection;
   abiOnlyReflection.targetFeatures = abiOnlyResultTargetFeatures;
+  const crossgl::ReflectionTargetFeature *abiOnlyBackendFeature =
+      findReflectionFeature(abiOnlyResultTargetFeatures, "directx", "backend",
+                            "native-dxil-package");
   expect(sameReflectionTargetFeatures(abiOnlyResultTargetFeatures,
                                       abiOnlyContractTargetFeatures) &&
              hasReflectionFeature(abiOnlyReflection, "directx", "backend",
@@ -21217,7 +21248,14 @@ shader TargetLegalizationShader {
              hasReflectionFeature(abiOnlyReflection, "directx", "toolchain",
                                   "dxc") &&
              !hasReflectionFeature(abiOnlyReflection, "directx", "resource",
-                                   "storage-buffer"),
+                                   "storage-buffer") &&
+             abiOnlyBackendFeature != nullptr &&
+             !std::any_of(abiOnlyBackendFeature->evidenceIds.begin(),
+                          abiOnlyBackendFeature->evidenceIds.end(),
+                          [](const std::string &evidenceId) {
+                            return evidenceId.find(".capability.") !=
+                                   std::string::npos;
+                          }),
          "reflection target features project recorded ABI facts without "
          "recomputing them from capability summaries");
   crossgl::TargetLegalizationContract inconsistentDirectxContract =
@@ -43426,8 +43464,9 @@ shader ReflectionShader {
   expect(vulkanJson.find("\"spirvType\":\"OpTypeSampler\"") != std::string::npos,
          "Vulkan reflection JSON prints SPIR-V type");
   expect(vulkanJson.find("\"targetFeatures\"") != std::string::npos &&
-             vulkanJson.find("\"name\":\"Shader\"") != std::string::npos,
-         "Vulkan reflection JSON prints target features");
+             vulkanJson.find("\"name\":\"Shader\"") != std::string::npos &&
+             vulkanJson.find("\"evidenceIds\"") != std::string::npos,
+         "Vulkan reflection JSON prints target features with evidence ids");
   expect(vulkanJson.find("\"storageBufferLayout\"") != std::string::npos &&
              vulkanJson.find("\"arrayStrideBytes\":4") != std::string::npos,
          "Vulkan reflection JSON prints storage buffer layout metadata");

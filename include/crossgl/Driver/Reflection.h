@@ -162,6 +162,7 @@ struct ReflectionTargetFeature {
   std::string target;
   std::string kind;
   std::string name;
+  std::vector<std::string> evidenceIds;
 };
 
 struct ReflectionDocument {

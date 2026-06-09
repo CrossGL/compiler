@@ -121,6 +121,10 @@
       "type": "string",
       "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.resource-binding\\.[A-Za-z0-9_.-]+$"
     },
+    "targetLegalizationTargetFeatureEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.(capability\\.(required|missing)\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+|abi\\.(required|missing)\\.[A-Za-z0-9_.-]+)$"
+    },
     "parameter": {
       "type": "object",
       "additionalProperties": false,
@@ -700,6 +704,14 @@
         },
         "name": {
           "type": "string"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/targetLegalizationTargetFeatureEvidenceId"
+          },
+          "uniqueItems": true
         }
       }
     }

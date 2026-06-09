@@ -242,6 +242,24 @@ std::string reflectionFeatureKey(const ReflectionTargetFeature &feature) {
   return feature.target + "\n" + feature.kind + "\n" + feature.name;
 }
 
+void appendUniqueEvidenceId(std::vector<std::string> &evidenceIds,
+                            std::string evidenceId) {
+  if (evidenceId.empty()) {
+    return;
+  }
+  if (std::find(evidenceIds.begin(), evidenceIds.end(), evidenceId) ==
+      evidenceIds.end()) {
+    evidenceIds.push_back(std::move(evidenceId));
+  }
+}
+
+void appendUniqueEvidenceIds(std::vector<std::string> &evidenceIds,
+                             const std::vector<std::string> &newEvidenceIds) {
+  for (const std::string &evidenceId : newEvidenceIds) {
+    appendUniqueEvidenceId(evidenceIds, evidenceId);
+  }
+}
+
 bool isReflectionABIFactKind(std::string_view kind) {
   return kind == "addressingModel" || kind == "backend" ||
          kind == "binaryFormat" || kind == "capability" ||
@@ -256,7 +274,14 @@ void appendReflectionFeature(std::vector<ReflectionTargetFeature> &features,
   if (feature.target.empty() || feature.kind.empty() || feature.name.empty()) {
     return;
   }
-  if (!seen.insert(reflectionFeatureKey(feature)).second) {
+  const std::string key = reflectionFeatureKey(feature);
+  if (!seen.insert(key).second) {
+    for (ReflectionTargetFeature &existing : features) {
+      if (reflectionFeatureKey(existing) == key) {
+        appendUniqueEvidenceIds(existing.evidenceIds, feature.evidenceIds);
+        break;
+      }
+    }
     return;
   }
   features.push_back(std::move(feature));
@@ -264,8 +289,12 @@ void appendReflectionFeature(std::vector<ReflectionTargetFeature> &features,
 
 ReflectionTargetFeature
 reflectionFeatureFromABIRecord(const TargetLegalizationABIRecord &record) {
-  return ReflectionTargetFeature{targetName(record.target), record.kind,
-                                 record.name};
+  ReflectionTargetFeature feature;
+  feature.target = targetName(record.target);
+  feature.kind = record.kind;
+  feature.name = record.name;
+  appendUniqueEvidenceId(feature.evidenceIds, record.evidenceId);
+  return feature;
 }
 
 std::optional<ReflectionTargetFeature>
@@ -302,18 +331,29 @@ const TargetLegalizationABIRecord *findABIRecord(
 
 void appendReflectionFeatureFromCapabilityId(
     std::vector<ReflectionTargetFeature> &features, std::set<std::string> &seen,
-    std::string_view capabilityId,
+    std::string_view capabilityId, TargetKind evidenceTarget,
+    std::string_view evidenceRole,
     const std::vector<TargetLegalizationABIRecord> &abiRecords) {
   std::optional<ReflectionTargetFeature> feature =
       reflectionFeatureFromCapabilityId(capabilityId);
   if (!feature.has_value()) {
     return;
   }
+  if (evidenceTarget != TargetKind::Auto) {
+    appendUniqueEvidenceId(feature->evidenceIds,
+                           "target-legalization.v1." +
+                               std::string(targetName(evidenceTarget)) +
+                               ".capability." + std::string(evidenceRole) +
+                               "." + std::string(capabilityId));
+  }
   if (isReflectionABIFactKind(feature->kind)) {
     if (const TargetLegalizationABIRecord *record =
             findABIRecord(abiRecords, *feature)) {
-      appendReflectionFeature(features, seen,
-                              reflectionFeatureFromABIRecord(*record));
+      appendUniqueEvidenceId(feature->evidenceIds, record->evidenceId);
+      feature->target = targetName(record->target);
+      feature->kind = record->kind;
+      feature->name = record->name;
+      appendReflectionFeature(features, seen, std::move(*feature));
       return;
     }
   }
@@ -867,7 +907,12 @@ void writeReflectionJson(std::ostringstream &out,
     const ReflectionTargetFeature &feature = document.targetFeatures[i];
     out << "\n    {\"target\":\"" << escapeJson(feature.target)
         << "\",\"kind\":\"" << escapeJson(feature.kind) << "\",\"name\":\""
-        << escapeJson(feature.name) << "\"}";
+        << escapeJson(feature.name) << "\"";
+    if (!feature.evidenceIds.empty()) {
+      out << ",\"evidenceIds\":";
+      writeJsonStringArray(out, feature.evidenceIds);
+    }
+    out << "}";
   }
   if (!document.targetFeatures.empty()) {
     out << "\n  ";
@@ -894,11 +939,13 @@ std::vector<ReflectionTargetFeature> reflectionTargetFeaturesFromLegalization(
   std::set<std::string> seen;
   for (const std::string &capabilityId : contract.requiredCapabilityIds) {
     appendReflectionFeatureFromCapabilityId(
-        features, seen, capabilityId, contract.abiFacts.requiredRecords);
+        features, seen, capabilityId, contract.resolvedTarget, "required",
+        contract.abiFacts.requiredRecords);
   }
   for (const std::string &capabilityId : contract.missingCapabilityIds) {
     appendReflectionFeatureFromCapabilityId(
-        features, seen, capabilityId, contract.abiFacts.missingRecords);
+        features, seen, capabilityId, contract.resolvedTarget, "missing",
+        contract.abiFacts.missingRecords);
   }
   appendReflectionFeaturesFromABIRecords(features, seen,
                                          contract.abiFacts.requiredRecords);
