@@ -357,6 +357,12 @@ RESOURCE_METADATA_OPTIONAL_ITEM_FIELDS = (
         "resourceFacts.targetIndependentResourceMetadata[].indexExpression",
     ),
 )
+RESOURCE_COLLECTION_BY_DESCRIPTOR_KIND = {
+    "storageBuffer": "storageBuffers",
+    "storageImage": "storageImages",
+    "sampledTexture": "textures",
+    "sampler": "samplers",
+}
 PARITY_COVERAGE_MATRIX_KEYS = ("status", "dimensions", "fixtures")
 PARITY_COVERAGE_MATRIX_STATUS_COVERED = "covered"
 PARITY_COVERAGE_MATRIX_STATUS_INCOMPLETE = "incomplete"
@@ -710,6 +716,125 @@ def check_descriptor_array_records(
     for index, item in enumerate(records):
         if isinstance(item, dict):
             check_fixed_descriptor_array_fields(item, f"{field}[{index}]", errors)
+
+
+def duplicate_items(values: list[tuple[Any, ...]]) -> list[tuple[Any, ...]]:
+    seen: set[tuple[Any, ...]] = set()
+    duplicates: list[tuple[Any, ...]] = []
+    for value in values:
+        if value in seen and value not in duplicates:
+            duplicates.append(value)
+        seen.add(value)
+    return duplicates
+
+
+def resource_identity_value(value: Any) -> Any:
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    return repr(value)
+
+
+def resource_identity(record: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        resource_identity_value(record.get("stage")),
+        resource_identity_value(record.get("name")),
+        resource_identity_value(record.get("kind")),
+        resource_identity_value(record.get("set")),
+        resource_identity_value(record.get("binding")),
+    )
+
+
+def resource_collection_name_order(records: object) -> list[str]:
+    if not isinstance(records, list):
+        return []
+    return [
+        item["name"]
+        for item in records
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    ]
+
+
+def check_resource_identity_cross_links(
+    record: dict[str, Any], index: int, errors: list[str]
+) -> None:
+    resource_facts = require_object(
+        record.get("resourceFacts"), f"fixtures[{index}].resourceFacts", errors
+    )
+    metadata = require_object(
+        record.get("targetIndependentResourceMetadata"),
+        f"fixtures[{index}].targetIndependentResourceMetadata",
+        errors,
+    )
+    descriptors = require_list(
+        resource_facts.get("descriptors"),
+        f"fixtures[{index}].resourceFacts.descriptors",
+        errors,
+    )
+    metadata_records = require_list(
+        metadata.get("records"),
+        f"fixtures[{index}].targetIndependentResourceMetadata.records",
+        errors,
+    )
+
+    descriptor_identities = [
+        resource_identity(item) for item in descriptors if isinstance(item, dict)
+    ]
+    metadata_identities = [
+        resource_identity(item) for item in metadata_records if isinstance(item, dict)
+    ]
+    duplicate_descriptors = duplicate_items(descriptor_identities)
+    if duplicate_descriptors:
+        errors.append(
+            f"{CATALOG_PATH}: fixtures[{index}].resourceFacts.descriptors "
+            f"contains duplicate resource identities {duplicate_descriptors!r}"
+        )
+    duplicate_metadata = duplicate_items(metadata_identities)
+    if duplicate_metadata:
+        errors.append(
+            f"{CATALOG_PATH}: fixtures[{index}].targetIndependentResourceMetadata."
+            f"records contains duplicate resource identities {duplicate_metadata!r}"
+        )
+    if descriptor_identities != metadata_identities:
+        errors.append(
+            f"{CATALOG_PATH}: fixtures[{index}] resource descriptors must match "
+            "target-independent resource metadata identities in order"
+        )
+
+    descriptor_names_by_kind: dict[str, list[str]] = {
+        kind: [] for kind in RESOURCE_COLLECTION_BY_DESCRIPTOR_KIND
+    }
+    for descriptor_index, item in enumerate(descriptors):
+        if not isinstance(item, dict):
+            continue
+        kind = item.get("kind")
+        name = item.get("name")
+        if (
+            not isinstance(kind, str)
+            or kind not in RESOURCE_COLLECTION_BY_DESCRIPTOR_KIND
+        ):
+            errors.append(
+                f"{CATALOG_PATH}: fixtures[{index}].resourceFacts."
+                f"descriptors[{descriptor_index}].kind invalid"
+            )
+            continue
+        if isinstance(name, str):
+            descriptor_names_by_kind[kind].append(name)
+
+    for kind, collection in RESOURCE_COLLECTION_BY_DESCRIPTOR_KIND.items():
+        collection_names = resource_collection_name_order(
+            resource_facts.get(collection)
+        )
+        expected_names = descriptor_names_by_kind[kind]
+        if collection_names != expected_names:
+            errors.append(
+                f"{CATALOG_PATH}: fixtures[{index}].resourceFacts.{collection} "
+                f"must match descriptor resource names for kind {kind!r}"
+            )
+        if duplicate_items([(name,) for name in collection_names]):
+            errors.append(
+                f"{CATALOG_PATH}: fixtures[{index}].resourceFacts.{collection} "
+                "contains duplicate resource names"
+            )
 
 
 def expected_source_resource_entrypoint_fields(
@@ -1638,6 +1763,7 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
             f"fixtures[{index}].targetIndependentResourceMetadata.records",
             errors,
         )
+        check_resource_identity_cross_links(record, index, errors)
 
         source_resource_entrypoint = require_object(
             record.get("sourceResourceEntrypointPreservation"),
@@ -2422,6 +2548,61 @@ def run_self_test() -> list[str]:
             errors.append(
                 "self-test failed to catch missing target-independent resource "
                 "metadata facts"
+            )
+
+        stale = copy.deepcopy(generated)
+        stale["fixtures"][resource_fixture_index]["resourceFacts"][
+            "descriptors"
+        ].append(
+            copy.deepcopy(
+                stale["fixtures"][resource_fixture_index]["resourceFacts"][
+                    "descriptors"
+                ][0]
+            )
+        )
+        stale["fixtures"][resource_fixture_index]["targetIndependentResourceMetadata"][
+            "records"
+        ].append(
+            copy.deepcopy(
+                stale["fixtures"][resource_fixture_index][
+                    "targetIndependentResourceMetadata"
+                ]["records"][0]
+            )
+        )
+        stale_errors = []
+        check_catalog_shape(stale, stale_errors)
+        if not any(
+            "contains duplicate resource identities" in error for error in stale_errors
+        ):
+            errors.append("self-test failed to catch duplicate resource identities")
+
+        stale = copy.deepcopy(generated)
+        stale["fixtures"][resource_fixture_index]["targetIndependentResourceMetadata"][
+            "records"
+        ][0]["binding"] = 99
+        stale_errors = []
+        check_catalog_shape(stale, stale_errors)
+        if not any(
+            "resource descriptors must match target-independent resource metadata "
+            "identities in order" in error
+            for error in stale_errors
+        ):
+            errors.append(
+                "self-test failed to catch descriptor/metadata resource identity drift"
+            )
+
+        stale = copy.deepcopy(generated)
+        stale["fixtures"][resource_fixture_index]["resourceFacts"]["storageBuffers"][0][
+            "name"
+        ] = "values_stale"
+        stale_errors = []
+        check_catalog_shape(stale, stale_errors)
+        if not any(
+            "resourceFacts.storageBuffers must match descriptor resource names" in error
+            for error in stale_errors
+        ):
+            errors.append(
+                "self-test failed to catch descriptor/storage-buffer name drift"
             )
 
         stale = copy.deepcopy(generated)
