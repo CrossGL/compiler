@@ -14982,6 +14982,16 @@ std::string resultV0OptionalNativeToolStatusName(
   return "not-required";
 }
 
+std::string resultV0SelectionReasonName(
+    const crossgl::TargetLegalizationResult &result) {
+  if (result.requestedTarget != crossgl::TargetKind::Auto) {
+    return "explicit-target";
+  }
+  return result.packageSelection.selectedTarget == crossgl::defaultTargetForHost()
+             ? "auto-host-default"
+             : "auto-recommended-target";
+}
+
 void expectTargetLegalizationResultV0EvidenceProjection(
     const crossgl::TargetLegalizationResult &result,
     std::string_view expectedABIState, std::string_view expectedRewriteStatus,
@@ -15092,6 +15102,12 @@ void expectTargetLegalizationResultV0Json(
   const std::string json = crossgl::targetLegalizationResultV0Json(result);
   const std::string evidencePrefix =
       "target-legalization.v1." + std::string(expectedTarget);
+  const std::string requestedTarget =
+      crossgl::targetName(result.requestedTarget);
+  const std::string preferredTarget =
+      crossgl::targetName(result.packageSelection.preferredTarget);
+  const std::string selectedTarget =
+      crossgl::targetName(result.packageSelection.selectedTarget);
   expect(crossgl::isJsonObjectDocument(json) &&
              jsonHasStringField(json, "contract",
                                 "crossgl.target-legalization-result.v0") &&
@@ -15102,6 +15118,18 @@ void expectTargetLegalizationResultV0Json(
              jsonHasStringField(json, "consumerMigration", "pending") &&
              jsonHasStringField(json, "productionBehavior", "unchanged") &&
              jsonHasStringField(json, "target", expectedTarget) &&
+             jsonHasStringField(json, "requestedTarget", requestedTarget) &&
+             jsonHasStringField(json, "preferredTarget", preferredTarget) &&
+             jsonHasStringField(json, "resolvedTarget", expectedTarget) &&
+             jsonHasStringField(json, "selectedTarget", selectedTarget) &&
+             jsonHasStringField(json, "selectionReason",
+                                resultV0SelectionReasonName(result)) &&
+             jsonHasBoolField(json, "autoRequested",
+                              result.requestedTarget ==
+                                  crossgl::TargetKind::Auto) &&
+             jsonHasBoolField(json, "selectedTargetBuildable",
+                              result.packageSelection
+                                  .selectedTargetBuildable) &&
              jsonHasStringField(json, "profile",
                                 std::string(expectedTarget) + ".v0." +
                                     std::string(expectedPackageMode)) &&
@@ -20461,6 +20489,16 @@ shader TargetLegalizationShader {
                        "target-legalization.v1.opengl.rewrite.rewritten") &&
              jsonHasStringField(openglBindingRewriteProjectionJson,
                                 "rewriteState", "rewritten") &&
+             jsonHasStringField(openglBindingRewriteProjectionJson,
+                                "nativeBinaryStatus", "planned") &&
+             jsonHasBoolField(openglBindingRewriteProjectionJson,
+                              "includesNativeBinaryStatus", true) &&
+             jsonHasBoolField(openglBindingRewriteProjectionJson,
+                              "requiresProducedNativeArtifact", false) &&
+             jsonHasStringField(openglBindingRewriteProjectionJson,
+                                "validationStatus", "unavailable") &&
+             jsonHasStringField(openglBindingRewriteProjectionJson,
+                                "toolProvenanceMode", "planned") &&
              jsonHasStringValue(
                  openglBindingRewriteProjectionJson,
                  "target-legalization.v1.opengl.rewrite.applied."
@@ -20667,6 +20705,16 @@ shader TargetLegalizationShader {
              jsonHasStringValue(directxProjectionJson,
                                 "requiredPathArtifactKeys") &&
              jsonHasStringValue(directxProjectionJson, "backendSource") &&
+             jsonHasStringField(directxProjectionJson, "nativeBinaryStatus",
+                                "planned") &&
+             jsonHasBoolField(directxProjectionJson,
+                              "includesNativeBinaryStatus", true) &&
+             jsonHasBoolField(directxProjectionJson,
+                              "requiresProducedNativeArtifact", false) &&
+             jsonHasStringField(directxProjectionJson, "validationStatus",
+                                "unavailable") &&
+             jsonHasStringField(directxProjectionJson, "toolProvenanceMode",
+                                "planned") &&
              jsonHasStringValue(
                  directxProjectionJson,
                  "target-legalization.v1.directx.package-artifact.required."
@@ -21335,6 +21383,25 @@ shader TargetLegalizationShader {
              autoProjection.targetProfile.resolvedTarget ==
                  autoSelection.selectedTarget,
          "target legalization facade mirrors auto target recommendation");
+  const std::string autoResultV0Json =
+      crossgl::targetLegalizationResultV0Json(autoLegalization);
+  expect(jsonHasStringField(autoResultV0Json, "requestedTarget", "auto") &&
+             jsonHasStringField(autoResultV0Json, "preferredTarget",
+                                crossgl::targetName(
+                                    autoSelection.preferredTarget)) &&
+             jsonHasStringField(autoResultV0Json, "resolvedTarget",
+                                autoLegalization.targetName) &&
+             jsonHasStringField(autoResultV0Json, "selectedTarget",
+                                crossgl::targetName(
+                                    autoSelection.selectedTarget)) &&
+             jsonHasStringField(autoResultV0Json, "selectionReason",
+                                resultV0SelectionReasonName(
+                                    autoLegalization)) &&
+             jsonHasBoolField(autoResultV0Json, "autoRequested", true) &&
+             jsonHasBoolField(autoResultV0Json, "selectedTargetBuildable",
+                              autoSelection.selectedTargetBuildable),
+         "target legalization v0 result JSON records auto requested target "
+         "selection evidence");
 
   const std::vector<crossgl::TargetLegalizationResult> legalizations =
       crossgl::legalizeTargets(*hir, crossgl::TargetKind::DirectX);

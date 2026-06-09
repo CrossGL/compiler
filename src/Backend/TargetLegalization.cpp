@@ -266,6 +266,16 @@ void appendPackageArtifactRequirementsJson(
   out << "}";
 }
 
+std::string targetSelectionReasonName(
+    const TargetLegalizationTargetProfile &profile) {
+  if (!profile.autoRequested) {
+    return "explicit-target";
+  }
+  return profile.selectedTarget == defaultTargetForHost()
+             ? "auto-host-default"
+             : "auto-recommended-target";
+}
+
 std::string sourcePackageDescriptorOptimizationEvidenceModeName(
     const TargetSourcePackageDescriptorPolicy &policy) {
   if (!policy.optimizationEvidenceModeName.empty()) {
@@ -3198,6 +3208,35 @@ targetLegalizationResultV0Json(const TargetLegalizationContract &contract) {
   appendJsonStringField(out, "target", target);
   out << ",\"targetProfile\":{";
   appendJsonStringField(out, "target", target);
+  out << ",";
+  appendJsonStringField(out, "requestedTarget",
+                        contract.targetProfile.requestedTargetName.empty()
+                            ? std::string(targetName(
+                                  contract.targetProfile.requestedTarget))
+                            : contract.targetProfile.requestedTargetName);
+  out << ",";
+  appendJsonStringField(out, "preferredTarget",
+                        contract.targetProfile.preferredTargetName.empty()
+                            ? std::string(targetName(
+                                  contract.targetProfile.preferredTarget))
+                            : contract.targetProfile.preferredTargetName);
+  out << ",";
+  appendJsonStringField(out, "resolvedTarget", target);
+  out << ",";
+  appendJsonStringField(out, "selectedTarget",
+                        contract.targetProfile.selectedTargetName.empty()
+                            ? std::string(targetName(
+                                  contract.targetProfile.selectedTarget))
+                            : contract.targetProfile.selectedTargetName);
+  out << ",";
+  appendJsonStringField(out, "selectionReason",
+                        targetSelectionReasonName(contract.targetProfile));
+  out << ",";
+  appendJsonBoolField(out, "autoRequested",
+                      contract.targetProfile.autoRequested);
+  out << ",";
+  appendJsonBoolField(out, "selectedTargetBuildable",
+                      contract.targetProfile.selectedTargetBuildable);
   out << ",";
   appendJsonStringField(out, "profile",
                         target + ".v0." + std::string(packageMode));

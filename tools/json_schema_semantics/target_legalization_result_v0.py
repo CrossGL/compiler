@@ -134,6 +134,46 @@ def validate_target_profile(errors, result, *, target: str, package_mode: str) -
             "$.result.targetProfile.packageMode: expected "
             f"{package_mode!r}, got {profile.get('packageMode')!r}"
         )
+    resolved_target = profile.get("resolvedTarget")
+    if resolved_target is not None and resolved_target != target:
+        errors.append(
+            "$.result.targetProfile.resolvedTarget: expected "
+            f"{target!r}, got {resolved_target!r}"
+        )
+    selected_target = profile.get("selectedTarget")
+    if selected_target is not None and selected_target != target:
+        errors.append(
+            "$.result.targetProfile.selectedTarget: expected "
+            f"{target!r}, got {selected_target!r}"
+        )
+    requested_target = profile.get("requestedTarget")
+    auto_requested = profile.get("autoRequested")
+    if isinstance(auto_requested, bool) and isinstance(requested_target, str):
+        if auto_requested != (requested_target == "auto"):
+            errors.append(
+                "$.result.targetProfile.autoRequested: expected to match "
+                "requestedTarget == 'auto'"
+            )
+    selection_reason = profile.get("selectionReason")
+    if (
+        isinstance(selection_reason, str)
+        and isinstance(requested_target, str)
+        and requested_target != "auto"
+        and selection_reason != "explicit-target"
+    ):
+        errors.append(
+            "$.result.targetProfile.selectionReason: explicit requested "
+            "targets must use 'explicit-target'"
+        )
+    if (
+        isinstance(selection_reason, str)
+        and requested_target == "auto"
+        and selection_reason == "explicit-target"
+    ):
+        errors.append(
+            "$.result.targetProfile.selectionReason: auto requested targets "
+            "must not use 'explicit-target'"
+        )
 
 
 def validate_core_evidence(
