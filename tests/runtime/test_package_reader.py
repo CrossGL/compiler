@@ -1073,7 +1073,9 @@ class RuntimePackageReaderTests(unittest.TestCase):
     def test_validated_status_rejects_planned_descriptor_status_without_source_parse(
         self,
     ) -> None:
-        expected_code = "package.native_artifact_descriptor.native_binary_status_mismatch"
+        expected_code = (
+            "package.native_artifact_descriptor.native_binary_status_mismatch"
+        )
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
             self._write_valid_package(
