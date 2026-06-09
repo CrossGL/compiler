@@ -211,6 +211,15 @@ crossgl_add_required_python_test(
     --instance
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-batch-result-v1-basic.json")
 crossgl_add_required_python_test(
+  NAME cglc_conformance_report_v0_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/conformance-report-v0.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/conformance-report-v0-basic.json")
+crossgl_add_required_python_test(
   NAME cglc_diagnostics_v1_project_json_schema
   COMMAND
     "${CROSSGL_PYTHON3}"
@@ -358,6 +367,20 @@ crossgl_add_python_script_test(
     --report-text
       ${CROSSGL_V0_CONFORMANCE_EXECUTION_REPORT_DIR}/manifest.v0.execution.txt
     --skip-native-package-builds)
+crossgl_add_required_python_test(
+  NAME cglc_v0_conformance_manifest_execution_report_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/conformance-report-v0.schema.json"
+    --instance
+    "${CROSSGL_V0_CONFORMANCE_EXECUTION_REPORT_DIR}/manifest.v0.execution.json")
+if(CROSSGL_PYTHON3)
+  set_tests_properties(
+    cglc_v0_conformance_manifest_execution_report_json_schema PROPERTIES
+    DEPENDS cglc_v0_conformance_manifest_execution)
+endif()
 crossgl_add_python_script_test(
   NAME cglc_v0_conformance_manifest_self_test
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_conformance_manifest.py

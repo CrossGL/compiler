@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "crossgl-conformance-report-v0",
+  "manifestSchemaVersion": "crossgl-conformance-manifest-v0",
+  "suite": "crossgl-language-1.0-seed",
+  "manifestPath": "tests/conformance/manifest.v0.json",
+  "summary": {
+    "total": 3,
+    "byStatus": {
+      "accepted": 2,
+      "unsupported": 1
+    },
+    "byFeatureGroup": {
+      "compute-basics": 1,
+      "graphics-stages": 1,
+      "known-native-v0-unsupported": 1
+    },
+    "byLanguageCategory": {
+      "compute": 1,
+      "graphics": 1,
+      "native-v0": 1
+    },
+    "byCommandProfile": {
+      "frontend-check": 1,
+      "native-package-build": 1,
+      "unsupported-native-v0-check": 1
+    },
+    "auxiliaryEvidence": {
+      "entryCount": 0,
+      "testCount": 0,
+      "byFeatureGroup": {},
+      "byEvidenceKind": {
+        "backend-dump": 0,
+        "debug-dump": 0,
+        "package-inspection": 0,
+        "target-explanation": 0
+      }
+    },
+    "targetFeatureEvidence": {
+      "entryCount": 1,
+      "testCount": 2,
+      "byFeatureGroup": {
+        "graphics-stages": 1
+      },
+      "byEvidenceKind": {
+        "planned-unsupported": 0,
+        "target-metadata": 0,
+        "target-package-explanation": 2
+      }
+    },
+    "execution": {
+      "cglc": "build/cglc",
+      "diagnosticMismatchCount": 0,
+      "diagnosticMismatches": [],
+      "entryCount": 3,
+      "executed": 2,
+      "failed": 0,
+      "failures": [],
+      "passed": 2,
+      "skipped": 1,
+      "workDir": "build/conformance/v0-manifest-execution"
+    }
+  },
+  "entries": [
+    {
+      "id": "compute-basics.atan-intrinsic-calls",
+      "status": "accepted",
+      "featureGroup": "compute-basics",
+      "languageCategory": "compute",
+      "fixture": "tests/fixtures/AtanIntrinsicComputeShader.cgl",
+      "fixtureSha256": "2f7b06c0a6c5d5aa21ec86d5f5788412b3fd6996625dce7d3f358fbae102a5b9",
+      "commandProfile": "frontend-check",
+      "command": "cglc check tests/fixtures/AtanIntrinsicComputeShader.cgl",
+      "evidenceTests": [
+        "cglc_check_atan_intrinsic_compute"
+      ],
+      "execution": {
+        "command": "cglc check tests/fixtures/AtanIntrinsicComputeShader.cgl",
+        "exitCode": 0,
+        "status": "passed"
+      }
+    },
+    {
+      "id": "graphics-stages.metal-descriptor-array-native",
+      "status": "accepted",
+      "featureGroup": "graphics-stages",
+      "languageCategory": "graphics",
+      "fixture": "tests/metal/fixtures/MetalGraphicsDescriptorArrayShader.cgl",
+      "fixtureSha256": "74329f22d868ee6c65d104429b590caeed61732089a0278045016d3544128273",
+      "commandProfile": "native-package-build",
+      "target": "metal",
+      "command": "cglc build tests/metal/fixtures/MetalGraphicsDescriptorArrayShader.cgl --target metal --output <work-dir>/<case>.cglb",
+      "evidenceTests": [
+        "cglc_build_metal_graphics_descriptor_array_native"
+      ],
+      "targetFeatureEvidenceTests": [
+        "cglc_doctor_json_metal_graphics_descriptor_array_native_evidence",
+        "cglc_explain_targets_metal_graphics_descriptor_array_native_evidence"
+      ],
+      "targetFeatureEvidenceKinds": [
+        "target-package-explanation",
+        "target-package-explanation"
+      ],
+      "execution": {
+        "command": "cglc build tests/metal/fixtures/MetalGraphicsDescriptorArrayShader.cgl --target metal --output <work-dir>/<case>.cglb",
+        "exitCode": null,
+        "reason": "native package build profile skipped for platform-stable execution",
+        "status": "skipped"
+      }
+    },
+    {
+      "id": "native-v0-unsupported.trait-declaration",
+      "status": "unsupported",
+      "featureGroup": "known-native-v0-unsupported",
+      "languageCategory": "native-v0",
+      "fixture": "tests/check-failures/BadUnsupportedTraitShader.cgl",
+      "fixtureSha256": "dc8b74a5a377e43df2c6a8c9d89d4d99558369de979fd4882f8e193e669a2120",
+      "commandProfile": "unsupported-native-v0-check",
+      "expectedDiagnostic": "spec.unsupported-for-native-v0",
+      "command": "cglc check tests/check-failures/BadUnsupportedTraitShader.cgl --diagnostics-json",
+      "evidenceTests": [
+        "cglc_check_unsupported_native_v0_trait_failure"
+      ],
+      "execution": {
+        "command": "cglc check tests/check-failures/BadUnsupportedTraitShader.cgl --diagnostics-json",
+        "exitCode": 1,
+        "diagnosticCodes": [
+          "spec.unsupported-for-native-v0"
+        ],
+        "diagnosticMatchesExpected": true,
+        "status": "passed"
+      }
+    }
+  ]
+}
