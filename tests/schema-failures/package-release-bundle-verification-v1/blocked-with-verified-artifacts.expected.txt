@@ -1,0 +1,1 @@
+$.verifiedArtifactCount: non-release-eligible verification must not report verified artifacts
