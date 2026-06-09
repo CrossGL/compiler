@@ -404,6 +404,8 @@ collectSourceRemapProvenanceHealth(const PackageMetadata &metadata) {
       health.target && *health.target == metadata.target;
   health.checks.generatedFilePresent =
       health.generatedFile && !health.generatedFile->empty();
+  health.checks.mappingGranularityMatchesContract =
+      health.mappingGranularity && *health.mappingGranularity == "source-span";
   health.checks.mappingCountPositive =
       health.mappingCount && *health.mappingCount > 0;
   health.checks.sourcePathPresent =
@@ -416,6 +418,7 @@ collectSourceRemapProvenanceHealth(const PackageMetadata &metadata) {
       health.checks.identityMatchesContract,
       health.checks.targetMatchesPackage,
       health.checks.generatedFilePresent,
+      health.checks.mappingGranularityMatchesContract,
       health.checks.mappingCountPositive,
       health.checks.sourcePathPresent,
       health.checks.sourceHashPresent,

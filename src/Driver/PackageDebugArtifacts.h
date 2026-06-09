@@ -12,6 +12,7 @@ struct PackageSourceRemapProvenanceChecks {
   std::optional<bool> identityMatchesContract;
   std::optional<bool> targetMatchesPackage;
   std::optional<bool> generatedFilePresent;
+  std::optional<bool> mappingGranularityMatchesContract;
   std::optional<bool> mappingCountPositive;
   std::optional<bool> sourcePathPresent;
   std::optional<bool> sourceHashPresent;

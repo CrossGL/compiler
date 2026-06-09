@@ -980,6 +980,9 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableBool(out, sourceRemap.checks.targetMatchesPackage);
   out << ",\n" << indent << "      \"generatedFilePresent\": ";
   writeNullableBool(out, sourceRemap.checks.generatedFilePresent);
+  out << ",\n" << indent << "      \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(out,
+                    sourceRemap.checks.mappingGranularityMatchesContract);
   out << ",\n" << indent << "      \"mappingCountPositive\": ";
   writeNullableBool(out, sourceRemap.checks.mappingCountPositive);
   out << ",\n" << indent << "      \"sourcePathPresent\": ";

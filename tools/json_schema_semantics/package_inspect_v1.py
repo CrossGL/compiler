@@ -57,6 +57,7 @@ SOURCE_REMAP_PROVENANCE_CHECKS = (
     "identityMatchesContract",
     "targetMatchesPackage",
     "generatedFilePresent",
+    "mappingGranularityMatchesContract",
     "mappingCountPositive",
     "sourcePathPresent",
     "sourceHashPresent",
@@ -858,11 +859,18 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
         elif not source_remap_exists:
             expected_source_remap_health = "incomplete"
             expected_source_remap_checks = [None] * len(source_remap_check_values)
-        elif all(value is True for value in source_remap_check_values):
-            expected_source_remap_health = "ok"
-            expected_source_remap_checks = None
         else:
-            expected_source_remap_health = "drift"
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.sourceRemap.checks.mappingGranularityMatchesContract",
+                source_remap_checks["mappingGranularityMatchesContract"],
+                source_remap["mappingGranularity"] == "source-span",
+                "sourceRemap provenance mappingGranularity contract",
+            )
+            if all(value is True for value in source_remap_check_values):
+                expected_source_remap_health = "ok"
+            else:
+                expected_source_remap_health = "drift"
             expected_source_remap_checks = None
 
         add_equal_error(

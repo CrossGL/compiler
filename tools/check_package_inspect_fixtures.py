@@ -3454,6 +3454,60 @@ def check_filtered_hir_source_map(_package, payload):
     return errors
 
 
+def check_source_remap_granularity_drift(_package, payload):
+    errors = []
+    source_remap = payload["debugArtifacts"]["sourceRemap"]
+    expect_equal(
+        errors,
+        "source-remap-granularity-drift",
+        "debugArtifacts.health",
+        payload["debugArtifacts"]["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "source-remap-granularity-drift",
+        "debugArtifacts.sourceRemap.health",
+        source_remap["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "source-remap-granularity-drift",
+        "debugArtifacts.sourceRemap.mappingGranularity",
+        source_remap["mappingGranularity"],
+        "line",
+    )
+    expect_equal(
+        errors,
+        "source-remap-granularity-drift",
+        "debugArtifacts.sourceRemap.checks.mappingGranularityMatchesContract",
+        source_remap["checks"]["mappingGranularityMatchesContract"],
+        False,
+    )
+    return errors
+
+
+def source_remap_provenance(manifest, *, mapping_granularity="source-span"):
+    return {
+        "schemaVersion": 1,
+        "kind": "crossgl.sourceRemapProvenance",
+        "contractVersion": "source-remap-provenance-v1",
+        "target": manifest["target"],
+        "generatedFile": "generated/from-translator.cgl",
+        "mappingGranularity": mapping_granularity,
+        "mappingCount": 1,
+        "sourceRemap": {
+            "path": "tests/fixtures/source-remap-v1-full-file.json",
+            "sha256": {
+                "algorithm": "sha256",
+                "value": "7ebc4d584f4b6f19b8eef3c47c1fe799361dd44e397d969df7899f9e05b6041b",
+            },
+            "sizeBytes": 592,
+        },
+    }
+
+
 def check_category_drift(_package, payload):
     errors = []
     expect_equal(
@@ -4273,6 +4327,27 @@ def run_cases(root, cglc, jobs=1):
                 "filtered-hir-source-map",
                 package,
                 check_filtered_hir_source_map,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir,
+            "source-remap-granularity-drift",
+        )
+        manifest["artifacts"]["sourceRemap"] = "ir/source-remap-provenance.json"
+        write_json(
+            package_path(package, manifest["artifacts"]["sourceRemap"]),
+            source_remap_provenance(manifest, mapping_granularity="line"),
+        )
+        rewrite_manifest(package, manifest)
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "source-remap-granularity-drift",
+                package,
+                check_source_remap_granularity_drift,
             )
         )
 
