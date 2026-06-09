@@ -282,9 +282,9 @@ crossgl_add_package_verify_json_failure_schema_test(
   INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/duplicate-selected-target-resource-binding-verify-schema.cglb
   EXPECTED_JSON_FIELDS
-    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.reflection-target-resource-binding-duplicate|diagnostics.0.message=reflection selected-target resource binding stage 'compute' entryPoint 'compute_main' name 'values' kind 'buffer' duplicates an earlier binding for target 'directx'"
+    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=2|diagnostics.0.severity=error|diagnostics.0.code=package.verify.reflection-target-resource-binding-duplicate|diagnostics.0.message=reflection selected-target resource binding stage 'compute' entryPoint 'compute_main' name 'values' kind 'buffer' duplicates an earlier binding for target 'directx'|diagnostics.1.severity=error|diagnostics.1.code=package.verify.reflection-target-resource-binding-evidence-duplicate|diagnostics.1.message=reflection selected-target resource binding 'values' duplicates target legalization resource binding evidenceId 'target-legalization.v1.directx.resource-binding.compute.compute_main.values'"
   EXPECTED_JSON_ARRAY_LENGTHS
-    "diagnostics=1")
+    "diagnostics=2")
 
 crossgl_add_package_verify_json_failure_schema_test(
   NAME cglc_package_verify_json_schema_selected_target_resource_binding_array_element_count_mismatch_failure

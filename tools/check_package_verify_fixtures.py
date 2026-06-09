@@ -1085,9 +1085,56 @@ def shared_address_space_reflection(manifest, binding_address_space):
             "addressSpace": binding_address_space,
             "abi": abi,
             "bindingClass": binding_class,
+            "evidenceId": (
+                f"target-legalization.v1.{target}.resource-binding."
+                "compute.compute_main.tile"
+            ),
         }
     ]
     return reflection
+
+
+def expect_reflection_summary(errors, case_name, summary, package, manifest):
+    reflection_summary = expect_object(
+        errors,
+        case_name,
+        "summary.reflection",
+        summary.get("reflection"),
+    )
+    reflection = read_reflection_fixture(errors, case_name, package)
+    selected_target = manifest.get("target")
+    expected_bindings = []
+    for binding in reflection.get("targetResourceBindings", []):
+        if not isinstance(binding, dict) or binding.get("target") != selected_target:
+            continue
+        if not all(
+            binding.get(field) for field in ("stage", "entryPoint", "name", "kind")
+        ):
+            continue
+        expected_bindings.append(
+            {
+                "target": binding.get("target"),
+                "stage": binding.get("stage"),
+                "entryPoint": binding.get("entryPoint"),
+                "name": binding.get("name"),
+                "kind": binding.get("kind"),
+                "evidenceId": binding.get("evidenceId"),
+            }
+        )
+    expect_equal(
+        errors,
+        case_name,
+        "summary.reflection.selectedTargetResourceBindingCount",
+        reflection_summary.get("selectedTargetResourceBindingCount"),
+        len(expected_bindings),
+    )
+    expect_equal(
+        errors,
+        case_name,
+        "summary.reflection.selectedTargetResourceBindings",
+        reflection_summary.get("selectedTargetResourceBindings"),
+        expected_bindings,
+    )
 
 
 def expect_native_artifact_descriptor_summary(
@@ -1279,6 +1326,13 @@ def expect_json_success(
         package,
         manifest,
     )
+    expect_reflection_summary(
+        errors,
+        case_name,
+        payload.get("summary"),
+        package,
+        manifest,
+    )
     if "graphicsAbi" not in manifest.get("artifacts", {}) and "graphicsAbi" in payload:
         errors.append(
             f"{case_name}: verify report must omit graphicsAbi when "
@@ -1318,6 +1372,13 @@ def expect_json_legacy_fallback_success(
     errors.extend(validate_schema(root, tmp_dir, case_name, result.stdout))
     expect_json_contract(errors, case_name, payload, package=package, manifest=manifest)
     expect_native_artifact_descriptor_summary(
+        errors,
+        case_name,
+        payload.get("summary"),
+        package,
+        manifest,
+    )
+    expect_reflection_summary(
         errors,
         case_name,
         payload.get("summary"),
@@ -3562,6 +3623,82 @@ def run_cases(root, cglc, jobs=1):
                     source=source,
                 )
             )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-binding-evidence-missing"
+        )
+        reflection_evidence_missing = shared_address_space_reflection(
+            manifest, "groupshared"
+        )
+        del reflection_evidence_missing["targetResourceBindings"][0]["evidenceId"]
+        write_json(package / "reflection.json", reflection_evidence_missing)
+        errors.extend(
+            expect_reflection_binding_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-binding-evidence-missing",
+                package,
+                source,
+                manifest,
+                "must record target legalization resource binding evidenceId",
+                ("package.verify.reflection-target-resource-binding-evidence-missing"),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-binding-evidence-invalid"
+        )
+        reflection_evidence_invalid = shared_address_space_reflection(
+            manifest, "groupshared"
+        )
+        reflection_evidence_invalid["targetResourceBindings"][0]["evidenceId"] = (
+            "target-legalization.v1.metal.resource-binding.compute.compute_main.tile"
+        )
+        write_json(package / "reflection.json", reflection_evidence_invalid)
+        errors.extend(
+            expect_reflection_binding_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-binding-evidence-invalid",
+                package,
+                source,
+                manifest,
+                (
+                    "evidenceId must use target legalization resource binding "
+                    "prefix 'target-legalization.v1.directx.resource-binding.'"
+                ),
+                ("package.verify.reflection-target-resource-binding-evidence-invalid"),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-binding-evidence-duplicate"
+        )
+        reflection_evidence_duplicate = write_storage_image_reflection(
+            package, manifest
+        )
+        reflection_evidence_duplicate["targetResourceBindings"][1]["evidenceId"] = (
+            reflection_evidence_duplicate["targetResourceBindings"][0]["evidenceId"]
+        )
+        write_json(package / "reflection.json", reflection_evidence_duplicate)
+        errors.extend(
+            expect_reflection_binding_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-binding-evidence-duplicate",
+                package,
+                source,
+                manifest,
+                "duplicates target legalization resource binding evidenceId",
+                (
+                    "package.verify.reflection-target-resource-binding-"
+                    "evidence-duplicate"
+                ),
+            )
+        )
 
         package, source, manifest = make_package(
             tmp_dir, "reflection-target-binding-address-space-mismatch"

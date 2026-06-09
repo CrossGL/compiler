@@ -25,6 +25,31 @@ std::string diagnosticCode(std::string_view suffix) {
   return "package.verify." + std::string(suffix);
 }
 
+bool hasPrefix(std::string_view value, std::string_view prefix) {
+  return value.size() >= prefix.size() &&
+         value.substr(0, prefix.size()) == prefix;
+}
+
+bool isTargetLegalizationEvidenceSuffixChar(char ch) {
+  return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+         (ch >= '0' && ch <= '9') || ch == '_' || ch == '.' || ch == '-';
+}
+
+std::string targetResourceBindingEvidencePrefix(std::string_view target) {
+  return "target-legalization.v1." + std::string(target) +
+         ".resource-binding.";
+}
+
+bool targetResourceBindingEvidenceIdMatchesTarget(
+    std::string_view evidenceId, std::string_view target) {
+  const std::string prefix = targetResourceBindingEvidencePrefix(target);
+  if (!hasPrefix(evidenceId, prefix) || evidenceId.size() == prefix.size()) {
+    return false;
+  }
+  return std::all_of(evidenceId.begin() + prefix.size(), evidenceId.end(),
+                     isTargetLegalizationEvidenceSuffixChar);
+}
+
 const PackageArtifactRecord *findArtifact(const PackageMetadata &metadata,
                                           std::string_view name) {
   for (const PackageArtifactRecord &artifact : metadata.artifacts) {
@@ -1621,6 +1646,12 @@ bool hasReflectionTargetResourceBindingDuplicateIdentity(
          !binding.name.empty();
 }
 
+bool hasReflectionTargetResourceBindingReportIdentity(
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return !binding.stage.empty() && !binding.entryPoint.empty() &&
+         !binding.name.empty() && !binding.kind.empty();
+}
+
 bool reflectionIdentityMatches(
     const PackageReflectionResourceRecord &resource,
     const PackageReflectionTargetResourceBindingRecord &binding) {
@@ -1858,6 +1889,58 @@ void verifyReflectionBindingResourceFields(
   }
 }
 
+void verifyReflectionTargetResourceBindingEvidence(
+    const PackageMetadata &metadata, DiagnosticEngine &diagnostics) {
+  std::vector<std::string> selectedEvidenceIds;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target != metadata.target ||
+        !hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      continue;
+    }
+
+    const SourceLocation evidenceLocation =
+        locationOr(binding.evidenceIdLocation, binding.location);
+    if (!binding.evidenceId || binding.evidenceId->empty()) {
+      diagnostics.error(
+          diagnosticCode(
+              "reflection-target-resource-binding-evidence-missing"),
+          "reflection selected-target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " must record target legalization resource binding evidenceId",
+          evidenceLocation);
+      continue;
+    }
+
+    if (!targetResourceBindingEvidenceIdMatchesTarget(*binding.evidenceId,
+                                                      metadata.target)) {
+      diagnostics.error(
+          diagnosticCode(
+              "reflection-target-resource-binding-evidence-invalid"),
+          "reflection selected-target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " evidenceId must use target legalization resource binding "
+              "prefix '" +
+              targetResourceBindingEvidencePrefix(metadata.target) + "'",
+          evidenceLocation);
+    }
+
+    if (std::find(selectedEvidenceIds.begin(), selectedEvidenceIds.end(),
+                  *binding.evidenceId) != selectedEvidenceIds.end()) {
+      diagnostics.error(
+          diagnosticCode(
+              "reflection-target-resource-binding-evidence-duplicate"),
+          "reflection selected-target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " duplicates target legalization resource binding evidenceId '" +
+              *binding.evidenceId + "'",
+          evidenceLocation);
+      continue;
+    }
+    selectedEvidenceIds.push_back(*binding.evidenceId);
+  }
+}
+
 void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
                                             DiagnosticEngine &diagnostics) {
   for (auto binding = metadata.reflectionTargetResourceBindings.begin();
@@ -1886,6 +1969,8 @@ void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
             "'",
         binding->location);
   }
+
+  verifyReflectionTargetResourceBindingEvidence(metadata, diagnostics);
 
   for (const PackageReflectionResourceRecord &resource :
        metadata.reflectionResources) {
@@ -2031,6 +2116,56 @@ void writeNullableStringArray(
   } else {
     out << "null";
   }
+}
+
+std::size_t selectedTargetResourceBindingCount(const PackageMetadata &metadata) {
+  std::size_t count = 0;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target == metadata.target &&
+        hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
+                            std::string_view indent) {
+  const std::size_t bindingCount =
+      selectedTargetResourceBindingCount(metadata);
+  out << "{\n"
+      << indent << "  \"selectedTargetResourceBindingCount\": "
+      << bindingCount << ",\n"
+      << indent << "  \"selectedTargetResourceBindings\": [";
+  bool wroteBinding = false;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target != metadata.target ||
+        !hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      continue;
+    }
+    out << (wroteBinding ? ",\n" : "\n")
+        << indent << "    {\n"
+        << indent << "      \"target\": \"" << escapeJson(binding.target)
+        << "\",\n"
+        << indent << "      \"stage\": \"" << escapeJson(binding.stage)
+        << "\",\n"
+        << indent << "      \"entryPoint\": \""
+        << escapeJson(binding.entryPoint) << "\",\n"
+        << indent << "      \"name\": \"" << escapeJson(binding.name)
+        << "\",\n"
+        << indent << "      \"kind\": \"" << escapeJson(binding.kind)
+        << "\",\n"
+        << indent << "      \"evidenceId\": ";
+    writeNullableString(out, binding.evidenceId);
+    out << "\n" << indent << "    }";
+    wroteBinding = true;
+  }
+  if (wroteBinding) {
+    out << "\n" << indent << "  ";
+  }
+  out << "]\n" << indent << "}";
 }
 
 void writeNativeArtifactDescriptorSummary(
@@ -2367,6 +2502,9 @@ void writeSummary(std::ostream &out, const PackageMetadata &metadata) {
       << (metadata.debugArtifactsPresent ? "true" : "false") << ",\n"
       << "    \"nativeArtifactDescriptor\": ";
   writeNativeArtifactDescriptorSummary(out, nativeArtifactDescriptor);
+  out << ",\n"
+      << "    \"reflection\": ";
+  writeReflectionSummary(out, metadata, "    ");
   if (targetLegalizationEvidence.health != "not-present") {
     out << ",\n"
         << "    \"targetLegalizationEvidence\": ";

@@ -466,6 +466,14 @@ void collectReflectionTargetResourceBindings(
         optionalStringMemberValue(bindingObject, "storageImageAccess");
     record.arrayElementCount =
         objectUnsignedMember(bindingObject, "arrayElementCount");
+    if (const std::optional<JsonRange> evidenceIdRange =
+            findObjectMember(bindingObject, "evidenceId")) {
+      record.evidenceIdLocation = sourceLocationForRange(
+          reflectionPath, reflection,
+          JsonRange{absoluteRange.begin + evidenceIdRange->begin,
+                    absoluteRange.begin + evidenceIdRange->end});
+    }
+    record.evidenceId = optionalStringMemberValue(bindingObject, "evidenceId");
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(bindingObject, "arrayDimensions", "[]");
     bindingsOut.push_back(std::move(record));

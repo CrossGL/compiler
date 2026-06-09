@@ -645,6 +645,10 @@ def storage_image_target_binding(target, resource):
         "kind": "storage_image",
         "sourceType": resource["type"],
         "storageImageFormat": resource["storageImageFormat"],
+        "evidenceId": (
+            f"target-legalization.v1.{target}.resource-binding."
+            f"compute.compute_main.{resource['name']}"
+        ),
     }
     if "arrayDimensions" in resource:
         binding["arraySize"] = STORAGE_IMAGE_ARRAY_SIZE

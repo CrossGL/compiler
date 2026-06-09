@@ -1,6 +1,7 @@
 """Semantic checks for package-verify-v1.schema.json."""
 
 from collections import Counter
+import re
 
 from .common import (
     PACKAGE_TARGETS_REQUIRING_NATIVE_STATUS,
@@ -27,6 +28,12 @@ TARGET_LEGALIZATION_TOOL_FIELDS = (
     "optionalNativeToolMissing",
     "optionalNativeToolStatus",
     "toolRequirementEvidenceIds",
+)
+TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
+TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"resource-binding\.[A-Za-z0-9_.-]+$"
 )
 
 
@@ -70,8 +77,64 @@ def validate_summary(errors, success, summary):
         enforce_target_native_status=not has_recorded_native_package_mode(summary),
     )
     validate_native_artifact_descriptor_summary(errors, summary)
+    validate_reflection_summary(errors, summary)
     validate_native_ready_descriptor_evidence(errors, summary)
     validate_target_legalization_evidence_summary(errors, summary)
+
+
+def validate_reflection_summary(errors, summary):
+    reflection = summary.get("reflection")
+    if not isinstance(reflection, dict):
+        return
+
+    bindings = reflection["selectedTargetResourceBindings"]
+    add_equal_error(
+        errors,
+        "$.summary.reflection.selectedTargetResourceBindingCount",
+        reflection["selectedTargetResourceBindingCount"],
+        len(bindings),
+        "selected target resource binding count",
+    )
+
+    target = summary["target"]
+    seen_evidence_ids = set()
+    for index, binding in enumerate(bindings):
+        binding_path = f"$.summary.reflection.selectedTargetResourceBindings[{index}]"
+        add_equal_error(
+            errors,
+            f"{binding_path}.target",
+            binding["target"],
+            target,
+            "$.summary.target",
+        )
+
+        evidence_id = binding["evidenceId"]
+        if evidence_id is None:
+            errors.append(
+                f"{binding_path}.evidenceId: successful selected-target "
+                "resource binding evidence must not be null"
+            )
+            continue
+
+        if evidence_id in seen_evidence_ids:
+            errors.append(
+                f"{binding_path}.evidenceId: duplicate target resource binding "
+                f"evidence id {evidence_id!r}"
+            )
+        seen_evidence_ids.add(evidence_id)
+
+        match = TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE.fullmatch(evidence_id)
+        if match is None:
+            continue
+
+        expected_prefix = (
+            f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{target}.resource-binding."
+        )
+        if not evidence_id.startswith(expected_prefix):
+            errors.append(
+                f"{binding_path}.evidenceId: expected target resource binding "
+                f"evidence prefix {expected_prefix!r}, got {evidence_id!r}"
+            )
 
 
 def validate_native_artifact_descriptor_summary(errors, summary):

@@ -96,6 +96,9 @@
         "nativeArtifactDescriptor": {
           "$ref": "#/$defs/nativeArtifactDescriptorSummary"
         },
+        "reflection": {
+          "$ref": "#/$defs/reflectionSummary"
+        },
         "targetLegalizationEvidence": {
           "$ref": "#/$defs/targetLegalizationEvidence"
         }
@@ -158,6 +161,69 @@
             "object",
             "null"
           ]
+        }
+      }
+    },
+    "targetLegalizationResourceBindingEvidenceId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.resource-binding\\.[A-Za-z0-9_.-]+$"
+    },
+    "reflectionSelectedTargetResourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "stage",
+        "entryPoint",
+        "name",
+        "kind",
+        "evidenceId"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "stage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entryPoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceId": {
+          "$ref": "#/$defs/targetLegalizationResourceBindingEvidenceId"
+        }
+      }
+    },
+    "reflectionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selectedTargetResourceBindingCount",
+        "selectedTargetResourceBindings"
+      ],
+      "properties": {
+        "selectedTargetResourceBindingCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selectedTargetResourceBindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reflectionSelectedTargetResourceBinding"
+          }
         }
       }
     },
