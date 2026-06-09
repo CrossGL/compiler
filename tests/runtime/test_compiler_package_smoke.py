@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import stat
 import subprocess
@@ -388,10 +389,21 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
             self.assertIn("void main()", fragment_source)
             self.assertIn("crossgl_out_color", fragment_source)
             fake_log = fake_tool_log.read_text(encoding="utf-8")
-            self.assertIn("-S vert", fake_log)
-            self.assertIn(vertex_source_path, fake_log)
-            self.assertIn("-S frag", fake_log)
-            self.assertIn(fragment_source_path, fake_log)
+            fake_invocations = self._parse_fake_tool_invocations(fake_log)
+            self.assertTrue(
+                self._fake_tool_invocations_include_stage_source(
+                    fake_invocations, "vert", vertex_source_path
+                ),
+                f"expected glslangValidator -S vert for {vertex_source_path}\n"
+                f"fake tool log:\n{fake_log}",
+            )
+            self.assertTrue(
+                self._fake_tool_invocations_include_stage_source(
+                    fake_invocations, "frag", fragment_source_path
+                ),
+                f"expected glslangValidator -S frag for {fragment_source_path}\n"
+                f"fake tool log:\n{fake_log}",
+            )
             self.assertNotIn("-DCROSSGL_STAGE_VERTEX", fake_log)
             self.assertNotIn("-DCROSSGL_STAGE_FRAGMENT", fake_log)
 
@@ -600,6 +612,35 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
             encoding="utf-8",
         )
         script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    def _parse_fake_tool_invocations(self, fake_log: str) -> list[list[str]]:
+        return [shlex.split(line) for line in fake_log.splitlines() if line.strip()]
+
+    def _fake_tool_invocations_include_stage_source(
+        self,
+        invocations: list[list[str]],
+        stage: str,
+        package_source_path: str,
+    ) -> bool:
+        for invocation in invocations:
+            for index in range(len(invocation) - 2):
+                if invocation[index : index + 2] != ["-S", stage]:
+                    continue
+                if self._fake_tool_path_matches_package_path(
+                    invocation[index + 2], package_source_path
+                ):
+                    return True
+        return False
+
+    def _fake_tool_path_matches_package_path(
+        self, logged_path: str, package_source_path: str
+    ) -> bool:
+        normalized_logged_path = logged_path.replace("\\", "/")
+        normalized_package_source_path = package_source_path.replace("\\", "/")
+        return (
+            normalized_logged_path.endswith("/" + normalized_package_source_path)
+            or normalized_logged_path == normalized_package_source_path
+        )
 
     @contextmanager
     def _guard_crossgl_source_reads(self) -> object:
