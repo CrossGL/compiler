@@ -42,6 +42,11 @@ STORAGE_BUFFER_FIXTURE = "tests/fixtures/StorageBufferComputeShader.cgl"
 IF_COMPUTE_VERIFIER_TEST = "cglc_mlir_experiment_if_compute_verifier"
 IF_COMPUTE_VERIFIER_INPUT = "tests/fixtures/mlir/if_compute_builtin_module.mlir"
 IF_COMPUTE_FIXTURE = "tests/fixtures/IfComputeShader.cgl"
+TEXTURE_SAMPLER_VERIFIER_TEST = "cglc_mlir_experiment_texture_sampler_compute_verifier"
+TEXTURE_SAMPLER_VERIFIER_INPUT = (
+    "tests/fixtures/mlir/texture_sampler_compute_builtin_module.mlir"
+)
+TEXTURE_SAMPLER_FIXTURE = "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
 SOURCE_RESOURCE_CATALOG = "experimental/mlir/source_resource_catalog.v0.json"
 SOURCE_RESOURCE_CATALOG_KIND = "crossgl-mlir-source-resource-catalog-v0"
 SOURCE_RESOURCE_CATALOG_CHECKER = "tools/check_mlir_source_resource_catalog.py"
@@ -73,6 +78,7 @@ REQUIRED_GATE_FACTS = (
     SCALAR_EXPRESSION_VERIFIER_INPUT,
     STORAGE_BUFFER_VERIFIER_INPUT,
     IF_COMPUTE_VERIFIER_INPUT,
+    TEXTURE_SAMPLER_VERIFIER_INPUT,
     "mlir-opt discovery",
     "mlir-opt --version probe",
 )
@@ -260,11 +266,74 @@ IF_COMPUTE_REQUIRED_VERIFIER_MARKERS = (
     'crossgl_if_compute_metadata = "control-flow:structured-if-else,condition:x_gt_zero,then:y=x,else:y=-x,return:after-if,storage-buffer:values[0]->values[1]"',
     "crossgl_real_mlir_smoke = true",
 )
+TEXTURE_SAMPLER_REQUIRED_VERIFIER_MARKERS = (
+    f'crossgl_fixture = "{TEXTURE_SAMPLER_FIXTURE}"',
+    'crossgl_stage = "compute"',
+    'crossgl_entry_point = "main"',
+    'crossgl_local_size = "1,1,1"',
+    "crossgl_source_location_fact_source_file = true",
+    "crossgl_source_location_fact_shader_module = true",
+    "crossgl_source_location_fact_compute_stage = true",
+    "crossgl_source_location_fact_entry_point = true",
+    "crossgl_source_location_fact_layout_local_size = true",
+    "crossgl_source_location_fact_storage_buffer_declaration = true",
+    "crossgl_source_location_fact_texture_declaration = true",
+    "crossgl_source_location_fact_sampler_declaration = true",
+    "crossgl_source_location_fact_local_variable_declarations = true",
+    "crossgl_source_location_fact_scalar_expression_statements = true",
+    "crossgl_source_location_fact_texture_sample_lod = true",
+    "crossgl_source_location_fact_storage_buffer_write = true",
+    "crossgl_source_location_fact_return_statement = true",
+    "crossgl_type_fact_void_entry_point = true",
+    "crossgl_type_fact_vec4_scalar = true",
+    "crossgl_type_fact_vec4_pointer_storage_buffer = true",
+    "crossgl_type_fact_storage_buffer_element_type = true",
+    "crossgl_type_fact_texture_sample_result_type = true",
+    "crossgl_type_fact_texture_coordinate_type = true",
+    "crossgl_type_fact_explicit_lod_scalar = true",
+    "crossgl_type_fact_constructor_cast_expression = true",
+    "crossgl_type_fact_scalar_literals = true",
+    "crossgl_resource_count = 3",
+    "crossgl_descriptor_count = 3",
+    'crossgl_descriptor_1_name = "shadowMap"',
+    'crossgl_descriptor_1_kind = "sampledTexture"',
+    'crossgl_descriptor_2_name = "comparisonSampler"',
+    'crossgl_descriptor_2_kind = "sampler"',
+    "crossgl_texture_count = 1",
+    'crossgl_texture_0_name = "shadowMap"',
+    'crossgl_texture_0_type = "sampler2D"',
+    'crossgl_texture_0_sampled_type = "float"',
+    'crossgl_texture_0_dimension = "2d"',
+    "crossgl_sampler_count = 1",
+    'crossgl_sampler_0_name = "comparisonSampler"',
+    'crossgl_sampler_0_type = "sampler"',
+    "crossgl_sampler_0_comparison = true",
+    "crossgl_texture_sample_lod_count = 1",
+    'crossgl_texture_sample_lod_0_texture = "shadowMap"',
+    'crossgl_texture_sample_lod_0_sampler = "comparisonSampler"',
+    'crossgl_texture_sample_lod_0_coordinate_type = "vec2"',
+    'crossgl_texture_sample_lod_0_lod_type = "float"',
+    'crossgl_texture_sample_lod_0_result_type = "vec4"',
+    "crossgl_target_independent_resource_metadata_count = 3",
+    'crossgl_target_independent_resource_metadata_1_kind = "sampledTexture"',
+    'crossgl_target_independent_resource_metadata_1_source_type = "sampler2D"',
+    'crossgl_target_independent_resource_metadata_1_address_space = "uniform_constant"',
+    'crossgl_target_independent_resource_metadata_1_access = "read"',
+    'crossgl_target_independent_resource_metadata_2_kind = "sampler"',
+    'crossgl_target_independent_resource_metadata_2_source_type = "sampler"',
+    'crossgl_target_independent_resource_metadata_2_address_space = "uniform_constant"',
+    'crossgl_target_independent_resource_metadata_2_access = "read"',
+    "target-independent:sampledTexture:compute:shadowMap",
+    "target-independent:sampler:compute:comparisonSampler",
+    'crossgl_texture_sampler_metadata = "texture-lod:shadowMap+comparisonSampler:coord=vec2:lod=float:result=vec4"',
+    "crossgl_real_mlir_smoke = true",
+)
 REQUIRED_VERIFIER_MARKERS_BY_INPUT = {
     VERIFIER_INPUT: MINIMAL_REQUIRED_VERIFIER_MARKERS,
     SCALAR_EXPRESSION_VERIFIER_INPUT: SCALAR_EXPRESSION_REQUIRED_VERIFIER_MARKERS,
     STORAGE_BUFFER_VERIFIER_INPUT: STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS,
     IF_COMPUTE_VERIFIER_INPUT: IF_COMPUTE_REQUIRED_VERIFIER_MARKERS,
+    TEXTURE_SAMPLER_VERIFIER_INPUT: TEXTURE_SAMPLER_REQUIRED_VERIFIER_MARKERS,
 }
 VERIFIER_FIXTURES = (
     {
@@ -404,6 +473,75 @@ VERIFIER_FIXTURES = (
             "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
         ),
     },
+    {
+        "key": "texture_sampler_compute",
+        "ctest": TEXTURE_SAMPLER_VERIFIER_TEST,
+        "input": TEXTURE_SAMPLER_VERIFIER_INPUT,
+        "fixture": TEXTURE_SAMPLER_FIXTURE,
+        "coveredFacts": (
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.texture_declaration",
+            "sourceLocationFacts.sampler_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.texture_sample_lod",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.vec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.texture_sample_result_type",
+            "typeFacts.texture_coordinate_type",
+            "typeFacts.explicit_lod_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals",
+            "resourceFacts.localSize",
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.textures[].name",
+            "resourceFacts.textures[].type",
+            "resourceFacts.textures[].sampledType",
+            "resourceFacts.textures[].dimension",
+            "resourceFacts.textures[].arrayed",
+            "resourceFacts.textures[].comparison",
+            "resourceFacts.textures[].set",
+            "resourceFacts.textures[].binding",
+            "resourceFacts.samplers",
+            "resourceFacts.samplers[].name",
+            "resourceFacts.samplers[].type",
+            "resourceFacts.samplers[].comparison",
+            "resourceFacts.samplers[].set",
+            "resourceFacts.samplers[].binding",
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+        ),
+    },
 )
 VERIFIER_TESTS = tuple(str(fixture["ctest"]) for fixture in VERIFIER_FIXTURES)
 VERIFIER_INPUTS = tuple(str(fixture["input"]) for fixture in VERIFIER_FIXTURES)
@@ -446,6 +584,21 @@ REQUIRED_VERIFIER_FACT_MARKERS = (
     "crossgl_branch_else_0_assignment",
     "crossgl_branch_return_fact_return_after_if",
     "crossgl_target_independent_resource_metadata_0_access",
+    "crossgl_source_location_fact_texture_declaration",
+    "crossgl_source_location_fact_sampler_declaration",
+    "crossgl_source_location_fact_texture_sample_lod",
+    "crossgl_type_fact_vec4_scalar",
+    "crossgl_type_fact_vec4_pointer_storage_buffer",
+    "crossgl_type_fact_texture_sample_result_type",
+    "crossgl_type_fact_texture_coordinate_type",
+    "crossgl_type_fact_explicit_lod_scalar",
+    "crossgl_descriptor_1_name",
+    "crossgl_descriptor_2_name",
+    "crossgl_texture_count",
+    "crossgl_texture_0_type",
+    "crossgl_sampler_count",
+    "crossgl_texture_sample_lod_count",
+    "crossgl_texture_sampler_metadata",
 )
 FORBIDDEN_VERIFIER_MARKERS = (
     "CrossGL pseudo-MLIR",
@@ -607,6 +760,7 @@ def check_manifest_contract(root: Path, errors: list[str]) -> None:
         "storage-buffer resource facts",
         "storage-buffer read/write resource facts",
         "if-compute control-flow facts",
+        "texture-sampler resource facts",
     }
     for fixture in VERIFIER_FIXTURES:
         test = str(fixture["ctest"])
@@ -756,6 +910,8 @@ def check_cmake_metadata_contract(root: Path, errors: list[str]) -> None:
         "CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_OUTPUT_MARKERS",
         "CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_REQUIRED_MARKERS",
         "CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_OUTPUT_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_REQUIRED_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_OUTPUT_MARKERS",
         "CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS",
         "crossgl_mlir_json_string_list",
         "tools/check_mlir_optional_tool_evidence.py",
@@ -1780,6 +1936,10 @@ def write_minimal_repo(root: Path) -> Path:
         verifier_input_text(IF_COMPUTE_REQUIRED_VERIFIER_MARKERS),
         encoding="utf-8",
     )
+    (root / TEXTURE_SAMPLER_VERIFIER_INPUT).write_text(
+        verifier_input_text(TEXTURE_SAMPLER_REQUIRED_VERIFIER_MARKERS),
+        encoding="utf-8",
+    )
     (root / SOURCE_RESOURCE_CATALOG).parent.mkdir(parents=True, exist_ok=True)
     (root / SOURCE_RESOURCE_CATALOG).write_text(
         json.dumps(
@@ -1803,6 +1963,7 @@ set({VERIFIER_INPUT_LIST}
   {SCALAR_EXPRESSION_VERIFIER_INPUT}
   {STORAGE_BUFFER_VERIFIER_INPUT}
   {IF_COMPUTE_VERIFIER_INPUT}
+  {TEXTURE_SAMPLER_VERIFIER_INPUT}
 )
 """,
         encoding="utf-8",
@@ -1855,6 +2016,7 @@ set({VERIFIER_INPUT_LIST}
                                 "storage-buffer resource facts",
                                 "storage-buffer read/write resource facts",
                                 "if-compute control-flow facts",
+                                "texture-sampler resource facts",
                             ],
                             "normalBuildRequired": False,
                             "productionLinked": False,
@@ -1934,6 +2096,30 @@ set({VERIFIER_INPUT_LIST}
         "storage-buffer:values[0]->values[1]",
         "crossgl_real_mlir_smoke",
     )
+    texture_output_markers = (
+        "crossgl_fixture",
+        TEXTURE_SAMPLER_FIXTURE,
+        "crossgl_entry_point",
+        "crossgl_source_location_fact_texture_declaration",
+        "crossgl_source_location_fact_sampler_declaration",
+        "crossgl_source_location_fact_texture_sample_lod",
+        "crossgl_type_fact_vec4_scalar",
+        "crossgl_type_fact_vec4_pointer_storage_buffer",
+        "crossgl_type_fact_texture_sample_result_type",
+        "crossgl_type_fact_texture_coordinate_type",
+        "crossgl_type_fact_explicit_lod_scalar",
+        "crossgl_descriptor_1_name",
+        "shadowMap",
+        "crossgl_descriptor_2_name",
+        "comparisonSampler",
+        "crossgl_texture_count",
+        "crossgl_texture_0_type",
+        "sampler2D",
+        "crossgl_sampler_count",
+        "crossgl_texture_sample_lod_count",
+        "texture-lod:shadowMap+comparisonSampler",
+        "crossgl_real_mlir_smoke",
+    )
     ctest_text = (
         cmake_string_list(
             "CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_REQUIRED_MARKERS",
@@ -1974,12 +2160,23 @@ set({VERIFIER_INPUT_LIST}
             "CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_OUTPUT_MARKERS",
             if_output_markers,
         )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_REQUIRED_MARKERS",
+            TEXTURE_SAMPLER_REQUIRED_VERIFIER_MARKERS,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_OUTPUT_MARKERS",
+            texture_output_markers,
+        )
         + f"""
 set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS
   "minimal_compute|{VERIFIER_TEST}|{MINIMAL_FIXTURE}|{VERIFIER_INPUT}"
   "scalar_expression_compute|{SCALAR_EXPRESSION_VERIFIER_TEST}|{SCALAR_EXPRESSION_FIXTURE}|{SCALAR_EXPRESSION_VERIFIER_INPUT}"
   "storage_buffer_compute|{STORAGE_BUFFER_VERIFIER_TEST}|{STORAGE_BUFFER_FIXTURE}|{STORAGE_BUFFER_VERIFIER_INPUT}"
-  "if_compute|{IF_COMPUTE_VERIFIER_TEST}|{IF_COMPUTE_FIXTURE}|{IF_COMPUTE_VERIFIER_INPUT}")
+  "if_compute|{IF_COMPUTE_VERIFIER_TEST}|{IF_COMPUTE_FIXTURE}|{IF_COMPUTE_VERIFIER_INPUT}"
+  "texture_sampler_compute|{TEXTURE_SAMPLER_VERIFIER_TEST}|{TEXTURE_SAMPLER_FIXTURE}|{TEXTURE_SAMPLER_VERIFIER_INPUT}")
 set(CROSSGL_MLIR_EXPERIMENT_OPTIONAL_TOOL_EVIDENCE
   "${{CMAKE_CURRENT_BINARY_DIR}}/mlir/optional_tool_evidence.v0.json")
 function(crossgl_mlir_json_string_list out)
