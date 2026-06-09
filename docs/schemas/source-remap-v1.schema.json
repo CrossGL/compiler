@@ -21,6 +21,7 @@
     "mappings": {
       "type": "array",
       "minItems": 1,
+      "description": "Ordered generated-to-original spans. Semantic validation requires generated spans to be non-overlapping so diagnostic provenance is deterministic.",
       "items": {
         "$ref": "#/$defs/mapping"
       }

@@ -17274,6 +17274,57 @@ shader RemappedSourceMapShader {
   "mappings": [
     {
       "generated": {
+        "file": "generated/remapped-source.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      },
+      "original": {
+        "file": "shaders/original-remapped.crossgl",
+        "line": 31,
+        "column": 5,
+        "offset": 1200,
+        "length": 4,
+        "endLine": 31,
+        "endColumn": 9,
+        "endOffset": 1204
+      }
+    },
+    {
+      "generated": {
+        "file": "generated/remapped-source.cgl",
+        "line": 1,
+        "column": 3,
+        "offset": 2,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 7,
+        "endOffset": 6
+      },
+      "original": {
+        "file": "shaders/original-remapped.crossgl",
+        "line": 41,
+        "column": 5,
+        "offset": 2200,
+        "length": 4,
+        "endLine": 41,
+        "endColumn": 9,
+        "endOffset": 2204
+      }
+    }
+  ]
+})",
+                           "source remap parser rejects overlapping generated spans");
+  expectInvalidSourceRemap(R"({
+  "schemaVersion": 1,
+  "generatedFile": "generated/remapped-source.cgl",
+  "mappings": [
+    {
+      "generated": {
         "file": "generated/other-source.cgl",
         "line": 1,
         "column": 1,

@@ -300,6 +300,14 @@ bool generatedSpanContains(const SourceLocation &range,
                            range.endColumn);
 }
 
+bool generatedSpansOverlap(const SourceLocation &left,
+                           const SourceLocation &right) {
+  if (left.file != right.file) {
+    return false;
+  }
+  return left.offset < right.endOffset && right.offset < left.endOffset;
+}
+
 std::size_t translateLine(const SourceLocation &generated,
                           const SourceLocation &original, std::size_t line) {
   return original.line + (line - generated.line);
@@ -484,6 +492,23 @@ std::optional<SourceRemap> parseSourceRemap(std::string_view text,
                                           ".generated.file must match generatedFile",
                                       documentLocation);
                                   return;
+                                }
+                                for (std::size_t priorIndex = 0;
+                                     priorIndex < remap.mappings.size();
+                                     ++priorIndex) {
+                                  if (generatedSpansOverlap(
+                                          remap.mappings[priorIndex].generated,
+                                          *generated)) {
+                                    validMappings = false;
+                                    reportInvalidRemap(
+                                        diagnostics,
+                                        "source remap " + path +
+                                            ".generated overlaps mappings[" +
+                                            std::to_string(priorIndex) +
+                                            "].generated",
+                                        documentLocation);
+                                    return;
+                                  }
                                 }
                                 remap.mappings.push_back(
                                     SourceRemapEntry{std::move(*generated),
