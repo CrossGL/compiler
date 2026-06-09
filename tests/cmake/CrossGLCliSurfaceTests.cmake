@@ -834,6 +834,20 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadat
     "error io.invalid-source-remap"
     "pass the compiler sidecar JSON referenced by sourceRemap.path instead")
 
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_as_source_remap_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-basic.json
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "source remap document appears to be a CrossTL project portability report"
+    "artifacts[].sourceRemap.path"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "pass the compiler sidecar JSON referenced by artifacts[].sourceRemap.path instead")
+
 crossgl_add_cli_surface_test(cglc_cli_dump_ir_default_stage_hir_contract
   EXPECTED_RESULT 0
   ARGS dump-ir ${CROSSGL_SIMPLE_SHADER}

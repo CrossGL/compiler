@@ -140,6 +140,11 @@ bool looksLikeProjectReportSourceRemapMetadata(std::string_view object) {
          findObjectMemberValue(object, "mappingCount").has_value();
 }
 
+bool looksLikeCrossTLProjectPortabilityReport(std::string_view object) {
+  return objectStringMember(object, "kind") ==
+         "crosstl-project-portability-report";
+}
+
 std::optional<std::size_t> sourceRemapSizeMember(std::string_view object,
                                                  std::string_view field) {
   const std::optional<std::uintmax_t> value = objectUnsignedMember(object, field);
@@ -364,6 +369,15 @@ std::optional<SourceRemap> parseSourceRemap(std::string_view text,
   std::string unexpectedKey;
   if (!objectHasOnlyMembers(text, {"schemaVersion", "generatedFile", "mappings"},
                             unexpectedKey)) {
+    if (looksLikeCrossTLProjectPortabilityReport(text)) {
+      reportInvalidRemap(
+          diagnostics,
+          "source remap document appears to be a CrossTL project portability "
+          "report; pass the compiler sidecar JSON referenced by "
+          "artifacts[].sourceRemap.path instead",
+          documentLocation);
+      return std::nullopt;
+    }
     if (looksLikeProjectReportSourceRemapMetadata(text)) {
       reportInvalidRemap(
           diagnostics,
