@@ -229,6 +229,28 @@ add_test(NAME cglc_build_metal_mixed_texture_compare_descriptor_array_fake_xcrun
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_SUCCESS_DIR}/xcrun.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=xcrun success: -sdk macosx metallib"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_metal_runtime_texture_sampler_descriptor_array_fake_xcrun_success
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_METAL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_SHADER}
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-texture-sampler-descriptor-array-fake-xcrun.cglb
+    -DEXPECTED_MODULE=MetalRuntimeTextureSamplerDescriptorArrayShader
+    -DMODE=metal-build
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_XCRUN_SUCCESS_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    "-DEXPECTED_METAL_SOURCE_SNIPPET=maps.descriptors[descriptor].sample(linearSamplers.descriptors[descriptor], float2(0.25, 0.75), level(0.0))"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalRuntimeTextureSamplerDescriptorArrayShader|artifacts.backendSource=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metal|artifacts.intermediate=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.air|artifacts.nativeBinary=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.native-artifact.json"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalRuntimeTextureSamplerDescriptorArrayShader|nativeBinary=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metallib|manualTextureCompareKernelSummary.totalCount=0"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=1|resources=4|targetResourceBindings=4|functionConstants=0|manualTextureCompareKernels=0|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.kind=buffer|values.sourceType=vec4*|values.metalType=device float4*|values.addressSpace=device|values.bindingClass=buffer|values.argumentIndex=0|maps.kind=texture|maps.sourceType=sampler2D[]|maps.metalType=constant CrossGLMetalRuntimeResourceDescriptorArrayTable_texture2d_float&|maps.addressSpace=constant|maps.abi=kernelArgument|maps.bindingClass=buffer|maps.argumentIndex=1|maps.set=0|maps.binding=1|maps.arraySize=|maps.arrayDimensions.0.kind=runtime|linearSamplers.kind=sampler|linearSamplers.sourceType=sampler[]|linearSamplers.metalType=constant CrossGLMetalRuntimeResourceDescriptorArrayTable_sampler&|linearSamplers.addressSpace=constant|linearSamplers.abi=kernelArgument|linearSamplers.bindingClass=buffer|linearSamplers.argumentIndex=2|linearSamplers.set=0|linearSamplers.binding=2|linearSamplers.arraySize=|linearSamplers.arrayDimensions.0.kind=runtime|descriptors.kind=buffer|descriptors.sourceType=int*|descriptors.metalType=device int*|descriptors.bindingClass=buffer|descriptors.argumentIndex=3"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|sampled-texture.kind=resource|sampler-state.kind=resource|runtime-descriptor-array.kind=resource|runtime-texture-descriptor-array.kind=resource|runtime-sampler-descriptor-array.kind=resource|runtime-array.kind=layout|texture-sample.kind=operation|texture-explicit-lod.kind=operation|nonuniform-descriptor-index.kind=operation|nonuniform-texture-descriptor-index.kind=operation|nonuniform-sampler-descriptor-index.kind=operation"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metal|artifactPath=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|validationStatus=not-run|${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_SUCCESS_DIR}/xcrun.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=xcrun success: -sdk macosx metallib"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_add_python_expect_test(
   NAME cglc_package_inspect_metal_mixed_texture_compare_descriptor_array_fake_xcrun
   DEFINITIONS
