@@ -1214,6 +1214,11 @@
       "translator_ast_sha256": "e78daa102676b88506b633027638d53158e391e4be9f500df174457f5e7678cc",
       "compiler_hir_sha256": "dbb87cb2882a2f60770a717cdd58e6f277a60c8ba9bb2c8cb37a45c068206aea"
     },
+    "compiler/tests/fixtures/StorageBufferPointerHelperParamShader.cgl": {
+      "source_sha256": "d42adf32700c6a69e1807079da9a1f7f3a2ec914c6970315cd45d778461c780a",
+      "translator_ast_sha256": "2afc424237824e3cde214f0bd8c94e63903e1154f77b4ce0ddd200ad1fe4be84",
+      "compiler_hir_sha256": "5de7c641e8ced07965ef7efa5f2e05490cef3aa269c60a850fe25f4b09912da9"
+    },
     "compiler/tests/fixtures/StorageBufferStructArrayAccessShader.cgl": {
       "source_sha256": "f7a2cfd97672180659c722be6f090b19cef6bcd188494c665616578c97417635",
       "translator_ast_sha256": "c1c1271c7c41f9525417c9fa8adb90404020c5e1f949c6517b7f316559df9a72",

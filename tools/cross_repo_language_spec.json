@@ -45,7 +45,7 @@
   "contract_manifest": {
     "path": "tools/cross_repo_language_contract.json",
     "schema": 1,
-    "contract_count": 158,
+    "contract_count": 159,
     "accepted_feature_group_count": 8,
     "negative_case_count": 28,
     "hash_fields": [
