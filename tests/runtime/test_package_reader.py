@@ -7210,6 +7210,148 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 [package_dir / "source" / "invalid.cgl"],
             )
 
+    def test_compatibility_report_rejects_duplicate_reflection_target_feature_evidence_ids(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime compatibility must not infer target feature evidence\n",
+                encoding="utf-8",
+            )
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            evidence_id = "target-legalization.v1.metal.abi.required.argument-buffer"
+            reflection["targetFeatures"][0]["evidenceIds"] = [evidence_id]
+            reflection["targetFeatures"].append(
+                {
+                    "target": "metal",
+                    "kind": "abi",
+                    "name": "argument-buffer",
+                    "evidenceIds": [evidence_id],
+                }
+            )
+            self._write_json(reflection_path, reflection)
+
+            report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertFalse(report.compatible)
+            self.assertFalse(report.source_parsing_required)
+            self.assertEqual(report.status, "incompatible")
+            self.assertEqual(
+                [diagnostic.code for diagnostic in report.reject_reasons],
+                ["package.reflection.target_feature_evidence_id_duplicate"],
+            )
+            self.assertEqual(
+                summary["rejectReasons"][0],
+                {
+                    "severity": "error",
+                    "code": "package.reflection.target_feature_evidence_id_duplicate",
+                    "message": (
+                        "reflection.targetFeatures evidenceIds must be unique "
+                        "across targetFeatures"
+                    ),
+                    "document": "reflection",
+                    "path": "targetFeatures[1].evidenceIds[0]",
+                    "expected": "unique target feature evidence id",
+                    "actual": {
+                        "duplicateOf": "targetFeatures[0].evidenceIds[0]",
+                        "evidenceId": evidence_id,
+                    },
+                },
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_compatibility_report_rejects_reflection_target_feature_evidence_prefix_mismatch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            evidence_id = "target-legalization.v1.vulkan.abi.required.push-constants"
+            reflection["targetFeatures"][0]["evidenceIds"] = [evidence_id]
+            self._write_json(reflection_path, reflection)
+
+            report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(report.status, "incompatible")
+            self.assertEqual(
+                [diagnostic.code for diagnostic in report.reject_reasons],
+                [("package.reflection.target_feature_evidence_id_target_mismatch")],
+            )
+            self.assertEqual(
+                summary["rejectReasons"][0],
+                {
+                    "severity": "error",
+                    "code": (
+                        "package.reflection.target_feature_evidence_id_target_mismatch"
+                    ),
+                    "message": (
+                        "reflection.targetFeatures evidenceIds must start with "
+                        "the feature target legalization prefix"
+                    ),
+                    "document": "reflection",
+                    "path": "targetFeatures[0].evidenceIds[0]",
+                    "expected": "target-legalization.v1.metal.",
+                    "actual": evidence_id,
+                },
+            )
+
+    def test_compatibility_report_rejects_reflection_target_feature_capability_evidence_target_mismatch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            reflection["targetFeatures"][0]["evidenceIds"] = [
+                "target-legalization.v1.metal.capability.required.vulkan."
+                "descriptor-indexing"
+            ]
+            self._write_json(reflection_path, reflection)
+
+            report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(report.status, "incompatible")
+            self.assertEqual(
+                [diagnostic.code for diagnostic in report.reject_reasons],
+                [
+                    (
+                        "package.reflection."
+                        "target_feature_evidence_id_capability_target_mismatch"
+                    )
+                ],
+            )
+            self.assertEqual(
+                summary["rejectReasons"][0],
+                {
+                    "severity": "error",
+                    "code": (
+                        "package.reflection."
+                        "target_feature_evidence_id_capability_target_mismatch"
+                    ),
+                    "message": (
+                        "reflection.targetFeatures capability evidence target "
+                        "must match the feature target"
+                    ),
+                    "document": "reflection",
+                    "path": "targetFeatures[0].evidenceIds[0]",
+                    "expected": "metal",
+                    "actual": "vulkan",
+                },
+            )
+
     def test_compatibility_report_does_not_advertise_target_incompatible_reflection_sidecars(
         self,
     ) -> None:

@@ -1070,6 +1070,43 @@ def expect_reflection_binding_failure(
     return errors
 
 
+def expect_reflection_feature_failure(
+    root,
+    cglc,
+    tmp_dir,
+    case_name,
+    package,
+    source,
+    manifest,
+    expected,
+    expected_code,
+):
+    errors = []
+    errors.extend(
+        expect_failure(
+            cglc,
+            case_name,
+            package,
+            expected,
+            source=source,
+        )
+    )
+    errors.extend(
+        expect_json_failure(
+            root,
+            cglc,
+            tmp_dir,
+            f"{case_name}-json",
+            package,
+            expected,
+            source=source,
+            manifest=manifest,
+            expected_code=expected_code,
+        )
+    )
+    return errors
+
+
 def shared_address_space_reflection(manifest, binding_address_space):
     target = manifest["target"]
     abi = {
@@ -3738,6 +3775,101 @@ def run_cases(root, cglc, jobs=1):
                     "package.verify.reflection-target-resource-binding-"
                     "evidence-duplicate"
                 ),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-feature-evidence-invalid"
+        )
+        reflection_feature_invalid = write_storage_image_reflection(package, manifest)
+        reflection_feature_invalid["targetFeatures"][0]["evidenceIds"] = [
+            "target-legalization.v1.metal.capability.required."
+            "metal.resource.storage-image"
+        ]
+        write_json(package / "reflection.json", reflection_feature_invalid)
+        errors.extend(
+            expect_reflection_feature_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-feature-evidence-invalid",
+                package,
+                source,
+                manifest,
+                (
+                    "evidenceId must use target legalization feature prefix "
+                    "'target-legalization.v1.directx.'"
+                ),
+                "package.verify.reflection-target-feature-evidence-invalid",
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-feature-evidence-capability-target"
+        )
+        reflection_feature_capability_target = write_storage_image_reflection(
+            package, manifest
+        )
+        reflection_feature_capability_target["targetFeatures"][0]["evidenceIds"] = [
+            "target-legalization.v1.directx.capability.required."
+            "metal.resource.storage-image"
+        ]
+        write_json(package / "reflection.json", reflection_feature_capability_target)
+        errors.extend(
+            expect_reflection_feature_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-feature-evidence-capability-target",
+                package,
+                source,
+                manifest,
+                "evidenceId capability target must be 'directx', got 'metal'",
+                ("package.verify.reflection-target-feature-evidence-capability-target"),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-feature-evidence-malformed"
+        )
+        reflection_feature_malformed = write_storage_image_reflection(package, manifest)
+        reflection_feature_malformed["targetFeatures"][0]["evidenceIds"] = [
+            "target-legalization.v1.directx.capability.required.directx"
+        ]
+        write_json(package / "reflection.json", reflection_feature_malformed)
+        errors.extend(
+            expect_reflection_feature_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-feature-evidence-malformed",
+                package,
+                source,
+                manifest,
+                "evidenceId must be target legalization capability or ABI evidence",
+                "package.verify.reflection-target-feature-evidence-invalid",
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-feature-evidence-duplicate"
+        )
+        reflection_feature_duplicate = write_storage_image_reflection(package, manifest)
+        reflection_feature_duplicate["targetFeatures"][1]["evidenceIds"] = list(
+            reflection_feature_duplicate["targetFeatures"][0]["evidenceIds"]
+        )
+        write_json(package / "reflection.json", reflection_feature_duplicate)
+        errors.extend(
+            expect_reflection_feature_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-feature-evidence-duplicate",
+                package,
+                source,
+                manifest,
+                "duplicates target legalization feature evidenceId",
+                "package.verify.reflection-target-feature-evidence-duplicate",
             )
         )
 

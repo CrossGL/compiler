@@ -11,6 +11,7 @@
 #include <fstream>
 #include <initializer_list>
 #include <limits>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -48,6 +49,112 @@ bool targetResourceBindingEvidenceIdMatchesTarget(
   }
   return std::all_of(evidenceId.begin() + prefix.size(), evidenceId.end(),
                      isTargetLegalizationEvidenceSuffixChar);
+}
+
+std::string targetFeatureEvidencePrefix(std::string_view target) {
+  return "target-legalization.v1." + std::string(target) + ".";
+}
+
+bool isKnownTargetName(std::string_view target) {
+  return target == "metal" || target == "vulkan" || target == "directx" ||
+         target == "opengl";
+}
+
+std::optional<std::string_view> parseTargetFeatureCapabilityTarget(
+    std::string_view suffix) {
+  constexpr std::string_view requiredPrefix = "capability.required.";
+  constexpr std::string_view missingPrefix = "capability.missing.";
+  std::string_view rest;
+  if (hasPrefix(suffix, requiredPrefix)) {
+    rest = suffix.substr(requiredPrefix.size());
+  } else if (hasPrefix(suffix, missingPrefix)) {
+    rest = suffix.substr(missingPrefix.size());
+  } else {
+    return std::nullopt;
+  }
+
+  const std::size_t delimiter = rest.find('.');
+  if (delimiter == std::string_view::npos || delimiter == 0 ||
+      delimiter + 1 == rest.size()) {
+    return std::string_view();
+  }
+  return rest.substr(0, delimiter);
+}
+
+bool isTargetFeatureAbiEvidenceSuffix(std::string_view suffix) {
+  constexpr std::string_view requiredPrefix = "abi.required.";
+  constexpr std::string_view missingPrefix = "abi.missing.";
+  if (hasPrefix(suffix, requiredPrefix)) {
+    return suffix.size() > requiredPrefix.size();
+  }
+  if (hasPrefix(suffix, missingPrefix)) {
+    return suffix.size() > missingPrefix.size();
+  }
+  return false;
+}
+
+bool hasValidTargetLegalizationSuffix(std::string_view suffix) {
+  return !suffix.empty() &&
+         std::all_of(suffix.begin(), suffix.end(),
+                     isTargetLegalizationEvidenceSuffixChar);
+}
+
+enum class TargetFeatureEvidenceMatch {
+  Valid,
+  PrefixMismatch,
+  CapabilityTargetMismatch,
+  Malformed,
+};
+
+TargetFeatureEvidenceMatch targetFeatureEvidenceIdMatchesFeature(
+    std::string_view evidenceId, std::string_view target,
+    std::optional<std::string> &capabilityTargetOut) {
+  constexpr std::string_view rootPrefix = "target-legalization.v1.";
+  if (!hasPrefix(evidenceId, rootPrefix)) {
+    return TargetFeatureEvidenceMatch::Malformed;
+  }
+  std::string_view remainder = evidenceId.substr(rootPrefix.size());
+  const std::size_t targetDelimiter = remainder.find('.');
+  if (targetDelimiter == std::string_view::npos || targetDelimiter == 0 ||
+      targetDelimiter + 1 == remainder.size()) {
+    return TargetFeatureEvidenceMatch::Malformed;
+  }
+
+  const std::string_view evidenceTarget = remainder.substr(0, targetDelimiter);
+  const std::string_view suffix = remainder.substr(targetDelimiter + 1);
+  if (!isKnownTargetName(evidenceTarget)) {
+    return TargetFeatureEvidenceMatch::Malformed;
+  }
+  if (evidenceTarget != target) {
+    return TargetFeatureEvidenceMatch::PrefixMismatch;
+  }
+
+  const std::optional<std::string_view> capabilityTarget =
+      parseTargetFeatureCapabilityTarget(suffix);
+  if (capabilityTarget) {
+    if (capabilityTarget->empty() || !isKnownTargetName(*capabilityTarget)) {
+      return TargetFeatureEvidenceMatch::Malformed;
+    }
+    const std::size_t evidenceSuffixBegin =
+        suffix.find('.', suffix.find('.') + 1);
+    if (evidenceSuffixBegin == std::string_view::npos ||
+        evidenceSuffixBegin + 1 == suffix.size() ||
+        !hasValidTargetLegalizationSuffix(
+            suffix.substr(evidenceSuffixBegin + 1))) {
+      return TargetFeatureEvidenceMatch::Malformed;
+    }
+    if (*capabilityTarget != target) {
+      capabilityTargetOut = std::string(*capabilityTarget);
+      return TargetFeatureEvidenceMatch::CapabilityTargetMismatch;
+    }
+    return TargetFeatureEvidenceMatch::Valid;
+  }
+
+  if (isTargetFeatureAbiEvidenceSuffix(suffix) &&
+      hasValidTargetLegalizationSuffix(suffix)) {
+    return TargetFeatureEvidenceMatch::Valid;
+  }
+  return TargetFeatureEvidenceMatch::Malformed;
 }
 
 const PackageArtifactRecord *findArtifact(const PackageMetadata &metadata,
@@ -1980,6 +2087,69 @@ void verifyReflectionTargetResourceBindingEvidence(
   }
 }
 
+void verifyReflectionTargetFeatureEvidence(const PackageMetadata &metadata,
+                                           DiagnosticEngine &diagnostics) {
+  std::vector<std::string> selectedEvidenceIds;
+  for (const PackageReflectionTargetFeatureRecord &feature :
+       metadata.reflectionTargetFeatures) {
+    if (feature.target != metadata.target) {
+      continue;
+    }
+
+    for (const std::string &evidenceId : feature.evidenceIds) {
+      std::optional<std::string> capabilityTarget;
+      const TargetFeatureEvidenceMatch match =
+          targetFeatureEvidenceIdMatchesFeature(evidenceId, metadata.target,
+                                                capabilityTarget);
+      switch (match) {
+      case TargetFeatureEvidenceMatch::Valid:
+        break;
+      case TargetFeatureEvidenceMatch::PrefixMismatch:
+        diagnostics.error(
+            diagnosticCode("reflection-target-feature-evidence-invalid"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name +
+                "' evidenceId must use target legalization feature prefix '" +
+                targetFeatureEvidencePrefix(metadata.target) + "'",
+            feature.location);
+        break;
+      case TargetFeatureEvidenceMatch::CapabilityTargetMismatch:
+        diagnostics.error(
+            diagnosticCode(
+                "reflection-target-feature-evidence-capability-target"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name + "' evidenceId capability target must be '" +
+                metadata.target + "', got '" +
+                capabilityTarget.value_or(std::string()) + "'",
+            feature.location);
+        break;
+      case TargetFeatureEvidenceMatch::Malformed:
+        diagnostics.error(
+            diagnosticCode("reflection-target-feature-evidence-invalid"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name +
+                "' evidenceId must be target legalization capability or ABI "
+                "evidence",
+            feature.location);
+        break;
+      }
+
+      if (std::find(selectedEvidenceIds.begin(), selectedEvidenceIds.end(),
+                    evidenceId) != selectedEvidenceIds.end()) {
+        diagnostics.error(
+            diagnosticCode("reflection-target-feature-evidence-duplicate"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name +
+                "' duplicates target legalization feature evidenceId '" +
+                evidenceId + "'",
+            feature.location);
+        continue;
+      }
+      selectedEvidenceIds.push_back(evidenceId);
+    }
+  }
+}
+
 void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
                                             DiagnosticEngine &diagnostics) {
   for (auto binding = metadata.reflectionTargetResourceBindings.begin();
@@ -2187,6 +2357,12 @@ selectedTargetFeatureEvidenceIds(const PackageMetadata &metadata) {
       continue;
     }
     for (const std::string &evidenceId : feature.evidenceIds) {
+      std::optional<std::string> capabilityTarget;
+      if (targetFeatureEvidenceIdMatchesFeature(evidenceId, metadata.target,
+                                                capabilityTarget) !=
+          TargetFeatureEvidenceMatch::Valid) {
+        continue;
+      }
       appendUniqueString(evidenceIds, evidenceId);
     }
   }
@@ -2551,6 +2727,7 @@ void verifyPackageMetadata(
   verifyTargetLegalizationEvidence(metadata, diagnostics);
   verifyReflectionNativeBinary(metadata, diagnostics);
   verifyReflectionTargetResourceBindings(metadata, diagnostics);
+  verifyReflectionTargetFeatureEvidence(metadata, diagnostics);
   verifyPlannedNativeSourceEvidence(metadata, requirements, sourcePath,
                                     diagnostics);
   const bool sourceHashMetadataValid =

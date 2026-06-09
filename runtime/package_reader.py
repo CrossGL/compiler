@@ -14,6 +14,7 @@ import hashlib
 import json
 from pathlib import Path
 from pathlib import PurePosixPath
+import re
 import sys
 from typing import Any
 import zipfile
@@ -217,6 +218,15 @@ REFLECTION_REQUIRED_STRING_FIELDS = {
     "targetResourceBindings": ("stage", "entryPoint", "name", "kind"),
     "targetFeatures": ("kind", "name"),
 }
+TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
+TARGET_FEATURE_EVIDENCE_TARGETS = frozenset(("metal", "vulkan", "directx", "opengl"))
+TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"(?:(?:capability\.(?:required|missing)\."
+    r"(?P<capability_target>metal|vulkan|directx|opengl)\.[A-Za-z0-9_.-]+)"
+    r"|(?:abi\.(?:required|missing)\.[A-Za-z0-9_.-]+))$"
+)
 TARGET_RESOURCE_BINDING_ABI_EXPECTATIONS = {
     "directx": (
         "DirectX register ABI object with integer space and register string, "
@@ -3500,6 +3510,10 @@ def _append_reflection_consistency_diagnostics(
         target=target,
         reflection=reflection,
     )
+    _append_reflection_target_feature_evidence_diagnostics(
+        diagnostics,
+        reflection=reflection,
+    )
     _append_reflection_target_binding_duplicate_diagnostics(
         diagnostics,
         target=target,
@@ -3720,6 +3734,139 @@ def _append_reflection_target_record_diagnostics(
                     actual=record_target,
                 )
             )
+
+
+def _append_reflection_target_feature_evidence_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    reflection: dict[str, Any],
+) -> None:
+    seen: dict[str, str] = {}
+    for feature_index, feature in enumerate(
+        _json_object_list(reflection.get("targetFeatures"))
+    ):
+        feature_target = feature.get("target")
+        if feature_target not in TARGET_FEATURE_EVIDENCE_TARGETS:
+            continue
+        evidence_ids = feature.get("evidenceIds", [])
+        if evidence_ids is None:
+            continue
+        if not isinstance(evidence_ids, list):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.reflection.target_feature_evidence_ids_invalid",
+                    message="reflection.targetFeatures evidenceIds must be an array",
+                    document="reflection",
+                    path=f"targetFeatures[{feature_index}].evidenceIds",
+                    expected="array",
+                    actual=_json_type_name(evidence_ids),
+                )
+            )
+            continue
+        for evidence_index, evidence_id in enumerate(evidence_ids):
+            evidence_path = (
+                f"targetFeatures[{feature_index}].evidenceIds[{evidence_index}]"
+            )
+            if not isinstance(evidence_id, str) or not evidence_id:
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=("package.reflection.target_feature_evidence_id_invalid"),
+                        message=(
+                            "reflection.targetFeatures evidenceIds entries must be "
+                            "non-empty strings"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected="non-empty string",
+                        actual=_contract_actual_value(evidence_id),
+                    )
+                )
+                continue
+            if evidence_id in seen:
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=(
+                            "package.reflection.target_feature_evidence_id_duplicate"
+                        ),
+                        message=(
+                            "reflection.targetFeatures evidenceIds must be unique "
+                            "across targetFeatures"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected="unique target feature evidence id",
+                        actual={
+                            "duplicateOf": seen[evidence_id],
+                            "evidenceId": evidence_id,
+                        },
+                    )
+                )
+            else:
+                seen[evidence_id] = evidence_path
+
+            match = TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE.fullmatch(
+                evidence_id
+            )
+            if match is None:
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=("package.reflection.target_feature_evidence_id_invalid"),
+                        message=(
+                            "reflection.targetFeatures evidenceIds entries must be "
+                            "target legalization target feature evidence ids"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected=(
+                            "target-legalization.v1.<target>."
+                            "{capability.required|capability.missing|"
+                            "abi.required|abi.missing}.*"
+                        ),
+                        actual=evidence_id,
+                    )
+                )
+                continue
+
+            if not isinstance(feature_target, str) or not feature_target:
+                continue
+            expected_prefix = f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{feature_target}."
+            if not evidence_id.startswith(expected_prefix):
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=(
+                            "package.reflection."
+                            "target_feature_evidence_id_target_mismatch"
+                        ),
+                        message=(
+                            "reflection.targetFeatures evidenceIds must start with "
+                            "the feature target legalization prefix"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected=expected_prefix,
+                        actual=evidence_id,
+                    )
+                )
+                continue
+
+            capability_target = match.group("capability_target")
+            if capability_target is not None and capability_target != feature_target:
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=(
+                            "package.reflection."
+                            "target_feature_evidence_id_capability_target_mismatch"
+                        ),
+                        message=(
+                            "reflection.targetFeatures capability evidence target "
+                            "must match the feature target"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected=feature_target,
+                        actual=capability_target,
+                    )
+                )
 
 
 def _append_reflection_target_binding_duplicate_diagnostics(
