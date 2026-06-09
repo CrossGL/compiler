@@ -105,7 +105,8 @@ def is_directx_planned_dxc_evidence(instance):
         instance["target"] == "directx"
         and instance["binaryKind"] == "directx.dxil"
         and instance.get("nativeBinaryStatus") == "planned"
-        and len(tools_with_role(instance, "compiler")) > 0
+        and directx_planned_dxc_tools_match(instance)
+        and directx_planned_optimization_evidence_matches(instance)
     )
 
 
@@ -130,7 +131,11 @@ def directx_planned_optimization_evidence_matches(instance):
     evidence = instance.get("optimizationEvidence")
     return (
         isinstance(evidence, dict)
+        and isinstance(evidence.get("requestedLevel"), str)
+        and len(evidence["requestedLevel"]) > 0
+        and evidence.get("effectiveLevel") == "unknown"
         and evidence.get("policy") == "crossgl-to-dxc-optimization-map"
+        and evidence.get("status") in {"not-run", "unavailable"}
         and evidence.get("tool") == "dxc"
         and isinstance(evidence.get("toolFlag"), str)
         and len(evidence["toolFlag"]) > 0
@@ -226,20 +231,6 @@ def validate_toolchain_roles(errors, instance):
                 )
             return
         if is_directx_planned_dxc_evidence(instance):
-            if not directx_planned_dxc_tools_match(instance):
-                errors.append(
-                    "$.toolchainProvenance.tools: planned DirectX DXIL "
-                    "source-package descriptors with dxc evidence require "
-                    "exactly one generator named 'CrossGL-Compiler' and one "
-                    "compiler named 'dxc'"
-                )
-            if not directx_planned_optimization_evidence_matches(instance):
-                errors.append(
-                    "$.optimizationEvidence: planned DirectX DXIL "
-                    "source-package descriptors with dxc evidence require "
-                    "crossgl-to-dxc optimization policy, dxc tool, toolFlag, "
-                    "and shader profile evidence"
-                )
             return
         unexpected_roles = sorted(roles - PLANNED_SOURCE_PACKAGE_ROLES)
         if unexpected_roles:
@@ -333,10 +324,16 @@ def validate_native_binary_status(errors, instance):
                 "validationStatus 'unavailable'"
             )
         optimization_level = instance.get("optimizationLevel")
-        if (
-            optimization_level != PLANNED_SOURCE_PACKAGE_OPTIMIZATION_LEVEL
-            and not is_directx_planned_dxc_evidence(instance)
-        ):
+        if is_directx_planned_dxc_evidence(instance):
+            requested_level = instance["optimizationEvidence"].get("requestedLevel")
+            if optimization_level != requested_level:
+                errors.append(
+                    "$.optimizationLevel: planned DirectX DXIL "
+                    "source-package descriptors with dxc evidence must match "
+                    "$.optimizationEvidence.requestedLevel, got "
+                    f"{optimization_level!r}, expected {requested_level!r}"
+                )
+        elif optimization_level != PLANNED_SOURCE_PACKAGE_OPTIMIZATION_LEVEL:
             errors.append(
                 "$.optimizationLevel: planned source-package descriptors must "
                 f"use {PLANNED_SOURCE_PACKAGE_OPTIMIZATION_LEVEL!r}, got "

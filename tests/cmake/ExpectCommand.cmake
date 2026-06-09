@@ -2843,10 +2843,17 @@ elseif(MODE STREQUAL "package-verify-json-failure")
     endif()
     set(descriptor_path "${package_path}/${native_artifact_descriptor}")
     file(READ "${descriptor_path}" descriptor)
+    set(original_descriptor "${descriptor}")
     string(REPLACE
-           "\"optimizationLevel\": \"unknown\""
+           "\"optimizationLevel\": \"O1\""
            "\"optimizationLevel\": \"O3\""
            descriptor "${descriptor}")
+    if(descriptor STREQUAL original_descriptor)
+      string(REPLACE
+             "\"optimizationLevel\": \"unknown\""
+             "\"optimizationLevel\": \"O3\""
+             descriptor "${descriptor}")
+    endif()
     file(WRITE "${descriptor_path}" "${descriptor}")
   elseif(FAILURE_KIND STREQUAL
          "tampered-planned-native-artifact-compiler-tool")
