@@ -4664,7 +4664,18 @@ add_test(NAME cglc_build_directx_graphics_resource_unsupported_planned_failure
     -DMODE=planned-build-failure
     -DEXPECTED_DIAGNOSTIC=directx.unsupported-graphics-resource
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array storage buffers, and texture/sampler resources|message=stage 'vertex' resource 'debugMatrices'|message=kind storage-buffer|message=type mat4*|message=stage 'fragment' resource 'debugValues'|message=type vec4*[]|message=runtime storage-buffer descriptor arrays are not supported|message=register conflict for register(u4, space0)"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array or fixed-size storage-buffer descriptor arrays, and texture/sampler resources|message=stage 'vertex' resource 'debugMatrices'|message=kind storage-buffer|message=type mat4*|message=stage 'fragment' resource 'debugValues'|message=type vec4*[]|message=runtime storage-buffer descriptor arrays are not supported|message=register conflict for register(u4, space0)"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_graphics_storage_buffer_descriptor_array_conflict_planned_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_CONFLICT_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-storage-buffer-descriptor-array-conflict.cglb
+    -DMODE=planned-build-failure
+    -DEXPECTED_DIAGNOSTIC=directx.unsupported-graphics-resource
+    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=resource conflict|message=register conflict for register(u2, space0)..register(u3, space0) vs register(u3, space0)|message=stage 'fragment' resource 'debugValues'|message=stage 'fragment' resource 'overlapValues'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewriteWeight_weights[COUNT];
   for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
@@ -4746,7 +4757,7 @@ crossgl_add_python_expect_test(
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/diagnostics-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=schemaVersion=1|diagnostics.0.target=directx"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array storage buffers, and texture/sampler resources|message=runtime storage-buffer descriptor arrays are not supported")
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array or fixed-size storage-buffer descriptor arrays, and texture/sampler resources|message=runtime storage-buffer descriptor arrays are not supported")
 add_test(NAME cglc_build_vulkan_diagnostics_json_target_capability_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4832,6 +4843,20 @@ add_test(NAME cglc_build_directx_graphics_storage_buffer_resources_source_packag
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=4|targetResourceBindings=4|entryPoints=2|vertexLayouts=1|workgroupSizes=0"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=vertexOffsets.stage=vertex|vertexOffsets.entryPoint=vertex_main|vertexOffsets.sourceType=vec4*|vertexOffsets.hlslType=RWStructuredBuffer<float4>|vertexOffsets.addressSpace=unordered-access|vertexOffsets.abi=registerBinding|vertexOffsets.bindingClass=uav|vertexOffsets.descriptorType=UAV|vertexOffsets.argumentIndex=0|vertexOffsets.set=0|vertexOffsets.binding=0|fragmentScales.stage=fragment|fragmentScales.entryPoint=fragment_main|fragmentScales.sourceType=vec4*|fragmentScales.hlslType=RWStructuredBuffer<float4>|fragmentScales.addressSpace=unordered-access|fragmentScales.abi=registerBinding|fragmentScales.bindingClass=uav|fragmentScales.descriptorType=UAV|fragmentScales.argumentIndex=2|fragmentScales.set=0|fragmentScales.binding=2"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|native-dxil-package.kind=backend|dxc.kind=toolchain|dxil-validator.kind=validation|vertex-shader.kind=stage|fragment-shader.kind=stage|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_graphics_storage_buffer_descriptor_array_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-storage-buffer-descriptor-array-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXGraphicsStorageBufferDescriptorArrayShader.graphics.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=RWStructuredBuffer<float4> debugValues[2] : register(u2, space0);"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXGraphicsStorageBufferDescriptorArrayShader|nativeBinary=backend/directx/DirectXGraphicsStorageBufferDescriptorArrayShader.dxil|resources.0.stage=fragment|resources.0.name=debugValues|resources.0.kind=buffer|resources.0.type=vec4*[2]|resources.0.binding=2|resources.0.arrayDimensions.0.kind=fixed|resources.0.arrayDimensions.0.elementCount=2|targetResourceBindings.0.stage=fragment|targetResourceBindings.0.name=debugValues|targetResourceBindings.0.hlslType=RWStructuredBuffer<float4>|entryPoints.0.stage=vertex|entryPoints.1.stage=fragment|vertexLayouts.0.entryPoint=vertex_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|entryPoints=2|vertexLayouts=1|workgroupSizes=0"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=debugValues.stage=fragment|debugValues.entryPoint=fragment_main|debugValues.sourceType=vec4*[2]|debugValues.hlslType=RWStructuredBuffer<float4>|debugValues.addressSpace=unordered-access|debugValues.abi=registerBinding|debugValues.bindingClass=uav|debugValues.descriptorType=UAV|debugValues.argumentIndex=2|debugValues.set=0|debugValues.binding=2|debugValues.arraySize=2|debugValues.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|storage-buffer.kind=resource|fixed-array.kind=layout|descriptor-array.kind=resource|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 if(NOT DEFINED CROSSGL_DIRECTX_GRAPHICS_SHADOW_COMPARE_SOURCE_SNIPPET)
   set(CROSSGL_DIRECTX_GRAPHICS_SHADOW_COMPARE_SOURCE_SNIPPET [=[float visibility = shadowMap.SampleCmpLevelZero(shadowSampler, input.uv, 0.5);]=])

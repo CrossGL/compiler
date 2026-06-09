@@ -447,18 +447,48 @@ directxParseLiteralDescriptorCount(std::string_view text) {
 }
 
 std::optional<std::size_t>
-directxFixedDescriptorCount(const HIRResource &resource) {
+directxResolveDescriptorCountDimension(const HIRModule &module,
+                                       std::string_view text) {
+  const std::optional<std::size_t> literal =
+      directxParseLiteralDescriptorCount(text);
+  if (literal.has_value()) {
+    return literal;
+  }
+  for (const HIRConstant &constant : module.constants) {
+    if (constant.name == text && constant.foldedValue.has_value() &&
+        !constant.type.arraySize.has_value() &&
+        (constant.type.name == "int" || constant.type.name == "uint")) {
+      return directxParseLiteralDescriptorCount(*constant.foldedValue);
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t>
+directxFixedDescriptorCount(const HIRModule &module,
+                            const HIRResource &resource) {
   if (!resource.type.arraySize.has_value()) {
     return 1;
   }
   if (resource.type.arraySize->empty()) {
     return std::nullopt;
   }
-  return directxParseLiteralDescriptorCount(*resource.type.arraySize);
+  std::size_t descriptorCount = 1;
+  for (const std::string_view dimension :
+       directxArrayDimensions(*resource.type.arraySize)) {
+    const std::optional<std::size_t> dimensionCount =
+        directxResolveDescriptorCountDimension(module, dimension);
+    if (!dimensionCount.has_value()) {
+      return std::nullopt;
+    }
+    descriptorCount *= *dimensionCount;
+  }
+  return descriptorCount;
 }
 
 bool directxRuntimeDescriptorArrayOverlapsResource(
-    const HIRResource &runtimeArray, const HIRResource &resource) {
+    const HIRModule &module, const HIRResource &runtimeArray,
+    const HIRResource &resource) {
   if (!isRuntimeDescriptorArray(runtimeArray) ||
       directxSameResourceDeclaration(runtimeArray, resource) ||
       !directxResourcesShareRegisterSpace(runtimeArray, resource)) {
@@ -468,7 +498,7 @@ bool directxRuntimeDescriptorArrayOverlapsResource(
     return true;
   }
   const std::optional<std::size_t> descriptorCount =
-      directxFixedDescriptorCount(resource);
+      directxFixedDescriptorCount(module, resource);
   return !descriptorCount.has_value() ||
          *descriptorCount > runtimeArray.binding - resource.binding;
 }
@@ -498,11 +528,11 @@ std::string directxRuntimeDescriptorArrayConflictLabel(
 }
 
 std::optional<std::string> directxDescriptorRangeConflictLabel(
-    const HIRResource &lhs, const HIRResource &rhs) {
-  if (directxRuntimeDescriptorArrayOverlapsResource(lhs, rhs)) {
+    const HIRModule &module, const HIRResource &lhs, const HIRResource &rhs) {
+  if (directxRuntimeDescriptorArrayOverlapsResource(module, lhs, rhs)) {
     return directxRuntimeDescriptorArrayConflictLabel(lhs, rhs);
   }
-  if (directxRuntimeDescriptorArrayOverlapsResource(rhs, lhs)) {
+  if (directxRuntimeDescriptorArrayOverlapsResource(module, rhs, lhs)) {
     return directxRuntimeDescriptorArrayConflictLabel(rhs, lhs);
   }
   return std::nullopt;
@@ -518,7 +548,7 @@ directxDescriptorRangeConflictLabels(const HIRModule &module,
         continue;
       }
       const std::optional<std::string> conflict =
-          directxDescriptorRangeConflictLabel(resource, candidate);
+          directxDescriptorRangeConflictLabel(module, resource, candidate);
       if (conflict.has_value()) {
         conflicts.insert(*conflict);
       }
@@ -3132,7 +3162,8 @@ bool directxGraphicsResourceSupported(const HIRModule &module,
     return isSupportedUniformBufferResource(module, resource);
   }
   if (resource.kind == HIRResourceKind::Buffer) {
-    return !resource.type.arraySize.has_value() &&
+    return supportedResourceArraySize(resource.type) &&
+           directxResourceArrayShapeSupported(module, resource) &&
            isSupportedStorageBufferElementType(
                module, bufferElementType(resource.type));
   }
@@ -3182,8 +3213,9 @@ directxGraphicsUnsupportedResourceReason(const HIRModule &module,
         return "runtime storage-buffer descriptor arrays are not supported in "
                "DirectX graphics source packages";
       }
-      return "storage-buffer descriptor arrays are not supported in DirectX "
-             "graphics source packages";
+      if (!directxResourceArrayShapeSupported(module, resource)) {
+        return "unsupported storage-buffer descriptor array shape";
+      }
     }
     const HIRType elementType = bufferElementType(resource.type);
     if (!isSupportedStorageBufferElementType(module, elementType)) {
@@ -3247,6 +3279,58 @@ bool directxSameGraphicsResource(const HIRResource &lhs,
          lhs.storageImageFormat == rhs.storageImageFormat;
 }
 
+bool directxGraphicsResourceRegistersOverlap(const HIRModule &module,
+                                             const HIRResource &lhs,
+                                             const HIRResource &rhs) {
+  const std::string lhsRegisterClass = directxResourceRegisterClass(lhs);
+  if (lhsRegisterClass.empty() ||
+      lhsRegisterClass != directxResourceRegisterClass(rhs) ||
+      lhs.set != rhs.set) {
+    return false;
+  }
+
+  const std::optional<std::size_t> lhsCount =
+      directxFixedDescriptorCount(module, lhs);
+  const std::optional<std::size_t> rhsCount =
+      directxFixedDescriptorCount(module, rhs);
+  if (!lhsCount.has_value() || !rhsCount.has_value()) {
+    return lhs.binding == rhs.binding;
+  }
+  return lhs.binding < rhs.binding + *rhsCount &&
+         rhs.binding < lhs.binding + *lhsCount;
+}
+
+std::string directxGraphicsResourceRegisterRangeLabel(
+    const HIRModule &module,
+    const HIRResource &resource) {
+  const std::string registerClass = directxResourceRegisterClass(resource);
+  std::string label = directxResourceRegisterLabel(resource);
+  const std::optional<std::size_t> descriptorCount =
+      directxFixedDescriptorCount(module, resource);
+  if (descriptorCount.has_value() && *descriptorCount > 1) {
+    label += "..register(" + registerClass +
+             std::to_string(resource.binding + *descriptorCount - 1) +
+             ", space" + std::to_string(resource.set) + ")";
+  }
+  return label;
+}
+
+std::optional<std::string> directxGraphicsRegisterConflictLabel(
+    const HIRModule &module, const DirectXGraphicsResourceRef &lhsRef,
+    const DirectXGraphicsResourceRef &rhsRef) {
+  const HIRResource &lhs = *lhsRef.resource;
+  const HIRResource &rhs = *rhsRef.resource;
+  if (directxSameGraphicsResource(lhs, rhs) ||
+      !directxGraphicsResourceRegistersOverlap(module, lhs, rhs)) {
+    return std::nullopt;
+  }
+  return "register conflict for " +
+         directxGraphicsResourceRegisterRangeLabel(module, lhs) + " vs " +
+         directxGraphicsResourceRegisterRangeLabel(module, rhs) + ": " +
+         directxGraphicsResourceDiagnosticLabel(lhsRef.stage, lhs) + " vs " +
+         directxGraphicsResourceDiagnosticLabel(rhsRef.stage, rhs);
+}
+
 std::vector<const HIRResource *>
 directxGraphicsStageResources(const HIRStage &vertex,
                               const HIRStage &fragment) {
@@ -3259,10 +3343,11 @@ directxGraphicsStageResources(const HIRStage &vertex,
 }
 
 std::set<std::string>
-directxGraphicsResourceConflictLabels(const HIRStage &vertex,
+directxGraphicsResourceConflictLabels(const HIRModule &module,
+                                      const HIRStage &vertex,
                                       const HIRStage &fragment) {
   std::map<std::string, DirectXGraphicsResourceRef> resourcesByName;
-  std::map<std::string, DirectXGraphicsResourceRef> resourcesByRegister;
+  std::vector<DirectXGraphicsResourceRef> resourcesWithRegisters;
   std::set<std::string> conflicts;
   for (const DirectXGraphicsResourceRef &resourceRef :
        directxGraphicsStageResourceRefs(vertex, fragment)) {
@@ -3279,33 +3364,26 @@ directxGraphicsResourceConflictLabels(const HIRStage &vertex,
           directxGraphicsResourceDiagnosticLabel(resourceRef.stage, *resource));
     }
 
-    const std::string registerClass = directxResourceRegisterClass(*resource);
-    if (registerClass.empty()) {
+    if (directxResourceRegisterClass(*resource).empty()) {
       continue;
     }
-    const std::string registerKey = registerClass + ":" +
-                                    std::to_string(resource->set) + ":" +
-                                    std::to_string(resource->binding);
-    auto [registerIt, insertedRegister] =
-        resourcesByRegister.emplace(registerKey, resourceRef);
-    if (!insertedRegister &&
-        !directxSameGraphicsResource(*registerIt->second.resource, *resource)) {
-      conflicts.insert(
-          "register conflict for register(" + registerClass +
-          std::to_string(resource->binding) + ", space" +
-          std::to_string(resource->set) + "): " +
-          directxGraphicsResourceDiagnosticLabel(registerIt->second.stage,
-                                                *registerIt->second.resource) +
-          " vs " +
-          directxGraphicsResourceDiagnosticLabel(resourceRef.stage, *resource));
+    for (const DirectXGraphicsResourceRef &registered :
+         resourcesWithRegisters) {
+      const std::optional<std::string> conflict =
+          directxGraphicsRegisterConflictLabel(module, registered, resourceRef);
+      if (conflict.has_value()) {
+        conflicts.insert(*conflict);
+      }
     }
+    resourcesWithRegisters.push_back(resourceRef);
   }
   return conflicts;
 }
 
-bool directxGraphicsResourcesCompatible(const HIRStage &vertex,
+bool directxGraphicsResourcesCompatible(const HIRModule &module,
+                                        const HIRStage &vertex,
                                         const HIRStage &fragment) {
-  if (!directxGraphicsResourceConflictLabels(vertex, fragment).empty()) {
+  if (!directxGraphicsResourceConflictLabels(module, vertex, fragment).empty()) {
     return false;
   }
   for (const DirectXGraphicsResourceRef &resourceRef :
@@ -3346,13 +3424,13 @@ directxGraphicsResourceConflictLabels(const HIRModule &module) {
   if (!directxGraphicsStagePair(module, vertex, fragment)) {
     return {};
   }
-  return directxGraphicsResourceConflictLabels(*vertex, *fragment);
+  return directxGraphicsResourceConflictLabels(module, *vertex, *fragment);
 }
 
 bool directxGraphicsResourcesSupported(const HIRModule &module,
                                        const HIRStage &vertex,
                                        const HIRStage &fragment) {
-  if (!directxGraphicsResourcesCompatible(vertex, fragment)) {
+  if (!directxGraphicsResourcesCompatible(module, vertex, fragment)) {
     return false;
   }
   for (const HIRResource *resource :
@@ -4612,7 +4690,8 @@ bool diagnoseDirectXUnsupportedGraphicsResources(const HIRModule &module,
   diagnostics.error(
       "directx.unsupported-graphics-resource",
       "DirectX graphics source package supports only fixed-size uniform "
-      "buffers, non-array storage buffers, and texture/sampler resources, and "
+      "buffers, non-array or fixed-size storage-buffer descriptor arrays, and "
+      "texture/sampler resources, and "
       "vertex/fragment resources must have compatible names and HLSL register "
       "class/set/binding pairs; " +
           details +
@@ -4819,8 +4898,9 @@ bool directxSourcePackageSupported(const HIRModule &module,
       "functions, or one vertex stage "
       "plus one fragment stage with struct input/output signatures, "
       "scalar/vector stage IO fields, matched non-position varyings, no global "
-      "helper functions, fixed-size uniform buffers, non-array storage "
-      "buffers, and explicit-lod texture/sampler graphics resources");
+      "helper functions, fixed-size uniform buffers, non-array or fixed-size "
+      "storage-buffer descriptor arrays, and explicit-lod texture/sampler "
+      "graphics resources");
   return false;
 }
 
@@ -5567,8 +5647,9 @@ std::string generateDirectXBackendIR(
            "one vertex stage plus one fragment stage "
            "with struct input/output signatures, scalar/vector stage IO "
            "fields, matched non-position varyings, no global helper functions, "
-           "fixed-size uniform buffers, non-array storage buffers, and "
-           "explicit-lod texture/sampler graphics resources\n\n";
+           "fixed-size uniform buffers, non-array or fixed-size storage-buffer "
+           "descriptor arrays, and explicit-lod texture/sampler graphics "
+           "resources\n\n";
     out << "// source CrossGL IR follows\n";
     return out.str();
   }

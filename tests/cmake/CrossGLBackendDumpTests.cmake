@@ -620,6 +620,15 @@ add_test(NAME cglc_dump_backend_directx_graphics_resource_declarations
     -DMODE=dump-backend
     "-DMUST_CONTAIN=${CROSSGL_DIRECTX_GRAPHICS_RESOURCES_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_REGEX [=[RWStructuredBuffer<float4> debugValues\[2\] : register\(u2, space0\);.*float4 first = debugValues\[0\]\[0\];.*debugValues\[1\]\[0\] = first \+ debugValues\[1\]\[1\];.*output\.color = debugValues\[1\]\[0\];]=])
+add_test(NAME cglc_dump_backend_directx_graphics_storage_buffer_descriptor_array
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_SHADER}
+    -DTARGET=directx
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_GRAPHICS_SHADOW_COMPARE_LOD_REGEX [=[Texture2D<float> shadowMap : register\(t2, space1\);
 SamplerComparisonState shadowSampler : register\(s3, space1\);.*float visibility = shadowMap\.SampleCmpLevel\(shadowSampler, input\.uv, 0\.5, 2\.0\);]=])
 add_test(NAME cglc_dump_backend_directx_graphics_shadow_compare_lod

@@ -1,0 +1,40 @@
+shader DirectXGraphicsStorageBufferDescriptorArrayShader {
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            output.uv = input.texCoord;
+            output.position = vec4(input.position, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        layout(set = 0, binding = 2) buffer vec4* debugValues[2];
+
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            vec4 first = debugValues[0][0];
+            debugValues[1][0] = first + debugValues[1][1];
+            output.color = debugValues[1][0];
+            return output;
+        }
+    }
+}
