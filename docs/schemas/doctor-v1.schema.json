@@ -409,6 +409,9 @@
         "toolRequirementEvidenceIds": {
           "$ref": "#/$defs/evidenceIdList"
         },
+        "packageArtifactRequirementEvidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        },
         "requiredToolIds": {
           "$ref": "#/$defs/toolIdList"
         },

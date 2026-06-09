@@ -1934,6 +1934,8 @@ DebugMetadataTargetCapabilitySummary debugSummaryFromProjection(
   summary.optionalNativeToolMissing = projection.optionalNativeToolMissing;
   summary.optionalNativeToolStatus = projection.optionalNativeToolStatusName;
   summary.toolRequirementEvidenceIds = projection.toolRequirementEvidenceIds;
+  summary.packageArtifactRequirementEvidenceIds =
+      projection.packageArtifactRequirementEvidenceIds;
   return summary;
 }
 
@@ -1994,6 +1996,8 @@ void applyDebugMetadataProjection(
       projection.optionalNativeToolStatusName;
   document.targetDecision.selectedTargetToolRequirementEvidenceIds =
       projection.toolRequirementEvidenceIds;
+  document.targetDecision.packageArtifactRequirementEvidenceIds =
+      projection.packageArtifactRequirementEvidenceIds;
   document.targetDecision.selectedTargetDiagnosticCount = 0;
   document.targetDecision.diagnostics.clear();
 }
@@ -2070,6 +2074,8 @@ TargetExplanationTargetRecord targetExplanationRecordFromProjection(
   record.optionalNativeToolMissing = projection.optionalNativeToolMissing;
   record.optionalNativeToolStatus = projection.optionalNativeToolStatusName;
   record.toolRequirementEvidenceIds = projection.toolRequirementEvidenceIds;
+  record.packageArtifactRequirementEvidenceIds =
+      projection.packageArtifactRequirementEvidenceIds;
   return record;
 }
 

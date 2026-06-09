@@ -384,6 +384,10 @@ def expect_debug_decision_consistency(errors, case_name, target, debug):
             "selectedTargetToolRequirementEvidenceIds",
             "toolRequirementEvidenceIds",
         ),
+        (
+            "packageArtifactRequirementEvidenceIds",
+            "packageArtifactRequirementEvidenceIds",
+        ),
     )
     for decision_field, summary_field in field_pairs:
         expect_equal(
@@ -480,6 +484,7 @@ def expect_debug_legalization_projection_consistency(
         "optionalNativeToolMissing",
         "optionalNativeToolStatus",
         "toolRequirementEvidenceIds",
+        "packageArtifactRequirementEvidenceIds",
     )
     for summary in summaries:
         if not isinstance(summary, dict):

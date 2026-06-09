@@ -354,6 +354,11 @@ def validate_projection_alignment(
         f"{projection_path}.toolRequirementEvidenceIds",
         errors,
     )
+    package_artifact_evidence = string_list(
+        projection.get("packageArtifactRequirementEvidenceIds"),
+        f"{projection_path}.packageArtifactRequirementEvidenceIds",
+        errors,
+    )
     expected_required_tools = target_explanation_v1.expected_required_tool_ids(record)
     expected_missing_tools = target_explanation_v1.expected_missing_tool_ids(record)
     compare_string_sets(
@@ -395,6 +400,15 @@ def validate_projection_alignment(
         ),
         "tool requirement evidence IDs",
     )
+    compare_value(
+        errors,
+        f"{projection_path}.packageArtifactRequirementEvidenceIds",
+        package_artifact_evidence,
+        target_explanation_v1.expected_package_artifact_requirement_evidence_ids(
+            record
+        ),
+        "package artifact requirement evidence IDs",
+    )
 
     record_required_tools = string_list(
         record.get("requiredToolIds"),
@@ -409,6 +423,11 @@ def validate_projection_alignment(
     record_tool_evidence = string_list(
         record.get("toolRequirementEvidenceIds"),
         f"{record_path}.toolRequirementEvidenceIds",
+        errors,
+    )
+    record_package_artifact_evidence = string_list(
+        record.get("packageArtifactRequirementEvidenceIds"),
+        f"{record_path}.packageArtifactRequirementEvidenceIds",
         errors,
     )
     if record_required_tools or "requiredToolIds" in record:
@@ -434,6 +453,17 @@ def validate_projection_alignment(
             record_tool_evidence,
             tool_evidence,
             "legalization projection toolRequirementEvidenceIds",
+        )
+    if (
+        record_package_artifact_evidence
+        or "packageArtifactRequirementEvidenceIds" in record
+    ):
+        compare_value(
+            errors,
+            f"{record_path}.packageArtifactRequirementEvidenceIds",
+            record_package_artifact_evidence,
+            package_artifact_evidence,
+            "legalization projection packageArtifactRequirementEvidenceIds",
         )
 
     if source_package_optional_native_missing(record):
@@ -489,6 +519,13 @@ def validate_projection_alignment(
             errors.append(
                 f"{projection_path}.toolRequirementEvidenceIds: evidence ID "
                 f"{evidence_id!r} is not listed in projection evidenceIds"
+            )
+    for evidence_id in package_artifact_evidence:
+        if evidence_id not in projection_evidence:
+            errors.append(
+                f"{projection_path}.packageArtifactRequirementEvidenceIds: "
+                f"evidence ID {evidence_id!r} is not listed in projection "
+                "evidenceIds"
             )
 
     diagnostic_evidence = string_list(

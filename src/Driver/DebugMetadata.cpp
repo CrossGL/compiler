@@ -240,6 +240,9 @@ void appendFallbackTargetRecords(
         << escapeJson(fallback.optionalNativeToolStatus) << "\""
         << ",\"toolRequirementEvidenceIds\":";
     appendInlineStringArray(out, fallback.toolRequirementEvidenceIds);
+    out << ",\"packageArtifactRequirementEvidenceIds\":";
+    appendInlineStringArray(out,
+                            fallback.packageArtifactRequirementEvidenceIds);
     out << ",\"missingCapabilityGroups\":";
     appendCapabilityGroups(out, fallback.missingCapabilityGroups);
     out << "}";
@@ -1118,6 +1121,8 @@ DebugMetadataTargetCapabilitySummary targetCapabilitySummaryFromProjection(
   summary.optionalNativeToolMissing = projection.optionalNativeToolMissing;
   summary.optionalNativeToolStatus = projection.optionalNativeToolStatusName;
   summary.toolRequirementEvidenceIds = projection.toolRequirementEvidenceIds;
+  summary.packageArtifactRequirementEvidenceIds =
+      projection.packageArtifactRequirementEvidenceIds;
   summary.requiredCapabilityGroups =
       capabilityGroupsFromIds(projection.requiredCapabilityIds);
   summary.missingCapabilityGroups =
@@ -1685,6 +1690,8 @@ DebugMetadataTargetFallback fallbackTargetRecord(
   fallback.optionalNativeToolMissing = summary.optionalNativeToolMissing;
   fallback.optionalNativeToolStatus = summary.optionalNativeToolStatus;
   fallback.toolRequirementEvidenceIds = summary.toolRequirementEvidenceIds;
+  fallback.packageArtifactRequirementEvidenceIds =
+      summary.packageArtifactRequirementEvidenceIds;
   fallback.missingCapabilityGroups = summary.missingCapabilityGroups;
   return fallback;
 }
@@ -1832,6 +1839,8 @@ DebugMetadataTargetDecision buildTargetDecision(
         selectedSummary->optionalNativeToolStatus;
     decision.selectedTargetToolRequirementEvidenceIds =
         selectedSummary->toolRequirementEvidenceIds;
+    decision.packageArtifactRequirementEvidenceIds =
+        selectedSummary->packageArtifactRequirementEvidenceIds;
     decision.selectedTargetMissingCapabilityGroups =
         selectedSummary->missingCapabilityGroups;
     if (selectedRecord != nullptr) {
@@ -2088,6 +2097,9 @@ std::string debugMetadataJson(const DebugMetadataDocument &document) {
       << ",\"selectedTargetToolRequirementEvidenceIds\":";
   appendInlineStringArray(
       out, document.targetDecision.selectedTargetToolRequirementEvidenceIds);
+  out << ",\"packageArtifactRequirementEvidenceIds\":";
+  appendInlineStringArray(
+      out, document.targetDecision.packageArtifactRequirementEvidenceIds);
   out << ",\"selectedTargetMissingCapabilityGroups\":";
   appendCapabilityGroups(
       out, document.targetDecision.selectedTargetMissingCapabilityGroups);
@@ -2151,6 +2163,9 @@ std::string debugMetadataJson(const DebugMetadataDocument &document) {
         << escapeJson(summary.optionalNativeToolStatus) << "\""
         << ",\"toolRequirementEvidenceIds\":";
     appendInlineStringArray(out, summary.toolRequirementEvidenceIds);
+    out << ",\"packageArtifactRequirementEvidenceIds\":";
+    appendInlineStringArray(out,
+                            summary.packageArtifactRequirementEvidenceIds);
     out << ",\"requiredCapabilityGroups\":";
     appendCapabilityGroups(out, summary.requiredCapabilityGroups);
     out << ",\"missingCapabilityGroups\":";

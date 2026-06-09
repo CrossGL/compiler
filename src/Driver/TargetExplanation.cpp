@@ -167,6 +167,8 @@ TargetExplanationTargetRecord targetRecordFromLegalizationProjection(
   record.optionalNativeToolMissing = projection.optionalNativeToolMissing;
   record.optionalNativeToolStatus = projection.optionalNativeToolStatusName;
   record.toolRequirementEvidenceIds = projection.toolRequirementEvidenceIds;
+  record.packageArtifactRequirementEvidenceIds =
+      projection.packageArtifactRequirementEvidenceIds;
   std::sort(record.requiredCapabilities.begin(),
             record.requiredCapabilities.end());
   std::sort(record.missingCapabilities.begin(),
@@ -296,6 +298,10 @@ std::string targetExplanationJson(const TargetExplanationDocument &document) {
         << escapeJson(target.optionalNativeToolStatus) << "\",\n"
         << "      \"toolRequirementEvidenceIds\": ";
     appendStringArray(out, target.toolRequirementEvidenceIds, "      ");
+    out << ",\n"
+        << "      \"packageArtifactRequirementEvidenceIds\": ";
+    appendStringArray(out, target.packageArtifactRequirementEvidenceIds,
+                      "      ");
     out << ",\n"
         << "      \"requiredToolIds\": ";
     appendStringArray(out, target.requiredToolIds, "      ");

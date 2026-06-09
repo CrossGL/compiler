@@ -293,6 +293,9 @@
         "toolRequirementEvidenceIds": {
           "$ref": "#/$defs/stringList"
         },
+        "packageArtifactRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
         "missingCapabilityGroups": {
           "$ref": "#/$defs/capabilityGroups"
         }
@@ -376,6 +379,9 @@
           "$ref": "#/$defs/optionalNativeToolStatus"
         },
         "selectedTargetToolRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "packageArtifactRequirementEvidenceIds": {
           "$ref": "#/$defs/stringList"
         },
         "selectedTargetMissingCapabilityGroups": {
@@ -485,6 +491,9 @@
           "$ref": "#/$defs/optionalNativeToolStatus"
         },
         "toolRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "packageArtifactRequirementEvidenceIds": {
           "$ref": "#/$defs/stringList"
         },
         "requiredCapabilityGroups": {

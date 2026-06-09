@@ -8,7 +8,11 @@ from .debug_metadata_v10 import validate_manual_kernel_semantics
 from .common import add_equal_error
 from .common import validate_source_locations
 from .target_explanation_v1 import expected_legalization_core_evidence_ids
+from .target_explanation_v1 import expected_package_artifact_requirement_evidence_ids
 from .target_explanation_v1 import validate_legalization_core_evidence_ids
+from .target_explanation_v1 import (
+    validate_package_artifact_requirement_evidence_ids,
+)
 from .target_explanation_v1 import validate_tool_requirement_fields
 
 DEBUG_TARGET_SUMMARY_TARGETS = ("metal", "vulkan", "directx", "opengl")
@@ -42,6 +46,7 @@ DEBUG_TARGET_FALLBACK_TOOL_FIELD_PAIRS = (
     ("optionalNativeToolStatus", "optionalNativeToolStatus"),
     ("toolRequirementEvidenceIds", "toolRequirementEvidenceIds"),
 )
+PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD = "packageArtifactRequirementEvidenceIds"
 
 
 def validate_manual_kernel_compatibility_alias(errors, instance):
@@ -177,6 +182,76 @@ def validate_debug_target_tool_requirements(errors, decision, target_capabilitie
             )
 
 
+def validate_debug_target_package_artifact_requirement_evidence(
+    errors, decision, target_capabilities
+):
+    summaries = target_capabilities["summaries"]
+    for index, summary in enumerate(summaries):
+        validate_package_artifact_requirement_evidence_ids(
+            errors,
+            f"$.targetCapabilities.summaries[{index}]",
+            summary,
+        )
+
+    summary_targets = [summary["target"] for summary in summaries]
+    if len(summary_targets) != len(set(summary_targets)):
+        return
+
+    summaries_by_target = {summary["target"]: summary for summary in summaries}
+    selected_summary = summaries_by_target.get(decision["selectedTarget"])
+    if selected_summary is not None:
+        summary_ids = selected_summary.get(PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD)
+        decision_ids = decision.get(PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD)
+        if summary_ids is not None or decision_ids is not None:
+            add_equal_error(
+                errors,
+                f"$.targetDecision.{PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD}",
+                decision_ids,
+                summary_ids,
+                f"selected target summary {PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD}",
+            )
+
+    for index, record in enumerate(decision["fallbackTargetRecords"]):
+        record_summary = summaries_by_target.get(record["target"])
+        if record_summary is None:
+            continue
+        summary_ids = record_summary.get(PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD)
+        record_ids = record.get(PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD)
+        if summary_ids is not None or record_ids is not None:
+            add_equal_error(
+                errors,
+                "$.targetDecision.fallbackTargetRecords"
+                f"[{index}].{PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD}",
+                record_ids,
+                summary_ids,
+                f"fallback target summary {PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD}",
+            )
+        validate_package_artifact_requirement_evidence_ids(
+            errors,
+            f"$.targetDecision.fallbackTargetRecords[{index}]",
+            record,
+        )
+
+    if PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD not in decision:
+        return
+    selected_record = {
+        "target": decision["selectedTarget"],
+        "packageMode": decision["selectedTargetPackageMode"],
+        "packageBuildSupported": decision["selectedTargetPackageBuildSupported"],
+        PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD: decision[
+            PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD
+        ],
+    }
+    expected_ids = expected_package_artifact_requirement_evidence_ids(selected_record)
+    decision_ids = decision[PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD]
+    if decision_ids != expected_ids:
+        errors.append(
+            "$.targetDecision.packageArtifactRequirementEvidenceIds: "
+            "expected package artifact requirement evidence ids "
+            f"{expected_ids!r}, got {decision_ids!r}"
+        )
+
+
 def debug_location_records(locations):
     return (
         list(locations["expressions"])
@@ -225,6 +300,9 @@ def validate_semantics(instance):
         errors, instance["targetDecision"], instance["targetCapabilities"]
     )
     validate_debug_target_tool_requirements(
+        errors, instance["targetDecision"], instance["targetCapabilities"]
+    )
+    validate_debug_target_package_artifact_requirement_evidence(
         errors, instance["targetDecision"], instance["targetCapabilities"]
     )
     validate_source_locations(

@@ -70,6 +70,7 @@ struct DebugMetadataTargetCapabilitySummary {
   bool optionalNativeToolMissing = false;
   std::string optionalNativeToolStatus;
   std::vector<std::string> toolRequirementEvidenceIds;
+  std::vector<std::string> packageArtifactRequirementEvidenceIds;
   std::vector<DebugMetadataTargetCapabilityGroup> requiredCapabilityGroups;
   std::vector<DebugMetadataTargetCapabilityGroup> missingCapabilityGroups;
 };
@@ -107,6 +108,7 @@ struct DebugMetadataTargetFallback {
   bool optionalNativeToolMissing = false;
   std::string optionalNativeToolStatus;
   std::vector<std::string> toolRequirementEvidenceIds;
+  std::vector<std::string> packageArtifactRequirementEvidenceIds;
   std::vector<DebugMetadataTargetCapabilityGroup> missingCapabilityGroups;
 };
 
@@ -128,6 +130,7 @@ struct DebugMetadataTargetDecision {
   bool selectedTargetOptionalNativeToolMissing = false;
   std::string selectedTargetOptionalNativeToolStatus;
   std::vector<std::string> selectedTargetToolRequirementEvidenceIds;
+  std::vector<std::string> packageArtifactRequirementEvidenceIds;
   std::vector<DebugMetadataTargetCapabilityGroup>
       selectedTargetMissingCapabilityGroups;
   std::size_t selectedTargetDiagnosticCount = 0;

@@ -399,6 +399,43 @@ bool verifyArtifactRequirementsForVerification(
   return valid;
 }
 
+bool packageArtifactRequirementsContractIsValid(
+    const PackageMetadata &metadata) {
+  if (!metadata.artifactRequirements) {
+    return false;
+  }
+
+  const PackageArtifactRequirementsRecord &requirements =
+      *metadata.artifactRequirements;
+  if (requirements.target != metadata.target) {
+    return false;
+  }
+
+  const PackageTargetContract *contract =
+      packageTargetContractFor(metadata.target);
+  const bool descriptorBackedNativeRequirements =
+      isDescriptorBackedNativeRequirements(metadata, requirements);
+  if (contract != nullptr && !descriptorBackedNativeRequirements) {
+    if (requirements.packageMode !=
+        expectedPackageArtifactRequirementMode(*contract)) {
+      return false;
+    }
+    if (!requiredPathArtifactsMatchTargetContract(requirements, *contract)) {
+      return false;
+    }
+    if (requirements.requiresNativeBinaryStatus !=
+            contract->requiresNativeBinaryStatus ||
+        requirements.allowsPlannedNativeBinary !=
+            contract->allowsPlannedNativeBinary ||
+        requirements.allowsPlannedNativeSourceEvidence !=
+            contract->allowsPlannedNativeSourceEvidence) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool allowsPlannedNativeBinary(
     const PackageMetadata &metadata, const PackageArtifactRecord &artifact,
     const PackageArtifactRequirementsRecord &requirements) {
@@ -983,6 +1020,8 @@ collectPackageTargetLegalizationEvidence(const PackageMetadata &metadata) {
                           evidence.manifestToolRequirements.present ||
                           evidence.debugMetadata.artifactPresent ||
                           evidence.targetExplanation.artifactPresent;
+  const bool artifactRequirementsContractIsValid =
+      packageArtifactRequirementsContractIsValid(metadata);
   const bool incomplete =
       sidecarProjectionIncomplete(evidence.debugMetadata) ||
       sidecarProjectionIncomplete(evidence.targetExplanation);
@@ -999,7 +1038,7 @@ collectPackageTargetLegalizationEvidence(const PackageMetadata &metadata) {
        !*evidence.debugMetadataPackageModeMatchesRequirements) ||
       (evidence.targetExplanationPackageModeMatchesRequirements &&
        !*evidence.targetExplanationPackageModeMatchesRequirements) ||
-      (metadata.artifactRequirements &&
+      (artifactRequirementsContractIsValid &&
        (sidecarRequirementEvidenceIdsDrift(
             evidence.debugMetadata,
             evidence.packageArtifactRequirementEvidenceIds) ||
@@ -1484,7 +1523,7 @@ void verifyTargetLegalizationEvidence(const PackageMetadata &metadata,
                       : artifactsLocation(metadata));
   }
 
-  if (metadata.artifactRequirements &&
+  if (packageArtifactRequirementsContractIsValid(metadata) &&
       sidecarRequirementEvidenceIdsDrift(
           evidence.debugMetadata,
           evidence.packageArtifactRequirementEvidenceIds)) {
@@ -1544,7 +1583,7 @@ void verifyTargetLegalizationEvidence(const PackageMetadata &metadata,
                           : artifactsLocation(metadata));
   }
 
-  if (metadata.artifactRequirements &&
+  if (packageArtifactRequirementsContractIsValid(metadata) &&
       sidecarRequirementEvidenceIdsDrift(
           evidence.targetExplanation,
           evidence.packageArtifactRequirementEvidenceIds)) {

@@ -39,6 +39,7 @@ struct TargetExplanationTargetRecord {
   bool optionalNativeToolMissing = false;
   std::string optionalNativeToolStatus;
   std::vector<std::string> toolRequirementEvidenceIds;
+  std::vector<std::string> packageArtifactRequirementEvidenceIds;
 };
 
 struct TargetExplanationDocument {
