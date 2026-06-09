@@ -14,6 +14,7 @@
   "artifacts": {
     "backendSource": "backend/metal/SourceFreeMetalRuntimeExample.metal",
     "intermediate": "backend/metal/SourceFreeMetalRuntimeExample.air",
-    "nativeBinary": "backend/metal/SourceFreeMetalRuntimeExample.metallib"
+    "nativeBinary": "backend/metal/SourceFreeMetalRuntimeExample.metallib",
+    "nativeArtifactDescriptor": "backend/metal/SourceFreeMetalRuntimeExample.native-artifact.json"
   }
 }

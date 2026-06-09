@@ -1,0 +1,9 @@
+shader BadLogicalBinaryOperandShader {
+  compute {
+    void main() {
+      int i = 1;
+      bool bad = i && true;
+      return;
+    }
+  }
+}

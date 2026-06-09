@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+from itertools import combinations
 from pathlib import Path
 from typing import Any
 
@@ -108,6 +109,7 @@ TARGET_CONTEXTS: dict[str, tuple[str, tuple[str, ...]]] = {
 }
 OPTIONAL_NATIVE_HELPER = "tests/cmake/CrossGLOptionalNativeTools.cmake"
 FIXTURE_VARIABLE_FILE = "tests/cmake/CrossGLTestFixtures.cmake"
+LANGUAGE_CONTRACT_MANIFEST = "tools/cross_repo_language_contract.json"
 INTENTIONAL_FAILURE_SUFFIXES = (
     "_planned_failure",
     "_unsupported_failure",
@@ -147,6 +149,7 @@ PACKAGE_SMOKE_REGISTRATIONS = (
         ("readiness", "native-package-smoke", "package-layout-smoke"),
     ),
 )
+MUTABLE_OUTPUT_DEFINITIONS = ("OUTPUT",)
 
 
 def run(
@@ -202,6 +205,13 @@ def property_values(test: dict[str, Any], name: str) -> list[str]:
     return [str(value)]
 
 
+def ctest_list_property_values(test: dict[str, Any], name: str) -> set[str]:
+    values: set[str] = set()
+    for value in property_values(test, name):
+        values.update(item for item in value.split(";") if item)
+    return values
+
+
 def processor_values_for(test: dict[str, Any]) -> list[str]:
     values = property_values(test, "PROCESSORS")
     for key in ("processors", "PROCESSORS"):
@@ -246,6 +256,21 @@ def cmake_definition(test: dict[str, Any], name: str) -> str | None:
             if separator:
                 return value
     return None
+
+
+def cmake_definitions(test: dict[str, Any], name: str) -> list[str]:
+    plain_prefix = f"-D{name}="
+    typed_prefix = f"-D{name}:"
+    values: list[str] = []
+    for part in test.get("command", []):
+        text = str(part)
+        if text.startswith(plain_prefix):
+            values.append(text[len(plain_prefix) :])
+        elif text.startswith(typed_prefix):
+            _, separator, value = text.partition("=")
+            if separator:
+                values.append(value)
+    return values
 
 
 def display_path(root: Path, value: str) -> str:
@@ -590,6 +615,66 @@ def check_package_smoke_registrations(
     return errors
 
 
+def mutable_output_paths(test: dict[str, Any]) -> list[tuple[str, str]]:
+    paths: list[tuple[str, str]] = []
+    for definition in MUTABLE_OUTPUT_DEFINITIONS:
+        for value in cmake_definitions(test, definition):
+            paths.append((definition, value))
+    return paths
+
+
+def registrations_are_serialized(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    if bool_property(left, "RUN_SERIAL") or bool_property(right, "RUN_SERIAL"):
+        return True
+    return bool(
+        ctest_list_property_values(left, "RESOURCE_LOCK")
+        & ctest_list_property_values(right, "RESOURCE_LOCK")
+    )
+
+
+def check_mutable_output_path_collisions(
+    root: Path, inventory: dict[str, Any], tests: list[dict[str, Any]]
+) -> list[str]:
+    errors: list[str] = []
+    paths: dict[str, list[tuple[str, str, dict[str, Any]]]] = {}
+    for test in tests:
+        for definition, value in mutable_output_paths(test):
+            normalized = normalized_path_text(value)
+            paths.setdefault(normalized, []).append((definition, value, test))
+
+    for entries in paths.values():
+        if len(entries) < 2:
+            continue
+
+        active_entries = [
+            entry for entry in entries if intentional_failure_reason(entry[2]) is None
+        ]
+        if len(active_entries) < 2:
+            continue
+
+        unsafe_pairs = [
+            (left, right)
+            for left, right in combinations(active_entries, 2)
+            if not registrations_are_serialized(left[2], right[2])
+        ]
+        if not unsafe_pairs:
+            continue
+
+        definition, value, _ = active_entries[0]
+        names = sorted({str(entry[2].get("name", "")) for entry in active_entries})
+        contexts = "; ".join(
+            test_context(root, inventory, entry[2]) for entry in active_entries[:3]
+        )
+        suffix = "" if len(active_entries) <= 3 else "; ..."
+        errors.append(
+            f"{display_path(root, value)}: mutable -D{definition}= path is "
+            "shared by parallel-capable tests "
+            f"{names}; use unique output paths or shared RESOURCE_LOCK/RUN_SERIAL; "
+            f"{contexts}{suffix}"
+        )
+    return errors
+
+
 def check_optional_native_labels(
     root: Path, inventory: dict[str, Any], tests: list[dict[str, Any]]
 ) -> list[str]:
@@ -762,6 +847,91 @@ def check_fixture_families(root: Path, tests: list[dict[str, Any]]) -> list[str]
                 f"{family}: no registered CTest command references this family; "
                 f"context: {fixture_family_context(family)}"
             )
+    return errors
+
+
+def iter_negative_contract_cases(manifest: dict[str, Any]):
+    groups = manifest.get("negative_contracts", {})
+    if not isinstance(groups, dict):
+        raise ValueError("negative_contracts must be an object")
+
+    for group_name, group in sorted(groups.items()):
+        if isinstance(group, dict):
+            cases = group.get("cases", [])
+        elif isinstance(group, list):
+            cases = group
+        else:
+            raise ValueError(
+                f"negative_contracts.{group_name} must be an object or list"
+            )
+        if not isinstance(cases, list):
+            raise ValueError(f"negative_contracts.{group_name}.cases must be a list")
+        for case in cases:
+            if not isinstance(case, dict):
+                raise ValueError(
+                    f"negative_contracts.{group_name} contains a non-object case"
+                )
+            yield case
+
+
+def load_language_contract_negative_fixture_paths(
+    root: Path,
+) -> tuple[list[str], list[str]]:
+    manifest_path = root / LANGUAGE_CONTRACT_MANIFEST
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return [], [f"could not read {LANGUAGE_CONTRACT_MANIFEST}: {exc}"]
+    except json.JSONDecodeError as exc:
+        return [], [f"could not parse {LANGUAGE_CONTRACT_MANIFEST}: {exc}"]
+
+    paths: set[str] = set()
+    errors: list[str] = []
+    try:
+        cases = list(iter_negative_contract_cases(manifest))
+    except ValueError as exc:
+        return [], [f"{LANGUAGE_CONTRACT_MANIFEST}: {exc}"]
+
+    for case in cases:
+        if case.get("root", "compiler") != "compiler":
+            continue
+        path = case.get("path")
+        if not isinstance(path, str) or not path.startswith("tests/check-failures/"):
+            continue
+        paths.add(path)
+        if not (root / path).is_file():
+            case_id = case.get("id", path)
+            errors.append(
+                f"{case_id}: negative language contract fixture is missing: {path}"
+            )
+
+    return sorted(paths), errors
+
+
+def check_language_contract_negative_ctest_coverage(
+    root: Path,
+    tests: list[dict[str, Any]],
+    contract_paths: list[str] | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    if contract_paths is None:
+        contract_paths, load_errors = load_language_contract_negative_fixture_paths(
+            root
+        )
+        errors.extend(load_errors)
+        if load_errors:
+            return errors
+
+    command_blob = "\n".join(normalized_command_text(test) for test in tests)
+    for path in sorted(contract_paths):
+        if normalized_path_text(path) in command_blob:
+            continue
+        errors.append(
+            f"{path}: compiler negative language contract fixture is not "
+            "referenced by any CTest command; "
+            f"context: {fixture_family_context('tests/check-failures')}; "
+            f"manifest={LANGUAGE_CONTRACT_MANIFEST}"
+        )
     return errors
 
 
@@ -970,6 +1140,38 @@ def run_self_test() -> int:
         )
         return 1
 
+    contract_fixture = "tests/check-failures/BadContractFixture.cgl"
+    contract_coverage_errors = check_language_contract_negative_ctest_coverage(
+        root, tests, [contract_fixture]
+    )
+    if not any(contract_fixture in error for error in contract_coverage_errors):
+        print(
+            "Language contract negative fixture probe failed to report missing "
+            f"CTest coverage; errors were: {contract_coverage_errors}",
+            file=sys.stderr,
+        )
+        return 1
+    contract_coverage_ok = check_language_contract_negative_ctest_coverage(
+        root,
+        [
+            {
+                "name": "contract_check_failure",
+                "command": [
+                    "cmake",
+                    r"-DINPUT=D:\a\compiler\compiler\tests\check-failures\BadContractFixture.cgl",
+                ],
+            }
+        ],
+        [contract_fixture],
+    )
+    if contract_coverage_ok:
+        print(
+            "Language contract negative fixture probe rejected a registered "
+            f"CTest fixture; errors were: {contract_coverage_ok}",
+            file=sys.stderr,
+        )
+        return 1
+
     package_smoke_inventory = {
         "backtraceGraph": {
             "files": ["CMakeLists.txt"],
@@ -1136,6 +1338,86 @@ def run_self_test() -> int:
         print(
             "Native install smoke label negative probe failed; "
             f"errors were: {missing_label_errors}",
+            file=sys.stderr,
+        )
+        return 1
+
+    output_collision_inventory = {
+        "backtraceGraph": {
+            "files": ["tests/cmake/CrossGLSourcePackageBuildTests.cmake"],
+            "nodes": [{"file": 0, "line": 512}],
+        }
+    }
+    output_collision_tests = [
+        {
+            "name": "cglc_build_directx_alpha_source_package",
+            "backtrace": 0,
+            "command": [
+                "cmake",
+                r"-DOUTPUT=D:\a\compiler\compiler\build\shared-output.cglb",
+                "-DTARGET=directx",
+                "-DMODE=source-package-build",
+            ],
+        },
+        {
+            "name": "cglc_build_directx_beta_source_package",
+            "backtrace": 0,
+            "command": [
+                "cmake",
+                r"-DOUTPUT=D:\a\compiler\compiler\build\shared-output.cglb",
+                "-DTARGET=directx",
+                "-DMODE=source-package-build",
+            ],
+        },
+    ]
+    output_collision_errors = check_mutable_output_path_collisions(
+        root, output_collision_inventory, output_collision_tests
+    )
+    if not any("mutable -DOUTPUT= path" in error for error in output_collision_errors):
+        print(
+            "Mutable output collision negative probe failed; "
+            f"errors were: {output_collision_errors}",
+            file=sys.stderr,
+        )
+        return 1
+    serialized_output_tests = [
+        dict(
+            test,
+            properties=[{"name": "RESOURCE_LOCK", "value": "shared-output"}],
+        )
+        for test in output_collision_tests
+    ]
+    serialized_output_errors = check_mutable_output_path_collisions(
+        root, output_collision_inventory, serialized_output_tests
+    )
+    if serialized_output_errors:
+        print(
+            "Mutable output collision RESOURCE_LOCK probe failed:\n"
+            + "\n".join(f"- {error}" for error in serialized_output_errors),
+            file=sys.stderr,
+        )
+        return 1
+    planned_output_collision_errors = check_mutable_output_path_collisions(
+        root,
+        output_collision_inventory,
+        [
+            output_collision_tests[0],
+            {
+                "name": "cglc_build_directx_shadow_case_planned_failure",
+                "backtrace": 0,
+                "command": [
+                    "cmake",
+                    r"-DOUTPUT=D:\a\compiler\compiler\build\shared-output.cglb",
+                    "-DTARGET=directx",
+                    "-DMODE=planned-build-failure",
+                ],
+            },
+        ],
+    )
+    if planned_output_collision_errors:
+        print(
+            "Mutable output collision planned-failure probe failed:\n"
+            + "\n".join(f"- {error}" for error in planned_output_collision_errors),
             file=sys.stderr,
         )
         return 1
@@ -1395,6 +1677,7 @@ def run_self_test() -> int:
     print("Windows-style fixture path probe passed.")
     print("Diagnostic owner context probes passed.")
     print("Native package/install smoke registration probes passed.")
+    print("Mutable output collision probes passed.")
     print("Optional-native label contract probes passed.")
     return 0
 
@@ -1435,10 +1718,12 @@ def main(argv: list[str]) -> int:
 
     errors.extend(check_required_ctest_registrations(root, inventory, tests))
     errors.extend(check_package_smoke_registrations(root, inventory, tests))
+    errors.extend(check_mutable_output_path_collisions(root, inventory, tests))
     errors.extend(check_optional_native_labels(root, inventory, tests))
     errors.extend(check_optional_native_target_coverage(tests))
     errors.extend(check_optional_native_filter_contract(tests))
     errors.extend(check_fixture_families(root, tests))
+    errors.extend(check_language_contract_negative_ctest_coverage(root, tests))
     errors.extend(check_intentional_failure_names(root, inventory, tests))
     if not args.metadata_only:
         errors.extend(

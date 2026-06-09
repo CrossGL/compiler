@@ -117,6 +117,31 @@ class SourceFreeRuntimeLoaderExampleTests(unittest.TestCase):
         )
         self.assertEqual(list(package_dir.rglob("*.cgl")), [])
 
+    def test_source_free_metal_descriptor_matches_checked_out_bytes(self) -> None:
+        package_dir = FIXTURE_ROOT / "source-free-metal-native.cglb"
+        descriptor_path = (
+            package_dir
+            / "backend"
+            / "metal"
+            / "SourceFreeMetalRuntimeExample.native-artifact.json"
+        )
+
+        descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+        source_bytes = (package_dir / descriptor["sourcePath"]).read_bytes()
+        artifact_bytes = (package_dir / descriptor["artifactPath"]).read_bytes()
+
+        self.assertEqual(descriptor["sourceHash"]["algorithm"], "sha256")
+        self.assertEqual(
+            descriptor["sourceHash"]["value"],
+            hashlib.sha256(source_bytes).hexdigest(),
+        )
+        self.assertEqual(descriptor["artifactHash"]["algorithm"], "sha256")
+        self.assertEqual(
+            descriptor["artifactHash"]["value"],
+            hashlib.sha256(artifact_bytes).hexdigest(),
+        )
+        self.assertEqual(descriptor["sizeBytes"], len(artifact_bytes))
+
     def test_example_opt_in_reports_metal_native_backend_admission(self) -> None:
         package_dir = FIXTURE_ROOT / "source-free-metal-native.cglb"
 
@@ -991,6 +1016,50 @@ class SourceFreeRuntimeLoaderExampleTests(unittest.TestCase):
             },
         )
         self.assertEqual(list(package_dir.rglob("*.cgl")), [])
+
+    def test_example_handoff_preserves_storage_image_binding_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            package_dir = Path(tmp_dir) / "source-free-directx-emitted-dxil.cglb"
+            shutil.copytree(
+                FIXTURE_ROOT / "source-free-directx-emitted-dxil.cglb",
+                package_dir,
+            )
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            storage_metadata = {
+                "storageImageFormat": "rgba8",
+                "storageImageAccess": "read_write",
+            }
+            reflection["resources"][0].update(
+                {
+                    "name": "OutputImage",
+                    "kind": "storageImage",
+                    "type": "RWTexture2D<float4>",
+                    **storage_metadata,
+                }
+            )
+            reflection["targetResourceBindings"][0].update(
+                {
+                    "name": "OutputImage",
+                    "kind": "storageImage",
+                    "sourceType": "RWTexture2D<float4>",
+                    "descriptorType": "UAV",
+                    "hlslType": "RWTexture2D<float4>",
+                    **storage_metadata,
+                }
+            )
+            reflection_path.write_text(
+                json.dumps(reflection, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_opens():
+                summary = inspect_source_free_package(package_dir, "directx")
+
+        binding = summary["reflectionHandoff"]["targetResourceBinding"]
+        self.assertTrue(summary["loadable"], summary["diagnostics"])
+        self.assertEqual(binding["storageImageFormat"], "rgba8")
+        self.assertEqual(binding["storageImageAccess"], "read_write")
 
     def test_example_opt_in_reports_directx_emitted_dxil_native_admission(
         self,

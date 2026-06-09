@@ -1,0 +1,22 @@
+shader MetalTransitiveHelperResourceShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float writeResult(float value) {
+      values[0] = value;
+      return value;
+    }
+
+    float forwardResult(float value) {
+      return writeResult(value + 1.0);
+    }
+
+    void main() {
+      float base = values[1];
+      float result = forwardResult(base);
+      values[2] = result;
+      return;
+    }
+  }
+}

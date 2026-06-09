@@ -74,6 +74,87 @@ def tools_with_role(instance, role):
     ]
 
 
+def is_opengl_planned_validation_failure(instance):
+    return (
+        instance["target"] == "opengl"
+        and instance["binaryKind"] == "opengl.source"
+        and instance.get("nativeBinaryStatus") == "planned"
+        and instance["validationStatus"] == "failed"
+    )
+
+
+def opengl_planned_validation_failure_tools_match(instance):
+    tools = [
+        tool
+        for tool in instance["toolchainProvenance"]["tools"]
+        if isinstance(tool, dict)
+    ]
+    generators = tools_with_role(instance, "generator")
+    validators = tools_with_role(instance, "validator")
+    return (
+        len(tools) == 2
+        and len(generators) == 1
+        and generators[0].get("name") == "CrossGL-Compiler"
+        and len(validators) == 1
+        and validators[0].get("name") == "glslangValidator"
+    )
+
+
+def is_directx_planned_dxc_evidence(instance):
+    return (
+        instance["target"] == "directx"
+        and instance["binaryKind"] == "directx.dxil"
+        and instance.get("nativeBinaryStatus") == "planned"
+        and directx_planned_dxc_tools_match(instance)
+        and directx_planned_optimization_evidence_matches(instance)
+    )
+
+
+def is_directx_native_dxil_descriptor(instance):
+    return (
+        instance["target"] == "directx"
+        and instance["binaryKind"] == "directx.dxil"
+        and instance.get("nativeBinaryStatus") is None
+        and instance.get("artifactPath") is not None
+        and instance.get("artifactHash") is not None
+        and instance.get("sizeBytes") is not None
+    )
+
+
+def directx_planned_dxc_tools_match(instance):
+    tools = [
+        tool
+        for tool in instance["toolchainProvenance"]["tools"]
+        if isinstance(tool, dict)
+    ]
+    generators = tools_with_role(instance, "generator")
+    compilers = tools_with_role(instance, "compiler")
+    return (
+        len(tools) == 2
+        and len(generators) == 1
+        and generators[0].get("name") == "CrossGL-Compiler"
+        and len(compilers) == 1
+        and compilers[0].get("name") == "dxc"
+    )
+
+
+def directx_planned_optimization_evidence_matches(instance):
+    evidence = instance.get("optimizationEvidence")
+    return (
+        isinstance(evidence, dict)
+        and isinstance(evidence.get("requestedLevel"), str)
+        and len(evidence["requestedLevel"]) > 0
+        and evidence.get("effectiveLevel") == "unknown"
+        and evidence.get("policy") == "crossgl-to-dxc-optimization-map"
+        and evidence.get("status") in {"not-run", "unavailable"}
+        and evidence.get("tool") == "dxc"
+        and isinstance(evidence.get("toolFlag"), str)
+        and len(evidence["toolFlag"]) > 0
+        and isinstance(evidence.get("profile"), str)
+        and len(evidence["profile"]) > 0
+    )
+
+
 def validate_target_contract_alignment(errors):
     matrix_targets = set(TARGET_BINARY_KINDS)
     if matrix_targets != PACKAGE_TARGET_NAMES:
@@ -151,6 +232,17 @@ def validate_toolchain_roles(errors, instance):
                 "$.toolchainProvenance.tools: planned source-package "
                 "descriptors require a generator tool role"
             )
+        if is_opengl_planned_validation_failure(instance):
+            if not opengl_planned_validation_failure_tools_match(instance):
+                errors.append(
+                    "$.toolchainProvenance.tools: failed OpenGL planned "
+                    "source-package descriptors require exactly one generator "
+                    "named 'CrossGL-Compiler' and one validator named "
+                    "'glslangValidator'"
+                )
+            return
+        if is_directx_planned_dxc_evidence(instance):
+            return
         unexpected_roles = sorted(roles - PLANNED_SOURCE_PACKAGE_ROLES)
         if unexpected_roles:
             errors.append(
@@ -197,6 +289,8 @@ def validate_native_binary_status(errors, instance):
 
     if is_source_package_target(target):
         if status is None:
+            if is_directx_native_dxil_descriptor(instance):
+                return
             errors.append(
                 f"$.nativeBinaryStatus: {target} descriptors require nativeBinaryStatus"
             )
@@ -234,13 +328,25 @@ def validate_native_binary_status(errors, instance):
                 "$.sizeBytes: planned source-package descriptors must not "
                 "declare sizeBytes"
             )
-        if validation_status != "unavailable":
+        if (
+            validation_status != "unavailable"
+            and not is_opengl_planned_validation_failure(instance)
+        ):
             errors.append(
                 "$.validationStatus: planned source-package descriptors require "
                 "validationStatus 'unavailable'"
             )
         optimization_level = instance.get("optimizationLevel")
-        if optimization_level != PLANNED_SOURCE_PACKAGE_OPTIMIZATION_LEVEL:
+        if is_directx_planned_dxc_evidence(instance):
+            requested_level = instance["optimizationEvidence"].get("requestedLevel")
+            if optimization_level != requested_level:
+                errors.append(
+                    "$.optimizationLevel: planned DirectX DXIL "
+                    "source-package descriptors with dxc evidence must match "
+                    "$.optimizationEvidence.requestedLevel, got "
+                    f"{optimization_level!r}, expected {requested_level!r}"
+                )
+        elif optimization_level != PLANNED_SOURCE_PACKAGE_OPTIMIZATION_LEVEL:
             errors.append(
                 "$.optimizationLevel: planned source-package descriptors must "
                 f"use {PLANNED_SOURCE_PACKAGE_OPTIMIZATION_LEVEL!r}, got "
@@ -357,6 +463,58 @@ def validate_optimization_evidence(errors, instance):
                 )
 
 
+def validate_spirv_dependencies(errors, instance):
+    dependencies = instance.get("spirvDependencies")
+    if dependencies is None:
+        return
+
+    if instance.get("binaryKind") != "vulkan.spirv-module":
+        errors.append(
+            "$.spirvDependencies: only vulkan.spirv-module descriptors may "
+            "declare SPIR-V dependencies"
+        )
+        return
+
+    imports = dependencies.get("extendedInstructionSets")
+    if not isinstance(imports, list):
+        return
+
+    seen_result_ids = set()
+    seen_instruction_sets = set()
+    previous_key = None
+    for index, record in enumerate(imports):
+        if not isinstance(record, dict):
+            continue
+        result_id = record.get("resultId")
+        instruction_set = record.get("instructionSet")
+        if not isinstance(result_id, str) or not isinstance(instruction_set, str):
+            continue
+
+        key = (instruction_set, result_id)
+        if previous_key is not None and key < previous_key:
+            errors.append(
+                "$.spirvDependencies.extendedInstructionSets: imports must be "
+                "sorted by instructionSet then resultId"
+            )
+            break
+        previous_key = key
+
+        if result_id in seen_result_ids:
+            errors.append(
+                f"$.spirvDependencies.extendedInstructionSets[{index}].resultId: "
+                f"duplicate SPIR-V import result id {result_id!r}"
+            )
+        seen_result_ids.add(result_id)
+
+        if instruction_set in seen_instruction_sets:
+            errors.append(
+                "$.spirvDependencies.extendedInstructionSets"
+                f"[{index}].instructionSet: duplicate SPIR-V extended "
+                f"instruction set {instruction_set!r}"
+            )
+        seen_instruction_sets.add(instruction_set)
+
+
 def validate_duplicate_tools(errors, instance):
     seen = set()
     for index, tool in enumerate(instance["toolchainProvenance"]["tools"]):
@@ -379,5 +537,6 @@ def validate_semantics(instance):
     validate_native_binary_status(errors, instance)
     validate_validation_status(errors, instance)
     validate_optimization_evidence(errors, instance)
+    validate_spirv_dependencies(errors, instance)
     validate_duplicate_tools(errors, instance)
     return errors

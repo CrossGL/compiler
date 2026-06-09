@@ -414,6 +414,8 @@ void collectReflectionResources(
         optionalStringMemberValue(resourceObject, "addressSpace");
     record.storageImageFormat =
         optionalStringMemberValue(resourceObject, "storageImageFormat");
+    record.storageImageAccess =
+        optionalStringMemberValue(resourceObject, "storageImageAccess");
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(resourceObject, "arrayDimensions", "[]");
     resourcesOut.push_back(std::move(record));
@@ -460,6 +462,10 @@ void collectReflectionTargetResourceBindings(
         optionalStringMemberValue(bindingObject, "addressSpace");
     record.storageImageFormat =
         optionalStringMemberValue(bindingObject, "storageImageFormat");
+    record.storageImageAccess =
+        optionalStringMemberValue(bindingObject, "storageImageAccess");
+    record.arrayElementCount =
+        objectUnsignedMember(bindingObject, "arrayElementCount");
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(bindingObject, "arrayDimensions", "[]");
     bindingsOut.push_back(std::move(record));
@@ -1273,6 +1279,88 @@ bool validateNativeOptimizationEvidence(std::string_view value) {
   return true;
 }
 
+bool isValidSPIRVResultId(std::string_view value) {
+  if (value.size() < 2 || value.front() != '%') {
+    return false;
+  }
+  for (const char character : value) {
+    if (std::isspace(static_cast<unsigned char>(character))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool validateSPIRVExtendedInstructionSetImport(
+    std::string_view value, std::string &resultId,
+    std::string &instructionSet) {
+  const std::optional<std::vector<JsonObjectMemberRange>> members =
+      collectObjectMemberRanges(value);
+  if (!members ||
+      !membersAreAllowed(*members, {"resultId", "instructionSet"}) ||
+      !hasAllMembers(*members, {"resultId", "instructionSet"})) {
+    return false;
+  }
+  const std::optional<std::string> parsedResultId =
+      objectStringMember(value, "resultId");
+  const std::optional<std::string> parsedInstructionSet =
+      objectStringMember(value, "instructionSet");
+  if (!parsedResultId || !isValidSPIRVResultId(*parsedResultId) ||
+      !parsedInstructionSet || parsedInstructionSet->empty()) {
+    return false;
+  }
+  resultId = *parsedResultId;
+  instructionSet = *parsedInstructionSet;
+  return true;
+}
+
+bool validateSPIRVDependencies(std::string_view value) {
+  const std::optional<std::vector<JsonObjectMemberRange>> members =
+      collectObjectMemberRanges(value);
+  if (!members || !membersAreAllowed(*members, {"extendedInstructionSets"}) ||
+      !hasAllMembers(*members, {"extendedInstructionSets"})) {
+    return false;
+  }
+  const std::optional<std::string_view> importsValue =
+      findObjectMemberValue(value, "extendedInstructionSets");
+  if (!importsValue) {
+    return false;
+  }
+  const std::optional<std::vector<JsonRange>> importRanges =
+      collectArrayElementRanges(*importsValue);
+  if (!importRanges || importRanges->empty()) {
+    return false;
+  }
+
+  std::vector<std::string> seenResultIds;
+  std::vector<std::string> seenInstructionSets;
+  std::optional<std::pair<std::string, std::string>> previousKey;
+  for (JsonRange range : *importRanges) {
+    std::string resultId;
+    std::string instructionSet;
+    if (!validateSPIRVExtendedInstructionSetImport(
+            importsValue->substr(range.begin, range.end - range.begin),
+            resultId, instructionSet)) {
+      return false;
+    }
+
+    const std::pair<std::string, std::string> key{instructionSet, resultId};
+    if (previousKey && key < *previousKey) {
+      return false;
+    }
+    previousKey = key;
+    if (std::find(seenResultIds.begin(), seenResultIds.end(), resultId) !=
+            seenResultIds.end() ||
+        std::find(seenInstructionSets.begin(), seenInstructionSets.end(),
+                  instructionSet) != seenInstructionSets.end()) {
+      return false;
+    }
+    seenResultIds.push_back(std::move(resultId));
+    seenInstructionSets.push_back(std::move(instructionSet));
+  }
+  return true;
+}
+
 bool isKnownNativeToolRole(std::string_view role) {
   return role == "generator" || role == "compiler" || role == "assembler" ||
          role == "linker" || role == "validator" || role == "packager";
@@ -1385,6 +1473,70 @@ bool plannedSourcePackageGeneratorMatches(
                      });
 }
 
+bool openglPlannedValidationFailureToolsMatch(
+    const std::vector<NativeArtifactToolRecord> &tools) {
+  if (tools.size() != 2 || countToolRole(tools, "generator") != 1 ||
+      countToolRole(tools, "validator") != 1) {
+    return false;
+  }
+  return std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "generator" &&
+                              tool.name == "CrossGL-Compiler";
+                     }) &&
+         std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "validator" &&
+                              tool.name == "glslangValidator";
+                     });
+}
+
+bool directxPlannedDxcToolsMatch(
+    const std::vector<NativeArtifactToolRecord> &tools) {
+  if (tools.size() != 2 || countToolRole(tools, "generator") != 1 ||
+      countToolRole(tools, "compiler") != 1) {
+    return false;
+  }
+  return std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "generator" &&
+                              tool.name == "CrossGL-Compiler";
+                     }) &&
+         std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "compiler" &&
+                              tool.name == "dxc";
+                     });
+}
+
+bool directxPlannedOptimizationEvidenceMatches(
+    std::string_view descriptorText, std::string_view optimizationLevel) {
+  const std::optional<std::string_view> evidence =
+      findObjectMemberValue(descriptorText, "optimizationEvidence");
+  if (!evidence) {
+    return false;
+  }
+  const std::optional<std::string> requestedLevel =
+      objectStringMember(*evidence, "requestedLevel");
+  const std::optional<std::string> effectiveLevel =
+      objectStringMember(*evidence, "effectiveLevel");
+  const std::optional<std::string> policy =
+      objectStringMember(*evidence, "policy");
+  const std::optional<std::string> status =
+      objectStringMember(*evidence, "status");
+  const std::optional<std::string> tool = objectStringMember(*evidence, "tool");
+  const std::optional<std::string> toolFlag =
+      objectStringMember(*evidence, "toolFlag");
+  const std::optional<std::string> profile =
+      objectStringMember(*evidence, "profile");
+  return requestedLevel && *requestedLevel == optimizationLevel &&
+         effectiveLevel && *effectiveLevel == "unknown" && policy &&
+         *policy == "crossgl-to-dxc-optimization-map" && status &&
+         (*status == "not-run" || *status == "unavailable") && tool &&
+         *tool == "dxc" && toolFlag && !toolFlag->empty() && profile &&
+         !profile->empty();
+}
+
 bool hasDuplicateToolRoleRecord(
     const std::vector<NativeArtifactToolRecord> &tools) {
   for (std::size_t index = 0; index < tools.size(); ++index) {
@@ -1436,7 +1588,11 @@ bool validateToolRecord(std::string_view value,
       !membersAreAllowed(*members, {"name", "role", "version", "executable",
                                     "resolvedExecutable", "executableSource",
                                     "versionProbeStatus", "versionDetail",
-                                    "argumentsSha256"}) ||
+                                    "argumentsSha256", "commandShape",
+                                    "responseFilePath", "outputPath",
+                                    "outputSha256", "outputSizeBytes",
+                                    "provenanceStatus",
+                                    "provenanceDetail"}) ||
       !hasAllMembers(*members, {"name", "role", "version", "executable"})) {
     return false;
   }
@@ -1454,6 +1610,58 @@ bool validateToolRecord(std::string_view value,
     const std::optional<std::string> argumentsSha256 =
         objectStringMember(value, "argumentsSha256");
     if (!argumentsSha256 || !isLowercaseSha256(*argumentsSha256)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "commandShape")) {
+    const std::optional<std::string> commandShape =
+        objectStringMember(value, "commandShape");
+    if (!commandShape || commandShape->empty()) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "responseFilePath")) {
+    const std::optional<std::string> responseFilePath =
+        objectStringMember(value, "responseFilePath");
+    if (!responseFilePath || !isPackageRelativePath(*responseFilePath)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "outputPath")) {
+    const std::optional<std::string> outputPath =
+        objectStringMember(value, "outputPath");
+    if (!outputPath || !isPackageRelativePath(*outputPath)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "outputSha256")) {
+    const std::optional<std::string> outputSha256 =
+        objectStringMember(value, "outputSha256");
+    if (!outputSha256 || !isLowercaseSha256(*outputSha256)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "outputSizeBytes") &&
+      !objectUnsignedMember(value, "outputSizeBytes")) {
+    return false;
+  }
+  if (hasMember(*members, "provenanceStatus")) {
+    const std::optional<std::string> provenanceStatus =
+        objectStringMember(value, "provenanceStatus");
+    if (!provenanceStatus ||
+        (*provenanceStatus != "captured" &&
+         *provenanceStatus != "succeeded" &&
+         *provenanceStatus != "failed" &&
+         *provenanceStatus != "missing-tool" &&
+         *provenanceStatus != "not-started" &&
+         *provenanceStatus != "incomplete")) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "provenanceDetail")) {
+    const std::optional<std::string> provenanceDetail =
+        objectStringMember(value, "provenanceDetail");
+    if (!provenanceDetail || provenanceDetail->empty()) {
       return false;
     }
   }
@@ -1586,8 +1794,9 @@ bool nativeArtifactDescriptorMatchesContract(
   if (!membersAreAllowed(
           *members, {"schemaVersion", "kind", "contractVersion", "target",
                      "binaryKind", "artifactPath", "artifactHash", "sizeBytes",
-                     "sourcePath", "sourceHash", "toolchainProvenance",
-                     "optimizationLevel", "optimizationEvidence",
+                     "spirvDependencies", "sourcePath", "sourceHash",
+                     "toolchainProvenance", "optimizationLevel",
+                     "optimizationEvidence",
                      "validationStatus", "nativeBinaryStatus",
                      "validationDiagnostics"}) ||
       !hasAllMembers(*members,
@@ -1637,6 +1846,13 @@ bool nativeArtifactDescriptorMatchesContract(
       !validateNativeOptimizationEvidence(*optimizationEvidence)) {
     return false;
   }
+  const std::optional<std::string_view> spirvDependencies =
+      findObjectMemberValue(descriptorText, "spirvDependencies");
+  if (spirvDependencies &&
+      (*health.binaryKind != "vulkan.spirv-module" ||
+       !validateSPIRVDependencies(*spirvDependencies))) {
+    return false;
+  }
 
   std::vector<NativeArtifactToolRecord> tools;
   const std::optional<std::string_view> provenanceValue =
@@ -1667,10 +1883,28 @@ bool nativeArtifactDescriptorMatchesContract(
       return false;
     }
     if (*health.nativeBinaryStatus == "planned") {
-      if (hasArtifactPath || *health.validationStatus != "unavailable" ||
-          *health.optimizationLevel != "unknown" ||
-          hasUnexpectedToolRole(tools, "generator") ||
-          !plannedSourcePackageGeneratorMatches(*health.target, tools)) {
+      const bool directxPlannedDxcEvidence =
+          *health.target == "directx" && *health.binaryKind == "directx.dxil" &&
+          directxPlannedDxcToolsMatch(tools) &&
+          directxPlannedOptimizationEvidenceMatches(
+              descriptorText, *health.optimizationLevel);
+      if (hasArtifactPath ||
+          (!directxPlannedDxcEvidence &&
+           *health.optimizationLevel != "unknown")) {
+        return false;
+      }
+      if (*health.validationStatus == "unavailable") {
+        if (!directxPlannedDxcEvidence &&
+            (hasUnexpectedToolRole(tools, "generator") ||
+             !plannedSourcePackageGeneratorMatches(*health.target, tools))) {
+          return false;
+        }
+      } else if (*health.validationStatus == "failed" &&
+                 *health.binaryKind == "opengl.source") {
+        if (!openglPlannedValidationFailureToolsMatch(tools)) {
+          return false;
+        }
+      } else {
         return false;
       }
     } else if (!hasArtifactPath) {

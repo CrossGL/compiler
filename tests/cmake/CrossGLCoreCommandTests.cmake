@@ -64,9 +64,21 @@ set(CROSSGL_DOCTOR_FAKE_PATH_TOOLS
 if(APPLE)
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|xcrun")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE xcrun)
+  set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET metal)
+  set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
+  set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
+elseif(WIN32)
+  string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|metal|metallib")
+  set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE PATH)
+  set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET metal)
+  set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
+  set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
 else()
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|metal|metallib")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE PATH)
+  set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET vulkan)
+  set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
+  set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
 endif()
 
 add_test(NAME cglc_doctor_json_toolchain_path_tools_available
@@ -156,10 +168,10 @@ add_test(NAME cglc_doctor_json_native_predicate_unsupported
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_DIRECTX_RUNTIME_TEXTURE_RESOURCE_ARRAY_CONFLICT_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=DirectXRuntimeTextureResourceArrayConflictShader|targetExplanation.buildableTargetCount=0|targetExplanation.recommendedTarget=null|targetExplanation.recommendedPackageMode=null"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=DirectXRuntimeTextureResourceArrayConflictShader|targetExplanation.buildableTargetCount=1|targetExplanation.recommendedTarget=metal|targetExplanation.recommendedPackageMode=native"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
-    "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=false|metal.packageMode=unsupported|metal.packageDecisionReason=unsupported|metal.packageRankScore=2|metal.missingCapabilityCount=2|vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=false|vulkan.packageMode=unsupported|vulkan.packageDecisionReason=unsupported|vulkan.packageRankScore=2|vulkan.missingCapabilityCount=2|directx.sourcePackageSupported=false|directx.packageBuildSupported=false|directx.packageMode=unsupported|directx.packageDecisionReason=unsupported|directx.packageRankScore=2|directx.missingCapabilityCount=2|opengl.sourcePackageSupported=false|opengl.packageBuildSupported=false|opengl.packageMode=unsupported|opengl.packageDecisionReason=unsupported|opengl.packageRankScore=2|opengl.missingCapabilityCount=2"
-    "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.missingCapabilities=metal.backend.native-metal-package|metal.missingCapabilities=metal.diagnostic.metal.unsupported-runtime-resource-array|vulkan.missingCapabilities=vulkan.backend.vulkan-prototype-package|vulkan.missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array|directx.missingCapabilities=directx.backend.hlsl-lowering|directx.missingCapabilities=directx.diagnostic.directx.unsupported-runtime-resource-array|opengl.missingCapabilities=opengl.backend.glsl-lowering|opengl.missingCapabilities=opengl.diagnostic.opengl.unsupported-runtime-resource-array"
+    "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.packageRankScore=0|metal.missingCapabilityCount=0|vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=false|vulkan.packageMode=unsupported|vulkan.packageDecisionReason=unsupported|vulkan.packageRankScore=2|vulkan.missingCapabilityCount=2|directx.nativeImplemented=true|directx.sourcePackageSupported=false|directx.packageBuildSupported=false|directx.packageMode=unsupported|directx.packageDecisionReason=unsupported|directx.packageRankScore=2|directx.missingCapabilityCount=4|opengl.sourcePackageSupported=false|opengl.packageBuildSupported=false|opengl.packageMode=unsupported|opengl.packageDecisionReason=unsupported|opengl.packageRankScore=2|opengl.missingCapabilityCount=2"
+    "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.backend.native-metal-package|metal.requiredCapabilities=metal.resource.runtime-descriptor-array|metal.requiredCapabilities=metal.resource.runtime-texture-descriptor-array|metal.requiredCapabilities=metal.layout.runtime-array|vulkan.missingCapabilities=vulkan.backend.vulkan-prototype-package|vulkan.missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array|directx.missingCapabilities=directx.backend.native-dxil-package|directx.missingCapabilities=directx.toolchain.dxc|directx.missingCapabilities=directx.validation.dxil-validator|directx.missingCapabilities=directx.diagnostic.directx.unsupported-runtime-resource-array|opengl.missingCapabilities=opengl.backend.glsl-lowering|opengl.missingCapabilities=opengl.diagnostic.opengl.unsupported-runtime-resource-array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_doctor_json_directx_source_package_predicate_supported
   COMMAND ${CMAKE_COMMAND}
@@ -168,7 +180,7 @@ add_test(NAME cglc_doctor_json_directx_source_package_predicate_supported
     -DMODE=doctor-json
     "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=DirectXMixedSamplerUsageUnsupportedShader"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
-    "-DEXPECTED_TARGET_FIELDS=directx.nativeImplemented=false|directx.sourcePackageSupported=true|directx.packageBuildSupported=true|directx.packageMode=source-package|directx.packageDecisionReason=source-package-available|directx.packageRankScore=1|opengl.sourcePackageSupported=true|opengl.packageBuildSupported=true|opengl.packageMode=source-package|opengl.packageDecisionReason=source-package-available|opengl.packageRankScore=1"
+    "-DEXPECTED_TARGET_FIELDS=directx.nativeImplemented=true|directx.sourcePackageSupported=true|directx.packageBuildSupported=true|directx.packageMode=source-package|directx.packageDecisionReason=source-package-available|directx.packageRankScore=1|opengl.sourcePackageSupported=true|opengl.packageBuildSupported=true|opengl.packageMode=source-package|opengl.packageDecisionReason=source-package-available|opengl.packageRankScore=1"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=directx.missingCapabilities=directx.backend.native-dxil-package|opengl.missingCapabilities=opengl.backend.native-glsl-package"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_doctor_json_opengl_source_package_predicate_unsupported
@@ -199,10 +211,10 @@ add_test(NAME cglc_doctor_json_directx_graphics_storage_buffer_source_package_ev
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RESOURCE_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=DirectXGraphicsStorageBufferResourceShader|targetExplanation.buildableTargetCount=2"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=DirectXGraphicsStorageBufferResourceShader|targetExplanation.buildableTargetCount=3|targetExplanation.recommendedTarget=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET}|targetExplanation.recommendedPackageMode=native"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
-    "-DEXPECTED_TARGET_FIELDS=directx.nativeImplemented=false|directx.sourcePackageSupported=true|directx.packageBuildSupported=true|directx.packageMode=source-package|directx.packageDecisionReason=source-package-available|directx.requiredCapabilityCount=14|directx.missingCapabilityCount=3"
-    "-DEXPECTED_TARGET_ARRAY_CONTAINS=directx.requiredCapabilities=directx.resource.storage-buffer|directx.requiredCapabilities=directx.layout.vector-storage-buffer|directx.requiredCapabilities=directx.operation.storage-buffer-read|directx.requiredCapabilities=directx.operation.storage-buffer-write|directx.missingCapabilities=directx.backend.native-dxil-package|directx.missingCapabilities=directx.toolchain.dxc|directx.missingCapabilities=directx.validation.dxil-validator"
+    "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.missingCapabilityCount=0|vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=true|vulkan.packageMode=native|vulkan.packageDecisionReason=native-package-available|vulkan.requiredCapabilityCount=15|vulkan.missingCapabilityCount=0|directx.nativeImplemented=true|directx.sourcePackageSupported=true|directx.packageBuildSupported=true|directx.packageMode=source-package|directx.packageDecisionReason=source-package-available|directx.requiredCapabilityCount=14|directx.missingCapabilityCount=3|opengl.nativeImplemented=false|opengl.sourcePackageSupported=false|opengl.packageBuildSupported=false|opengl.packageMode=unsupported|opengl.packageDecisionReason=unsupported|opengl.missingCapabilityCount=2"
+    "-DEXPECTED_TARGET_ARRAY_CONTAINS=vulkan.requiredCapabilities=vulkan.resource.storage-buffer|vulkan.requiredCapabilities=vulkan.layout.vector-storage-buffer|vulkan.requiredCapabilities=vulkan.operation.storage-buffer-read|vulkan.requiredCapabilities=vulkan.operation.storage-buffer-write|directx.requiredCapabilities=directx.resource.storage-buffer|directx.requiredCapabilities=directx.layout.vector-storage-buffer|directx.requiredCapabilities=directx.operation.storage-buffer-read|directx.requiredCapabilities=directx.operation.storage-buffer-write|directx.missingCapabilities=directx.backend.native-dxil-package|directx.missingCapabilities=directx.toolchain.dxc|directx.missingCapabilities=directx.validation.dxil-validator|opengl.missingCapabilities=opengl.backend.glsl-lowering|opengl.missingCapabilities=opengl.diagnostic.opengl.source-unsupported"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 
 add_test(NAME cglc_doctor_json_metal_graphics_descriptor_array_native_evidence
@@ -210,7 +222,7 @@ add_test(NAME cglc_doctor_json_metal_graphics_descriptor_array_native_evidence
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=MetalGraphicsDescriptorArrayShader|targetExplanation.buildableTargetCount=1|targetExplanation.recommendedTarget=metal|targetExplanation.recommendedPackageMode=native"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=MetalGraphicsDescriptorArrayShader|targetExplanation.buildableTargetCount=2|targetExplanation.recommendedTarget=${CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET}|targetExplanation.recommendedPackageMode=native"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
     "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.requiredCapabilityCount=21|metal.missingCapabilityCount=0"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.backend.native-metal-package|metal.requiredCapabilities=metal.resource.descriptor-array|metal.requiredCapabilities=metal.layout.fixed-array|metal.requiredCapabilities=metal.texture.depth-compare-format|metal.requiredCapabilities=metal.operation.texture-shadow-compare-explicit-lod"
@@ -221,7 +233,7 @@ add_test(NAME cglc_doctor_json_opengl_graphics_descriptor_array_source_package_e
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_OPENGL_GRAPHICS_DESCRIPTOR_ARRAY_RESOURCES_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=OpenGLGraphicsDescriptorArrayResourcesShader|targetExplanation.buildableTargetCount=3"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=OpenGLGraphicsDescriptorArrayResourcesShader|targetExplanation.buildableTargetCount=4"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
     "-DEXPECTED_TARGET_FIELDS=opengl.nativeImplemented=false|opengl.sourcePackageSupported=true|opengl.packageBuildSupported=true|opengl.packageMode=source-package|opengl.packageDecisionReason=source-package-available|opengl.requiredCapabilityCount=16|opengl.missingCapabilityCount=3"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=opengl.requiredCapabilities=opengl.resource.sampled-texture|opengl.requiredCapabilities=opengl.resource.sampler-state|opengl.requiredCapabilities=opengl.resource.descriptor-array|opengl.requiredCapabilities=opengl.layout.fixed-array|opengl.missingCapabilities=opengl.backend.native-glsl-package|opengl.missingCapabilities=opengl.toolchain.opengl-driver|opengl.missingCapabilities=opengl.validation.glsl-program-validation"
@@ -232,10 +244,10 @@ add_test(NAME cglc_doctor_json_vulkan_runtime_texture_sampler_descriptor_array_n
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_VULKAN_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_POLICY_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=VulkanRuntimeTextureSamplerDescriptorArrayPolicyShader|targetExplanation.buildableTargetCount=2|targetExplanation.recommendedTarget=vulkan|targetExplanation.recommendedPackageMode=native"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=VulkanRuntimeTextureSamplerDescriptorArrayPolicyShader|targetExplanation.buildableTargetCount=3|targetExplanation.recommendedTarget=${CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET}|targetExplanation.recommendedPackageMode=native"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
-    "-DEXPECTED_TARGET_FIELDS=vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=true|vulkan.packageMode=native|vulkan.packageDecisionReason=native-package-available|vulkan.requiredCapabilityCount=22|vulkan.missingCapabilityCount=0"
-    "-DEXPECTED_TARGET_ARRAY_CONTAINS=vulkan.requiredCapabilities=vulkan.backend.vulkan-prototype-package|vulkan.requiredCapabilities=vulkan.resource.runtime-descriptor-array|vulkan.requiredCapabilities=vulkan.resource.runtime-texture-descriptor-array|vulkan.requiredCapabilities=vulkan.resource.runtime-sampler-descriptor-array|vulkan.requiredCapabilities=vulkan.layout.runtime-array|vulkan.requiredCapabilities=vulkan.resource.descriptor-array"
+    "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.requiredCapabilityCount=22|metal.missingCapabilityCount=0|vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=true|vulkan.packageMode=native|vulkan.packageDecisionReason=native-package-available|vulkan.requiredCapabilityCount=22|vulkan.missingCapabilityCount=0"
+    "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.backend.native-metal-package|metal.requiredCapabilities=metal.resource.runtime-descriptor-array|metal.requiredCapabilities=metal.resource.runtime-texture-descriptor-array|metal.requiredCapabilities=metal.resource.runtime-sampler-descriptor-array|metal.requiredCapabilities=metal.layout.runtime-array|metal.requiredCapabilities=metal.resource.descriptor-array|vulkan.requiredCapabilities=vulkan.backend.vulkan-prototype-package|vulkan.requiredCapabilities=vulkan.resource.runtime-descriptor-array|vulkan.requiredCapabilities=vulkan.resource.runtime-texture-descriptor-array|vulkan.requiredCapabilities=vulkan.resource.runtime-sampler-descriptor-array|vulkan.requiredCapabilities=vulkan.layout.runtime-array|vulkan.requiredCapabilities=vulkan.resource.descriptor-array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_add_python_expect_test(
   NAME cglc_package_inspect_graphics_resources_reflection_contract

@@ -88,6 +88,11 @@ def validate_semantics(instance):
         errors.append(
             "$.blockerCount: release eligible verification must not report blockers"
         )
+    if not instance["releaseEligible"] and instance["verifiedArtifactCount"] != 0:
+        errors.append(
+            "$.verifiedArtifactCount: non-release-eligible verification "
+            "must not report verified artifacts"
+        )
     if instance["status"] == "blocked" and instance["blockerCount"] <= 0:
         errors.append(
             "$.blockerCount: blocked verification requires at least one blocker"

@@ -36,6 +36,7 @@ _discard_legacy_cglc_arg()
 
 
 from runtime.loader import read_loader_plan  # noqa: E402
+from runtime.opengl_loader import plan_opengl_loader  # noqa: E402
 from runtime.package_reader import (  # noqa: E402
     PackageReadError,
     read_compatibility_report,
@@ -567,16 +568,16 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
-            self._write_valid_package(package_dir, target="opengl")
+            self._write_valid_package(package_dir, target="metal")
             manifest_path = package_dir / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             artifacts = manifest["artifacts"]
             native_path = artifacts["nativeBinary"]
             artifacts.pop("backendSource")
-            artifacts.pop("nativeBinaryStatus")
+            artifacts.pop("intermediate")
             artifacts["nativeArtifactDescriptor"] = "metadata/native-artifact.json"
             manifest["packageArtifactRequirements"] = {
-                "target": "opengl",
+                "target": "metal",
                 "packageMode": "native",
                 "requiredPathArtifacts": ["nativeBinary"],
                 "requiresNativeBinaryStatus": False,
@@ -587,14 +588,22 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             native_file = package_dir / native_path
             descriptor_path = package_dir / "metadata" / "native-artifact.json"
             descriptor_path.parent.mkdir()
+            source_payload = (
+                "recorded source-free native plans must not parse source\n"
+            ).encode("utf-8")
             self._write_json(
                 descriptor_path,
                 {
                     "schemaVersion": 1,
                     "kind": "crossgl.nativeArtifact",
                     "contractVersion": "native-artifact-v0",
-                    "target": "opengl",
-                    "binaryKind": "opengl.source",
+                    "target": "metal",
+                    "binaryKind": "metal.metallib",
+                    "sourcePath": "source/RuntimeLoaderFixture.cgl",
+                    "sourceHash": {
+                        "algorithm": "sha256",
+                        "value": hashlib.sha256(source_payload).hexdigest(),
+                    },
                     "artifactPath": native_path,
                     "artifactHash": {
                         "algorithm": "sha256",
@@ -619,13 +628,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             )
             source_path = package_dir / "source" / "RuntimeLoaderFixture.cgl"
             source_path.parent.mkdir()
-            source_path.write_text(
-                "recorded source-free native plans must not parse source\n",
-                encoding="utf-8",
-            )
+            source_path.write_bytes(source_payload)
 
             with self._guard_crossgl_source_path_reads():
-                plan = read_loader_plan(package_dir, "opengl")
+                plan = read_loader_plan(package_dir, "metal")
 
             summary = plan.to_summary()
             admission = summary["runtimeArtifactAdmission"]
@@ -724,6 +730,40 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 summary["reflectionResources"]["targetResourceBindings"][0]["abi"],
                 {"buffer": 0},
             )
+            binding_metadata = summary["targetResourceBindingMetadata"]
+            self.assertEqual(
+                binding_metadata,
+                summary["metadataContract"]["targetResourceBindingMetadata"],
+            )
+            self.assertEqual(binding_metadata["schemaVersion"], 1)
+            self.assertEqual(binding_metadata["selectedTarget"], "metal")
+            self.assertEqual(binding_metadata["loaderTarget"], "metal")
+            self.assertEqual(binding_metadata["packageTarget"], "metal")
+            self.assertEqual(binding_metadata["bindingCount"], 1)
+            self.assertEqual(binding_metadata["skippedBindingCount"], 0)
+            self.assertEqual(
+                binding_metadata["bindings"][0],
+                {
+                    "target": "metal",
+                    "stage": "compute",
+                    "entryPoint": "runtime_loader_main",
+                    "name": "OutputBuffer",
+                    "kind": "storageBuffer",
+                    "bindingClass": "uav",
+                    "descriptorType": "UAV",
+                    "set": None,
+                    "binding": None,
+                    "argumentIndex": None,
+                    "abi": {"buffer": 0},
+                    "identity": {
+                        "target": "metal",
+                        "stage": "compute",
+                        "entryPoint": "runtime_loader_main",
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                    },
+                },
+            )
             self.assertEqual(summary["availableTargets"], ["metal"])
             self.assertEqual(
                 summary["targetAvailability"],
@@ -799,6 +839,213 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 ]["compatibilityScope"],
                 "legacy/report-only",
             )
+
+    def test_loader_summary_exposes_descriptor_array_binding_metadata_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            array_dimensions = [
+                {"kind": "fixed", "source": "4", "elementCount": 4},
+            ]
+            reflection["resources"][0].update(
+                {
+                    "type": "StructuredBuffer<float4>[4]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 4,
+                    "set": 2,
+                    "binding": 3,
+                }
+            )
+            reflection["targetResourceBindings"][0].update(
+                {
+                    "sourceType": "StructuredBuffer<float4>[4]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 4,
+                    "abi": {"space": 1, "register": "u3"},
+                    "set": 2,
+                    "binding": 3,
+                    "bindingClass": "uav",
+                    "descriptorType": "UAV",
+                    "hlslType": "RWStructuredBuffer<float4>",
+                }
+            )
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "RuntimeLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "loader must not parse source for descriptor array metadata\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "directx")
+
+            summary = plan.to_summary()
+            resource = summary["reflectionResources"]["resources"][0]
+            target_binding = summary["reflectionResources"]["targetResourceBindings"][0]
+            binding_metadata = summary["targetResourceBindingMetadata"]["bindings"][0]
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertFalse(plan.source_parsing_required)
+            self.assertEqual(resource["arrayDimensions"], array_dimensions)
+            self.assertEqual(resource["arrayElementCount"], 4)
+            self.assertEqual(resource["set"], 2)
+            self.assertEqual(resource["binding"], 3)
+            self.assertEqual(target_binding["arrayDimensions"], array_dimensions)
+            self.assertEqual(target_binding["arrayElementCount"], 4)
+            self.assertEqual(target_binding["abi"], {"space": 1, "register": "u3"})
+            self.assertEqual(binding_metadata["arrayDimensions"], array_dimensions)
+            self.assertEqual(binding_metadata["arrayElementCount"], 4)
+            self.assertEqual(binding_metadata["set"], 2)
+            self.assertEqual(binding_metadata["binding"], 3)
+            self.assertEqual(binding_metadata["bindingClass"], "uav")
+            self.assertEqual(binding_metadata["descriptorType"], "UAV")
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_loader_summary_exposes_storage_image_metadata_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            storage_metadata = {
+                "storageImageFormat": "rgba8",
+                "storageImageAccess": "read_write",
+            }
+            reflection["resources"][0].update(
+                {
+                    "name": "OutputImage",
+                    "kind": "storageImage",
+                    "type": "RWTexture2D<float4>",
+                    "set": 2,
+                    "binding": 4,
+                    **storage_metadata,
+                }
+            )
+            reflection["targetResourceBindings"][0].update(
+                {
+                    "name": "OutputImage",
+                    "kind": "storageImage",
+                    "sourceType": "RWTexture2D<float4>",
+                    "addressSpace": "uav",
+                    "abi": {"space": 2, "register": "u4"},
+                    "set": 2,
+                    "binding": 4,
+                    "bindingClass": "uav",
+                    "descriptorType": "UAV",
+                    "hlslType": "RWTexture2D<float4>",
+                    **storage_metadata,
+                }
+            )
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "RuntimeLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "loader must not parse source for storage image metadata\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "directx")
+
+            summary = plan.to_summary()
+            reflection_summary = summary["reflectionResources"]
+            contract_reflection = summary["metadataContract"]["reflectionInputs"]
+            resource = reflection_summary["resources"][0]
+            target_binding = reflection_summary["targetResourceBindings"][0]
+            binding_metadata = summary["targetResourceBindingMetadata"]["bindings"][0]
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertFalse(plan.source_parsing_required)
+            self.assertEqual(resource["storageImageFormat"], "rgba8")
+            self.assertEqual(resource["storageImageAccess"], "read_write")
+            self.assertEqual(target_binding["storageImageFormat"], "rgba8")
+            self.assertEqual(target_binding["storageImageAccess"], "read_write")
+            self.assertEqual(binding_metadata["storageImageFormat"], "rgba8")
+            self.assertEqual(binding_metadata["storageImageAccess"], "read_write")
+            self.assertEqual(
+                contract_reflection["resources"][0]["storageImageFormat"],
+                "rgba8",
+            )
+            self.assertEqual(
+                contract_reflection["targetResourceBindings"][0]["storageImageAccess"],
+                "read_write",
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_opengl_summary_exposes_descriptor_array_binding_metadata_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="opengl")
+            manifest_path = package_dir / "manifest.json"
+            reflection_path = package_dir / "reflection.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            native_binary_path = "backend/opengl/RuntimeLoaderFixture.native.glsl"
+            (package_dir / native_binary_path).write_bytes(b"native")
+            manifest["artifacts"]["nativeBinary"] = native_binary_path
+            reflection["nativeBinary"] = native_binary_path
+            array_dimensions = [
+                {"kind": "fixed", "source": "2", "elementCount": 2},
+                {"kind": "fixed", "source": "3", "elementCount": 3},
+            ]
+            reflection["resources"][0].update(
+                {
+                    "type": "float4[2][3]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 6,
+                    "set": 0,
+                    "binding": 7,
+                }
+            )
+            reflection["targetResourceBindings"][0].update(
+                {
+                    "sourceType": "float4[2][3]",
+                    "arrayDimensions": array_dimensions,
+                    "arrayElementCount": 6,
+                    "abi": {"program": 0, "binding": 7},
+                    "bindingClass": "storage-buffer",
+                    "descriptorType": "shader-storage-buffer",
+                }
+            )
+            self._write_json(manifest_path, manifest)
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "RuntimeLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "opengl loader must not parse source for descriptor arrays\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = plan_opengl_loader(package_dir)
+
+            summary = plan.to_summary()
+            admission_reflection = summary["openglSourcePackageAdmission"]["reflection"]
+            resource = admission_reflection["resources"][0]
+            target_binding = admission_reflection["targetResourceBindings"][0]
+            generic_binding = summary["targetResourceBindingMetadata"]["bindings"][0]
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertFalse(plan.source_parsing_required)
+            self.assertEqual(resource["arrayDimensions"], array_dimensions)
+            self.assertEqual(resource["arrayElementCount"], 6)
+            self.assertEqual(resource["binding"], 7)
+            self.assertEqual(target_binding["arrayDimensions"], array_dimensions)
+            self.assertEqual(target_binding["arrayElementCount"], 6)
+            self.assertEqual(target_binding["binding"], 7)
+            self.assertEqual(target_binding["descriptorType"], "shader-storage-buffer")
+            self.assertEqual(generic_binding["arrayDimensions"], array_dimensions)
+            self.assertEqual(generic_binding["arrayElementCount"], 6)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_loader_plan_reports_version_metadata_rejections_without_source_parse(
         self,
@@ -983,6 +1230,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                     "allowsPlannedNativeBinary": False,
                     "allowsPlannedNativeSourceEvidence": False,
                 },
+                native_artifact_descriptor=True,
             )
 
             plan = read_loader_plan(package_dir, "metal")
@@ -3123,6 +3371,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 package_dir,
                 target="directx",
                 native_status="emitted",
+                native_artifact_descriptor=True,
             )
 
             report = read_compatibility_report(package_dir, loader_target="directx")
@@ -4069,6 +4318,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
         target: str = "metal",
         native_status: str | None = None,
         package_artifact_requirements: dict[str, object] | None = None,
+        native_artifact_descriptor: bool = False,
     ) -> None:
         backend_dir = package_dir / "backend" / target
         backend_dir.mkdir(parents=True)
@@ -4103,6 +4353,9 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             native_status = "planned"
         if native_status is not None:
             artifacts["nativeBinaryStatus"] = native_status
+        descriptor_path = "metadata/native-artifact.json"
+        if native_artifact_descriptor:
+            artifacts["nativeArtifactDescriptor"] = descriptor_path
 
         manifest: dict[str, object] = {
             "schemaVersion": 1,
@@ -4122,6 +4375,15 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
         if package_artifact_requirements is not None:
             manifest["packageArtifactRequirements"] = package_artifact_requirements
         self._write_json(package_dir / "manifest.json", manifest)
+        if native_artifact_descriptor:
+            self._write_native_artifact_descriptor(
+                package_dir,
+                descriptor_path=descriptor_path,
+                target=target,
+                source_path=source_path,
+                binary_path=binary_path,
+                native_status=native_status,
+            )
         self._write_json(
             package_dir / "reflection.json",
             {
@@ -4183,6 +4445,61 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 ],
             },
         )
+
+    def _write_native_artifact_descriptor(
+        self,
+        package_dir: Path,
+        *,
+        descriptor_path: str,
+        target: str,
+        source_path: str,
+        binary_path: str,
+        native_status: str | None,
+    ) -> None:
+        source_file = package_dir / source_path
+        binary_file = package_dir / binary_path
+        binary_kind = {
+            "directx": "directx.dxil",
+            "metal": "metal.metallib",
+            "opengl": "opengl.source",
+        }.get(target, f"{target}.native")
+        descriptor_file = package_dir / descriptor_path
+        descriptor_file.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = {
+            "schemaVersion": 1,
+            "kind": "crossgl.nativeArtifact",
+            "contractVersion": "native-artifact-v0",
+            "target": target,
+            "binaryKind": binary_kind,
+            "sourcePath": source_path,
+            "sourceHash": {
+                "algorithm": "sha256",
+                "value": hashlib.sha256(source_file.read_bytes()).hexdigest(),
+            },
+            "artifactPath": binary_path,
+            "artifactHash": {
+                "algorithm": "sha256",
+                "value": hashlib.sha256(binary_file.read_bytes()).hexdigest(),
+            },
+            "sizeBytes": binary_file.stat().st_size,
+            "toolchainProvenance": {
+                "producer": "runtime loader fixture",
+                "tools": [],
+            },
+            "optimizationLevel": "O0",
+            "optimizationEvidence": {
+                "requestedLevel": "O0",
+                "effectiveLevel": "O0",
+                "policy": "metadata-only",
+                "status": "metadata-only",
+                "evidenceSource": {"kind": "descriptor"},
+            },
+            "validationStatus": "unavailable",
+            "validationDiagnostics": [],
+        }
+        if native_status is not None:
+            descriptor["nativeBinaryStatus"] = native_status
+        self._write_json(descriptor_file, descriptor)
 
     @staticmethod
     def _target_resource_binding_abi(target: str) -> dict[str, object]:

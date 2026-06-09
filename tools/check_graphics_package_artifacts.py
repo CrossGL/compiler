@@ -256,6 +256,71 @@ def expect_artifact_paths(errors, case_name, package, manifest, reflection, spec
             )
 
 
+def expect_opengl_graphics_stage_artifacts(errors, case_name, package, manifest):
+    if manifest.get("target") != "opengl":
+        return
+    module = manifest.get("module")
+    artifacts = manifest.get("artifacts", {})
+    if not isinstance(module, str) or not isinstance(artifacts, dict):
+        return
+
+    source_inventory_path = artifacts.get("backendSource")
+    native_inventory_path = artifacts.get("nativeBinary")
+    stage_paths = {
+        "source vertex": f"backend/opengl/{module}.vert.glsl",
+        "source fragment": f"backend/opengl/{module}.frag.glsl",
+        "validated vertex": f"backend/opengl/{module}.validated.vert.glsl",
+        "validated fragment": f"backend/opengl/{module}.validated.frag.glsl",
+    }
+    for label, stage_path in stage_paths.items():
+        if (
+            label.startswith("validated")
+            and artifacts.get("nativeBinaryStatus") == "planned"
+        ):
+            continue
+        expect_file(package / stage_path, errors, case_name)
+
+    if isinstance(source_inventory_path, str):
+        try:
+            source_inventory = (package / source_inventory_path).read_text(
+                encoding="utf-8"
+            )
+        except OSError as exc:
+            fail(errors, case_name, f"failed to read OpenGL source inventory: {exc}")
+        else:
+            for stage_path in (
+                stage_paths["source vertex"],
+                stage_paths["source fragment"],
+            ):
+                if stage_path not in source_inventory:
+                    fail(
+                        errors,
+                        case_name,
+                        f"OpenGL source inventory does not list {stage_path}",
+                    )
+
+    if artifacts.get("nativeBinaryStatus") != "planned" and isinstance(
+        native_inventory_path, str
+    ):
+        try:
+            native_inventory = (package / native_inventory_path).read_text(
+                encoding="utf-8"
+            )
+        except OSError as exc:
+            fail(errors, case_name, f"failed to read OpenGL native inventory: {exc}")
+        else:
+            for stage_path in (
+                stage_paths["validated vertex"],
+                stage_paths["validated fragment"],
+            ):
+                if stage_path not in native_inventory:
+                    fail(
+                        errors,
+                        case_name,
+                        f"OpenGL native inventory does not list {stage_path}",
+                    )
+
+
 def expect_graphics_reflection(errors, case_name, reflection, target, module=MODULE):
     expect_equal(
         errors,
@@ -816,6 +881,7 @@ def probe_target(root, tmp_dir, cglc, target, spec):
         fail(errors, case_name, "diagnostics.diagnostics must be present")
 
     expect_artifact_paths(errors, case_name, package, manifest, reflection, spec)
+    expect_opengl_graphics_stage_artifacts(errors, case_name, package, manifest)
     expect_graphics_reflection(errors, case_name, reflection, target)
     expect_inspect(
         errors, root, tmp_dir, cglc, case_name, package, manifest, reflection, spec
@@ -877,8 +943,17 @@ def probe_directx_graphics_fake_dxc(root, tmp_dir, cglc):
         case_name,
         "manifest.artifacts.nativeBinaryStatus",
         artifacts.get("nativeBinaryStatus"),
-        "emitted",
+        None,
     )
+    expect_equal(
+        errors,
+        case_name,
+        "manifest.artifacts.nativeArtifactDescriptor",
+        artifacts.get("nativeArtifactDescriptor"),
+        (f"backend/directx/{DIRECTX_GRAPHICS_RESOURCE_MODULE}.native-artifact.json"),
+    )
+    if isinstance(artifacts.get("nativeArtifactDescriptor"), str):
+        expect_file(package / artifacts["nativeArtifactDescriptor"], errors, case_name)
     expect_equal(
         errors,
         case_name,

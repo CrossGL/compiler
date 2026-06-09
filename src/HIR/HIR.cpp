@@ -7,6 +7,7 @@
 #include "crossgl/HIR/TypeSemantics.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iomanip>
 #include <limits>
@@ -49,8 +50,128 @@ bool isWorkgroupBarrierCallName(std::string_view name) {
   return name == "workgroupBarrier" || name == "barrier";
 }
 
+HIRExpression makeBoolLiteral(std::string value, SourceLocation location) {
+  HIRExpression literal;
+  literal.kind = HIRExpressionKind::Literal;
+  literal.value = std::move(value);
+  literal.location = std::move(location);
+  literal.type = makeType("bool");
+  return literal;
+}
+
 HIRType convertType(const TypeRef &type) {
   return HIRType{type.name, type.arraySize, type.location};
+}
+
+struct UserFunctionSignature {
+  HIRType returnType;
+  std::vector<HIRParameter> parameters;
+  SourceLocation nameSpan;
+};
+
+using UserFunctionSignatureMap =
+    std::unordered_map<std::string, UserFunctionSignature>;
+
+const UserFunctionSignatureMap &emptyUserFunctionSignatures() {
+  static const UserFunctionSignatureMap signatures;
+  return signatures;
+}
+
+UserFunctionSignature makeUserFunctionSignature(const FunctionDecl &function) {
+  UserFunctionSignature signature;
+  signature.returnType = convertType(function.returnType);
+  signature.nameSpan = function.location;
+  for (const Parameter &parameter : function.parameters) {
+    signature.parameters.push_back(
+        HIRParameter{convertType(parameter.type), parameter.name,
+                     parameter.location});
+  }
+  return signature;
+}
+
+UserFunctionSignatureMap
+collectUserFunctionSignatures(const std::vector<FunctionDecl> &functions) {
+  UserFunctionSignatureMap signatures;
+  for (const FunctionDecl &function : functions) {
+    signatures.emplace(function.name, makeUserFunctionSignature(function));
+  }
+  return signatures;
+}
+
+bool sameUserFunctionSignatureType(const HIRType &left, const HIRType &right) {
+  return sameType(stripTypeQualifier(left), stripTypeQualifier(right));
+}
+
+bool sameUserFunctionSignature(const UserFunctionSignature &left,
+                               const UserFunctionSignature &right) {
+  if (!sameUserFunctionSignatureType(left.returnType, right.returnType) ||
+      left.parameters.size() != right.parameters.size()) {
+    return false;
+  }
+  for (std::size_t index = 0; index < left.parameters.size(); ++index) {
+    if (!sameUserFunctionSignatureType(left.parameters[index].type,
+                                       right.parameters[index].type)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::string formatUserFunctionSignature(const UserFunctionSignature &signature) {
+  std::ostringstream stream;
+  stream << formatType(signature.returnType) << "(";
+  for (std::size_t index = 0; index < signature.parameters.size(); ++index) {
+    if (index != 0) {
+      stream << ", ";
+    }
+    stream << formatType(signature.parameters[index].type);
+  }
+  stream << ")";
+  return stream.str();
+}
+
+void validateUserFunctionSignatureConsistency(
+    const std::vector<FunctionDecl> &functions, const std::string &scopeLabel,
+    DiagnosticEngine &diagnostics) {
+  UserFunctionSignatureMap signatures;
+  for (const FunctionDecl &function : functions) {
+    if (function.name.empty() || function.returnType.name.empty()) {
+      continue;
+    }
+    UserFunctionSignature signature = makeUserFunctionSignature(function);
+    const auto [existing, inserted] =
+        signatures.emplace(function.name, signature);
+    if (!inserted && !sameUserFunctionSignature(existing->second, signature)) {
+      diagnostics.error(
+          "sema.function-signature-mismatch",
+          scopeLabel + " function '" + function.name +
+              "' signature mismatch: previous signature '" +
+              formatUserFunctionSignature(existing->second) +
+              "', current signature '" + formatUserFunctionSignature(signature) +
+              "'",
+          function.location);
+    }
+  }
+}
+
+void validateUserFunctionParameterNames(const std::vector<FunctionDecl> &functions,
+                                        const std::string &scopeLabel,
+                                        DiagnosticEngine &diagnostics) {
+  for (const FunctionDecl &function : functions) {
+    std::set<std::string> parameterNames;
+    for (const Parameter &parameter : function.parameters) {
+      if (parameter.name.empty()) {
+        continue;
+      }
+      if (!parameterNames.insert(parameter.name).second) {
+        diagnostics.error(
+            "sema.duplicate-function-parameter",
+            scopeLabel + " function '" + function.name +
+                "' contains duplicate parameter '" + parameter.name + "'",
+            parameter.location);
+      }
+    }
+  }
 }
 
 void addComputeInvocationBuiltinTypes(
@@ -62,6 +183,16 @@ void addComputeInvocationBuiltinTypes(
   variables.emplace("gl_GlobalInvocationID", makeType("uvec3"));
   variables.emplace("gl_LocalInvocationID", makeType("uvec3"));
   variables.emplace("gl_WorkGroupID", makeType("uvec3"));
+}
+
+void addComputeInvocationBuiltinReadOnlyVariables(
+    std::set<std::string> &readOnlyVariables, std::string_view stage) {
+  if (stage != "compute") {
+    return;
+  }
+  readOnlyVariables.insert("gl_GlobalInvocationID");
+  readOnlyVariables.insert("gl_LocalInvocationID");
+  readOnlyVariables.insert("gl_WorkGroupID");
 }
 
 HIRType typeFromTokens(const std::vector<Token> &tokens, std::size_t begin,
@@ -149,6 +280,23 @@ HIRType swizzleType(const HIRType &base, std::string_view member) {
     return makeType("vec" + std::to_string(indices->size()));
   }
   return {};
+}
+
+bool swizzleHasDuplicateComponents(const HIRType &base,
+                                   std::string_view member) {
+  const std::optional<std::vector<std::size_t>> indices =
+      swizzleComponentIndices(base, member);
+  if (!indices.has_value()) {
+    return false;
+  }
+  std::array<bool, 4> seen{};
+  for (const std::size_t index : *indices) {
+    if (seen[index]) {
+      return true;
+    }
+    seen[index] = true;
+  }
+  return false;
 }
 
 HIRType inferSelectType(const HIRType &thenType, const HIRType &elseType) {
@@ -332,6 +480,64 @@ bool isScalarNumericType(const HIRType &type) {
           baseTypeName(type) == "uint");
 }
 
+bool isNumericVectorTypeName(std::string_view name) {
+  return name == "vec2" || name == "vec3" || name == "vec4" ||
+         name == "ivec2" || name == "ivec3" || name == "ivec4" ||
+         name == "uvec2" || name == "uvec3" || name == "uvec4";
+}
+
+bool isNumericAggregateType(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string name = baseTypeName(type);
+  return isNumericVectorTypeName(name) || isMatrixType(name);
+}
+
+bool isArithmeticOperandType(const HIRType &type) {
+  return isScalarNumericType(type) || isNumericAggregateType(type);
+}
+
+bool isRelationalBinaryOperator(std::string_view op) {
+  return op == "<" || op == "<=" || op == ">" || op == ">=";
+}
+
+bool isEqualityBinaryOperator(std::string_view op) {
+  return op == "==" || op == "!=";
+}
+
+bool isEqualityOperandPair(const HIRType &left, const HIRType &right) {
+  return (isScalarBoolType(left) && isScalarBoolType(right)) ||
+         (isScalarNumericType(left) && isScalarNumericType(right));
+}
+
+bool isSelectBranchOperandType(const HIRType &type) {
+  if (type.name.empty() || type.arraySize.has_value() || isVoidType(type)) {
+    return false;
+  }
+  const std::string name = baseTypeName(type);
+  return isScalarBoolType(type) || isScalarNumericType(type) ||
+         isNumericVectorTypeName(name) || isMatrixType(name);
+}
+
+bool isSelectBranchOperandPair(const HIRType &left, const HIRType &right) {
+  if (!isSelectBranchOperandType(left) || !isSelectBranchOperandType(right)) {
+    return false;
+  }
+  return sameType(left, right) ||
+         (isScalarNumericType(left) && isScalarNumericType(right));
+}
+
+std::vector<HIRType>
+expressionTypes(const std::vector<HIRExpression> &expressions) {
+  std::vector<HIRType> types;
+  types.reserve(expressions.size());
+  for (const HIRExpression &expression : expressions) {
+    types.push_back(expression.type);
+  }
+  return types;
+}
+
 bool isFloatScalarType(const HIRType &type) {
   return !type.arraySize.has_value() && baseTypeName(type) == "float";
 }
@@ -375,8 +581,71 @@ bool isFloatVectorType(const HIRType &type) {
          (name == "vec2" || name == "vec3" || name == "vec4");
 }
 
+std::optional<std::size_t> matrixDimensionFromHIRTypeName(std::string_view name) {
+  if (name == "mat2" || name == "mat2x2") {
+    return std::size_t{2};
+  }
+  if (name == "mat3" || name == "mat3x3") {
+    return std::size_t{3};
+  }
+  if (name == "mat4" || name == "mat4x4") {
+    return std::size_t{4};
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t> matrixDimensionFromType(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return std::nullopt;
+  }
+  return matrixDimensionFromHIRTypeName(baseTypeName(type));
+}
+
+bool isMatrixValueType(const HIRType &type) {
+  return matrixDimensionFromType(type).has_value();
+}
+
+bool isFloatMatrixType(const HIRType &type) { return isMatrixValueType(type); }
+
+bool isMatrixVectorOperandPair(const HIRType &matrixType,
+                               const HIRType &vectorType) {
+  const std::optional<std::size_t> matrixDimension =
+      matrixDimensionFromType(matrixType);
+  const std::optional<std::size_t> vectorWidth =
+      vectorWidthFromName(baseTypeName(vectorType));
+  return matrixDimension.has_value() && vectorWidth.has_value() &&
+         *matrixDimension == *vectorWidth && isFloatVectorType(vectorType);
+}
+
 bool isArithmeticBinaryOperator(std::string_view op) {
-  return op == "+" || op == "-" || op == "*" || op == "/";
+  return op == "+" || op == "-" || op == "*" || op == "/" || op == "%";
+}
+
+std::optional<HIRType> inferMatrixArithmeticType(const HIRType &left,
+                                                 const HIRType &right,
+                                                 std::string_view op) {
+  if (!isArithmeticBinaryOperator(op)) {
+    return std::nullopt;
+  }
+
+  const bool leftMatrix = isMatrixValueType(left);
+  const bool rightMatrix = isMatrixValueType(right);
+  if (!leftMatrix && !rightMatrix) {
+    return std::nullopt;
+  }
+
+  if (leftMatrix && rightMatrix) {
+    return left;
+  }
+  if ((leftMatrix && isScalarNumericType(right)) ||
+      (rightMatrix && isScalarNumericType(left))) {
+    return leftMatrix ? left : right;
+  }
+  if ((leftMatrix && isFloatVectorType(right)) ||
+      (rightMatrix && isFloatVectorType(left))) {
+    return leftMatrix ? right : left;
+  }
+  return leftMatrix ? left : right;
 }
 
 HIRType inferTextureSampleType(const std::vector<HIRExpression> &arguments,
@@ -697,9 +966,12 @@ public:
                    const std::set<std::string> &knownTypeNames,
                    const std::unordered_map<std::string, HIRStruct> &structs,
                    const std::unordered_map<std::string, HIRType> &variables,
-                   DiagnosticEngine *diagnostics = nullptr)
+                   DiagnosticEngine *diagnostics = nullptr,
+                   const UserFunctionSignatureMap &functionSignatures =
+                       emptyUserFunctionSignatures())
       : tokens_(std::move(tokens)), knownTypeNames_(knownTypeNames),
-        structs_(structs), variables_(variables), diagnostics_(diagnostics) {}
+        structs_(structs), variables_(variables),
+        functionSignatures_(functionSignatures), diagnostics_(diagnostics) {}
 
   HIRExpression parse() {
     HIRExpression expression = parseConditional();
@@ -1005,7 +1277,7 @@ private:
         }
         HIRExpression indexExpression =
             ExpressionParser(std::move(indexTokens), knownTypeNames_, structs_,
-                             variables_, diagnostics_)
+                             variables_, diagnostics_, functionSignatures_)
                 .parse();
         if (failed_ || indexExpression.kind == HIRExpressionKind::Empty) {
           failed_ = true;
@@ -1028,7 +1300,8 @@ private:
               collectUntilTopLevelCommaOr(TokenKind::RParen);
           HIRExpression argument =
               ExpressionParser(std::move(argumentTokens), knownTypeNames_,
-                               structs_, variables_, diagnostics_)
+                               structs_, variables_, diagnostics_,
+                               functionSignatures_)
                   .parse();
           if (failed_ || argument.kind == HIRExpressionKind::Empty) {
             failed_ = true;
@@ -1226,6 +1499,14 @@ private:
                                         callee.location)) {
       return *intrinsicType;
     }
+    if (kind == HIRExpressionKind::Call) {
+      auto function = functionSignatures_.find(callee.value);
+      if (function != functionSignatures_.end()) {
+        HIRType returnType = function->second.returnType;
+        returnType.location = callee.location;
+        return returnType;
+      }
+    }
     return {};
   }
 
@@ -1238,6 +1519,10 @@ private:
 
     const std::string leftName = baseTypeName(left);
     const std::string rightName = baseTypeName(right);
+    if (const std::optional<HIRType> matrixType =
+            inferMatrixArithmeticType(left, right, op)) {
+      return *matrixType;
+    }
     if (isVectorType(leftName)) {
       return left;
     }
@@ -1257,6 +1542,7 @@ private:
   const std::set<std::string> &knownTypeNames_;
   const std::unordered_map<std::string, HIRStruct> &structs_;
   const std::unordered_map<std::string, HIRType> &variables_;
+  const UserFunctionSignatureMap &functionSignatures_;
   DiagnosticEngine *diagnostics_ = nullptr;
   std::size_t index_ = 0;
   bool failed_ = false;
@@ -1498,10 +1784,17 @@ public:
              const std::unordered_map<std::string, HIRStruct> &structs,
              std::unordered_map<std::string, HIRType> variables,
              DiagnosticEngine &diagnostics,
-             std::set<std::string> mutableLocals = {})
+             std::set<std::string> mutableLocals = {},
+             const UserFunctionSignatureMap &functionSignatures =
+                 emptyUserFunctionSignatures(),
+             std::set<std::string> readOnlyVariables = {},
+             std::set<std::string> resourceHandleVariables = {})
       : tokens_(tokens), knownTypeNames_(knownTypeNames), structs_(structs),
         variables_(std::move(variables)), diagnostics_(diagnostics),
-        mutableLocals_(std::move(mutableLocals)) {}
+        mutableLocals_(std::move(mutableLocals)),
+        functionSignatures_(functionSignatures),
+        readOnlyVariables_(std::move(readOnlyVariables)),
+        resourceHandleVariables_(std::move(resourceHandleVariables)) {}
 
   std::vector<HIRStatement> parse() {
     std::vector<HIRStatement> statements;
@@ -1532,6 +1825,19 @@ private:
     SourceLocation opLocation;
   };
 
+  struct ControlConditionSpan {
+    std::size_t begin = 0;
+    std::size_t end = 0;
+    std::size_t bodyBegin = 0;
+  };
+
+  struct SwitchSection {
+    bool isDefault = false;
+    std::vector<HIRExpression> labels;
+    std::vector<HIRStatement> body;
+    SourceLocation location;
+  };
+
   std::vector<Token> collectStatement() {
     std::vector<Token> statement;
     int braceDepth = 0;
@@ -1540,7 +1846,8 @@ private:
     const bool controlBlock =
         index_ < tokens_.size() && tokens_[index_].kind == TokenKind::Identifier &&
         (tokens_[index_].text == "if" || tokens_[index_].text == "for" ||
-         tokens_[index_].text == "while" || tokens_[index_].text == "switch");
+         tokens_[index_].text == "while" || tokens_[index_].text == "loop" ||
+         tokens_[index_].text == "switch");
     const bool standaloneBlock =
         index_ < tokens_.size() && tokens_[index_].kind == TokenKind::LBrace;
 
@@ -1628,9 +1935,17 @@ private:
       return parseWhileStatement(std::move(statement), tokens);
     }
 
+    if (tokens.front().kind == TokenKind::Identifier && tokens.front().text == "do") {
+      return parseDoWhileStatement(std::move(statement), tokens);
+    }
+
+    if (tokens.front().kind == TokenKind::Identifier && tokens.front().text == "loop") {
+      return parseLoopStatement(std::move(statement), tokens);
+    }
+
     if (tokens.front().kind == TokenKind::Identifier &&
         tokens.front().text == "switch") {
-      return makeRawFallback(std::move(statement));
+      return parseSwitchStatement(std::move(statement), tokens);
     }
 
     if (tokens.size() == 1 && tokens.front().kind == TokenKind::Identifier) {
@@ -1661,6 +1976,16 @@ private:
 
     const std::optional<std::size_t> equal = topLevelEqual(tokens);
     if (equal.has_value()) {
+      if (std::optional<HIRStatement> letMut =
+              parseLetMutDeclarationStatement(tokens, *equal,
+                                              statementLocation)) {
+        return std::move(*letMut);
+      }
+
+      if (isLetMutDeclarationStart(tokens)) {
+        return makeRawFallback(std::move(statement));
+      }
+
       if (std::optional<DeclarationDeclarator> declaration =
               parseColonStyleVarDeclarator(tokens, *equal)) {
         if (hasUnsupportedExpressionToken(tokens, *equal + 1, tokens.size())) {
@@ -1674,6 +1999,8 @@ private:
         statement.value = parseExpression(tokens, *equal + 1, tokens.size());
         variables_[statement.name] = statement.declaredType;
         mutableLocals_.insert(statement.name);
+        readOnlyVariables_.erase(statement.name);
+        resourceHandleVariables_.erase(statement.name);
         statement.rawTokens.clear();
         return statement;
       }
@@ -1691,6 +2018,8 @@ private:
         statement.value = parseExpression(tokens, *equal + 1, tokens.size());
         variables_[statement.name] = statement.declaredType;
         mutableLocals_.insert(statement.name);
+        readOnlyVariables_.erase(statement.name);
+        resourceHandleVariables_.erase(statement.name);
         statement.rawTokens.clear();
         return statement;
       }
@@ -1705,6 +2034,7 @@ private:
           isCompoundAssignmentOperator(tokens[*equal - 1].text)) {
         const std::size_t opIndex = *equal - 1;
         statement.target = parseExpression(tokens, 0, opIndex);
+        validateAssignmentTargetWritable(statement.target);
         HIRExpression rhs = parseExpression(tokens, *equal + 1, tokens.size());
         HIRExpression value;
         value.kind = HIRExpressionKind::Binary;
@@ -1717,6 +2047,7 @@ private:
         statement.value = std::move(value);
       } else {
         statement.target = parseExpression(tokens, 0, *equal);
+        validateAssignmentTargetWritable(statement.target);
         statement.value = parseExpression(tokens, *equal + 1, tokens.size());
       }
       statement.rawTokens.clear();
@@ -1730,6 +2061,8 @@ private:
       statement.declaredType = declaration->type;
       variables_[statement.name] = statement.declaredType;
       mutableLocals_.insert(statement.name);
+      readOnlyVariables_.erase(statement.name);
+      resourceHandleVariables_.erase(statement.name);
       statement.rawTokens.clear();
       return statement;
     }
@@ -1741,6 +2074,8 @@ private:
       statement.declaredType = declaration->type;
       variables_[statement.name] = statement.declaredType;
       mutableLocals_.insert(statement.name);
+      readOnlyVariables_.erase(statement.name);
+      resourceHandleVariables_.erase(statement.name);
       statement.rawTokens.clear();
       return statement;
     }
@@ -1790,16 +2125,24 @@ private:
       return makeRawFallback(std::move(statement));
     }
 
-    if (hasUnsupportedExpressionToken(headerParts[1], 0, headerParts[1].size())) {
+    if (!headerParts[1].empty() &&
+        hasUnsupportedExpressionToken(headerParts[1], 0, headerParts[1].size())) {
       return makeRawFallback(std::move(statement));
     }
 
     const std::unordered_map<std::string, HIRType> outerVariables = variables_;
     const std::set<std::string> outerMutableLocals = mutableLocals_;
+    const std::set<std::string> outerReadOnlyVariables = readOnlyVariables_;
+    const std::set<std::string> outerResourceHandleVariables =
+        resourceHandleVariables_;
     if (!headerParts[0].empty()) {
       statement.initializer.push_back(parseStatement(headerParts[0]));
     }
-    statement.value = parseExpression(headerParts[1], 0, headerParts[1].size());
+    if (headerParts[1].empty()) {
+      statement.value = makeBoolLiteral("true", tokens.front().location);
+    } else {
+      statement.value = parseExpression(headerParts[1], 0, headerParts[1].size());
+    }
     statement.updateTokens = headerParts[2];
     if (!headerParts[2].empty()) {
       HIRStatement update = parseStatement(headerParts[2]);
@@ -1812,6 +2155,8 @@ private:
     statement.body = parseStatementBody(tokens, bodyBegin, tokens.size());
     variables_ = outerVariables;
     mutableLocals_ = outerMutableLocals;
+    readOnlyVariables_ = outerReadOnlyVariables;
+    resourceHandleVariables_ = outerResourceHandleVariables;
     statement.rawTokens.clear();
     return statement;
   }
@@ -1819,26 +2164,19 @@ private:
   HIRStatement parseWhileStatement(HIRStatement statement,
                                    const std::vector<Token> &tokens) {
     statement.kind = HIRStatementKind::For;
-    const std::optional<std::size_t> conditionOpen =
-        findToken(tokens, TokenKind::LParen, 1);
-    if (!conditionOpen.has_value()) {
-      return makeRawFallback(std::move(statement));
-    }
-    const std::optional<std::size_t> conditionClose =
-        findMatching(tokens, *conditionOpen, TokenKind::LParen,
-                     TokenKind::RParen);
-    if (!conditionClose.has_value()) {
+    const std::optional<ControlConditionSpan> condition =
+        parseControlConditionSpan(tokens);
+    if (!condition.has_value()) {
       return makeRawFallback(std::move(statement));
     }
 
-    if (hasUnsupportedExpressionToken(tokens, *conditionOpen + 1,
-                                      *conditionClose)) {
+    if (hasUnsupportedExpressionToken(tokens, condition->begin,
+                                      condition->end)) {
       return makeRawFallback(std::move(statement));
     }
-    statement.value =
-        parseExpression(tokens, *conditionOpen + 1, *conditionClose);
+    statement.value = parseExpression(tokens, condition->begin, condition->end);
 
-    std::size_t bodyBegin = *conditionClose + 1;
+    std::size_t bodyBegin = condition->bodyBegin;
     while (bodyBegin < tokens.size() &&
            tokens[bodyBegin].kind == TokenKind::Semicolon) {
       ++bodyBegin;
@@ -1857,26 +2195,65 @@ private:
     return statement;
   }
 
+  HIRStatement parseDoWhileStatement(HIRStatement statement,
+                                     const std::vector<Token> &tokens) {
+    statement.kind = HIRStatementKind::For;
+    if (tokens.size() < 5 || tokens[1].kind != TokenKind::LBrace) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    const std::optional<std::size_t> bodyClose =
+        findMatching(tokens, 1, TokenKind::LBrace, TokenKind::RBrace);
+    if (!bodyClose.has_value() || *bodyClose + 1 >= tokens.size()) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    std::vector<Token> conditionTokens(
+        tokens.begin() + static_cast<std::ptrdiff_t>(*bodyClose + 1),
+        tokens.end());
+    if (conditionTokens.empty() ||
+        conditionTokens.front().kind != TokenKind::Identifier ||
+        conditionTokens.front().text != "while") {
+      return makeRawFallback(std::move(statement));
+    }
+
+    const std::optional<ControlConditionSpan> condition =
+        parseControlConditionSpan(conditionTokens);
+    if (!condition.has_value() || condition->bodyBegin != conditionTokens.size()) {
+      return makeRawFallback(std::move(statement));
+    }
+    if (hasUnsupportedExpressionToken(conditionTokens, condition->begin,
+                                      condition->end)) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    const HIRExpression conditionExpression =
+        parseExpression(conditionTokens, condition->begin, condition->end);
+    statement.value = makeBoolLiteral("true", tokens.front().location);
+    statement.body = parseStatementBody(tokens, 1, *bodyClose + 1);
+    rewriteDoWhileContinues(statement.body, conditionExpression);
+    statement.body.push_back(
+        makeConditionBreakStatement(conditionExpression,
+                                    conditionTokens.front().location));
+    statement.rawTokens.clear();
+    return statement;
+  }
+
   HIRStatement parseIfStatement(HIRStatement statement,
                                 const std::vector<Token> &tokens) {
     statement.kind = HIRStatementKind::If;
-    const std::optional<std::size_t> conditionOpen =
-        findToken(tokens, TokenKind::LParen, 1);
-    if (!conditionOpen.has_value()) {
-      return makeRawFallback(std::move(statement));
-    }
-    const std::optional<std::size_t> conditionClose =
-        findMatching(tokens, *conditionOpen, TokenKind::LParen, TokenKind::RParen);
-    if (!conditionClose.has_value()) {
+    const std::optional<ControlConditionSpan> condition =
+        parseControlConditionSpan(tokens);
+    if (!condition.has_value()) {
       return makeRawFallback(std::move(statement));
     }
 
-    if (hasUnsupportedExpressionToken(tokens, *conditionOpen + 1, *conditionClose)) {
+    if (hasUnsupportedExpressionToken(tokens, condition->begin, condition->end)) {
       return makeRawFallback(std::move(statement));
     }
-    statement.value = parseExpression(tokens, *conditionOpen + 1, *conditionClose);
+    statement.value = parseExpression(tokens, condition->begin, condition->end);
 
-    std::size_t thenBegin = *conditionClose + 1;
+    std::size_t thenBegin = condition->bodyBegin;
     while (thenBegin < tokens.size() && tokens[thenBegin].kind == TokenKind::Semicolon) {
       ++thenBegin;
     }
@@ -1919,6 +2296,572 @@ private:
     return statement;
   }
 
+  HIRStatement parseLoopStatement(HIRStatement statement,
+                                  const std::vector<Token> &tokens) {
+    statement.kind = HIRStatementKind::For;
+    if (tokens.size() < 2 || tokens[1].kind != TokenKind::LBrace) {
+      return makeRawFallback(std::move(statement));
+    }
+    const std::optional<std::size_t> bodyClose =
+        findMatching(tokens, 1, TokenKind::LBrace, TokenKind::RBrace);
+    if (!bodyClose.has_value() || *bodyClose + 1 != tokens.size()) {
+      return makeRawFallback(std::move(statement));
+    }
+
+    statement.value = makeBoolLiteral("true", tokens.front().location);
+    statement.body = parseStatementBody(tokens, 1, tokens.size());
+    statement.rawTokens.clear();
+    return statement;
+  }
+
+  HIRStatement parseSwitchStatement(HIRStatement statement,
+                                    const std::vector<Token> &tokens) {
+    if (tokens.size() < 6) {
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
+    }
+
+    const std::optional<ControlConditionSpan> selectorSpan =
+        parseControlConditionSpan(tokens);
+    if (!selectorSpan.has_value() ||
+        hasUnsupportedExpressionToken(tokens, selectorSpan->begin,
+                                      selectorSpan->end)) {
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
+    }
+    std::size_t bodyBegin = selectorSpan->bodyBegin;
+    while (bodyBegin < tokens.size() &&
+           tokens[bodyBegin].kind == TokenKind::Semicolon) {
+      ++bodyBegin;
+    }
+    if (bodyBegin >= tokens.size() || tokens[bodyBegin].kind != TokenKind::LBrace) {
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
+    }
+    const std::optional<std::size_t> bodyClose =
+        findMatching(tokens, bodyBegin, TokenKind::LBrace, TokenKind::RBrace);
+    if (!bodyClose.has_value() || *bodyClose + 1 != tokens.size()) {
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
+    }
+
+    std::optional<std::vector<SwitchSection>> sections =
+        parseSwitchSections(tokens, bodyBegin + 1, *bodyClose);
+    if (!sections.has_value() || sections->empty()) {
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
+    }
+
+    HIRExpression selector =
+        parseExpression(tokens, selectorSpan->begin, selectorSpan->end);
+    if (!isSwitchComparableType(selector.type) ||
+        !switchLabelsMatchSelector(selector.type, *sections) ||
+        hasDuplicateSwitchCaseLabels(*sections)) {
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
+    }
+
+    const std::unordered_map<std::string, HIRType> outerVariables = variables_;
+    const std::set<std::string> outerMutableLocals = mutableLocals_;
+    const std::set<std::string> outerReadOnlyVariables = readOnlyVariables_;
+    const std::set<std::string> outerResourceHandleVariables =
+        resourceHandleVariables_;
+    const std::string selectorName = makeUniqueLocalName("__crossgl_selector",
+                                                         selector.type);
+    HIRStatement selectorDeclaration;
+    selectorDeclaration.kind = HIRStatementKind::Declaration;
+    selectorDeclaration.location = selector.location;
+    selectorDeclaration.declaredType = selector.type;
+    selectorDeclaration.name = selectorName;
+    selectorDeclaration.value = std::move(selector);
+
+    const HIRExpression selectorReference = makeIdentifierExpression(
+        selectorName, selectorDeclaration.declaredType,
+        selectorDeclaration.location);
+    std::optional<std::vector<HIRStatement>> lowered =
+        lowerSwitchSections(selectorReference, std::move(*sections));
+    if (!lowered.has_value() || lowered->empty()) {
+      variables_ = outerVariables;
+      mutableLocals_ = outerMutableLocals;
+      readOnlyVariables_ = outerReadOnlyVariables;
+      resourceHandleVariables_ = outerResourceHandleVariables;
+      return makeUnsupportedSwitchFallback(std::move(statement),
+                                           tokens.front().location);
+    }
+
+    statement.kind = HIRStatementKind::Block;
+    statement.body = std::move(*lowered);
+    statement.body.insert(statement.body.begin(), std::move(selectorDeclaration));
+    variables_ = outerVariables;
+    mutableLocals_ = outerMutableLocals;
+    readOnlyVariables_ = outerReadOnlyVariables;
+    resourceHandleVariables_ = outerResourceHandleVariables;
+    statement.rawTokens.clear();
+    return statement;
+  }
+
+  HIRStatement makeUnsupportedSwitchFallback(HIRStatement statement,
+                                             SourceLocation location) {
+    diagnostics_.error(
+        "spec.unsupported-for-native-v0",
+        "CrossTL/CrossGL native v0 only supports restricted "
+        "switch/case/default statements with case labels compatible with the "
+        "scalar selector, an optional trailing default, and a terminal break "
+        "in every case; fallthrough and non-terminal switch-local breaks are "
+        "not supported",
+        std::move(location));
+    return makeRawFallback(std::move(statement));
+  }
+
+  HIRExpression makeGroupedExpression(HIRExpression expression) const {
+    HIRExpression group;
+    group.kind = HIRExpressionKind::Group;
+    group.type = expression.type;
+    group.location = expression.location;
+    group.children.push_back(std::move(expression));
+    return group;
+  }
+
+  HIRExpression makeNegatedCondition(HIRExpression condition,
+                                     SourceLocation location) const {
+    HIRExpression negated;
+    negated.kind = HIRExpressionKind::Unary;
+    negated.value = "!";
+    negated.type = makeType("bool");
+    negated.location = std::move(location);
+    negated.children.push_back(makeGroupedExpression(std::move(condition)));
+    return negated;
+  }
+
+  HIRStatement makeBreakStatement(SourceLocation location) const {
+    HIRStatement statement;
+    statement.kind = HIRStatementKind::Break;
+    statement.location = std::move(location);
+    return statement;
+  }
+
+  HIRStatement makeContinueStatement(SourceLocation location) const {
+    HIRStatement statement;
+    statement.kind = HIRStatementKind::Continue;
+    statement.location = std::move(location);
+    return statement;
+  }
+
+  HIRExpression makeIdentifierExpression(std::string name, HIRType type,
+                                         SourceLocation location) const {
+    HIRExpression expression;
+    expression.kind = HIRExpressionKind::Identifier;
+    expression.value = std::move(name);
+    expression.type = std::move(type);
+    expression.location = std::move(location);
+    return expression;
+  }
+
+  std::string makeUniqueLocalName(std::string_view base, const HIRType &type) {
+    std::string name(base);
+    std::size_t suffix = 0;
+    while (variables_.contains(name)) {
+      name = std::string(base) + std::to_string(++suffix);
+    }
+    variables_[name] = type;
+    mutableLocals_.insert(name);
+    return name;
+  }
+
+  bool isSwitchComparableType(const HIRType &type) const {
+    if (type.name.empty() || type.arraySize.has_value()) {
+      return false;
+    }
+    const std::string base = baseTypeName(type);
+    return base == "bool" || isNumericScalarTypeName(base);
+  }
+
+  bool switchLabelsMatchSelector(
+      const HIRType &selectorType,
+      const std::vector<SwitchSection> &sections) const {
+    const HIRType strippedSelector = stripTypeQualifier(selectorType);
+    for (const SwitchSection &section : sections) {
+      if (section.isDefault) {
+        continue;
+      }
+      for (const HIRExpression &label : section.labels) {
+        if (!isSwitchComparableType(label.type) ||
+            !sameType(strippedSelector, stripTypeQualifier(label.type))) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  std::optional<std::string> canonicalSwitchCaseLabelKey(
+      const HIRExpression &label) const {
+    const std::optional<FoldedHIRScalar> folded =
+        foldHIRScalarExpression(label, HIRScalarConstantMap{});
+    if (!folded.has_value()) {
+      return std::nullopt;
+    }
+
+    const HIRType labelType = stripTypeQualifier(label.type);
+    std::optional<std::string> foldedText =
+        formatFoldedHIRScalarForType(*folded, labelType);
+    if (!foldedText.has_value()) {
+      return std::nullopt;
+    }
+    return formatType(labelType) + ":" + *foldedText;
+  }
+
+  bool hasDuplicateSwitchCaseLabels(
+      const std::vector<SwitchSection> &sections) const {
+    std::set<std::string> labels;
+    for (const SwitchSection &section : sections) {
+      if (section.isDefault) {
+        continue;
+      }
+      for (const HIRExpression &label : section.labels) {
+        std::optional<std::string> key = canonicalSwitchCaseLabelKey(label);
+        if (!key.has_value()) {
+          continue;
+        }
+        if (!labels.insert(*key).second) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  HIRStatement makeConditionBreakStatement(HIRExpression condition,
+                                           SourceLocation location) const {
+    HIRStatement statement;
+    statement.kind = HIRStatementKind::If;
+    statement.location = location;
+    statement.value = makeNegatedCondition(std::move(condition), location);
+    statement.body.push_back(makeBreakStatement(std::move(location)));
+    return statement;
+  }
+
+  HIRStatement makeDoWhileContinueReplacement(const HIRExpression &condition,
+                                              SourceLocation location) const {
+    HIRStatement block;
+    block.kind = HIRStatementKind::Block;
+    block.location = location;
+    block.body.push_back(makeConditionBreakStatement(condition, location));
+    block.body.push_back(makeContinueStatement(std::move(location)));
+    return block;
+  }
+
+  bool isSwitchLabelToken(const Token &token) const {
+    return token.kind == TokenKind::Identifier &&
+           (token.text == "case" || token.text == "default");
+  }
+
+  std::optional<std::size_t> findSwitchLabelColon(
+      const std::vector<Token> &tokens, std::size_t begin,
+      std::size_t end) const {
+    int parenDepth = 0;
+    int bracketDepth = 0;
+    int braceDepth = 0;
+    for (std::size_t cursor = begin; cursor < end; ++cursor) {
+      const Token &token = tokens[cursor];
+      if (token.kind == TokenKind::LParen) {
+        ++parenDepth;
+      } else if (token.kind == TokenKind::RParen) {
+        --parenDepth;
+      } else if (token.kind == TokenKind::LBracket) {
+        ++bracketDepth;
+      } else if (token.kind == TokenKind::RBracket) {
+        --bracketDepth;
+      } else if (token.kind == TokenKind::LBrace) {
+        ++braceDepth;
+      } else if (token.kind == TokenKind::RBrace) {
+        --braceDepth;
+      } else if (token.kind == TokenKind::Colon && parenDepth == 0 &&
+                 bracketDepth == 0 && braceDepth == 0) {
+        return cursor;
+      } else if ((token.kind == TokenKind::Semicolon ||
+                  isSwitchLabelToken(token)) &&
+                 parenDepth == 0 && bracketDepth == 0 && braceDepth == 0) {
+        return std::nullopt;
+      }
+    }
+    return std::nullopt;
+  }
+
+  bool hasTopLevelSwitchLabel(const std::vector<Token> &tokens,
+                              std::size_t begin, std::size_t end) const {
+    int parenDepth = 0;
+    int bracketDepth = 0;
+    int braceDepth = 0;
+    for (std::size_t cursor = begin; cursor < end; ++cursor) {
+      const Token &token = tokens[cursor];
+      if (token.kind == TokenKind::LParen) {
+        ++parenDepth;
+      } else if (token.kind == TokenKind::RParen) {
+        --parenDepth;
+      } else if (token.kind == TokenKind::LBracket) {
+        ++bracketDepth;
+      } else if (token.kind == TokenKind::RBracket) {
+        --bracketDepth;
+      } else if (token.kind == TokenKind::LBrace) {
+        ++braceDepth;
+      } else if (token.kind == TokenKind::RBrace) {
+        --braceDepth;
+      } else if (isSwitchLabelToken(token) && parenDepth == 0 &&
+                 bracketDepth == 0 && braceDepth == 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  std::optional<std::vector<SwitchSection>> parseSwitchSections(
+      const std::vector<Token> &tokens, std::size_t begin, std::size_t end) const {
+    std::vector<SwitchSection> sections;
+    std::size_t cursor = begin;
+    bool sawDefault = false;
+
+    while (cursor < end) {
+      if (!isSwitchLabelToken(tokens[cursor])) {
+        return std::nullopt;
+      }
+
+      SwitchSection section;
+      section.location = tokens[cursor].location;
+
+      while (cursor < end && isSwitchLabelToken(tokens[cursor])) {
+        const bool labelIsDefault = tokens[cursor].text == "default";
+        if (labelIsDefault) {
+          if (sawDefault || !section.labels.empty()) {
+            return std::nullopt;
+          }
+          section.isDefault = true;
+          sawDefault = true;
+        } else if (sawDefault || section.isDefault) {
+          return std::nullopt;
+        }
+
+        const std::optional<std::size_t> colon =
+            findSwitchLabelColon(tokens, cursor + 1, end);
+        if (!colon.has_value()) {
+          return std::nullopt;
+        }
+        if (labelIsDefault) {
+          if (*colon != cursor + 1) {
+            return std::nullopt;
+          }
+        } else {
+          if (*colon == cursor + 1 ||
+              hasUnsupportedExpressionToken(tokens, cursor + 1, *colon)) {
+            return std::nullopt;
+          }
+          section.labels.push_back(parseExpression(tokens, cursor + 1, *colon));
+        }
+
+        cursor = *colon + 1;
+        if (section.isDefault) {
+          break;
+        }
+      }
+
+      std::size_t bodyEnd = cursor;
+      while (bodyEnd < end) {
+        if (isSwitchLabelToken(tokens[bodyEnd])) {
+          break;
+        }
+        if (tokens[bodyEnd].kind == TokenKind::LBrace) {
+          const std::optional<std::size_t> close =
+              findMatching(tokens, bodyEnd, TokenKind::LBrace, TokenKind::RBrace);
+          if (!close.has_value() || *close >= end) {
+            return std::nullopt;
+          }
+          bodyEnd = *close + 1;
+          continue;
+        }
+        ++bodyEnd;
+      }
+      if (hasTopLevelSwitchLabel(tokens, cursor, bodyEnd)) {
+        return std::nullopt;
+      }
+      section.body = parseStatementsInRange(tokens, cursor, bodyEnd);
+      if (section.body.empty() ||
+          section.body.back().kind != HIRStatementKind::Break) {
+        return std::nullopt;
+      }
+      section.body.pop_back();
+      if (containsRawStatement(section.body) ||
+          containsBreakOutsideLoop(section.body)) {
+        return std::nullopt;
+      }
+      sections.push_back(std::move(section));
+      cursor = bodyEnd;
+    }
+
+    return sections;
+  }
+
+  HIRExpression makeSwitchCaseCondition(const HIRExpression &selector,
+                                        HIRExpression label,
+                                        SourceLocation location) const {
+    HIRExpression condition;
+    condition.kind = HIRExpressionKind::Binary;
+    condition.value = "==";
+    condition.type = makeType("bool");
+    condition.location = std::move(location);
+    condition.children.push_back(selector);
+    condition.children.push_back(std::move(label));
+    return condition;
+  }
+
+  HIRExpression makeSwitchCaseGroupCondition(
+      const HIRExpression &selector, std::vector<HIRExpression> labels,
+      SourceLocation location) const {
+    HIRExpression condition = makeSwitchCaseCondition(
+        selector, std::move(labels.front()), location);
+    for (std::size_t labelIndex = 1; labelIndex < labels.size(); ++labelIndex) {
+      HIRExpression alternative;
+      alternative.kind = HIRExpressionKind::Binary;
+      alternative.value = "||";
+      alternative.type = makeType("bool");
+      alternative.location = labels[labelIndex].location;
+      alternative.children.push_back(std::move(condition));
+      alternative.children.push_back(makeSwitchCaseCondition(
+          selector, std::move(labels[labelIndex]), alternative.location));
+      condition = std::move(alternative);
+    }
+    return condition;
+  }
+
+  std::optional<std::vector<HIRStatement>>
+  lowerSwitchSections(const HIRExpression &selector,
+                      std::vector<SwitchSection> sections) const {
+    std::vector<HIRStatement> elseBody;
+    if (!sections.empty() && sections.back().isDefault) {
+      elseBody = std::move(sections.back().body);
+      sections.pop_back();
+    }
+
+    for (std::size_t reverseIndex = sections.size(); reverseIndex > 0;
+         --reverseIndex) {
+      SwitchSection &section = sections[reverseIndex - 1];
+      if (section.isDefault) {
+        return std::nullopt;
+      }
+      HIRStatement branch;
+      branch.kind = HIRStatementKind::If;
+      branch.location = section.location;
+      if (section.labels.empty()) {
+        return std::nullopt;
+      }
+      branch.value = makeSwitchCaseGroupCondition(
+          selector, std::move(section.labels), section.location);
+      branch.body = std::move(section.body);
+      branch.elseBody = std::move(elseBody);
+      elseBody.clear();
+      elseBody.push_back(std::move(branch));
+    }
+
+    if (elseBody.empty()) {
+      return std::nullopt;
+    }
+    return elseBody;
+  }
+
+  bool containsRawStatement(const std::vector<HIRStatement> &body) const {
+    for (const HIRStatement &statement : body) {
+      if (statement.kind == HIRStatementKind::Raw) {
+        return true;
+      }
+      if (containsRawStatement(statement.initializer) ||
+          containsRawStatement(statement.update) ||
+          containsRawStatement(statement.body) ||
+          containsRawStatement(statement.elseBody)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool containsBreakOutsideLoop(const std::vector<HIRStatement> &body,
+                                std::size_t loopDepth = 0) const {
+    for (const HIRStatement &statement : body) {
+      if (statement.kind == HIRStatementKind::Break && loopDepth == 0) {
+        return true;
+      }
+      const std::size_t childLoopDepth =
+          statement.kind == HIRStatementKind::For ? loopDepth + 1 : loopDepth;
+      if (containsBreakOutsideLoop(statement.body, childLoopDepth) ||
+          containsBreakOutsideLoop(statement.elseBody, loopDepth)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void rewriteDoWhileContinues(std::vector<HIRStatement> &body,
+                               const HIRExpression &condition) const {
+    for (HIRStatement &statement : body) {
+      if (statement.kind == HIRStatementKind::Continue) {
+        statement = makeDoWhileContinueReplacement(condition, statement.location);
+        continue;
+      }
+      if (statement.kind == HIRStatementKind::For) {
+        continue;
+      }
+      if (statement.kind == HIRStatementKind::Block) {
+        rewriteDoWhileContinues(statement.body, condition);
+      } else if (statement.kind == HIRStatementKind::If) {
+        rewriteDoWhileContinues(statement.body, condition);
+        rewriteDoWhileContinues(statement.elseBody, condition);
+      }
+    }
+  }
+
+  std::optional<ControlConditionSpan>
+  parseControlConditionSpan(const std::vector<Token> &tokens) const {
+    constexpr std::size_t controlTokenIndex = 0;
+    const std::size_t headerBegin = controlTokenIndex + 1;
+    if (headerBegin >= tokens.size()) {
+      return std::nullopt;
+    }
+
+    if (tokens[headerBegin].kind == TokenKind::LParen) {
+      const std::optional<std::size_t> close =
+          findMatching(tokens, headerBegin, TokenKind::LParen,
+                       TokenKind::RParen);
+      if (!close.has_value()) {
+        return std::nullopt;
+      }
+      return ControlConditionSpan{headerBegin + 1, *close, *close + 1};
+    }
+
+    int parenDepth = 0;
+    int bracketDepth = 0;
+    for (std::size_t cursor = headerBegin; cursor < tokens.size(); ++cursor) {
+      const Token &token = tokens[cursor];
+      if (token.kind == TokenKind::LParen) {
+        ++parenDepth;
+      } else if (token.kind == TokenKind::RParen) {
+        --parenDepth;
+      } else if (token.kind == TokenKind::LBracket) {
+        ++bracketDepth;
+      } else if (token.kind == TokenKind::RBracket) {
+        --bracketDepth;
+      } else if (token.kind == TokenKind::LBrace && parenDepth == 0 &&
+                 bracketDepth == 0) {
+        if (cursor == headerBegin) {
+          return std::nullopt;
+        }
+        return ControlConditionSpan{headerBegin, cursor, cursor};
+      } else if ((token.kind == TokenKind::Semicolon ||
+                  token.kind == TokenKind::RBrace) &&
+                 parenDepth == 0 && bracketDepth == 0) {
+        return std::nullopt;
+      }
+    }
+    return std::nullopt;
+  }
+
   HIRStatement makeRawFallback(HIRStatement statement) const {
     std::vector<Token> rawTokens = std::move(statement.rawTokens);
     SourceLocation location = std::move(statement.location);
@@ -1943,8 +2886,98 @@ private:
     return op == "+" || op == "-" || op == "*" || op == "/" || op == "%";
   }
 
+  const HIRExpression *
+  assignmentTargetRootIdentifier(const HIRExpression &expression) const {
+    const HIRExpression *current = &expression;
+    while ((current->kind == HIRExpressionKind::Group ||
+            current->kind == HIRExpressionKind::NonUniform) &&
+           !current->children.empty()) {
+      current = &current->children.front();
+    }
+    if (current->kind == HIRExpressionKind::Identifier) {
+      return current;
+    }
+    if ((current->kind == HIRExpressionKind::IndexAccess ||
+         current->kind == HIRExpressionKind::MemberAccess) &&
+        !current->children.empty()) {
+      return assignmentTargetRootIdentifier(current->children.front());
+    }
+    return nullptr;
+  }
+
+  const HIRExpression *
+  assignmentTargetDirectIdentifier(const HIRExpression &expression) const {
+    const HIRExpression *current = &expression;
+    while ((current->kind == HIRExpressionKind::Group ||
+            current->kind == HIRExpressionKind::NonUniform) &&
+           !current->children.empty()) {
+      current = &current->children.front();
+    }
+    return current->kind == HIRExpressionKind::Identifier ? current : nullptr;
+  }
+
+  void validateAssignmentTargetWritable(const HIRExpression &target) {
+    const HIRExpression *direct = assignmentTargetDirectIdentifier(target);
+    if (direct != nullptr && resourceHandleVariables_.contains(direct->value)) {
+      diagnostics_.error(
+          "sema.assignment-target-readonly",
+          "assignment target '" + direct->value + "' is a resource handle",
+          direct->location);
+      return;
+    }
+
+    const HIRExpression *root = assignmentTargetRootIdentifier(target);
+    if (root == nullptr || !readOnlyVariables_.contains(root->value)) {
+      return;
+    }
+    diagnostics_.error("sema.assignment-target-readonly",
+                       "assignment target '" + root->value + "' is read-only",
+                       root->location);
+  }
+
   bool isIncrementDecrementOperator(std::string_view op) const {
     return op == "++" || op == "--";
+  }
+
+  bool isLetMutDeclarationStart(const std::vector<Token> &tokens) const {
+    return tokens.size() >= 4 &&
+           tokens[0].kind == TokenKind::Identifier && tokens[0].text == "let" &&
+           tokens[1].kind == TokenKind::Identifier && tokens[1].text == "mut" &&
+           isNameToken(tokens[2].kind);
+  }
+
+  std::optional<HIRStatement>
+  parseLetMutDeclarationStatement(const std::vector<Token> &tokens,
+                                  std::size_t equal,
+                                  SourceLocation statementLocation) {
+    if (!isLetMutDeclarationStart(tokens) || equal != 3) {
+      return std::nullopt;
+    }
+
+    HIRStatement statement;
+    statement.kind = HIRStatementKind::Declaration;
+    statement.location = std::move(statementLocation);
+    statement.name = tokens[2].text;
+    if (hasUnsupportedExpressionToken(tokens, equal + 1, tokens.size())) {
+      diagnoseUnsupportedIncrementDecrementTokens(tokens, equal + 1,
+                                                  tokens.size());
+      return std::nullopt;
+    }
+    statement.value = parseExpression(tokens, equal + 1, tokens.size());
+    if (statement.value.type.name.empty()) {
+      diagnostics_.error(
+          "sema.let-mut-inferred-type",
+          "let mut declarations require an initializer with an inferable type",
+          tokens[0].location);
+      return std::nullopt;
+    }
+    statement.declaredType = statement.value.type;
+    statement.declaredType.location = tokens[2].location;
+    variables_[statement.name] = statement.declaredType;
+    mutableLocals_.insert(statement.name);
+    readOnlyVariables_.erase(statement.name);
+    resourceHandleVariables_.erase(statement.name);
+    return statement;
   }
 
   std::optional<IncrementDecrementUpdate>
@@ -2251,10 +3284,17 @@ private:
     if (begin >= end) {
       return {};
     }
+    return parseStatementsInRange(tokens, begin, end);
+  }
+
+  std::vector<HIRStatement> parseStatementsInRange(const std::vector<Token> &tokens,
+                                                   std::size_t begin,
+                                                   std::size_t end) const {
     std::vector<Token> bodyTokens(tokens.begin() + static_cast<std::ptrdiff_t>(begin),
                                   tokens.begin() + static_cast<std::ptrdiff_t>(end));
     return BodyParser(bodyTokens, knownTypeNames_, structs_, variables_,
-                      diagnostics_, mutableLocals_)
+                      diagnostics_, mutableLocals_, functionSignatures_,
+                      readOnlyVariables_)
         .parse();
   }
 
@@ -2292,7 +3332,7 @@ private:
     std::vector<Token> expressionTokens(tokens.begin() + static_cast<std::ptrdiff_t>(begin),
                                         tokens.begin() + static_cast<std::ptrdiff_t>(end));
     return ExpressionParser(std::move(expressionTokens), knownTypeNames_, structs_,
-                            variables_, &diagnostics_)
+                            variables_, &diagnostics_, functionSignatures_)
         .parse();
   }
 
@@ -2302,6 +3342,9 @@ private:
   std::unordered_map<std::string, HIRType> variables_;
   DiagnosticEngine &diagnostics_;
   std::set<std::string> mutableLocals_;
+  const UserFunctionSignatureMap &functionSignatures_;
+  std::set<std::string> readOnlyVariables_;
+  std::set<std::string> resourceHandleVariables_;
   std::size_t index_ = 0;
 };
 
@@ -2366,9 +3409,11 @@ HIRExpression parseExpressionTokens(
     const std::vector<Token> &tokens, const std::set<std::string> &knownTypeNames,
     const std::unordered_map<std::string, HIRStruct> &structs,
     const std::unordered_map<std::string, HIRType> &variables,
-    DiagnosticEngine *diagnostics = nullptr) {
+    DiagnosticEngine *diagnostics = nullptr,
+    const UserFunctionSignatureMap &functionSignatures =
+        emptyUserFunctionSignatures()) {
   return ExpressionParser(tokens, knownTypeNames, structs, variables,
-                          diagnostics)
+                          diagnostics, functionSignatures)
       .parse();
 }
 
@@ -2431,7 +3476,8 @@ HIRFunction convertFunction(
     std::string_view stage,
     const std::unordered_map<std::string, HIRType> &constantTypes,
     const std::unordered_map<std::string, HIRType> &cbufferFieldTypes,
-    DiagnosticEngine &diagnostics) {
+    DiagnosticEngine &diagnostics,
+    const UserFunctionSignatureMap &functionSignatures) {
   HIRFunction hir;
   hir.returnType = convertType(function.returnType);
   hir.name = function.name;
@@ -2440,26 +3486,41 @@ HIRFunction convertFunction(
   hir.nameSpan = function.location;
 
   std::unordered_map<std::string, HIRType> variables;
+  std::set<std::string> readOnlyVariables;
+  std::set<std::string> resourceHandleVariables;
   for (const auto &[name, type] : constantTypes) {
     variables[name] = type;
+    readOnlyVariables.insert(name);
   }
   for (const auto &[name, type] : cbufferFieldTypes) {
     variables[name] = type;
+    readOnlyVariables.insert(name);
   }
   for (const HIRResource &resource : resources) {
+    if (resource.name.empty()) {
+      continue;
+    }
     variables[resource.name] = resource.type;
+    if (resource.kind != HIRResourceKind::Shared) {
+      resourceHandleVariables.insert(resource.name);
+    }
   }
   addComputeInvocationBuiltinTypes(variables, stage);
+  addComputeInvocationBuiltinReadOnlyVariables(readOnlyVariables, stage);
   for (const Parameter &parameter : function.parameters) {
     HIRParameter hirParameter{convertType(parameter.type), parameter.name,
                               parameter.location};
     variables[hirParameter.name] = hirParameter.type;
+    readOnlyVariables.erase(hirParameter.name);
+    resourceHandleVariables.erase(hirParameter.name);
     hir.parameters.push_back(std::move(hirParameter));
   }
 
   hir.body =
       BodyParser(function.bodyTokens, knownTypeNames, structs,
-                 std::move(variables), diagnostics)
+                 std::move(variables), diagnostics, {}, functionSignatures,
+                 std::move(readOnlyVariables),
+                 std::move(resourceHandleVariables))
           .parse();
   return hir;
 }
@@ -3323,43 +4384,489 @@ void validateVectorScalarArithmeticExpression(const HIRExpression &expression,
   }
 }
 
-void validateScalarConstructorExpression(const HIRExpression &expression,
-                                         DiagnosticEngine &diagnostics) {
-  if (expression.kind == HIRExpressionKind::Constructor &&
-      isScalarNumericConstructorType(expression.type)) {
-    bool valid = true;
-    if (expression.children.size() != 1) {
-      diagnostics.error("sema.scalar-constructor",
-                        "scalar numeric constructor '" + expression.value +
-                            "' expects exactly one operand, got " +
-                            std::to_string(expression.children.size()),
+void validateMatrixArithmeticExpression(const HIRExpression &expression,
+                                        DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Binary &&
+      isArithmeticBinaryOperator(expression.value) &&
+      expression.children.size() >= 2) {
+    const HIRType &left = expression.children[0].type;
+    const HIRType &right = expression.children[1].type;
+    const bool leftMatrix = isMatrixValueType(left);
+    const bool rightMatrix = isMatrixValueType(right);
+    if (leftMatrix || rightMatrix) {
+      const std::string expressionDescription =
+          formatType(left) + " " + expression.value + " " + formatType(right);
+      const auto report = [&](std::string message,
+                              const SourceLocation &location) {
+        diagnostics.error("sema.matrix-arithmetic", std::move(message), location);
+      };
+
+      if (expression.value == "%") {
+        report("matrix arithmetic does not support operator '%'; got '" +
+                   expressionDescription + "'",
+               expression.location);
+      } else if (leftMatrix && rightMatrix) {
+        if ((expression.value != "+" && expression.value != "-" &&
+             expression.value != "*") ||
+            !sameType(left, right)) {
+          report("matrix arithmetic requires matching matrix operands with "
+                 "operators '+', '-', or '*'; got '" +
+                     expressionDescription + "'",
+                 expression.location);
+        }
+      } else if ((leftMatrix && isScalarNumericType(right)) ||
+                 (rightMatrix && isScalarNumericType(left))) {
+        const HIRType &scalar = leftMatrix ? right : left;
+        const SourceLocation &scalarLocation =
+            leftMatrix ? expression.children[1].location
+                       : expression.children[0].location;
+        if (expression.value != "*") {
+          report("matrix-scalar arithmetic supports only operator '*'; got '" +
+                     expressionDescription + "'",
+                 expression.location);
+        } else if (isFloatMatrixType(leftMatrix ? left : right) &&
+                   !isFloatScalarType(scalar)) {
+          report("float matrix-scalar arithmetic requires the scalar operand to "
+                 "be float; got '" +
+                     expressionDescription + "'",
+                 scalarLocation);
+        }
+      } else if ((leftMatrix && isNumericAggregateType(right)) ||
+                 (rightMatrix && isNumericAggregateType(left))) {
+        if (expression.value != "*" ||
+            !(isMatrixVectorOperandPair(left, right) ||
+              isMatrixVectorOperandPair(right, left))) {
+          report("matrix-vector arithmetic supports only operator '*' with "
+                 "matching float matrix/vector dimensions; got '" +
+                     expressionDescription + "'",
+                 expression.location);
+        }
+      } else {
+        report("matrix arithmetic requires a compatible matrix, vector, or "
+               "scalar numeric operand; got '" +
+                   expressionDescription + "'",
+               expression.location);
+      }
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateMatrixArithmeticExpression(child, diagnostics);
+  }
+}
+
+void validateUnaryOperatorExpression(const HIRExpression &expression,
+                                     DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Unary && expression.children.size() == 1) {
+    const HIRExpression &operand = expression.children.front();
+    if (expression.value == "!" && !operand.type.name.empty() &&
+        !isScalarBoolType(operand.type)) {
+      diagnostics.error("sema.logical-operand-type",
+                        "logical not operator requires a scalar bool operand, got '" +
+                            formatType(operand.type) + "'",
+                        operand.location);
+    } else if ((expression.value == "+" || expression.value == "-") &&
+               !operand.type.name.empty() && !isArithmeticOperandType(operand.type)) {
+      diagnostics.error("sema.unary-operand-type",
+                        "unary operator '" + expression.value +
+                            "' requires a numeric scalar, vector, or matrix operand, got '" +
+                            formatType(operand.type) + "'",
+                        operand.location);
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateUnaryOperatorExpression(child, diagnostics);
+  }
+}
+
+void validateBinaryOperatorExpression(const HIRExpression &expression,
+                                      DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Binary && expression.children.size() == 2) {
+    const HIRType &left = expression.children[0].type;
+    const HIRType &right = expression.children[1].type;
+    if ((expression.value == "&&" || expression.value == "||") &&
+        !left.name.empty() && !right.name.empty() &&
+        (!isScalarBoolType(left) || !isScalarBoolType(right))) {
+      diagnostics.error("sema.logical-operand-type",
+                        "logical operator '" + expression.value +
+                            "' requires scalar bool operands, got '" +
+                            formatType(left) + " " + expression.value + " " +
+                            formatType(right) + "'",
                         expression.location);
-      valid = false;
+    } else if (isArithmeticBinaryOperator(expression.value) &&
+               !left.name.empty() && !right.name.empty() &&
+               (!isArithmeticOperandType(left) || !isArithmeticOperandType(right))) {
+      diagnostics.error("sema.binary-operand-type",
+                        "arithmetic operator '" + expression.value +
+                            "' requires numeric scalar, vector, or matrix operands, got '" +
+                            formatType(left) + " " + expression.value + " " +
+                            formatType(right) + "'",
+                        expression.location);
+    } else if (isRelationalBinaryOperator(expression.value) &&
+               !left.name.empty() && !right.name.empty() &&
+               (!isScalarNumericType(left) || !isScalarNumericType(right))) {
+      diagnostics.error("sema.comparison-operand-type",
+                        "comparison operator '" + expression.value +
+                            "' requires scalar numeric operands, got '" +
+                            formatType(left) + " " + expression.value + " " +
+                            formatType(right) + "'",
+                        expression.location);
+    } else if (isEqualityBinaryOperator(expression.value) &&
+               !left.name.empty() && !right.name.empty() &&
+               !isEqualityOperandPair(left, right)) {
+      diagnostics.error("sema.equality-operand-type",
+                        "equality operator '" + expression.value +
+                            "' requires scalar bool operands or scalar numeric operands, got '" +
+                            formatType(left) + " " + expression.value + " " +
+                            formatType(right) + "'",
+                        expression.location);
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateBinaryOperatorExpression(child, diagnostics);
+  }
+}
+
+void validateSelectExpression(const HIRExpression &expression,
+                              DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Select &&
+      expression.children.size() == 3) {
+    const HIRExpression &condition = expression.children[0];
+    const HIRExpression &trueValue = expression.children[1];
+    const HIRExpression &falseValue = expression.children[2];
+
+    if (!condition.type.name.empty() && !isScalarBoolType(condition.type)) {
+      diagnostics.error("sema.select-condition-type",
+                        "select condition must be scalar bool, got '" +
+                            formatType(condition.type) + "'",
+                        condition.location);
     }
 
-    if (valid && !expression.children.front().type.name.empty()) {
-      const HIRType &sourceType = expression.children.front().type;
-      if (!isScalarNumericType(sourceType)) {
+    if (!trueValue.type.name.empty() && !falseValue.type.name.empty() &&
+        !isSelectBranchOperandPair(trueValue.type, falseValue.type)) {
+      diagnostics.error("sema.select-branch-type",
+                        "select branches must have compatible scalar, vector, "
+                        "or matrix value types, got '" +
+                            formatType(trueValue.type) + " and " +
+                            formatType(falseValue.type) + "'",
+                        expression.location);
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateSelectExpression(child, diagnostics);
+  }
+}
+
+void validateIntrinsicCallExpression(const HIRExpression &expression,
+                                     DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Call) {
+    const auto signatures = lookupHIRIntrinsicSignatures(expression.value);
+    if (!signatures.empty() &&
+        !isHIRAtomicIntegerReadModifyWriteIntrinsic(expression.value)) {
+      if (!acceptsHIRIntrinsicArity(signatures, expression.children.size())) {
         diagnostics.error(
-            "sema.scalar-constructor",
-            "scalar numeric constructor '" + expression.value +
-                "' requires a scalar numeric operand, got '" +
-                formatType(sourceType) + "'",
-            expression.children.front().location);
-      } else if (isSignedUnsignedScalarPair(expression.type, sourceType)) {
-        if (!isComputeInvocationBuiltinIntConversion(expression, sourceType)) {
+            "sema.intrinsic-arity",
+            "intrinsic call '" + expression.value + "' expects " +
+                formatHIRIntrinsicArityExpectation(signatures) + ", got " +
+                std::to_string(expression.children.size()),
+            expression.location);
+      } else {
+        const std::optional<HIRIntrinsicArgumentTypeIssue> issue =
+            findHIRIntrinsicArgumentTypeIssue(
+                signatures, expressionTypes(expression.children));
+        if (issue.has_value()) {
+          const SourceLocation location =
+              issue->argumentIndex < expression.children.size()
+                  ? expression.children[issue->argumentIndex].location
+                  : expression.location;
           diagnostics.error(
-              "sema.scalar-constructor",
-              "signed/unsigned integer scalar constructors are not defined yet; "
-              "use an explicit bitcast operation once CrossGL adds one",
-              expression.children.front().location);
+              "sema.intrinsic-argument-type",
+              "intrinsic call '" + expression.value + "' argument " +
+                  std::to_string(issue->argumentIndex) + " expects " +
+                  issue->expectation + ", got '" +
+                  formatType(issue->actualType) + "'",
+              location);
         }
       }
     }
   }
 
   for (const HIRExpression &child : expression.children) {
-    validateScalarConstructorExpression(child, diagnostics);
+    validateIntrinsicCallExpression(child, diagnostics);
+  }
+}
+
+bool isReservedTargetIntrinsicCallName(std::string_view name) {
+  return name.size() >= 2 && name[0] == '_' && name[1] == '_';
+}
+
+bool isKnownNonUserCallName(std::string_view name) {
+  return isWorkgroupBarrierCallName(name) || isImageAccessCallName(name) ||
+         !lookupHIRIntrinsicSignatures(name).empty() ||
+         lookupHIRCallBuiltinEffect(name).has_value() ||
+         isReservedTargetIntrinsicCallName(name);
+}
+
+std::string formatFunctionArgumentCount(std::size_t count) {
+  return count == 1 ? "exactly 1 argument"
+                    : "exactly " + std::to_string(count) + " arguments";
+}
+
+bool sameFunctionArgumentType(const HIRType &expected, const HIRType &actual) {
+  if (expected.name.empty() || actual.name.empty()) {
+    return true;
+  }
+  return sameType(stripTypeQualifier(expected), stripTypeQualifier(actual));
+}
+
+void validateUserFunctionCallExpression(
+    const HIRExpression &expression,
+    const UserFunctionSignatureMap &functionSignatures,
+    DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Call &&
+      !isKnownNonUserCallName(expression.value)) {
+    auto function = functionSignatures.find(expression.value);
+    if (function == functionSignatures.end()) {
+      diagnostics.error(
+          "sema.unresolved-function-call",
+          "function call '" + expression.value +
+              "' does not resolve to a declared function or supported intrinsic",
+          expression.location);
+    } else {
+      const std::vector<HIRParameter> &parameters =
+          function->second.parameters;
+      if (expression.children.size() != parameters.size()) {
+        diagnostics.error(
+            "sema.function-call-arity",
+            "function call '" + expression.value + "' expects " +
+                formatFunctionArgumentCount(parameters.size()) + ", got " +
+                std::to_string(expression.children.size()),
+            expression.location);
+      } else {
+        for (std::size_t index = 0; index < parameters.size(); ++index) {
+          const HIRType &expected = parameters[index].type;
+          const HIRType &actual = expression.children[index].type;
+          if (!sameFunctionArgumentType(expected, actual)) {
+            diagnostics.error(
+                "sema.function-call-argument-type",
+                "function call '" + expression.value + "' argument " +
+                    std::to_string(index) + " expects '" + formatType(expected) +
+                    "', got '" + formatType(actual) + "'",
+                expression.children[index].location);
+          }
+        }
+      }
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateUserFunctionCallExpression(child, functionSignatures, diagnostics);
+  }
+}
+
+std::optional<HIRType> scalarOrVectorComponentType(const HIRType &type) {
+  if (type.arraySize.has_value() || type.name.empty()) {
+    return std::nullopt;
+  }
+  const std::string typeBase = baseTypeName(type);
+  if (isVectorType(typeBase)) {
+    return scalarTypeForVector(typeBase);
+  }
+  if (isScalarNumericType(type) || isScalarBoolType(type)) {
+    return HIRType{typeBase, std::nullopt};
+  }
+  return std::nullopt;
+}
+
+bool constructorComponentConvertible(const HIRType &targetComponentType,
+                                     const HIRType &sourceComponentType) {
+  if (sameType(targetComponentType, sourceComponentType)) {
+    return true;
+  }
+  if (isScalarBoolType(targetComponentType) ||
+      isScalarBoolType(sourceComponentType)) {
+    return false;
+  }
+  return isScalarNumericType(targetComponentType) &&
+         isScalarNumericType(sourceComponentType);
+}
+
+std::optional<std::size_t>
+constructorConstituentWidth(const HIRExpression &operand,
+                            const HIRType &componentType,
+                            std::string_view constructorName,
+                            std::string_view diagnosticCode,
+                            std::string_view constructorKind,
+                            DiagnosticEngine &diagnostics, bool &valid) {
+  const std::optional<HIRType> operandComponentType =
+      scalarOrVectorComponentType(operand.type);
+  if (!operandComponentType.has_value()) {
+    if (operand.type.name.empty()) {
+      return std::nullopt;
+    }
+    diagnostics.error(
+        std::string(diagnosticCode),
+        std::string(constructorKind) + " constructor '" +
+            std::string(constructorName) +
+            "' requires scalar or vector operands convertible to component "
+            "type '" +
+            formatType(componentType) + "', got '" + formatType(operand.type) +
+            "'",
+        operand.location);
+    valid = false;
+    return std::size_t{0};
+  }
+  if (!constructorComponentConvertible(componentType, *operandComponentType)) {
+    diagnostics.error(
+        std::string(diagnosticCode),
+        std::string(constructorKind) + " constructor '" +
+            std::string(constructorName) +
+            "' requires scalar or vector operands convertible to component "
+            "type '" +
+            formatType(componentType) + "', got '" + formatType(operand.type) +
+            "'",
+        operand.location);
+    valid = false;
+    return std::size_t{0};
+  }
+
+  const std::string operandBase = baseTypeName(operand.type);
+  if (isVectorType(operandBase)) {
+    return vectorWidthFromName(operandBase);
+  }
+  return std::size_t{1};
+}
+
+void validateVectorConstructorExpression(const HIRExpression &expression,
+                                         DiagnosticEngine &diagnostics) {
+  const std::string targetBase = baseTypeName(expression.type);
+  const std::optional<std::size_t> targetWidth =
+      vectorWidthFromName(targetBase);
+  if (!targetWidth.has_value() || expression.type.arraySize.has_value()) {
+    return;
+  }
+
+  const HIRType componentType = scalarTypeForVector(targetBase);
+  std::size_t componentCount = 0;
+  bool allOperandWidthsKnown = true;
+  bool valid = true;
+  for (const HIRExpression &operand : expression.children) {
+    const std::optional<std::size_t> operandWidth =
+        constructorConstituentWidth(
+            operand, componentType, expression.value, "sema.vector-constructor",
+            "vector", diagnostics, valid);
+    if (!operandWidth.has_value()) {
+      allOperandWidthsKnown = false;
+      continue;
+    }
+    componentCount += *operandWidth;
+  }
+
+  const bool scalarSplat =
+      expression.children.size() == 1 && componentCount == std::size_t{1};
+  if (valid && allOperandWidthsKnown && !scalarSplat &&
+      componentCount != *targetWidth) {
+    diagnostics.error(
+        "sema.vector-constructor",
+        "vector constructor '" + expression.value + "' expects " +
+            std::to_string(*targetWidth) + " scalar components, got " +
+            std::to_string(componentCount),
+        expression.location);
+  }
+}
+
+void validateMatrixConstructorExpression(const HIRExpression &expression,
+                                         DiagnosticEngine &diagnostics) {
+  const std::string targetBase = baseTypeName(expression.type);
+  const std::optional<std::size_t> targetElementCount =
+      matrixElementCountFromName(targetBase);
+  if (!targetElementCount.has_value() || expression.type.arraySize.has_value()) {
+    return;
+  }
+
+  const HIRType componentType{"float", std::nullopt};
+  bool allOperandTypesKnown = true;
+  bool valid = true;
+  if (expression.children.size() == 1) {
+    const HIRType &sourceType = expression.children.front().type;
+    if (sourceType.name.empty()) {
+      return;
+    }
+    if (!sourceType.arraySize.has_value()) {
+      const std::string sourceBase = baseTypeName(sourceType);
+      if (isMatrixType(sourceBase) || isScalarNumericType(sourceType)) {
+        return;
+      }
+    }
+  }
+
+  std::size_t componentCount = 0;
+  for (const HIRExpression &operand : expression.children) {
+    const std::optional<std::size_t> operandWidth =
+        constructorConstituentWidth(
+            operand, componentType, expression.value, "sema.matrix-constructor",
+            "matrix", diagnostics, valid);
+    if (!operandWidth.has_value()) {
+      allOperandTypesKnown = false;
+      continue;
+    }
+    componentCount += *operandWidth;
+  }
+
+  if (valid && allOperandTypesKnown && componentCount != *targetElementCount) {
+    diagnostics.error(
+        "sema.matrix-constructor",
+        "matrix constructor '" + expression.value + "' expects " +
+            std::to_string(*targetElementCount) + " scalar components, got " +
+            std::to_string(componentCount),
+        expression.location);
+  }
+}
+
+void validateConstructorExpression(const HIRExpression &expression,
+                                   DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Constructor) {
+    bool valid = true;
+    if (isScalarNumericConstructorType(expression.type)) {
+      if (expression.children.size() != 1) {
+        diagnostics.error("sema.scalar-constructor",
+                          "scalar numeric constructor '" + expression.value +
+                              "' expects exactly one operand, got " +
+                              std::to_string(expression.children.size()),
+                          expression.location);
+        valid = false;
+      }
+
+      if (valid && !expression.children.front().type.name.empty()) {
+        const HIRType &sourceType = expression.children.front().type;
+        if (!isScalarNumericType(sourceType)) {
+          diagnostics.error(
+              "sema.scalar-constructor",
+              "scalar numeric constructor '" + expression.value +
+                  "' requires a scalar numeric operand, got '" +
+                  formatType(sourceType) + "'",
+              expression.children.front().location);
+        } else if (isSignedUnsignedScalarPair(expression.type, sourceType)) {
+          if (!isComputeInvocationBuiltinIntConversion(expression, sourceType)) {
+            diagnostics.error(
+                "sema.scalar-constructor",
+                "signed/unsigned integer scalar constructors are not defined yet; "
+                "use an explicit bitcast operation once CrossGL adds one",
+                expression.children.front().location);
+          }
+        }
+      }
+    } else {
+      validateVectorConstructorExpression(expression, diagnostics);
+      validateMatrixConstructorExpression(expression, diagnostics);
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateConstructorExpression(child, diagnostics);
   }
 }
 
@@ -3377,6 +4884,71 @@ bool isDescriptorResourceArrayIndex(
          resource->second.kind != HIRResourceKind::Shared &&
          resource->second.kind != HIRResourceKind::Value &&
          resource->second.type.arraySize.has_value();
+}
+
+bool isStorageBufferResourceBase(
+    const HIRExpression &base,
+    const std::unordered_map<std::string, HIRResource> &resources) {
+  if (base.kind != HIRExpressionKind::Identifier) {
+    return false;
+  }
+  const auto resource = resources.find(base.value);
+  return resource != resources.end() &&
+         resource->second.kind == HIRResourceKind::Buffer;
+}
+
+bool isIndexableExpressionType(
+    const HIRExpression &base,
+    const std::unordered_map<std::string, HIRResource> &resources) {
+  if (isStorageBufferResourceBase(base, resources)) {
+    return true;
+  }
+  const HIRType &type = base.type;
+  if (type.name.empty()) {
+    return true;
+  }
+  HIRType baseType = stripTypeQualifier(type);
+  if (baseType.name.empty()) {
+    return true;
+  }
+  if (!baseType.name.empty() && baseType.name.back() == '*') {
+    return true;
+  }
+  if (baseType.arraySize.has_value()) {
+    return true;
+  }
+  return isVectorType(baseTypeName(baseType));
+}
+
+void validateIndexAccessExpression(
+    const HIRExpression &expression,
+    const std::unordered_map<std::string, HIRResource> &resources,
+    DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::IndexAccess &&
+      expression.children.size() >= 2) {
+    const HIRExpression &base = expression.children[0];
+    const HIRExpression &index = expression.children[1];
+    if (!isIndexableExpressionType(base, resources)) {
+      diagnostics.error(
+          "sema.index-base-type",
+          "index operator requires an array, storage-buffer pointer, descriptor "
+          "array, or vector base, got '" +
+              formatType(base.type) + "'",
+          expression.location);
+    }
+    if (index.kind != HIRExpressionKind::NonUniform &&
+        !index.type.name.empty() && !isIntegerScalarType(index.type)) {
+      diagnostics.error("sema.index-type",
+                        "index operator requires a scalar int or uint index, "
+                        "got '" +
+                            formatType(index.type) + "'",
+                        index.location);
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateIndexAccessExpression(child, resources, diagnostics);
+  }
 }
 
 void validateNonUniformIndexExpression(
@@ -3461,7 +5033,7 @@ bool isAtomicReadModifyWriteValueType(const HIRType &type,
   return normalized.name == expected;
 }
 
-const HIRExpression &unwrapAtomicTargetExpression(
+const HIRExpression &unwrapTransparentTargetExpression(
     const HIRExpression &expression) {
   const HIRExpression *current = &expression;
   while ((current->kind == HIRExpressionKind::Group ||
@@ -3473,10 +5045,123 @@ const HIRExpression &unwrapAtomicTargetExpression(
 }
 
 bool isAtomicReadModifyWriteAssignableTarget(const HIRExpression &expression) {
-  const HIRExpression &target = unwrapAtomicTargetExpression(expression);
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
   return target.kind == HIRExpressionKind::Identifier ||
          target.kind == HIRExpressionKind::IndexAccess ||
          target.kind == HIRExpressionKind::MemberAccess;
+}
+
+bool isAssignableTargetExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
+  switch (target.kind) {
+  case HIRExpressionKind::Identifier:
+    return true;
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::MemberAccess:
+    return !target.children.empty() &&
+           isAssignableTargetExpression(target.children.front());
+  default:
+    return false;
+  }
+}
+
+const HIRExpression &
+assignmentTargetDiagnosticExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty() &&
+      !isAssignableTargetExpression(target.children.front())) {
+    return assignmentTargetDiagnosticExpression(target.children.front());
+  }
+  return target;
+}
+
+const HIRExpression *
+aggregateAssignmentTargetExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
+  if (!isAssignableTargetExpression(target) || !isArrayType(target.type)) {
+    return nullptr;
+  }
+  const HIRResourceKind kind = resourceKindFromName(target.type.name);
+  if (kind != HIRResourceKind::Value && kind != HIRResourceKind::Shared) {
+    return nullptr;
+  }
+  return &target;
+}
+
+std::string assignmentTargetDescription(const HIRExpression &target) {
+  switch (target.kind) {
+  case HIRExpressionKind::Identifier:
+    return "'" + target.value + "'";
+  case HIRExpressionKind::MemberAccess:
+    return "member '" + target.value + "'";
+  case HIRExpressionKind::IndexAccess:
+    return "indexed expression";
+  default:
+    return "'" + std::string(expressionKindName(target.kind)) + "' expression";
+  }
+}
+
+const HIRExpression *
+duplicateSwizzleAssignmentTargetExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapTransparentTargetExpression(expression);
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty()) {
+    if (target.kind == HIRExpressionKind::MemberAccess) {
+      const HIRExpression &base = target.children.front();
+      if (isVectorType(baseTypeName(base.type)) &&
+          swizzleHasDuplicateComponents(base.type, target.value)) {
+        return &target;
+      }
+    }
+    return duplicateSwizzleAssignmentTargetExpression(target.children.front());
+  }
+  return nullptr;
+}
+
+void validateAssignmentTargetSemantics(const HIRStatement &statement,
+                                       DiagnosticEngine &diagnostics) {
+  if (statement.kind != HIRStatementKind::Assignment ||
+      statement.target.kind == HIRExpressionKind::Empty) {
+    return;
+  }
+  if (!isAssignableTargetExpression(statement.target)) {
+    const HIRExpression &target =
+        assignmentTargetDiagnosticExpression(statement.target);
+    diagnostics.error(
+        "sema.assignment-target-lvalue",
+        "assignment target must be an assignable storage location, got '" +
+            expressionKindName(target.kind) + "' expression",
+        target.location);
+    return;
+  }
+  if (const HIRExpression *target =
+          aggregateAssignmentTargetExpression(statement.target)) {
+    diagnostics.error("sema.assignment-target-lvalue",
+                      "assignment target " +
+                          assignmentTargetDescription(*target) +
+                          " has array type '" + formatType(target->type) +
+                          "'; assign an element instead",
+                      target->location);
+  }
+}
+
+void validateAssignmentTargetSwizzleSemantics(
+    const HIRStatement &statement, DiagnosticEngine &diagnostics) {
+  if (statement.kind != HIRStatementKind::Assignment ||
+      statement.target.kind == HIRExpressionKind::Empty) {
+    return;
+  }
+  if (const HIRExpression *target =
+          duplicateSwizzleAssignmentTargetExpression(statement.target)) {
+    diagnostics.error("sema.assignment-target-swizzle-duplicate",
+                      "assignment target swizzle '" + target->value +
+                          "' cannot write the same vector component more than "
+                          "once",
+                      target->location);
+  }
 }
 
 void validateAtomicReadModifyWriteExpression(const HIRExpression &expression,
@@ -3600,13 +5285,22 @@ void validateExpressionSemantics(const HIRExpression &expression,
                                  std::string_view stage,
                                  const std::unordered_map<std::string, HIRResource>
                                      &resources,
-                                 DiagnosticEngine &diagnostics) {
+                                 DiagnosticEngine &diagnostics,
+                                 const UserFunctionSignatureMap &functionSignatures =
+                                     emptyUserFunctionSignatures()) {
   validateTextureSampleExpression(expression, stage, diagnostics);
   validateTextureCompareExpression(expression, stage, diagnostics);
   validateImageAccessExpression(expression, resources, diagnostics);
   validateVectorSwizzleExpression(expression, diagnostics);
   validateVectorScalarArithmeticExpression(expression, diagnostics);
-  validateScalarConstructorExpression(expression, diagnostics);
+  validateMatrixArithmeticExpression(expression, diagnostics);
+  validateUnaryOperatorExpression(expression, diagnostics);
+  validateBinaryOperatorExpression(expression, diagnostics);
+  validateSelectExpression(expression, diagnostics);
+  validateIntrinsicCallExpression(expression, diagnostics);
+  validateUserFunctionCallExpression(expression, functionSignatures, diagnostics);
+  validateConstructorExpression(expression, diagnostics);
+  validateIndexAccessExpression(expression, resources, diagnostics);
   validateNonUniformIndexExpression(expression, resources, diagnostics);
   validateAtomicReadModifyWriteExpression(expression, diagnostics);
 }
@@ -3647,44 +5341,152 @@ void validateControlTransferStatement(const HIRStatement &statement,
   }
 }
 
+void validateReturnStatementSemantics(
+    const HIRStatement &statement, const HIRType &returnType,
+    const std::set<std::string> &structNames, DiagnosticEngine &diagnostics) {
+  if (statement.kind != HIRStatementKind::Return || returnType.name.empty()) {
+    return;
+  }
+
+  const bool hasValue = statement.value.kind != HIRExpressionKind::Empty;
+  if (isVoidType(returnType)) {
+    if (hasValue) {
+      diagnostics.error("sema.return-type",
+                        "return statement in void function must not return a "
+                        "value",
+                        statement.value.location);
+    }
+    return;
+  }
+
+  if (!isKnownType(returnType, structNames)) {
+    return;
+  }
+  if (!hasValue) {
+    diagnostics.error("sema.return-type",
+                      "return statement must return type '" +
+                          formatType(returnType) + "'",
+                      statement.location);
+    return;
+  }
+
+  const HIRType expected = stripTypeQualifier(returnType);
+  const HIRType actual = stripTypeQualifier(statement.value.type);
+  if (actual.name.empty() || !isKnownType(actual, structNames) ||
+      !shouldDiagnoseTypeMismatch(expected, actual)) {
+    return;
+  }
+  diagnostics.error("sema.return-type",
+                    "return statement must return type '" +
+                        formatType(returnType) + "', got '" +
+                        formatType(statement.value.type) + "'",
+                    statement.value.location);
+}
+
+bool shouldDiagnoseStatementValueTypeMismatch(
+    const HIRType &expectedType, const HIRType &actualType,
+    const std::set<std::string> &structNames) {
+  const HIRType expected = stripTypeQualifier(expectedType);
+  const HIRType actual = stripTypeQualifier(actualType);
+  if (expected.name.empty() || actual.name.empty()) {
+    return false;
+  }
+  if (!isKnownType(expected, structNames) || !isKnownType(actual, structNames)) {
+    return false;
+  }
+  return shouldDiagnoseTypeMismatch(expected, actual);
+}
+
+void validateStatementValueTypeSemantics(
+    const HIRStatement &statement, const std::set<std::string> &structNames,
+    DiagnosticEngine &diagnostics) {
+  if (statement.value.kind == HIRExpressionKind::Empty) {
+    return;
+  }
+
+  if (statement.kind == HIRStatementKind::Declaration &&
+      shouldDiagnoseStatementValueTypeMismatch(
+          statement.declaredType, statement.value.type, structNames)) {
+    diagnostics.error("sema.declaration-type",
+                      "declaration initializer for '" + statement.name +
+                          "' must be type '" +
+                          formatType(statement.declaredType) + "', got '" +
+                          formatType(statement.value.type) + "'",
+                      statement.value.location);
+    return;
+  }
+
+  if (statement.kind == HIRStatementKind::Assignment &&
+      shouldDiagnoseStatementValueTypeMismatch(
+          statement.target.type, statement.value.type, structNames)) {
+    diagnostics.error("sema.assignment-type",
+                      "assignment RHS must be type '" +
+                          formatType(statement.target.type) + "', got '" +
+                          formatType(statement.value.type) + "'",
+                      statement.value.location);
+  }
+}
+
 void validateStatementSemantics(const HIRStatement &statement,
                                 std::string_view stage,
                                 const std::unordered_map<std::string, HIRResource>
                                     &resources,
                                 DiagnosticEngine &diagnostics,
+                                const HIRType &returnType,
+                                const std::set<std::string> &structNames,
+                                const UserFunctionSignatureMap &functionSignatures =
+                                    emptyUserFunctionSignatures(),
                                 std::size_t loopDepth = 0) {
   validateControlTransferStatement(statement, stage, loopDepth, diagnostics);
+  validateReturnStatementSemantics(statement, returnType, structNames,
+                                   diagnostics);
+  validateAssignmentTargetSemantics(statement, diagnostics);
+  validateAssignmentTargetSwizzleSemantics(statement, diagnostics);
   validateAtomicReadModifyWriteValueUse(statement, diagnostics);
-  validateExpressionSemantics(statement.target, stage, resources, diagnostics);
-  validateExpressionSemantics(statement.value, stage, resources, diagnostics);
+  validateExpressionSemantics(statement.target, stage, resources, diagnostics,
+                              functionSignatures);
+  validateExpressionSemantics(statement.value, stage, resources, diagnostics,
+                              functionSignatures);
+  validateStatementValueTypeSemantics(statement, structNames, diagnostics);
   for (const HIRStatement &initializer : statement.initializer) {
     validateStatementSemantics(initializer, stage, resources, diagnostics,
+                               returnType, structNames, functionSignatures,
                                loopDepth);
   }
   for (const HIRStatement &update : statement.update) {
-    validateStatementSemantics(update, stage, resources, diagnostics, loopDepth);
+    validateStatementSemantics(update, stage, resources, diagnostics,
+                               returnType, structNames, functionSignatures,
+                               loopDepth);
   }
   const std::size_t childLoopDepth =
       statement.kind == HIRStatementKind::For ? loopDepth + 1 : loopDepth;
   for (const HIRStatement &child : statement.body) {
     validateStatementSemantics(child, stage, resources, diagnostics,
+                               returnType, structNames, functionSignatures,
                                childLoopDepth);
   }
   for (const HIRStatement &child : statement.elseBody) {
-    validateStatementSemantics(child, stage, resources, diagnostics, loopDepth);
+    validateStatementSemantics(child, stage, resources, diagnostics,
+                               returnType, structNames, functionSignatures,
+                               loopDepth);
   }
 }
 
 void validateFunctionExpressions(const HIRFunction &function,
                                  std::string_view stage,
                                  const std::vector<HIRResource> &resources,
-                                 DiagnosticEngine &diagnostics) {
+                                 DiagnosticEngine &diagnostics,
+                                 const std::set<std::string> &structNames,
+                                 const UserFunctionSignatureMap &functionSignatures =
+                                     emptyUserFunctionSignatures()) {
   std::unordered_map<std::string, HIRResource> resourceMap;
   for (const HIRResource &resource : resources) {
     resourceMap[resource.name] = resource;
   }
   for (const HIRStatement &statement : function.body) {
-    validateStatementSemantics(statement, stage, resourceMap, diagnostics);
+    validateStatementSemantics(statement, stage, resourceMap, diagnostics,
+                               function.returnType, structNames,
+                               functionSignatures);
   }
 }
 
@@ -4067,6 +5869,13 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
   const std::unordered_map<std::string, HIRType> cbufferFieldTypes =
       collectCBufferFieldTypes(module.cbuffers, diagnostics);
 
+  const UserFunctionSignatureMap topLevelFunctionSignatures =
+      collectUserFunctionSignatures(module.functions);
+  validateUserFunctionSignatureConsistency(
+      module.functions, "top-level function list", diagnostics);
+  validateUserFunctionParameterNames(module.functions, "top-level function list",
+                                     diagnostics);
+
   std::unordered_map<std::string, bool> topLevelFunctions;
   for (const FunctionDecl &function : module.functions) {
     const bool hasBody = !function.bodyTokens.empty();
@@ -4079,14 +5888,16 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
     topLevelFunctions[function.name] = topLevelFunctions[function.name] || hasBody;
     HIRFunction hirFunction =
         convertFunction(function, knownTypeNames, structMap, {}, "",
-                        constantTypes, cbufferFieldTypes, diagnostics);
+                        constantTypes, cbufferFieldTypes, diagnostics,
+                        topLevelFunctionSignatures);
     validateFunctionLocalArrayDeclarations(
         hirFunction, "function '" + function.name + "'", constantTypes,
         constantValues, diagnostics);
     validateFunctionTypes(hirFunction, structNames, diagnostics,
                           "function '" + function.name + "'",
                           function.returnType.location);
-    validateFunctionExpressions(hirFunction, "", {}, diagnostics);
+    validateFunctionExpressions(hirFunction, "", {}, diagnostics, structNames,
+                                topLevelFunctionSignatures);
     hir.functions.push_back(std::move(hirFunction));
   }
 
@@ -4224,6 +6035,20 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
       hirStage.resources.push_back(std::move(hirResource));
     }
 
+    UserFunctionSignatureMap visibleFunctionSignatures =
+        topLevelFunctionSignatures;
+    const UserFunctionSignatureMap stageFunctionSignatures =
+        collectUserFunctionSignatures(stage.functions);
+    validateUserFunctionSignatureConsistency(
+        stage.functions, "stage '" + stage.stage + "' function list",
+        diagnostics);
+    validateUserFunctionParameterNames(
+        stage.functions, "stage '" + stage.stage + "' function list",
+        diagnostics);
+    for (const auto &[name, signature] : stageFunctionSignatures) {
+      visibleFunctionSignatures[name] = signature;
+    }
+
     std::unordered_map<std::string, bool> stageFunctions;
     for (const FunctionDecl &function : stage.functions) {
       const bool hasBody = !function.bodyTokens.empty();
@@ -4238,7 +6063,7 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
       HIRFunction hirFunction =
           convertFunction(function, knownTypeNames, structMap, hirStage.resources,
                           stage.stage, constantTypes, cbufferFieldTypes,
-                          diagnostics);
+                          diagnostics, visibleFunctionSignatures);
       validateFunctionLocalArrayDeclarations(
           hirFunction,
           "stage '" + stage.stage + "' function '" + function.name + "'",
@@ -4247,7 +6072,8 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
                             "stage function '" + function.name + "'",
                             function.returnType.location);
       validateFunctionExpressions(hirFunction, stage.stage, hirStage.resources,
-                                  diagnostics);
+                                  diagnostics, structNames,
+                                  visibleFunctionSignatures);
       if (function.name == "main" && hirStage.entryPointName.empty()) {
         hirStage.entryPointName = function.name;
       }

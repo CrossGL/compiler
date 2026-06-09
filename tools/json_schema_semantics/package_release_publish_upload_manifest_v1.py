@@ -3,6 +3,7 @@
 import re
 
 from .common import add_equal_error, add_length_count_error
+from .package_release_publish_target_v1 import is_gcs_bucket_name
 
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -64,6 +65,8 @@ def validate_request(errors, path, request):
         )
     if request["bucket"] == "":
         errors.append(f"{path}.bucket: expected non-empty bucket")
+    elif not is_gcs_bucket_name(request["bucket"]):
+        errors.append(f"{path}.bucket: expected valid gcs bucket name")
     if request["credentialsEnv"] == "":
         errors.append(f"{path}.credentialsEnv: expected non-empty value")
     expected_uri = f"gs://{request['bucket']}/{request['objectName']}"

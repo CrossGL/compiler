@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 
+#include "crossgl/Backend/Toolchain.h"
 #include "crossgl/Basic/Diagnostic.h"
 #include "crossgl/HIR/HIR.h"
 #include "crossgl/Optimizer/HIRPassManager.h"
@@ -24,6 +25,8 @@ struct DirectXSourcePackageResult {
   std::string optimizationPolicy = "crossgl-to-dxc-optimization-map";
   std::string optimizationLevel = "-O3";
   std::string optimizationStatus = "unavailable";
+  std::string shaderProfileSummary;
+  std::optional<ToolInvocationProvenance> dxcProvenance;
 };
 
 struct DirectXDxcOptimizationProfile {

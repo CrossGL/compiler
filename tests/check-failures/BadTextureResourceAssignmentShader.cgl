@@ -1,0 +1,9 @@
+shader BadTextureResourceAssignmentShader {
+  compute {
+    layout(set = 0, binding = 0) uniform sampler2D colorMap;
+    void main() {
+      colorMap = colorMap;
+      return;
+    }
+  }
+}

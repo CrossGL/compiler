@@ -1,0 +1,8 @@
+shader BadDeclarationInitializerTypeShader {
+  compute {
+    void main() {
+      int value = true;
+      return;
+    }
+  }
+}

@@ -22,6 +22,8 @@ namespace {
 
 constexpr std::string_view kRawStatementBackendInputDiagnostic =
     "opt.hir-raw-statement-backend-input";
+constexpr std::string_view kVulkanRuntimeResourceArrayDiagnostic =
+    "vulkan.prototype-unsupported-runtime-resource-array";
 
 bool containsString(const std::vector<std::string> &values,
                     std::string_view value) {
@@ -130,7 +132,8 @@ std::string projectionOptionalNativeToolStatusName(
       projection.optionalNativeToolStatus);
 }
 
-std::string contractPackageModeName(const TargetLegalizationContract &contract) {
+std::string
+contractPackageModeName(const TargetLegalizationContract &contract) {
   if (!contract.packageModeName.empty()) {
     return contract.packageModeName;
   }
@@ -264,6 +267,16 @@ void appendPackageArtifactRequirementsJson(
   out << "}";
 }
 
+std::string
+targetSelectionReasonName(const TargetLegalizationTargetProfile &profile) {
+  if (!profile.autoRequested) {
+    return "explicit-target";
+  }
+  return profile.selectedTarget == defaultTargetForHost()
+             ? "auto-host-default"
+             : "auto-recommended-target";
+}
+
 std::string sourcePackageDescriptorOptimizationEvidenceModeName(
     const TargetSourcePackageDescriptorPolicy &policy) {
   if (!policy.optimizationEvidenceModeName.empty()) {
@@ -300,8 +313,7 @@ void appendSourcePackageDescriptorPolicyJson(
   appendJsonStringField(out, "descriptorArtifactKey",
                         policy.descriptorArtifactKey);
   out << ",";
-  appendJsonStringField(out, "nativeBinaryStatus",
-                        policy.nativeBinaryStatus);
+  appendJsonStringField(out, "nativeBinaryStatus", policy.nativeBinaryStatus);
   out << ",";
   appendJsonBoolField(out, "includesNativeBinaryStatus",
                       policy.includesNativeBinaryStatus);
@@ -311,10 +323,9 @@ void appendSourcePackageDescriptorPolicyJson(
   out << ",";
   appendJsonStringField(out, "validationStatus", policy.validationStatus);
   out << ",";
-  appendJsonStringField(
-      out, "optimizationLevelMode",
-      targetSourcePackageDescriptorOptimizationLevelModeName(
-          policy.optimizationLevelMode));
+  appendJsonStringField(out, "optimizationLevelMode",
+                        targetSourcePackageDescriptorOptimizationLevelModeName(
+                            policy.optimizationLevelMode));
   out << ",";
   appendJsonStringField(out, "fixedOptimizationLevel",
                         policy.fixedOptimizationLevel);
@@ -323,9 +334,8 @@ void appendSourcePackageDescriptorPolicyJson(
       out, "optimizationEvidenceMode",
       sourcePackageDescriptorOptimizationEvidenceModeName(policy));
   out << ",";
-  appendJsonStringField(
-      out, "toolProvenanceMode",
-      sourcePackageDescriptorToolProvenanceModeName(policy));
+  appendJsonStringField(out, "toolProvenanceMode",
+                        sourcePackageDescriptorToolProvenanceModeName(policy));
   out << ",";
   appendJsonStringField(out, "nativeToolName", policy.nativeToolName);
   out << ",";
@@ -334,8 +344,7 @@ void appendSourcePackageDescriptorPolicyJson(
   appendJsonStringField(out, "nativeToolExecutable",
                         policy.nativeToolExecutable);
   out << ",";
-  appendJsonStringField(out, "nativeToolProbeName",
-                        policy.nativeToolProbeName);
+  appendJsonStringField(out, "nativeToolProbeName", policy.nativeToolProbeName);
   out << "}";
 }
 
@@ -421,9 +430,9 @@ void appendV0DiagnosticJson(std::ostream &out,
   out << "}";
 }
 
-std::string v0RewriteStatusName(
-    const TargetLegalizationRewriteRecord &record,
-    TargetLegalizationRewriteState collectionState) {
+std::string
+v0RewriteStatusName(const TargetLegalizationRewriteRecord &record,
+                    TargetLegalizationRewriteState collectionState) {
   if (record.applied) {
     return "applied";
   }
@@ -433,8 +442,8 @@ std::string v0RewriteStatusName(
   return "not-required";
 }
 
-void appendV0RewritesJson(
-    std::ostream &out, const TargetLegalizationRewriteCollection &rewrites) {
+void appendV0RewritesJson(std::ostream &out,
+                          const TargetLegalizationRewriteCollection &rewrites) {
   out << "[";
   for (std::size_t index = 0; index < rewrites.records.size(); ++index) {
     if (index != 0) {
@@ -475,8 +484,9 @@ std::string v0ABIStateName(const TargetLegalizationContract &contract) {
   return "complete";
 }
 
-std::vector<std::string> v0ABIEvidenceIds(
-    const TargetLegalizationContract &contract, std::string_view abiState) {
+std::vector<std::string>
+v0ABIEvidenceIds(const TargetLegalizationContract &contract,
+                 std::string_view abiState) {
   if (!contract.abiFacts.evidenceIds.empty()) {
     return contract.abiFacts.evidenceIds;
   }
@@ -539,14 +549,14 @@ bool appendV0ABIRecordFactsJson(std::ostream &out,
                                 const TargetLegalizationABIFacts &abiFacts,
                                 bool moduleSupported) {
   bool wroteRecord = false;
-  auto appendRecord =
-      [&](const TargetLegalizationABIRecord &record, std::string_view role) {
-        if (wroteRecord) {
-          out << ",";
-        }
-        appendV0ABIRecordJson(out, record, role, moduleSupported);
-        wroteRecord = true;
-      };
+  auto appendRecord = [&](const TargetLegalizationABIRecord &record,
+                          std::string_view role) {
+    if (wroteRecord) {
+      out << ",";
+    }
+    appendV0ABIRecordJson(out, record, role, moduleSupported);
+    wroteRecord = true;
+  };
   for (const TargetLegalizationABIRecord &record : abiFacts.requiredRecords) {
     appendRecord(record, "required");
   }
@@ -649,15 +659,14 @@ void appendV0ToolRequirementRecordsJson(
     const TargetLegalizationToolRequirementSummary &toolRequirements) {
   out << "[";
   bool wroteRecord = false;
-  auto appendRecord =
-      [&](const TargetLegalizationToolRequirementRecord &record,
-          std::string_view status) {
-        if (wroteRecord) {
-          out << ",";
-        }
-        appendV0ToolRequirementRecordJson(out, record, status);
-        wroteRecord = true;
-      };
+  auto appendRecord = [&](const TargetLegalizationToolRequirementRecord &record,
+                          std::string_view status) {
+    if (wroteRecord) {
+      out << ",";
+    }
+    appendV0ToolRequirementRecordJson(out, record, status);
+    wroteRecord = true;
+  };
   for (const TargetLegalizationToolRequirementRecord &record :
        toolRequirements.requiredRecords) {
     appendRecord(record, "required");
@@ -693,8 +702,7 @@ void appendV0ToolRequirementsJson(
   out << ",";
   appendJsonStringField(
       out, "optionalNativeToolStatus",
-      targetLegalizationOptionalNativeToolStatusName(
-          optionalNativeToolStatus));
+      targetLegalizationOptionalNativeToolStatusName(optionalNativeToolStatus));
   out << ",";
   appendJsonStringArrayField(out, "evidenceIds", toolRequirementEvidenceIds);
   out << "}";
@@ -1036,8 +1044,8 @@ std::string legalizationMetalResourceAddressSpace(const HIRResource &resource) {
   return metalResourceAddressSpace(resource);
 }
 
-std::string legalizationMetalResourceBindingClass(HIRResourceKind kind) {
-  return metalResourceBindingClass(kind);
+std::string legalizationMetalResourceBindingClass(const HIRResource &resource) {
+  return metalResourceBindingClass(resource);
 }
 
 bool legalizationMetalResourceIsKernelParameter(HIRResourceKind kind) {
@@ -1100,7 +1108,7 @@ resourceBindingRecordForResource(const HIRModule &module,
     record.addressSpace = legalizationMetalResourceAddressSpace(source);
     if (legalizationMetalResourceIsKernelParameter(source.kind)) {
       record.abi = "kernelArgument";
-      record.bindingClass = legalizationMetalResourceBindingClass(source.kind);
+      record.bindingClass = legalizationMetalResourceBindingClass(source);
       record.argumentIndex = metalResourceArgumentIndex(
                                  *stage.source, source.name, &module.constants)
                                  .value_or(source.binding);
@@ -1293,6 +1301,15 @@ packageArtifactRequirementsForDecision(const TargetPackageDecision &decision,
     requirements.requiredPathArtifactKeys = {"backendAssembly", "nativeBinary"};
     break;
   case TargetKind::DirectX:
+    if (mode == TargetLegalizationPackageMode::SourcePackage) {
+      requirements.requiredPathArtifactKeys = {"backendSource", "nativeBinary"};
+      requirements.requiresNativeBinaryStatus = true;
+      requirements.allowsPlannedNativeBinary = true;
+      requirements.allowsPlannedNativeSourceEvidence = true;
+    } else {
+      requirements.requiredPathArtifactKeys = {"backendSource", "nativeBinary"};
+    }
+    break;
   case TargetKind::OpenGL:
     requirements.requiredPathArtifactKeys = {"backendSource", "nativeBinary"};
     requirements.requiresNativeBinaryStatus = true;
@@ -1410,8 +1427,7 @@ void appendRequiredNativePackageToolRequirement(
     TargetLegalizationToolRequirementSummary &summary, TargetKind target,
     std::string_view kind, std::string_view name) {
   appendToolRequirementRecord(
-      summary,
-      TargetCapability{target, std::string(kind), std::string(name)},
+      summary, TargetCapability{target, std::string(kind), std::string(name)},
       "required");
 }
 
@@ -1424,18 +1440,16 @@ void appendNativePackageToolRequirements(
   }
 
   switch (decision.target) {
+  case TargetKind::DirectX:
   case TargetKind::Metal:
   case TargetKind::Vulkan:
     for (const TargetNativePackageToolPolicy &tool :
          nativePackagePolicy.requiredTools) {
-      appendRequiredNativePackageToolRequirement(summary, decision.target,
-                                                 tool.requirementKind,
-                                                 tool.requirementName.empty()
-                                                     ? tool.name
-                                                     : tool.requirementName);
+      appendRequiredNativePackageToolRequirement(
+          summary, decision.target, tool.requirementKind,
+          tool.requirementName.empty() ? tool.name : tool.requirementName);
     }
     return;
-  case TargetKind::DirectX:
   case TargetKind::OpenGL:
   case TargetKind::Auto:
     return;
@@ -1480,6 +1494,22 @@ unsupportedDiagnosticForDecision(const HIRModule &module,
         "target '" + decision.targetName +
         "' cannot build a package while HIR contains raw statements that have "
         "not been explicitly backend-legalized";
+    return diagnostic;
+  }
+
+  if (decision.target == TargetKind::Vulkan &&
+      hasMissingDiagnosticCapability(decision,
+                                     kVulkanRuntimeResourceArrayDiagnostic) &&
+      !predicateDiagnostics.empty() &&
+      predicateDiagnostics.front().message.find("texture/sampler") !=
+          std::string::npos) {
+    diagnostic.evidenceId =
+        evidenceId(decision.target, "diagnostic.target.unsupported");
+    diagnostic.code = "target.unsupported";
+    diagnostic.message = "target '" + decision.targetName +
+                         "' cannot build a package for this module: " +
+                         predicateDiagnostics.front().message;
+    diagnostic.location = std::move(predicateLocation);
     return diagnostic;
   }
 
@@ -1532,8 +1562,7 @@ abiFactsForDecision(const TargetPackageDecision &decision) {
   return facts;
 }
 
-TargetLegalizationToolRequirementSummary
-toolRequirementsForDecision(
+TargetLegalizationToolRequirementSummary toolRequirementsForDecision(
     const TargetPackageDecision &decision,
     const TargetNativePackageDescriptorPolicy &nativePackagePolicy) {
   TargetLegalizationToolRequirementSummary summary;
@@ -1562,8 +1591,7 @@ toolRequirementsForDecision(
   return summary;
 }
 
-TargetLegalizationRewriteCollection
-rewriteCollectionForDecision(
+TargetLegalizationRewriteCollection rewriteCollectionForDecision(
     const TargetPackageDecision &decision,
     const TargetLegalizationResourceBindingFacts &resourceBindings) {
   TargetLegalizationRewriteCollection collection;
@@ -1574,21 +1602,20 @@ rewriteCollectionForDecision(
   collection.complete = decision.packageBuildSupported;
 
   if (decision.packageBuildSupported) {
-    auto appendAppliedResourceBindingRewrite =
-        [&](std::string name, std::string description) {
-          collection.state = TargetLegalizationRewriteState::Rewritten;
-          TargetLegalizationRewriteRecord record;
-          record.target = decision.target;
-          record.state = collection.state;
-          record.applied = true;
-          record.kind = "resource-binding";
-          record.name = std::move(name);
-          record.description = std::move(description);
-          record.evidenceId =
-              evidenceId(decision.target,
-                         "rewrite.applied.resource-binding." + record.name);
-          collection.records.push_back(std::move(record));
-        };
+    auto appendAppliedResourceBindingRewrite = [&](std::string name,
+                                                   std::string description) {
+      collection.state = TargetLegalizationRewriteState::Rewritten;
+      TargetLegalizationRewriteRecord record;
+      record.target = decision.target;
+      record.state = collection.state;
+      record.applied = true;
+      record.kind = "resource-binding";
+      record.name = std::move(name);
+      record.description = std::move(description);
+      record.evidenceId = evidenceId(
+          decision.target, "rewrite.applied.resource-binding." + record.name);
+      collection.records.push_back(std::move(record));
+    };
 
     const bool rewritesOpenGLBindingSlots =
         decision.target == TargetKind::OpenGL &&
@@ -1692,17 +1719,15 @@ TargetLegalizationResult resultFromDecision(
   result.packageModeKind = packageModeKindForDecision(decision);
   result.packageArtifactRequirements =
       packageArtifactRequirementsForDecision(decision, result.packageModeKind);
-  result.sourcePackageDescriptorPolicy =
-      targetSourcePackageDescriptorPolicy(result.packageArtifactRequirements,
-                                          decision.target);
-  result.nativePackageDescriptorPolicy =
-      targetNativePackageDescriptorPolicy(result.packageArtifactRequirements,
-                                          decision.target);
+  result.sourcePackageDescriptorPolicy = targetSourcePackageDescriptorPolicy(
+      result.packageArtifactRequirements, decision.target);
+  result.nativePackageDescriptorPolicy = targetNativePackageDescriptorPolicy(
+      result.packageArtifactRequirements, decision.target);
   result.abiFacts = abiFactsForDecision(decision);
   result.resourceBindings =
       resourceBindingFactsForModule(module, decision.target);
-  result.toolRequirements =
-      toolRequirementsForDecision(decision, result.nativePackageDescriptorPolicy);
+  result.toolRequirements = toolRequirementsForDecision(
+      decision, result.nativePackageDescriptorPolicy);
   result.packageDecisionProvenance =
       packageDecisionProvenanceForDecision(decision, result.packageModeKind);
   result.optionalNativeToolStatus = optionalNativeToolStatusForDecision(
@@ -1746,8 +1771,8 @@ TargetLegalizationResult resultFromDecision(
                               result.missingCapabilities);
 
   if (!decision.packageBuildSupported) {
-    result.diagnostics.push_back(unsupportedDiagnosticForDecision(module,
-                                                                  decision));
+    result.diagnostics.push_back(
+        unsupportedDiagnosticForDecision(module, decision));
     result.evidenceIds.push_back(result.diagnostics.back().evidenceId);
   }
   result.evidenceIds.insert(result.evidenceIds.end(),
@@ -1937,9 +1962,8 @@ void appendEvidenceIdShapeDiagnostics(std::vector<std::string> &diagnostics,
                                       TargetKind resolvedTarget,
                                       std::string_view group,
                                       std::vector<std::string> &seenNestedIds) {
-  const std::string targetPrefix = "target-legalization.v1." +
-                                   std::string(targetName(resolvedTarget)) +
-                                   ".";
+  const std::string targetPrefix =
+      "target-legalization.v1." + std::string(targetName(resolvedTarget)) + ".";
   std::vector<std::string> seenInGroup;
   for (const std::string &id : ids) {
     if (id.empty()) {
@@ -1955,8 +1979,8 @@ void appendEvidenceIdShapeDiagnostics(std::vector<std::string> &diagnostics,
                             " evidence id target mismatch: " + id);
     }
     if (containsString(seenNestedIds, id)) {
-      diagnostics.push_back(
-          "nested evidence id is duplicated across groups: " + id);
+      diagnostics.push_back("nested evidence id is duplicated across groups: " +
+                            id);
     }
     seenNestedIds.push_back(id);
   }
@@ -2011,8 +2035,8 @@ void appendResourceBindingRecordInvariantDiagnostics(
             "resource binding record storage-image access is invalid");
       }
     } else if (record.storageImageAccess.has_value()) {
-      diagnostics.push_back(
-          "resource binding non-storage-image record storageImageAccess is set");
+      diagnostics.push_back("resource binding non-storage-image record "
+                            "storageImageAccess is set");
     }
     if (record.set.has_value() != record.binding.has_value()) {
       diagnostics.push_back("resource binding record set/binding mismatch");
@@ -2042,6 +2066,7 @@ expectedPackageArtifactKeys(TargetKind target,
   case TargetKind::Vulkan:
     return {"backendAssembly", "nativeBinary"};
   case TargetKind::DirectX:
+    return {"backendSource", "nativeBinary"};
   case TargetKind::OpenGL:
     return {"backendSource", "nativeBinary"};
   case TargetKind::Auto:
@@ -2052,8 +2077,13 @@ expectedPackageArtifactKeys(TargetKind target,
 
 bool expectedPackageArtifactRequiresNativeBinaryStatus(
     TargetKind target, TargetLegalizationPackageMode packageMode) {
-  return packageMode != TargetLegalizationPackageMode::Unsupported &&
-         (target == TargetKind::DirectX || target == TargetKind::OpenGL);
+  if (packageMode == TargetLegalizationPackageMode::Unsupported) {
+    return false;
+  }
+  if (target == TargetKind::DirectX) {
+    return packageMode == TargetLegalizationPackageMode::SourcePackage;
+  }
+  return target == TargetKind::OpenGL;
 }
 
 std::vector<std::string> expectedPackageArtifactEvidenceIds(
@@ -2436,6 +2466,8 @@ const char *targetNativePackageDescriptorOptimizationEvidenceModeName(
   switch (mode) {
   case TargetNativePackageDescriptorOptimizationEvidenceMode::None:
     return "none";
+  case TargetNativePackageDescriptorOptimizationEvidenceMode::DirectXDxc:
+    return "directx-dxc";
   case TargetNativePackageDescriptorOptimizationEvidenceMode::MetalXcrunMetal:
     return "metal-xcrun-metal";
   case TargetNativePackageDescriptorOptimizationEvidenceMode::VulkanSpirvOpt:
@@ -2471,16 +2503,17 @@ TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
     policy.binaryKind = "directx.dxil";
     policy.optimizationEvidenceMode =
         TargetSourcePackageDescriptorOptimizationEvidenceMode::DirectXDxc;
+    policy.optimizationLevelMode =
+        TargetSourcePackageDescriptorOptimizationLevelMode::RequestedLevel;
+    policy.toolProvenanceMode =
+        TargetSourcePackageDescriptorToolProvenanceMode::NativeCompiler;
+    policy.nativeToolName =
+        nativeToolName.empty() ? "dxc" : std::string(nativeToolName);
+    policy.nativeToolRole = "compiler";
+    policy.nativeToolExecutable = policy.nativeToolName;
+    policy.nativeToolProbeName = policy.nativeToolName;
     if (nativeBinaryStatus != "planned") {
       policy.validationStatus = "not-run";
-      policy.optimizationLevelMode =
-          TargetSourcePackageDescriptorOptimizationLevelMode::RequestedLevel;
-      policy.toolProvenanceMode =
-          TargetSourcePackageDescriptorToolProvenanceMode::NativeCompiler;
-      policy.nativeToolName = "dxc";
-      policy.nativeToolRole = "compiler";
-      policy.nativeToolExecutable = "dxc";
-      policy.nativeToolProbeName = "dxc";
     }
     break;
   case TargetKind::OpenGL:
@@ -2489,8 +2522,9 @@ TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
       policy.validationStatus = "validated";
       policy.toolProvenanceMode =
           TargetSourcePackageDescriptorToolProvenanceMode::NativeValidator;
-      policy.nativeToolName =
-          nativeToolName.empty() ? "glslangValidator" : std::string(nativeToolName);
+      policy.nativeToolName = nativeToolName.empty()
+                                  ? "glslangValidator"
+                                  : std::string(nativeToolName);
       policy.nativeToolRole = "validator";
       policy.nativeToolExecutable = policy.nativeToolName;
       policy.nativeToolProbeName = policy.nativeToolName;
@@ -2524,7 +2558,8 @@ TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
       target == TargetKind::Auto ? requirements.target : target;
   if (requirements.packageMode !=
       TargetLegalizationPackageMode::SourcePackage) {
-    return targetSourcePackageDescriptorPolicy(requirements, "", resolvedTarget);
+    return targetSourcePackageDescriptorPolicy(requirements, "",
+                                               resolvedTarget);
   }
   return targetSourcePackageDescriptorPolicy(requirements, "planned",
                                              resolvedTarget);
@@ -2533,10 +2568,10 @@ TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
 TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
     const TargetLegalizationContractProjection &projection,
     std::string_view nativeBinaryStatus, std::string_view nativeToolName) {
-  const TargetKind target = projection.targetProfile.resolvedTarget ==
-                                    TargetKind::Auto
-                                ? projection.packageArtifactRequirements.target
-                                : projection.targetProfile.resolvedTarget;
+  const TargetKind target =
+      projection.targetProfile.resolvedTarget == TargetKind::Auto
+          ? projection.packageArtifactRequirements.target
+          : projection.targetProfile.resolvedTarget;
   if (!targetLegalizationProjectionAllowsSourcePackageNativeBinaryStatus(
           projection, nativeBinaryStatus)) {
     TargetSourcePackageDescriptorPolicy policy;
@@ -2555,10 +2590,10 @@ TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
 
 TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
     const TargetLegalizationContractProjection &projection) {
-  const TargetKind target = projection.targetProfile.resolvedTarget ==
-                                    TargetKind::Auto
-                                ? projection.packageArtifactRequirements.target
-                                : projection.targetProfile.resolvedTarget;
+  const TargetKind target =
+      projection.targetProfile.resolvedTarget == TargetKind::Auto
+          ? projection.packageArtifactRequirements.target
+          : projection.targetProfile.resolvedTarget;
   if (!targetLegalizationProjectionSupportsPackage(projection) ||
       projection.packageMode != TargetLegalizationPackageMode::SourcePackage ||
       projection.supportStatus !=
@@ -2591,8 +2626,10 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
 
   switch (resolvedTarget) {
   case TargetKind::Metal:
-    if (!containsString(requirements.requiredPathArtifactKeys, "backendSource") ||
-        !containsString(requirements.requiredPathArtifactKeys, "intermediate")) {
+    if (!containsString(requirements.requiredPathArtifactKeys,
+                        "backendSource") ||
+        !containsString(requirements.requiredPathArtifactKeys,
+                        "intermediate")) {
       return policy;
     }
     policy.supported = true;
@@ -2647,6 +2684,23 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
                                       "spirv-val", "spirv-val", ""}};
     break;
   case TargetKind::DirectX:
+    policy.supported = true;
+    policy.binaryKind = "directx.dxil";
+    policy.sourceArtifactKey = "backendSource";
+    policy.nativeBinaryArtifactKey = "nativeBinary";
+    policy.descriptorArtifactKey = "nativeArtifactDescriptor";
+    policy.validationStatus = "not-run";
+    policy.optimizationEvidenceMode =
+        TargetNativePackageDescriptorOptimizationEvidenceMode::DirectXDxc;
+    policy.optimizationToolName = "dxc";
+    policy.profileApi = "directx";
+    policy.profileName = "dxil-native";
+    policy.generatorName = "CrossGL DirectX backend";
+    policy.binaryFormat = "DXIL";
+    policy.assemblyFormat = "HLSL";
+    policy.requiredTools = {TargetNativePackageToolPolicy{
+        "toolchain", "dxc", "compiler", "dxc", "dxc", ""}};
+    break;
   case TargetKind::OpenGL:
   case TargetKind::Auto:
     return policy;
@@ -2659,10 +2713,10 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
 
 TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
     const TargetLegalizationContractProjection &projection) {
-  const TargetKind target = projection.targetProfile.resolvedTarget ==
-                                    TargetKind::Auto
-                                ? projection.packageArtifactRequirements.target
-                                : projection.targetProfile.resolvedTarget;
+  const TargetKind target =
+      projection.targetProfile.resolvedTarget == TargetKind::Auto
+          ? projection.packageArtifactRequirements.target
+          : projection.targetProfile.resolvedTarget;
   if (!targetLegalizationProjectionSupportsPackage(projection) ||
       projection.packageMode != TargetLegalizationPackageMode::Native ||
       projection.supportStatus !=
@@ -2739,8 +2793,7 @@ std::vector<Diagnostic>
 targetLegalizationDiagnostics(const TargetLegalizationContract &contract) {
   std::vector<Diagnostic> diagnostics;
   diagnostics.reserve(contract.diagnostics.size());
-  for (const TargetLegalizationDiagnostic &diagnostic :
-       contract.diagnostics) {
+  for (const TargetLegalizationDiagnostic &diagnostic : contract.diagnostics) {
     diagnostics.push_back(targetLegalizationDiagnostic(diagnostic));
   }
   return diagnostics;
@@ -2846,32 +2899,25 @@ const std::vector<TargetLegalizationConsumerAuditReference> &
 targetLegalizationConsumerAuditReferences() {
   static const std::vector<TargetLegalizationConsumerAuditReference>
       references = {
-          {"explain-targets",
-           "src/Backend/TargetLegalization.cpp",
+          {"explain-targets", "src/Backend/TargetLegalization.cpp",
            "targetLegalizationConsumerAuditReferences"},
-          {"Language feature report",
-           "src/Backend/TargetLegalization.cpp",
+          {"Language feature report", "src/Backend/TargetLegalization.cpp",
            "targetLegalizationConsumerAuditReferences"},
-          {"doctor --json",
-           "src/Backend/TargetLegalization.cpp",
+          {"doctor --json", "src/Backend/TargetLegalization.cpp",
            "targetLegalizationConsumerAuditReferences"},
-          {"Package build",
-           "src/Backend/TargetLegalization.cpp",
+          {"Package build", "src/Backend/TargetLegalization.cpp",
            "targetLegalizationConsumerAuditReferences"},
           {"Package release and publication",
            "src/Backend/TargetLegalization.cpp",
            "targetLegalizationConsumerAuditReferences"},
-          {"Debug metadata",
-           "src/Backend/TargetLegalization.cpp",
+          {"Debug metadata", "src/Backend/TargetLegalization.cpp",
            "targetLegalizationConsumerAuditReferences"},
           {"Reflection and target feature records",
            "src/Backend/TargetLegalization.cpp",
            "targetLegalizationConsumerAuditReferences"},
-          {"Package verification",
-           "src/Backend/TargetLegalization.cpp",
+          {"Package verification", "src/Backend/TargetLegalization.cpp",
            "targetLegalizationConsumerAuditReferences"},
-          {"Package inspect",
-           "src/Backend/TargetLegalization.cpp",
+          {"Package inspect", "src/Backend/TargetLegalization.cpp",
            "targetLegalizationConsumerAuditReferences"},
       };
   return references;
@@ -2959,6 +3005,29 @@ targetLegalizationContractProjection(const TargetLegalizationResult &result) {
       targetLegalizationContract(result));
 }
 
+TargetLegalizationContractProjection
+targetLegalizationSourcePackageFallbackProjection(const HIRModule &module,
+                                                  TargetKind target) {
+  const TargetKind resolvedTarget =
+      target == TargetKind::Auto ? defaultTargetForHost() : target;
+  TargetPackageDecision decision =
+      targetPackageDecision(module, resolvedTarget);
+  if (decision.sourcePackageSupported) {
+    decision.packageBuildSupported = true;
+    decision.packageMode = "source-package";
+    decision.packageDecisionReason = "source-package-available";
+    decision.packageRankScore = 1;
+    decision.diagnostics.clear();
+  }
+
+  TargetPackageSelection selection;
+  selection.preferredTarget = resolvedTarget;
+  selection.selectedTarget = resolvedTarget;
+  selection.selectedTargetBuildable = decision.packageBuildSupported;
+  return targetLegalizationContractProjection(
+      resultFromDecision(module, decision, selection, resolvedTarget));
+}
+
 TargetLegalizationAdmissionDecision targetLegalizationAdmissionDecision(
     const TargetLegalizationContract &contract) {
   TargetLegalizationAdmissionDecision decision;
@@ -2972,9 +3041,10 @@ TargetLegalizationAdmissionDecision targetLegalizationAdmissionDecision(
   return decision;
 }
 
-TargetLegalizationAdmissionDecision targetLegalizationAdmissionDecision(
-    const TargetLegalizationResult &result) {
-  return targetLegalizationAdmissionDecision(targetLegalizationContract(result));
+TargetLegalizationAdmissionDecision
+targetLegalizationAdmissionDecision(const TargetLegalizationResult &result) {
+  return targetLegalizationAdmissionDecision(
+      targetLegalizationContract(result));
 }
 
 std::string targetLegalizationContractProjectionJson(
@@ -3050,8 +3120,8 @@ std::string targetLegalizationContractProjectionJson(
     if (index != 0) {
       out << ",";
     }
-    appendV0ToolRequirementRecordJson(out, projection.requiredToolRecords[index],
-                                      "required");
+    appendV0ToolRequirementRecordJson(
+        out, projection.requiredToolRecords[index], "required");
   }
   out << "]";
   out << ",";
@@ -3148,9 +3218,8 @@ std::string targetLegalizationContractProjectionJson(
 std::string
 targetLegalizationResultV0Json(const TargetLegalizationContract &contract) {
   const bool moduleSupported = targetLegalizationSupportsPackage(contract);
-  const std::string target =
-      targetProfileTargetName(contract.resolvedTarget,
-                              contract.resolvedTargetName);
+  const std::string target = targetProfileTargetName(
+      contract.resolvedTarget, contract.resolvedTargetName);
   const std::string packageMode =
       targetLegalizationPackageModeName(contract.packageMode);
   std::vector<TargetLegalizationDiagnostic> diagnostics = contract.diagnostics;
@@ -3170,8 +3239,7 @@ targetLegalizationResultV0Json(const TargetLegalizationContract &contract) {
   out << ",\"policy\":{";
   appendJsonStringField(out, "mode", "report-only");
   out << ",";
-  appendJsonStringField(out, "decisionAuthority",
-                        "current-compiler-behavior");
+  appendJsonStringField(out, "decisionAuthority", "current-compiler-behavior");
   out << ",";
   appendJsonStringField(out, "consumerMigration", "pending");
   out << ",";
@@ -3181,6 +3249,35 @@ targetLegalizationResultV0Json(const TargetLegalizationContract &contract) {
   out << ",\"targetProfile\":{";
   appendJsonStringField(out, "target", target);
   out << ",";
+  appendJsonStringField(
+      out, "requestedTarget",
+      contract.targetProfile.requestedTargetName.empty()
+          ? std::string(targetName(contract.targetProfile.requestedTarget))
+          : contract.targetProfile.requestedTargetName);
+  out << ",";
+  appendJsonStringField(
+      out, "preferredTarget",
+      contract.targetProfile.preferredTargetName.empty()
+          ? std::string(targetName(contract.targetProfile.preferredTarget))
+          : contract.targetProfile.preferredTargetName);
+  out << ",";
+  appendJsonStringField(out, "resolvedTarget", target);
+  out << ",";
+  appendJsonStringField(
+      out, "selectedTarget",
+      contract.targetProfile.selectedTargetName.empty()
+          ? std::string(targetName(contract.targetProfile.selectedTarget))
+          : contract.targetProfile.selectedTargetName);
+  out << ",";
+  appendJsonStringField(out, "selectionReason",
+                        targetSelectionReasonName(contract.targetProfile));
+  out << ",";
+  appendJsonBoolField(out, "autoRequested",
+                      contract.targetProfile.autoRequested);
+  out << ",";
+  appendJsonBoolField(out, "selectedTargetBuildable",
+                      contract.targetProfile.selectedTargetBuildable);
+  out << ",";
   appendJsonStringField(out, "profile",
                         target + ".v0." + std::string(packageMode));
   out << ",";
@@ -3188,14 +3285,13 @@ targetLegalizationResultV0Json(const TargetLegalizationContract &contract) {
   out << "},";
   appendJsonStringField(out, "packageMode", packageMode);
   out << ",";
-  appendJsonStringField(
-      out, "packageDecisionProvenance",
-      targetLegalizationPackageDecisionProvenanceName(
-          contract.packageDecisionProvenance));
+  appendJsonStringField(out, "packageDecisionProvenance",
+                        targetLegalizationPackageDecisionProvenanceName(
+                            contract.packageDecisionProvenance));
   out << ",";
-  appendJsonStringField(out, "supportStatus",
-                        targetLegalizationSupportStatusName(
-                            contract.supportStatus));
+  appendJsonStringField(
+      out, "supportStatus",
+      targetLegalizationSupportStatusName(contract.supportStatus));
   out << ",";
   appendJsonBoolField(out, "moduleSupported", moduleSupported);
   out << ",";
@@ -3382,10 +3478,9 @@ std::vector<std::string> targetLegalizationContractInvariantDiagnostics(
           evidenceId);
     }
   }
-  appendEvidenceIdShapeDiagnostics(diagnostics,
-                                   expectedDiagnosticSummary.evidenceIds,
-                                   contract.resolvedTarget, "diagnostic",
-                                   seenNestedEvidenceIds);
+  appendEvidenceIdShapeDiagnostics(
+      diagnostics, expectedDiagnosticSummary.evidenceIds,
+      contract.resolvedTarget, "diagnostic", seenNestedEvidenceIds);
 
   const TargetLegalizationABIFacts &abiFacts = contract.abiFacts;
   if (abiFacts.target != TargetKind::Auto &&
@@ -3459,8 +3554,7 @@ std::vector<std::string> targetLegalizationContractInvariantDiagnostics(
   const bool defaultResourceBindingPlaceholder =
       resourceBindings.target == TargetKind::Auto &&
       !resourceBindings.complete && resourceBindings.requiredRecordCount == 0 &&
-      resourceBindings.records.empty() &&
-      resourceBindings.evidenceIds.empty();
+      resourceBindings.records.empty() && resourceBindings.evidenceIds.empty();
   if (!defaultResourceBindingPlaceholder) {
     const std::string expectedResourceBindingEvidence =
         evidenceId(resourceBindings.target, resourceBindings.records.empty()
@@ -3478,8 +3572,7 @@ std::vector<std::string> targetLegalizationContractInvariantDiagnostics(
     diagnostics.push_back("resource binding facts incomplete");
   }
   if (!defaultResourceBindingPlaceholder &&
-      resourceBindings.records.size() !=
-          resourceBindings.requiredRecordCount) {
+      resourceBindings.records.size() != resourceBindings.requiredRecordCount) {
     diagnostics.push_back("resource binding required record count mismatch");
   }
   if (!defaultResourceBindingPlaceholder &&
@@ -3604,10 +3697,9 @@ std::vector<std::string> targetLegalizationContractInvariantDiagnostics(
           evidenceId);
     }
   }
-  appendEvidenceIdShapeDiagnostics(diagnostics, packageArtifacts.evidenceIds,
-                                   contract.resolvedTarget,
-                                   "package artifact requirements",
-                                   seenNestedEvidenceIds);
+  appendEvidenceIdShapeDiagnostics(
+      diagnostics, packageArtifacts.evidenceIds, contract.resolvedTarget,
+      "package artifact requirements", seenNestedEvidenceIds);
 
   const TargetLegalizationToolRequirementSummary &toolRequirements =
       contract.toolRequirements;

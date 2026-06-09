@@ -11,19 +11,20 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
-import zipfile
 
 from .package_reader import (
     Artifact,
     CompatibilityDiagnostic,
     PackageCompatibilityReport,
     PackageReadError,
+    RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
     RuntimeArtifactSelection,
     SUPPORTED_COMPILER_NAME,
     SUPPORTED_DEBUG_METADATA_SCHEMA_VERSION,
     SUPPORTED_PACKAGE_SCHEMA_VERSION,
     read_compatibility_report,
     select_runtime_artifact,
+    _DEFAULT_ARTIFACT_BYTE_LIMIT,
 )
 
 
@@ -111,18 +112,54 @@ class LoaderArtifactPlan:
             )
         return self
 
-    def read_bytes(self) -> bytes:
-        artifact = self.require_exists()
-        if artifact.archive_path is not None:
-            member = artifact.archive_member or artifact.package_path
-            with zipfile.ZipFile(artifact.archive_path) as archive:
-                return archive.read(member)
-        return artifact.path.read_bytes()
+    def _as_manifest_artifact(self) -> Artifact:
+        return Artifact(
+            name=self.name,
+            package_path=self.package_path,
+            path=self.path,
+            exists=self.exists,
+            size=self.size,
+            archive_path=self.archive_path,
+            archive_member=self.archive_member,
+        )
 
-    def read_text(self, *, encoding: str = "utf-8") -> str:
-        if self.archive_path is not None:
-            return self.read_bytes().decode(encoding)
+    def iter_bytes(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ):
+        self.require_exists()
+        yield from self._as_manifest_artifact().iter_bytes(
+            chunk_size=chunk_size,
+            byte_limit=byte_limit,
+        )
+
+    def read_bytes(self, *, byte_limit: int | None = None) -> bytes:
+        return b"".join(self.iter_bytes(byte_limit=byte_limit))
+
+    def read_text(
+        self,
+        *,
+        encoding: str = "utf-8",
+        byte_limit: int | None = None,
+    ) -> str:
+        if self.archive_path is not None or byte_limit is not None:
+            return self.read_bytes(byte_limit=byte_limit).decode(encoding)
         return self.require_exists().path.read_text(encoding=encoding)
+
+    def sha256(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ) -> str:
+        self.require_exists()
+        digest = self._as_manifest_artifact().sha256(
+            chunk_size=chunk_size,
+            byte_limit=byte_limit,
+        )
+        return digest
 
     def to_summary(self) -> dict[str, Any]:
         return {
@@ -248,6 +285,9 @@ class RuntimeLoaderPlan:
                 else None
             ),
             "reflectionInputs": self.reflection_resource_summary,
+            "targetResourceBindingMetadata": (
+                self.target_resource_binding_metadata_summary
+            ),
             "sourceInputs": [],
         }
 
@@ -579,7 +619,18 @@ class RuntimeLoaderPlan:
             "resources": [
                 _summarize_reflection_record(
                     record,
-                    ("stage", "name", "kind", "type", "set", "binding"),
+                    (
+                        "stage",
+                        "name",
+                        "kind",
+                        "type",
+                        "storageImageFormat",
+                        "storageImageAccess",
+                        "arrayDimensions",
+                        "arrayElementCount",
+                        "set",
+                        "binding",
+                    ),
                 )
                 for record in self._reflection_records("resources")
             ],
@@ -594,6 +645,10 @@ class RuntimeLoaderPlan:
                         "kind",
                         "bindingClass",
                         "descriptorType",
+                        "storageImageFormat",
+                        "storageImageAccess",
+                        "arrayDimensions",
+                        "arrayElementCount",
                         "abi",
                     ),
                 )
@@ -607,6 +662,30 @@ class RuntimeLoaderPlan:
                 for record in selected_features
             ],
             "workgroupSizes": list(workgroup_sizes),
+        }
+
+    @property
+    def target_resource_binding_metadata_summary(self) -> dict[str, Any]:
+        target_bindings = self._reflection_records("targetResourceBindings")
+        selected_target = self.selected_target
+        if selected_target is None:
+            selected_target = self.loader_target
+        selected_bindings = tuple(
+            record
+            for record in target_bindings
+            if record.get("target") == selected_target
+        )
+        return {
+            "schemaVersion": 1,
+            "selectedTarget": self.selected_target,
+            "loaderTarget": self.loader_target,
+            "packageTarget": self.package_target,
+            "bindingCount": len(selected_bindings),
+            "skippedBindingCount": len(target_bindings) - len(selected_bindings),
+            "bindings": [
+                _target_resource_binding_metadata_record(record)
+                for record in selected_bindings
+            ],
         }
 
     @property
@@ -780,6 +859,9 @@ class RuntimeLoaderPlan:
             "artifactRoleCompatibility": self.artifact_role_compatibility,
             "artifactCompatibility": self.artifact_compatibility_summary,
             "reflectionResources": self.reflection_resource_summary,
+            "targetResourceBindingMetadata": (
+                self.target_resource_binding_metadata_summary
+            ),
             "artifactAvailability": self.compatibility_report.artifact_availability,
             "availability": self.availability_summary,
             "metadataContract": self.metadata_contract_summary,
@@ -1194,3 +1276,39 @@ def _summarize_reflection_record(
     keys: tuple[str, ...],
 ) -> dict[str, Any]:
     return {key: record[key] for key in keys if key in record}
+
+
+def _target_resource_binding_metadata_record(
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    abi = record.get("abi")
+    abi_summary = dict(abi) if isinstance(abi, dict) else abi
+    summary = {
+        "target": record.get("target"),
+        "stage": record.get("stage"),
+        "entryPoint": record.get("entryPoint"),
+        "name": record.get("name"),
+        "kind": record.get("kind"),
+        "bindingClass": record.get("bindingClass"),
+        "descriptorType": record.get("descriptorType"),
+        "set": record.get("set"),
+        "binding": record.get("binding"),
+        "argumentIndex": record.get("argumentIndex"),
+        "abi": abi_summary,
+        "identity": {
+            "target": record.get("target"),
+            "stage": record.get("stage"),
+            "entryPoint": record.get("entryPoint"),
+            "name": record.get("name"),
+            "kind": record.get("kind"),
+        },
+    }
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
+        if field_name in record:
+            summary[field_name] = record.get(field_name)
+    return summary

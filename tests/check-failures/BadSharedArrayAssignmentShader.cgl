@@ -1,0 +1,9 @@
+shader BadSharedArrayAssignmentShader {
+  compute {
+    shared float tile[4];
+    void main() {
+      tile = tile;
+      return;
+    }
+  }
+}

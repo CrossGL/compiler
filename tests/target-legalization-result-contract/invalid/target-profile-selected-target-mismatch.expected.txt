@@ -1,0 +1,1 @@
+$.result.targetProfile.resolvedTarget: expected 'vulkan'

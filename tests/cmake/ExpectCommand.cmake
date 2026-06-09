@@ -709,6 +709,241 @@ function(crossgl_mutate_package_manifest package_path mutation_kind)
   file(WRITE "${manifest_path}" "${mutated_manifest}")
 endfunction()
 
+function(crossgl_mutate_package_reflection package_path mutation_kind)
+  if("${mutation_kind}" STREQUAL "")
+    return()
+  endif()
+
+  set(manifest_path "${package_path}/manifest.json")
+  set(reflection_path "${package_path}/reflection.json")
+  if(NOT EXISTS "${manifest_path}")
+    message(FATAL_ERROR
+      "cannot mutate package reflection; manifest does not exist: ${manifest_path}")
+  endif()
+  if(NOT EXISTS "${reflection_path}")
+    message(FATAL_ERROR
+      "cannot mutate package reflection; file does not exist: ${reflection_path}")
+  endif()
+
+  file(READ "${manifest_path}" manifest)
+  file(READ "${reflection_path}" reflection)
+  if(mutation_kind STREQUAL "duplicate-selected-target-resource-binding")
+    string(JSON selected_target ERROR_VARIABLE manifest_error GET
+      "${manifest}" target)
+    if(NOT manifest_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read manifest target for ${mutation_kind}: ${manifest_error}")
+    endif()
+    string(JSON binding_count ERROR_VARIABLE reflection_error LENGTH
+      "${reflection}" targetResourceBindings)
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read reflection targetResourceBindings for ${mutation_kind}: ${reflection_error}")
+    endif()
+    if(binding_count LESS 1)
+      message(FATAL_ERROR
+        "cannot duplicate selected-target resource binding; reflection has no targetResourceBindings")
+    endif()
+
+    set(selected_binding_index -1)
+    math(EXPR last_binding_index "${binding_count} - 1")
+    foreach(binding_index RANGE 0 ${last_binding_index})
+      string(JSON binding_target ERROR_VARIABLE target_error GET
+        "${reflection}" targetResourceBindings ${binding_index} target)
+      if(target_error STREQUAL "NOTFOUND" AND
+         binding_target STREQUAL "${selected_target}")
+        set(selected_binding_index ${binding_index})
+        break()
+      endif()
+    endforeach()
+    if(selected_binding_index EQUAL -1)
+      message(FATAL_ERROR
+        "cannot duplicate selected-target resource binding; no binding for ${selected_target}")
+    endif()
+
+    string(JSON duplicate_binding ERROR_VARIABLE reflection_error GET
+      "${reflection}" targetResourceBindings ${selected_binding_index})
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to clone selected-target resource binding for ${mutation_kind}: ${reflection_error}")
+    endif()
+    string(JSON duplicate_binding ERROR_VARIABLE reflection_error SET
+      "${duplicate_binding}" abi
+      "{\"mutatedForDuplicateFixture\":true,\"space\":999,\"register\":\"u999\"}")
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to mutate duplicate resource binding ABI for ${mutation_kind}: ${reflection_error}")
+    endif()
+    string(JSON mutated_reflection ERROR_VARIABLE reflection_error SET
+      "${reflection}" targetResourceBindings ${binding_count}
+      "${duplicate_binding}")
+  elseif(mutation_kind STREQUAL
+         "selected-target-resource-binding-array-element-count-mismatch")
+    string(JSON selected_target ERROR_VARIABLE manifest_error GET
+      "${manifest}" target)
+    if(NOT manifest_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read manifest target for ${mutation_kind}: ${manifest_error}")
+    endif()
+    string(JSON binding_count ERROR_VARIABLE reflection_error LENGTH
+      "${reflection}" targetResourceBindings)
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read reflection targetResourceBindings for ${mutation_kind}: ${reflection_error}")
+    endif()
+    if(binding_count LESS 1)
+      message(FATAL_ERROR
+        "cannot mutate selected-target resource binding arrayElementCount; reflection has no targetResourceBindings")
+    endif()
+
+    set(selected_binding_index -1)
+    set(selected_binding_array_element_count "")
+    math(EXPR last_binding_index "${binding_count} - 1")
+    foreach(binding_index RANGE 0 ${last_binding_index})
+      string(JSON binding_target ERROR_VARIABLE target_error GET
+        "${reflection}" targetResourceBindings ${binding_index} target)
+      if(NOT target_error STREQUAL "NOTFOUND")
+        continue()
+      endif()
+      if(NOT binding_target STREQUAL "${selected_target}")
+        continue()
+      endif()
+      string(JSON array_element_count ERROR_VARIABLE count_error GET
+        "${reflection}" targetResourceBindings ${binding_index}
+        arrayElementCount)
+      if(count_error STREQUAL "NOTFOUND")
+        set(selected_binding_index ${binding_index})
+        set(selected_binding_array_element_count ${array_element_count})
+        break()
+      endif()
+    endforeach()
+    if(selected_binding_index EQUAL -1)
+      message(FATAL_ERROR
+        "cannot mutate selected-target resource binding arrayElementCount; no selected-target binding has arrayElementCount")
+    endif()
+
+    math(EXPR mutated_array_element_count
+      "${selected_binding_array_element_count} + 1")
+    string(JSON mutated_reflection ERROR_VARIABLE reflection_error SET
+      "${reflection}" targetResourceBindings ${selected_binding_index}
+      arrayElementCount "${mutated_array_element_count}")
+  elseif(mutation_kind STREQUAL
+         "selected-target-resource-binding-array-element-count-missing")
+    string(JSON selected_target ERROR_VARIABLE manifest_error GET
+      "${manifest}" target)
+    if(NOT manifest_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read manifest target for ${mutation_kind}: ${manifest_error}")
+    endif()
+    string(JSON binding_count ERROR_VARIABLE reflection_error LENGTH
+      "${reflection}" targetResourceBindings)
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read reflection targetResourceBindings for ${mutation_kind}: ${reflection_error}")
+    endif()
+    if(binding_count LESS 1)
+      message(FATAL_ERROR
+        "cannot mutate selected-target resource binding arrayElementCount; reflection has no targetResourceBindings")
+    endif()
+
+    set(selected_binding_index -1)
+    math(EXPR last_binding_index "${binding_count} - 1")
+    foreach(binding_index RANGE 0 ${last_binding_index})
+      string(JSON binding_target ERROR_VARIABLE target_error GET
+        "${reflection}" targetResourceBindings ${binding_index} target)
+      if(NOT target_error STREQUAL "NOTFOUND")
+        continue()
+      endif()
+      if(NOT binding_target STREQUAL "${selected_target}")
+        continue()
+      endif()
+      string(JSON array_element_count ERROR_VARIABLE count_error GET
+        "${reflection}" targetResourceBindings ${binding_index}
+        arrayElementCount)
+      if(count_error STREQUAL "NOTFOUND")
+        set(selected_binding_index ${binding_index})
+        break()
+      endif()
+    endforeach()
+    if(selected_binding_index EQUAL -1)
+      message(FATAL_ERROR
+        "cannot mutate selected-target resource binding arrayElementCount; no selected-target binding has arrayElementCount")
+    endif()
+
+    string(JSON mutated_reflection ERROR_VARIABLE reflection_error REMOVE
+      "${reflection}" targetResourceBindings ${selected_binding_index}
+      arrayElementCount)
+  elseif(mutation_kind STREQUAL
+         "selected-target-resource-binding-array-dimensions-mismatch")
+    string(JSON selected_target ERROR_VARIABLE manifest_error GET
+      "${manifest}" target)
+    if(NOT manifest_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read manifest target for ${mutation_kind}: ${manifest_error}")
+    endif()
+    string(JSON binding_count ERROR_VARIABLE reflection_error LENGTH
+      "${reflection}" targetResourceBindings)
+    if(NOT reflection_error STREQUAL "NOTFOUND")
+      message(FATAL_ERROR
+        "failed to read reflection targetResourceBindings for ${mutation_kind}: ${reflection_error}")
+    endif()
+    if(binding_count LESS 1)
+      message(FATAL_ERROR
+        "cannot mutate selected-target resource binding arrayDimensions; reflection has no targetResourceBindings")
+    endif()
+
+    set(selected_binding_index -1)
+    set(selected_binding_dimension_element_count "")
+    math(EXPR last_binding_index "${binding_count} - 1")
+    foreach(binding_index RANGE 0 ${last_binding_index})
+      string(JSON binding_target ERROR_VARIABLE target_error GET
+        "${reflection}" targetResourceBindings ${binding_index} target)
+      if(NOT target_error STREQUAL "NOTFOUND")
+        continue()
+      endif()
+      if(NOT binding_target STREQUAL "${selected_target}")
+        continue()
+      endif()
+      string(JSON dimension_count ERROR_VARIABLE dimensions_error LENGTH
+        "${reflection}" targetResourceBindings ${binding_index}
+        arrayDimensions)
+      if(NOT dimensions_error STREQUAL "NOTFOUND")
+        continue()
+      endif()
+      if(NOT dimension_count GREATER 0)
+        continue()
+      endif()
+      string(JSON dimension_element_count ERROR_VARIABLE element_count_error GET
+        "${reflection}" targetResourceBindings ${binding_index}
+        arrayDimensions 0 elementCount)
+      if(NOT element_count_error STREQUAL "NOTFOUND")
+        continue()
+      endif()
+      set(selected_binding_index ${binding_index})
+      set(selected_binding_dimension_element_count ${dimension_element_count})
+      break()
+    endforeach()
+    if(selected_binding_index EQUAL -1)
+      message(FATAL_ERROR
+        "cannot mutate selected-target resource binding arrayDimensions; no selected-target binding has arrayDimensions")
+    endif()
+
+    math(EXPR mutated_dimension_element_count
+      "${selected_binding_dimension_element_count} + 1")
+    string(JSON mutated_reflection ERROR_VARIABLE reflection_error SET
+      "${reflection}" targetResourceBindings ${selected_binding_index}
+      arrayDimensions 0 elementCount "${mutated_dimension_element_count}")
+  else()
+    message(FATAL_ERROR "unknown REFLECTION_MUTATION_KIND: ${mutation_kind}")
+  endif()
+
+  if(NOT reflection_error STREQUAL "NOTFOUND")
+    message(FATAL_ERROR
+      "failed to mutate package reflection for ${mutation_kind}: ${reflection_error}")
+  endif()
+  file(WRITE "${reflection_path}" "${mutated_reflection}")
+endfunction()
+
 function(crossgl_validate_manifest_json_schema json)
   if(NOT DEFINED MANIFEST_JSON_SCHEMA)
     return()
@@ -1155,6 +1390,24 @@ function(crossgl_apply_native_artifact_descriptor_json_expectations json)
     endforeach()
   endif()
 
+  if(DEFINED EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_ORDERED_CONTAINS)
+    string(REPLACE "|" ";" expected_ordered_snippets
+           "${EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_ORDERED_CONTAINS}")
+    set(previous_snippet_position -1)
+    foreach(snippet IN LISTS expected_ordered_snippets)
+      string(FIND "${json}" "${snippet}" snippet_position)
+      if(snippet_position EQUAL -1)
+        message(FATAL_ERROR
+                "expected native artifact descriptor to contain '${snippet}'")
+      endif()
+      if(snippet_position LESS previous_snippet_position)
+        message(FATAL_ERROR
+                "expected native artifact descriptor snippet '${snippet}' to appear after the previous ordered snippet")
+      endif()
+      set(previous_snippet_position "${snippet_position}")
+    endforeach()
+  endif()
+
   crossgl_validate_native_artifact_json_schema("${json}")
 endfunction()
 
@@ -1435,6 +1688,8 @@ endif()
 
 if(NOT DEFINED INPUT AND
    NOT MODE STREQUAL "doctor-json" AND
+   NOT MODE STREQUAL "source-batch-check-json" AND
+   NOT MODE STREQUAL "source-batch-build-json" AND
    NOT MODE STREQUAL "package-verify-json-failure" AND
    NOT MODE STREQUAL "package-inspect-json-failure")
   message(FATAL_ERROR "INPUT is required")
@@ -1482,6 +1737,16 @@ elseif(MODE STREQUAL "check-json")
     message(FATAL_ERROR "check-json tests must define parsed diagnostics JSON expectations")
   endif()
   list(APPEND command check "${INPUT}" --diagnostics-json)
+elseif(MODE STREQUAL "source-batch-check-json")
+  if(NOT DEFINED MANIFEST)
+    message(FATAL_ERROR "MANIFEST is required")
+  endif()
+  list(APPEND command check --source-manifest "${MANIFEST}" --diagnostics-json)
+elseif(MODE STREQUAL "source-batch-build-json")
+  if(NOT DEFINED MANIFEST)
+    message(FATAL_ERROR "MANIFEST is required")
+  endif()
+  list(APPEND command build --source-batch "${MANIFEST}" --diagnostics-json)
 elseif(MODE STREQUAL "doctor-input")
   list(APPEND command doctor "${INPUT}")
 elseif(MODE STREQUAL "doctor-json")
@@ -1587,6 +1852,12 @@ elseif(MODE STREQUAL "package-verify-json-schema")
     set(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}-verify-schema.cglb")
   endif()
   list(APPEND command build "${INPUT}" --target "${TARGET}" --output "${OUTPUT}" --debug-ir)
+  if(DEFINED LOGICAL_INPUT)
+    list(APPEND command --logical-input "${LOGICAL_INPUT}")
+  endif()
+  if(DEFINED SOURCE_REMAP)
+    list(APPEND command --source-remap "${SOURCE_REMAP}")
+  endif()
 elseif(MODE STREQUAL "package-verify-text")
   if(NOT DEFINED TARGET)
     message(FATAL_ERROR "TARGET is required")
@@ -1845,6 +2116,19 @@ elseif(MODE STREQUAL "check-json")
     message(FATAL_ERROR "expected check diagnostics JSON on stdout, got empty output. Stderr: ${stderr}")
   endif()
   crossgl_apply_diagnostics_json_expectations("${stdout}")
+elseif(MODE STREQUAL "source-batch-check-json" OR
+       MODE STREQUAL "source-batch-build-json")
+  if(NOT DEFINED EXPECTED_RESULT)
+    set(EXPECTED_RESULT 0)
+  endif()
+  if(NOT result EQUAL EXPECTED_RESULT)
+    message(FATAL_ERROR "${MODE} expected exit code ${EXPECTED_RESULT}, got ${result}. Stdout: ${stdout} Stderr: ${stderr}")
+  endif()
+  if(stdout STREQUAL "")
+    message(FATAL_ERROR "expected source batch result JSON on stdout, got empty output. Stderr: ${stderr}")
+  endif()
+  crossgl_apply_json_expectations("${stdout}")
+  crossgl_validate_json_schema("${stdout}")
 elseif(MODE STREQUAL "doctor-input")
   if(NOT result EQUAL 0)
     message(FATAL_ERROR "doctor input check failed: ${stderr}")
@@ -2338,18 +2622,38 @@ elseif(MODE STREQUAL "source-package-build")
   file(READ "${OUTPUT}/manifest.json" manifest)
   crossgl_expect_json_field("${manifest}" "schemaVersion" "1")
   crossgl_expect_json_field("${manifest}" "target" "${TARGET}")
+  string(JSON manifest_package_mode ERROR_VARIABLE manifest_package_mode_error
+         GET "${manifest}" packageArtifactRequirements packageMode)
+  set(crossgl_source_package_manifest_is_native FALSE)
+  if(manifest_package_mode_error STREQUAL "NOTFOUND" AND
+     manifest_package_mode STREQUAL "native")
+    set(crossgl_source_package_manifest_is_native TRUE)
+  endif()
   crossgl_expect_json_path_exists("${manifest}" "artifacts.backendSource")
   crossgl_expect_json_path_exists("${manifest}" "artifacts.nativeBinary")
-  crossgl_expect_json_path_exists("${manifest}" "artifacts.nativeBinaryStatus")
+  if(crossgl_source_package_manifest_is_native)
+    crossgl_expect_json_path_absent("${manifest}" "artifacts.nativeBinaryStatus")
+  else()
+    crossgl_expect_json_path_exists("${manifest}" "artifacts.nativeBinaryStatus")
+  endif()
   crossgl_expect_native_artifact_descriptor("${manifest}")
   crossgl_expect_manifest_debug_artifacts("${manifest}")
   crossgl_expect_source_remap_provenance("${manifest}")
   crossgl_expect_debug_metadata_json_expectations("${manifest}")
-  if(DEFINED EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS OR
-     DEFINED SOURCE_REMAP_PROVENANCE_JSON_SCHEMA)
-    crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,nativeBinaryStatus,debugMetadata,hirSourceMap,sourceRemap,nativeArtifactDescriptor,targetExplanation")
+  if(crossgl_source_package_manifest_is_native)
+    if(DEFINED EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS OR
+       DEFINED SOURCE_REMAP_PROVENANCE_JSON_SCHEMA)
+      crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,debugMetadata,hirSourceMap,sourceRemap,nativeArtifactDescriptor,targetExplanation")
+    else()
+      crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,debugMetadata,hirSourceMap,nativeArtifactDescriptor,targetExplanation")
+    endif()
   else()
-    crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,nativeBinaryStatus,debugMetadata,hirSourceMap,nativeArtifactDescriptor,targetExplanation")
+    if(DEFINED EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS OR
+       DEFINED SOURCE_REMAP_PROVENANCE_JSON_SCHEMA)
+      crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,nativeBinaryStatus,debugMetadata,hirSourceMap,sourceRemap,nativeArtifactDescriptor,targetExplanation")
+    else()
+      crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,nativeBinaryStatus,debugMetadata,hirSourceMap,nativeArtifactDescriptor,targetExplanation")
+    endif()
   endif()
   crossgl_apply_manifest_json_expectations("${manifest}")
   crossgl_validate_package_integrity()
@@ -2379,18 +2683,26 @@ elseif(MODE STREQUAL "source-package-build")
     endif()
   endif()
   if(DEFINED EXPECTED_NATIVE_BINARY_STATUS)
-    crossgl_expect_json_field("${manifest}" "artifacts.nativeBinaryStatus"
-                              "${EXPECTED_NATIVE_BINARY_STATUS}")
-  else()
-    string(JSON native_binary_status ERROR_VARIABLE native_status_error GET
-           "${manifest}" artifacts nativeBinaryStatus)
-    if(NOT native_status_error STREQUAL "NOTFOUND")
-      message(FATAL_ERROR "expected ${TARGET} manifest nativeBinaryStatus, got: ${native_status_error}")
+    if(crossgl_source_package_manifest_is_native)
+      crossgl_expect_json_path_absent("${manifest}" "artifacts.nativeBinaryStatus")
+    else()
+      crossgl_expect_json_field("${manifest}" "artifacts.nativeBinaryStatus"
+                                "${EXPECTED_NATIVE_BINARY_STATUS}")
     endif()
-    if(NOT native_binary_status STREQUAL "planned" AND
-       NOT native_binary_status STREQUAL "emitted" AND
-       NOT native_binary_status STREQUAL "validated")
-      message(FATAL_ERROR "expected ${TARGET} manifest to mark nativeBinaryStatus planned, emitted, or validated")
+  else()
+    if(crossgl_source_package_manifest_is_native)
+      crossgl_expect_json_path_absent("${manifest}" "artifacts.nativeBinaryStatus")
+    else()
+      string(JSON native_binary_status ERROR_VARIABLE native_status_error GET
+             "${manifest}" artifacts nativeBinaryStatus)
+      if(NOT native_status_error STREQUAL "NOTFOUND")
+        message(FATAL_ERROR "expected ${TARGET} manifest nativeBinaryStatus, got: ${native_status_error}")
+      endif()
+      if(NOT native_binary_status STREQUAL "planned" AND
+         NOT native_binary_status STREQUAL "emitted" AND
+         NOT native_binary_status STREQUAL "validated")
+        message(FATAL_ERROR "expected ${TARGET} manifest to mark nativeBinaryStatus planned, emitted, or validated")
+      endif()
     endif()
   endif()
   if(DEFINED EXPECTED_NATIVE_BINARY AND NOT EXISTS "${OUTPUT}/${EXPECTED_NATIVE_BINARY}")
@@ -2438,6 +2750,13 @@ elseif(MODE STREQUAL "package-verify-json-schema")
   endif()
   file(READ "${OUTPUT}/manifest.json" manifest)
   crossgl_apply_manifest_json_expectations("${manifest}")
+  if(DEFINED EXPECTED_HIR_SOURCE_MAP_JSON_PATHS OR
+     DEFINED EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS OR
+     DEFINED EXPECTED_HIR_SOURCE_MAP_JSON_ARRAY_LENGTHS)
+    crossgl_expect_manifest_debug_artifacts("${manifest}")
+  endif()
+  crossgl_expect_debug_metadata_json_expectations("${manifest}")
+  crossgl_expect_source_remap_provenance("${manifest}")
   crossgl_expect_graphics_abi_artifact("${manifest}")
   crossgl_expect_native_artifact_descriptor("${manifest}")
 
@@ -2552,10 +2871,17 @@ elseif(MODE STREQUAL "package-verify-json-failure")
     endif()
     set(descriptor_path "${package_path}/${native_artifact_descriptor}")
     file(READ "${descriptor_path}" descriptor)
+    set(original_descriptor "${descriptor}")
     string(REPLACE
-           "\"optimizationLevel\": \"unknown\""
+           "\"optimizationLevel\": \"O1\""
            "\"optimizationLevel\": \"O3\""
            descriptor "${descriptor}")
+    if(descriptor STREQUAL original_descriptor)
+      string(REPLACE
+             "\"optimizationLevel\": \"unknown\""
+             "\"optimizationLevel\": \"O3\""
+             descriptor "${descriptor}")
+    endif()
     file(WRITE "${descriptor_path}" "${descriptor}")
   elseif(FAILURE_KIND STREQUAL
          "tampered-planned-native-artifact-compiler-tool")
@@ -2593,6 +2919,36 @@ elseif(MODE STREQUAL "package-verify-json-failure")
            "      },\n      {\n        \"name\": \"glslangValidator\",\n        \"role\": \"validator\",\n        \"version\": \"fixture\",\n        \"executable\": \"glslangValidator\"\n      }\n    ],"
            descriptor "${descriptor}")
     file(WRITE "${descriptor_path}" "${descriptor}")
+  elseif(FAILURE_KIND STREQUAL "duplicate-selected-target-resource-binding")
+    if(DEFINED INPUT)
+      list(APPEND verify_command --source "${INPUT}")
+    endif()
+    crossgl_mutate_package_reflection(
+      "${package_path}" "duplicate-selected-target-resource-binding")
+  elseif(FAILURE_KIND STREQUAL
+         "selected-target-resource-binding-array-element-count-mismatch")
+    if(DEFINED INPUT)
+      list(APPEND verify_command --source "${INPUT}")
+    endif()
+    crossgl_mutate_package_reflection(
+      "${package_path}"
+      "selected-target-resource-binding-array-element-count-mismatch")
+  elseif(FAILURE_KIND STREQUAL
+         "selected-target-resource-binding-array-element-count-missing")
+    if(DEFINED INPUT)
+      list(APPEND verify_command --source "${INPUT}")
+    endif()
+    crossgl_mutate_package_reflection(
+      "${package_path}"
+      "selected-target-resource-binding-array-element-count-missing")
+  elseif(FAILURE_KIND STREQUAL
+         "selected-target-resource-binding-array-dimensions-mismatch")
+    if(DEFINED INPUT)
+      list(APPEND verify_command --source "${INPUT}")
+    endif()
+    crossgl_mutate_package_reflection(
+      "${package_path}"
+      "selected-target-resource-binding-array-dimensions-mismatch")
   elseif(FAILURE_KIND STREQUAL "malformed-package-artifact-requirements" OR
          FAILURE_KIND STREQUAL "target-conflicting-package-artifact-requirements")
     if(DEFINED INPUT)

@@ -937,6 +937,266 @@ def entries_by_id(document, key):
     }
 
 
+def project_mapping(value, keys, projectors=None):
+    if not isinstance(value, dict):
+        return value
+    projectors = projectors or {}
+    projected = {}
+    for key in keys:
+        if key not in value:
+            continue
+        projector = projectors.get(key)
+        projected[key] = projector(value[key]) if projector else value[key]
+    return projected
+
+
+def project_list(value, projector):
+    if not isinstance(value, list):
+        return value
+    return [projector(item) for item in value]
+
+
+def project_document(value):
+    return project_mapping(value, ("id", "path"))
+
+
+def project_authority_reference(value):
+    return project_mapping(
+        value,
+        (
+            "id",
+            "kind",
+            "repository",
+            "url",
+            "state",
+            "headCommit",
+            "languageAuthorityImpact",
+        ),
+    )
+
+
+def project_source_file(value):
+    return project_mapping(value, ("path", "sha256"))
+
+
+def project_source_language_snapshot(value):
+    return project_mapping(
+        value,
+        (
+            "id",
+            "path",
+            "schema_version",
+            "sha256",
+            "authority_references",
+            "source_files",
+        ),
+        {
+            "authority_references": lambda items: project_list(
+                items, project_authority_reference
+            ),
+            "source_files": lambda items: project_list(items, project_source_file),
+        },
+    )
+
+
+def project_contract_manifest(value):
+    return project_mapping(
+        value,
+        (
+            "path",
+            "schema",
+            "contract_count",
+            "accepted_feature_group_count",
+            "negative_case_count",
+            "hash_fields",
+        ),
+    )
+
+
+def project_snapshot_ref_seal(value):
+    return project_mapping(value, ("ref", "sha256"))
+
+
+def project_fixture_hash(value):
+    return project_mapping(
+        value,
+        ("id", "source_sha256", "translator_ast_sha256", "compiler_hir_sha256"),
+    )
+
+
+def project_feature_group(value):
+    return project_mapping(
+        value,
+        (
+            "id",
+            "status",
+            "description",
+            "snapshot_refs",
+            "snapshot_ref_seals",
+            "fixture_count",
+            "fixtures",
+        ),
+        {
+            "snapshot_ref_seals": lambda items: project_list(
+                items, project_snapshot_ref_seal
+            ),
+            "fixtures": lambda items: project_list(items, project_fixture_hash),
+        },
+    )
+
+
+def project_translator_expectation(value):
+    return project_mapping(
+        value,
+        ("status", "ast_sha256", "error_class", "diagnostic_substrings"),
+    )
+
+
+def project_compiler_expectation(value):
+    return project_mapping(value, ("status", "diagnostic_substrings"))
+
+
+def project_negative_case(value):
+    return project_mapping(
+        value,
+        (
+            "id",
+            "group",
+            "classification",
+            "feature_group",
+            "reason",
+            "root",
+            "path",
+            "source_sha256",
+            "native_v0_owner_bucket",
+            "translator",
+            "compiler",
+        ),
+        {
+            "translator": project_translator_expectation,
+            "compiler": project_compiler_expectation,
+        },
+    )
+
+
+def project_cross_repo_language_feature_spec(value):
+    return project_mapping(
+        value,
+        (
+            "schemaVersion",
+            "schema",
+            "kind",
+            "description",
+            "document",
+            "source_language_snapshot",
+            "contract_manifest",
+            "feature_groups",
+            "negative_cases",
+        ),
+        {
+            "document": project_document,
+            "source_language_snapshot": project_source_language_snapshot,
+            "contract_manifest": project_contract_manifest,
+            "feature_groups": lambda items: project_list(items, project_feature_group),
+            "negative_cases": lambda items: project_list(items, project_negative_case),
+        },
+    )
+
+
+def json_pointer_escape(part):
+    return str(part).replace("~", "~0").replace("/", "~1")
+
+
+def json_pointer(parts):
+    if not parts:
+        return "/"
+    return "/" + "/".join(json_pointer_escape(part) for part in parts)
+
+
+def compact_json(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def append_json_projection_diffs(expected, actual, path_parts, diffs, limit):
+    if len(diffs) >= limit:
+        return
+    if type(expected) is not type(actual):
+        diffs.append(
+            "shared spec drift at {}\n  expected: {}\n  actual:   {}".format(
+                json_pointer(path_parts), compact_json(expected), compact_json(actual)
+            )
+        )
+        return
+    if isinstance(expected, dict):
+        expected_keys = list(expected.keys())
+        for key in expected_keys:
+            if len(diffs) >= limit:
+                return
+            if key not in actual:
+                diffs.append(
+                    "shared spec drift at {}\n  expected: {}\n  actual:   <missing>".format(
+                        json_pointer(path_parts + [key]), compact_json(expected[key])
+                    )
+                )
+                continue
+            append_json_projection_diffs(
+                expected[key], actual[key], path_parts + [key], diffs, limit
+            )
+        for key in sorted(set(actual) - set(expected)):
+            if len(diffs) >= limit:
+                return
+            diffs.append(
+                "shared spec drift at {}\n  expected: <missing>\n  actual:   {}".format(
+                    json_pointer(path_parts + [key]), compact_json(actual[key])
+                )
+            )
+        return
+    if isinstance(expected, list):
+        if len(expected) != len(actual):
+            diffs.append(
+                "shared spec drift at {}\n  expected length: {}\n  actual length:   {}".format(
+                    json_pointer(path_parts), len(expected), len(actual)
+                )
+            )
+            if len(diffs) >= limit:
+                return
+        for index, (expected_item, actual_item) in enumerate(zip(expected, actual)):
+            if len(diffs) >= limit:
+                return
+            append_json_projection_diffs(
+                expected_item, actual_item, path_parts + [index], diffs, limit
+            )
+        return
+    if expected != actual:
+        diffs.append(
+            "shared spec drift at {}\n  expected: {}\n  actual:   {}".format(
+                json_pointer(path_parts), compact_json(expected), compact_json(actual)
+            )
+        )
+
+
+def describe_shared_feature_spec_projection_drift(relative_path, expected, actual):
+    errors = [
+        "{} does not match the compiler-generated CrossTL shared feature spec "
+        "projection".format(relative_path)
+    ]
+    diffs = []
+    append_json_projection_diffs(expected, actual, [], diffs, limit=12)
+    errors.extend(diffs)
+    if len(diffs) >= 12:
+        errors.append(
+            "{}: drift output truncated after {} differences".format(
+                relative_path, len(diffs)
+            )
+        )
+    errors.append(
+        "This import check ignores unknown optional fields, but known v1 fields "
+        "must match the committed CrossTL snapshot and contract manifest. "
+        "Regenerate only after the shared language contract source of truth lands."
+    )
+    return errors
+
+
 def describe_feature_spec_drift(relative_path, expected, actual):
     errors = [
         "{} is out of date with the CrossTL snapshot or cross-repo language "
@@ -1054,6 +1314,43 @@ def validate_cross_repo_language_feature_spec(
     if actual != expected:
         errors.extend(describe_feature_spec_drift(relative_path, expected, actual))
     return errors
+
+
+def validate_imported_shared_language_spec(
+    manifest, compiler_root, spec_document, shared_spec_path
+):
+    try:
+        actual = json.loads(shared_spec_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return [
+            "could not read shared CrossTL language spec {}: {}".format(
+                shared_spec_path, exc
+            )
+        ]
+    except json.JSONDecodeError as exc:
+        return [
+            "could not parse shared CrossTL language spec {}: {}".format(
+                shared_spec_path, exc
+            )
+        ]
+    if not isinstance(actual, dict):
+        return [
+            "shared CrossTL language spec {} must contain a JSON object".format(
+                shared_spec_path
+            )
+        ]
+
+    expected = project_cross_repo_language_feature_spec(
+        build_cross_repo_language_feature_spec(manifest, spec_document)
+    )
+    actual_projection = project_cross_repo_language_feature_spec(actual)
+    if actual_projection != expected:
+        return describe_shared_feature_spec_projection_drift(
+            relative_message_path(compiler_root, shared_spec_path),
+            expected,
+            actual_projection,
+        )
+    return []
 
 
 def write_cross_repo_language_feature_spec(manifest, compiler_root, spec_document):
@@ -1394,6 +1691,27 @@ def check_feature_spec_mode_errors(manifest, compiler_root):
     return None, []
 
 
+def check_imported_shared_spec_errors(manifest, compiler_root, shared_spec_path):
+    spec_document, input_errors = check_language_spec_reference(manifest, compiler_root)
+    input_errors.extend(validate_feature_groups(manifest, spec_document))
+    input_errors.extend(
+        validate_negative_contract_anchors(manifest, spec_document, compiler_root)
+    )
+    try:
+        list(iter_negative_contracts(manifest))
+    except ValueError as exc:
+        input_errors.append(str(exc))
+    if input_errors:
+        return "Cross-repo language feature spec inputs are invalid:", input_errors
+
+    shared_errors = validate_imported_shared_language_spec(
+        manifest, compiler_root, spec_document, shared_spec_path
+    )
+    if shared_errors:
+        return "Imported shared CrossTL language spec drift detected:", shared_errors
+    return None, []
+
+
 def write_json_file(path, document):
     path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
 
@@ -1435,6 +1753,69 @@ def mutate_self_test_feature_spec_snapshot(fixture_root):
     document = json.loads(path.read_text(encoding="utf-8"))
     document["source_language_snapshot"]["source_files"][0]["sha256"] = "0" * 64
     write_json_file(path, document)
+
+
+def mutate_self_test_imported_spec_future_fields(fixture_root):
+    path = fixture_root / "tools" / "cross_repo_language_spec.json"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["preprocessor"] = {
+        "include_paths": [],
+        "defines": {},
+        "conditional_blocks": {"supported": True},
+    }
+    document["source_registry"] = {
+        "include_paths": [],
+        "defines": [],
+        "provenance_schema": "crossgl-crosstl-provenance-v1",
+    }
+    document["opencl_frontend"] = {
+        "extension_registry": ["cl_khr_fp16"],
+        "unsupported_binary_artifact_diagnostics": True,
+    }
+    document["source_language_snapshot"]["report_schemas"] = [
+        "crosstl-preprocessor-report-v1",
+        "crosstl-source-provenance-v1",
+    ]
+    if document.get("feature_groups"):
+        document["feature_groups"][0]["future_fields"] = {
+            "statement_attributes": True,
+            "threadgroup_imageblock": True,
+            "array_suffix_declarators": True,
+            "var_address_space": True,
+            "callable_function_types": True,
+            "square_generic_args": True,
+            "expression_generic_args": True,
+        }
+        fixtures = document["feature_groups"][0].get("fixtures", [])
+        if fixtures:
+            fixtures[0]["future_ast"] = {
+                "StatementNode.attributes": [],
+                "comparison_sampler": "sampler",
+            }
+    if document.get("negative_cases"):
+        document["negative_cases"][0]["future_diagnostics"] = {
+            "unsupported_binary_artifact": "opencl",
+            "lowered_exponentiation": "pow",
+        }
+    write_json_file(path, document)
+
+
+def mutate_self_test_imported_spec_known_field_drift(fixture_root):
+    mutate_self_test_imported_spec_future_fields(fixture_root)
+    path = fixture_root / "tools" / "cross_repo_language_spec.json"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["source_language_snapshot"]["source_files"][0]["sha256"] = "0" * 64
+    write_json_file(path, document)
+
+
+def imported_feature_spec_self_test_errors(fixture_root):
+    manifest = load_manifest(
+        fixture_root / "tools" / "cross_repo_language_contract.json"
+    )
+    _heading, errors = check_imported_shared_spec_errors(
+        manifest, fixture_root, fixture_root / "tools" / "cross_repo_language_spec.json"
+    )
+    return errors
 
 
 def run_feature_spec_self_test(compiler_root):
@@ -1485,6 +1866,32 @@ def run_feature_spec_self_test(compiler_root):
                         name, expected_fragment, joined_errors
                     )
                 )
+
+        future_fixture_root = temp_root / "future-import"
+        copy_feature_spec_self_test_fixture(compiler_root, future_fixture_root)
+        mutate_self_test_imported_spec_future_fields(future_fixture_root)
+        future_errors = imported_feature_spec_self_test_errors(future_fixture_root)
+        if future_errors:
+            failures.append(
+                "imported shared spec with optional future fields was rejected:\n{}".format(
+                    "\n".join(future_errors)
+                )
+            )
+
+        drift_fixture_root = temp_root / "future-import-drift"
+        copy_feature_spec_self_test_fixture(compiler_root, drift_fixture_root)
+        mutate_self_test_imported_spec_known_field_drift(drift_fixture_root)
+        drift_errors = imported_feature_spec_self_test_errors(drift_fixture_root)
+        joined_drift_errors = "\n".join(drift_errors)
+        expected_drift = "/source_language_snapshot/source_files/0/sha256"
+        if not drift_errors:
+            failures.append("imported shared spec known-field drift was accepted")
+        elif expected_drift not in joined_drift_errors:
+            failures.append(
+                "imported shared spec drift did not report {}:\n{}".format(
+                    expected_drift, joined_drift_errors
+                )
+            )
     return failures
 
 
@@ -1916,6 +2323,15 @@ def parse_args(argv):
         ),
     )
     parser.add_argument(
+        "--shared-spec",
+        default=None,
+        help=(
+            "Import a shared CrossTL language feature spec JSON artifact and "
+            "compare its known v1 projection against the committed compiler "
+            "snapshot/contract inputs. Unknown optional fields are ignored."
+        ),
+    )
+    parser.add_argument(
         "--report",
         default=None,
         help="Write a JSON drift report without changing manifest update behavior.",
@@ -1929,6 +2345,7 @@ def main(argv=None):
     compiler_root = resolve_root(args.compiler_root)
     manifest_path = resolve_root(args.manifest)
     report_path = resolve_root(args.report) if args.report else None
+    shared_spec_path = resolve_root(args.shared_spec) if args.shared_spec else None
 
     if not compiler_root.exists():
         print("Compiler root does not exist: {}".format(compiler_root), file=sys.stderr)
@@ -1987,6 +2404,19 @@ def main(argv=None):
                 manifest.get("feature_spec", {}).get("path")
             )
         )
+        if shared_spec_path is None:
+            return 0
+
+    if shared_spec_path is not None:
+        heading, shared_spec_errors = check_imported_shared_spec_errors(
+            manifest, compiler_root, shared_spec_path
+        )
+        if shared_spec_errors:
+            print(heading, file=sys.stderr)
+            for error in shared_spec_errors:
+                print("\n{}".format(error), file=sys.stderr)
+            return 1
+        print("[contract] Shared spec import OK: {}".format(shared_spec_path))
         return 0
 
     if not translator_root.exists():

@@ -18,6 +18,21 @@ from source_location_fixture_checks import (
 
 
 UNSUPPORTED_NATIVE_V0_CODE = "spec.unsupported-for-native-v0"
+SOURCE_REMAP_LOGICAL_INPUT = "generated/from-translator.cgl"
+SOURCE_REMAP_ORIGINAL_INPUT = "shaders/original.crossgl"
+SOURCE_REMAP_ORIGINAL_LINE = 40
+SOURCE_REMAP_ORIGINAL_OFFSET = 900
+SOURCE_REMAP_SOURCE = """shader DiagnosticProvenanceShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+    void main() {
+      missingValue = 1.0;
+      return;
+    }
+  }
+}
+"""
 
 
 @dataclass(frozen=True)
@@ -34,12 +49,6 @@ UNSUPPORTED_NATIVE_V0_CASES = (
         Path("tests/check-failures/BadUnsupportedExtendedStageShader.cgl"),
         "geometry",
         ("stage 'geometry'", "native v0"),
-    ),
-    DiagnosticCase(
-        "unsupported-fn-style",
-        Path("tests/check-failures/BadUnsupportedFnStyleShader.cgl"),
-        "fn",
-        ("fn-style function declarations", "native v0"),
     ),
     DiagnosticCase(
         "unsupported-enum",
@@ -110,6 +119,58 @@ def run_check(cglc: Path, fixture: Path) -> subprocess.CompletedProcess[str]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
+
+
+def source_span_for_text(
+    file: str,
+    text: str,
+    *,
+    start_line: int = 1,
+    start_column: int = 1,
+    start_offset: int = 0,
+):
+    end_line = start_line
+    end_column = start_column
+    for char in text:
+        if char == "\n":
+            end_line += 1
+            end_column = 1
+        else:
+            end_column += 1
+    return {
+        "file": file,
+        "line": start_line,
+        "column": start_column,
+        "offset": start_offset,
+        "length": len(text),
+        "endLine": end_line,
+        "endColumn": end_column,
+        "endOffset": start_offset + len(text),
+    }
+
+
+def write_source_remap(tmp_dir: Path, source_text: str) -> Path:
+    remap_path = tmp_dir / "diagnostic-source-remap.json"
+    remap = {
+        "schemaVersion": 1,
+        "generatedFile": SOURCE_REMAP_LOGICAL_INPUT,
+        "mappings": [
+            {
+                "generated": source_span_for_text(
+                    SOURCE_REMAP_LOGICAL_INPUT,
+                    source_text,
+                ),
+                "original": source_span_for_text(
+                    SOURCE_REMAP_ORIGINAL_INPUT,
+                    source_text,
+                    start_line=SOURCE_REMAP_ORIGINAL_LINE,
+                    start_offset=SOURCE_REMAP_ORIGINAL_OFFSET,
+                ),
+            }
+        ],
+    }
+    remap_path.write_text(json.dumps(remap, indent=2) + "\n", encoding="utf-8")
+    return remap_path
 
 
 def validate_schema(root: Path, tmp_dir: Path, case_name: str, diagnostics_json: str):
@@ -245,6 +306,142 @@ def check_case(root: Path, cglc: Path, tmp_dir: Path, case: DiagnosticCase):
     return errors
 
 
+def check_source_remap_logical_input(root: Path, cglc: Path, tmp_dir: Path):
+    case_name = "source-remap-logical-input"
+    errors: list[str] = []
+    source_path = tmp_dir / "diagnostic-source-remap-input.cgl"
+    source_path.write_text(SOURCE_REMAP_SOURCE, encoding="utf-8")
+    remap_path = write_source_remap(tmp_dir, SOURCE_REMAP_SOURCE)
+
+    result = subprocess.run(
+        [
+            str(cglc),
+            "check",
+            str(source_path),
+            "--logical-input",
+            SOURCE_REMAP_LOGICAL_INPUT,
+            "--source-remap",
+            str(remap_path),
+            "--diagnostics-json",
+        ],
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode == 0:
+        errors.append(f"{case_name}: expected cglc check to fail")
+    if not result.stdout.strip():
+        errors.append(f"{case_name}: expected diagnostics JSON on stdout")
+        return errors
+
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return [
+            f"{case_name}: failed to parse diagnostics JSON: {exc}; "
+            f"stdout={result.stdout!r}; stderr={result.stderr!r}"
+        ]
+
+    errors.extend(validate_schema(root, tmp_dir, case_name, result.stdout))
+    diagnostics = payload.get("diagnostics")
+    if not isinstance(diagnostics, list) or len(diagnostics) != 1:
+        diagnostic_count = len(diagnostics) if isinstance(diagnostics, list) else None
+        errors.append(f"{case_name}: expected one diagnostic, got {diagnostic_count!r}")
+        return errors
+
+    diagnostic = diagnostics[0]
+    if not isinstance(diagnostic, dict):
+        errors.append(f"{case_name}: expected diagnostics[0] to be an object")
+        return errors
+    if diagnostic.get("severity") != "error":
+        errors.append(
+            f"{case_name}: expected diagnostics[0].severity='error', got "
+            f"{diagnostic.get('severity')!r}"
+        )
+
+    location = diagnostic.get("location")
+    original_location = diagnostic.get("originalLocation")
+    if isinstance(location, dict):
+        if location.get("file") != SOURCE_REMAP_LOGICAL_INPUT:
+            errors.append(
+                f"{case_name}: expected generated logical location file "
+                f"{SOURCE_REMAP_LOGICAL_INPUT!r}, got {location.get('file')!r}"
+            )
+        if str(source_path) in result.stdout:
+            errors.append(
+                f"{case_name}: diagnostics JSON leaked physical source path "
+                f"{source_path}"
+            )
+    expect_location_text_equals(
+        errors,
+        case_name,
+        "diagnostics[0].location",
+        location,
+        source_path,
+        "missingValue",
+        expected_file_name=Path(SOURCE_REMAP_LOGICAL_INPUT).name,
+    )
+    expect_location_span_coherent(
+        errors,
+        case_name,
+        "diagnostics[0].originalLocation",
+        original_location,
+    )
+    if not isinstance(original_location, dict):
+        return errors
+    if original_location.get("file") != SOURCE_REMAP_ORIGINAL_INPUT:
+        errors.append(
+            f"{case_name}: expected original location file "
+            f"{SOURCE_REMAP_ORIGINAL_INPUT!r}, got "
+            f"{original_location.get('file')!r}"
+        )
+        return errors
+    if isinstance(location, dict):
+        location_fields = (
+            "line",
+            "column",
+            "offset",
+            "length",
+            "endLine",
+            "endColumn",
+            "endOffset",
+        )
+        if not all(isinstance(location.get(field), int) for field in location_fields):
+            errors.append(
+                f"{case_name}: expected integer generated location fields, "
+                f"got {location!r}"
+            )
+            return errors
+        expected_line_delta = SOURCE_REMAP_ORIGINAL_LINE - 1
+        translated_fields = {
+            "line": location.get("line") + expected_line_delta,
+            "column": location.get("column"),
+            "offset": location.get("offset") + SOURCE_REMAP_ORIGINAL_OFFSET,
+            "length": location.get("length"),
+            "endLine": location.get("endLine") + expected_line_delta,
+            "endColumn": location.get("endColumn"),
+            "endOffset": location.get("endOffset") + SOURCE_REMAP_ORIGINAL_OFFSET,
+        }
+        for field, expected in translated_fields.items():
+            if original_location.get(field) != expected:
+                errors.append(
+                    f"{case_name}: expected originalLocation.{field}="
+                    f"{expected!r}, got {original_location.get(field)!r}"
+                )
+        stderr_location = (
+            f"{SOURCE_REMAP_ORIGINAL_INPUT}:{translated_fields['line']}:"
+            f"{translated_fields['column']}: error "
+        )
+        if stderr_location not in result.stderr:
+            errors.append(
+                f"{case_name}: expected human diagnostics to use remapped "
+                f"location {stderr_location!r}, got {result.stderr!r}"
+            )
+
+    return errors
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True, type=Path)
@@ -258,6 +455,7 @@ def main():
         tmp_dir = Path(tmp)
         for case in UNSUPPORTED_NATIVE_V0_CASES:
             errors.extend(check_case(root, cglc, tmp_dir, case))
+        errors.extend(check_source_remap_logical_input(root, cglc, tmp_dir))
 
     if errors:
         for error in errors:

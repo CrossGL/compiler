@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import stat
 import subprocess
@@ -339,12 +340,72 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
                 "backend/opengl/"
                 "OpenGLGraphicsTextureSamplerResourcesShader.graphics-abi.json"
             )
+            backend_source_path = artifacts["backendSource"]
+            native_binary_path = artifacts["nativeBinary"]
+            vertex_source_path = (
+                "backend/opengl/OpenGLGraphicsTextureSamplerResourcesShader.vert.glsl"
+            )
+            fragment_source_path = (
+                "backend/opengl/OpenGLGraphicsTextureSamplerResourcesShader.frag.glsl"
+            )
+            validated_vertex_path = (
+                "backend/opengl/"
+                "OpenGLGraphicsTextureSamplerResourcesShader.validated.vert.glsl"
+            )
+            validated_fragment_path = (
+                "backend/opengl/"
+                "OpenGLGraphicsTextureSamplerResourcesShader.validated.frag.glsl"
+            )
             self.assertEqual(artifacts["graphicsAbi"], graphics_abi_path)
             self.assertNotIn(
                 "graphicsAbi",
                 manifest["packageArtifactRequirements"]["requiredPathArtifacts"],
             )
             self.assertTrue((package_dir / graphics_abi_path).is_file())
+            self.assertTrue((package_dir / vertex_source_path).is_file())
+            self.assertTrue((package_dir / fragment_source_path).is_file())
+            self.assertTrue((package_dir / validated_vertex_path).is_file())
+            self.assertTrue((package_dir / validated_fragment_path).is_file())
+            source_inventory = (package_dir / backend_source_path).read_text(
+                encoding="utf-8"
+            )
+            native_inventory = (package_dir / native_binary_path).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn(f"stage vertex: {vertex_source_path}", source_inventory)
+            self.assertIn(f"stage fragment: {fragment_source_path}", source_inventory)
+            self.assertIn(f"stage vertex: {validated_vertex_path}", native_inventory)
+            self.assertIn(
+                f"stage fragment: {validated_fragment_path}", native_inventory
+            )
+            vertex_source = (package_dir / vertex_source_path).read_text(
+                encoding="utf-8"
+            )
+            fragment_source = (package_dir / fragment_source_path).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("void main()", vertex_source)
+            self.assertIn("gl_Position", vertex_source)
+            self.assertIn("void main()", fragment_source)
+            self.assertIn("crossgl_out_color", fragment_source)
+            fake_log = fake_tool_log.read_text(encoding="utf-8")
+            fake_invocations = self._parse_fake_tool_invocations(fake_log)
+            self.assertTrue(
+                self._fake_tool_invocations_include_stage_source(
+                    fake_invocations, "vert", vertex_source_path
+                ),
+                f"expected glslangValidator -S vert for {vertex_source_path}\n"
+                f"fake tool log:\n{fake_log}",
+            )
+            self.assertTrue(
+                self._fake_tool_invocations_include_stage_source(
+                    fake_invocations, "frag", fragment_source_path
+                ),
+                f"expected glslangValidator -S frag for {fragment_source_path}\n"
+                f"fake tool log:\n{fake_log}",
+            )
+            self.assertNotIn("-DCROSSGL_STAGE_VERTEX", fake_log)
+            self.assertNotIn("-DCROSSGL_STAGE_FRAGMENT", fake_log)
 
             verifier = subprocess.run(
                 [
@@ -551,6 +612,35 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
             encoding="utf-8",
         )
         script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+    def _parse_fake_tool_invocations(self, fake_log: str) -> list[list[str]]:
+        return [shlex.split(line) for line in fake_log.splitlines() if line.strip()]
+
+    def _fake_tool_invocations_include_stage_source(
+        self,
+        invocations: list[list[str]],
+        stage: str,
+        package_source_path: str,
+    ) -> bool:
+        for invocation in invocations:
+            for index in range(len(invocation) - 2):
+                if invocation[index : index + 2] != ["-S", stage]:
+                    continue
+                if self._fake_tool_path_matches_package_path(
+                    invocation[index + 2], package_source_path
+                ):
+                    return True
+        return False
+
+    def _fake_tool_path_matches_package_path(
+        self, logged_path: str, package_source_path: str
+    ) -> bool:
+        normalized_logged_path = logged_path.replace("\\", "/")
+        normalized_package_source_path = package_source_path.replace("\\", "/")
+        return (
+            normalized_logged_path.endswith("/" + normalized_package_source_path)
+            or normalized_logged_path == normalized_package_source_path
+        )
 
     @contextmanager
     def _guard_crossgl_source_reads(self) -> object:

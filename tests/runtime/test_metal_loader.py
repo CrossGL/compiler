@@ -1826,6 +1826,11 @@ class MetalNativeLoaderPlanTests(unittest.TestCase):
             artifacts["intermediate"] = "backend/metal/RuntimeMetalLoaderFixture.air"
         if native_status is not None:
             artifacts["nativeBinaryStatus"] = native_status
+        if target == "metal" and native_status != "planned":
+            descriptor_path = (
+                "backend/metal/RuntimeMetalLoaderFixture.native-artifact.json"
+            )
+            artifacts["nativeArtifactDescriptor"] = descriptor_path
 
         self._write_json(
             package_dir / "manifest.json",
@@ -1899,6 +1904,16 @@ class MetalNativeLoaderPlanTests(unittest.TestCase):
                 "diagnostics": [],
             },
         )
+        if target == "metal" and native_status != "planned":
+            self._write_native_artifact_descriptor(
+                package_dir,
+                descriptor_path=descriptor_path,
+                binary_kind="metal.metallib",
+                source_path=source_path,
+                source_bytes=(package_dir / source_path).read_bytes(),
+                artifact_path=binary_path,
+                artifact_bytes=b"native",
+            )
 
     def _write_source_free_metal_package(
         self,

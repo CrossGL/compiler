@@ -15,15 +15,34 @@
       ],
       "coverage": [
         {
-          "kind": "planned-failure",
-          "name": "cglc_build_opengl_function_parameter_array_write_planned_failure",
-          "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
+          "kind": "support-matrix",
+          "name": "cglc_build_opengl_aliased_function_parameter_array_write_source_package",
           "coverage_categories": [
+            "HIRExpressionKind::Call",
+            "HIRExpressionKind::IndexAccess",
+            "HIRStatementKind::Assignment"
+          ],
+          "requirement": "Aliased OpenGL local helper array writes lower through one shared copy-in/copy-out temporary so reads observe writes."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_build_opengl_forwarded_function_parameter_array_write_source_package",
+          "coverage_categories": [
+            "HIRExpressionKind::Call",
             "HIRExpressionKind::IndexAccess",
             "HIRStatementKind::Assignment",
-            "diagnostic:opengl.unsupported-function-parameter-array-write"
+            "HIRStatementKind::Return"
           ],
-          "requirement": "Unsupported helper array writes stay rejected with a targeted package diagnostic."
+          "requirement": "Forwarded OpenGL helper array writes lower through explicit local copy-in/copy-out source package coverage."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_build_opengl_function_parameter_array_write_source_package",
+          "coverage_categories": [
+            "HIRExpressionKind::IndexAccess",
+            "HIRStatementKind::Assignment"
+          ],
+          "requirement": "Direct OpenGL storage-buffer field helper array writes lower through explicit copy-in/write-back source package coverage."
         },
         {
           "kind": "support-matrix",
@@ -216,6 +235,7 @@
         "control-flow.if-else",
         "control-flow.if-return",
         "control-flow.loop-transfer",
+        "control-flow.switch-case-default",
         "control-flow.while-loop",
         "graphics-stages.vulkan-loop-control-native",
         "graphics-stages.vulkan-loop-native"
@@ -267,6 +287,15 @@
         },
         {
           "kind": "support-matrix",
+          "name": "cglc_check_switch_hir_if_chain",
+          "coverage_categories": [
+            "HIRStatementKind::Block",
+            "HIRStatementKind::If"
+          ],
+          "requirement": "Restricted switch/case/default lowers to existing block and if-chain HIR nodes."
+        },
+        {
+          "kind": "support-matrix",
           "name": "cglc_check_while_control_flow_hir",
           "requirement": "While-loop control flow remains accepted at the HIR boundary."
         },
@@ -308,19 +337,9 @@
         "known-native-v0-unsupported"
       ],
       "conformance_entries": [
-        "native-v0-unsupported.fn-style-declaration",
         "native-v0-unsupported.var-address-space"
       ],
       "coverage": [
-        {
-          "kind": "planned-failure",
-          "name": "cglc_build_opengl_function_parameter_array_write_planned_failure",
-          "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
-          "coverage_categories": [
-            "diagnostic:opengl.unsupported-function-parameter-array-write"
-          ],
-          "requirement": "Unsupported array write shapes retain planned-failure diagnostics."
-        },
         {
           "kind": "diagnostic",
           "name": "cglc_check_storage_image_atomic_failure",
@@ -359,6 +378,15 @@
         },
         {
           "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineMatrixConstructorValidation",
+          "diagnostic_code": "opt.hir-matrix-constructor",
+          "coverage_categories": [
+            "diagnostic:opt.hir-matrix-constructor"
+          ],
+          "requirement": "Malformed matrix constructor arity and component domains fail closed in typed HIR validation."
+        },
+        {
+          "kind": "diagnostic",
           "name": "testHIROptimizationPipelineMissingEntryPointValidation",
           "diagnostic_code": "opt.hir-missing-entry-point",
           "coverage_categories": [
@@ -386,6 +414,15 @@
         },
         {
           "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineScalarConstructorValidation",
+          "diagnostic_code": "opt.hir-scalar-constructor",
+          "coverage_categories": [
+            "diagnostic:opt.hir-scalar-constructor"
+          ],
+          "requirement": "Malformed scalar constructor arity and operand domains fail closed in typed HIR validation."
+        },
+        {
+          "kind": "diagnostic",
           "name": "testHIROptimizationPipelineStatementShapeValidation",
           "diagnostic_code": "opt.hir-statement-shape",
           "coverage_categories": [
@@ -401,6 +438,33 @@
             "diagnostic:opt.hir-storage-image-runtime-descriptor-array"
           ],
           "requirement": "Runtime storage-image descriptor arrays fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineVectorConstructorValidation",
+          "diagnostic_code": "opt.hir-vector-constructor",
+          "coverage_categories": [
+            "diagnostic:opt.hir-vector-constructor"
+          ],
+          "requirement": "Malformed vector constructor arity and component domains fail closed in typed HIR validation."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIRVerifierPublicEntryPoint",
+          "diagnostic_code": "opt.hir-raw-statement-backend-input",
+          "coverage_categories": [
+            "diagnostic:opt.hir-raw-statement-backend-input"
+          ],
+          "requirement": "The public backend-input HIR verifier entry point rejects raw statements without running optimizer passes."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testOpenGLFunctionParameterArrayGLSL",
+          "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
+          "coverage_categories": [
+            "diagnostic:opengl.unsupported-function-parameter-array-write"
+          ],
+          "requirement": "Unsupported OpenGL nested-expression helper array writeback shapes with unsafe call-like operands retain diagnostics while the RHS literal/source-package form is supported."
         }
       ]
     },

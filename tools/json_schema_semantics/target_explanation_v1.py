@@ -28,7 +28,14 @@ TOOL_REQUIREMENT_FIELDS = {
     "toolRequirementEvidenceIds",
 }
 
+NORMALIZED_LEGALIZATION_FIELDS = {
+    "supportStatus",
+    "legalizationState",
+    "packageDecisionProvenance",
+}
+
 NATIVE_PACKAGE_TOOL_REQUIREMENTS = {
+    "directx": ("directx.toolchain.dxc",),
     "metal": (
         "metal.toolchain.xcrun-metal",
         "metal.toolchain.xcrun-metallib",
@@ -429,6 +436,13 @@ def validate_diagnostic_evidence_ids(errors, path, record):
 def validate_tool_requirement_fields(errors, path, record):
     present_fields = TOOL_REQUIREMENT_FIELDS.intersection(record)
     if not present_fields:
+        present_normalized_fields = NORMALIZED_LEGALIZATION_FIELDS.intersection(record)
+        if present_normalized_fields:
+            errors.append(
+                f"{path}: normalized legalization fields require tool "
+                "requirement fields, missing "
+                f"{sorted(TOOL_REQUIREMENT_FIELDS)!r}"
+            )
         return
 
     missing_fields = sorted(TOOL_REQUIREMENT_FIELDS - present_fields)

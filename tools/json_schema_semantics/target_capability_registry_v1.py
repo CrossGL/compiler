@@ -5,6 +5,12 @@ from .common import validate_unique_values
 
 
 TARGET_ORDER = ("metal", "vulkan", "directx", "opengl")
+DISPLAY_NAMES = {
+    "metal": "Metal",
+    "vulkan": "Vulkan",
+    "directx": "DirectX",
+    "opengl": "OpenGL",
+}
 PACKAGE_MODES = {
     "metal": "native",
     "vulkan": "native",
@@ -26,19 +32,19 @@ NATIVE_PATH_ARTIFACTS = {
 NATIVE_SUPPORT_CLASSES = {
     "metal": "native",
     "vulkan": "prototype-native",
-    "directx": "planned-native",
+    "directx": "native",
     "opengl": "planned-native",
 }
 BASELINE_BACKEND_CAPABILITIES = {
     "metal": "metal.backend.native-metal-package",
     "vulkan": "vulkan.backend.vulkan-prototype-package",
-    "directx": "directx.backend.hlsl-lowering",
+    "directx": "directx.backend.native-dxil-package",
     "opengl": "opengl.backend.glsl-lowering",
 }
 NATIVE_IMPLEMENTED = {
     "metal": True,
     "vulkan": True,
-    "directx": False,
+    "directx": True,
     "opengl": False,
 }
 SOURCE_PACKAGE_SELECTABLE = {
@@ -107,7 +113,9 @@ def capability_kind(capability_id):
     return parts[1]
 
 
-def expected_native_status(native_artifact):
+def expected_native_status(target, native_artifact):
+    if target == "directx":
+        return "supported"
     if native_artifact["allowsPlannedNativeBinary"]:
         return "planned"
     return "supported"
@@ -202,6 +210,13 @@ def validate_target_record(errors, path, record):
         record["packageMode"],
         PACKAGE_MODES[target],
         "registry v0 target package mode",
+    )
+    add_equal_error(
+        errors,
+        f"{path}.displayName",
+        record["displayName"],
+        DISPLAY_NAMES[target],
+        "registry v0 target display name",
     )
 
     capability_ids = [capability["id"] for capability in record["capabilities"]]
@@ -373,7 +388,7 @@ def validate_target_record(errors, path, record):
         NATIVE_PATH_ARTIFACTS[target],
         "target native artifact path artifacts",
     )
-    native_status = expected_native_status(native_artifact)
+    native_status = expected_native_status(target, native_artifact)
     add_equal_error(
         errors,
         f"{path}.nativeArtifact.status",

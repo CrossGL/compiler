@@ -47,10 +47,24 @@ set(CROSSGL_MLIR_EXPERIMENT_FIXTURES
   tests/fixtures/MinimalComputeShader.cgl
   tests/fixtures/ScalarExpressionComputeShader.cgl
   tests/fixtures/StorageBufferComputeShader.cgl
+  tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl
   tests/fixtures/IfComputeShader.cgl
+  tests/fixtures/VulkanTextureSamplerLodShader.cgl
+  tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl
+  tests/frontend/fixtures/StorageImageHIRShader.cgl
+  tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl
+  tests/frontend/fixtures/StorageImageNonUniformDescriptorArrayHIRShader.cgl
+  tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl
+  tests/fixtures/StorageImageExplicitFormatShader.cgl
+  tests/fixtures/StorageImageAtomicShader.cgl
+  tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl
 )
 set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS
   tests/fixtures/mlir/minimal_compute_builtin_module.mlir
+  tests/fixtures/mlir/scalar_expression_compute_builtin_module.mlir
+  tests/fixtures/mlir/storage_buffer_compute_builtin_module.mlir
+  tests/fixtures/mlir/if_compute_builtin_module.mlir
+  tests/fixtures/mlir/texture_sampler_compute_builtin_module.mlir
 )
 list(LENGTH CROSSGL_MLIR_EXPERIMENT_SOURCES
   CROSSGL_MLIR_EXPERIMENT_SOURCE_COUNT)

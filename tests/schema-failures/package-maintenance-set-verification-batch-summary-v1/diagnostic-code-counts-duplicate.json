@@ -47,12 +47,12 @@
       "diagnosticCounts": {
         "note": 0,
         "warning": 0,
-        "error": 1
+        "error": 2
       },
       "diagnosticCodeCounts": [
         {
           "code": "package.set.verify.failed",
-          "count": 1
+          "count": 2
         }
       ]
     }
@@ -60,16 +60,16 @@
   "diagnosticCounts": {
     "note": 0,
     "warning": 0,
-    "error": 1
+    "error": 3
   },
   "diagnosticCodeCounts": [
     {
       "code": "package.set.verify.failed",
-      "count": 1
+      "count": 2
     },
     {
       "code": "package.set.verify.failed",
-      "count": 0
+      "count": 1
     }
   ]
 }

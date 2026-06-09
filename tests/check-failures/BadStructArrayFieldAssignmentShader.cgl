@@ -1,0 +1,12 @@
+shader BadStructArrayFieldAssignmentShader {
+  struct Particle {
+    float weights[4];
+  };
+  compute {
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    void main() {
+      particles[1].weights = particles[0].weights;
+      return;
+    }
+  }
+}

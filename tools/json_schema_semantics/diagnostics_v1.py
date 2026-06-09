@@ -6,6 +6,12 @@ from .common import validate_source_location_span
 
 
 COMPILER_TARGETS = ("metal", "vulkan", "directx", "opengl")
+BACKEND_DIAGNOSTIC_TARGETS = {
+    "directx.": "directx",
+    "metal.": "metal",
+    "opengl.": "opengl",
+    "vulkan.": "vulkan",
+}
 
 DIAGNOSTIC_CODE_PREFIXES = (
     "artifact.",
@@ -56,6 +62,13 @@ def is_project_diagnostic_code(code):
     return code.startswith("project.")
 
 
+def backend_target_for_diagnostic_code(code):
+    for prefix, target in BACKEND_DIAGNOSTIC_TARGETS.items():
+        if code.startswith(prefix):
+            return target
+    return None
+
+
 def is_compiler_target(target):
     return target in COMPILER_TARGETS
 
@@ -84,6 +97,23 @@ def validate_compiler_target(errors, diagnostic_path, diagnostic):
         errors.append(
             f"{diagnostic_path}.target: expected compiler target ({targets}) "
             "for compiler diagnostic"
+        )
+
+
+def validate_backend_target(errors, diagnostic_path, diagnostic):
+    expected_target = backend_target_for_diagnostic_code(diagnostic["code"])
+    if expected_target is None:
+        return
+    if diagnostic["severity"] == "error" and "target" not in diagnostic:
+        errors.append(
+            f"{diagnostic_path}.target: expected target for "
+            f"{expected_target} diagnostic code"
+        )
+        return
+    if "target" in diagnostic and diagnostic["target"] != expected_target:
+        errors.append(
+            f"{diagnostic_path}.target: expected {expected_target!r} for "
+            f"{expected_target} diagnostic code"
         )
 
 
@@ -166,6 +196,7 @@ def validate_semantics(instance):
                 f"{diagnostic_path}.target: expected target for target diagnostic code"
             )
         validate_compiler_target(errors, diagnostic_path, diagnostic)
+        validate_backend_target(errors, diagnostic_path, diagnostic)
         if is_unsupported_native_v0_diagnostic(diagnostic["code"]) and (
             is_empty_source_file(location) or not is_non_empty_source_span(location)
         ):

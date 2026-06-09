@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/source-batch-manifest-v1.schema.json",
+  "title": "CrossGL Source Batch Manifest Schema v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "sources"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "crossgl.sourceBatchManifest"
+    },
+    "root": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Optional base directory used to resolve source paths, output paths, and source remap sidecars."
+    },
+    "defaults": {
+      "$ref": "#/$defs/defaults"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/sourceEntry"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stableRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?/)(?!.*(?:^|/)\\.\\.?$)[^/]+(?:/[^/]+)*$"
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "optimizationLevel": {
+      "type": "string",
+      "enum": [
+        "O0",
+        "O1",
+        "O2"
+      ]
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "optLevel": {
+          "$ref": "#/$defs/optimizationLevel"
+        },
+        "debugIR": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sourceEntry": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/stringSourceEntry"
+        },
+        {
+          "$ref": "#/$defs/objectSourceEntry"
+        }
+      ]
+    },
+    "stringSourceEntry": {
+      "$ref": "#/$defs/nonEmptyString",
+      "description": "Path-only source entry resolved against the manifest root."
+    },
+    "objectSourceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "logicalInput": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "logicalPath": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "output": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "sourceRemap": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "optLevel": {
+          "$ref": "#/$defs/optimizationLevel"
+        },
+        "debugIR": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

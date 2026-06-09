@@ -1,5 +1,12 @@
 function(crossgl_add_package_verify_json_schema_test)
-  set(one_value_args NAME TARGET INPUT OUTPUT MANIFEST_MUTATION_KIND)
+  set(one_value_args
+    NAME
+    TARGET
+    INPUT
+    OUTPUT
+    LOGICAL_INPUT
+    SOURCE_REMAP
+    MANIFEST_MUTATION_KIND)
   set(multi_value_args
     EXPECTED_JSON_FIELDS
     EXPECTED_JSON_FIELD_ONE_OF
@@ -7,7 +14,11 @@ function(crossgl_add_package_verify_json_schema_test)
     EXPECTED_MANIFEST_JSON_FIELDS
     EXPECTED_MANIFEST_JSON_ARRAY_CONTAINS
     EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS
+    EXPECTED_DEBUG_METADATA_JSON_FIELDS
+    EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS
+    EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
+    EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS)
   cmake_parse_arguments(CROSSGL_VERIFY_SCHEMA "" "${one_value_args}"
     "${multi_value_args}" ${ARGN})
@@ -41,10 +52,31 @@ function(crossgl_add_package_verify_json_schema_test)
       "-DEXPECTED_MANIFEST_JSON_ARRAY_CONTAINS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_MANIFEST_JSON_ARRAY_CONTAINS}"
       "-DEXPECTED_MANIFEST_JSON_ARRAY_LENGTHS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS}"
       "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS}"
       "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS}"
       -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-verify-v1.schema.json
       -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
       -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+  if(CROSSGL_VERIFY_SCHEMA_LOGICAL_INPUT)
+    list(APPEND verify_schema_definitions
+      "-DLOGICAL_INPUT=${CROSSGL_VERIFY_SCHEMA_LOGICAL_INPUT}")
+  endif()
+  if(CROSSGL_VERIFY_SCHEMA_SOURCE_REMAP)
+    list(APPEND verify_schema_definitions
+      "-DSOURCE_REMAP=${CROSSGL_VERIFY_SCHEMA_SOURCE_REMAP}")
+  endif()
+  if(CROSSGL_VERIFY_SCHEMA_EXPECTED_DEBUG_METADATA_JSON_FIELDS)
+    list(APPEND verify_schema_definitions
+      "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_DEBUG_METADATA_JSON_FIELDS}")
+  endif()
+  if(CROSSGL_VERIFY_SCHEMA_EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS)
+    list(APPEND verify_schema_definitions
+      "-DEXPECTED_HIR_SOURCE_MAP_JSON_FIELDS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS}")
+  endif()
+  if(CROSSGL_VERIFY_SCHEMA_EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS)
+    list(APPEND verify_schema_definitions
+      "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS}")
+  endif()
   if(CROSSGL_VERIFY_SCHEMA_MANIFEST_MUTATION_KIND)
     list(APPEND verify_schema_definitions
       "-DMANIFEST_MUTATION_KIND=${CROSSGL_VERIFY_SCHEMA_MANIFEST_MUTATION_KIND}")
@@ -159,7 +191,7 @@ crossgl_add_package_verify_json_failure_schema_test(
   TOOLCHAIN_PATH ${CROSSGL_FAKE_DXC_SUCCESS_DIR}
   TOOLCHAIN_DISABLE_FALLBACK
   EXPECTED_JSON_FIELDS
-    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=emitted|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.missing-artifact"
+    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=null|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.missing-artifact"
   EXPECTED_JSON_ARRAY_LENGTHS
     "diagnostics=1")
 
@@ -239,9 +271,53 @@ crossgl_add_package_verify_json_failure_schema_test(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/target-conflicting-artifact-requirements-verify-schema.cglb
   MANIFEST_MUTATION_KIND conflicting-package-artifact-requirements-required-path-artifacts
   EXPECTED_JSON_FIELDS
-    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.targetLegalizationEvidence.health=ok|summary.targetLegalizationEvidence.packageMode=source-package|summary.targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds.0=target-legalization.v1.directx.package-artifacts.source-package|summary.targetLegalizationEvidence.checks.packageArtifactRequirementEvidenceIdsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.missing-required-artifact|diagnostics.0.message=directx packages require backendAssembly"
+    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.targetLegalizationEvidence.health=ok|summary.targetLegalizationEvidence.packageMode=source-package|summary.targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds.0=target-legalization.v1.directx.package-artifacts.source-package|summary.targetLegalizationEvidence.checks.packageArtifactRequirementEvidenceIdsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.invalid-manifest|diagnostics.0.message=package manifest packageArtifactRequirements.requiredPathArtifacts must match manifest target contract: expected [backendSource, nativeBinary], got [backendAssembly, nativeBinary]"
   EXPECTED_JSON_ARRAY_LENGTHS
     "diagnostics=1|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds=6|summary.targetLegalizationEvidence.missingEvidence=0")
+
+crossgl_add_package_verify_json_failure_schema_test(
+  NAME cglc_package_verify_json_schema_duplicate_selected_target_resource_binding_failure
+  FAILURE_KIND duplicate-selected-target-resource-binding
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/duplicate-selected-target-resource-binding-verify-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.reflection-target-resource-binding-duplicate|diagnostics.0.message=reflection selected-target resource binding stage 'compute' entryPoint 'compute_main' name 'values' kind 'buffer' duplicates an earlier binding for target 'directx'"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=1")
+
+crossgl_add_package_verify_json_failure_schema_test(
+  NAME cglc_package_verify_json_schema_selected_target_resource_binding_array_element_count_mismatch_failure
+  FAILURE_KIND selected-target-resource-binding-array-element-count-mismatch
+  TARGET directx
+  INPUT ${CROSSGL_DIRECTX_STORAGE_IMAGE_DESCRIPTOR_ARRAY_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/selected-target-resource-binding-array-element-count-mismatch-verify-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=false|summary.module=DirectXStorageImageDescriptorArrayShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.reflection-target-resource-binding-array-mismatch|diagnostics.0.message=reflection selected-target resource binding 'colorImages' arrayElementCount must match reflected resource array metadata: expected 2, got 3"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=1")
+
+crossgl_add_package_verify_json_failure_schema_test(
+  NAME cglc_package_verify_json_schema_selected_target_resource_binding_array_element_count_missing_failure
+  FAILURE_KIND selected-target-resource-binding-array-element-count-missing
+  TARGET directx
+  INPUT ${CROSSGL_DIRECTX_STORAGE_IMAGE_DESCRIPTOR_ARRAY_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/selected-target-resource-binding-array-element-count-missing-verify-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=false|summary.module=DirectXStorageImageDescriptorArrayShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.reflection-target-resource-binding-array-mismatch|diagnostics.0.message=reflection selected-target resource binding 'colorImages' arrayElementCount must match reflected resource array metadata: expected 2, got <missing>"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=1")
+
+crossgl_add_package_verify_json_failure_schema_test(
+  NAME cglc_package_verify_json_schema_selected_target_resource_binding_array_dimensions_mismatch_failure
+  FAILURE_KIND selected-target-resource-binding-array-dimensions-mismatch
+  TARGET directx
+  INPUT ${CROSSGL_DIRECTX_STORAGE_IMAGE_DESCRIPTOR_ARRAY_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/selected-target-resource-binding-array-dimensions-mismatch-verify-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=false|summary.module=DirectXStorageImageDescriptorArrayShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.reflection-target-resource-binding-array-mismatch|diagnostics.0.message=reflection selected-target resource binding 'colorImages' arrayDimensions must match reflected resource array metadata: expected [{\"elementCount\":2,\"kind\":\"fixed\",\"source\":\"COUNT\"}], got [{\"elementCount\":3,\"kind\":\"fixed\",\"source\":\"COUNT\"}]"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=1")
 
 crossgl_add_package_verify_json_schema_test(
   NAME cglc_package_verify_json_schema_directx_source_package
@@ -257,9 +333,39 @@ crossgl_add_package_verify_json_schema_test(
   EXPECTED_MANIFEST_JSON_FIELDS
     "schemaVersion=1|target=directx|module=StorageBufferComputeShader|artifacts.backendSource=backend/directx/StorageBufferComputeShader.hlsl|artifacts.nativeBinary=backend/directx/StorageBufferComputeShader.dxil|artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
+
+set(CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json")
+file(SHA256 "${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE}"
+     CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SHA256)
+file(SIZE "${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE}"
+     CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SIZE_BYTES)
+crossgl_add_package_verify_json_schema_test(
+  NAME cglc_package_verify_json_schema_directx_source_package_logical_source_remap
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test-directx-source-remap-package-verify-schema.cglb
+  LOGICAL_INPUT generated/from-translator.cgl
+  SOURCE_REMAP ${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE}
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=true|summary.module=StorageBufferComputeShader|summary.target=directx|summary.artifactCount=7|summary.debugArtifactsPresent=true|diagnosticCounts.error=0"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=0"
+  EXPECTED_MANIFEST_JSON_FIELDS
+    "schemaVersion=1|target=directx|module=StorageBufferComputeShader|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.sourceRemap=ir/source-remap-provenance.json"
+  EXPECTED_DEBUG_METADATA_JSON_FIELDS
+    "hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+  EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS
+    "hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+  EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS
+    "schemaVersion=1|kind=crossgl.sourceRemapProvenance|contractVersion=source-remap-provenance-v1|target=directx|generatedFile=generated/from-translator.cgl|mappingCount=1|sourceRemap.sha256.value=${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SHA256}|sourceRemap.sizeBytes=${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}"
+  EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
+  EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 function(crossgl_add_directx_descriptor_array_package_verify_schema_test)
   set(one_value_args NAME INPUT OUTPUT MODULE)
@@ -301,10 +407,14 @@ function(crossgl_add_directx_descriptor_array_package_verify_schema_test)
       "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.missingToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|packageArtifactRequirements.requiredPathArtifacts=backendSource|packageArtifactRequirements.requiredPathArtifacts=nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifacts.source-package|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.native-binary-status.required|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.planned-native-binary.allowed|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
     EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS
       "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6"
+    EXPECTED_DEBUG_METADATA_JSON_FIELDS
+      "targetDecision.selectedTarget=directx|targetDecision.selectedTargetPackageMode=source-package|targetDecision.selectedTargetSourcePackageSupported=true|targetDecision.selectedTargetRequiredToolCount=2|targetDecision.selectedTargetMissingToolCount=2|targetDecision.selectedTargetOptionalNativeToolMissing=true|targetDecision.selectedTargetOptionalNativeToolStatus=missing"
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-      "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+      "target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/${directx_descriptor_array_module}.hlsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
+    EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS
+      "sourceHash.value"
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-      "toolchainProvenance.tools=1|validationDiagnostics=0")
+      "toolchainProvenance.tools=2|validationDiagnostics=0")
 endfunction()
 
 crossgl_add_directx_descriptor_array_package_verify_schema_test(
@@ -338,6 +448,32 @@ crossgl_add_directx_descriptor_array_package_verify_schema_test(
   MODULE StorageImageAtomicDescriptorArrayShader)
 
 crossgl_add_package_verify_json_schema_test(
+  NAME cglc_package_verify_json_schema_directx_storage_image_access_qualifier_source_package
+  TARGET directx
+  INPUT ${CROSSGL_DIRECTX_STORAGE_IMAGE_ACCESS_QUALIFIER_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test-directx-storage-image-access-qualifier-package-verify-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=true|summary.module=DirectXStorageImageAccessQualifierShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.nativeArtifactDescriptor.path=backend/directx/DirectXStorageImageAccessQualifierShader.native-artifact.json|summary.targetLegalizationEvidence.health=ok|summary.targetLegalizationEvidence.packageMode=source-package|summary.targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds.0=target-legalization.v1.directx.package-artifacts.source-package|summary.targetLegalizationEvidence.manifestToolRequirements.present=true|summary.targetLegalizationEvidence.manifestToolRequirements.target=directx|summary.targetLegalizationEvidence.manifestToolRequirements.packageMode=source-package|summary.targetLegalizationEvidence.manifestToolRequirements.requiredToolCount=2|summary.targetLegalizationEvidence.manifestToolRequirements.missingToolCount=2|summary.targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolMissing=true|summary.targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolStatus=missing|summary.targetLegalizationEvidence.debugMetadata.target=directx|summary.targetLegalizationEvidence.debugMetadata.packageMode=source-package|summary.targetLegalizationEvidence.checks.packageArtifactRequirementEvidenceIdsPresent=true|summary.targetLegalizationEvidence.checks.manifestToolRequirementsTargetMatchesPackage=true|summary.targetLegalizationEvidence.checks.manifestToolRequirementsPackageModeMatchesRequirements=true|summary.targetLegalizationEvidence.checks.manifestToolRequirementEvidenceIdsPresent=true|summary.targetLegalizationEvidence.checks.debugMetadataTargetMatchesPackage=true|summary.targetLegalizationEvidence.checks.debugMetadataPackageModeMatchesRequirements=true|summary.targetLegalizationEvidence.checks.debugMetadataToolRequirementsMatchManifest=true|diagnosticCounts.error=0"
+  EXPECTED_JSON_FIELD_ONE_OF
+    "summary.targetLegalizationEvidence.checks.targetExplanationToolRequirementsMatchManifest=null,true"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=0|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds=6|summary.targetLegalizationEvidence.missingEvidence=0|summary.targetLegalizationEvidence.manifestToolRequirements.requiredToolIds=2|summary.targetLegalizationEvidence.manifestToolRequirements.missingToolIds=2|summary.targetLegalizationEvidence.manifestToolRequirements.toolRequirementEvidenceIds=5"
+  EXPECTED_MANIFEST_JSON_FIELDS
+    "schemaVersion=1|target=directx|module=DirectXStorageImageAccessQualifierShader|targetLegalizationToolRequirements.target=directx|targetLegalizationToolRequirements.packageMode=source-package|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=2|targetLegalizationToolRequirements.optionalNativeToolMissing=true|targetLegalizationToolRequirements.optionalNativeToolStatus=missing|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true|artifacts.backendSource=backend/directx/DirectXStorageImageAccessQualifierShader.hlsl|artifacts.nativeBinary=backend/directx/DirectXStorageImageAccessQualifierShader.dxil|artifacts.nativeBinaryStatus=planned|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/DirectXStorageImageAccessQualifierShader.native-artifact.json|artifacts.targetExplanation=ir/target-explanation.json"
+  EXPECTED_MANIFEST_JSON_ARRAY_CONTAINS
+    "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.missingToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|packageArtifactRequirements.requiredPathArtifacts=backendSource|packageArtifactRequirements.requiredPathArtifacts=nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifacts.source-package|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.native-binary-status.required|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.planned-native-binary.allowed|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
+  EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS
+    "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6"
+  EXPECTED_DEBUG_METADATA_JSON_FIELDS
+    "targetDecision.selectedTarget=directx|targetDecision.selectedTargetPackageMode=source-package|targetDecision.selectedTargetSourcePackageSupported=true|targetDecision.selectedTargetRequiredToolCount=2|targetDecision.selectedTargetMissingToolCount=2|targetDecision.selectedTargetOptionalNativeToolMissing=true|targetDecision.selectedTargetOptionalNativeToolStatus=missing"
+  EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
+    "target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/DirectXStorageImageAccessQualifierShader.hlsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
+  EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS
+    "sourceHash.value"
+  EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
+
+crossgl_add_package_verify_json_schema_test(
   NAME cglc_package_verify_json_schema_legacy_missing_artifact_requirements_compat
   TARGET directx
   INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
@@ -348,9 +484,9 @@ crossgl_add_package_verify_json_schema_test(
   EXPECTED_JSON_ARRAY_LENGTHS
     "diagnostics=1"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 function(crossgl_add_directx_compute_fake_dxc_package_verify_test)
   set(options TOOLCHAIN_DISABLE_FALLBACK)
@@ -375,19 +511,59 @@ function(crossgl_add_directx_compute_fake_dxc_package_verify_test)
       "crossgl_add_directx_compute_fake_dxc_package_verify_test requires EXPECTED_NATIVE_BINARY_STATUS")
   endif()
 
-  set(directx_fake_dxc_verify_native_descriptor_paths "")
+  set(directx_fake_dxc_verify_native_descriptor_paths
+    "sourceHash.value")
   set(directx_fake_dxc_verify_native_descriptor_fields
-    "|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator|validationStatus=unavailable")
+    "|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable|validationStatus=unavailable")
   set(directx_fake_dxc_verify_native_descriptor_array_lengths
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
+  if(CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
+     "planned" AND CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_TOOL_LOG)
+    set(directx_fake_dxc_verify_native_descriptor_fields
+      "|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=not-run|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed|validationStatus=unavailable")
+  endif()
   if(CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
      "emitted")
     set(directx_fake_dxc_verify_native_descriptor_paths
       "sourceHash.value|artifactHash.value|sizeBytes|toolchainProvenance.tools.1.resolvedExecutable|toolchainProvenance.tools.1.versionDetail")
     set(directx_fake_dxc_verify_native_descriptor_fields
-      "|sourceHash.algorithm=sha256|artifactPath=backend/directx/StorageBufferComputeShader.dxil|artifactHash.algorithm=sha256|validationStatus=not-run|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed")
+      "|sourceHash.algorithm=sha256|artifactPath=backend/directx/StorageBufferComputeShader.dxil|artifactHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O3|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=not-run|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed")
     set(directx_fake_dxc_verify_native_descriptor_array_lengths
       "toolchainProvenance.tools=2|validationDiagnostics=0")
+  endif()
+
+  set(directx_fake_dxc_verify_summary_native_binary_status
+    "${CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS}")
+  set(directx_fake_dxc_verify_manifest_native_binary_status_field
+    "|artifacts.nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS}")
+  set(directx_fake_dxc_verify_raw_descriptor_native_binary_status_field
+    "|nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS}")
+  set(directx_fake_dxc_verify_manifest_package_fields
+    "targetLegalizationToolRequirements.packageMode=source-package|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=2|targetLegalizationToolRequirements.optionalNativeToolMissing=true|targetLegalizationToolRequirements.optionalNativeToolStatus=missing|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true")
+  set(directx_fake_dxc_verify_manifest_array_contains
+    "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.missingToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator")
+  set(directx_fake_dxc_verify_manifest_array_lengths
+    "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5")
+  if(CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
+     "planned" AND CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_TOOL_LOG)
+    set(directx_fake_dxc_verify_manifest_package_fields
+      "targetLegalizationToolRequirements.packageMode=source-package|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=0|targetLegalizationToolRequirements.optionalNativeToolMissing=false|targetLegalizationToolRequirements.optionalNativeToolStatus=available|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true")
+    set(directx_fake_dxc_verify_manifest_array_contains
+      "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.requiredToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator")
+    set(directx_fake_dxc_verify_manifest_array_lengths
+      "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=0|targetLegalizationToolRequirements.toolRequirementEvidenceIds=3")
+  endif()
+  if(CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
+     "emitted")
+    set(directx_fake_dxc_verify_summary_native_binary_status "null")
+    set(directx_fake_dxc_verify_manifest_native_binary_status_field "")
+    set(directx_fake_dxc_verify_raw_descriptor_native_binary_status_field "")
+    set(directx_fake_dxc_verify_manifest_package_fields
+      "targetLegalizationToolRequirements.packageMode=native|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=0|targetLegalizationToolRequirements.optionalNativeToolMissing=false|targetLegalizationToolRequirements.optionalNativeToolStatus=not-required|packageArtifactRequirements.packageMode=native|packageArtifactRequirements.requiresNativeBinaryStatus=false|packageArtifactRequirements.allowsPlannedNativeBinary=false|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=false")
+    set(directx_fake_dxc_verify_manifest_array_contains
+      "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.requiredToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator")
+    set(directx_fake_dxc_verify_manifest_array_lengths
+      "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=0|targetLegalizationToolRequirements.toolRequirementEvidenceIds=3")
   endif()
 
   set(verify_definitions
@@ -397,11 +573,11 @@ function(crossgl_add_directx_compute_fake_dxc_package_verify_test)
     "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/${CROSSGL_DIRECTX_FAKE_DXC_VERIFY_NAME}.cglb"
     -DMODE=package-verify-json-schema
     "-DTOOLCHAIN_PATH=${CROSSGL_DIRECTX_FAKE_DXC_VERIFY_TOOLCHAIN_PATH}"
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|success=true|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS}|summary.artifactCount=6|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.nativeArtifactDescriptor.path=backend/directx/StorageBufferComputeShader.native-artifact.json|diagnosticCounts.error=0"
-    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=StorageBufferComputeShader|targetLegalizationToolRequirements.target=directx|targetLegalizationToolRequirements.packageMode=source-package|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=2|targetLegalizationToolRequirements.optionalNativeToolMissing=true|targetLegalizationToolRequirements.optionalNativeToolStatus=missing|artifacts.backendSource=backend/directx/StorageBufferComputeShader.hlsl|artifacts.nativeBinary=backend/directx/StorageBufferComputeShader.dxil|artifacts.nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS}|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json"
-    "-DEXPECTED_MANIFEST_JSON_ARRAY_CONTAINS=targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.missingToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator"
-    "-DEXPECTED_MANIFEST_JSON_ARRAY_LENGTHS=targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS}${directx_fake_dxc_verify_native_descriptor_fields}"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|success=true|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=${directx_fake_dxc_verify_summary_native_binary_status}|summary.artifactCount=6|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.nativeArtifactDescriptor.path=backend/directx/StorageBufferComputeShader.native-artifact.json|diagnosticCounts.error=0"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=StorageBufferComputeShader|targetLegalizationToolRequirements.target=directx|${directx_fake_dxc_verify_manifest_package_fields}|artifacts.backendSource=backend/directx/StorageBufferComputeShader.hlsl|artifacts.nativeBinary=backend/directx/StorageBufferComputeShader.dxil${directx_fake_dxc_verify_manifest_native_binary_status_field}|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json"
+    "-DEXPECTED_MANIFEST_JSON_ARRAY_CONTAINS=${directx_fake_dxc_verify_manifest_array_contains}"
+    "-DEXPECTED_MANIFEST_JSON_ARRAY_LENGTHS=${directx_fake_dxc_verify_manifest_array_lengths}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl${directx_fake_dxc_verify_raw_descriptor_native_binary_status_field}${directx_fake_dxc_verify_native_descriptor_fields}"
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-verify-v1.schema.json
     -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
@@ -458,6 +634,7 @@ function(crossgl_add_opengl_compute_fake_glslang_package_verify_test)
     NAME
     TOOLCHAIN_PATH
     EXPECTED_NATIVE_BINARY_STATUS
+    EXPECTED_VALIDATION_STATUS
     EXPECTED_TOOL_LOG
     EXPECTED_TOOL_LOG_CONTAINS)
   cmake_parse_arguments(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY
@@ -474,11 +651,15 @@ function(crossgl_add_opengl_compute_fake_glslang_package_verify_test)
     message(FATAL_ERROR
       "crossgl_add_opengl_compute_fake_glslang_package_verify_test requires EXPECTED_NATIVE_BINARY_STATUS")
   endif()
+  if(NOT CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_VALIDATION_STATUS)
+    set(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_VALIDATION_STATUS
+      unavailable)
+  endif()
 
   set(opengl_fake_glslang_verify_native_descriptor_paths
     "sourceHash.value")
   set(opengl_fake_glslang_verify_native_descriptor_fields
-    "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator|validationStatus=unavailable")
+    "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.0.executable=cglc|validationStatus=unavailable")
   set(opengl_fake_glslang_verify_native_descriptor_array_lengths
     "toolchainProvenance.tools=1|validationDiagnostics=0")
   if(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_NATIVE_BINARY_STATUS
@@ -489,6 +670,14 @@ function(crossgl_add_opengl_compute_fake_glslang_package_verify_test)
       "|sourceHash.algorithm=sha256|artifactPath=backend/opengl/StorageBufferComputeShader.glsl|artifactHash.algorithm=sha256|validationStatus=validated|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=glslangValidator|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed")
     set(opengl_fake_glslang_verify_native_descriptor_array_lengths
       "toolchainProvenance.tools=2|validationDiagnostics=0")
+  elseif(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_VALIDATION_STATUS
+         STREQUAL "failed")
+    set(opengl_fake_glslang_verify_native_descriptor_paths
+      "sourceHash.value|toolchainProvenance.tools.1.resolvedExecutable|toolchainProvenance.tools.1.versionDetail")
+    set(opengl_fake_glslang_verify_native_descriptor_fields
+      "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=glslangValidator|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed|validationStatus=failed|validationDiagnostics.0.code=opengl.glslang-failed")
+    set(opengl_fake_glslang_verify_native_descriptor_array_lengths
+      "toolchainProvenance.tools=2|validationDiagnostics=1")
   endif()
 
   set(verify_definitions
@@ -544,6 +733,7 @@ crossgl_add_opengl_compute_fake_glslang_package_verify_test(
   TOOLCHAIN_PATH ${CROSSGL_FAKE_GLSLANG_FAILURE_DIR}
   TOOLCHAIN_DISABLE_FALLBACK
   EXPECTED_NATIVE_BINARY_STATUS planned
+  EXPECTED_VALIDATION_STATUS failed
   EXPECTED_TOOL_LOG ${CROSSGL_FAKE_GLSLANG_FAILURE_DIR}/glslangValidator.log
   EXPECTED_TOOL_LOG_CONTAINS "glslangValidator failure: -S comp")
 
@@ -579,9 +769,9 @@ crossgl_add_package_verify_json_schema_test(
   EXPECTED_MANIFEST_JSON_FIELDS
     "schemaVersion=1|target=directx|module=DirectXGraphicsResourceShader|artifacts.backendSource=backend/directx/DirectXGraphicsResourceShader.graphics.hlsl|artifacts.nativeBinary=backend/directx/DirectXGraphicsResourceShader.dxil|artifacts.nativeBinaryStatus=${CROSSGL_DIRECTX_GRAPHICS_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/DirectXGraphicsResourceShader.native-artifact.json|artifacts.graphicsAbi=backend/directx/DirectXGraphicsResourceShader.graphics-abi.json"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=vertex=vs_6_0, fragment=ps_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 crossgl_add_package_verify_json_schema_test(
   NAME cglc_package_verify_json_schema_directx_graphics_storage_buffer_resources_source_package
@@ -593,9 +783,9 @@ crossgl_add_package_verify_json_schema_test(
   EXPECTED_MANIFEST_JSON_FIELDS
     "schemaVersion=1|target=directx|module=DirectXGraphicsStorageBufferResourceShader|artifacts.backendSource=backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics.hlsl|artifacts.nativeBinary=backend/directx/DirectXGraphicsStorageBufferResourceShader.dxil|artifacts.nativeBinaryStatus=${CROSSGL_DIRECTX_GRAPHICS_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/DirectXGraphicsStorageBufferResourceShader.native-artifact.json|artifacts.graphicsAbi=backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics-abi.json"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=vertex=vs_6_0, fragment=ps_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 crossgl_add_package_verify_json_schema_test(
   NAME cglc_package_verify_json_schema_opengl_source_package
@@ -613,8 +803,10 @@ crossgl_add_package_verify_json_schema_test(
 
 if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   set(CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS validated)
+  set(CROSSGL_OPENGL_NATIVE_ARTIFACT_VALIDATION_STATUS validated)
 else()
   set(CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS planned)
+  set(CROSSGL_OPENGL_NATIVE_ARTIFACT_VALIDATION_STATUS unavailable)
 endif()
 
 function(crossgl_add_opengl_descriptor_array_package_verify_schema_test)
@@ -656,7 +848,9 @@ function(crossgl_add_opengl_descriptor_array_package_verify_schema_test)
     EXPECTED_MANIFEST_JSON_ARRAY_CONTAINS
       "targetLegalizationToolRequirements.requiredToolIds=opengl.toolchain.opengl-driver|targetLegalizationToolRequirements.requiredToolIds=opengl.validation.glsl-program-validation|targetLegalizationToolRequirements.missingToolIds=opengl.toolchain.opengl-driver|targetLegalizationToolRequirements.missingToolIds=opengl.validation.glsl-program-validation|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirements.present|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirement.required.toolchain.opengl-driver|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirement.missing.validation.glsl-program-validation|packageArtifactRequirements.requiredPathArtifacts=backendSource|packageArtifactRequirements.requiredPathArtifacts=nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifacts.source-package|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.required.backendSource|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.required.nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.planned-native-binary.allowed"
     EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS
-      "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6")
+      "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6"
+    EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
+      "target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/${opengl_descriptor_array_module}.comp.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|validationStatus=${CROSSGL_OPENGL_NATIVE_ARTIFACT_VALIDATION_STATUS}")
 endfunction()
 
 crossgl_add_package_verify_json_schema_test(

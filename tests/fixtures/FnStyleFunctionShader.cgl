@@ -1,0 +1,21 @@
+shader FnStyleFunctionShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    fn scale(value: float, factor: float) -> float {
+      return value * factor;
+    }
+
+    fn writeValue(index: int, value: float) -> void {
+      values[index] = value;
+      return;
+    }
+
+    fn main() -> void {
+      var base: float = scale(values[1], 2.0);
+      writeValue(0, base);
+      return;
+    }
+  }
+}

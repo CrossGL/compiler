@@ -1,0 +1,1 @@
+$.packages[0].packageArtifactRequirements.requiredPathArtifacts: expected target contract artifacts ['backendSource', 'nativeBinary']

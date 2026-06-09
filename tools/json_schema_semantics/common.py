@@ -9,6 +9,8 @@ from package_target_contracts import (
 )
 
 NATIVE_ARTIFACT_DESCRIPTOR = "nativeArtifactDescriptor"
+NATIVE_BINARY = "nativeBinary"
+NATIVE_PROFILE = "nativeProfile"
 
 PACKAGE_TARGET_NATIVE_SUMMARY_STATUS = {
     "metal": "emitted",
@@ -158,7 +160,7 @@ def validate_package_artifact_requirements(
     )
     if contract is not None:
         expected_mode = (
-            "source-package" if contract.requires_native_binary_status else "native"
+            "source-package" if contract.allows_planned_native_binary else "native"
         )
         if requirements["packageMode"] != expected_mode:
             errors.append(
@@ -173,6 +175,12 @@ def validate_package_artifact_requirements(
             != contract.allows_planned_native_source_evidence
         ):
             errors.append(f"{path}: native binary policy must match target contract")
+        expected_artifacts = list(contract.required_path_artifacts)
+        if requirements["requiredPathArtifacts"] != expected_artifacts:
+            errors.append(
+                f"{path}.requiredPathArtifacts: expected target contract "
+                f"artifacts {expected_artifacts!r}"
+            )
     if (
         requirements["allowsPlannedNativeSourceEvidence"]
         and not requirements["allowsPlannedNativeBinary"]
@@ -272,6 +280,68 @@ def validate_release_package_artifacts_against_requirements(
         errors.append(
             f"{path}.artifacts.{NATIVE_ARTIFACT_DESCRIPTOR}: "
             "descriptor artifact must exist when native readiness is recorded"
+        )
+
+    validate_native_package_publish_evidence(
+        errors,
+        path,
+        package,
+        artifacts,
+        require_existing=require_existing,
+    )
+
+
+def artifact_has_hash_size_evidence(artifact, *, require_existing):
+    if artifact is None:
+        return False
+    if require_existing and artifact.get("exists") is not True:
+        return False
+    return (
+        isinstance(artifact.get("sizeBytes"), int)
+        and not isinstance(artifact.get("sizeBytes"), bool)
+        and artifact["sizeBytes"] > 0
+        and isinstance(artifact.get("sha256"), str)
+        and len(artifact["sha256"]) == 64
+    )
+
+
+def validate_native_package_publish_evidence(
+    errors,
+    path,
+    package,
+    artifacts,
+    *,
+    require_existing,
+):
+    requirements = package["packageArtifactRequirements"]
+    if requirements["packageMode"] != "native":
+        return
+
+    if package["nativeBinaryStatus"] == "planned":
+        errors.append(
+            f"{path}.nativeBinaryStatus: native package publish requires "
+            "emitted or validated native binary evidence, not planned"
+        )
+
+    for name, label in (
+        (NATIVE_BINARY, "nativeBinary artifact"),
+        (NATIVE_ARTIFACT_DESCRIPTOR, "nativeArtifactDescriptor evidence"),
+    ):
+        if not artifact_has_hash_size_evidence(
+            artifacts.get(name), require_existing=require_existing
+        ):
+            errors.append(
+                f"{path}.artifacts.{name}: native package publish requires "
+                f"{label} with sizeBytes and sha256"
+            )
+
+    native_profile = artifacts.get(NATIVE_PROFILE)
+    if native_profile is not None and not artifact_has_hash_size_evidence(
+        native_profile, require_existing=require_existing
+    ):
+        errors.append(
+            f"{path}.artifacts.{NATIVE_PROFILE}: native package publish "
+            "requires declared nativeProfile evidence with sizeBytes and sha256"
         )
 
 
@@ -945,9 +1015,38 @@ def validate_capability_target_prefix(errors, path, target, capabilities):
             )
 
 
+SOURCE_PACKAGE_FALLBACK_NATIVE_EVIDENCE = {
+    "directx": {
+        "directx.backend.native-dxil-package",
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator",
+    },
+}
+
+
+def source_package_fallback_native_mode(record):
+    if not record.get("nativeImplemented") or not record.get("sourcePackageSupported"):
+        return False
+    target = record.get("target") or record.get("selectedTarget")
+    if not target:
+        return False
+    optional_evidence = SOURCE_PACKAGE_FALLBACK_NATIVE_EVIDENCE.get(target)
+    if not optional_evidence:
+        return False
+    missing_capabilities = record.get("missingCapabilities", [])
+    if not isinstance(missing_capabilities, list) or not missing_capabilities:
+        return False
+    return all(
+        isinstance(capability, str) and capability in optional_evidence
+        for capability in missing_capabilities
+    )
+
+
 def expected_package_mode(record):
     if not record["packageBuildSupported"]:
         return "unsupported"
+    if source_package_fallback_native_mode(record):
+        return "source-package"
     if record["nativeImplemented"]:
         return "native"
     if record["sourcePackageSupported"]:

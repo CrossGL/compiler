@@ -1,0 +1,1 @@
+$.diagnosticCodeCounts[0].count: expected positive count

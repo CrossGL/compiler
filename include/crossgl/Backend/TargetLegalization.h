@@ -74,6 +74,7 @@ enum class TargetSourcePackageDescriptorOptimizationEvidenceMode {
 
 enum class TargetNativePackageDescriptorOptimizationEvidenceMode {
   None,
+  DirectXDxc,
   MetalXcrunMetal,
   VulkanSpirvOpt,
 };
@@ -252,8 +253,9 @@ struct TargetSourcePackageDescriptorPolicy {
   TargetSourcePackageDescriptorOptimizationLevelMode optimizationLevelMode =
       TargetSourcePackageDescriptorOptimizationLevelMode::Unknown;
   std::string fixedOptimizationLevel = "unknown";
-  TargetSourcePackageDescriptorOptimizationEvidenceMode optimizationEvidenceMode =
-      TargetSourcePackageDescriptorOptimizationEvidenceMode::None;
+  TargetSourcePackageDescriptorOptimizationEvidenceMode
+      optimizationEvidenceMode =
+          TargetSourcePackageDescriptorOptimizationEvidenceMode::None;
   std::string optimizationEvidenceModeName = "none";
   TargetSourcePackageDescriptorToolProvenanceMode toolProvenanceMode =
       TargetSourcePackageDescriptorToolProvenanceMode::Planned;
@@ -274,8 +276,9 @@ struct TargetNativePackageDescriptorPolicy {
   std::string descriptorArtifactKey = "nativeArtifactDescriptor";
   std::string profileArtifactKey = "nativeProfile";
   std::string validationStatus;
-  TargetNativePackageDescriptorOptimizationEvidenceMode optimizationEvidenceMode =
-      TargetNativePackageDescriptorOptimizationEvidenceMode::None;
+  TargetNativePackageDescriptorOptimizationEvidenceMode
+      optimizationEvidenceMode =
+          TargetNativePackageDescriptorOptimizationEvidenceMode::None;
   std::string optimizationEvidenceModeName = "none";
   std::string optimizationToolName;
   std::string disassemblyToolName;
@@ -496,8 +499,7 @@ TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
     TargetKind target = TargetKind::Auto);
 TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
     const TargetLegalizationContractProjection &projection,
-    std::string_view nativeBinaryStatus,
-    std::string_view nativeToolName = {});
+    std::string_view nativeBinaryStatus, std::string_view nativeToolName = {});
 TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
     const TargetLegalizationContractProjection &projection);
 TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
@@ -528,10 +530,13 @@ TargetLegalizationContractProjection targetLegalizationContractProjection(
     const TargetLegalizationContract &contract);
 TargetLegalizationContractProjection
 targetLegalizationContractProjection(const TargetLegalizationResult &result);
-TargetLegalizationAdmissionDecision targetLegalizationAdmissionDecision(
-    const TargetLegalizationContract &contract);
-TargetLegalizationAdmissionDecision targetLegalizationAdmissionDecision(
-    const TargetLegalizationResult &result);
+TargetLegalizationContractProjection
+targetLegalizationSourcePackageFallbackProjection(const HIRModule &module,
+                                                  TargetKind target);
+TargetLegalizationAdmissionDecision
+targetLegalizationAdmissionDecision(const TargetLegalizationContract &contract);
+TargetLegalizationAdmissionDecision
+targetLegalizationAdmissionDecision(const TargetLegalizationResult &result);
 std::string targetLegalizationContractProjectionJson(
     const TargetLegalizationContractProjection &projection);
 std::string targetLegalizationContractProjectionJson(

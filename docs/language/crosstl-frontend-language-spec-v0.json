@@ -8,11 +8,11 @@
     "files": [
       {
         "path": "crosstl/translator/lexer.py",
-        "sha256": "e5c2c18870bcd14eecb4b2e1db301d9f8e98af3a8a51acbf4c46b84df9548986"
+        "sha256": "4022b7e23c46538d7a080cd1719773567fc60cc9994ad3ba1bab5f0fcbad8bc4"
       },
       {
         "path": "crosstl/translator/parser.py",
-        "sha256": "2a30ce24a4f5acf48025efbaef780c06f2bfc71de299ddd91b6cf4d02485f2ca"
+        "sha256": "2c9d6e4776083bde1035cfd2c37b49e6c12e9f9510a5d205449fcc6fb3a3d7fe"
       },
       {
         "path": "crosstl/translator/ast.py",
@@ -20,7 +20,7 @@
       },
       {
         "path": "crosstl/translator/validation.py",
-        "sha256": "a05fa68e4dd910b6dc05be44e0d5293b6887b6eca2b29218f27e9a08bdf5ddf2"
+        "sha256": "0e09be9f94e3b94426a559f2fcda6ddc5800ef6237ac6d430f93c54f24d60513"
       }
     ],
     "extraction": {
@@ -292,6 +292,10 @@
       {
         "name": "SHARED",
         "pattern": "\\bshared\\b"
+      },
+      {
+        "name": "THREADGROUP_IMAGEBLOCK",
+        "pattern": "\\bthreadgroup_imageblock\\b"
       },
       {
         "name": "THREADGROUP",
@@ -1612,6 +1616,10 @@
         "token": "THREADGROUP"
       },
       {
+        "spelling": "threadgroup_imageblock",
+        "token": "THREADGROUP_IMAGEBLOCK"
+      },
+      {
         "spelling": "trait",
         "token": "TRAIT"
       },
@@ -2659,6 +2667,7 @@
         "SHARED",
         "STATIC",
         "THREADGROUP",
+        "THREADGROUP_IMAGEBLOCK",
         "UNIFORM",
         "WORKGROUP"
       ],
@@ -2672,6 +2681,7 @@
         "SHARED",
         "STATIC",
         "THREADGROUP",
+        "THREADGROUP_IMAGEBLOCK",
         "UNIFORM",
         "WORKGROUP"
       ],
@@ -2710,6 +2720,7 @@
         "storage",
         "thread",
         "threadgroup",
+        "threadgroup_imageblock",
         "volatile",
         "workgroup",
         "writeonly"
@@ -2779,6 +2790,7 @@
         "rwstructuredbuffer"
       ],
       "samplerStateTypeNames": [
+        "comparison_sampler",
         "sampler",
         "samplercomparisonstate",
         "samplerstate"

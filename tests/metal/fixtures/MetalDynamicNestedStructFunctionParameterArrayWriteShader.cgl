@@ -1,0 +1,28 @@
+shader MetalDynamicNestedStructFunctionParameterArrayWriteShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+
+  struct Payload {
+    float value;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+    Payload rewriteGrid(Payload grid[ROWS][COLS], int row, int col, Payload replacement) {
+      grid[row][col] = replacement;
+      return grid[0][0];
+    }
+
+    void main() {
+      Payload localGrid[ROWS][COLS];
+      Payload seed;
+      seed.value = 1.0;
+      localGrid[0][0] = seed;
+      int row = 1;
+      int col = 0;
+      Payload selected = rewriteGrid(localGrid, row, col, seed);
+      return;
+    }
+  }
+}

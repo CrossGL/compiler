@@ -178,6 +178,28 @@ def validate_cross_source_record_consistency(errors, records):
                 )
 
 
+def validate_publish_stage_plan_linkage(errors, records):
+    planned_artifacts = {
+        artifact_identity(record)
+        for record in records
+        if record["sourceRecordKind"] == "publish-plan"
+    }
+    if not planned_artifacts:
+        return
+
+    for index, record in enumerate(records):
+        if record["sourceRecordKind"] != "publish-stage":
+            continue
+        identity = artifact_identity(record)
+        if identity in planned_artifacts:
+            continue
+        errors.append(
+            f"$.records[{index}].sourceRecordKind: publish-stage record requires "
+            "matching publish-plan record for package artifact "
+            f"{identity!r}"
+        )
+
+
 def validate_native_descriptor_provenance_window(errors, records):
     records_by_package = {}
     paths_by_record = {}
@@ -437,6 +459,7 @@ def validate_semantics(instance):
         "artifact byte sum",
     )
     validate_cross_source_record_consistency(errors, records)
+    validate_publish_stage_plan_linkage(errors, records)
     validate_native_descriptor_provenance_window(errors, records)
 
     expected_success = instance["diagnosticCounts"]["error"] == 0

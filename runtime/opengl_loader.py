@@ -343,6 +343,18 @@ def _opengl_source_package_admission_detail(
             "targetResourceBindingCount": len(
                 _target_resource_bindings(plan, OPENGL_LOADER_TARGET)
             ),
+            "entryPoints": [
+                _summarize_opengl_entry_point(record)
+                for record in _reflection_records(plan, "entryPoints")
+            ],
+            "resources": [
+                _summarize_opengl_resource(record)
+                for record in _reflection_records(plan, "resources")
+            ],
+            "targetResourceBindings": [
+                _summarize_opengl_resource_binding(record)
+                for record in _target_resource_bindings(plan, OPENGL_LOADER_TARGET)
+            ],
         },
         "blockedByDiagnostics": [
             diagnostic.to_summary()
@@ -519,6 +531,62 @@ def _accepted_source_package_reason(native_status: str | None) -> str:
     if native_status == "validated":
         return "opengl_loader.source_package_admission.validated_glsl_accepted"
     return "opengl_loader.source_package_admission.accepted"
+
+
+def _summarize_opengl_entry_point(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "stage": record.get("stage"),
+        "sourceName": record.get("sourceName"),
+        "backendName": record.get("backendName"),
+    }
+
+
+def _summarize_opengl_resource(record: dict[str, Any]) -> dict[str, Any]:
+    summary = {
+        "stage": record.get("stage"),
+        "name": record.get("name"),
+        "kind": record.get("kind"),
+        "type": record.get("type"),
+        "set": record.get("set"),
+        "binding": record.get("binding"),
+    }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
+
+
+def _summarize_opengl_resource_binding(record: dict[str, Any]) -> dict[str, Any]:
+    abi = record.get("abi")
+    abi_summary = dict(abi) if isinstance(abi, dict) else {}
+    summary = {
+        "target": record.get("target"),
+        "stage": record.get("stage"),
+        "entryPoint": record.get("entryPoint"),
+        "name": record.get("name"),
+        "kind": record.get("kind"),
+        "sourceType": record.get("sourceType"),
+        "addressSpace": record.get("addressSpace"),
+        "bindingClass": record.get("bindingClass"),
+        "descriptorType": record.get("descriptorType"),
+        "abi": abi_summary,
+        "program": abi_summary.get("program"),
+        "binding": abi_summary.get("binding"),
+    }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
+
+
+def _copy_descriptor_array_metadata(
+    summary: dict[str, Any],
+    record: dict[str, Any],
+) -> None:
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
+        if field_name in record:
+            summary[field_name] = record.get(field_name)
 
 
 def _first_blocking_diagnostic(

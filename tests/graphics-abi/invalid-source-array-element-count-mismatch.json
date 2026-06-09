@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "module": "GraphicsAbiSourceArrayElementCountMismatch",
+  "target": "vulkan",
+  "entryPoints": [
+    {
+      "stage": "fragment",
+      "sourceName": "fs_main",
+      "backendName": "fragment_fs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-source-array-element-count-mismatch.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    }
+  ],
+  "vertexInputs": [],
+  "varyings": [],
+  "fragmentOutputs": [],
+  "builtins": [],
+  "resources": [
+    {
+      "stage": "fragment",
+      "name": "albedoArray",
+      "kind": "texture",
+      "type": "sampler2D[2]",
+      "arrayDimensions": [
+        {
+          "source": "2",
+          "kind": "fixed",
+          "elementCount": 2
+        }
+      ],
+      "set": 0,
+      "binding": 3,
+      "addressSpace": "uniform",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-source-array-element-count-mismatch.cgl",
+        "line": 2,
+        "column": 1,
+        "offset": 10,
+        "length": 4,
+        "endLine": 2,
+        "endColumn": 5,
+        "endOffset": 14
+      }
+    }
+  ],
+  "abiRecords": [
+    {
+      "target": "vulkan",
+      "stage": "fragment",
+      "entryPoint": "fragment_fs_main",
+      "name": "albedoArray",
+      "kind": "texture",
+      "sourceType": "sampler2D[2]",
+      "storageClass": "UniformConstant",
+      "spirvType": "%type_sampled_image_array",
+      "descriptorType": "combined_image_sampler",
+      "addressSpace": "uniform",
+      "abi": "descriptor",
+      "bindingClass": "sampled-texture",
+      "set": 0,
+      "binding": 3,
+      "arrayDimensions": [
+        {
+          "source": "2",
+          "kind": "fixed",
+          "elementCount": 2
+        }
+      ],
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-source-array-element-count-mismatch.cgl",
+        "line": 3,
+        "column": 1,
+        "offset": 20,
+        "length": 4,
+        "endLine": 3,
+        "endColumn": 5,
+        "endOffset": 24
+      }
+    }
+  ]
+}

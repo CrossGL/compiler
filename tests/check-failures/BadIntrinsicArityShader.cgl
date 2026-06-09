@@ -1,0 +1,8 @@
+shader BadIntrinsicArityShader {
+  compute {
+    void main() {
+      float bad = dot(vec2(1.0, 2.0));
+      return;
+    }
+  }
+}

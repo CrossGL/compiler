@@ -941,6 +941,11 @@ def _descriptor_artifact_hash_matches(
         "package.native_artifact_descriptor.artifact_hash_mismatch",
     ):
         return False
+    if _has_diagnostic_code(
+        plan,
+        "package.native_artifact_descriptor.artifact_hash_too_large",
+    ):
+        return False
     return True
 
 
@@ -991,7 +996,7 @@ def _summarize_metal_entry_point(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def _summarize_metal_resource(record: dict[str, Any]) -> dict[str, Any]:
-    return {
+    summary = {
         "stage": record.get("stage"),
         "name": record.get("name"),
         "kind": record.get("kind"),
@@ -999,12 +1004,14 @@ def _summarize_metal_resource(record: dict[str, Any]) -> dict[str, Any]:
         "set": record.get("set"),
         "binding": record.get("binding"),
     }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
 
 
 def _summarize_metal_resource_binding(record: dict[str, Any]) -> dict[str, Any]:
     abi = record.get("abi")
     abi_summary = dict(abi) if isinstance(abi, dict) else {}
-    return {
+    summary = {
         "target": record.get("target"),
         "stage": record.get("stage"),
         "entryPoint": record.get("entryPoint"),
@@ -1017,6 +1024,22 @@ def _summarize_metal_resource_binding(record: dict[str, Any]) -> dict[str, Any]:
         "abi": abi_summary,
         "bufferIndex": abi_summary.get("buffer"),
     }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
+
+
+def _copy_descriptor_array_metadata(
+    summary: dict[str, Any],
+    record: dict[str, Any],
+) -> None:
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
+        if field_name in record:
+            summary[field_name] = record.get(field_name)
 
 
 def _available_artifact(

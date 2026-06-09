@@ -218,6 +218,20 @@
       "notes": "Existing OpenGL source-package evidence for compute invocation builtin lowering."
     },
     {
+      "id": "compute-basics.fn-style-function-declarations",
+      "feature_group": "compute-basics",
+      "language_category": "compute",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/FnStyleFunctionShader.cgl",
+      "fixture_sha256": "f30b3bd0e13a0b7e06f87eb3c0d9a03188f018c7a7b1be7cc24702204ccaa46c",
+      "evidence_tests": [
+        "cglc_check_fn_style_function_hir_calls",
+        "cglc_check_fn_style_function_hir_signatures"
+      ],
+      "notes": "CrossTL-style fn declarations with trailing return types and colon-style parameters lower to canonical HIR functions."
+    },
+    {
       "id": "compute-basics.intrinsic-calls",
       "feature_group": "compute-basics",
       "language_category": "compute",
@@ -409,6 +423,22 @@
       "notes": "Function-body colon-style local variables lower to canonical HIR local declarations."
     },
     {
+      "id": "control-flow.do-while-loop",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/DoWhileComputeShader.cgl",
+      "fixture_sha256": "6194f5d1643d7c566def1bf93856b96d14a69809b1b3bc16c9bf968cad318c48",
+      "evidence_tests": [
+        "cglc_check_do_while_compute",
+        "cglc_check_do_while_hir_condition",
+        "cglc_check_do_while_hir_continue_rewrite",
+        "cglc_check_do_while_hir_trailing_condition_break"
+      ],
+      "notes": "Covers do-while lowering into structured HIR with continue rewrite and a trailing condition break."
+    },
+    {
       "id": "control-flow.for-increment-decrement",
       "feature_group": "control-flow",
       "language_category": "statements",
@@ -486,6 +516,48 @@
         "cglc_check_hir_control_transfer_explicit_statements"
       ],
       "notes": "Covers break and continue in loop contexts."
+    },
+    {
+      "id": "control-flow.switch-case-default",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/SwitchComputeShader.cgl",
+      "fixture_sha256": "c85dd3def959349840abb23bb37d77fa7c0fe13f8b4f29e9b5ed733f7013538e",
+      "evidence_tests": [
+        "cglc_check_switch_compute",
+        "cglc_check_switch_hir_if_chain",
+        "cglc_check_switch_hir_no_switch_break"
+      ],
+      "notes": "Restricted non-fallthrough switch/case/default lowers to a block, selector temp, and nested if/else chain."
+    },
+    {
+      "id": "control-flow.switch-grouped-case-labels",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/SwitchGroupedLabelsComputeShader.cgl",
+      "fixture_sha256": "c886654704786d725a7befc880511a8431f75361519e0aec86351e03e8ef512f",
+      "evidence_tests": [
+        "cglc_check_switch_grouped_labels_hir_if_chain"
+      ],
+      "notes": "Restricted non-terminal grouped case labels lower to an if-chain branch with OR-combined selector comparisons."
+    },
+    {
+      "id": "control-flow.switch-terminal-grouped-case-labels",
+      "feature_group": "control-flow",
+      "language_category": "statements",
+      "status": "accepted",
+      "command_profile": "frontend-check",
+      "fixture": "tests/fixtures/SwitchTerminalGroupedLabelsComputeShader.cgl",
+      "fixture_sha256": "2b50869601d4fac87737e1097ad17b8a5ead8aa9e4005b9fd0d180e87abd29d2",
+      "evidence_tests": [
+        "cglc_check_switch_terminal_grouped_labels_compute",
+        "cglc_check_switch_terminal_grouped_labels_hir_if_chain"
+      ],
+      "notes": "Terminal grouped case labels, with and without a trailing default, lower to HIR if-chain branches with OR-combined selector comparisons."
     },
     {
       "id": "control-flow.while-loop",
@@ -854,18 +926,18 @@
       "notes": "Extended CrossTL stage spellings are outside the native v0 accepted surface unless a future target-specific package row names them."
     },
     {
-      "id": "native-v0-unsupported.fn-style-declaration",
+      "id": "native-v0-unsupported.for-in-loop",
       "feature_group": "known-native-v0-unsupported",
       "language_category": "native-v0",
       "status": "unsupported",
       "command_profile": "unsupported-native-v0-check",
-      "fixture": "tests/check-failures/BadUnsupportedFnStyleShader.cgl",
-      "fixture_sha256": "5c2b22e1860c6b0a4b41612ec88fbac0b95a29a41b08b1e8fdeab23c1e544c14",
+      "fixture": "tests/check-failures/BadUnsupportedForInShader.cgl",
+      "fixture_sha256": "a28b68c84ae7d6169f1a7f37adf42be09ecda4d268bc66f5609053583d9e238b",
       "expected_diagnostic": "spec.unsupported-for-native-v0",
       "evidence_tests": [
-        "cglc_check_unsupported_native_v0_fn_style_failure"
+        "cglc_check_unsupported_native_v0_for_in_failure"
       ],
-      "notes": "Rust-style fn declarations are outside the native v0 accepted surface."
+      "notes": "For-in loop statements are outside the native v0 accepted surface; native v0 currently supports C-style for loops."
     },
     {
       "id": "native-v0-unsupported.generic-declaration",
@@ -922,6 +994,20 @@
         "cglc_check_unsupported_native_v0_line_splicing_preprocessor_failure"
       ],
       "notes": "Backslash-newline physical line splicing remains translator/importer tolerance, not native-v0 shared .cgl syntax."
+    },
+    {
+      "id": "native-v0-unsupported.malformed-for-header",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadMalformedForHeaderShader.cgl",
+      "fixture_sha256": "b94a30699e5f76d0503f547a165c5048ec4d24fd4f86272b818c5873d0b01af8",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_malformed_for_header_failure"
+      ],
+      "notes": "Malformed/incomplete C-style for headers are outside the native v0 accepted control-flow surface."
     },
     {
       "id": "native-v0-unsupported.match-pattern-control",
@@ -1036,18 +1122,60 @@
       "notes": "Ray miss stage spelling is CrossTL-only until native stage, HIR, and target contracts exist."
     },
     {
-      "id": "native-v0-unsupported.resource-metadata-alias",
+      "id": "native-v0-unsupported.switch-duplicate-case-label",
       "feature_group": "known-native-v0-unsupported",
       "language_category": "native-v0",
       "status": "unsupported",
       "command_profile": "unsupported-native-v0-check",
-      "fixture": "tests/check-failures/BadUnsupportedResourceMetadataAliasShader.cgl",
-      "fixture_sha256": "1c7526fc09e2a4fbc3b9ad4c59d89fc0b09024159c81ef7fb8d0513cb48b1eab",
-      "expected_diagnostic": "parse.unsupported-resource-layout-key",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchDuplicateCaseLabelShader.cgl",
+      "fixture_sha256": "73d31e431b27f020836728437424594286c86e82ea52c327e1ef434a9713c39f",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
       "evidence_tests": [
-        "cglc_check_unsupported_native_v0_resource_metadata_alias_failure"
+        "cglc_check_unsupported_native_v0_switch_duplicate_case_label_failure"
       ],
-      "notes": "Broader CrossTL metadata entries such as resource location remain frontend-unsupported for native-v0 unless accepted parser/HIR evidence promotes them."
+      "notes": "Duplicate folded scalar switch case labels are outside the restricted native v0 switch subset."
+    },
+    {
+      "id": "native-v0-unsupported.switch-incompatible-case-label-type",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchIncompatibleCaseLabelTypeShader.cgl",
+      "fixture_sha256": "59c602ed6a7f67db1460c28b3a0793172c3275948524bcaa4637ffa19838d28f",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_switch_incompatible_case_label_type_failure"
+      ],
+      "notes": "Switch case labels with scalar types incompatible with the selector are outside the restricted native v0 switch subset."
+    },
+    {
+      "id": "native-v0-unsupported.switch-non-terminal-break",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchNonTerminalBreakShader.cgl",
+      "fixture_sha256": "e07a29bfac2281d299463509ad42a647c398be40b0dc8d7852494cced67be454",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_switch_non_terminal_break_failure"
+      ],
+      "notes": "Non-terminal switch-local breaks are outside the restricted native v0 switch subset."
+    },
+    {
+      "id": "native-v0-unsupported.switch-restricted-form",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedSwitchShader.cgl",
+      "fixture_sha256": "c732d7b7c2854004ddbdd3ceda76d747d5233d026e4622695d7a7f7ae3cd4dc3",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_switch_failure"
+      ],
+      "notes": "Fallthrough switch/case/default forms are outside the restricted native v0 switch subset."
     },
     {
       "id": "native-v0-unsupported.tessellation-stage",
@@ -1197,6 +1325,33 @@
         "cglc_build_directx_resource_group_layout_alias_source_package"
       ],
       "notes": "Covers canonical group-to-set metadata in DirectX source-package reflection and register space lowering."
+    },
+    {
+      "id": "resources.location-layout-alias",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "hir-dump",
+      "fixture": "tests/fixtures/ResourceLocationAliasShader.cgl",
+      "fixture_sha256": "178255643cf42491e75b61014dec1937d0238baddafc83f4e9edd0bebf467018",
+      "evidence_tests": [
+        "cglc_check_resource_location_layout_alias_hir_canonical_set"
+      ],
+      "notes": "Covers CrossTL layout(location = N, ...) resource metadata canonicalized to resource set N in native-v0 HIR."
+    },
+    {
+      "id": "resources.location-layout-alias-directx-source-package",
+      "feature_group": "resources",
+      "language_category": "resource-declarations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/ResourceLocationAliasShader.cgl",
+      "fixture_sha256": "178255643cf42491e75b61014dec1937d0238baddafc83f4e9edd0bebf467018",
+      "evidence_tests": [
+        "cglc_build_directx_resource_location_layout_alias_source_package"
+      ],
+      "notes": "Covers canonical location-to-set metadata in DirectX source-package reflection and register space lowering."
     },
     {
       "id": "resources.metal-multi-set",
@@ -1435,6 +1590,58 @@
       "notes": "Covers accepted storage-image atomic descriptor-array HIR checks."
     },
     {
+      "id": "storage-images.atomic-descriptor-arrays-directx-source-package",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
+      "fixture_sha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
+      "evidence_tests": [
+        "cglc_build_directx_storage_image_atomic_descriptor_array_source_package"
+      ],
+      "auxiliary_evidence_tests": [
+        "cglc_dump_backend_directx_storage_image_atomic_descriptor_array",
+        "cglc_package_verify_json_schema_directx_storage_image_atomic_descriptor_array_source_package"
+      ],
+      "notes": "Covers DirectX source-package lowering, backend dump, and package schema verification for storage-image atomic descriptor arrays."
+    },
+    {
+      "id": "storage-images.atomic-descriptor-arrays-metal-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "metal",
+      "fixture": "tests/metal/fixtures/MetalStorageImageAtomicDescriptorArrayShader.cgl",
+      "fixture_sha256": "766b961823ef20978bbf365b9f5b866f5587b35e0b761c7b1e0edebae2314248",
+      "evidence_tests": [
+        "cglc_build_metal_storage_image_atomic_descriptor_array_native"
+      ],
+      "auxiliary_evidence_tests": [
+        "cglc_dump_backend_metal_storage_image_atomic_descriptor_array"
+      ],
+      "notes": "Covers Metal native-package lowering and backend dump evidence for storage-image atomic descriptor arrays."
+    },
+    {
+      "id": "storage-images.atomic-descriptor-arrays-vulkan-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
+      "fixture_sha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
+      "evidence_tests": [
+        "cglc_build_vulkan_storage_image_atomic_descriptor_array_native"
+      ],
+      "auxiliary_evidence_tests": [
+        "cglc_dump_backend_vulkan_storage_image_atomic_descriptor_array"
+      ],
+      "notes": "Covers Vulkan native-package lowering and backend dump evidence for storage-image atomic descriptor arrays."
+    },
+    {
       "id": "storage-images.atomic-directx-source-package",
       "feature_group": "storage-images",
       "language_category": "image-operations",
@@ -1505,6 +1712,58 @@
         "cglc_check_storage_image_explicit_format_descriptor_array_hir"
       ],
       "notes": "Covers accepted explicit-format storage-image descriptor-array HIR checks."
+    },
+    {
+      "id": "storage-images.explicit-format-descriptor-arrays-directx-source-package",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "source-package-build",
+      "target": "directx",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+      "fixture_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+      "evidence_tests": [
+        "cglc_build_directx_storage_image_explicit_format_descriptor_array_source_package"
+      ],
+      "auxiliary_evidence_tests": [
+        "cglc_dump_backend_directx_storage_image_explicit_format_descriptor_array",
+        "cglc_package_verify_json_schema_directx_storage_image_explicit_format_descriptor_array_source_package"
+      ],
+      "notes": "Covers DirectX source-package lowering, backend dump, and package schema verification for explicit-format storage-image descriptor arrays."
+    },
+    {
+      "id": "storage-images.explicit-format-descriptor-arrays-metal-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "metal",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+      "fixture_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+      "evidence_tests": [
+        "cglc_build_metal_storage_image_explicit_format_descriptor_array_native"
+      ],
+      "auxiliary_evidence_tests": [
+        "cglc_dump_backend_metal_storage_image_explicit_format_descriptor_array"
+      ],
+      "notes": "Covers Metal native-package lowering and backend dump evidence for explicit-format storage-image descriptor arrays."
+    },
+    {
+      "id": "storage-images.explicit-format-descriptor-arrays-vulkan-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "vulkan",
+      "fixture": "tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+      "fixture_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+      "evidence_tests": [
+        "cglc_build_vulkan_storage_image_explicit_format_descriptor_array_native"
+      ],
+      "auxiliary_evidence_tests": [
+        "cglc_dump_backend_vulkan_storage_image_explicit_format_descriptor_array"
+      ],
+      "notes": "Covers Vulkan native-package lowering and backend dump evidence for explicit-format storage-image descriptor arrays."
     },
     {
       "id": "storage-images.explicit-formats",

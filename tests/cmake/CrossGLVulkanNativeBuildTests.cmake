@@ -93,9 +93,20 @@ elseif(NOT FAKE_TOOL_BEHAVIOR STREQUAL "success")
           "unknown fake spirv-dis behavior: ${FAKE_TOOL_BEHAVIOR}")
 endif()
 
-file(WRITE "${fake_output}"
-     "; CrossGL fake SPIR-V disassembly\nOpEntryPoint GLCompute %main \"main\"\n")
-]=])
+set(fake_assembly "${fake_source}")
+string(REGEX REPLACE "\\.spv$" ".spvasm" fake_assembly "${fake_assembly}")
+set(fake_disassembly "; CrossGL fake SPIR-V disassembly\n")
+if(EXISTS "${fake_assembly}")
+  file(STRINGS "${fake_assembly}" fake_entry_lines
+       REGEX "^(OpEntryPoint|OpExecutionMode) ")
+  foreach(fake_entry_line IN LISTS fake_entry_lines)
+    string(APPEND fake_disassembly "${fake_entry_line}\n")
+  endforeach()
+else()
+  string(APPEND fake_disassembly "OpEntryPoint GLCompute %main \"main\"\n")
+endif()
+file(WRITE "${fake_output}" "${fake_disassembly}")
+      ]=])
       if(WIN32)
         file(TO_NATIVE_PATH "${CMAKE_COMMAND}" native_cmake_command)
         file(TO_NATIVE_PATH "${disassembler_script}" native_disassembler_script)
@@ -190,6 +201,24 @@ add_test(NAME cglc_build_vulkan_native_fake_spirv_success
     -DMODE=vulkan-build
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 
+crossgl_add_python_expect_test(
+  NAME cglc_build_vulkan_native_fake_intrinsics_import_closure
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_INTRINSIC_COMPUTE_SHADER}
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-fake-intrinsics-import-closure.cglb
+    -DEXPECTED_MODULE=IntrinsicComputeShader
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_VULKAN_SUCCESS_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=vulkan|binaryKind=vulkan.spirv-module|sourcePath=backend/vulkan/IntrinsicComputeShader.spvasm|artifactPath=backend/vulkan/IntrinsicComputeShader.spv|spirvDependencies.extendedInstructionSets.0.resultId=%glsl_std_450|spirvDependencies.extendedInstructionSets.0.instructionSet=GLSL.std.450|validationStatus=validated"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=spirvDependencies.extendedInstructionSets=1|validationDiagnostics=0"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_ORDERED_CONTAINS=\"schemaVersion\"|\"kind\"|\"contractVersion\"|\"target\"|\"binaryKind\"|\"sourcePath\"|\"sourceHash\"|\"artifactPath\"|\"artifactHash\"|\"sizeBytes\"|\"spirvDependencies\"|\"toolchainProvenance\"|\"optimizationLevel\"|\"optimizationEvidence\"|\"validationStatus\"|\"validationDiagnostics\""
+    "-DEXPECTED_SPVASM_CONTAINS=%glsl_std_450 = OpExtInstImport \"GLSL.std.450\"|OpExtInst %float %glsl_std_450 FAbs|OpExtInst %float %glsl_std_450 Sin|OpExtInst %float %glsl_std_450 Sqrt|OpExtInst %float %glsl_std_450 Pow|OpExtInst %vec4 %glsl_std_450 Normalize"
+    "-DEXPECTED_SPVASM_ORDERED_CONTAINS=OpCapability Shader|%glsl_std_450 = OpExtInstImport \"GLSL.std.450\"|OpMemoryModel Logical GLSL450|OpEntryPoint GLCompute %compute_main \"main\"|OpExecutionMode %compute_main LocalSize 1 1 1"
+    -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DMODE=vulkan-build)
+
 add_test(NAME cglc_build_vulkan_native_fake_structured_decorations_validate
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -238,6 +267,36 @@ add_test(NAME cglc_build_vulkan_native_fake_disassembly_success
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=StorageBufferComputeShader|artifacts.backendAssembly=backend/vulkan/StorageBufferComputeShader.spvasm|artifacts.nativeBinary=backend/vulkan/StorageBufferComputeShader.spv"
     "-DEXPECTED_NATIVE_PROFILE_JSON_FIELDS=debug.optimization.tool=spirv-opt|debug.optimization.policy=disabled-by-opt-level|debug.optimization.requestedLevel=O1|debug.optimization.level=none|debug.optimization.status=skipped-disabled|debug.optimization.targetEnv=vulkan1.2|debug.optimization.toolStatus=not-run|debug.disassembly.tool=spirv-dis|debug.disassembly.policy=use-when-available|debug.disassembly.status=emitted|debug.disassembly.path=backend/vulkan/StorageBufferComputeShader.disassembly.spvasm"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+    -DEXPECTED_VULKAN_DISASSEMBLY_EXISTS=TRUE
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-as.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=spirv-as success: --target-env vulkan1.2"
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-val.log
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=spirv-val success: --target-env vulkan1.2"
+    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-dis.log
+    "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=spirv-dis success:"
+    -DEXPECTED_ABSENT_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-opt.log
+    -DMODE=vulkan-build
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+
+add_test(NAME cglc_build_vulkan_native_fake_graphics_spirv_stage_closure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_VULKAN_GRAPHICS_SHADOW_COMPARE_SHADER}
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-fake-graphics-stage-closure.cglb
+    -DEXPECTED_MODULE=VulkanGraphicsShadowCompareShader
+    -DEXPECTED_DESCRIPTOR_TYPE=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+    -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsShadowCompareShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsShadowCompareShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsShadowCompareShader.spv|artifacts.nativeProfile=backend/vulkan/VulkanGraphicsShadowCompareShader.profile.json|artifacts.nativeArtifactDescriptor=backend/vulkan/VulkanGraphicsShadowCompareShader.native-artifact.json|artifacts.graphicsAbi=backend/vulkan/VulkanGraphicsShadowCompareShader.graphics-abi.json"
+    "-DEXPECTED_NATIVE_PROFILE_JSON_FIELDS=debug.disassembly.tool=spirv-dis|debug.disassembly.policy=use-when-available|debug.disassembly.status=emitted|debug.disassembly.path=backend/vulkan/VulkanGraphicsShadowCompareShader.disassembly.spvasm"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=vulkan|binaryKind=vulkan.spirv-module|sourcePath=backend/vulkan/VulkanGraphicsShadowCompareShader.spvasm|artifactPath=backend/vulkan/VulkanGraphicsShadowCompareShader.spv|validationStatus=validated|optimizationEvidence.evidenceSource.kind=native-profile|optimizationEvidence.evidenceSource.path=backend/vulkan/VulkanGraphicsShadowCompareShader.profile.json"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsShadowCompareShader|nativeBinary=backend/vulkan/VulkanGraphicsShadowCompareShader.spv|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|resources.0.stage=fragment|resources.0.name=shadowMap|resources.1.stage=fragment|resources.1.name=shadowSampler|vertexLayouts.0.entryPoint=vertex_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=2|targetResourceBindings=2|vertexLayouts=1|workgroupSizes=0"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=shadowMap.stage=fragment|shadowMap.bindingClass=sampledImage|shadowMap.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE|shadowMap.storageClass=UniformConstant|shadowMap.set=0|shadowMap.binding=2|shadowSampler.stage=fragment|shadowSampler.bindingClass=sampler|shadowSampler.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLER|shadowSampler.storageClass=UniformConstant|shadowSampler.set=0|shadowSampler.binding=3"
+    "-DEXPECTED_SPVASM_CONTAINS=OpEntryPoint Vertex|\"vertex_main\"|OpEntryPoint Fragment|\"fragment_main\"|OriginUpperLeft|OpDecorate %resource_fragment_shadowMap DescriptorSet 0|OpDecorate %resource_fragment_shadowMap Binding 2|OpDecorate %resource_fragment_shadowSampler Binding 3"
+    "-DEXPECTED_SPVASM_ORDERED_CONTAINS=OpCapability Shader|OpMemoryModel Logical GLSL450|OpEntryPoint Vertex|OpEntryPoint Fragment|OriginUpperLeft"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
     -DEXPECTED_VULKAN_DISASSEMBLY_EXISTS=TRUE
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-as.log
@@ -449,9 +508,13 @@ add_test(NAME cglc_build_vulkan_native_fake_spirv_val_unavailable_planned_failur
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_spirv_success vulkan)
 crossgl_label_optional_native_policy_test(
+  cglc_build_vulkan_native_fake_intrinsics_import_closure vulkan)
+crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_disassembly_unavailable vulkan)
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_disassembly_tool_failure vulkan)
+crossgl_label_optional_native_policy_test(
+  cglc_build_vulkan_native_fake_graphics_spirv_stage_closure vulkan)
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_spirv_opt_planned_failure vulkan)
 crossgl_label_optional_native_policy_test(
@@ -591,6 +654,59 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_storage_buffer_resource_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_STORAGE_BUFFER_RESOURCE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-storage-buffer-resource.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsStorageBufferResourceShader
+      -DEXPECTED_STORAGE_ELEMENT=vec4
+      -DEXPECTED_STORAGE_STRIDE=16
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsStorageBufferResourceShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsStorageBufferResourceShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsStorageBufferResourceShader.spv|artifacts.graphicsAbi=backend/vulkan/VulkanGraphicsStorageBufferResourceShader.graphics-abi.json"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsStorageBufferResourceShader|nativeBinary=backend/vulkan/VulkanGraphicsStorageBufferResourceShader.spv|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|vertexLayouts.0.entryPoint=vertex_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=4|targetResourceBindings=4|vertexLayouts=1|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=vertexOffsets.stage=vertex|vertexOffsets.sourceType=vec4*|vertexOffsets.bindingClass=storageBuffer|vertexOffsets.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|vertexOffsets.storageClass=StorageBuffer|vertexOffsets.binding=0|vertexOffsets.storageBufferLayout.arrayStrideBytes=16|vertexDrawData.stage=vertex|vertexDrawData.sourceType=DrawData*|vertexDrawData.bindingClass=storageBuffer|vertexDrawData.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|vertexDrawData.binding=1|vertexDrawData.storageBufferLayout.elementType=DrawData|vertexDrawData.storageBufferLayout.fields.1.name=tint|vertexDrawData.storageBufferLayout.fields.1.offsetBytes=16|fragmentScales.stage=fragment|fragmentScales.binding=2|fragmentScales.storageBufferLayout.arrayStrideBytes=16|fragmentDrawData.stage=fragment|fragmentDrawData.binding=3|fragmentDrawData.storageBufferLayout.elementType=DrawData"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=storage-buffer.kind=resource|vector-storage-buffer.kind=layout|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|index-access.kind=operation"
+      "-DEXPECTED_SPVASM_SNIPPET=OpDecorate %resource_vertex_vertexOffsets Binding 0"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_storage_buffer_resource_spvasm_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_STORAGE_BUFFER_RESOURCE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-storage-buffer-resource-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsStorageBufferResourceShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpEntryPoint Vertex|OpEntryPoint Fragment|OpDecorate %resource_vertex_vertexOffsets DescriptorSet 0|OpDecorate %resource_vertex_vertexOffsets Binding 0|OpDecorate %resource_vertex_vertexDrawData Binding 1|OpDecorate %resource_fragment_fragmentScales Binding 2|OpDecorate %resource_fragment_fragmentDrawData Binding 3|OpDecorate %runtimearr_vec4 ArrayStride 16|OpMemberDecorate %StorageBuffer_vec4 0 Offset 0|OpDecorate %StorageBuffer_vec4 Block|OpMemberDecorate %struct_storage_DrawData 0 Offset 0|OpMemberDecorate %struct_storage_DrawData 1 Offset 16|OpAccessChain %ptr_StorageBuffer_vec4 %resource_vertex_vertexOffsets|OpAccessChain %ptr_StorageBuffer_vec4 %resource_vertex_vertexDrawData|OpAccessChain %ptr_StorageBuffer_vec4 %resource_fragment_fragmentDrawData"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpCapability StorageBufferArrayNonUniformIndexingEXT|NonUniformEXT"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_storage_buffer_descriptor_array_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-storage-buffer-descriptor-array.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsStorageBufferDescriptorArrayShader
+      -DEXPECTED_STORAGE_ELEMENT=vec4
+      -DEXPECTED_STORAGE_STRIDE=16
+      -DEXPECTED_RESOURCE_ARRAY_COUNT=2
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsStorageBufferDescriptorArrayShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsStorageBufferDescriptorArrayShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsStorageBufferDescriptorArrayShader.spv|artifacts.graphicsAbi=backend/vulkan/VulkanGraphicsStorageBufferDescriptorArrayShader.graphics-abi.json"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsStorageBufferDescriptorArrayShader|nativeBinary=backend/vulkan/VulkanGraphicsStorageBufferDescriptorArrayShader.spv|entryPoints.0.stage=vertex|entryPoints.1.stage=fragment|vertexLayouts.0.entryPoint=vertex_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=1|targetResourceBindings=1|vertexLayouts=1|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=debugValues.stage=fragment|debugValues.sourceType=vec4*[2]|debugValues.bindingClass=storageBuffer|debugValues.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|debugValues.storageClass=StorageBuffer|debugValues.binding=2|debugValues.arrayElementCount=2|debugValues.storageBufferLayout.arrayStrideBytes=16"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=fixed-array.kind=layout|descriptor-array.kind=resource|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|index-access.kind=operation"
+      "-DEXPECTED_SPVASM_SNIPPET=%arr_StorageBuffer_vec4__2_ = OpTypeArray %StorageBuffer_vec4"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_storage_buffer_descriptor_array_spvasm_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-storage-buffer-descriptor-array-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsStorageBufferDescriptorArrayShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpEntryPoint Fragment|OpDecorate %resource_fragment_debugValues DescriptorSet 0|OpDecorate %resource_fragment_debugValues Binding 2|%arr_StorageBuffer_vec4__2_ = OpTypeArray %StorageBuffer_vec4|%ptr_StorageBuffer_Resource_vec4__2_ = OpTypePointer StorageBuffer %arr_StorageBuffer_vec4__2_|%resource_fragment_debugValues = OpVariable %ptr_StorageBuffer_Resource_vec4__2_ StorageBuffer|OpAccessChain %ptr_StorageBuffer_vec4 %resource_fragment_debugValues"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpCapability RuntimeDescriptorArrayEXT|OpCapability StorageBufferArrayNonUniformIndexingEXT|NonUniformEXT"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
   add_test(NAME cglc_build_vulkan_runtime_texture_descriptor_array_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -643,7 +759,7 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-runtime-texture-sampler-nonuniform-descriptor-array.cglb
       -DEXPECTED_MODULE=VulkanRuntimeTextureSamplerNonUniformDescriptorArrayShader
       -DEXPECTED_STORAGE_BUFFER_METADATA=OFF
-      "-DEXPECTED_SPVASM_CONTAINS=OpCapability RuntimeDescriptorArrayEXT|OpCapability ShaderNonUniformEXT|OpCapability SampledImageArrayNonUniformIndexingEXT|OpExtension \"SPV_EXT_descriptor_indexing\"|OpEntryPoint GLCompute %compute_main \"main\" %resource_values %resource_maps %resource_linearSamplers %resource_descriptors|OpDecorate %resource_maps Binding 1|OpDecorate %resource_linearSamplers Binding 2|OpDecorate %resource_descriptors Binding 3|%runtimearr_image_sampler2D__ = OpTypeRuntimeArray %image_2D|%runtimearr_sampler_sampler__ = OpTypeRuntimeArray %sampler|%resource_maps = OpVariable %ptr_UniformConstant_sampledImage_sampler2D__ UniformConstant|%resource_linearSamplers = OpVariable %ptr_UniformConstant_sampler_sampler__ UniformConstant|%resource_descriptors = OpVariable %ptr_StorageBuffer_StorageBuffer_int StorageBuffer|OpDecorate %tmp_9 NonUniformEXT|OpAccessChain %ptr_UniformConstant_sampledImage_sampler2D %resource_maps %tmp_2|OpAccessChain %ptr_UniformConstant_sampler_sampler %resource_linearSamplers %tmp_5|OpSampledImage %sampled_sampler2D %tmp_4 %tmp_7|OpImageSampleExplicitLod %vec4 %tmp_9 %tmp_8 Lod %const_float__0_0"
+      "-DEXPECTED_SPVASM_CONTAINS=OpCapability RuntimeDescriptorArrayEXT|OpCapability ShaderNonUniformEXT|OpCapability SampledImageArrayNonUniformIndexingEXT|OpExtension \"SPV_EXT_descriptor_indexing\"|OpEntryPoint GLCompute %compute_main \"main\" %resource_values %resource_maps %resource_linearSamplers %resource_descriptors|OpDecorate %resource_maps Binding 1|OpDecorate %resource_linearSamplers Binding 2|OpDecorate %resource_descriptors Binding 3|%runtimearr_image_sampler2D__ = OpTypeRuntimeArray %image_2D|%runtimearr_sampler_sampler__ = OpTypeRuntimeArray %sampler|%resource_maps = OpVariable %ptr_UniformConstant_sampledImage_sampler2D__ UniformConstant|%resource_linearSamplers = OpVariable %ptr_UniformConstant_sampler_sampler__ UniformConstant|%resource_descriptors = OpVariable %ptr_StorageBuffer_StorageBuffer_int StorageBuffer|OpDecorate %tmp_2 NonUniformEXT|OpDecorate %tmp_3 NonUniformEXT|OpDecorate %tmp_4 NonUniformEXT|OpDecorate %tmp_5 NonUniformEXT|OpDecorate %tmp_6 NonUniformEXT|OpDecorate %tmp_7 NonUniformEXT|OpDecorate %tmp_9 NonUniformEXT|OpAccessChain %ptr_UniformConstant_sampledImage_sampler2D %resource_maps %tmp_2|OpAccessChain %ptr_UniformConstant_sampler_sampler %resource_linearSamplers %tmp_5|OpSampledImage %sampled_sampler2D %tmp_4 %tmp_7|OpImageSampleExplicitLod %vec4 %tmp_9 %tmp_8 Lod %const_float__0_0"
       "-DUNEXPECTED_SPVASM_CONTAINS=OpCapability StorageBufferArrayNonUniformIndexingEXT"
       "-DEXPECTED_REFLECTION_JSON_FIELDS=nativeBinary=backend/vulkan/VulkanRuntimeTextureSamplerNonUniformDescriptorArrayShader.spv|manualTextureCompareKernelSummary.totalCount=0"
       "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=4|targetResourceBindings=4|manualTextureCompareKernels=0|resources.1.arrayDimensions=1|resources.2.arrayDimensions=1|targetResourceBindings.1.arrayDimensions=1|targetResourceBindings.2.arrayDimensions=1"
@@ -676,9 +792,9 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       -DEXPECT_NO_OUTPUT_PACKAGE=ON
       -DEXPECTED_DIAGNOSTIC=target.unsupported
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
-      "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|target=vulkan|location.line=1|location.column=1"
+      "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|target=vulkan|location.line=5|location.column=52|location.length=4|location.endLine=5|location.endColumn=56"
       "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
-      "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array|message=TargetLegalizationResult: state=rejected|message=provenance=unsupported-native-form|message=target-legalization.v1.vulkan.capability.missing.vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
+      "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=runtime descriptor array 'maps' (texture) at set 0 binding 1 conflicts with runtime descriptor array 'detailMaps' (texture) at set 0 binding 2|message=Vulkan descriptor binding class 'sampledImage' (VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)|message=policy allow-single-unbounded-descriptor-array permits only one unbounded descriptor array per Vulkan descriptor binding class|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array|message=TargetLegalizationResult: state=rejected|message=provenance=unsupported-native-form|message=target-legalization.v1.vulkan.capability.missing.vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
       -DMODE=planned-build-failure
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_resource_array_access_native
@@ -2099,6 +2215,52 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_SNIPPET=OpConvertFToU %uint"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_matrix_constructor_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_MATRIX_CONSTRUCTOR_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-matrix-constructor.cglb
+      -DEXPECTED_MODULE=MatrixConstructorComputeShader
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=MatrixConstructorComputeShader|nativeBinary=backend/vulkan/MatrixConstructorComputeShader.spv|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|values.set=0|values.binding=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|vector-constructor.kind=operation|matrix-constructor.kind=operation"
+      "-DEXPECTED_SPVASM_CONTAINS=%mat2 = OpTypeMatrix %vec2 2|%mat3 = OpTypeMatrix %vec3 3|OpCompositeConstruct %mat2|OpCompositeConstruct %mat3|OpCompositeExtract %float"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_matrix_vector_arithmetic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_MATRIX_VECTOR_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-matrix-vector-arithmetic.cglb
+      -DEXPECTED_MODULE=MatrixVectorArithmeticComputeShader
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=MatrixVectorArithmeticComputeShader|nativeBinary=backend/vulkan/MatrixVectorArithmeticComputeShader.spv|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|values.set=0|values.binding=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|vector-constructor.kind=operation|index-access.kind=operation|matrix-constructor.kind=operation|vector-arithmetic.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_SPVASM_CONTAINS=%mat3 = OpTypeMatrix %vec3 3|%ptr_Function_mat3 = OpTypePointer Function %mat3|OpMatrixTimesVector %vec3|OpVectorTimesMatrix %vec3|OpMatrixTimesMatrix %mat3|OpStore %var_projected"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_matrix_scalar_arithmetic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_MATRIX_SCALAR_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-matrix-scalar-arithmetic.cglb
+      -DEXPECTED_MODULE=MatrixScalarArithmeticComputeShader
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=MatrixScalarArithmeticComputeShader|nativeBinary=backend/vulkan/MatrixScalarArithmeticComputeShader.spv|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|values.set=0|values.binding=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|matrix-constructor.kind=operation|scalar-arithmetic.kind=operation"
+      "-DEXPECTED_SPVASM_CONTAINS=%mat3 = OpTypeMatrix %vec3 3|%ptr_Function_mat3 = OpTypePointer Function %mat3|OpMatrixTimesScalar %mat3|OpStore %var_inferred"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_vector_local_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -2404,6 +2566,27 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_SNIPPET=OpCompositeExtract %float %param_readWeight_weights 1"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_function_parameter_array_write_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-function-parameter-array-write-native.cglb
+      -DEXPECTED_MODULE=VulkanFunctionParameterArrayWriteShader
+      -DEXPECTED_STORAGE_ELEMENT=Particle
+      -DEXPECTED_STORAGE_STRIDE=8
+      -DEXPECTED_STRUCT_FIELD=weights
+      -DEXPECTED_STRUCT_FIELD_OFFSET=0
+      -DEXPECTED_STRUCT_FIELD_ARRAY_COUNT=2
+      -DEXPECTED_STRUCT_FIELD_ARRAY_STRIDE=4
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanFunctionParameterArrayWriteShader|artifacts.backendAssembly=backend/vulkan/VulkanFunctionParameterArrayWriteShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanFunctionParameterArrayWriteShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanFunctionParameterArrayWriteShader|nativeBinary=backend/vulkan/VulkanFunctionParameterArrayWriteShader.spv|workgroupSizes.0.entryPoint=compute_main|functionConstants.0.name=COUNT|functionConstants.0.value=2|structs.0.fields.0.name=weights|structs.0.fields.0.arrayDimensions.0.elementCount=2"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|functionConstants=1|structs=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storageBuffer|particles.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|particles.storageClass=StorageBuffer|particles.set=0|particles.binding=0|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.arrayStrideBytes=8|particles.storageBufferLayout.fields.0.name=weights|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=4"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=fixed-array.kind=layout|fixed-array-field.kind=layout|compute-kernel.kind=stage|storage-buffer.kind=resource|local-declaration.kind=operation|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      "-DEXPECTED_SPVASM_CONTAINS=%ptr_Function_float_COUNT_ = OpTypePointer Function %fnarr_float_COUNT_|%param_rewriteWeight_weights = OpFunctionParameter %ptr_Function_float_COUNT_|%var_param_array_writeback_rewriteWeight_weights = OpVariable %ptr_Function_float_COUNT_ Function|OpFunctionCall %float %func_rewriteWeight %var_param_array_writeback_rewriteWeight_weights|OpAccessChain %ptr_Function_float %var_param_array_writeback_rewriteWeight_weights|OpAccessChain %ptr_Function_float %param_rewriteWeight_weights"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_local_function_parameter_array_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -2506,6 +2689,24 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_SNIPPET=OpIEqual %bool %param_readDynamicRow_row %const_int__1"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_function_parameter_resource_array_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_FUNCTION_PARAMETER_RESOURCE_ARRAY_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-function-parameter-resource-array-native.cglb
+      -DEXPECTED_MODULE=VulkanFunctionParameterResourceArrayShader
+      -DEXPECTED_STORAGE_ELEMENT=vec4
+      -DEXPECTED_STORAGE_STRIDE=16
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanFunctionParameterResourceArrayShader|artifacts.backendAssembly=backend/vulkan/VulkanFunctionParameterResourceArrayShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanFunctionParameterResourceArrayShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanFunctionParameterResourceArrayShader|nativeBinary=backend/vulkan/VulkanFunctionParameterResourceArrayShader.spv|resources.0.name=values|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.2.name=linearSamplers|resources.2.kind=sampler|resources.2.type=sampler[COUNT]|workgroupSizes.0.entryPoint=compute_main|functionConstants.0.name=COUNT|functionConstants.0.value=2"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|functionConstants=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|colorMaps.sourceType=sampler2D[COUNT]|colorMaps.bindingClass=sampledImage|colorMaps.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE|colorMaps.storageClass=UniformConstant|colorMaps.arrayElementCount=2|linearSamplers.sourceType=sampler[COUNT]|linearSamplers.bindingClass=sampler|linearSamplers.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLER|linearSamplers.storageClass=UniformConstant|linearSamplers.arrayElementCount=2"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|descriptor-array.kind=resource|sampled-texture.kind=resource|sampler-state.kind=resource|texture-sample.kind=operation|texture-explicit-lod.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      "-DEXPECTED_SPVASM_SNIPPET=%func_sampleFirst = OpFunction %vec4 None %fn_vec4__"
+      "-DEXPECTED_SPVASM_CONTAINS=OpAccessChain %ptr_UniformConstant_sampledImage_sampler2D %resource_colorMaps %const_int__0|OpAccessChain %ptr_UniformConstant_sampler_sampler %resource_linearSamplers %const_int__0|OpFunctionCall %vec4 %func_sampleFirst"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_storage_image_read_write_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -2535,12 +2736,21 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanStorageImageAccessQualifierShader|artifacts.backendAssembly=backend/vulkan/VulkanStorageImageAccessQualifierShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanStorageImageAccessQualifierShader.spv"
       "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanStorageImageAccessQualifierShader|nativeBinary=backend/vulkan/VulkanStorageImageAccessQualifierShader.spv|resources.0.kind=storage_image|resources.0.type=image2D|resources.5.type=image2D[IMAGE_COUNT]|resources.6.kind=buffer|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=2|workgroupSizes.0.y=2|workgroupSizes.0.z=1"
       "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=8|targetResourceBindings=8|functionConstants=1|workgroupSizes=1"
-      "-DEXPECTED_REFLECTION_TARGET_FIELDS=readOnlyImage.sourceType=image2D|readOnlyImage.bindingClass=storageImage|readOnlyImage.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_IMAGE|readOnlyImage.storageClass=UniformConstant|readOnlyImage.spirvType=OpTypeImage<float, 2D, sampled=2, format=Rgba32f>|readOnlyImages.sourceType=image2D[IMAGE_COUNT]|readOnlyImages.arrayElementCount=2|writeOnlyImages.arrayElementCount=2|readWriteImages.arrayElementCount=2|slots.sourceType=int*|slots.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|colors.sourceType=vec4*|colors.storageBufferLayout.arrayStrideBytes=16"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=readOnlyImage.sourceType=image2D|readOnlyImage.bindingClass=storageImage|readOnlyImage.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_IMAGE|readOnlyImage.storageClass=UniformConstant|readOnlyImage.spirvType=OpTypeImage<float, 2D, sampled=2, format=Rgba32f>|readOnlyImage.storageImageAccess=read|writeOnlyImage.storageImageAccess=write|readWriteImage.storageImageAccess=read_write|readOnlyImages.sourceType=image2D[IMAGE_COUNT]|readOnlyImages.storageImageAccess=read|readOnlyImages.arrayElementCount=2|writeOnlyImages.storageImageAccess=write|writeOnlyImages.arrayElementCount=2|readWriteImages.storageImageAccess=read_write|readWriteImages.arrayElementCount=2|slots.sourceType=int*|slots.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|colors.sourceType=vec4*|colors.storageBufferLayout.arrayStrideBytes=16"
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|storage-image.kind=resource|read-only.kind=storageImage|write-only.kind=storageImage|read-write.kind=storageImage|descriptor-array.kind=resource|fixed-array.kind=layout|nonuniform-descriptor-index.kind=operation|nonuniform-storage-image-descriptor-index.kind=operation|SPV_EXT_descriptor_indexing.kind=extension|StorageImageArrayNonUniformIndexingEXT.kind=capability|storage-image-read.kind=operation|storage-image-write.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       "-DEXPECTED_SPVASM_SNIPPET=OpDecorate %resource_writeOnlyImage NonReadable"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_storage_image_access_qualifier_descriptor_array_spvasm_snippets
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_STORAGE_IMAGE_ACCESS_QUALIFIER_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-storage-image-access-qualifier-descriptor-array-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanStorageImageAccessQualifierShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpCapability StorageImageArrayNonUniformIndexingEXT|OpExtension \"SPV_EXT_descriptor_indexing\"|OpDecorate %resource_readOnlyImages NonWritable|OpDecorate %resource_writeOnlyImages NonReadable|%arr_storageImage_image2D_IMAGE_COUNT_ = OpTypeArray %storage_image_image2D %const_uint_2|%resource_readOnlyImages = OpVariable %ptr_UniformConstant_storageImage_image2D_IMAGE_COUNT_ UniformConstant|%resource_writeOnlyImages = OpVariable %ptr_UniformConstant_storageImage_image2D_IMAGE_COUNT_ UniformConstant|%resource_readWriteImages = OpVariable %ptr_UniformConstant_storageImage_image2D_IMAGE_COUNT_ UniformConstant|OpAccessChain %ptr_UniformConstant_storageImage_image2D %resource_readOnlyImages %tmp_|OpAccessChain %ptr_UniformConstant_storageImage_image2D %resource_writeOnlyImages %tmp_|OpAccessChain %ptr_UniformConstant_storageImage_image2D %resource_readWriteImages %tmp_"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpDecorate %resource_readOnlyImages NonReadable|OpDecorate %resource_writeOnlyImages NonWritable|OpDecorate %resource_readWriteImages NonReadable|OpDecorate %resource_readWriteImages NonWritable|OpCapability SampledImageArrayNonUniformIndexingEXT|OpCapability StorageBufferArrayNonUniformIndexingEXT"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
   add_test(NAME cglc_build_vulkan_storage_image_atomic_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>

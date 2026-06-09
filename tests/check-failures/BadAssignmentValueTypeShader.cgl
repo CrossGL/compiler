@@ -1,0 +1,9 @@
+shader BadAssignmentValueTypeShader {
+  compute {
+    void main() {
+      int value = 1;
+      value = true;
+      return;
+    }
+  }
+}

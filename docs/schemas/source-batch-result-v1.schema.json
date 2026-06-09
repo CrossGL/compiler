@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/source-batch-result-v1.schema.json",
+  "title": "CrossGL Source Batch Result Schema v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "manifest",
+    "success",
+    "entryCount",
+    "entries",
+    "diagnosticReport"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "crossgl.sourceBatchResult"
+    },
+    "manifest": {
+      "$ref": "#/$defs/nonEmptyString"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "entryCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    },
+    "diagnosticReport": {
+      "$ref": "#/$defs/diagnosticReport"
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "target",
+        "success"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "logicalInput": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "output": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "artifact": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "success": {
+          "type": "boolean"
+        }
+      }
+    },
+    "diagnosticReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "diagnostics"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      }
+    },
+    "targetName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)*$",
+      "description": "Compiler diagnostics use one of metal, vulkan, directx, or opengl. Project diagnostics may use an open, stable project/config target selector such as webgpu or workspace.default."
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Stable slash-separated relative source path. Absolute host paths are rejected by diagnostics-v1 semantics."
+        },
+        "line": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation",
+          "description": "Optional generated-to-original source span when diagnostics are emitted with a source remap sidecar. The required location field remains the compiler-input span."
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "missingCapabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+shader StorageBufferPointerHelperParamShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) buffer vec4* vectors;
+
+    void writeScalar(float* dst, float value) {
+      dst[0] = value;
+      return;
+    }
+
+    void writeVector(vec4* dst, vec4 value) {
+      dst[1] = value;
+      return;
+    }
+
+    void main() {
+      float scalar = values[1] + 2.0;
+      vec4 vector = vectors[0] + vec4(0.25, 0.5, 0.75, 1.0);
+      writeScalar(values, scalar);
+      writeVector(vectors, vector);
+      return;
+    }
+  }
+}

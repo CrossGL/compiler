@@ -1,0 +1,27 @@
+shader SwitchTerminalGroupedLabelsComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      int total = 0;
+      switch (mode) {
+        case 0:
+        case 1:
+          total = 10;
+          break;
+      }
+      switch (mode) {
+        case 2:
+        case 3:
+          total = total + 20;
+          break;
+        default:
+          total = total + 30;
+          break;
+      }
+      values[1] = total;
+      return;
+    }
+  }
+}

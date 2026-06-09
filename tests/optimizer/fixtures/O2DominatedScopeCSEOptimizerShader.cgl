@@ -1,0 +1,56 @@
+shader O2DominatedScopeCSEOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float blockReuse(float left, float right) {
+      float parent = (left + right) * 2.0;
+      float total = parent;
+      {
+        float child = (left + right) * 2.0;
+        float childLocalFirst = (left - right) * 4.0;
+        float childLocalSecond = (left - right) * 4.0;
+        total = total + child + childLocalFirst + childLocalSecond;
+      }
+      return total;
+    }
+
+    float branchReuse(float left, float right, bool choose) {
+      float before = max(left + right, 1.0);
+      float selected = before;
+      if (choose) {
+        float thenReuse = max(left + right, 1.0);
+        float thenLocalFirst = (left * right) + 3.0;
+        float thenLocalSecond = (left * right) + 3.0;
+        selected = selected + thenReuse + thenLocalFirst + thenLocalSecond;
+      } else {
+        float elseReuse = max(left + right, 1.0);
+        float elseLocalFirst = (left - right) + 5.0;
+        float elseLocalSecond = (left - right) + 5.0;
+        selected = selected + elseReuse + elseLocalFirst + elseLocalSecond;
+      }
+      return selected;
+    }
+
+    float branchDoesNotExport(float left, float right, bool choose) {
+      float total = 0.0;
+      if (choose) {
+        float thenScoped = (left + right) * 7.0;
+        total = total + thenScoped;
+      } else {
+        float elseScoped = (left + right) * 7.0;
+        total = total + elseScoped;
+      }
+      float after = (left + right) * 7.0;
+      return total + after + after;
+    }
+
+    void main() {
+      bool choose = values[0] > 0.0;
+      values[0] = blockReuse(values[0], values[1]);
+      values[1] = branchReuse(values[1], values[2], choose);
+      values[2] = branchDoesNotExport(values[2], values[3], choose);
+      return;
+    }
+  }
+}

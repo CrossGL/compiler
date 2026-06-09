@@ -266,6 +266,49 @@ def package_artifact_requirements(target):
     }
 
 
+def package_artifact_requirement_evidence_ids(requirements):
+    target = requirements.get("target")
+    package_mode = requirements.get("packageMode")
+    required_artifacts = requirements.get("requiredPathArtifacts", [])
+    evidence_ids = [f"target-legalization.v1.{target}.package-artifacts.{package_mode}"]
+    evidence_ids.extend(
+        f"target-legalization.v1.{target}.package-artifact.required.{name}"
+        for name in required_artifacts
+    )
+    if requirements.get("requiresNativeBinaryStatus"):
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.native-binary-status.required"
+        )
+    if requirements.get("allowsPlannedNativeBinary"):
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-binary.allowed"
+        )
+    if requirements.get("allowsPlannedNativeSourceEvidence"):
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-source-evidence.allowed"
+        )
+    return evidence_ids
+
+
+def manifest_with_required_path_artifacts(manifest, required_path_artifacts):
+    updated = copy.deepcopy(manifest)
+    requirements = updated["packageArtifactRequirements"]
+    requirements["requiredPathArtifacts"] = list(required_path_artifacts)
+    requirements["evidenceIds"] = package_artifact_requirement_evidence_ids(
+        requirements
+    )
+    return updated
+
+
+def manifest_with_requirement_evidence_ids(manifest, evidence_ids):
+    updated = copy.deepcopy(manifest)
+    updated["packageArtifactRequirements"]["evidenceIds"] = list(evidence_ids)
+    return updated
+
+
 def native_artifact_binary_kind(manifest):
     target = manifest["target"]
     if target == "metal":
@@ -1449,6 +1492,107 @@ def run_native_delegation_cases(root, cglc, tmp_dir):
             source,
             cglc,
             "reflection nativeBinary path must be package-relative",
+        )
+    )
+
+    package, source, manifest = make_package(
+        tmp_dir, "native-delegated-artifact-contract-drift"
+    )
+    artifact_contract_drift = manifest_with_required_path_artifacts(
+        manifest, ["backendSource"]
+    )
+    rewrite_manifest(package, artifact_contract_drift)
+    errors.extend(
+        expect_native_failure(
+            root,
+            package,
+            source,
+            cglc,
+            "packageArtifactRequirements.requiredPathArtifacts must match "
+            "manifest target contract",
+        )
+    )
+
+    artifact_contract_drift_cases = (
+        (
+            "native-delegated-artifact-contract-reordered",
+            ["nativeBinary", "backendSource"],
+        ),
+        (
+            "native-delegated-artifact-contract-extra",
+            ["backendSource", "nativeBinary", "intermediate"],
+        ),
+    )
+    for case_name, required_path_artifacts in artifact_contract_drift_cases:
+        package, source, manifest = make_package(tmp_dir, case_name)
+        artifact_contract_drift = manifest_with_required_path_artifacts(
+            manifest,
+            required_path_artifacts,
+        )
+        rewrite_manifest(package, artifact_contract_drift)
+        errors.extend(
+            expect_native_failure(
+                root,
+                package,
+                source,
+                cglc,
+                "packageArtifactRequirements.requiredPathArtifacts must match "
+                "manifest target contract",
+            )
+        )
+
+    evidence_drift_cases = []
+    for case_name, mutate in (
+        (
+            "native-delegated-requirement-evidence-missing-id",
+            lambda evidence_ids: evidence_ids[:-1],
+        ),
+        (
+            "native-delegated-requirement-evidence-extra-id",
+            lambda evidence_ids: (
+                evidence_ids
+                + ["target-legalization.v1.directx.package-artifact.fixture.extra"]
+            ),
+        ),
+    ):
+        package, source, manifest = make_package(tmp_dir, case_name)
+        expected_evidence_ids = package_artifact_requirement_evidence_ids(
+            manifest["packageArtifactRequirements"]
+        )
+        evidence_drift = manifest_with_requirement_evidence_ids(
+            manifest,
+            mutate(expected_evidence_ids),
+        )
+        rewrite_manifest(package, evidence_drift)
+        evidence_drift_cases.append((package, source))
+
+    for package, source in evidence_drift_cases:
+        errors.extend(
+            expect_native_failure(
+                root,
+                package,
+                source,
+                cglc,
+                "package manifest packageArtifactRequirements.evidenceIds must "
+                "match recorded packageArtifactRequirements",
+            )
+        )
+
+    package, source, manifest = make_package(
+        tmp_dir, "native-delegated-planned-status-produced-native"
+    )
+    write_json(
+        package_path(package, manifest["artifacts"]["nativeBinary"]),
+        {"fixture": "planned native binary should not be produced"},
+    )
+    errors.extend(
+        expect_native_failure(
+            root,
+            package,
+            source,
+            cglc,
+            "nativeBinaryStatus planned requires the nativeBinary artifact path "
+            "to be declared but not produced",
         )
     )
 

@@ -115,6 +115,42 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_summary_exposes_graphics_abi_descriptor_bindings(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_source_free_metal_package(package_dir)
+            self._write_graphics_abi_sidecar(package_dir)
+            source_path = package_dir / "source" / "RuntimeBackendLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "backend loader must not parse source for graphics ABI bindings\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads():
+                plan = plan_source_free_native_backend_loader(
+                    package_dir,
+                    "metal",
+                    loader_name="metal-native",
+                )
+                summary = plan.to_summary()
+
+            bindings = summary["graphicsDescriptorBindings"]
+            binding = bindings["bindings"][0]
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertEqual(bindings["source"], "graphicsAbi.abiRecords")
+            self.assertEqual(bindings["bindingCount"], 1)
+            self.assertEqual(binding["target"], "metal")
+            self.assertEqual(binding["entryPoint"], "runtime_backend_loader_main")
+            self.assertEqual(binding["name"], "OutputBuffer")
+            self.assertEqual(binding["abi"], "kernelArgument")
+            self.assertEqual(binding["bindingClass"], "buffer")
+            self.assertEqual(binding["argumentIndex"], 0)
+            self.assertEqual(binding["set"], 0)
+            self.assertEqual(binding["binding"], 0)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_summary_rejects_resource_without_selected_target_binding(
         self,
     ) -> None:
@@ -282,6 +318,81 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             self.assertIsNone(summary["nativeArtifact"])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_summary_rejects_native_artifact_declared_under_other_backend(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_source_free_metal_package(package_dir)
+
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            native_path = manifest["artifacts"]["nativeBinary"]
+            moved_native_path = native_path.replace(
+                "backend/metal/", "backend/directx/"
+            )
+            moved_native_file = package_dir / moved_native_path
+            moved_native_file.parent.mkdir(parents=True, exist_ok=True)
+            (package_dir / native_path).rename(moved_native_file)
+            manifest["artifacts"]["nativeBinary"] = moved_native_path
+            self._write_json(manifest_path, manifest)
+
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            reflection["nativeBinary"] = moved_native_path
+            self._write_json(reflection_path, reflection)
+
+            descriptor_path = package_dir / "metadata" / "native-artifact.json"
+            descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+            descriptor["artifactPath"] = moved_native_path
+            self._write_json(descriptor_path, descriptor)
+
+            source_path = package_dir / "source" / "RuntimeBackendLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "backend mismatch must not trigger source fallback\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads():
+                plan = plan_source_free_native_backend_loader(
+                    package_dir,
+                    "metal",
+                    loader_name="metal-native",
+                )
+                summary = plan.to_summary()
+
+            mismatch_code = "package.artifact.backend_target_mismatch"
+            diagnostic = next(
+                diagnostic
+                for diagnostic in summary["rejectReasons"]
+                if diagnostic["code"] == mismatch_code
+            )
+
+            self.assertFalse(plan.ready)
+            self.assertFalse(summary["sourceParsingRequired"])
+            self.assertFalse(summary["deviceExecutionRequired"])
+            self.assertIsNone(plan.native_artifact)
+            self.assertIsNone(summary["nativeArtifact"])
+            self.assertEqual(summary["nativeAdmission"]["reason"], mismatch_code)
+            self.assertEqual(
+                summary["nativeAdmission"]["nativeArtifact"]["reason"],
+                mismatch_code,
+            )
+            self.assertEqual(
+                summary["runtimePlan"]["runtimeArtifactSelection"]["admission"][
+                    "native"
+                ]["reason"],
+                mismatch_code,
+            )
+            self.assertEqual(diagnostic["artifact"], "nativeBinary")
+            self.assertEqual(diagnostic["path"], moved_native_path)
+            self.assertEqual(diagnostic["expected"], "backend/metal/")
+            self.assertEqual(diagnostic["actual"], "backend/directx/")
+            with self.assertRaisesRegex(PackageReadError, "backend/directx"):
+                plan.require_ready()
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_summary_rejects_malformed_recorded_requirements_without_source_parse(
         self,
     ) -> None:
@@ -385,6 +496,90 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             self.assertFalse(requirement_summary["valid"])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_summary_rejects_malformed_descriptor_artifact_record_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_source_free_metal_package(package_dir)
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["nativeArtifactDescriptor"] = {
+                "path": "metadata/native-artifact.json",
+            }
+            self._write_json(manifest_path, manifest)
+            source_path = package_dir / "source" / "RuntimeBackendLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "malformed descriptor artifact record must not trigger source parsing\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads():
+                plan = plan_source_free_native_backend_loader(
+                    package_dir,
+                    "metal",
+                    loader_name="metal-native",
+                )
+                summary = plan.to_summary()
+
+            reject_codes = [diagnostic.code for diagnostic in plan.reject_reasons]
+            reject_diagnostics = {
+                diagnostic["code"]: diagnostic
+                for diagnostic in summary["rejectReasons"]
+            }
+            descriptor_admission = summary["nativeAdmission"][
+                "nativeArtifactDescriptor"
+            ]
+
+            self.assertFalse(plan.ready)
+            self.assertIsNone(plan.native_artifact)
+            self.assertEqual(summary["artifactInputs"], [])
+            self.assertEqual(summary["sourceInputs"], [])
+            self.assertFalse(summary["sourceParsingRequired"])
+            self.assertFalse(summary["deviceExecutionRequired"])
+            self.assertFalse(
+                summary["runtimePlan"]["runtimeArtifactSelection"]["selected"]
+            )
+            self.assertIsNone(
+                summary["runtimePlan"]["runtimeArtifactSelection"]["artifact"]
+            )
+            self.assertIn("package.artifact.path_invalid", reject_codes)
+            self.assertIn("package.artifacts.contract_invalid", reject_codes)
+            self.assertIn(
+                "metal_loader.native_artifact_descriptor_not_declared",
+                reject_codes,
+            )
+            self.assertEqual(
+                summary["nativeAdmission"]["reason"],
+                "package.artifact.path_invalid",
+            )
+            self.assertEqual(descriptor_admission["decision"], "missing")
+            self.assertEqual(
+                descriptor_admission["status"],
+                "descriptor-not-declared",
+            )
+            self.assertEqual(
+                reject_diagnostics["package.artifact.path_invalid"]["artifact"],
+                "nativeArtifactDescriptor",
+            )
+            self.assertEqual(
+                reject_diagnostics["package.artifact.path_invalid"]["path"],
+                "artifacts.nativeArtifactDescriptor",
+            )
+            self.assertEqual(
+                [
+                    diagnostic["code"]
+                    for diagnostic in reject_diagnostics[
+                        "package.artifacts.contract_invalid"
+                    ]["actual"]
+                ],
+                ["package.artifact.path_invalid"],
+            )
+            with self.assertRaisesRegex(PackageReadError, "nativeArtifactDescriptor"):
+                plan.require_ready()
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_summary_rejects_recorded_native_contract_without_descriptor_metadata(
         self,
     ) -> None:
@@ -426,7 +621,7 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
                 )
                 summary = plan.to_summary()
 
-            diagnostic_code = "metal_loader.native_artifact_descriptor_not_declared"
+            diagnostic_code = "package.native_artifact_descriptor.required_missing"
             reject_codes = [diagnostic.code for diagnostic in plan.reject_reasons]
             descriptor_admission = summary["nativeAdmission"][
                 "nativeArtifactDescriptor"
@@ -578,6 +773,61 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
                 artifact_path=native_path,
                 artifact_bytes=native_bytes,
             )
+
+    def _write_graphics_abi_sidecar(self, package_dir: Path) -> None:
+        manifest_path = package_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        graphics_abi_path = (
+            "backend/metal/RuntimeBackendLoaderFixture.graphics-abi.json"
+        )
+        self._write_json(
+            package_dir / graphics_abi_path,
+            {
+                "schemaVersion": 1,
+                "module": "RuntimeBackendLoaderFixture",
+                "target": "metal",
+                "entryPoints": [
+                    {
+                        "stage": "compute",
+                        "sourceName": "main",
+                        "backendName": "runtime_backend_loader_main",
+                    }
+                ],
+                "vertexInputs": [],
+                "varyings": [],
+                "fragmentOutputs": [],
+                "builtins": [],
+                "resources": [
+                    {
+                        "stage": "compute",
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                        "type": "float4",
+                        "set": 0,
+                        "binding": 0,
+                    }
+                ],
+                "abiRecords": [
+                    {
+                        "target": "metal",
+                        "stage": "compute",
+                        "entryPoint": "runtime_backend_loader_main",
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                        "sourceType": "float4",
+                        "addressSpace": "device",
+                        "abi": "kernelArgument",
+                        "bindingClass": "buffer",
+                        "metalType": "device float4*",
+                        "argumentIndex": 0,
+                        "set": 0,
+                        "binding": 0,
+                    }
+                ],
+            },
+        )
+        manifest["artifacts"]["graphicsAbi"] = graphics_abi_path
+        self._write_json(manifest_path, manifest)
 
     def _write_planned_directx_source_package(self, package_dir: Path) -> None:
         backend_source = "backend/directx/RuntimeBackendLoaderFixture.hlsl"

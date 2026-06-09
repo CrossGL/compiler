@@ -18,6 +18,7 @@ from .package_reader import (
     CompatibilityDiagnostic,
     NATIVE_ARTIFACT_BINARY_KINDS_BY_TARGET,
     PackageReadError,
+    RUNTIME_METADATA_JSON_BYTE_LIMIT,
 )
 
 
@@ -35,6 +36,7 @@ _NATIVE_DESCRIPTOR_SUMMARY_FIELDS = (
     "validationStatus",
     "optimizationLevel",
     "optimizationEvidence",
+    "spirvDependencies",
     "sizeBytes",
 )
 _NATIVE_OPTIMIZATION_EVIDENCE_FIELDS = (
@@ -197,6 +199,9 @@ class SourceFreeNativeBackendLoaderPlan:
                 "targetResourceBindings": list(self.target_resource_bindings),
                 "workgroupSizes": list(self.workgroup_sizes),
             },
+            "graphicsDescriptorBindings": (
+                self.runtime_plan.compatibility_report.graphics_descriptor_bindings
+            ),
             "sourceInputs": [],
             "runtimePlan": self.runtime_plan.to_summary(),
             "rejectReasons": [
@@ -434,14 +439,14 @@ def _native_artifact_descriptor_admission_diagnostics(
     native_artifact_descriptor: NativeArtifactDescriptorPlan | None,
 ) -> tuple[CompatibilityDiagnostic, ...]:
     if native_artifact_descriptor is None:
-        if _recorded_native_contract_requires_descriptor(runtime_plan):
+        if _native_runtime_plan_requires_descriptor(runtime_plan):
             return (
                 CompatibilityDiagnostic(
                     code=f"{target}_loader.native_artifact_descriptor_not_declared",
                     message=(
                         f"{target} native loader requires "
-                        "manifest.artifacts.nativeArtifactDescriptor for "
-                        "recorded native package admission"
+                        "manifest.artifacts.nativeArtifactDescriptor for native "
+                        "binary admission"
                     ),
                     document="manifest",
                     artifact=NATIVE_ARTIFACT_DESCRIPTOR,
@@ -624,16 +629,16 @@ def _native_artifact_descriptor_admission_diagnostics(
     return tuple(diagnostics)
 
 
-def _recorded_native_contract_requires_descriptor(
+def _native_runtime_plan_requires_descriptor(
     runtime_plan: RuntimeLoaderPlan,
 ) -> bool:
     contract = runtime_plan.compatibility_report.target_contract
-    return (
-        contract is not None
-        and contract.requirements_source == "manifest"
-        and contract.package_mode == "native"
-        and runtime_plan.runtime_artifact_selection.selected_package_mode == "native"
-    )
+    if contract is None:
+        return False
+    native_availability = runtime_plan.compatibility_report.artifact_availability[
+        "native"
+    ]
+    return bool(native_availability["usable"])
 
 
 def _native_artifact_descriptor_plan(
@@ -648,7 +653,9 @@ def _native_artifact_descriptor_plan(
     readable = False
     if artifact.exists:
         try:
-            descriptor = json.loads(artifact.read_text())
+            descriptor = json.loads(
+                artifact.read_text(byte_limit=RUNTIME_METADATA_JSON_BYTE_LIMIT)
+            )
             readable = isinstance(descriptor, dict)
         except (OSError, PackageReadError, UnicodeDecodeError, json.JSONDecodeError):
             descriptor = None

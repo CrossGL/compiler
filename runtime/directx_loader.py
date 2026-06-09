@@ -457,17 +457,7 @@ def _directx_api_reflection_input(plan: DirectXNativeLoaderPlan) -> dict[str, An
         "resources": [_summarize_directx_resource(record) for record in plan.resources],
         "targetResourceBindings": target_resource_bindings,
         "hlslRegisterSpaceBindings": [
-            {
-                "stage": record.get("stage"),
-                "entryPoint": record.get("entryPoint"),
-                "name": record.get("name"),
-                "kind": record.get("kind"),
-                "register": record.get("register"),
-                "space": record.get("space"),
-                "bindingClass": record.get("bindingClass"),
-                "descriptorType": record.get("descriptorType"),
-                "hlslType": record.get("hlslType"),
-            }
+            _summarize_directx_register_space_binding(record)
             for record in target_resource_bindings
         ],
     }
@@ -482,7 +472,7 @@ def _summarize_directx_entry_point(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def _summarize_directx_resource(record: dict[str, Any]) -> dict[str, Any]:
-    return {
+    summary = {
         "stage": record.get("stage"),
         "name": record.get("name"),
         "kind": record.get("kind"),
@@ -490,12 +480,14 @@ def _summarize_directx_resource(record: dict[str, Any]) -> dict[str, Any]:
         "set": record.get("set"),
         "binding": record.get("binding"),
     }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
 
 
 def _summarize_directx_resource_binding(record: dict[str, Any]) -> dict[str, Any]:
     abi = record.get("abi")
     abi_summary = dict(abi) if isinstance(abi, dict) else {}
-    return {
+    summary = {
         "target": record.get("target"),
         "stage": record.get("stage"),
         "entryPoint": record.get("entryPoint"),
@@ -510,6 +502,40 @@ def _summarize_directx_resource_binding(record: dict[str, Any]) -> dict[str, Any
         "register": abi_summary.get("register"),
         "space": abi_summary.get("space"),
     }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
+
+
+def _summarize_directx_register_space_binding(
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    summary = {
+        "stage": record.get("stage"),
+        "entryPoint": record.get("entryPoint"),
+        "name": record.get("name"),
+        "kind": record.get("kind"),
+        "register": record.get("register"),
+        "space": record.get("space"),
+        "bindingClass": record.get("bindingClass"),
+        "descriptorType": record.get("descriptorType"),
+        "hlslType": record.get("hlslType"),
+    }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
+
+
+def _copy_descriptor_array_metadata(
+    summary: dict[str, Any],
+    record: dict[str, Any],
+) -> None:
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
+        if field_name in record:
+            summary[field_name] = record.get(field_name)
 
 
 def _directx_native_api_binary_kind(
@@ -1250,6 +1276,11 @@ def _descriptor_artifact_hash_matches(
     if _has_diagnostic_code(
         plan,
         "package.native_artifact_descriptor.artifact_hash_mismatch",
+    ):
+        return False
+    if _has_diagnostic_code(
+        plan,
+        "package.native_artifact_descriptor.artifact_hash_too_large",
     ):
         return False
     return True

@@ -1601,6 +1601,179 @@ def check_native_descriptor_report_surfaces(paths):
                 )
 
 
+def first_native_package(payload, label):
+    for package in payload.get("packages", []):
+        requirements = package.get("packageArtifactRequirements")
+        if (
+            isinstance(requirements, dict)
+            and requirements.get("packageMode") == "native"
+        ):
+            return package
+    raise CheckError(f"{label}: expected at least one native package")
+
+
+def recompute_plan_counts(plan):
+    total_artifacts = []
+    for package in plan.get("packages", []):
+        artifacts = package.get("artifacts", [])
+        package["artifactCount"] = len(artifacts)
+        package["totalArtifactBytes"] = sum(
+            artifact.get("sizeBytes", 0) for artifact in artifacts
+        )
+        total_artifacts.extend(artifacts)
+    plan["artifacts"] = sorted(
+        total_artifacts, key=lambda artifact: artifact["destinationPath"]
+    )
+    plan["artifactCount"] = len(plan["artifacts"])
+    plan["totalArtifactBytes"] = sum(
+        artifact.get("sizeBytes", 0) for artifact in plan["artifacts"]
+    )
+
+
+def remove_native_plan_artifact(paths, work_dir, name):
+    plan = load_json(paths["plan"])
+    package = first_native_package(plan, f"publish plan remove {name}")
+    package_path = package["packagePath"]
+    before = len(package.get("artifacts", []))
+    package["artifacts"] = [
+        artifact
+        for artifact in package.get("artifacts", [])
+        if artifact.get("name") != name
+    ]
+    if len(package["artifacts"]) == before:
+        raise CheckError(f"publish plan mutation did not remove {name}")
+    recompute_plan_counts(plan)
+    destination = work_dir / f"package-release-publish-plan-missing-{name}.json"
+    write_json(destination, plan)
+    return destination, package_path
+
+
+def set_native_plan_status(paths, work_dir, status):
+    plan = load_json(paths["plan"])
+    package = first_native_package(plan, f"publish plan status {status}")
+    package["nativeBinaryStatus"] = status
+    destination = work_dir / f"package-release-publish-plan-native-{status}.json"
+    write_json(destination, plan)
+    return destination
+
+
+def check_native_publish_plan_gate(root, cglc, paths, work_dir):
+    bad_native_binary_plan, _package_path = remove_native_plan_artifact(
+        paths, work_dir, NATIVE_BINARY
+    )
+    run_expect_failure(
+        "stage-publish-native-missing-binary",
+        [
+            cglc,
+            "package",
+            "release",
+            "--stage-publish",
+            bad_native_binary_plan,
+            "--stage-output",
+            work_dir / "package-release-stage-native-missing-binary",
+            "--json",
+        ],
+        cwd=root,
+        expected="native package requires nativeBinary artifact evidence",
+    )
+
+    bad_descriptor_plan, _package_path = remove_native_plan_artifact(
+        paths, work_dir, NATIVE_ARTIFACT_DESCRIPTOR
+    )
+    run_expect_failure(
+        "stage-publish-native-missing-descriptor",
+        [
+            cglc,
+            "package",
+            "release",
+            "--stage-publish",
+            bad_descriptor_plan,
+            "--stage-output",
+            work_dir / "package-release-stage-native-missing-descriptor",
+            "--json",
+        ],
+        cwd=root,
+        expected="native package requires nativeArtifactDescriptor evidence",
+    )
+
+    planned_native_plan = set_native_plan_status(paths, work_dir, "planned")
+    run_expect_failure(
+        "stage-publish-native-planned-status",
+        [
+            cglc,
+            "package",
+            "release",
+            "--stage-publish",
+            planned_native_plan,
+            "--stage-output",
+            work_dir / "package-release-stage-native-planned-status",
+            "--json",
+        ],
+        cwd=root,
+        expected="not planned nativeBinaryStatus",
+    )
+
+
+def recompute_stage_counts(stage):
+    artifacts = stage.get("artifacts", [])
+    stage["artifactCount"] = len(artifacts)
+    stage["totalArtifactBytes"] = sum(
+        artifact.get("sizeBytes", 0) for artifact in artifacts
+    )
+    staged = [artifact for artifact in artifacts if artifact.get("staged") is True]
+    stage["stagedArtifactCount"] = len(staged)
+    stage["stagedArtifactBytes"] = sum(
+        artifact.get("sizeBytes", 0) for artifact in staged
+    )
+    identities = {
+        (artifact.get("packagePath"), artifact.get("module"), artifact.get("target"))
+        for artifact in artifacts
+    }
+    stage["packageCount"] = len(identities)
+
+
+def check_native_publish_stage_gate(root, cglc, paths, work_dir):
+    plan = load_json(paths["plan"])
+    native_package_path = first_native_package(plan, "publish stage mutation")[
+        "packagePath"
+    ]
+    stage = load_json(paths["stage"])
+    before = len(stage.get("artifacts", []))
+    stage["artifacts"] = [
+        artifact
+        for artifact in stage.get("artifacts", [])
+        if not (
+            artifact.get("packagePath") == native_package_path
+            and artifact.get("name") == NATIVE_ARTIFACT_DESCRIPTOR
+        )
+    ]
+    if len(stage["artifacts"]) == before:
+        raise CheckError("publish stage mutation did not remove native descriptor")
+    recompute_stage_counts(stage)
+    bad_stage = (
+        work_dir / "package-release-publish-stage-missing-native-descriptor.json"
+    )
+    write_json(bad_stage, stage)
+
+    run_expect_failure(
+        "publish-stage-native-missing-descriptor",
+        [
+            cglc,
+            "package",
+            "release",
+            "--publish-stage",
+            bad_stage,
+            "--publish-target",
+            "local-filesystem",
+            "--target-output",
+            work_dir / "package-release-published-native-missing-descriptor",
+            "--json",
+        ],
+        cwd=root,
+        expected="native package requires staged nativeArtifactDescriptor evidence",
+    )
+
+
 def check_release_report_artifact_inventory(paths):
     bundle = load_json(paths["bundle"])
     plan = load_json(paths["plan"])
@@ -2034,6 +2207,7 @@ def check_flow(root, cglc, work_dir, *, allow_live_cloud_upload=False):
     )
     check_package_artifact_requirements_propagate(paths)
     check_publish_plan_windows_stage_path_budget(paths)
+    check_native_publish_plan_gate(root, cglc, paths, work_dir)
 
     run_checked(
         "stage-publish",
@@ -2057,6 +2231,7 @@ def check_flow(root, cglc, work_dir, *, allow_live_cloud_upload=False):
         paths["stage"],
     )
     expect_success("stage-publish", paths["stage"])
+    check_native_publish_stage_gate(root, cglc, paths, work_dir)
 
     run_checked(
         "release-report-artifact-inventory",

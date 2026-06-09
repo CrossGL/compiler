@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.sourceBatchManifest",
+  "root": ".",
+  "defaults": {
+    "target": "auto",
+    "optLevel": "O1",
+    "debugIR": false
+  },
+  "sources": [
+    "tests/fixtures/SimpleShader.cgl",
+    {
+      "id": "storage-directx",
+      "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+      "logicalInput": "translator/generated/StorageBufferComputeShader.cgl",
+      "output": "build/source-batch/storage-directx.cglb",
+      "target": "directx",
+      "optLevel": "O2",
+      "debugIR": true,
+      "sourceRemap": "tests/fixtures/source-remap-v1-basic.json"
+    }
+  ]
+}

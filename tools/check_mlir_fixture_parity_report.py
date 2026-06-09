@@ -54,6 +54,18 @@ ENTRY_POINT_IDENTITY_SOURCE_FACTS = (
     "entry_point",
 )
 ENTRY_POINT_IDENTITY_TYPE_FACTS = ("void_entry_point",)
+GRAPHICS_STAGE = "graphics"
+GRAPHICS_ENTRY_POINT_IDENTITY_SOURCE_FACTS = (
+    "shader_module",
+    "vertex_stage",
+    "fragment_stage",
+    "vertex_entry_point",
+    "fragment_entry_point",
+)
+GRAPHICS_ENTRY_POINT_IDENTITY_TYPE_FACTS = (
+    "vertex_entry_point_io_structs",
+    "fragment_entry_point_io_structs",
+)
 WORKGROUP_SOURCE_FACT = "layout_local_size"
 BLOCKED_FAMILY_REPORT_FIELDS = (
     "unsupportedHirFamilies[].id",
@@ -109,9 +121,108 @@ RESOURCE_ITEM_FIELDS = {
         "resourceFacts.storageBuffers[].addressSpace",
         "resourceFacts.storageBuffers[].writeAccess",
     ),
-    "storageImages": ("resourceFacts.storageImages[]",),
-    "textures": ("resourceFacts.textures[]",),
-    "samplers": ("resourceFacts.samplers[]",),
+    "storageImages": (
+        "resourceFacts.storageImages[].name",
+        "resourceFacts.storageImages[].type",
+        "resourceFacts.storageImages[].elementType",
+        "resourceFacts.storageImages[].format",
+        "resourceFacts.storageImages[].dimension",
+        "resourceFacts.storageImages[].arrayed",
+        "resourceFacts.storageImages[].access",
+        "resourceFacts.storageImages[].set",
+        "resourceFacts.storageImages[].binding",
+    ),
+    "textures": (
+        "resourceFacts.textures[].name",
+        "resourceFacts.textures[].type",
+        "resourceFacts.textures[].sampledType",
+        "resourceFacts.textures[].dimension",
+        "resourceFacts.textures[].arrayed",
+        "resourceFacts.textures[].comparison",
+        "resourceFacts.textures[].set",
+        "resourceFacts.textures[].binding",
+    ),
+    "samplers": (
+        "resourceFacts.samplers[].name",
+        "resourceFacts.samplers[].type",
+        "resourceFacts.samplers[].comparison",
+        "resourceFacts.samplers[].set",
+        "resourceFacts.samplers[].binding",
+    ),
+}
+RESOURCE_ITEM_OPTIONAL_FIELDS = {
+    "descriptors": (
+        ("descriptorArray", "resourceFacts.descriptors[].descriptorArray"),
+        ("arraySize", "resourceFacts.descriptors[].arraySize"),
+        ("indexingMode", "resourceFacts.descriptors[].indexingMode"),
+        (
+            "fixedDescriptorIndices",
+            "resourceFacts.descriptors[].fixedDescriptorIndices",
+        ),
+        ("nonuniformMarker", "resourceFacts.descriptors[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.descriptors[].indexExpression"),
+    ),
+    "storageBuffers": (
+        ("descriptorArray", "resourceFacts.storageBuffers[].descriptorArray"),
+        ("arraySize", "resourceFacts.storageBuffers[].arraySize"),
+        ("indexingMode", "resourceFacts.storageBuffers[].indexingMode"),
+        (
+            "fixedDescriptorIndices",
+            "resourceFacts.storageBuffers[].fixedDescriptorIndices",
+        ),
+        ("nonuniformMarker", "resourceFacts.storageBuffers[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.storageBuffers[].indexExpression"),
+    ),
+    "storageImages": (
+        ("descriptorArray", "resourceFacts.storageImages[].descriptorArray"),
+        ("arraySize", "resourceFacts.storageImages[].arraySize"),
+        ("indexingMode", "resourceFacts.storageImages[].indexingMode"),
+        (
+            "fixedDescriptorIndices",
+            "resourceFacts.storageImages[].fixedDescriptorIndices",
+        ),
+        ("nonuniformMarker", "resourceFacts.storageImages[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.storageImages[].indexExpression"),
+    ),
+    "textures": (
+        ("descriptorArray", "resourceFacts.textures[].descriptorArray"),
+        ("arraySize", "resourceFacts.textures[].arraySize"),
+        ("indexingMode", "resourceFacts.textures[].indexingMode"),
+        ("fixedDescriptorIndices", "resourceFacts.textures[].fixedDescriptorIndices"),
+        ("nonuniformMarker", "resourceFacts.textures[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.textures[].indexExpression"),
+    ),
+    "samplers": (
+        ("descriptorArray", "resourceFacts.samplers[].descriptorArray"),
+        ("arraySize", "resourceFacts.samplers[].arraySize"),
+        ("indexingMode", "resourceFacts.samplers[].indexingMode"),
+        ("fixedDescriptorIndices", "resourceFacts.samplers[].fixedDescriptorIndices"),
+        ("nonuniformMarker", "resourceFacts.samplers[].nonuniformMarker"),
+        ("indexExpression", "resourceFacts.samplers[].indexExpression"),
+    ),
+    RESOURCE_METADATA_COLLECTION: (
+        (
+            "descriptorArray",
+            "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        ),
+        ("arraySize", "resourceFacts.targetIndependentResourceMetadata[].arraySize"),
+        (
+            "indexingMode",
+            "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        ),
+        (
+            "fixedDescriptorIndices",
+            "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices",
+        ),
+        (
+            "nonuniformMarker",
+            "resourceFacts.targetIndependentResourceMetadata[].nonuniformMarker",
+        ),
+        (
+            "indexExpression",
+            "resourceFacts.targetIndependentResourceMetadata[].indexExpression",
+        ),
+    ),
 }
 TARGET_INDEPENDENT_RESOURCE_METADATA_FIELDS = (
     "resourceFacts.targetIndependentResourceMetadata",
@@ -135,6 +246,28 @@ RESOURCE_ITEM_REQUIRED_KEYS = {
         "addressSpace",
         "writeAccess",
     ),
+    "storageImages": (
+        "name",
+        "type",
+        "elementType",
+        "format",
+        "dimension",
+        "arrayed",
+        "access",
+        "set",
+        "binding",
+    ),
+    "textures": (
+        "name",
+        "type",
+        "sampledType",
+        "dimension",
+        "arrayed",
+        "comparison",
+        "set",
+        "binding",
+    ),
+    "samplers": ("name", "type", "comparison", "set", "binding"),
     "targetIndependentResourceMetadata": (
         "stage",
         "name",
@@ -147,6 +280,10 @@ RESOURCE_ITEM_REQUIRED_KEYS = {
         "binding",
         "targetIndependent",
     ),
+}
+RESOURCE_ITEM_OPTIONAL_KEYS = {
+    collection: tuple(key for key, _ in fields)
+    for collection, fields in RESOURCE_ITEM_OPTIONAL_FIELDS.items()
 }
 CONTROL_FLOW_FAMILY = "control_flow_and_statements"
 CONTROL_FLOW_SOURCE_FACTS = (
@@ -171,9 +308,29 @@ LOWERING_EVIDENCE_SECTIONS = (
 LOWERING_EVIDENCE_STATUS = "report-only"
 RESOURCE_MODE_EMPTY = "empty-resource-facts"
 RESOURCE_MODE_STORAGE_BUFFER = "single-storage-buffer-binding"
+RESOURCE_MODE_TEXTURE_SAMPLER = "sampled-texture-sampler-binding"
+RESOURCE_MODE_STORAGE_IMAGE = "direct-storage-image-binding"
 CONTROL_FLOW_CATEGORY_STRAIGHT_LINE = "straight-line"
 CONTROL_FLOW_CATEGORY_STRUCTURED_IF_ELSE = "structured-if-else"
 HIR_OPT_LEVEL_FOR_PARITY = "O0"
+STORAGE_IMAGE_ACCESS_VALUES = {"read", "write", "read_write"}
+STORAGE_IMAGE_ATOMIC_FACTS = {
+    "storage_image_atomic_add": "imageAtomicAdd",
+    "storage_image_atomic_min": "imageAtomicMin",
+    "storage_image_atomic_max": "imageAtomicMax",
+    "storage_image_atomic_and": "imageAtomicAnd",
+    "storage_image_atomic_or": "imageAtomicOr",
+    "storage_image_atomic_exchange": "imageAtomicExchange",
+    "storage_image_atomic_xor": "imageAtomicXor",
+}
+STORAGE_IMAGE_ATOMIC_TYPE_FACTS = {
+    "storage_image_atomic_int_result_type": "int",
+    "storage_image_atomic_uint_result_type": "uint",
+}
+STORAGE_IMAGE_ATOMIC_PAYLOAD_TYPE_FACTS = {
+    "storage_image_atomic_int_payload_type": "int",
+    "storage_image_atomic_uint_payload_type": "uint",
+}
 
 
 def read_text(path: Path) -> str:
@@ -292,14 +449,16 @@ def expected_resource_binding_fields(resource_facts: dict[str, Any]) -> list[str
         value = resource_facts.get(collection)
         if isinstance(value, list) and value:
             fields.extend(RESOURCE_ITEM_FIELDS[collection])
+            fields.extend(optional_resource_item_fields(collection, value))
     return fields
 
 
 def expected_resource_requirement_fields(resource_facts: dict[str, Any]) -> list[str]:
-    return [
-        "resourceFacts.localSize",
-        *expected_resource_binding_fields(resource_facts),
-    ]
+    fields: list[str] = []
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    fields.extend(expected_resource_binding_fields(resource_facts))
+    return fields
 
 
 def expected_target_independent_resource_metadata_fields(
@@ -307,26 +466,81 @@ def expected_target_independent_resource_metadata_fields(
 ) -> list[str]:
     metadata = resource_facts.get(RESOURCE_METADATA_COLLECTION)
     if isinstance(metadata, list) and metadata:
-        return list(TARGET_INDEPENDENT_RESOURCE_METADATA_FIELDS)
+        return [
+            *TARGET_INDEPENDENT_RESOURCE_METADATA_FIELDS,
+            *optional_resource_item_fields(RESOURCE_METADATA_COLLECTION, metadata),
+        ]
     return [f"resourceFacts.{RESOURCE_METADATA_COLLECTION}"]
+
+
+def optional_resource_item_fields(collection: str, records: list[Any]) -> list[str]:
+    fields: list[str] = []
+    for key, field in RESOURCE_ITEM_OPTIONAL_FIELDS.get(collection, ()):
+        if any(isinstance(item, dict) and key in item for item in records):
+            fields.append(field)
+    return fields
 
 
 def prefixed_fact_fields(prefix: str, facts: list[str]) -> list[str]:
     return [f"{prefix}.{fact}" for fact in facts]
 
 
-def expected_entry_point_identity_fields() -> list[str]:
+def local_size_present(resource_facts: dict[str, Any]) -> bool:
+    local_size = resource_facts.get("localSize")
+    return (
+        isinstance(local_size, list)
+        and len(local_size) == 3
+        and all(isinstance(item, int) and item > 0 for item in local_size)
+    )
+
+
+def expected_entry_point_identity_source_facts(stage: str | None) -> tuple[str, ...]:
+    if stage == GRAPHICS_STAGE:
+        return GRAPHICS_ENTRY_POINT_IDENTITY_SOURCE_FACTS
+    return ENTRY_POINT_IDENTITY_SOURCE_FACTS
+
+
+def expected_entry_point_identity_type_facts(stage: str | None) -> tuple[str, ...]:
+    if stage == GRAPHICS_STAGE:
+        return GRAPHICS_ENTRY_POINT_IDENTITY_TYPE_FACTS
+    return ENTRY_POINT_IDENTITY_TYPE_FACTS
+
+
+def expected_entry_point_identity_fields(stage: str | None = None) -> list[str]:
     return [
         "stage",
         "entryPoint",
         *prefixed_fact_fields(
-            "sourceLocationFacts", list(ENTRY_POINT_IDENTITY_SOURCE_FACTS)
+            "sourceLocationFacts",
+            list(expected_entry_point_identity_source_facts(stage)),
         ),
-        *prefixed_fact_fields("typeFacts", list(ENTRY_POINT_IDENTITY_TYPE_FACTS)),
+        *prefixed_fact_fields(
+            "typeFacts",
+            list(expected_entry_point_identity_type_facts(stage)),
+        ),
     ]
 
 
-def expected_workgroup_size_fields() -> list[str]:
+def expected_entry_point_requirement_fields(
+    resource_facts: dict[str, Any],
+) -> list[str]:
+    fields = ["stage", "entryPoint"]
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    return fields
+
+
+def expected_local_size_fields(resource_facts: dict[str, Any]) -> list[str]:
+    return ["resourceFacts.localSize"] if local_size_present(resource_facts) else []
+
+
+def expected_workgroup_size_fields(
+    source_facts: list[str], resource_facts: dict[str, Any]
+) -> list[str]:
+    if WORKGROUP_SOURCE_FACT not in source_facts or not local_size_present(
+        resource_facts
+    ):
+        return []
     return ["resourceFacts.localSize", f"sourceLocationFacts.{WORKGROUP_SOURCE_FACT}"]
 
 
@@ -335,22 +549,24 @@ def expected_type_fact_fields(type_facts: list[str]) -> list[str]:
 
 
 def expected_diagnostics_provenance_fields(
-    source_facts: list[str], type_facts: list[str]
+    source_facts: list[str], type_facts: list[str], resource_facts: dict[str, Any]
 ) -> list[str]:
-    return [
+    fields = [
         "path",
         "stage",
         "entryPoint",
         *prefixed_fact_fields("sourceLocationFacts", source_facts),
         *expected_type_fact_fields(type_facts),
-        "resourceFacts.localSize",
     ]
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    return fields
 
 
 def expected_source_map_debug_preservation_fields(
-    source_facts: list[str], type_facts: list[str]
+    source_facts: list[str], type_facts: list[str], resource_facts: dict[str, Any]
 ) -> list[str]:
-    return [
+    fields = [
         "path",
         "stage",
         "entryPoint",
@@ -359,8 +575,10 @@ def expected_source_map_debug_preservation_fields(
         *SOURCE_MAP_DEBUG_LOCATION_FIELDS,
         *prefixed_fact_fields("sourceLocationFacts", source_facts),
         *expected_type_fact_fields(type_facts),
-        "resourceFacts.localSize",
     ]
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    return fields
 
 
 def expected_control_flow_report(
@@ -380,6 +598,10 @@ def expected_control_flow_report(
 
 
 def expected_resource_mode(resource_facts: dict[str, Any]) -> str:
+    if resource_facts.get("storageImages"):
+        return RESOURCE_MODE_STORAGE_IMAGE
+    if resource_facts.get("textures") or resource_facts.get("samplers"):
+        return RESOURCE_MODE_TEXTURE_SAMPLER
     has_resource_binding = any(
         resource_facts.get(collection) for collection in RESOURCE_FACT_COLLECTIONS
     )
@@ -405,7 +627,7 @@ def expected_lowering_evidence(
         "entryPointIdentity": {
             "stage": stage,
             "entryPoint": entry_point,
-            "fields": expected_entry_point_identity_fields(),
+            "fields": expected_entry_point_identity_fields(stage),
         },
         "sourceLocationExpectation": {
             "required": True,
@@ -433,6 +655,84 @@ def require_exact_keys(
         errors.append(f"{field} has unknown key(s): {', '.join(stale)}")
 
 
+def require_resource_item_keys(
+    value: dict[str, Any], field: str, collection: str, errors: list[str]
+) -> None:
+    required = set(RESOURCE_ITEM_REQUIRED_KEYS[collection])
+    optional = set(RESOURCE_ITEM_OPTIONAL_KEYS.get(collection, ()))
+    actual = set(value)
+    missing = sorted(required - actual)
+    stale = sorted(actual - required - optional)
+    if missing:
+        errors.append(f"{field} missing required key(s): {', '.join(missing)}")
+    if stale:
+        errors.append(f"{field} has unknown key(s): {', '.join(stale)}")
+
+
+def check_fixed_descriptor_array_fields(
+    record: dict[str, Any], field: str, errors: list[str]
+) -> None:
+    has_array_fact = any(
+        key in record
+        for key in (
+            "descriptorArray",
+            "arraySize",
+            "indexingMode",
+            "fixedDescriptorIndices",
+            "nonuniformMarker",
+            "indexExpression",
+        )
+    )
+    if not has_array_fact:
+        return
+    if record.get("descriptorArray") is not True:
+        errors.append(f"{field}.descriptorArray must be true for array facts")
+    array_size = record.get("arraySize")
+    if not isinstance(array_size, int) or array_size <= 0:
+        errors.append(f"{field}.arraySize must be a positive integer")
+    indexing_mode = record.get("indexingMode")
+    if indexing_mode == "fixed-literal":
+        indices = record.get("fixedDescriptorIndices")
+        if (
+            not isinstance(indices, list)
+            or not indices
+            or not all(isinstance(index, int) for index in indices)
+        ):
+            errors.append(
+                f"{field}.fixedDescriptorIndices must be a non-empty integer list"
+            )
+        elif isinstance(array_size, int) and any(
+            index < 0 or index >= array_size for index in indices
+        ):
+            errors.append(
+                f"{field}.fixedDescriptorIndices must be within fixed arraySize"
+            )
+        if "nonuniformMarker" in record:
+            errors.append(
+                f"{field}.nonuniformMarker is only valid for nonuniform-marker"
+            )
+        if "indexExpression" in record:
+            errors.append(
+                f"{field}.indexExpression is only valid for nonuniform-marker"
+            )
+    elif indexing_mode == "nonuniform-marker":
+        if "fixedDescriptorIndices" in record:
+            errors.append(
+                f"{field}.fixedDescriptorIndices must be absent for nonuniform-marker"
+            )
+        if record.get("nonuniformMarker") is not True:
+            errors.append(f"{field}.nonuniformMarker must be true")
+        if (
+            not isinstance(record.get("indexExpression"), str)
+            or not record["indexExpression"]
+        ):
+            errors.append(f"{field}.indexExpression must be a non-empty string")
+    else:
+        errors.append(
+            f"{field}.indexingMode must be 'fixed-literal' or 'nonuniform-marker'"
+        )
+
+
 def check_resource_facts(
     resource_facts: dict[str, Any],
     field: str,
@@ -440,7 +740,9 @@ def check_resource_facts(
     errors: list[str],
 ) -> None:
     local_size = resource_facts.get("localSize")
-    if (
+    if stage == GRAPHICS_STAGE and local_size is None:
+        pass
+    elif (
         not isinstance(local_size, list)
         or len(local_size) != 3
         or not all(isinstance(item, int) and item > 0 for item in local_size)
@@ -450,15 +752,6 @@ def check_resource_facts(
         if not isinstance(resource_facts.get(collection), list):
             errors.append(f"{field}.{collection} must be a list")
             continue
-        if (
-            collection in {"storageImages", "textures", "samplers"}
-            and resource_facts[collection]
-        ):
-            errors.append(
-                f"{field}.{collection} must stay empty until its HIR family is "
-                "admitted with blocked-family rationale updated"
-            )
-
     descriptors = resource_facts.get("descriptors")
     if isinstance(descriptors, list):
         for index, item in enumerate(descriptors):
@@ -466,16 +759,24 @@ def check_resource_facts(
             descriptor = require_object(item, item_field, errors)
             if not descriptor:
                 continue
-            require_exact_keys(
+            require_resource_item_keys(
                 descriptor,
                 item_field,
-                RESOURCE_ITEM_REQUIRED_KEYS["descriptors"],
+                "descriptors",
                 errors,
             )
             if descriptor.get("stage") != stage:
                 errors.append(f"{item_field}.stage must match fixture stage")
-            if descriptor.get("kind") != "storageBuffer":
-                errors.append(f"{item_field}.kind must be 'storageBuffer'")
+            if descriptor.get("kind") not in {
+                "storageBuffer",
+                "storageImage",
+                "sampledTexture",
+                "sampler",
+            }:
+                errors.append(
+                    f"{item_field}.kind must be 'storageBuffer', 'storageImage', "
+                    "'sampledTexture', or 'sampler'"
+                )
             for integer_field in ("set", "binding"):
                 value = descriptor.get(integer_field)
                 if not isinstance(value, int) or value < 0:
@@ -483,6 +784,7 @@ def check_resource_facts(
                         f"{item_field}.{integer_field} must be a non-negative integer"
                     )
             require_string(descriptor.get("name"), f"{item_field}.name", errors)
+            check_fixed_descriptor_array_fields(descriptor, item_field, errors)
 
     storage_buffers = resource_facts.get("storageBuffers")
     if isinstance(storage_buffers, list):
@@ -491,21 +793,136 @@ def check_resource_facts(
             storage_buffer = require_object(item, item_field, errors)
             if not storage_buffer:
                 continue
-            require_exact_keys(
+            require_resource_item_keys(
                 storage_buffer,
                 item_field,
-                RESOURCE_ITEM_REQUIRED_KEYS["storageBuffers"],
+                "storageBuffers",
                 errors,
             )
             require_string(storage_buffer.get("name"), f"{item_field}.name", errors)
-            if storage_buffer.get("type") != "float*":
-                errors.append(f"{item_field}.type must be 'float*'")
-            if storage_buffer.get("elementType") != "float":
-                errors.append(f"{item_field}.elementType must be 'float'")
+            source_type = require_string(
+                storage_buffer.get("type"), f"{item_field}.type", errors
+            )
+            element_type = require_string(
+                storage_buffer.get("elementType"),
+                f"{item_field}.elementType",
+                errors,
+            )
+            if source_type is not None and not (
+                source_type.endswith("*") or re.fullmatch(r".+\*\[\d+\]", source_type)
+            ):
+                errors.append(f"{item_field}.type must be a pointer resource type")
+            if (
+                source_type is not None
+                and element_type is not None
+                and source_type != f"{element_type}*"
+                and not re.fullmatch(
+                    rf"{re.escape(element_type)}\*\[\d+\]", source_type
+                )
+            ):
+                errors.append(
+                    f"{item_field}.type must match elementType with a pointer suffix"
+                )
             if storage_buffer.get("addressSpace") != "storage":
                 errors.append(f"{item_field}.addressSpace must be 'storage'")
             if not isinstance(storage_buffer.get("writeAccess"), bool):
                 errors.append(f"{item_field}.writeAccess must be a boolean")
+            check_fixed_descriptor_array_fields(storage_buffer, item_field, errors)
+
+    storage_images = resource_facts.get("storageImages")
+    if isinstance(storage_images, list):
+        for index, item in enumerate(storage_images):
+            item_field = f"{field}.storageImages[{index}]"
+            storage_image = require_object(item, item_field, errors)
+            if not storage_image:
+                continue
+            require_resource_item_keys(
+                storage_image,
+                item_field,
+                "storageImages",
+                errors,
+            )
+            require_string(storage_image.get("name"), f"{item_field}.name", errors)
+            require_string(storage_image.get("type"), f"{item_field}.type", errors)
+            require_string(
+                storage_image.get("elementType"),
+                f"{item_field}.elementType",
+                errors,
+            )
+            require_string(storage_image.get("format"), f"{item_field}.format", errors)
+            require_string(
+                storage_image.get("dimension"), f"{item_field}.dimension", errors
+            )
+            if not isinstance(storage_image.get("arrayed"), bool):
+                errors.append(f"{item_field}.arrayed must be a boolean")
+            if storage_image.get("access") not in STORAGE_IMAGE_ACCESS_VALUES:
+                errors.append(
+                    f"{item_field}.access must be one of "
+                    f"{sorted(STORAGE_IMAGE_ACCESS_VALUES)!r}"
+                )
+            for integer_field in ("set", "binding"):
+                value = storage_image.get(integer_field)
+                if not isinstance(value, int) or value < 0:
+                    errors.append(
+                        f"{item_field}.{integer_field} must be a non-negative integer"
+                    )
+            check_fixed_descriptor_array_fields(storage_image, item_field, errors)
+
+    textures = resource_facts.get("textures")
+    if isinstance(textures, list):
+        for index, item in enumerate(textures):
+            item_field = f"{field}.textures[{index}]"
+            texture = require_object(item, item_field, errors)
+            if not texture:
+                continue
+            require_resource_item_keys(
+                texture,
+                item_field,
+                "textures",
+                errors,
+            )
+            require_string(texture.get("name"), f"{item_field}.name", errors)
+            require_string(texture.get("type"), f"{item_field}.type", errors)
+            require_string(
+                texture.get("sampledType"), f"{item_field}.sampledType", errors
+            )
+            require_string(texture.get("dimension"), f"{item_field}.dimension", errors)
+            if not isinstance(texture.get("arrayed"), bool):
+                errors.append(f"{item_field}.arrayed must be a boolean")
+            if not isinstance(texture.get("comparison"), bool):
+                errors.append(f"{item_field}.comparison must be a boolean")
+            for integer_field in ("set", "binding"):
+                value = texture.get(integer_field)
+                if not isinstance(value, int) or value < 0:
+                    errors.append(
+                        f"{item_field}.{integer_field} must be a non-negative integer"
+                    )
+            check_fixed_descriptor_array_fields(texture, item_field, errors)
+
+    samplers = resource_facts.get("samplers")
+    if isinstance(samplers, list):
+        for index, item in enumerate(samplers):
+            item_field = f"{field}.samplers[{index}]"
+            sampler = require_object(item, item_field, errors)
+            if not sampler:
+                continue
+            require_resource_item_keys(
+                sampler,
+                item_field,
+                "samplers",
+                errors,
+            )
+            require_string(sampler.get("name"), f"{item_field}.name", errors)
+            require_string(sampler.get("type"), f"{item_field}.type", errors)
+            if not isinstance(sampler.get("comparison"), bool):
+                errors.append(f"{item_field}.comparison must be a boolean")
+            for integer_field in ("set", "binding"):
+                value = sampler.get(integer_field)
+                if not isinstance(value, int) or value < 0:
+                    errors.append(
+                        f"{item_field}.{integer_field} must be a non-negative integer"
+                    )
+            check_fixed_descriptor_array_fields(sampler, item_field, errors)
 
     metadata = resource_facts.get(RESOURCE_METADATA_COLLECTION)
     if isinstance(metadata, list):
@@ -514,25 +931,49 @@ def check_resource_facts(
             record = require_object(item, item_field, errors)
             if not record:
                 continue
-            require_exact_keys(
+            require_resource_item_keys(
                 record,
                 item_field,
-                RESOURCE_ITEM_REQUIRED_KEYS[RESOURCE_METADATA_COLLECTION],
+                RESOURCE_METADATA_COLLECTION,
                 errors,
             )
             if record.get("stage") != stage:
                 errors.append(f"{item_field}.stage must match fixture stage")
-            if record.get("kind") != "storageBuffer":
-                errors.append(f"{item_field}.kind must be 'storageBuffer'")
+            kind = record.get("kind")
+            if kind not in {
+                "storageBuffer",
+                "storageImage",
+                "sampledTexture",
+                "sampler",
+            }:
+                errors.append(
+                    f"{item_field}.kind must be 'storageBuffer', 'storageImage', "
+                    "'sampledTexture', or 'sampler'"
+                )
             require_string(record.get("name"), f"{item_field}.name", errors)
-            if record.get("sourceType") != "float*":
-                errors.append(f"{item_field}.sourceType must be 'float*'")
-            if record.get("elementType") != "float":
-                errors.append(f"{item_field}.elementType must be 'float'")
-            if record.get("addressSpace") != "storage":
-                errors.append(f"{item_field}.addressSpace must be 'storage'")
-            if record.get("access") != "read_write":
-                errors.append(f"{item_field}.access must be 'read_write'")
+            require_string(record.get("sourceType"), f"{item_field}.sourceType", errors)
+            require_string(
+                record.get("elementType"), f"{item_field}.elementType", errors
+            )
+            expected_address_space = (
+                "storage"
+                if kind in {"storageBuffer", "storageImage"}
+                else "uniform_constant"
+            )
+            if record.get("addressSpace") != expected_address_space:
+                errors.append(
+                    f"{item_field}.addressSpace must be {expected_address_space!r}"
+                )
+            if kind == "storageImage":
+                if record.get("access") not in STORAGE_IMAGE_ACCESS_VALUES:
+                    errors.append(
+                        f"{item_field}.access must be one of "
+                        f"{sorted(STORAGE_IMAGE_ACCESS_VALUES)!r}"
+                    )
+            else:
+                expected_access = "read_write" if kind == "storageBuffer" else "read"
+                if record.get("access") != expected_access:
+                    errors.append(f"{item_field}.access must be {expected_access!r}")
             for integer_field in ("set", "binding"):
                 value = record.get(integer_field)
                 if not isinstance(value, int) or value < 0:
@@ -541,6 +982,7 @@ def check_resource_facts(
                     )
             if record.get("targetIndependent") is not True:
                 errors.append(f"{item_field}.targetIndependent must be true")
+            check_fixed_descriptor_array_fields(record, item_field, errors)
 
     if isinstance(descriptors, list) and isinstance(storage_buffers, list):
         descriptor_names = {
@@ -582,6 +1024,74 @@ def check_resource_facts(
                     f"{field} target-independent resource metadata set/binding "
                     "must match descriptor set/binding"
                 )
+    if isinstance(descriptors, list) and isinstance(storage_images, list):
+        descriptor_names = {
+            item.get("name")
+            for item in descriptors
+            if isinstance(item, dict) and item.get("kind") == "storageImage"
+        }
+        storage_image_names = {
+            item.get("name") for item in storage_images if isinstance(item, dict)
+        }
+        if descriptor_names != storage_image_names:
+            errors.append(
+                f"{field} storageImage descriptor names must match "
+                "resourceFacts.storageImages names"
+            )
+        if isinstance(metadata, list):
+            metadata_names = {
+                item.get("name")
+                for item in metadata
+                if isinstance(item, dict) and item.get("kind") == "storageImage"
+            }
+            if descriptor_names != metadata_names:
+                errors.append(
+                    f"{field} target-independent resource metadata names must match "
+                    "storageImage descriptor names"
+                )
+            descriptor_bindings = {
+                (item.get("name"), item.get("set"), item.get("binding"))
+                for item in descriptors
+                if isinstance(item, dict) and item.get("kind") == "storageImage"
+            }
+            metadata_bindings = {
+                (item.get("name"), item.get("set"), item.get("binding"))
+                for item in metadata
+                if isinstance(item, dict) and item.get("kind") == "storageImage"
+            }
+            if descriptor_bindings != metadata_bindings:
+                errors.append(
+                    f"{field} target-independent resource metadata set/binding "
+                    "must match storageImage descriptor set/binding"
+                )
+    if isinstance(descriptors, list) and isinstance(textures, list):
+        descriptor_names = {
+            item.get("name")
+            for item in descriptors
+            if isinstance(item, dict) and item.get("kind") == "sampledTexture"
+        }
+        texture_names = {
+            item.get("name") for item in textures if isinstance(item, dict)
+        }
+        if descriptor_names != texture_names:
+            errors.append(
+                f"{field} sampledTexture descriptor names must match "
+                "resourceFacts.textures names"
+            )
+    if isinstance(descriptors, list) and isinstance(samplers, list):
+        descriptor_names = {
+            item.get("name")
+            for item in descriptors
+            if isinstance(item, dict) and item.get("kind") == "sampler"
+        }
+        sampler_names = {
+            item.get("name") for item in samplers if isinstance(item, dict)
+        }
+        if descriptor_names != sampler_names:
+            errors.append(
+                f"{field} sampler descriptor names must match "
+                "resourceFacts.samplers names"
+            )
 
 
 def check_required_facts(inventory: dict[str, Any], errors: list[str]) -> None:
@@ -655,6 +1165,7 @@ def check_fixture_parity_requirements(
     resource_facts: dict[str, Any],
     errors: list[str],
 ) -> None:
+    stage = record.get("stage") if isinstance(record.get("stage"), str) else None
     parity = require_object(
         record.get(PARITY_REQUIREMENT_KEY),
         f"{field}.{PARITY_REQUIREMENT_KEY}",
@@ -714,7 +1225,7 @@ def check_fixture_parity_requirements(
     )
     compare_fields(
         entry_fields,
-        ["stage", "entryPoint", "resourceFacts.localSize"],
+        expected_entry_point_requirement_fields(resource_facts),
         f"{field}.{PARITY_REQUIREMENT_KEY}.entryPoint",
         errors,
     )
@@ -753,7 +1264,9 @@ def check_fixture_parity_requirements(
     )
     compare_fields(
         diagnostics_fields,
-        expected_diagnostics_provenance_fields(source_facts, type_facts),
+        expected_diagnostics_provenance_fields(
+            source_facts, type_facts, resource_facts
+        ),
         f"{field}.{PARITY_REQUIREMENT_KEY}.diagnosticsProvenance",
         errors,
     )
@@ -766,7 +1279,9 @@ def check_fixture_parity_requirements(
     )
     compare_fields(
         source_map_debug_fields,
-        expected_source_map_debug_preservation_fields(source_facts, type_facts),
+        expected_source_map_debug_preservation_fields(
+            source_facts, type_facts, resource_facts
+        ),
         f"{field}.{PARITY_REQUIREMENT_KEY}.sourceMapDebugPreservation",
         errors,
     )
@@ -782,6 +1297,7 @@ def check_fixture_parity_report(
     blocked_family_ids: list[str],
     errors: list[str],
 ) -> None:
+    stage = record.get("stage") if isinstance(record.get("stage"), str) else None
     report = require_object(
         record.get(REPORT_FIELD_KEY), f"{field}.{REPORT_FIELD_KEY}", errors
     )
@@ -817,18 +1333,21 @@ def check_fixture_parity_report(
     )
     if "source_file" not in source_facts:
         errors.append(f"{field}.sourceLocationFacts must include 'source_file'")
-    for source_fact in ENTRY_POINT_IDENTITY_SOURCE_FACTS:
+    for source_fact in expected_entry_point_identity_source_facts(stage):
         if source_fact not in source_facts:
             errors.append(
                 f"{field}.sourceLocationFacts must include {source_fact!r} "
                 "for entry-point identity parity"
             )
-    if WORKGROUP_SOURCE_FACT not in source_facts:
+    if (
+        expected_workgroup_size_fields(source_facts, resource_facts)
+        and WORKGROUP_SOURCE_FACT not in source_facts
+    ):
         errors.append(
             f"{field}.sourceLocationFacts must include {WORKGROUP_SOURCE_FACT!r} "
             "for workgroup-size provenance"
         )
-    for type_fact in ENTRY_POINT_IDENTITY_TYPE_FACTS:
+    for type_fact in expected_entry_point_identity_type_facts(stage):
         if type_fact not in type_facts:
             errors.append(
                 f"{field}.typeFacts must include {type_fact!r} "
@@ -856,7 +1375,7 @@ def check_fixture_parity_report(
     )
     compare_fields(
         entry_identity_fields,
-        expected_entry_point_identity_fields(),
+        expected_entry_point_identity_fields(stage),
         f"{field}.{REPORT_FIELD_KEY}.entryPointIdentity",
         errors,
     )
@@ -865,11 +1384,12 @@ def check_fixture_parity_report(
         report.get("localSize"),
         f"{field}.{REPORT_FIELD_KEY}.localSize",
         errors,
+        allow_empty_fields=not expected_local_size_fields(resource_facts),
         allowed_keys={"required", "fields"},
     )
     compare_fields(
         local_size_fields,
-        ["resourceFacts.localSize"],
+        expected_local_size_fields(resource_facts),
         f"{field}.{REPORT_FIELD_KEY}.localSize",
         errors,
     )
@@ -878,11 +1398,14 @@ def check_fixture_parity_report(
         report.get("workgroupSize"),
         f"{field}.{REPORT_FIELD_KEY}.workgroupSize",
         errors,
+        allow_empty_fields=not expected_workgroup_size_fields(
+            source_facts, resource_facts
+        ),
         allowed_keys={"required", "fields"},
     )
     compare_fields(
         workgroup_size_fields,
-        expected_workgroup_size_fields(),
+        expected_workgroup_size_fields(source_facts, resource_facts),
         f"{field}.{REPORT_FIELD_KEY}.workgroupSize",
         errors,
     )
@@ -934,7 +1457,9 @@ def check_fixture_parity_report(
     )
     compare_fields(
         diagnostics_fields,
-        expected_diagnostics_provenance_fields(source_facts, type_facts),
+        expected_diagnostics_provenance_fields(
+            source_facts, type_facts, resource_facts
+        ),
         f"{field}.{REPORT_FIELD_KEY}.diagnosticsProvenance",
         errors,
     )
@@ -947,7 +1472,9 @@ def check_fixture_parity_report(
     )
     compare_fields(
         source_map_debug_fields,
-        expected_source_map_debug_preservation_fields(source_facts, type_facts),
+        expected_source_map_debug_preservation_fields(
+            source_facts, type_facts, resource_facts
+        ),
         f"{field}.{REPORT_FIELD_KEY}.sourceMapDebugPreservation",
         errors,
     )
@@ -1201,12 +1728,57 @@ def run_cglc_dump(
 
 def collect_hir_text_facts(text: str) -> dict[str, Any]:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
+    local_types: dict[str, str] = {}
+
+    def split_call_args(argument_text: str) -> list[str]:
+        args: list[str] = []
+        current: list[str] = []
+        depth = 0
+        for char in argument_text:
+            if char == "(":
+                depth += 1
+            elif char == ")" and depth > 0:
+                depth -= 1
+            if char == "," and depth == 0:
+                args.append("".join(current).strip())
+                current = []
+            else:
+                current.append(char)
+        if current:
+            args.append("".join(current).strip())
+        return args
+
+    def infer_scalar_type(expression: str) -> str | None:
+        expression = expression.strip()
+        if expression.startswith("uint("):
+            return "uint"
+        if expression.startswith("int("):
+            return "int"
+        if re.fullmatch(r"[0-9]+[uU]", expression):
+            return "uint"
+        if re.fullmatch(r"[0-9]+", expression):
+            return "int"
+        if expression in local_types:
+            return local_types[expression]
+        if "+" in expression:
+            operand_types = {
+                inferred
+                for part in expression.split("+")
+                if (inferred := infer_scalar_type(part)) is not None
+            }
+            if "uint" in operand_types:
+                return "uint"
+            if "int" in operand_types:
+                return "int"
+        return None
+
     facts: dict[str, Any] = {
         "lines": lines,
         "modules": set(),
         "stages": set(),
         "workgroupSizes": set(),
         "functions": set(),
+        "functionSignatures": set(),
         "resources": set(),
         "declaredTypes": set(),
         "hasBoolResult": any(" : bool" in line for line in lines),
@@ -1214,16 +1786,21 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
             line.startswith("if ") and line.endswith(" : bool") for line in lines
         ),
         "hasElse": "else" in lines,
-        "hasReturn": "return" in lines,
+        "hasReturn": any(line.startswith("return") for line in lines),
         "hasAssignment": any(line.startswith("assign ") for line in lines),
         "hasStorageRead": any(
-            not line.startswith("assign ") and re.search(r"\b\w+\[\d+\]", line)
+            not line.startswith("assign ") and re.search(r"\b\w+\[[^\]]+\]", line)
             for line in lines
         ),
         "hasStorageWrite": any(
-            line.startswith("assign ") and re.search(r"\b\w+\[\d+\]", line)
+            line.startswith("assign ") and re.search(r"\b\w+\[[^\]]+\]", line)
             for line in lines
         ),
+        "hasImageLoad": any("imageLoad(" in line for line in lines),
+        "hasImageStore": any("imageStore(" in line for line in lines),
+        "imageAtomicCalls": set(),
+        "imageAtomicResultTypes": set(),
+        "imageAtomicPayloadTypes": set(),
     }
 
     module_pattern = re.compile(r"^module\s+([A-Za-z_][A-Za-z0-9_]*)$")
@@ -1234,17 +1811,33 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
         r"^workgroup_size\s+([0-9]+),\s*([0-9]+),\s*([0-9]+)$"
     )
     function_pattern = re.compile(
-        r"^fn\s+([A-Za-z_][A-Za-z0-9_]*)\(\)\s+->\s+([A-Za-z_][A-Za-z0-9_*]*)$"
+        r"^fn\s+([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s+->\s+"
+        r"([A-Za-z_][A-Za-z0-9_*]*)$"
     )
     resource_pattern = re.compile(
-        r"^resource\s+buffer\s+(.+?)\s+([A-Za-z_][A-Za-z0-9_]*)\s+"
+        r"^resource\s+([A-Za-z_][A-Za-z0-9_]*)\s+(.+?)\s+"
+        r"([A-Za-z_][A-Za-z0-9_]*)\s+"
+        r"(?:access\s+[A-Za-z_][A-Za-z0-9_]*\s+)?"
+        r"(?:format\s+[A-Za-z0-9_]+\s+)?"
         r"set\s+([0-9]+)\s+binding\s+([0-9]+)$"
     )
     declaration_pattern = re.compile(
         r"^decl\s+([A-Za-z_][A-Za-z0-9_*]*)\s+[A-Za-z_][A-Za-z0-9_]*\b"
     )
+    named_declaration_pattern = re.compile(
+        r"^decl\s+([A-Za-z_][A-Za-z0-9_*]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*="
+    )
+    image_atomic_pattern = re.compile(
+        r"\b(imageAtomic[A-Za-z0-9_]*)\s*\((.*)\)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)"
+    )
 
     for line in lines:
+        for match in image_atomic_pattern.finditer(line):
+            facts["imageAtomicCalls"].add(match.group(1))
+            facts["imageAtomicResultTypes"].add(match.group(3))
+            args = split_call_args(match.group(2))
+            if len(args) >= 3 and (payload_type := infer_scalar_type(args[-1])):
+                facts["imageAtomicPayloadTypes"].add(payload_type)
         if match := module_pattern.match(line):
             facts["modules"].add(match.group(1))
             continue
@@ -1255,20 +1848,28 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
             facts["workgroupSizes"].add(tuple(int(match.group(i)) for i in range(1, 4)))
             continue
         if match := function_pattern.match(line):
-            facts["functions"].add((match.group(1), match.group(2)))
+            parameter_text = match.group(2).strip()
+            facts["functionSignatures"].add(
+                (match.group(1), parameter_text, match.group(3))
+            )
+            if not parameter_text:
+                facts["functions"].add((match.group(1), match.group(3)))
             continue
         if match := resource_pattern.match(line):
             facts["resources"].add(
                 (
                     match.group(1),
                     match.group(2),
-                    int(match.group(3)),
+                    match.group(3),
                     int(match.group(4)),
+                    int(match.group(5)),
                 )
             )
             continue
         if match := declaration_pattern.match(line):
             facts["declaredTypes"].add(match.group(1))
+        if match := named_declaration_pattern.match(line):
+            local_types[match.group(2)] = match.group(1)
 
     return facts
 
@@ -1323,6 +1924,15 @@ def collect_hir_source_map_facts(json_text: str) -> dict[str, Any]:
             if isinstance(item, dict)
         },
     }
+
+
+def is_storage_image_source_type(source_type: object) -> bool:
+    if not isinstance(source_type, str):
+        return False
+    scalar_source_type = re.sub(r"\[[0-9]+\]$", "", source_type)
+    return scalar_source_type.endswith("image2D") or scalar_source_type.endswith(
+        "image2DArray"
+    )
 
 
 def source_location_matches(
@@ -1399,7 +2009,32 @@ def check_hir_text_parity(
     module_name = Path(path).stem
     if module_name not in facts["modules"]:
         errors.append(f"{field}: HIR text must include module {module_name}")
-    if isinstance(stage, str) and isinstance(entry_point, str):
+    if stage == GRAPHICS_STAGE and isinstance(entry_point, str):
+        expected_stage_entries = (
+            ("vertex", entry_point, "VertexInput input", "VertexOutput"),
+            ("fragment", entry_point, "FragmentInput input", "FragmentOutput"),
+        )
+        for (
+            expected_stage,
+            expected_entry,
+            parameter_text,
+            return_type,
+        ) in expected_stage_entries:
+            if (expected_stage, expected_entry) not in facts["stages"]:
+                errors.append(
+                    f"{field}: HIR text must include stage {expected_stage} "
+                    f"entry {expected_entry}"
+                )
+            if (
+                expected_entry,
+                parameter_text,
+                return_type,
+            ) not in facts["functionSignatures"]:
+                errors.append(
+                    f"{field}: HIR text must include fn {expected_entry}"
+                    f"({parameter_text}) -> {return_type}"
+                )
+    elif isinstance(stage, str) and isinstance(entry_point, str):
         if (stage, entry_point) not in facts["stages"]:
             errors.append(
                 f"{field}: HIR text must include stage {stage} entry {entry_point}"
@@ -1408,7 +2043,11 @@ def check_hir_text_parity(
             errors.append(f"{field}: HIR text must include fn {entry_point}() -> void")
 
     local_size = resource_facts.get("localSize")
-    if isinstance(local_size, list) and len(local_size) == 3:
+    if (
+        stage != GRAPHICS_STAGE
+        and isinstance(local_size, list)
+        and len(local_size) == 3
+    ):
         expected_size = tuple(local_size)
         if expected_size not in facts["workgroupSizes"]:
             errors.append(
@@ -1421,20 +2060,51 @@ def check_hir_text_parity(
         for item in resource_facts.get("storageBuffers", [])
         if isinstance(item, dict)
     }
+    storage_images_by_name = {
+        item.get("name"): item
+        for item in resource_facts.get("storageImages", [])
+        if isinstance(item, dict)
+    }
     for index, descriptor in enumerate(resource_facts.get("descriptors", [])):
-        if (
-            not isinstance(descriptor, dict)
-            or descriptor.get("kind") != "storageBuffer"
-        ):
+        if not isinstance(descriptor, dict):
             continue
         name = descriptor.get("name")
-        storage_buffer = storage_buffers_by_name.get(name)
-        source_type = (
-            storage_buffer.get("type")
-            if isinstance(storage_buffer, dict)
-            else descriptor.get("sourceType")
-        )
+        kind = descriptor.get("kind")
+        hir_kind = {
+            "storageBuffer": "buffer",
+            "storageImage": "storage_image",
+            "sampledTexture": "texture",
+            "sampler": "sampler",
+        }.get(kind)
+        if hir_kind is None:
+            continue
+        source_type = descriptor.get("sourceType")
+        if kind == "storageBuffer":
+            storage_buffer = storage_buffers_by_name.get(name)
+            source_type = (
+                storage_buffer.get("type")
+                if isinstance(storage_buffer, dict)
+                else descriptor.get("sourceType")
+            )
+        elif kind == "storageImage":
+            storage_image = storage_images_by_name.get(name)
+            source_type = (
+                storage_image.get("type")
+                if isinstance(storage_image, dict)
+                else descriptor.get("sourceType")
+            )
+        elif kind == "sampledTexture":
+            for texture in resource_facts.get("textures", []):
+                if isinstance(texture, dict) and texture.get("name") == name:
+                    source_type = texture.get("type")
+                    break
+        elif kind == "sampler":
+            for sampler in resource_facts.get("samplers", []):
+                if isinstance(sampler, dict) and sampler.get("name") == name:
+                    source_type = sampler.get("type")
+                    break
         expected_resource = (
+            hir_kind,
             source_type,
             name,
             descriptor.get("set"),
@@ -1442,8 +2112,7 @@ def check_hir_text_parity(
         )
         if expected_resource not in facts["resources"]:
             errors.append(
-                f"{field}: HIR text missing storage-buffer resource "
-                f"{index}: {expected_resource!r}"
+                f"{field}: HIR text missing resource {index}: {expected_resource!r}"
             )
 
     source_facts = set(record.get("sourceLocationFacts", []))
@@ -1465,8 +2134,43 @@ def check_hir_text_parity(
         errors.append(f"{field}: HIR text must include a storage-buffer read")
     if "storage_buffer_write" in source_facts and not facts["hasStorageWrite"]:
         errors.append(f"{field}: HIR text must include a storage-buffer write")
+    if "storage_image_load" in source_facts and not facts["hasImageLoad"]:
+        errors.append(f"{field}: HIR text must include an imageLoad call")
+    if "storage_image_store" in source_facts and not facts["hasImageStore"]:
+        errors.append(f"{field}: HIR text must include an imageStore call")
+    for source_fact, operation in STORAGE_IMAGE_ATOMIC_FACTS.items():
+        if source_fact in source_facts and operation not in facts["imageAtomicCalls"]:
+            errors.append(f"{field}: HIR text must include a {operation} call")
+    for type_fact, expected_type in STORAGE_IMAGE_ATOMIC_TYPE_FACTS.items():
+        if (
+            type_fact in type_facts
+            and expected_type not in facts["imageAtomicResultTypes"]
+        ):
+            errors.append(
+                f"{field}: HIR text must include storage-image atomic "
+                f"{expected_type} result type"
+            )
+    for type_fact, expected_type in STORAGE_IMAGE_ATOMIC_PAYLOAD_TYPE_FACTS.items():
+        if (
+            type_fact in type_facts
+            and expected_type not in facts["imageAtomicPayloadTypes"]
+        ):
+            errors.append(
+                f"{field}: HIR text must include storage-image atomic "
+                f"{expected_type} payload type"
+            )
     if "return_statement" in source_facts and not facts["hasReturn"]:
         errors.append(f"{field}: HIR text must include return")
+    if (
+        "vertex_stage" in source_facts
+        and ("vertex", entry_point) not in facts["stages"]
+    ):
+        errors.append(f"{field}: HIR text must include a vertex stage entry")
+    if (
+        "fragment_stage" in source_facts
+        and ("fragment", entry_point) not in facts["stages"]
+    ):
+        errors.append(f"{field}: HIR text must include a fragment stage entry")
     if CONTROL_FLOW_FAMILY in allowed_families:
         if not facts["hasIfBool"]:
             errors.append(f"{field}: HIR text must include if ... : bool")
@@ -1525,6 +2229,11 @@ def check_hir_source_map_parity(
     type_triples = facts["typeTriples"]
     expression_tuples = facts["expressionTuples"]
     statement_triples = facts["statementTriples"]
+    storage_buffer_names = {
+        item.get("name")
+        for item in record.get("resourceFacts", {}).get("storageBuffers", [])
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
 
     if (
         "void_entry_point" in type_facts
@@ -1555,10 +2264,19 @@ def check_hir_source_map_parity(
         owner == "resource-type" and typ == "float*" for owner, _, typ in type_triples
     ):
         errors.append(f"{field}: HIR source-map missing float* storage-buffer type")
-    if "storage_buffer_element_type" in type_facts and not any(
-        kind == "index" and typ == "float" for _, kind, _, typ in expression_tuples
-    ):
-        errors.append(f"{field}: HIR source-map missing storage-buffer element type")
+    if "storage_buffer_element_type" in type_facts:
+        expected_element_types = {
+            item.get("elementType")
+            for item in record.get("resourceFacts", {}).get("storageBuffers", [])
+            if isinstance(item, dict) and isinstance(item.get("elementType"), str)
+        }
+        if not any(
+            kind == "index" and typ in expected_element_types
+            for _, kind, _, typ in expression_tuples
+        ):
+            errors.append(
+                f"{field}: HIR source-map missing storage-buffer element type"
+            )
     if "binary_expression_result_types" in type_facts and not any(
         kind == "binary" and isinstance(typ, str) and typ
         for _, kind, _, typ in expression_tuples
@@ -1592,6 +2310,31 @@ def check_hir_source_map_parity(
         kind == "literal" for _, kind, _, _ in expression_tuples
     ):
         errors.append(f"{field}: HIR source-map missing scalar literal expressions")
+    if "vertex_entry_point_io_structs" in type_facts:
+        for owner_name, expected_type in (
+            ("VertexInput.position", "vec3"),
+            ("VertexInput.texCoord", "vec2"),
+            ("VertexInput.color", "vec4"),
+            ("VertexOutput.position", "vec4"),
+            ("VertexOutput.uv", "vec2"),
+            ("VertexOutput.tint", "vec4"),
+        ):
+            if ("field-type", owner_name, expected_type) not in type_triples:
+                errors.append(
+                    f"{field}: HIR source-map missing vertex stage I/O field "
+                    f"{owner_name}:{expected_type}"
+                )
+    if "fragment_entry_point_io_structs" in type_facts:
+        for owner_name, expected_type in (
+            ("FragmentInput.uv", "vec2"),
+            ("FragmentInput.tint", "vec4"),
+            ("FragmentOutput.color", "vec4"),
+        ):
+            if ("field-type", owner_name, expected_type) not in type_triples:
+                errors.append(
+                    f"{field}: HIR source-map missing fragment stage I/O field "
+                    f"{owner_name}:{expected_type}"
+                )
 
     if "return_statement" in source_facts and not any(
         kind == "return" for kind, _, _ in statement_triples
@@ -1610,15 +2353,48 @@ def check_hir_source_map_parity(
     ):
         errors.append(f"{field}: HIR source-map missing storage-buffer declaration")
     if "storage_buffer_read" in source_facts and not any(
-        statement == "decl" and kind == "identifier" and value == "values"
+        statement == "decl" and kind == "identifier" and value in storage_buffer_names
         for statement, kind, value, _ in expression_tuples
     ):
         errors.append(f"{field}: HIR source-map missing storage-buffer read")
     if "storage_buffer_write" in source_facts and not any(
-        statement == "assign" and kind == "identifier" and value == "values"
+        statement == "assign" and kind == "identifier" and value in storage_buffer_names
         for statement, kind, value, _ in expression_tuples
     ):
         errors.append(f"{field}: HIR source-map missing storage-buffer write")
+    if "storage_image_declaration" in source_facts and not any(
+        owner == "resource-type" and is_storage_image_source_type(typ)
+        for owner, _, typ in type_triples
+    ):
+        errors.append(f"{field}: HIR source-map missing storage-image declaration")
+    if "storage_image_load" in source_facts and not any(
+        kind == "call" and value == "imageLoad"
+        for _, kind, value, _ in expression_tuples
+    ):
+        errors.append(f"{field}: HIR source-map missing imageLoad call")
+    if "storage_image_store" in source_facts and not any(
+        kind == "call" and value == "imageStore"
+        for _, kind, value, _ in expression_tuples
+    ):
+        errors.append(f"{field}: HIR source-map missing imageStore call")
+    for source_fact, operation in STORAGE_IMAGE_ATOMIC_FACTS.items():
+        if source_fact in source_facts and not any(
+            kind == "call" and value == operation
+            for _, kind, value, _ in expression_tuples
+        ):
+            errors.append(f"{field}: HIR source-map missing {operation} call")
+    for type_fact, expected_type in STORAGE_IMAGE_ATOMIC_TYPE_FACTS.items():
+        if type_fact in type_facts and not any(
+            kind == "call"
+            and isinstance(value, str)
+            and value.startswith("imageAtomic")
+            and typ == expected_type
+            for _, kind, value, typ in expression_tuples
+        ):
+            errors.append(
+                f"{field}: HIR source-map missing storage-image atomic "
+                f"{expected_type} call type"
+            )
 
 
 def check_fixture_hir_dump_parity(
@@ -1800,16 +2576,21 @@ def entry_point_report_fields() -> dict[str, object]:
     return {"required": True, "fields": ["stage", "entryPoint"]}
 
 
-def entry_point_identity_report_fields() -> dict[str, object]:
-    return {"required": True, "fields": expected_entry_point_identity_fields()}
+def entry_point_identity_report_fields(stage: str | None) -> dict[str, object]:
+    return {"required": True, "fields": expected_entry_point_identity_fields(stage)}
 
 
-def local_size_report_fields() -> dict[str, object]:
-    return {"required": True, "fields": ["resourceFacts.localSize"]}
+def local_size_report_fields(resource_facts: dict[str, Any]) -> dict[str, object]:
+    return {"required": True, "fields": expected_local_size_fields(resource_facts)}
 
 
-def workgroup_size_report_fields() -> dict[str, object]:
-    return {"required": True, "fields": expected_workgroup_size_fields()}
+def workgroup_size_report_fields(
+    source_facts: list[str], resource_facts: dict[str, Any]
+) -> dict[str, object]:
+    return {
+        "required": True,
+        "fields": expected_workgroup_size_fields(source_facts, resource_facts),
+    }
 
 
 def resource_binding_report_fields(resource_facts: dict[str, Any]) -> dict[str, object]:
@@ -1833,21 +2614,23 @@ def type_fact_report_fields(type_facts: list[str]) -> dict[str, object]:
 
 
 def diagnostics_provenance_fields(
-    source_facts: list[str], type_facts: list[str]
+    source_facts: list[str], type_facts: list[str], resource_facts: dict[str, Any]
 ) -> dict[str, object]:
     return {
         "required": True,
-        "fields": expected_diagnostics_provenance_fields(source_facts, type_facts),
+        "fields": expected_diagnostics_provenance_fields(
+            source_facts, type_facts, resource_facts
+        ),
     }
 
 
 def source_map_debug_preservation_fields(
-    source_facts: list[str], type_facts: list[str]
+    source_facts: list[str], type_facts: list[str], resource_facts: dict[str, Any]
 ) -> dict[str, object]:
     return {
         "required": True,
         "fields": expected_source_map_debug_preservation_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
     }
 
@@ -1884,7 +2667,7 @@ def build_parity_requirements(record: dict[str, Any]) -> dict[str, object]:
         "typeFacts": {"required": True, "fields": type_facts},
         "entryPoint": {
             "required": True,
-            "fields": ["stage", "entryPoint", "resourceFacts.localSize"],
+            "fields": expected_entry_point_requirement_fields(resource_facts),
         },
         "resources": {
             "required": True,
@@ -1897,10 +2680,10 @@ def build_parity_requirements(record: dict[str, Any]) -> dict[str, object]:
             ),
         },
         "diagnosticsProvenance": diagnostics_provenance_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
         "sourceMapDebugPreservation": source_map_debug_preservation_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
     }
 
@@ -1914,27 +2697,28 @@ def build_report_fields(record: dict[str, Any]) -> dict[str, object]:
     resource_facts = require_object(
         record["resourceFacts"], "self-test.resourceFacts", []
     )
+    stage = record["stage"] if isinstance(record.get("stage"), str) else None
     blocked_family_ids = [
-        "textures_samplers_images_and_intrinsics",
+        "remaining_texture_image_intrinsics",
         "descriptor_indexing_and_nonuniform",
         "crosstl_examples_and_backend_policy",
     ]
     return {
         "sourceFile": source_file_report_fields(),
         "entryPoint": entry_point_report_fields(),
-        "entryPointIdentity": entry_point_identity_report_fields(),
-        "localSize": local_size_report_fields(),
-        "workgroupSize": workgroup_size_report_fields(),
+        "entryPointIdentity": entry_point_identity_report_fields(stage),
+        "localSize": local_size_report_fields(resource_facts),
+        "workgroupSize": workgroup_size_report_fields(source_facts, resource_facts),
         "resourceBindings": resource_binding_report_fields(resource_facts),
         "targetIndependentResourceMetadata": (
             target_independent_resource_metadata_report_fields(resource_facts)
         ),
         "typeFacts": type_fact_report_fields(type_facts),
         "diagnosticsProvenance": diagnostics_provenance_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
         "sourceMapDebugPreservation": source_map_debug_preservation_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
         "controlFlowSlice": control_flow_report_fields(
             families, source_facts, type_facts
@@ -2055,6 +2839,40 @@ def valid_self_test_inventory() -> dict[str, Any]:
             ],
             "resourceFacts": storage_resource_facts,
         },
+        {
+            "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+            "stage": GRAPHICS_STAGE,
+            "entryPoint": "main",
+            "allowedHirFamilies": [
+                "module_stages_and_entry_points",
+                "graphics_stage_io",
+            ],
+            "sourceLocationFacts": [
+                "source_file",
+                "shader_module",
+                "vertex_stage",
+                "fragment_stage",
+                "vertex_entry_point",
+                "fragment_entry_point",
+                "vertex_stage_input",
+                "vertex_stage_output",
+                "fragment_stage_input",
+                "fragment_stage_output",
+                "return_statement",
+            ],
+            "typeFacts": [
+                "vertex_entry_point_io_structs",
+                "fragment_entry_point_io_structs",
+            ],
+            "resourceFacts": {
+                "descriptors": [],
+                "storageBuffers": [],
+                "storageImages": [],
+                "textures": [],
+                "samplers": [],
+                "targetIndependentResourceMetadata": [],
+            },
+        },
     ]
     for fixture in fixtures:
         fixture[PARITY_REQUIREMENT_KEY] = build_parity_requirements(fixture)
@@ -2067,7 +2885,7 @@ def valid_self_test_inventory() -> dict[str, Any]:
         "fixtures": fixtures,
         "unsupportedHirFamilies": [
             {
-                "id": "textures_samplers_images_and_intrinsics",
+                "id": "remaining_texture_image_intrinsics",
                 "reason": (
                     "Texture, sampler, image, and texture intrinsic HIR families "
                     "are outside the fixture-limited MLIR experiment."
@@ -2157,7 +2975,9 @@ def write_self_test_repo(root: Path, inventory: dict[str, Any]) -> None:
     (root / INVENTORY_PATH.parent).mkdir(parents=True, exist_ok=True)
     (root / "tests/fixtures").mkdir(parents=True, exist_ok=True)
     for fixture in inventory["fixtures"]:
-        (root / fixture["path"]).write_text("shader main() {}\n", encoding="utf-8")
+        fixture_path = root / fixture["path"]
+        fixture_path.parent.mkdir(parents=True, exist_ok=True)
+        fixture_path.write_text("shader main() {}\n", encoding="utf-8")
     (root / INVENTORY_PATH).write_text(
         json.dumps(inventory, indent=2) + "\n", encoding="utf-8"
     )
@@ -2185,7 +3005,7 @@ def run_self_test() -> list[str]:
         valid_errors, summary = check_inventory(root)
         if valid_errors:
             errors.append(f"self-test valid inventory failed: {valid_errors!r}")
-        if summary["fixtures"] != 2 or summary["control_flow_slices"] != 1:
+        if summary["fixtures"] != 3 or summary["control_flow_slices"] != 1:
             errors.append(f"self-test summary mismatch: {summary!r}")
 
         missing_section = copy.deepcopy(inventory)
@@ -2291,6 +3111,83 @@ def run_self_test() -> list[str]:
             )
         )
 
+        bad_storage_image_access = copy.deepcopy(inventory)
+        bad_resource_facts = bad_storage_image_access["fixtures"][1]["resourceFacts"]
+        bad_resource_facts["descriptors"].append(
+            {
+                "stage": "compute",
+                "name": "image",
+                "kind": "storageImage",
+                "set": 0,
+                "binding": 1,
+            }
+        )
+        bad_resource_facts["storageImages"].append(
+            {
+                "name": "image",
+                "type": "image2D",
+                "elementType": "vec4",
+                "format": "rgba32f",
+                "dimension": "2d",
+                "arrayed": False,
+                "access": "read_only",
+                "set": 0,
+                "binding": 1,
+            }
+        )
+        bad_resource_facts["targetIndependentResourceMetadata"].append(
+            {
+                "stage": "compute",
+                "name": "image",
+                "kind": "storageImage",
+                "sourceType": "image2D",
+                "elementType": "vec4",
+                "addressSpace": "storage",
+                "access": "read_only",
+                "set": 0,
+                "binding": 1,
+                "targetIndependent": True,
+            }
+        )
+        bad_storage_image_access["fixtures"][1][PARITY_REQUIREMENT_KEY] = (
+            build_parity_requirements(bad_storage_image_access["fixtures"][1])
+        )
+        bad_storage_image_access["fixtures"][1][REPORT_FIELD_KEY] = build_report_fields(
+            bad_storage_image_access["fixtures"][1]
+        )
+        bad_storage_image_access["fixtures"][1][LOWERING_EVIDENCE_KEY] = (
+            build_lowering_evidence(bad_storage_image_access["fixtures"][1])
+        )
+        errors.extend(
+            expect_self_test_failure(
+                root,
+                bad_storage_image_access,
+                "invalid-storage-image-access",
+                "access must be one of ['read', 'read_write', 'write']",
+            )
+        )
+
+        storage_image_types = [
+            "image2D",
+            "image2DArray",
+            "iimage2D",
+            "uimage2DArray",
+            "image2D[2]",
+            "iimage2DArray[2]",
+        ]
+        for source_type in storage_image_types:
+            if not is_storage_image_source_type(source_type):
+                errors.append(
+                    "self-test failed to classify storage-image source type "
+                    f"{source_type!r}"
+                )
+        for source_type in ("sampler2D[2]", "float*", "image3D[2]"):
+            if is_storage_image_source_type(source_type):
+                errors.append(
+                    "self-test incorrectly classified non-storage-image source "
+                    f"type {source_type!r}"
+                )
+
         missing_source_map_debug_field = copy.deepcopy(inventory)
         missing_source_map_debug_field["fixtures"][0][REPORT_FIELD_KEY][
             "sourceMapDebugPreservation"
@@ -2320,6 +3217,65 @@ def run_self_test() -> list[str]:
                 duplicate_source_fact,
                 "duplicate-source-location-fact",
                 "sourceLocationFacts must not contain duplicate entries: source_file",
+            )
+        )
+
+        graphics_fixture_index = 2
+        missing_graphics_stage_evidence = copy.deepcopy(inventory)
+        missing_graphics_stage_evidence["fixtures"][graphics_fixture_index][
+            "sourceLocationFacts"
+        ].remove("fragment_entry_point")
+        missing_graphics_stage_evidence["fixtures"][graphics_fixture_index][
+            PARITY_REQUIREMENT_KEY
+        ] = build_parity_requirements(
+            missing_graphics_stage_evidence["fixtures"][graphics_fixture_index]
+        )
+        missing_graphics_stage_evidence["fixtures"][graphics_fixture_index][
+            REPORT_FIELD_KEY
+        ] = build_report_fields(
+            missing_graphics_stage_evidence["fixtures"][graphics_fixture_index]
+        )
+        missing_graphics_stage_evidence["fixtures"][graphics_fixture_index][
+            LOWERING_EVIDENCE_KEY
+        ] = build_lowering_evidence(
+            missing_graphics_stage_evidence["fixtures"][graphics_fixture_index]
+        )
+        errors.extend(
+            expect_self_test_failure(
+                root,
+                missing_graphics_stage_evidence,
+                "missing-graphics-fragment-entry-evidence",
+                "sourceLocationFacts must include 'fragment_entry_point' "
+                "for entry-point identity parity",
+            )
+        )
+
+        missing_graphics_type_fact = copy.deepcopy(inventory)
+        missing_graphics_type_fact["fixtures"][graphics_fixture_index][
+            "typeFacts"
+        ].remove("fragment_entry_point_io_structs")
+        missing_graphics_type_fact["fixtures"][graphics_fixture_index][
+            PARITY_REQUIREMENT_KEY
+        ] = build_parity_requirements(
+            missing_graphics_type_fact["fixtures"][graphics_fixture_index]
+        )
+        missing_graphics_type_fact["fixtures"][graphics_fixture_index][
+            REPORT_FIELD_KEY
+        ] = build_report_fields(
+            missing_graphics_type_fact["fixtures"][graphics_fixture_index]
+        )
+        missing_graphics_type_fact["fixtures"][graphics_fixture_index][
+            LOWERING_EVIDENCE_KEY
+        ] = build_lowering_evidence(
+            missing_graphics_type_fact["fixtures"][graphics_fixture_index]
+        )
+        errors.extend(
+            expect_self_test_failure(
+                root,
+                missing_graphics_type_fact,
+                "missing-graphics-fragment-type-fact",
+                "typeFacts must include 'fragment_entry_point_io_structs' "
+                "for entry-point identity parity",
             )
         )
     return errors

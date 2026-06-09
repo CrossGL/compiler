@@ -104,6 +104,7 @@ OPERATION_NAMING_BOUNDARY_KEYS = (
     "blockedNamespaceOperationCount",
 )
 OPERATION_NAME_PATTERN = re.compile(r"^hir\.[A-Za-z_][A-Za-z0-9_.-]*$")
+GRAPHICS_STAGE = "graphics"
 
 
 def read_text(path: Path) -> str:
@@ -236,6 +237,10 @@ def textual_form_for_operation(operation: str) -> str:
         return 'hir.module @${module} attributes {source = "${source_file}"}'
     if operation == "hir.compute_stage":
         return 'hir.compute_stage @compute attributes {stage = "compute"}'
+    if operation == "hir.vertex_stage":
+        return 'hir.vertex_stage @vertex attributes {stage = "vertex"}'
+    if operation == "hir.fragment_stage":
+        return 'hir.fragment_stage @fragment attributes {stage = "fragment"}'
     if operation == "hir.entry_point":
         return "hir.entry_point @${entryPoint} : () -> !hir.void"
     if operation == "hir.workgroup_size":
@@ -244,15 +249,57 @@ def textual_form_for_operation(operation: str) -> str:
         return "hir.return loc(${return_statement})"
     if operation == "hir.source_location_anchor":
         return "hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}"
+    if operation == "hir.stage_input":
+        return "hir.stage_input @${structName} {${fields}} : !hir.stage_io"
+    if operation == "hir.stage_output":
+        return "hir.stage_output @${structName} {${fields}} : !hir.stage_io"
+    if operation == "hir.stage_varying":
+        return "hir.stage_varying @${name} : ${type} vertex.output -> fragment.input"
+    if operation == "hir.fragment_output":
+        return "hir.fragment_output @${name} {location = ${location}} : ${type}"
     if operation == "hir.resource":
         return 'hir.resource @${resourceName} {set = ${set}, binding = ${binding}, kind = "${kind}"}'
     if operation == "hir.storage_buffer":
         return "hir.storage_buffer @${resourceName} : !hir.storage_buffer<!hir.f32>"
+    if operation == "hir.texture":
+        return "hir.texture @${resourceName} : !hir.texture<2d, sampled, f32>"
+    if operation == "hir.storage_image":
+        return (
+            'hir.storage_image @${resourceName} {access = "${access}"} '
+            ": !hir.storage_image<${dimension}, ${format}>"
+        )
+    if operation == "hir.sampler":
+        return (
+            "hir.sampler @${resourceName} {comparison = ${comparison}} : !hir.sampler"
+        )
     if operation == "hir.storage_buffer.read":
         return "hir.storage_buffer.read @${resourceName}[${index}] : !hir.f32"
     if operation == "hir.storage_buffer.write":
         return (
             "hir.storage_buffer.write @${resourceName}[${index}], ${value} : !hir.f32"
+        )
+    if operation == "hir.texture_lod":
+        return (
+            "hir.texture_lod @${texture}, @${sampler}, ${coordinates}, ${lod} "
+            ": !hir.vec2, !hir.f32 -> !hir.vec4"
+        )
+    if operation == "hir.image_load":
+        return "hir.image_load @${image}, ${coordinates} : !hir.ivec2 -> !hir.vec4"
+    if operation == "hir.image_store":
+        return (
+            "hir.image_store @${image}, ${coordinates}, ${value} "
+            ": !hir.ivec2, !hir.vec4"
+        )
+    if operation.startswith("hir.image_atomic."):
+        family = operation.removeprefix("hir.image_atomic.")
+        return (
+            f"hir.image_atomic.{family} @${{image}}, ${{coordinates}}, ${{payload}} "
+            ": !hir.ivec2, !hir.i32 -> !hir.i32"
+        )
+    if operation == "hir.storage_image.nonuniform_descriptor_array":
+        return (
+            "hir.storage_image.nonuniform_descriptor_array @${image}"
+            "[nonuniform(${indexExpression})]"
         )
     if operation == "hir.if":
         return "hir.if ${condition} : !hir.bool { ... } else { ... }"
@@ -284,6 +331,9 @@ def hir_type_name(source_type: str) -> str:
 def resource_lines(resource_facts: dict[str, Any]) -> list[str]:
     descriptors = resource_facts.get("descriptors")
     storage_buffers = resource_facts.get("storageBuffers")
+    storage_images = resource_facts.get("storageImages")
+    textures = resource_facts.get("textures")
+    samplers = resource_facts.get("samplers")
     lines: list[str] = []
     if isinstance(descriptors, list):
         for descriptor in descriptors:
@@ -307,7 +357,60 @@ def resource_lines(resource_facts: dict[str, Any]) -> list[str]:
             lines.append(
                 f"  hir.storage_buffer @{name} : !hir.storage_buffer<!hir.{element_type}>"
             )
+    if isinstance(textures, list):
+        for texture in textures:
+            if not isinstance(texture, dict):
+                continue
+            name = scalar_value(texture, "name", "texture")
+            dimension = scalar_value(texture, "dimension", "2d")
+            sampled_type = hir_type_name(scalar_value(texture, "sampledType", "float"))
+            sampled = "sampled"
+            lines.append(
+                f"  hir.texture @{name} : !hir.texture<{dimension}, {sampled}, {sampled_type}>"
+            )
+    if isinstance(storage_images, list):
+        for storage_image in storage_images:
+            if not isinstance(storage_image, dict):
+                continue
+            name = scalar_value(storage_image, "name", "image")
+            dimension = scalar_value(storage_image, "dimension", "2d")
+            image_format = scalar_value(storage_image, "format", "rgba32f")
+            access = scalar_value(storage_image, "access", "read_write")
+            lines.append(
+                f'  hir.storage_image @{name} {{access = "{access}"}} : '
+                f"!hir.storage_image<{dimension}, {image_format}>"
+            )
+    if isinstance(samplers, list):
+        for sampler in samplers:
+            if not isinstance(sampler, dict):
+                continue
+            name = scalar_value(sampler, "name", "sampler")
+            comparison = str(bool(sampler.get("comparison"))).lower()
+            lines.append(
+                f"  hir.sampler @{name} {{comparison = {comparison}}} : !hir.sampler"
+            )
     return lines
+
+
+def storage_image_name_for_access(
+    resource_facts: dict[str, Any], allowed_access: set[str], fallback: str
+) -> str:
+    storage_images = resource_facts.get("storageImages")
+    if not isinstance(storage_images, list):
+        return fallback
+    for storage_image in storage_images:
+        if not isinstance(storage_image, dict):
+            continue
+        name = storage_image.get("name")
+        access = storage_image.get("access")
+        if isinstance(name, str) and access in allowed_access:
+            return name
+    for storage_image in storage_images:
+        if isinstance(storage_image, dict) and isinstance(
+            storage_image.get("name"), str
+        ):
+            return storage_image["name"]
+    return fallback
 
 
 def textual_module_skeleton(
@@ -323,6 +426,24 @@ def textual_module_skeleton(
     local_size = resource_facts.get("localSize")
     if not isinstance(local_size, list) or len(local_size) != 3:
         local_size = [1, 1, 1]
+    if fixture.get("stage") == GRAPHICS_STAGE:
+        return [
+            f'hir.module @{module_name} attributes {{source = "{fixture_path}"}} {{',
+            '  hir.vertex_stage @vertex attributes {stage = "vertex"}',
+            "  hir.entry_point @main(%input: !hir.struct<VertexInput>) -> !hir.struct<VertexOutput>",
+            "  hir.stage_input @VertexInput {position: !hir.vec3, texCoord: !hir.vec2, color: !hir.vec4}",
+            "  hir.stage_output @VertexOutput {position: !hir.vec4, uv: !hir.vec2, tint: !hir.vec4}",
+            '  hir.fragment_stage @fragment attributes {stage = "fragment"}',
+            "  hir.entry_point @main(%input: !hir.struct<FragmentInput>) -> !hir.struct<FragmentOutput>",
+            "  hir.stage_input @FragmentInput {uv: !hir.vec2, tint: !hir.vec4}",
+            "  hir.stage_output @FragmentOutput {color: !hir.vec4}",
+            "  hir.stage_varying @uv : !hir.vec2 vertex.output -> fragment.input",
+            "  hir.stage_varying @tint : !hir.vec4 vertex.output -> fragment.input",
+            "  hir.fragment_output @color {location = 0} : !hir.vec4",
+            "  hir.return loc(return_statement)",
+            "  hir.source_location_anchor {source_file, shader_module, vertex_stage, fragment_stage, vertex_entry_point, fragment_entry_point, return_statement}",
+            "}",
+        ]
     lines = [
         f'hir.module @{module_name} attributes {{source = "{fixture_path}"}} {{',
         '  hir.compute_stage @compute attributes {stage = "compute"}',
@@ -332,6 +453,35 @@ def textual_module_skeleton(
     lines.extend(resource_lines(resource_facts))
     if "hir.if" in string_list(boundary_record.get("expectedOperations")):
         lines.append("  hir.if %branch_condition : !hir.bool { ... } else { ... }")
+    if "hir.texture_lod" in string_list(boundary_record.get("expectedOperations")):
+        lines.append(
+            "  %sample = hir.texture_lod @shadowMap, @comparisonSampler, "
+            "%uv, %lod : !hir.vec2, !hir.f32 -> !hir.vec4"
+        )
+    if "hir.image_load" in string_list(boundary_record.get("expectedOperations")):
+        load_image = storage_image_name_for_access(
+            resource_facts, {"read", "read_write"}, "colorImage"
+        )
+        lines.append(
+            f"  %pixel = hir.image_load @{load_image}, %xy : !hir.ivec2 -> !hir.vec4"
+        )
+    if "hir.image_store" in string_list(boundary_record.get("expectedOperations")):
+        store_image = storage_image_name_for_access(
+            resource_facts, {"write", "read_write"}, "colorImage"
+        )
+        lines.append(
+            f"  hir.image_store @{store_image}, %xy, %pixel : !hir.ivec2, !hir.vec4"
+        )
+    for operation in string_list(boundary_record.get("expectedOperations")):
+        if operation.startswith("hir.image_atomic."):
+            family = operation.removeprefix("hir.image_atomic.")
+            atomic_image = storage_image_name_for_access(
+                resource_facts, {"read_write"}, "signedCounters"
+            )
+            lines.append(
+                f"  %old_{family} = {operation} @{atomic_image}, %xy, %delta "
+                ": !hir.ivec2, !hir.i32 -> !hir.i32"
+            )
     lines.extend(
         [
             "  hir.return loc(return_statement)",
@@ -460,10 +610,30 @@ def derive_catalog(root: Path) -> dict[str, Any]:
     fixtures = derive_fixture_projection(fixture_inventory, manifest, boundary)
     operations = derive_operation_projection(boundary, manifest, fixtures)
     operation_names = [item["operation"] for item in operations]
-    resource_bound = [
+    storage_buffer_resource_bound = [
         item["path"]
         for item in fixtures
         if item.get("resourceFactMode") == "single-storage-buffer-binding"
+    ]
+    texture_sampler_resource_bound = [
+        item["path"]
+        for item in fixtures
+        if item.get("resourceFactMode") == "sampled-texture-sampler-binding"
+    ]
+    storage_image_resource_bound = [
+        item["path"]
+        for item in fixtures
+        if item.get("resourceFactMode") == "direct-storage-image-binding"
+    ]
+    resource_bound = [
+        item["path"]
+        for item in fixtures
+        if item.get("resourceFactMode")
+        in {
+            "single-storage-buffer-binding",
+            "direct-storage-image-binding",
+            "sampled-texture-sampler-binding",
+        }
     ]
     operation_prefix = source_authority.get("operationPrefix", "hir.")
     if not isinstance(operation_prefix, str):
@@ -517,6 +687,10 @@ def derive_catalog(root: Path) -> dict[str, Any]:
             "operationCount": len(operations),
             "resourceBoundFixtureCount": len(resource_bound),
             "resourceBoundFixtures": resource_bound,
+            "sampledTextureSamplerFixtureCount": len(texture_sampler_resource_bound),
+            "sampledTextureSamplerFixtures": texture_sampler_resource_bound,
+            "storageImageFixtureCount": len(storage_image_resource_bound),
+            "storageImageFixtures": storage_image_resource_bound,
             "fixtures": [item["path"] for item in fixtures],
             "operationNamingBoundary": {
                 "operationPrefix": operation_prefix,
@@ -554,8 +728,12 @@ def check_fixture_projection(
     if not isinstance(path, str) or not path:
         errors.append(f"{CATALOG_PATH}: fixtures[{index}].path invalid")
         path = ""
-    if record.get("stage") != "compute":
-        errors.append(f"{CATALOG_PATH}: fixtures[{index}].stage must be 'compute'")
+    stage = record.get("stage")
+    if stage not in {"compute", GRAPHICS_STAGE}:
+        errors.append(
+            f"{CATALOG_PATH}: fixtures[{index}].stage must be 'compute' "
+            f"or {GRAPHICS_STAGE!r}"
+        )
     if not isinstance(record.get("entryPoint"), str) or not record["entryPoint"]:
         errors.append(f"{CATALOG_PATH}: fixtures[{index}].entryPoint invalid")
     expected_operations = string_list(record.get("expectedOperations"))
@@ -575,12 +753,27 @@ def check_fixture_projection(
             f"{CATALOG_PATH}: fixtures[{index}].textualModuleSkeleton uses blocked namespace"
         )
     required_skeleton_tokens = (
-        "hir.module",
-        "hir.compute_stage",
-        "hir.entry_point",
-        "hir.workgroup_size",
-        "hir.return",
-        "hir.source_location_anchor",
+        (
+            "hir.module",
+            "hir.vertex_stage",
+            "hir.fragment_stage",
+            "hir.entry_point",
+            "hir.stage_input",
+            "hir.stage_output",
+            "hir.stage_varying",
+            "hir.fragment_output",
+            "hir.return",
+            "hir.source_location_anchor",
+        )
+        if stage == GRAPHICS_STAGE
+        else (
+            "hir.module",
+            "hir.compute_stage",
+            "hir.entry_point",
+            "hir.workgroup_size",
+            "hir.return",
+            "hir.source_location_anchor",
+        )
     )
     for token in required_skeleton_tokens:
         if not any(token in line for line in skeleton):
@@ -596,14 +789,27 @@ def check_fixture_projection(
         errors.append(
             f"{CATALOG_PATH}: fixtures[{index}].sourceResourcePreservation schema changed"
         )
-    for required_source_fact in (
-        "source_file",
-        "shader_module",
-        "compute_stage",
-        "entry_point",
-        "layout_local_size",
-        "return_statement",
-    ):
+    required_source_facts = (
+        (
+            "source_file",
+            "shader_module",
+            "vertex_stage",
+            "fragment_stage",
+            "vertex_entry_point",
+            "fragment_entry_point",
+            "return_statement",
+        )
+        if stage == GRAPHICS_STAGE
+        else (
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement",
+        )
+    )
+    for required_source_fact in required_source_facts:
         if required_source_fact not in string_list(
             preservation.get("sourceLocationFacts")
         ):
@@ -611,13 +817,18 @@ def check_fixture_projection(
                 f"{CATALOG_PATH}: fixtures[{index}] missing source fact "
                 f"{required_source_fact!r}"
             )
-    if "void_entry_point" not in string_list(
+    required_type_fact = (
+        "vertex_entry_point_io_structs"
+        if stage == GRAPHICS_STAGE
+        else "void_entry_point"
+    )
+    if required_type_fact not in string_list(
         preservation.get("targetIndependentTypeFacts")
     ):
         errors.append(
-            f"{CATALOG_PATH}: fixtures[{index}] missing void_entry_point type fact"
+            f"{CATALOG_PATH}: fixtures[{index}] missing {required_type_fact} type fact"
         )
-    if "resourceFacts.localSize" not in string_list(
+    if stage != GRAPHICS_STAGE and "resourceFacts.localSize" not in string_list(
         preservation.get("resourceFactFields")
     ):
         errors.append(f"{CATALOG_PATH}: fixtures[{index}] missing local size field")
@@ -652,6 +863,8 @@ def check_operation_projection(
         errors.append(f"{CATALOG_PATH}: operations[{index}].textualForm blocked")
     if record.get("emissionStatus") != "not-emitted-report-only":
         errors.append(f"{CATALOG_PATH}: operations[{index}].emissionStatus invalid")
+    operation_fixtures = string_list(record.get("fixtures"))
+    coverage_paths: list[str] = []
     for coverage_index, coverage in enumerate(
         require_list(
             record.get("fixtureCoverage"),
@@ -674,6 +887,7 @@ def check_operation_projection(
                 f"{CATALOG_PATH}: operations[{index}].fixtureCoverage[{coverage_index}].path invalid"
             )
             continue
+        coverage_paths.append(fixture_path)
         present = operation in expected_operations_by_fixture.get(fixture_path, [])
         if coverage_record.get("presentInBoundaryFixture") is not present:
             errors.append(
@@ -685,6 +899,12 @@ def check_operation_projection(
                 f"{CATALOG_PATH}: operations[{index}].fixtureCoverage[{coverage_index}] "
                 "missingRequiredFacts must be empty"
             )
+    compare_fields(
+        operation_fixtures,
+        coverage_paths,
+        f"operations[{index}].fixtures",
+        errors,
+    )
     return operation
 
 
@@ -789,6 +1009,43 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
         errors.append(f"{CATALOG_PATH}: coverageSummary.fixtureCount stale")
     if summary.get("operationCount") != len(operations):
         errors.append(f"{CATALOG_PATH}: coverageSummary.operationCount stale")
+    resource_bound_fixtures = [
+        path
+        for path, expected_operations in expected_operations_by_fixture.items()
+        if "hir.resource" in expected_operations
+    ]
+    sampled_texture_sampler_fixtures = [
+        path
+        for path, expected_operations in expected_operations_by_fixture.items()
+        if {
+            "hir.texture",
+            "hir.sampler",
+            "hir.texture_lod",
+        }
+        & set(expected_operations)
+    ]
+    if summary.get("resourceBoundFixtureCount") != len(resource_bound_fixtures):
+        errors.append(
+            f"{CATALOG_PATH}: coverageSummary.resourceBoundFixtureCount stale"
+        )
+    compare_fields(
+        string_list(summary.get("resourceBoundFixtures")),
+        resource_bound_fixtures,
+        "coverageSummary.resourceBoundFixtures",
+        errors,
+    )
+    if summary.get("sampledTextureSamplerFixtureCount") != len(
+        sampled_texture_sampler_fixtures
+    ):
+        errors.append(
+            f"{CATALOG_PATH}: coverageSummary.sampledTextureSamplerFixtureCount stale"
+        )
+    compare_fields(
+        string_list(summary.get("sampledTextureSamplerFixtures")),
+        sampled_texture_sampler_fixtures,
+        "coverageSummary.sampledTextureSamplerFixtures",
+        errors,
+    )
     compare_fields(
         string_list(summary.get("fixtures")),
         fixture_paths,
@@ -891,14 +1148,133 @@ def run_self_test() -> list[str]:
                     "allowedHirFamilies": ["module_stages_and_entry_points"],
                     "fixtures": ["tests/fixtures/Test.cgl"],
                     "requiredFixtureFacts": ["source_file", "shader_module"],
-                }
+                },
+                {
+                    "operation": "hir.vertex_stage",
+                    "role": "graphics vertex stage",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": ["vertex_stage", "vertex_entry_point"],
+                },
+                {
+                    "operation": "hir.fragment_stage",
+                    "role": "graphics fragment stage",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "fragment_stage",
+                        "fragment_entry_point",
+                    ],
+                },
+                {
+                    "operation": "hir.entry_point",
+                    "role": "graphics entry point",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "vertex_entry_point",
+                        "fragment_entry_point",
+                    ],
+                },
+                {
+                    "operation": "hir.stage_input",
+                    "role": "graphics stage input",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "vertex_stage_input",
+                        "fragment_stage_input",
+                        "vertex_entry_point_io_structs",
+                    ],
+                },
+                {
+                    "operation": "hir.stage_output",
+                    "role": "graphics stage output",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "vertex_stage_output",
+                        "fragment_stage_output",
+                        "fragment_entry_point_io_structs",
+                    ],
+                },
+                {
+                    "operation": "hir.stage_varying",
+                    "role": "graphics stage varying",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "vertex_stage_output",
+                        "fragment_stage_input",
+                    ],
+                },
+                {
+                    "operation": "hir.fragment_output",
+                    "role": "graphics fragment output",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": ["fragment_stage_output"],
+                },
+                {
+                    "operation": "hir.return",
+                    "role": "graphics return",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": ["return_statement"],
+                },
+                {
+                    "operation": "hir.source_location_anchor",
+                    "role": "graphics source location anchor",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "source_file",
+                        "shader_module",
+                        "vertex_stage",
+                        "fragment_stage",
+                    ],
+                },
             ],
             "fixtureBoundary": [
                 {
                     "path": "tests/fixtures/Test.cgl",
                     "expectedOperations": ["hir.module"],
                     "resourceFactMode": "empty-resource-facts",
-                }
+                },
+                {
+                    "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+                    "expectedOperations": [
+                        "hir.module",
+                        "hir.vertex_stage",
+                        "hir.fragment_stage",
+                        "hir.entry_point",
+                        "hir.stage_input",
+                        "hir.stage_output",
+                        "hir.stage_varying",
+                        "hir.fragment_output",
+                        "hir.return",
+                        "hir.source_location_anchor",
+                    ],
+                    "resourceFactMode": "empty-resource-facts",
+                },
             ],
         }
         fixture = {
@@ -909,7 +1285,13 @@ def run_self_test() -> list[str]:
                     "stage": "compute",
                     "entryPoint": "main",
                     "resourceFacts": {"localSize": [1, 1, 1]},
-                }
+                },
+                {
+                    "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+                    "stage": GRAPHICS_STAGE,
+                    "entryPoint": "main",
+                    "resourceFacts": {},
+                },
             ],
         }
         manifest = {
@@ -954,7 +1336,56 @@ def run_self_test() -> list[str]:
                             "ir/hir-source-map.json",
                         ],
                     },
-                }
+                },
+                {
+                    "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+                    "experimentSlice": "graphics-test",
+                    "loweringStatus": "eligible-report-only",
+                    "boundaryFactCoverage": {
+                        "sourceLocationFacts": [
+                            "source_file",
+                            "shader_module",
+                            "vertex_stage",
+                            "fragment_stage",
+                            "vertex_entry_point",
+                            "fragment_entry_point",
+                            "vertex_stage_input",
+                            "vertex_stage_output",
+                            "fragment_stage_input",
+                            "fragment_stage_output",
+                            "return_statement",
+                        ],
+                        "entryPointFacts": [
+                            "stage",
+                            "entryPoint",
+                            "sourceLocationFacts.shader_module",
+                            "sourceLocationFacts.vertex_stage",
+                            "sourceLocationFacts.fragment_stage",
+                            "sourceLocationFacts.vertex_entry_point",
+                            "sourceLocationFacts.fragment_entry_point",
+                            "typeFacts.vertex_entry_point_io_structs",
+                            "typeFacts.fragment_entry_point_io_structs",
+                        ],
+                        "targetIndependentTypeFacts": [
+                            "vertex_entry_point_io_structs",
+                            "fragment_entry_point_io_structs",
+                        ],
+                        "resourceFactFields": [
+                            "resourceFacts.descriptors",
+                            "resourceFacts.storageBuffers",
+                            "resourceFacts.storageImages",
+                            "resourceFacts.textures",
+                            "resourceFacts.samplers",
+                        ],
+                        "targetIndependentResourceMetadataFields": [
+                            "resourceFacts.targetIndependentResourceMetadata"
+                        ],
+                        "sourceMapDebugFacts": [
+                            "ir/debug-metadata.json",
+                            "ir/hir-source-map.json",
+                        ],
+                    },
+                },
             ],
         }
         write_json(root / BOUNDARY_PATH, boundary)
@@ -980,6 +1411,43 @@ def run_self_test() -> list[str]:
             "missingRequiredFacts must be empty" in error for error in missing_errors
         ):
             errors.append("self-test failed to catch missing fixture facts")
+
+        stale_coverage = copy.deepcopy(generated)
+        stale_coverage["operations"][0]["fixtureCoverage"] = []
+        stale_coverage_errors: list[str] = []
+        check_catalog_shape(stale_coverage, stale_coverage_errors)
+        if not any(
+            "operations[0].fixtures must be" in error for error in stale_coverage_errors
+        ):
+            errors.append("self-test failed to catch stale fixture coverage")
+
+        graphics_missing_fact = copy.deepcopy(generated)
+        graphics_missing_fact["operations"][1]["fixtureCoverage"][0][
+            "missingRequiredFacts"
+        ] = ["fragment_stage_input"]
+        graphics_missing_errors: list[str] = []
+        check_catalog_shape(graphics_missing_fact, graphics_missing_errors)
+        if not any(
+            "missingRequiredFacts must be empty" in error
+            for error in graphics_missing_errors
+        ):
+            errors.append("self-test failed to catch missing graphics stage facts")
+
+        graphics_missing_operation = copy.deepcopy(generated)
+        graphics_missing_operation["fixtures"][1]["textualModuleSkeleton"] = [
+            line
+            for line in graphics_missing_operation["fixtures"][1][
+                "textualModuleSkeleton"
+            ]
+            if "hir.stage_input" not in line
+        ]
+        graphics_operation_errors: list[str] = []
+        check_catalog_shape(graphics_missing_operation, graphics_operation_errors)
+        if not any(
+            "textualModuleSkeleton missing hir.stage_input" in error
+            for error in graphics_operation_errors
+        ):
+            errors.append("self-test failed to catch missing graphics stage op")
 
         stale_naming = copy.deepcopy(generated)
         stale_naming["coverageSummary"]["operationNamingBoundary"][

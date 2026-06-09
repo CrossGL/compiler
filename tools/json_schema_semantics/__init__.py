@@ -41,6 +41,7 @@ from . import package_verify_v1
 from . import reflection_v1
 from . import release_report_artifact_inventory_v1
 from . import release_provenance_manifest_v1
+from . import source_batch_result_v1
 from . import source_remap_v1
 from . import source_remap_provenance_v1
 from . import target_capability_registry_v1
@@ -69,6 +70,8 @@ def validate_semantics(instance, schema):
         return source_remap_v1.validate_semantics(instance)
     if schema_id.endswith("/source-remap-provenance-v1.schema.json"):
         return source_remap_provenance_v1.validate_semantics(instance)
+    if schema_id.endswith("/source-batch-result-v1.schema.json"):
+        return source_batch_result_v1.validate_semantics(instance)
     if schema_id.endswith("/debug-metadata-v10.schema.json"):
         return debug_metadata_v10.validate_semantics(instance)
     if schema_id.endswith("/debug-metadata-v11.schema.json"):

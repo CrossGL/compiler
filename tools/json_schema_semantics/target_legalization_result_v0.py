@@ -18,6 +18,7 @@ DIAGNOSTIC_SEVERITIES = {"error", "info", "warning"}
 TOOL_REQUIREMENT_KINDS = {"native-tool", "toolchain", "validation"}
 TOOL_REQUIREMENT_STATUSES = {"missing", "required"}
 OPTIONAL_NATIVE_TOOL_STATUSES = {"available", "missing", "not-required"}
+REWRITE_STATUSES = {"applied", "blocked", "not-required", "planned"}
 SUCCESS_PROVENANCE_BY_PACKAGE_MODE = {
     "native": "native-package-available",
     "source-package": "source-package-only",
@@ -134,6 +135,46 @@ def validate_target_profile(errors, result, *, target: str, package_mode: str) -
             "$.result.targetProfile.packageMode: expected "
             f"{package_mode!r}, got {profile.get('packageMode')!r}"
         )
+    resolved_target = profile.get("resolvedTarget")
+    if resolved_target is not None and resolved_target != target:
+        errors.append(
+            "$.result.targetProfile.resolvedTarget: expected "
+            f"{target!r}, got {resolved_target!r}"
+        )
+    selected_target = profile.get("selectedTarget")
+    if selected_target is not None and selected_target != target:
+        errors.append(
+            "$.result.targetProfile.selectedTarget: expected "
+            f"{target!r}, got {selected_target!r}"
+        )
+    requested_target = profile.get("requestedTarget")
+    auto_requested = profile.get("autoRequested")
+    if isinstance(auto_requested, bool) and isinstance(requested_target, str):
+        if auto_requested != (requested_target == "auto"):
+            errors.append(
+                "$.result.targetProfile.autoRequested: expected to match "
+                "requestedTarget == 'auto'"
+            )
+    selection_reason = profile.get("selectionReason")
+    if (
+        isinstance(selection_reason, str)
+        and isinstance(requested_target, str)
+        and requested_target != "auto"
+        and selection_reason != "explicit-target"
+    ):
+        errors.append(
+            "$.result.targetProfile.selectionReason: explicit requested "
+            "targets must use 'explicit-target'"
+        )
+    if (
+        isinstance(selection_reason, str)
+        and requested_target == "auto"
+        and selection_reason == "explicit-target"
+    ):
+        errors.append(
+            "$.result.targetProfile.selectionReason: auto requested targets "
+            "must not use 'explicit-target'"
+        )
 
 
 def validate_core_evidence(
@@ -241,6 +282,43 @@ def validate_support_and_package_state(
 
     if package_mode is None or package_decision_provenance is None:
         return
+
+    support_status = result.get("supportStatus")
+    expected_support_status = package_mode
+    if support_status != expected_support_status:
+        errors.append(
+            "$.result.supportStatus: expected "
+            f"{expected_support_status!r}, got {support_status!r}"
+        )
+
+    expected_package_artifact = {
+        "native": f"{target}.package.native-artifact",
+        "source-package": f"{target}.package.source-artifact",
+    }.get(package_mode)
+    required_capabilities = set(
+        validate_capability_ids(
+            errors,
+            "$.result.requiredCapabilities",
+            result.get("requiredCapabilities"),
+            target=target,
+        )
+    )
+    package_artifact_capabilities = {
+        capability
+        for capability in required_capabilities
+        if capability.startswith(f"{target}.package.")
+    }
+    if expected_package_artifact is None:
+        for capability in sorted(package_artifact_capabilities):
+            errors.append(
+                "$.result.requiredCapabilities: unsupported packageMode must not "
+                f"declare package artifact capability ID {capability!r}"
+            )
+    elif expected_package_artifact not in package_artifact_capabilities:
+        errors.append(
+            "$.result.requiredCapabilities: missing package artifact capability "
+            f"ID {expected_package_artifact!r} for packageMode {package_mode!r}"
+        )
 
     expected_provenance = SUCCESS_PROVENANCE_BY_PACKAGE_MODE.get(package_mode)
     if (
@@ -606,16 +684,75 @@ def validate_tool_requirements(
     )
 
 
-def validate_abi_facts(
+def validate_rewrites(
     errors,
     result,
     *,
     target: str,
     top_level_evidence: set[str],
 ) -> None:
+    rewrites = result.get("rewrites")
+    if not isinstance(rewrites, list):
+        return
+
+    for index, rewrite in enumerate(rewrites):
+        path = f"$.result.rewrites[{index}]"
+        if not isinstance(rewrite, dict):
+            continue
+        order = rewrite.get("order")
+        if isinstance(order, int) and order != index:
+            errors.append(f"{path}.order: expected {index}, got {order}")
+
+        status = rewrite.get("status")
+        evidence_ids = validate_evidence_ids(
+            errors,
+            f"{path}.evidenceIds",
+            rewrite.get("evidenceIds"),
+            target=target,
+            top_level_evidence=top_level_evidence,
+        )
+        if status not in REWRITE_STATUSES:
+            continue
+        expected_suffix = f"rewrite.{status}"
+        if not any(
+            (suffix := evidence_suffix(item, target)) == expected_suffix
+            or (suffix is not None and suffix.startswith(f"{expected_suffix}."))
+            for item in evidence_ids
+        ):
+            errors.append(
+                f"{path}.evidenceIds: evidence ID list is not compatible with "
+                f"rewrite status {status!r}"
+            )
+
+
+def validate_abi_facts(
+    errors,
+    result,
+    *,
+    target: str,
+    module_supported: bool | None,
+    top_level_evidence: set[str],
+) -> None:
     abi_facts = result.get("abiFacts")
     if not isinstance(abi_facts, dict):
         return
+
+    state = abi_facts.get("state")
+    facts = abi_facts.get("facts")
+    if module_supported is False and state == "complete":
+        errors.append(
+            "$.result.abiFacts.state: unsupported modules cannot claim 'complete'"
+        )
+    if state == "complete" and isinstance(facts, list):
+        has_non_missing_support = any(
+            isinstance(fact, dict) and fact.get("status") in {"provided", "required"}
+            for fact in facts
+        )
+        if not has_non_missing_support:
+            errors.append(
+                "$.result.abiFacts.state: complete ABI facts require at least "
+                "one fact with non-missing support status"
+            )
 
     parent_evidence = set(
         validate_evidence_ids(
@@ -641,7 +778,6 @@ def validate_abi_facts(
             "$.result.abiFacts.evidenceIds: expected at least one ABI evidence ID"
         )
 
-    facts = abi_facts.get("facts")
     if not isinstance(facts, list):
         return
     for index, fact in enumerate(facts):
@@ -666,6 +802,36 @@ def validate_abi_facts(
                     f"$.result.abiFacts.facts[{index}].evidenceIds: evidence ID "
                     f"{item!r} is not ABI evidence"
                 )
+
+
+def validate_resource_binding_evidence(
+    errors,
+    result,
+    *,
+    target: str,
+    top_level_evidence: set[str],
+) -> None:
+    resource_binding_evidence = set(
+        validate_evidence_ids(
+            errors,
+            "$.result.resourceBindingEvidenceIds",
+            result.get("resourceBindingEvidenceIds"),
+            target=target,
+            top_level_evidence=top_level_evidence,
+        )
+    )
+    for item in sorted(top_level_evidence):
+        suffix = evidence_suffix(item, target)
+        if (
+            suffix is not None
+            and suffix.startswith("resource-bindings.")
+            and item not in resource_binding_evidence
+        ):
+            errors.append(
+                "$.result.resourceBindingEvidenceIds: top-level resource "
+                f"binding evidence ID {item!r} is not listed in "
+                "$.result.resourceBindingEvidenceIds"
+            )
 
 
 def validate_result(errors, result) -> None:
@@ -762,7 +928,20 @@ def validate_result(errors, result) -> None:
         missing_capabilities=missing_capabilities,
         top_level_evidence=top_level_evidence,
     )
+    validate_rewrites(
+        errors,
+        result,
+        target=target,
+        top_level_evidence=top_level_evidence,
+    )
     validate_abi_facts(
+        errors,
+        result,
+        target=target,
+        module_supported=module_supported_value,
+        top_level_evidence=top_level_evidence,
+    )
+    validate_resource_binding_evidence(
         errors,
         result,
         target=target,

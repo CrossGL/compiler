@@ -1,0 +1,1 @@
+$.targets[0]: normalized legalization fields require tool requirement fields, missing ['missingToolCount', 'missingToolIds', 'optionalNativeToolMissing', 'optionalNativeToolStatus', 'requiredToolCount', 'requiredToolIds', 'toolRequirementEvidenceIds']

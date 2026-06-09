@@ -64,6 +64,24 @@
         "opengl"
       ]
     },
+    "targetNameOrAuto": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "targetSelectionReason": {
+      "type": "string",
+      "enum": [
+        "auto-host-default",
+        "auto-recommended-target",
+        "explicit-target"
+      ]
+    },
     "packageMode": {
       "type": "string",
       "enum": [
@@ -204,6 +222,27 @@
       "properties": {
         "target": {
           "$ref": "#/$defs/targetName"
+        },
+        "requestedTarget": {
+          "$ref": "#/$defs/targetNameOrAuto"
+        },
+        "preferredTarget": {
+          "$ref": "#/$defs/targetName"
+        },
+        "resolvedTarget": {
+          "$ref": "#/$defs/targetName"
+        },
+        "selectedTarget": {
+          "$ref": "#/$defs/targetName"
+        },
+        "selectionReason": {
+          "$ref": "#/$defs/targetSelectionReason"
+        },
+        "autoRequested": {
+          "type": "boolean"
+        },
+        "selectedTargetBuildable": {
+          "type": "boolean"
         },
         "profile": {
           "type": "string",

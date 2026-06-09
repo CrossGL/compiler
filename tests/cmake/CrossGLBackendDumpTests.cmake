@@ -1,5 +1,32 @@
 add_test(NAME cglc_dump_backend_metal
   COMMAND cglc dump-ir ${CROSSGL_SIMPLE_SHADER} --stage backend --target metal)
+set(CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX [=[for \(; true; \) \{.*for \(; value < 4; \) \{.*for \(int i = 0; true; i\+\+\) \{]=])
+set(CROSSGL_SOURCE_DO_WHILE_LOWERING_REGEX [=[for \(; true; \) \{.*value = value \+ 1;.*if \(value < 2\) \{.*if \(value >= 4\) \{.*break;.*continue;.*total = total \+ float\(value\);.*if \(value >= 4\) \{.*break;]=])
+set(CROSSGL_SOURCE_SWITCH_IF_CHAIN_REGEX [=[int __crossgl_selector = mode;.*if \(__crossgl_selector == 0\) \{.*total = 1;.*\} else \{.*if \(__crossgl_selector == 1\) \{.*total = 2;.*\} else \{.*total = 3;]=])
+add_test(NAME cglc_dump_backend_metal_for_omitted_header
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_metal_do_while_lowering
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_DO_WHILE_LOWERING_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_metal_switch_if_chain
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_COMPUTE_SHADER}
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_SWITCH_IF_CHAIN_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_METAL_FLOAT_EQUALITY_NEGATION_REGEX [=[bool equalityNegationFloat = \(dynamicFloat != 31\.0\);.*bool inequalityNegationFloat = \(dynamicFloat == 32\.0\);]=])
 add_test(NAME cglc_dump_backend_metal_float_equality_negation
   COMMAND ${CMAKE_COMMAND}
@@ -191,6 +218,33 @@ add_test(NAME cglc_dump_backend_metal_atomic_minmax_lowering
     -DMODE=dump-backend
     "-DMUST_CONTAIN=${CROSSGL_METAL_ATOMIC_MINMAX_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_METAL_ATOMIC_MINMAX_RETURN_REGEX [=[kernel void compute_main\(uint3 gl_GlobalInvocationID \[\[thread_position_in_grid\]\], uint3 gl_LocalInvocationID \[\[thread_position_in_threadgroup\]\], device atomic_int\* counters \[\[buffer\(0\)\]\], device atomic_uint\* unsignedCounters \[\[buffer\(1\)\]\], device CompatCounters\* compatCounters \[\[buffer\(2\)\]\], device int\* observed \[\[buffer\(3\)\]\], device uint\* unsignedObserved \[\[buffer\(4\)\]\]\) \{
+  threadgroup atomic_int tile\[GROUP_SIZE\];
+  threadgroup atomic_uint unsignedTile\[GROUP_SIZE\];
+  uint index = gl_LocalInvocationID\.x;
+  uint globalIndex = gl_GlobalInvocationID\.x;
+  int value = int\(gl_LocalInvocationID\.x\) \+ 1;
+  uint unsignedValue = globalIndex \+ 1;
+  int oldMin = atomic_fetch_min_explicit\(&counters\[index\], value, memory_order_relaxed\);
+  int oldMax = atomic_fetch_max_explicit\(&counters\[index\], value, memory_order_relaxed\);
+  oldMin = atomic_fetch_min_explicit\(&counters\[index\], 1, memory_order_relaxed\);
+  oldMax = atomic_fetch_max_explicit\(&counters\[index\], 2, memory_order_relaxed\);
+  uint oldUnsignedMin = atomic_fetch_min_explicit\(&unsignedCounters\[index\], unsignedValue, memory_order_relaxed\);
+  uint oldUnsignedMax = atomic_fetch_max_explicit\(&unsignedCounters\[index\], unsignedValue, memory_order_relaxed\);
+  int oldShared = atomic_fetch_min_explicit\(&tile\[index\], value, memory_order_relaxed\);
+  uint oldUnsignedShared = atomic_fetch_max_explicit\(&unsignedTile\[index\], unsignedValue, memory_order_relaxed\);
+  int oldCompat = atomic_fetch_max_explicit\(reinterpret_cast<device atomic_int\*>\(&compatCounters\[index\]\.active_count\), 1, memory_order_relaxed\);
+  uint oldCompatU = atomic_fetch_min_explicit\(reinterpret_cast<device atomic_uint\*>\(&compatCounters\[index\]\.spawn_count\), unsignedValue, memory_order_relaxed\);
+  atomic_fetch_min_explicit\(&counters\[index\], value, memory_order_relaxed\);
+  atomic_fetch_max_explicit\(&unsignedCounters\[index\], unsignedValue, memory_order_relaxed\);]=])
+add_test(NAME cglc_dump_backend_metal_atomic_minmax_return_lowering
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalAtomicMinMaxReturnShader.cgl
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_METAL_ATOMIC_MINMAX_RETURN_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_METAL_ATOMIC_EXCHANGE_REGEX [=[kernel void compute_main\(uint3 gl_GlobalInvocationID \[\[thread_position_in_grid\]\], uint3 gl_LocalInvocationID \[\[thread_position_in_threadgroup\]\], device atomic_int\* counters \[\[buffer\(0\)\]\], device atomic_uint\* unsignedCounters \[\[buffer\(1\)\]\], device CompatCounters\* compatCounters \[\[buffer\(2\)\]\], device int\* values \[\[buffer\(3\)\]\], device uint\* unsignedValues \[\[buffer\(4\)\]\]\) \{
   threadgroup atomic_int tile\[GROUP_SIZE\];
   threadgroup atomic_uint unsignedTile\[GROUP_SIZE\];
@@ -246,6 +300,30 @@ add_test(NAME cglc_dump_backend_metal_atomic_bitwise_lowering
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_vulkan
   COMMAND cglc dump-ir ${CROSSGL_SIMPLE_SHADER} --stage backend --target vulkan)
+add_test(NAME cglc_dump_backend_vulkan_for_omitted_header_debug_projection
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DTARGET=vulkan
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=crossgl.for condition \"true\"[^\n]*\n        crossgl.assign \"value\" = \"value \\+ 1\"[^\n]*\n.*crossgl.for condition \"value < 4\"[^\n]*\n        crossgl.assign \"value\" = \"value \\+ 1\"[^\n]*\n.*crossgl.for condition \"true\" update \"i\\+\\+\""
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_vulkan_do_while_debug_projection
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DTARGET=vulkan
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=crossgl.for condition \"true\"[^\n]*\n        crossgl.assign \"value\" = \"value \\+ 1\"[^\n]*\n        crossgl.if condition \"value < 2\"[^\n]*\n.*crossgl.if condition \"value >= 4\"[^\n]*\n              crossgl.break[^\n]*\n.*crossgl.continue[^\n]*\n.*crossgl.assign \"total\" = \"total \\+ float\\(value\\)\"[^\n]*\n        crossgl.if condition \"value >= 4\""
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_vulkan_switch_debug_projection
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_COMPUTE_SHADER}
+    -DTARGET=vulkan
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=crossgl.block[^\n]*\n        crossgl.decl %__crossgl_selector : !crossgl.i32 = \"mode\"[^\n]*\n        crossgl.if condition \"__crossgl_selector == 0\"[^\n]*\n          crossgl.assign \"total\" = \"1\"[^\n]*\n        \\} else \\{[^\n]*\n          crossgl.if condition \"__crossgl_selector == 1\"[^\n]*\n            crossgl.assign \"total\" = \"2\"[^\n]*\n          \\} else \\{[^\n]*\n            crossgl.assign \"total\" = \"3\""
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_vulkan_resources
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -377,7 +455,7 @@ add_test(NAME cglc_dump_backend_vulkan_runtime_texture_sampler_descriptor_array
     -DMODE=dump-backend
     "-DMUST_CONTAIN=${CROSSGL_VULKAN_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-set(CROSSGL_VULKAN_RUNTIME_TEXTURE_SAMPLER_NONUNIFORM_DESCRIPTOR_ARRAY_REGEX [=[vulkan.descriptor @maps set 0 binding 1 descriptor_type "VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE" storage_class "UniformConstant" binding_class "sampledImage" spirv_type "OpTypeRuntimeArray<OpTypeImage<float, 2D, sampled=1>>" descriptor_array_size "".*vulkan.descriptor @linearSamplers set 0 binding 2 descriptor_type "VK_DESCRIPTOR_TYPE_SAMPLER" storage_class "UniformConstant" binding_class "sampler" spirv_type "OpTypeRuntimeArray<OpTypeSampler>" descriptor_array_size "".*vulkan.descriptor @descriptors set 0 binding 3 descriptor_type "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER" storage_class "StorageBuffer" binding_class "storageBuffer" spirv_type "OpTypeRuntimeArray<int>".*crossgl\.resource @maps : !crossgl\.array<!crossgl\.texture<2d, f32>, >.*crossgl\.resource @linearSamplers : !crossgl\.array<!crossgl\.sampler, >.*crossgl\.resource @descriptors : !crossgl\.ptr<!crossgl\.i32>.*texture_sample_lod\(maps\[nonuniform\(descriptor\)\], linearSamplers\[nonuniform\(descriptor\)\], vec2\(0\.25, 0\.75\), 0\.0\)]=])
+set(CROSSGL_VULKAN_RUNTIME_TEXTURE_SAMPLER_NONUNIFORM_DESCRIPTOR_ARRAY_REGEX [=[vulkan.descriptor @maps set 0 binding 1 descriptor_type "VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE" storage_class "UniformConstant" binding_class "sampledImage" spirv_type "OpTypeRuntimeArray<OpTypeImage<float, 2D, sampled=1>>" descriptor_array_size "".*vulkan.descriptor @linearSamplers set 0 binding 2 descriptor_type "VK_DESCRIPTOR_TYPE_SAMPLER" storage_class "UniformConstant" binding_class "sampler" spirv_type "OpTypeRuntimeArray<OpTypeSampler>" descriptor_array_size "".*vulkan.descriptor @descriptors set 0 binding 3 descriptor_type "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER" storage_class "StorageBuffer" binding_class "storageBuffer" spirv_type "OpTypeRuntimeArray<int>".*spirv.Capability RuntimeDescriptorArrayEXT.*spirv.Capability ShaderNonUniformEXT.*spirv.Capability SampledImageArrayNonUniformIndexingEXT.*spirv.Extension "SPV_EXT_descriptor_indexing".*crossgl\.resource @maps : !crossgl\.array<!crossgl\.texture<2d, f32>, >.*crossgl\.resource @linearSamplers : !crossgl\.array<!crossgl\.sampler, >.*crossgl\.resource @descriptors : !crossgl\.ptr<!crossgl\.i32>.*texture_sample_lod\(maps\[nonuniform\(descriptor\)\], linearSamplers\[nonuniform\(descriptor\)\], vec2\(0\.25, 0\.75\), 0\.0\)]=])
 add_test(NAME cglc_dump_backend_vulkan_runtime_texture_sampler_nonuniform_descriptor_array
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -465,6 +543,30 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
 endif()
 add_test(NAME cglc_dump_backend_directx
   COMMAND cglc dump-ir ${CROSSGL_SIMPLE_SHADER} --stage backend --target directx)
+add_test(NAME cglc_dump_backend_directx_for_omitted_header
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_directx_do_while_lowering
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_DO_WHILE_LOWERING_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_directx_switch_if_chain
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_SWITCH_IF_CHAIN_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_FLOAT_EQUALITY_NEGATION_REGEX [=[bool equalityNegationFloat = \(dynamicFloat != 31\.0\);.*bool inequalityNegationFloat = \(dynamicFloat == 32\.0\);]=])
 add_test(NAME cglc_dump_backend_directx_float_equality_negation
   COMMAND ${CMAKE_COMMAND}
@@ -544,6 +646,15 @@ add_test(NAME cglc_dump_backend_directx_graphics_resource_declarations
     -DTARGET=directx
     -DMODE=dump-backend
     "-DMUST_CONTAIN=${CROSSGL_DIRECTX_GRAPHICS_RESOURCES_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_REGEX [=[RWStructuredBuffer<float4> debugValues\[2\] : register\(u2, space0\);.*float4 first = debugValues\[0\]\[0\];.*debugValues\[1\]\[0\] = first \+ debugValues\[1\]\[1\];.*output\.color = debugValues\[1\]\[0\];]=])
+add_test(NAME cglc_dump_backend_directx_graphics_storage_buffer_descriptor_array
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_SHADER}
+    -DTARGET=directx
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_GRAPHICS_SHADOW_COMPARE_LOD_REGEX [=[Texture2D<float> shadowMap : register\(t2, space1\);
 SamplerComparisonState shadowSampler : register\(s3, space1\);.*float visibility = shadowMap\.SampleCmpLevel\(shadowSampler, input\.uv, 0\.5, 2\.0\);]=])
@@ -829,6 +940,30 @@ add_test(NAME cglc_dump_backend_directx_atomic_bitwise_groupshared_capture
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_opengl
   COMMAND cglc dump-ir ${CROSSGL_SIMPLE_SHADER} --stage backend --target opengl)
+add_test(NAME cglc_dump_backend_opengl_for_omitted_header
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_FOR_OMITTED_HEADER_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_opengl_do_while_lowering
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_DO_WHILE_LOWERING_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_opengl_switch_if_chain
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_SOURCE_SWITCH_IF_CHAIN_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_OPENGL_FLOAT_EQUALITY_NEGATION_REGEX [=[bool equalityNegationFloat = \(dynamicFloat != 31\.0\);.*bool inequalityNegationFloat = \(dynamicFloat == 32\.0\);]=])
 add_test(NAME cglc_dump_backend_opengl_float_equality_negation
   COMMAND ${CMAKE_COMMAND}
@@ -1972,15 +2107,14 @@ add_test(NAME cglc_dump_backend_directx_mixed_sampler_array_usage_scaffold
     -DMODE=dump-backend
     "-DMUST_CONTAIN=SamplerComparisonState sharedSamplers_cglComparison\\[SAMPLER_COUNT\\] : register\\(s5, space0\\);"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_dump_backend_directx_function_parameter_array_unsupported_scaffold
+add_test(NAME cglc_dump_backend_directx_function_parameter_struct_array_scaffold
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_ARRAY_UNSUPPORTED_SHADER}
     -DTARGET=directx
-    -DSTAGE=backend
-    -DMODE=dump-stage-failure
-    -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-call-feature
-    "-DEXPECTED_STDERR_FRAGMENT=TargetLegalizationResult: state=rejected"
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=void consumePayloads\\(Payload payloads\\[COUNT\\]\\)"
+    "-DMUST_CONTAIN=consumePayloads\\(particles\\[0\\]\\.payloads\\)"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_opengl_function_parameter_struct_array_scaffold
   COMMAND ${CMAKE_COMMAND}
@@ -2057,12 +2191,12 @@ add_test(NAME cglc_dump_backend_opengl_dynamic_nested_local_function_parameter_a
 add_test(NAME cglc_dump_backend_opengl_function_parameter_array_write_scaffold
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
+    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
     -DTARGET=opengl
-    -DSTAGE=backend
-    -DMODE=dump-stage-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-write
-    "-DEXPECTED_STDERR_FRAGMENT=TargetLegalizationResult: state=rejected"
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=float crossgl_param_array_writeback_0_rewriteWeight_weights\\[COUNT\\]"
+    "-DMUST_CONTAIN=float value = rewriteWeight\\(crossgl_param_array_writeback_0_rewriteWeight_weights\\);"
+    "-DMUST_CONTAIN=particles\\[0\\]\\.weights\\[crossgl_param_array_writeback_0_rewriteWeight_weights_i\\] = crossgl_param_array_writeback_0_rewriteWeight_weights\\[crossgl_param_array_writeback_0_rewriteWeight_weights_i\\];"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_opengl_nested_function_parameter_array_write_scaffold
   COMMAND ${CMAKE_COMMAND}
@@ -2071,6 +2205,17 @@ add_test(NAME cglc_dump_backend_opengl_nested_function_parameter_array_write_sca
     -DTARGET=opengl
     -DMODE=dump-backend
     "-DMUST_CONTAIN=float rewriteGrid\\(float grid\\[ROWS\\]\\[COLS\\]\\).*grid\\[1\\]\\[2\\] = grid\\[0\\]\\[0\\] \\+ 1\\.0;"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_opengl_nested_storage_function_parameter_array_write_scaffold
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_NESTED_STORAGE_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
+    -DTARGET=opengl
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=float crossgl_param_array_writeback_0_rewriteGrid_grid\\[ROWS\\]\\[COLS\\]"
+    "-DMUST_CONTAIN=for \\(int crossgl_param_array_writeback_0_rewriteGrid_grid_i0 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i0 < ROWS;"
+    "-DMUST_CONTAIN=for \\(int crossgl_param_array_writeback_0_rewriteGrid_grid_i1 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i1 < COLS;"
+    "-DMUST_CONTAIN=float selected = rewriteGrid\\(crossgl_param_array_writeback_0_rewriteGrid_grid\\);"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_metal_function_parameter_array_write_scaffold
   COMMAND ${CMAKE_COMMAND}
@@ -2087,6 +2232,22 @@ add_test(NAME cglc_dump_backend_metal_nested_function_parameter_array_write_scaf
     -DTARGET=metal
     -DMODE=dump-backend
     "-DMUST_CONTAIN=float rewriteGrid\\(array<array<float, COLS>, ROWS> grid\\).*grid\\[1\\]\\[2\\] = grid\\[0\\]\\[0\\] \\+ 1\\.0;"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_metal_dynamic_nested_matrix_function_parameter_array_write_scaffold
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.cgl
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=float2x2 rewriteGrid\\(array<array<float2x2, COLS>, ROWS> grid, int row, int col\\).*grid\\[row\\]\\[col\\] = grid\\[0\\]\\[0\\];"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_metal_dynamic_nested_struct_function_parameter_array_write_scaffold
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedStructFunctionParameterArrayWriteShader.cgl
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=Payload rewriteGrid\\(array<array<Payload, COLS>, ROWS> grid, int row, int col, Payload replacement\\).*grid\\[row\\]\\[col\\] = replacement;"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_opengl_mixed_sampler_array_usage_scaffold
   COMMAND ${CMAKE_COMMAND}

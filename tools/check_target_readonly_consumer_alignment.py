@@ -10,7 +10,9 @@ new JSON shape.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -32,6 +34,72 @@ SOURCE_PACKAGE_OPTIONAL_NATIVE_CAPABILITIES = {
     ),
 }
 
+REGISTRY_PATH = Path("docs/target-capability-registry-v1.json")
+CPP_TARGET_CAPABILITIES_PATH = Path("src/Backend/TargetCapabilities.cpp")
+PACKAGE_TARGET_CONTRACTS_PATH = Path("tools/package_target_contracts.json")
+PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE = "tools/package_target_contracts.json"
+TARGET_KIND_NAMES = {
+    "Metal": "metal",
+    "Vulkan": "vulkan",
+    "DirectX": "directx",
+    "OpenGL": "opengl",
+}
+TOOL_REQUIREMENT_KINDS = {"toolchain", "validation", "native-tool", "nativeTool"}
+
+CPP_REGISTRY_CONTRACT_RE = re.compile(
+    r"TargetCapabilityRegistryContract\{\s*"
+    r"TargetKind::(?P<kind>[A-Za-z0-9_]+)\s*,\s*"
+    r'"(?P<package_mode>[^"]+)"\s*,\s*'
+    r'"(?P<native_support_class>[^"]+)"\s*,\s*'
+    r'"(?P<baseline_backend_capability>[^"]+)"\s*,\s*'
+    r'"(?P<native_artifact_capability>[^"]+)"\s*,\s*'
+    r"(?P<native_implemented>true|false)\s*,\s*"
+    r"(?P<source_package_selectable>true|false)\s*"
+    r"\}",
+    re.MULTILINE,
+)
+
+
+@dataclass(frozen=True)
+class CppTargetRegistryContract:
+    target: str
+    package_mode: str
+    native_support_class: str
+    baseline_backend_capability_name: str
+    native_artifact_capability: str
+    native_implemented: bool
+    source_package_selectable: bool
+
+    @property
+    def baseline_backend_capability(self) -> str:
+        return f"{self.target}.backend.{self.baseline_backend_capability_name}"
+
+    @property
+    def package_build_supported(self) -> bool:
+        return self.native_implemented or self.source_package_selectable
+
+    @property
+    def admitted_package_modes(self) -> list[str]:
+        if not self.package_build_supported:
+            return []
+        return [self.package_mode]
+
+    @property
+    def package_decision_reason(self) -> str:
+        if self.package_mode == "native":
+            return "native-package-available"
+        if self.package_mode == "source-package":
+            return "source-package-available"
+        return "unsupported"
+
+    @property
+    def package_rank_score(self) -> int:
+        if self.package_mode == "native":
+            return 0
+        if self.package_mode == "source-package":
+            return 1
+        return 2
+
 
 @dataclass(frozen=True)
 class TargetExpectation:
@@ -40,6 +108,7 @@ class TargetExpectation:
     source_package_supported: bool
     package_mode: str
     missing_capabilities: tuple[str, ...]
+    required_capabilities: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -50,6 +119,7 @@ class AlignmentCase:
     recommended_target: str | None = None
     recommended_package_mode: str | None = None
     package_readonly_target: str | None = None
+    registry_contract_fixture: bool = False
 
 
 def run(command: list[Path | str], cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -93,6 +163,183 @@ def load_cli_json(
     return parsed
 
 
+def load_json_document(errors: list[str], case_name: str, path: Path) -> dict[str, Any]:
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            parsed = json.load(handle)
+    except OSError as exc:
+        fail(errors, case_name, f"{path}: failed to read JSON: {exc}")
+        return {}
+    except json.JSONDecodeError as exc:
+        fail(
+            errors,
+            case_name,
+            f"{path}: invalid JSON at line {exc.lineno}, column {exc.colno}: {exc.msg}",
+        )
+        return {}
+    if not isinstance(parsed, dict):
+        fail(errors, case_name, f"{path}: JSON root must be an object")
+        return {}
+    return parsed
+
+
+def import_module_from_path(module_name: str, path: Path) -> Any:
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load module {module_name!r} from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def registry_targets_by_name(
+    errors: list[str], case_name: str, registry: dict[str, Any]
+) -> dict[str, dict[str, Any]]:
+    targets = registry.get("targets")
+    if not isinstance(targets, list):
+        fail(errors, case_name, "registry.targets must be an array")
+        return {}
+    by_target: dict[str, dict[str, Any]] = {}
+    for index, record in enumerate(targets):
+        if not isinstance(record, dict) or not isinstance(record.get("target"), str):
+            fail(
+                errors, case_name, f"registry.targets[{index}] must be a target object"
+            )
+            continue
+        target = record["target"]
+        if target in by_target:
+            fail(errors, case_name, f"registry target {target!r} is duplicated")
+            continue
+        by_target[target] = record
+    return by_target
+
+
+def parse_cpp_registry_contracts(
+    errors: list[str], case_name: str, root: Path
+) -> dict[str, CppTargetRegistryContract]:
+    path = root / CPP_TARGET_CAPABILITIES_PATH
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        fail(errors, case_name, f"{path}: failed to read C++ source: {exc}")
+        return {}
+
+    contracts: dict[str, CppTargetRegistryContract] = {}
+    for match in CPP_REGISTRY_CONTRACT_RE.finditer(source):
+        kind = match.group("kind")
+        target = TARGET_KIND_NAMES.get(kind)
+        if target is None:
+            fail(errors, case_name, f"{path}: unknown TargetKind::{kind}")
+            continue
+        if target in contracts:
+            fail(errors, case_name, f"{path}: duplicate C++ contract for {target}")
+            continue
+        contracts[target] = CppTargetRegistryContract(
+            target=target,
+            package_mode=match.group("package_mode"),
+            native_support_class=match.group("native_support_class"),
+            baseline_backend_capability_name=match.group("baseline_backend_capability"),
+            native_artifact_capability=match.group("native_artifact_capability"),
+            native_implemented=match.group("native_implemented") == "true",
+            source_package_selectable=(
+                match.group("source_package_selectable") == "true"
+            ),
+        )
+    if not contracts:
+        fail(errors, case_name, f"{path}: no C++ target registry contracts found")
+    return contracts
+
+
+def parse_cpp_baseline_capabilities(
+    errors: list[str], case_name: str, root: Path
+) -> dict[str, list[str]]:
+    path = root / CPP_TARGET_CAPABILITIES_PATH
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        fail(errors, case_name, f"{path}: failed to read C++ source: {exc}")
+        return {}
+
+    baselines: dict[str, list[str]] = {}
+    for kind, target in TARGET_KIND_NAMES.items():
+        case_match = re.search(
+            rf"case TargetKind::{kind}:\s*(?P<body>.*?)\s*return;",
+            source,
+            re.DOTALL,
+        )
+        if case_match is None:
+            fail(errors, case_name, f"{path}: missing baseline case for {target}")
+            continue
+        capabilities = [
+            f"{target}.{capability_kind}.{capability_name}"
+            for capability_kind, capability_name in re.findall(
+                r'collector\.add\("([^"]+)"\s*,\s*"([^"]+)"\);',
+                case_match.group("body"),
+            )
+        ]
+        if not capabilities:
+            fail(errors, case_name, f"{path}: no baseline capabilities for {target}")
+            continue
+        baselines[target] = capabilities
+    return baselines
+
+
+def normalize_package_contract_entry(entry: Any) -> dict[str, Any]:
+    return {
+        "target": entry["target"],
+        "requiredPathArtifacts": list(entry["requiredPathArtifacts"]),
+        "requiresNativeBinaryStatus": bool(entry["requiresNativeBinaryStatus"]),
+        "allowsPlannedNativeBinary": bool(entry["allowsPlannedNativeBinary"]),
+        "allowsPlannedNativeSourceEvidence": bool(
+            entry["allowsPlannedNativeSourceEvidence"]
+        ),
+    }
+
+
+def normalize_tool_package_contract(contract: Any) -> dict[str, Any]:
+    return {
+        "target": contract.target,
+        "requiredPathArtifacts": list(contract.required_path_artifacts),
+        "requiresNativeBinaryStatus": contract.requires_native_binary_status,
+        "allowsPlannedNativeBinary": contract.allows_planned_native_binary,
+        "allowsPlannedNativeSourceEvidence": (
+            contract.allows_planned_native_source_evidence
+        ),
+    }
+
+
+def load_package_contracts(
+    errors: list[str], case_name: str, root: Path
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    try:
+        tool_module = import_module_from_path(
+            "crossgl_check_package_target_contracts",
+            root / "tools" / "package_target_contracts.py",
+        )
+        runtime_module = import_module_from_path(
+            "crossgl_check_runtime_package_target_contracts",
+            root / "runtime" / "package_target_contracts.py",
+        )
+        tool_contracts, _debug_artifacts = tool_module.load_contract_document(
+            root / PACKAGE_TARGET_CONTRACTS_PATH,
+            label_root=root,
+        )
+    except (ImportError, OSError, ValueError) as exc:
+        fail(errors, case_name, f"failed to load package target contracts: {exc}")
+        return {}, {}
+
+    tool_records = {
+        contract.target: normalize_tool_package_contract(contract)
+        for contract in tool_contracts
+    }
+    runtime_records = {
+        entry["target"]: normalize_package_contract_entry(entry)
+        for entry in runtime_module.PACKAGE_TARGET_CONTRACTS
+    }
+    return tool_records, runtime_records
+
+
 def expect_equal(
     errors: list[str],
     case_name: str,
@@ -117,6 +364,353 @@ def expect_contains(
     missing = [value for value in expected_values if value not in actual]
     if missing:
         fail(errors, case_name, f"{path} missing expected values {missing!r}")
+
+
+def capability_kind(capability_id: str) -> str:
+    parts = capability_id.split(".")
+    if len(parts) < 3:
+        return ""
+    return parts[1]
+
+
+def expected_package_artifact_evidence_ids(
+    target: str, package_mode: str, requirements: dict[str, Any]
+) -> list[str]:
+    evidence_ids = [
+        f"target-legalization.v1.{target}.package-artifacts.{package_mode}",
+    ]
+    evidence_ids.extend(
+        f"target-legalization.v1.{target}.package-artifact.required.{artifact}"
+        for artifact in requirements["requiredPathArtifacts"]
+    )
+    if requirements["requiresNativeBinaryStatus"]:
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.native-binary-status.required"
+        )
+    if requirements["allowsPlannedNativeBinary"]:
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-binary.allowed"
+        )
+    if requirements["allowsPlannedNativeSourceEvidence"]:
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-source-evidence.allowed"
+        )
+    return evidence_ids
+
+
+def registry_core_capability_ids(record: dict[str, Any]) -> list[str]:
+    capabilities = record.get("capabilities")
+    if not isinstance(capabilities, list):
+        return []
+    return [
+        capability["id"]
+        for capability in capabilities
+        if isinstance(capability, dict) and isinstance(capability.get("id"), str)
+    ]
+
+
+def registry_tool_requirement_capabilities(record: dict[str, Any]) -> list[str]:
+    capabilities = record.get("emittedBaselineCapabilities")
+    if not isinstance(capabilities, list):
+        return []
+    return [
+        capability
+        for capability in capabilities
+        if isinstance(capability, str)
+        and capability_kind(capability) in TOOL_REQUIREMENT_KINDS
+    ]
+
+
+def check_registry_static_contract_alignment(errors: list[str], root: Path) -> None:
+    case_name = "target-capability-registry-contract"
+    registry = load_json_document(errors, case_name, root / REGISTRY_PATH)
+    if not registry:
+        return
+    registry_records = registry_targets_by_name(errors, case_name, registry)
+    cpp_contracts = parse_cpp_registry_contracts(errors, case_name, root)
+    cpp_baselines = parse_cpp_baseline_capabilities(errors, case_name, root)
+    tool_contracts, runtime_contracts = load_package_contracts(errors, case_name, root)
+    if not registry_records or not cpp_contracts or not cpp_baselines:
+        return
+
+    expected_target_order = list(cpp_contracts)
+    expect_equal(
+        errors,
+        case_name,
+        "registry.targets",
+        list(registry_records),
+        expected_target_order,
+    )
+    expect_equal(
+        errors,
+        case_name,
+        "tools.package_target_contracts targets",
+        list(tool_contracts),
+        expected_target_order,
+    )
+    expect_equal(
+        errors,
+        case_name,
+        "runtime.package_target_contracts targets",
+        list(runtime_contracts),
+        expected_target_order,
+    )
+    expect_equal(
+        errors,
+        case_name,
+        "runtime.package_target_contracts",
+        runtime_contracts,
+        tool_contracts,
+    )
+
+    for target in expected_target_order:
+        registry_record = registry_records.get(target)
+        cpp_contract = cpp_contracts[target]
+        package_contract = tool_contracts.get(target)
+        if registry_record is None or package_contract is None:
+            continue
+
+        package_admission = registry_record.get("packageAdmission", {})
+        native_artifact = registry_record.get("nativeArtifact", {})
+        registry_requirements = package_admission.get("packageArtifactRequirements", {})
+        if not isinstance(package_admission, dict):
+            fail(errors, case_name, f"registry {target}.packageAdmission invalid")
+            continue
+        if not isinstance(native_artifact, dict):
+            fail(errors, case_name, f"registry {target}.nativeArtifact invalid")
+            continue
+        if not isinstance(registry_requirements, dict):
+            fail(
+                errors,
+                case_name,
+                f"registry {target}.packageAdmission.packageArtifactRequirements invalid",
+            )
+            continue
+
+        expected_core_capabilities = sorted(
+            [
+                cpp_contract.native_artifact_capability,
+                f"{target}.optimization.hir-pipeline",
+                f"{target}.package-admission.native-source-package",
+            ]
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target} core capability ids",
+            sorted(registry_core_capability_ids(registry_record)),
+            expected_core_capabilities,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.emittedBaselineCapabilities",
+            registry_record.get("emittedBaselineCapabilities"),
+            cpp_baselines.get(target),
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageMode",
+            registry_record.get("packageMode"),
+            cpp_contract.package_mode,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.nativeArtifact.capability",
+            native_artifact.get("capability"),
+            cpp_contract.native_artifact_capability,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.nativeArtifact.pathArtifacts",
+            native_artifact.get("pathArtifacts"),
+            package_contract["requiredPathArtifacts"],
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.nativeArtifact.requiresNativeBinaryStatus",
+            native_artifact.get("requiresNativeBinaryStatus"),
+            package_contract["requiresNativeBinaryStatus"],
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.nativeArtifact.allowsPlannedNativeBinary",
+            native_artifact.get("allowsPlannedNativeBinary"),
+            package_contract["allowsPlannedNativeBinary"],
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.packageMode",
+            package_admission.get("packageMode"),
+            cpp_contract.package_mode,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.nativeSupportClass",
+            package_admission.get("nativeSupportClass"),
+            cpp_contract.native_support_class,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.nativeImplemented",
+            package_admission.get("nativeImplemented"),
+            cpp_contract.native_implemented,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.sourcePackageSelectable",
+            package_admission.get("sourcePackageSelectable"),
+            cpp_contract.source_package_selectable,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.packageBuildSupported",
+            package_admission.get("packageBuildSupported"),
+            cpp_contract.package_build_supported,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.admittedPackageModes",
+            package_admission.get("admittedPackageModes"),
+            cpp_contract.admitted_package_modes,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.baselineBackendCapability",
+            package_admission.get("baselineBackendCapability"),
+            cpp_contract.baseline_backend_capability,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.nativeArtifactCapability",
+            package_admission.get("nativeArtifactCapability"),
+            cpp_contract.native_artifact_capability,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.packageDecisionReason",
+            package_admission.get("packageDecisionReason"),
+            cpp_contract.package_decision_reason,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.packageRankScore",
+            package_admission.get("packageRankScore"),
+            cpp_contract.package_rank_score,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            f"registry {target}.packageAdmission.packageArtifactRequirementsSource",
+            package_admission.get("packageArtifactRequirementsSource"),
+            PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE,
+        )
+
+        expected_requirements = {
+            "packageMode": cpp_contract.package_mode,
+            **package_contract,
+            "evidenceIds": expected_package_artifact_evidence_ids(
+                target, cpp_contract.package_mode, package_contract
+            ),
+        }
+        expected_requirements.pop("target")
+        for field, expected in expected_requirements.items():
+            expect_equal(
+                errors,
+                case_name,
+                f"registry {target}.packageAdmission.packageArtifactRequirements.{field}",
+                registry_requirements.get(field),
+                expected,
+            )
+
+
+def check_registry_cli_alignment(
+    errors: list[str],
+    root: Path,
+    case_name: str,
+    explanation: dict[str, Any],
+) -> None:
+    registry = load_json_document(errors, case_name, root / REGISTRY_PATH)
+    if not registry:
+        return
+    registry_records = registry_targets_by_name(errors, case_name, registry)
+    explanation_records = records_by_target(explanation.get("targets"))
+    expect_equal(
+        errors,
+        case_name,
+        "target-capability registry target order",
+        list(registry_records),
+        list(explanation_records),
+    )
+
+    for target, registry_record in registry_records.items():
+        explanation_record = explanation_records.get(target)
+        if explanation_record is None:
+            continue
+        package_admission = registry_record.get("packageAdmission", {})
+        if not isinstance(package_admission, dict):
+            continue
+        expect_equal(
+            errors,
+            case_name,
+            f"explain-targets.targets[{target}].nativeImplemented",
+            explanation_record.get("nativeImplemented"),
+            package_admission.get("nativeImplemented"),
+        )
+        expect_contains(
+            errors,
+            case_name,
+            f"explain-targets.targets[{target}].requiredCapabilities",
+            explanation_record.get("requiredCapabilities"),
+            tuple(registry_record.get("emittedBaselineCapabilities", [])),
+        )
+
+        if not package_admission.get("sourcePackageSelectable"):
+            continue
+        for field in (
+            "sourcePackageSupported",
+            "packageBuildSupported",
+            "packageMode",
+            "packageDecisionReason",
+            "packageRankScore",
+        ):
+            expected_field = (
+                "sourcePackageSelectable"
+                if field == "sourcePackageSupported"
+                else field
+            )
+            expect_equal(
+                errors,
+                case_name,
+                f"explain-targets.targets[{target}].{field}",
+                explanation_record.get(field),
+                package_admission.get(expected_field),
+            )
+        expect_equal(
+            errors,
+            case_name,
+            f"explain-targets.targets[{target}].requiredToolIds",
+            sorted(explanation_record.get("requiredToolIds", [])),
+            sorted(registry_tool_requirement_capabilities(registry_record)),
+        )
 
 
 def records_by_target(records: Any) -> dict[str, dict[str, Any]]:
@@ -271,7 +865,9 @@ def expected_core_evidence(record: dict[str, Any]) -> list[str]:
     mode = record["packageMode"]
     state = "legalized" if record["packageBuildSupported"] else "rejected"
     support_status = mode if record["packageBuildSupported"] else "unsupported"
-    reason = "source-package-available" if mode == "source-package" else mode
+    reason = record.get("packageDecisionReason")
+    if not isinstance(reason, str) or not reason:
+        reason = "source-package-available" if mode == "source-package" else mode
     prefix = f"target-legalization.v1.{target}"
     evidence = [
         f"{prefix}.decision",
@@ -332,6 +928,13 @@ def compare_target_record_to_expectation(
         f"{path}.missingCapabilities",
         record.get("missingCapabilities"),
         expected.missing_capabilities,
+    )
+    expect_contains(
+        errors,
+        case_name,
+        f"{path}.requiredCapabilities",
+        record.get("requiredCapabilities"),
+        expected.required_capabilities,
     )
     expected_evidence = expected_core_evidence(record)
     expect_equal(
@@ -650,6 +1253,8 @@ def check_alignment_case(
     explanation = load_cli_json(
         errors, case.name, root, [cglc, "explain-targets", fixture]
     )
+    if case.registry_contract_fixture:
+        check_registry_cli_alignment(errors, root, case.name, explanation)
     check_projection_backed_recommendation(errors, case.name, explanation)
     doctor = load_cli_json(errors, case.name, root, [cglc, "doctor", "--json", fixture])
     doctor_explanation = doctor.get("targetExplanation")
@@ -831,11 +1436,35 @@ def check_alignment_case(
         )
 
 
+def runtime_texture_sampler_descriptor_array_recommended_target() -> str:
+    if sys.platform == "darwin" or sys.platform.startswith("win"):
+        return "metal"
+    return "vulkan"
+
+
 def alignment_cases() -> tuple[AlignmentCase, ...]:
+    runtime_texture_capabilities = (
+        "{target}.resource.runtime-descriptor-array",
+        "{target}.resource.runtime-texture-descriptor-array",
+        "{target}.layout.runtime-array",
+    )
+    runtime_texture_sampler_capabilities = (
+        "{target}.resource.runtime-descriptor-array",
+        "{target}.resource.runtime-texture-descriptor-array",
+        "{target}.resource.runtime-sampler-descriptor-array",
+        "{target}.layout.runtime-array",
+    )
+
+    def required_runtime_capabilities(
+        target: str, capabilities: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        return tuple(capability.format(target=target) for capability in capabilities)
+
     return (
         AlignmentCase(
             name="simple-source-packages",
             fixture=Path("tests/fixtures/SimpleShader.cgl"),
+            registry_contract_fixture=True,
             targets=(
                 TargetExpectation(
                     target="directx",
@@ -870,8 +1499,13 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
                     source_package_supported=False,
                     package_mode="unsupported",
                     missing_capabilities=(
-                        "directx.backend.hlsl-lowering",
+                        "directx.backend.native-dxil-package",
+                        "directx.toolchain.dxc",
+                        "directx.validation.dxil-validator",
                         "directx.diagnostic.directx.unsupported-runtime-resource-array",
+                    ),
+                    required_capabilities=required_runtime_capabilities(
+                        "directx", runtime_texture_capabilities
                     ),
                 ),
                 TargetExpectation(
@@ -883,8 +1517,69 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
                         "opengl.backend.glsl-lowering",
                         "opengl.diagnostic.opengl.unsupported-runtime-resource-array",
                     ),
+                    required_capabilities=required_runtime_capabilities(
+                        "opengl", runtime_texture_capabilities
+                    ),
                 ),
             ),
+        ),
+        AlignmentCase(
+            name="runtime-texture-sampler-array-support-and-rejections",
+            fixture=Path(
+                "tests/directx/fixtures/"
+                "DirectXRuntimeTextureSamplerResourceArrayShader.cgl"
+            ),
+            targets=(
+                TargetExpectation(
+                    target="metal",
+                    package_build_supported=True,
+                    source_package_supported=False,
+                    package_mode="native",
+                    missing_capabilities=(),
+                    required_capabilities=required_runtime_capabilities(
+                        "metal", runtime_texture_sampler_capabilities
+                    ),
+                ),
+                TargetExpectation(
+                    target="vulkan",
+                    package_build_supported=True,
+                    source_package_supported=False,
+                    package_mode="native",
+                    missing_capabilities=(),
+                    required_capabilities=required_runtime_capabilities(
+                        "vulkan", runtime_texture_sampler_capabilities
+                    ),
+                ),
+                TargetExpectation(
+                    target="directx",
+                    package_build_supported=True,
+                    source_package_supported=True,
+                    package_mode="source-package",
+                    missing_capabilities=SOURCE_PACKAGE_OPTIONAL_NATIVE_CAPABILITIES[
+                        "directx"
+                    ],
+                    required_capabilities=required_runtime_capabilities(
+                        "directx", runtime_texture_sampler_capabilities
+                    ),
+                ),
+                TargetExpectation(
+                    target="opengl",
+                    package_build_supported=False,
+                    source_package_supported=False,
+                    package_mode="unsupported",
+                    missing_capabilities=(
+                        "opengl.backend.glsl-lowering",
+                        "opengl.diagnostic.opengl.unsupported-runtime-resource-array",
+                    ),
+                    required_capabilities=required_runtime_capabilities(
+                        "opengl", runtime_texture_sampler_capabilities
+                    ),
+                ),
+            ),
+            recommended_target=(
+                runtime_texture_sampler_descriptor_array_recommended_target()
+            ),
+            recommended_package_mode="native",
         ),
         AlignmentCase(
             name="native-target-fallback-source-package-recommendation",
@@ -921,13 +1616,12 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
                 ),
                 TargetExpectation(
                     target="opengl",
-                    package_build_supported=False,
-                    source_package_supported=False,
-                    package_mode="unsupported",
-                    missing_capabilities=(
-                        "opengl.backend.glsl-lowering",
-                        "opengl.diagnostic.opengl.unsupported-storage-buffer-array",
-                    ),
+                    package_build_supported=True,
+                    source_package_supported=True,
+                    package_mode="source-package",
+                    missing_capabilities=SOURCE_PACKAGE_OPTIONAL_NATIVE_CAPABILITIES[
+                        "opengl"
+                    ],
                 ),
             ),
             recommended_target="directx",
@@ -940,12 +1634,23 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
-    parser.add_argument("--cglc", type=Path, required=True)
+    parser.add_argument("--cglc", type=Path)
     args = parser.parse_args()
 
     root = args.root.resolve()
-    cglc = args.cglc.resolve()
     errors: list[str] = []
+
+    check_registry_static_contract_alignment(errors, root)
+    if args.cglc is None:
+        if errors:
+            print("target read-only consumer alignment failed:", file=sys.stderr)
+            for error in errors:
+                print(f"- {error}", file=sys.stderr)
+            return 1
+        print("validated target registry/package contract alignment")
+        return 0
+
+    cglc = args.cglc.resolve()
     for case in alignment_cases():
         check_alignment_case(errors, root, cglc, case)
 

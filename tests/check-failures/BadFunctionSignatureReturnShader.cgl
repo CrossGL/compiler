@@ -1,0 +1,11 @@
+shader BadFunctionSignatureReturnShader {
+  compute {
+    float helper(float value);
+    int helper(float value) {
+      return 1;
+    }
+    void main() {
+      return;
+    }
+  }
+}

@@ -7,6 +7,7 @@
 #include "crossgl/Backend/OpenGLBackend.h"
 #include "crossgl/Backend/ResourceArrays.h"
 #include "crossgl/Backend/TargetCapabilityInventory.h"
+#include "crossgl/Backend/Toolchain.h"
 #include "crossgl/Backend/VulkanBackend.h"
 #include "crossgl/HIR/Intrinsics.h"
 #include "crossgl/HIR/TypeSemantics.h"
@@ -34,8 +35,8 @@ static constexpr std::array<TargetCapabilityRegistryContract, 4>
             "vulkan-prototype-package", "vulkan.native-artifact.spirv", true,
             false},
         TargetCapabilityRegistryContract{
-            TargetKind::DirectX, "source-package", "planned-native",
-            "hlsl-lowering", "directx.native-artifact.dxil", false, true},
+            TargetKind::DirectX, "source-package", "native",
+            "native-dxil-package", "directx.native-artifact.dxil", true, true},
         TargetCapabilityRegistryContract{
             TargetKind::OpenGL, "source-package", "planned-native",
             "glsl-lowering", "opengl.native-artifact.glsl-source", false, true},
@@ -71,8 +72,8 @@ struct CapabilityCollector {
     if (!seen.insert(key).second) {
       return;
     }
-    capabilities.push_back(TargetCapability{target, std::string(kind),
-                                            std::string(name)});
+    capabilities.push_back(
+        TargetCapability{target, std::string(kind), std::string(name)});
   }
 };
 
@@ -129,13 +130,37 @@ bool moduleContainsRawStatement(const HIRModule &module) {
 
 std::span<const HIRResourceKind> directxRuntimeDescriptorResourceKinds() {
   static constexpr std::array<HIRResourceKind, 4> kinds = {
-      HIRResourceKind::Uniform, HIRResourceKind::Buffer, HIRResourceKind::Texture,
+      HIRResourceKind::Uniform, HIRResourceKind::Buffer,
+      HIRResourceKind::Texture, HIRResourceKind::Sampler};
+  return kinds;
+}
+
+std::span<const HIRResourceKind> openGLRuntimeDescriptorResourceKinds() {
+  static constexpr std::array<HIRResourceKind, 3> kinds = {
+      HIRResourceKind::Buffer, HIRResourceKind::Texture,
       HIRResourceKind::Sampler};
   return kinds;
 }
 
-std::string runtimeDescriptorArrayCapabilityName(
-    const HIRResource &resource) {
+std::span<const HIRResourceKind> openGLRuntimeStorageBufferKinds() {
+  static constexpr std::array<HIRResourceKind, 1> kinds = {
+      HIRResourceKind::Buffer};
+  return kinds;
+}
+
+std::span<const HIRResourceKind> openGLRuntimeTextureKinds() {
+  static constexpr std::array<HIRResourceKind, 1> kinds = {
+      HIRResourceKind::Texture};
+  return kinds;
+}
+
+std::span<const HIRResourceKind> openGLRuntimeSamplerKinds() {
+  static constexpr std::array<HIRResourceKind, 1> kinds = {
+      HIRResourceKind::Sampler};
+  return kinds;
+}
+
+std::string runtimeDescriptorArrayCapabilityName(const HIRResource &resource) {
   return "runtime-" + resourceKindLabel(resource.kind) + "-descriptor-array";
 }
 
@@ -149,11 +174,38 @@ bool isRuntimeDescriptorArrayCapabilityName(std::string_view name) {
 
 bool directxRuntimeDescriptorArrayCapabilitiesSatisfied(
     const HIRModule &module) {
-  return !runtimeDescriptorArrayLabels(
-              module, directxRuntimeDescriptorResourceKinds())
+  return !runtimeDescriptorArrayLabels(module,
+                                       directxRuntimeDescriptorResourceKinds())
               .empty() &&
          !directxHasUnsupportedStorageBufferArray(module) &&
          !directxHasUnsupportedRuntimeResourceArray(module);
+}
+
+bool openGLRuntimeDescriptorArrayCapabilitySatisfied(
+    const HIRModule &module, std::string_view capabilityName) {
+  if (openglHasUnsupportedStorageBufferArray(module) ||
+      openglHasUnsupportedRuntimeResourceArray(module)) {
+    return false;
+  }
+  if (capabilityName == "runtime-descriptor-array") {
+    return !runtimeDescriptorArrayLabels(module,
+                                         openGLRuntimeDescriptorResourceKinds())
+                .empty();
+  }
+  if (capabilityName == "runtime-storage-buffer-descriptor-array") {
+    return !runtimeDescriptorArrayLabels(module,
+                                         openGLRuntimeStorageBufferKinds())
+                .empty();
+  }
+  if (capabilityName == "runtime-texture-descriptor-array") {
+    return !runtimeDescriptorArrayLabels(module, openGLRuntimeTextureKinds())
+                .empty();
+  }
+  if (capabilityName == "runtime-sampler-descriptor-array") {
+    return !runtimeDescriptorArrayLabels(module, openGLRuntimeSamplerKinds())
+                .empty();
+  }
+  return false;
 }
 
 bool isVectorTypeName(std::string_view name) {
@@ -164,8 +216,7 @@ bool isVectorTypeName(std::string_view name) {
 }
 
 bool isScalarTypeName(std::string_view name) {
-  return name == "float" || name == "int" || name == "uint" ||
-         name == "bool";
+  return name == "float" || name == "int" || name == "uint" || name == "bool";
 }
 
 bool isMatrixTypeName(std::string_view name) {
@@ -174,8 +225,8 @@ bool isMatrixTypeName(std::string_view name) {
 }
 
 bool isComparisonOperator(std::string_view op) {
-  return op == "<" || op == "<=" || op == ">" || op == ">=" ||
-         op == "==" || op == "!=";
+  return op == "<" || op == "<=" || op == ">" || op == ">=" || op == "==" ||
+         op == "!=";
 }
 
 bool containsNonUniformIndex(const HIRExpression &expression) {
@@ -319,7 +370,7 @@ void addTypeCapabilities(CapabilityCollector &collector, const HIRType &type,
     collector.add("resource", "descriptor-array");
   } else if (context == "struct-field") {
     collector.add("layout", typeHasRuntimeArray(type) ? "runtime-array-field"
-                                                       : "fixed-array-field");
+                                                      : "fixed-array-field");
   } else if (context == "function-parameter") {
     collector.add("array", "function-parameter-array");
   } else if (context == "local") {
@@ -415,8 +466,7 @@ void addNonUniformDescriptorIndexCapabilities(CapabilityCollector &collector,
   }
   collector.add("operation", "nonuniform-descriptor-index");
   collector.add("operation",
-                "nonuniform-" +
-                    nonUniformDescriptorResourceFamilyName(family) +
+                "nonuniform-" + nonUniformDescriptorResourceFamilyName(family) +
                     "-descriptor-index");
 }
 
@@ -475,9 +525,8 @@ void addExpressionCapabilities(
       collector.add("operation", "storage-image-write");
       collector.add("operation", imageAtomicCapability);
     } else if (isHIRAtomicIntegerReadModifyWriteIntrinsic(expression.value)) {
-      collector.add("operation",
-                    hirAtomicIntegerReadModifyWriteCapabilityName(
-                        expression.value));
+      collector.add("operation", hirAtomicIntegerReadModifyWriteCapabilityName(
+                                     expression.value));
       if (!expression.children.empty() &&
           isAtomicIntegerType(expression.children.front().type)) {
         collector.add("type", "atomic-integer");
@@ -487,6 +536,8 @@ void addExpressionCapabilities(
   case HIRExpressionKind::Constructor:
     if (isVectorTypeName(expression.type.name)) {
       collector.add("operation", "vector-constructor");
+    } else if (isMatrixTypeName(expression.type.name)) {
+      collector.add("operation", "matrix-constructor");
     } else if (isScalarTypeName(expression.type.name)) {
       collector.add("operation", "scalar-constructor");
     }
@@ -505,8 +556,7 @@ void addExpressionCapabilities(
           (isVectorTypeName(expression.children[0].type.name) ||
            isVectorTypeName(expression.children[1].type.name));
       collector.add("operation",
-                    vectorOperand ? "vector-comparison"
-                                  : "scalar-comparison");
+                    vectorOperand ? "vector-comparison" : "scalar-comparison");
     }
     break;
   case HIRExpressionKind::Select:
@@ -635,14 +685,12 @@ void addStructCapabilities(CapabilityCollector &collector,
   }
 }
 
-bool capabilitySatisfiedByTextualScaffold(
-    const HIRModule &module, const TargetCapability &capability) {
-  const bool isDirectXScaffold =
-      capability.target == TargetKind::DirectX &&
-      directxTextualBackendSupported(module);
-  const bool isOpenGLScaffold =
-      capability.target == TargetKind::OpenGL &&
-      openglTextualBackendSupported(module);
+bool capabilitySatisfiedByTextualScaffold(const HIRModule &module,
+                                          const TargetCapability &capability) {
+  const bool isDirectXScaffold = capability.target == TargetKind::DirectX &&
+                                 directxTextualBackendSupported(module);
+  const bool isOpenGLScaffold = capability.target == TargetKind::OpenGL &&
+                                openglTextualBackendSupported(module);
   if (!isDirectXScaffold && !isOpenGLScaffold) {
     return false;
   }
@@ -663,8 +711,14 @@ bool capabilitySatisfiedByTextualScaffold(
   }
   if (capability.kind == "resource") {
     if (isRuntimeDescriptorArrayCapabilityName(capability.name)) {
-      return capability.target == TargetKind::DirectX &&
-             directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
+      if (capability.target == TargetKind::DirectX) {
+        return directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
+      }
+      if (capability.target == TargetKind::OpenGL) {
+        return openGLRuntimeDescriptorArrayCapabilitySatisfied(module,
+                                                               capability.name);
+      }
+      return false;
     }
     return capability.name == "storage-buffer" ||
            capability.name == "uniform-buffer" ||
@@ -681,8 +735,14 @@ bool capabilitySatisfiedByTextualScaffold(
   }
   if (capability.kind == "layout") {
     if (capability.name == "runtime-array") {
-      return capability.target == TargetKind::DirectX &&
-             directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
+      if (capability.target == TargetKind::DirectX) {
+        return directxRuntimeDescriptorArrayCapabilitiesSatisfied(module);
+      }
+      if (capability.target == TargetKind::OpenGL) {
+        return openGLRuntimeDescriptorArrayCapabilitySatisfied(
+            module, "runtime-descriptor-array");
+      }
+      return false;
     }
     return capability.name == "vector-storage-buffer" ||
            capability.name == "fixed-array" ||
@@ -697,8 +757,7 @@ bool capabilitySatisfiedByTextualScaffold(
   }
   if (capability.kind == "operation") {
     return capability.name == "local-declaration" ||
-           capability.name == "atomic-add" ||
-           capability.name == "atomic-max" ||
+           capability.name == "atomic-add" || capability.name == "atomic-max" ||
            capability.name == "atomic-min" ||
            capability.name == "workgroup-barrier" ||
            capability.name == "storage-buffer-read" ||
@@ -720,9 +779,9 @@ bool capabilitySatisfiedByTextualScaffold(
            capability.name == "select-expression" ||
            capability.name == "scalar-constructor" ||
            capability.name == "vector-constructor" ||
+           capability.name == "matrix-constructor" ||
            capability.name == "nonuniform-descriptor-index" ||
-           capability.name ==
-               "nonuniform-uniform-buffer-descriptor-index" ||
+           capability.name == "nonuniform-uniform-buffer-descriptor-index" ||
            capability.name == "nonuniform-texture-descriptor-index" ||
            capability.name == "nonuniform-sampler-descriptor-index" ||
            capability.name == "nonuniform-storage-image-descriptor-index" ||
@@ -744,8 +803,7 @@ bool capabilitySatisfiedByTextualScaffold(
                "texture-shadow-compare-explicit-lod-manual-kernel-8";
   }
   if (capability.kind == "storageImage") {
-    return capability.name == "read-write" ||
-           capability.name == "read-only" ||
+    return capability.name == "read-write" || capability.name == "read-only" ||
            capability.name == "write-only" ||
            capability.name == "2d-dimension" ||
            capability.name == "2d_array-dimension" ||
@@ -818,6 +876,13 @@ bool nativePackageSupported(const HIRModule &module, TargetKind target,
   case TargetKind::Vulkan:
     return vulkanPrototypeBinarySupported(module, nativeDiagnostics);
   case TargetKind::DirectX:
+    if (!directxSourcePackageSupported(module, nativeDiagnostics)) {
+      return false;
+    }
+    if (findExecutable("dxc").has_value()) {
+      return true;
+    }
+    return false;
   case TargetKind::OpenGL:
     return true;
   case TargetKind::Auto:
@@ -834,6 +899,10 @@ nativePredicateMissingCapabilities(TargetKind target,
       registryContractFor(collector.target);
   if (contract != nullptr && !contract->baselineBackendCapability.empty()) {
     collector.add("backend", contract->baselineBackendCapability);
+  }
+  if (collector.target == TargetKind::DirectX) {
+    collector.add("toolchain", "dxc");
+    collector.add("validation", "dxil-validator");
   }
   for (const Diagnostic &diagnostic : diagnostics.diagnostics()) {
     if (!diagnostic.code.empty()) {
@@ -888,8 +957,7 @@ nativePredicateMissingCapabilities(const HIRModule &module, TargetKind target) {
   return nativePredicateMissingCapabilities(resolvedTarget, diagnostics);
 }
 
-std::string packageModeForDecision(bool nativeSupported,
-                                   bool sourceSupported) {
+std::string packageModeForDecision(bool nativeSupported, bool sourceSupported) {
   if (nativeSupported) {
     return "native";
   }
@@ -899,8 +967,7 @@ std::string packageModeForDecision(bool nativeSupported,
   return "unsupported";
 }
 
-std::string packageReasonForDecision(bool nativeSupported,
-                                     bool sourceSupported,
+std::string packageReasonForDecision(bool nativeSupported, bool sourceSupported,
                                      bool packageBuildSupported) {
   if (nativeSupported) {
     return "native-package-available";
@@ -947,15 +1014,14 @@ targetCapabilityRegistryContract(TargetKind target) {
   return registryContractFor(target);
 }
 
-std::vector<TargetCapability>
-targetBaselineCapabilities(TargetKind target) {
+std::vector<TargetCapability> targetBaselineCapabilities(TargetKind target) {
   CapabilityCollector collector(target);
   addBaselineCapabilities(collector);
   return std::move(collector.capabilities);
 }
 
-TargetCapabilityInventory collectTargetCapabilityInventory(
-    const HIRModule &module, TargetKind target) {
+TargetCapabilityInventory
+collectTargetCapabilityInventory(const HIRModule &module, TargetKind target) {
   CapabilityCollector collector(target);
   const BackendPlan plan = buildBackendPlan(module);
   addBaselineCapabilities(collector);
@@ -976,13 +1042,13 @@ TargetCapabilityInventory collectTargetCapabilityInventory(
   return inventory;
 }
 
-std::vector<TargetCapability>
-targetFeatureRequirements(const HIRModule &module, TargetKind target) {
+std::vector<TargetCapability> targetFeatureRequirements(const HIRModule &module,
+                                                        TargetKind target) {
   return collectTargetCapabilityInventory(module, target).requiredCapabilities;
 }
 
-std::vector<TargetCapability>
-missingTargetCapabilities(const HIRModule &module, TargetKind target) {
+std::vector<TargetCapability> missingTargetCapabilities(const HIRModule &module,
+                                                        TargetKind target) {
   const TargetKind resolvedTarget =
       target == TargetKind::Auto ? defaultTargetForHost() : target;
   const TargetCapabilityRegistryContract *contract =
@@ -1000,7 +1066,7 @@ missingTargetCapabilities(const HIRModule &module, TargetKind target) {
     DiagnosticEngine sourceDiagnostics;
     if (!sourcePackageSupported(module, resolvedTarget, &sourceDiagnostics)) {
       return sourcePredicateMissingCapabilities(resolvedTarget,
-                                               sourceDiagnostics);
+                                                sourceDiagnostics);
     }
   }
   std::vector<TargetCapability> missing;
@@ -1054,19 +1120,21 @@ TargetPackageDecision targetPackageDecision(const HIRModule &module,
   decision.sourcePackageSupported = supportsSourcePackage;
   decision.packageBuildSupported =
       supportsNativePackage || supportsSourcePackage;
-  decision.packageMode = packageModeForDecision(supportsNativePackage,
-                                                supportsSourcePackage);
-  decision.packageDecisionReason = packageReasonForDecision(
-      supportsNativePackage, supportsSourcePackage,
-      decision.packageBuildSupported);
-  decision.packageRankScore = packageRankScoreForDecision(
-      supportsNativePackage, supportsSourcePackage);
+  decision.packageMode =
+      packageModeForDecision(supportsNativePackage, supportsSourcePackage);
+  decision.packageDecisionReason =
+      packageReasonForDecision(supportsNativePackage, supportsSourcePackage,
+                               decision.packageBuildSupported);
+  decision.packageRankScore =
+      packageRankScoreForDecision(supportsNativePackage, supportsSourcePackage);
   decision.requiredCapabilities = requiredCapabilities;
   if (nativeImplemented && !supportsNativePackage) {
     decision.missingCapabilities =
         nativePredicateMissingCapabilities(resolvedTarget, nativeDiagnostics);
-  } else if (isSourcePackageTarget(resolvedTarget) &&
-             !supportsSourcePackage) {
+    if (isSourcePackageTarget(resolvedTarget) && !supportsSourcePackage) {
+      decision.diagnostics = sourceDiagnostics.diagnostics();
+    }
+  } else if (isSourcePackageTarget(resolvedTarget) && !supportsSourcePackage) {
     decision.missingCapabilities =
         sourcePredicateMissingCapabilities(resolvedTarget, sourceDiagnostics);
     decision.diagnostics = sourceDiagnostics.diagnostics();
@@ -1121,12 +1189,13 @@ selectRecommendedPackageTarget(const HIRModule &module,
                                         preferredTarget);
 }
 
-std::string formatTargetCapabilityList(
-    const std::vector<TargetCapability> &capabilities, std::size_t maxItems) {
+std::string
+formatTargetCapabilityList(const std::vector<TargetCapability> &capabilities,
+                           std::size_t maxItems) {
   std::ostringstream out;
-  const std::size_t count =
-      maxItems == 0 || maxItems > capabilities.size() ? capabilities.size()
-                                                      : maxItems;
+  const std::size_t count = maxItems == 0 || maxItems > capabilities.size()
+                                ? capabilities.size()
+                                : maxItems;
   for (std::size_t index = 0; index < count; ++index) {
     if (index != 0) {
       out << ", ";

@@ -22,6 +22,17 @@ add_test(NAME cglc_check_resource_register_layout_alias_hir_canonical_binding
     -DMODE=dump-stage
     "-DMUST_CONTAIN=${CROSSGL_RESOURCE_REGISTER_ALIAS_HIR_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_resource_location_layout_alias
+  COMMAND cglc check ${CROSSGL_RESOURCE_LOCATION_ALIAS_SHADER})
+set(CROSSGL_RESOURCE_LOCATION_ALIAS_HIR_REGEX [=[resource uniform Params materialParams set 1 binding 2.*resource buffer float\* values set 0 binding 0]=])
+add_test(NAME cglc_check_resource_location_layout_alias_hir_canonical_set
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_RESOURCE_LOCATION_ALIAS_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=${CROSSGL_RESOURCE_LOCATION_ALIAS_HIR_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_resource_arrays
   COMMAND cglc check ${CROSSGL_RESOURCE_ARRAY_SHADER})
 add_test(NAME cglc_check_resource_array_access
@@ -448,6 +459,24 @@ add_test(NAME cglc_check_colon_var_compute_hir_canonical_declaration
     -DMODE=dump-stage
     "-DMUST_CONTAIN=decl float base = values\\[1\\] : float[^\n]*\n      decl float scaled = base \\* 2\\.0 : float"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_fn_style_function
+  COMMAND cglc check ${CROSSGL_FN_STYLE_FUNCTION_SHADER})
+add_test(NAME cglc_check_fn_style_function_hir_signatures
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FN_STYLE_FUNCTION_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=fn scale\\(float value, float factor\\) -> float[^\n]*\n      return value \\* factor : float[^\n]*\n    fn writeValue\\(int index, float value\\) -> void[^\n]*\n      assign values\\[index\\] : float = value : float[^\n]*\n      return[^\n]*\n    fn main\\(\\) -> void"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_fn_style_function_hir_calls
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FN_STYLE_FUNCTION_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=decl float base = scale\\(values\\[1\\], 2\\.0\\) : float[^\n]*\n      expr writeValue\\(0, base\\) : void"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_numeric_float_literals
   COMMAND cglc check
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/NumericFloatLiteralShader.cgl)
@@ -598,8 +627,99 @@ add_test(NAME cglc_check_for_folded_update_compute_hir_simplified_update
     -DMODE=dump-stage
     "-DMUST_CONTAIN=for i < 8 : bool[^\n]*\n        init decl int i = 0 : int[^\n]*\n        update assign i : int = i \\+ \\(3\\) : int"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_for_omitted_header_compute
+  COMMAND cglc check ${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER})
+add_test(NAME cglc_check_for_empty_condition_hir_true
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for true : bool[^\n]*\n        assign value : int = value \\+ 1 : int[^\n]*\n        if value >= 2 : bool[^\n]*\n          break"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_for_omitted_init_update_hir
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for value < 4 : bool[^\n]*\n        assign value : int = value \\+ 1 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_for_omitted_condition_with_update_hir
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_FOR_OMITTED_HEADER_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for true : bool update i\\+\\+[^\n]*\n        init decl int i = 0 : int[^\n]*\n        update assign i : int = i \\+ 1 : int[^\n]*\n        if i >= 2 : bool[^\n]*\n          break"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_while_compute
   COMMAND cglc check ${CROSSGL_WHILE_COMPUTE_SHADER})
+add_test(NAME cglc_check_do_while_compute
+  COMMAND cglc check ${CROSSGL_DO_WHILE_COMPUTE_SHADER})
+add_test(NAME cglc_check_do_while_hir_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for true : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_do_while_hir_continue_rewrite
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=if value < 2 : bool[^\n]*\n          block[^\n]*\n            if value >= 4 : bool[^\n]*\n              break[^\n]*\n            continue"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_do_while_hir_trailing_condition_break
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DO_WHILE_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=assign total : float = total \\+ float\\(value\\) : float[^\n]*\n        if value >= 4 : bool[^\n]*\n          break"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_switch_compute
+  COMMAND cglc check ${CROSSGL_SWITCH_COMPUTE_SHADER})
+add_test(NAME cglc_check_switch_grouped_labels_compute
+  COMMAND cglc check ${CROSSGL_SWITCH_GROUPED_LABELS_COMPUTE_SHADER})
+add_test(NAME cglc_check_switch_terminal_grouped_labels_compute
+  COMMAND cglc check ${CROSSGL_SWITCH_TERMINAL_GROUPED_LABELS_COMPUTE_SHADER})
+add_test(NAME cglc_check_switch_hir_if_chain
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=block[^\n]*\n        decl int __crossgl_selector = mode : int[^\n]*\n        if __crossgl_selector == 0 : bool[^\n]*\n          assign total : int = 1 : int[^\n]*\n        else[^\n]*\n          if __crossgl_selector == 1 : bool[^\n]*\n            assign total : int = 2 : int[^\n]*\n          else[^\n]*\n            assign total : int = 3 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_switch_hir_no_switch_break
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set_tests_properties(cglc_check_switch_hir_no_switch_break
+  PROPERTIES FAIL_REGULAR_EXPRESSION "switch|case|default|break")
+add_test(NAME cglc_check_switch_grouped_labels_hir_if_chain
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_GROUPED_LABELS_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=block[^\n]*\n        decl int __crossgl_selector = mode : int[^\n]*\n        if __crossgl_selector == 0 \\|\\| __crossgl_selector == 1 : bool[^\n]*\n          assign total : int = 10 : int[^\n]*\n        else[^\n]*\n          if __crossgl_selector == 2 : bool[^\n]*\n            assign total : int = 20 : int[^\n]*\n          else[^\n]*\n            assign total : int = 30 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_switch_terminal_grouped_labels_hir_if_chain
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_TERMINAL_GROUPED_LABELS_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=block[^\n]*\n        decl int __crossgl_selector = mode : int[^\n]*\n        if __crossgl_selector == 0 \\|\\| __crossgl_selector == 1 : bool[^\n]*\n          assign total : int = 10 : int[^\n]*\n      block[^\n]*\n        decl int __crossgl_selector = mode : int[^\n]*\n        if __crossgl_selector == 2 \\|\\| __crossgl_selector == 3 : bool[^\n]*\n          assign total : int = total \\+ 20 : int[^\n]*\n        else[^\n]*\n          assign total : int = total \\+ 30 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForIncrementDecrementHIRShader.cgl)
 add_test(NAME cglc_check_for_increment_decrement_hir
   COMMAND cglc check ${CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER})
@@ -669,6 +789,76 @@ add_test(NAME cglc_check_while_control_flow_hir_body_update
     -DSTAGE=hir
     -DMODE=dump-stage
     "-DMUST_CONTAIN=assign i : int = i \\+ 1 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_non_parenthesized_control_flow
+  COMMAND cglc check ${CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER})
+add_test(NAME cglc_check_non_parenthesized_if_hir_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=if values\\[0\\] > 0\\.0 : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_non_parenthesized_else_if_hir_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=if values\\[1\\] > 0\\.0 : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_non_parenthesized_while_hir_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_NON_PAREN_CONTROL_FLOW_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for index < 4 : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_let_mut_compute
+  COMMAND cglc check ${CROSSGL_LET_MUT_COMPUTE_SHADER})
+add_test(NAME cglc_check_let_mut_int_hir_declaration
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LET_MUT_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=decl int value = int\\(values\\[1\\]\\) : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_let_mut_float_hir_declaration
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LET_MUT_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=decl float total = values\\[0\\] : float"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_let_mut_hir_update
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LET_MUT_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=assign value : int = value \\+ 1 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_loop_compute
+  COMMAND cglc check ${CROSSGL_LOOP_COMPUTE_SHADER})
+add_test(NAME cglc_check_loop_hir_lowered_condition
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LOOP_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=for true : bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_loop_hir_control_transfer
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_LOOP_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=if value >= 4 : bool[^\n]*\n          break[^\n]*\n        if value == 2 : bool[^\n]*\n          continue"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_HIR_CONTROL_TRANSFER_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/HIRControlTransferShader.cgl)
 add_test(NAME cglc_check_hir_control_transfer_explicit_statements
@@ -1142,6 +1332,16 @@ add_test(NAME cglc_check_vector_scalar_compute
   COMMAND cglc check ${CROSSGL_VECTOR_SCALAR_COMPUTE_SHADER})
 add_test(NAME cglc_check_vector_scalar_cast_compute
   COMMAND cglc check ${CROSSGL_VECTOR_SCALAR_CAST_COMPUTE_SHADER})
+add_test(NAME cglc_check_matrix_scalar_arithmetic_compute
+  COMMAND cglc check ${CROSSGL_MATRIX_SCALAR_ARITHMETIC_COMPUTE_SHADER})
+add_test(NAME cglc_check_matrix_scalar_arithmetic_hir_types
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_SCALAR_ARITHMETIC_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=decl mat3 scaled = transform \\* 2\\.0 : mat3[^\n]*\n      decl mat3 rescaled = 0\\.5 \\* transform : mat3[^\n]*\n      decl mat3 inferred = transform \\* 0\\.25 : mat3[^\n]*\n      assign inferred : mat3 = inferred \\* 4\\.0 : mat3"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_vector_buffer_compute
   COMMAND cglc check ${CROSSGL_VECTOR_BUFFER_COMPUTE_SHADER})
 add_test(NAME cglc_check_vector_buffer_compute_hir_vec4_load_store
@@ -1151,6 +1351,16 @@ add_test(NAME cglc_check_vector_buffer_compute_hir_vec4_load_store
     -DSTAGE=hir
     -DMODE=dump-stage
     "-DMUST_CONTAIN=decl vec4 lifted = color \\+ vec4\\(0\\.5, 0\\.5, 0\\.5, 0\\.0\\) : vec4[^\n]*\n      assign values\\[1\\] : vec4 = lifted : vec4"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_storage_buffer_pointer_helper_param
+  COMMAND cglc check ${CROSSGL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SHADER})
+add_test(NAME cglc_check_storage_buffer_pointer_helper_param_hir
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=resource buffer float\\* values set 0 binding 0[^\n]*\n    resource buffer vec4\\* vectors set 0 binding 1[^\n]*\n    fn writeScalar\\(float\\* dst, float value\\) -> void[^\n]*\n      assign dst\\[0\\] : float = value : float[^\n]*\n      return[^\n]*\n    fn writeVector\\(vec4\\* dst, vec4 value\\) -> void[^\n]*\n      assign dst\\[1\\] : vec4 = value : vec4[^\n]*\n      return[^\n]*\n    fn main\\(\\) -> void[^\n]*\n      decl float scalar = values\\[1\\] \\+ 2\\.0 : float[^\n]*\n      decl vec4 vector = vectors\\[0\\] \\+ vec4\\(0\\.25, 0\\.5, 0\\.75, 1\\.0\\) : vec4[^\n]*\n      expr writeScalar\\(values, scalar\\)[^\n]*\n      expr writeVector\\(vectors, vector\\)"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_vector3_buffer_compute
   COMMAND cglc check ${CROSSGL_VECTOR3_BUFFER_COMPUTE_SHADER})
@@ -1635,12 +1845,6 @@ crossgl_add_native_v0_unsupported_failure(
   3
   "message=stage 'geometry'|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_fn_style_failure
-  ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_FN_STYLE_SHADER}
-  3
-  5
-  "message=fn-style function declarations|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_enum_failure
   ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_ENUM_SHADER}
   2
@@ -1691,45 +1895,39 @@ crossgl_add_native_v0_unsupported_failure(
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_switch_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchShader.cgl
-  5
   7
-  "message=switch/case/default statements|message=native v0")
+  7
+  "message=restricted switch/case/default statements|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_loop_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedLoopShader.cgl
-  5
+  cglc_check_unsupported_native_v0_switch_duplicate_case_label_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchDuplicateCaseLabelShader.cgl
   7
-  "message=loop statements|message=native v0")
+  7
+  "message=restricted switch/case/default statements|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_do_while_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedDoWhileShader.cgl
-  5
+  cglc_check_unsupported_native_v0_switch_grouped_labels_failure
+  ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_SWITCH_GROUPED_LABELS_COMPAT_SHADER}
   7
-  "message=do while statements|message=native v0")
+  7
+  "message=restricted switch/case/default statements|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_switch_incompatible_case_label_type_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchIncompatibleCaseLabelTypeShader.cgl
+  7
+  7
+  "message=restricted switch/case/default statements|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_switch_non_terminal_break_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchNonTerminalBreakShader.cgl
+  7
+  7
+  "message=restricted switch/case/default statements|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_for_in_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedForInShader.cgl
   5
   7
   "message=for-in loop statements|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_let_mut_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedLetMutShader.cgl
-  4
-  7
-  "message=let mut declarations|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_malformed_if_header_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadMalformedIfHeaderShader.cgl
-  5
-  7
-  "message=malformed control headers|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_malformed_while_header_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadMalformedWhileHeaderShader.cgl
-  5
-  7
-  "message=malformed control headers|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_malformed_for_header_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadMalformedForHeaderShader.cgl
@@ -1834,15 +2032,15 @@ add_test(NAME cglc_check_mixed_void_parameter_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=3|location.column=15"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=void parameter list must be exactly 'void'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_check_unsupported_native_v0_resource_metadata_alias_failure
+add_test(NAME cglc_check_duplicate_location_alias_resource_binding_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_CHECK_FAILURE_UNSUPPORTED_RESOURCE_METADATA_ALIAS_SHADER}
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DUPLICATE_LOCATION_ALIAS_RESOURCE_BINDING_SHADER}
     -DMODE=check-failure
     -DEXPECTED_DIAGNOSTIC=sema.duplicate-resource-binding
-    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=warning|diagnostics.0.code=parse.unsupported-resource-layout-key|diagnostics.0.location.line=6|diagnostics.0.location.column=12|diagnostics.1.severity=error|diagnostics.1.code=sema.duplicate-resource-binding|diagnostics.1.location.line=7|diagnostics.1.location.column=21"
-    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=unsupported resource layout key 'location'|diagnostics.1.message=duplicate resource binding 0|diagnostics.1.message=set 0|diagnostics.1.message=stage 'compute'"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=error|diagnostics.0.code=sema.duplicate-resource-binding|diagnostics.0.location.line=7|diagnostics.0.location.column=21"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=duplicate resource binding 0|diagnostics.0.message=set 0|diagnostics.0.message=stage 'compute'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_conflicting_register_binding_failure
   COMMAND ${CMAKE_COMMAND}
@@ -2015,10 +2213,10 @@ add_test(NAME cglc_check_storage_image_value_use_failure
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_CHECK_FAILURE_STORAGE_IMAGE_VALUE_USE_SHADER}
     -DMODE=check-failure
-    -DEXPECTED_DIAGNOSTIC=opt.hir-declaration-type
+    -DEXPECTED_DIAGNOSTIC=sema.declaration-type
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=8|location.column=21"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=initializer expects type 'vec4'|message=got 'void'"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=declaration initializer for 'stored' must be type 'vec4', got 'void'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_storage_image_read_write_access_failure
   COMMAND ${CMAKE_COMMAND}
@@ -2170,6 +2368,16 @@ add_test(NAME cglc_check_width_swizzle_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=22"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=invalid vector swizzle 'z'|message=type 'vec2'|message=within the vector width"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_duplicate_swizzle_assignment_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DUPLICATE_SWIZZLE_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-swizzle-duplicate
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=13"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target swizzle 'xx' cannot write the same vector component more than once"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_vector_scalar_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -2190,6 +2398,33 @@ add_test(NAME cglc_check_compound_assignment_vector_scalar_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=16"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=float vector-scalar arithmetic requires the scalar operand to be float|message=vec4 + int"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_matrix_scalar_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_MATRIX_SCALAR_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.matrix-arithmetic
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=float matrix-scalar arithmetic requires the scalar operand to be float|message=mat3 * int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_scalar_matrix_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SCALAR_MATRIX_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.matrix-arithmetic
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=float matrix-scalar arithmetic requires the scalar operand to be float|message=int * mat3"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_matrix_modulo_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_MATRIX_MODULO_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.matrix-arithmetic
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=matrix arithmetic does not support operator '%'|message=mat3 % float"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_scalar_constructor_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -2200,6 +2435,386 @@ add_test(NAME cglc_check_scalar_constructor_failure
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=25"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=scalar numeric constructor 'float'|message=requires a scalar numeric operand|message=got 'vec4'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_vector_constructor_arity_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_VECTOR_CONSTRUCTOR_ARITY_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.vector-constructor
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=18"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=vector constructor 'vec3'|message=expects 3 scalar components|message=got 2"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_vector_constructor_operand_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_VECTOR_CONSTRUCTOR_OPERAND_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.vector-constructor
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=39"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=vector constructor 'vec3'|message=convertible to component type 'float'|message=got 'bool'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_matrix_constructor_arity_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_MATRIX_CONSTRUCTOR_ARITY_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.matrix-constructor
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=18"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=matrix constructor 'mat2'|message=expects 4 scalar components|message=got 3"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_matrix_constructor_operand_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_MATRIX_CONSTRUCTOR_OPERAND_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.matrix-constructor
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=38"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=matrix constructor 'mat2'|message=convertible to component type 'float'|message=got 'bool'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_logical_not_operand_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_LOGICAL_NOT_OPERAND_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.logical-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=19"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=logical not operator requires a scalar bool operand|message=got 'int'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_logical_binary_operand_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_LOGICAL_BINARY_OPERAND_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.logical-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=20"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=logical operator '&&' requires scalar bool operands|message=int && bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_scalar_bool_arithmetic_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SCALAR_BOOL_ARITHMETIC_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.binary-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=19"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=arithmetic operator '+' requires numeric scalar, vector, or matrix operands|message=int + bool"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_relational_operand_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_RELATIONAL_OPERAND_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.comparison-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=6|location.column=23"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=comparison operator '<' requires scalar numeric operands|message=vec2 < vec2"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_equality_operand_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_EQUALITY_OPERAND_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.equality-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=27"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=equality operator '==' requires scalar bool operands or scalar numeric operands|message=sampler2D == sampler2D"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_select_condition_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SELECT_CONDITION_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.select-condition-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=21"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=select condition must be scalar bool|message=got 'int'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_select_branch_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SELECT_BRANCH_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.select-branch-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=30"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=select branches must have compatible scalar, vector, or matrix value types|message=vec2 and vec3"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_intrinsic_arity_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INTRINSIC_ARITY_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.intrinsic-arity
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=19"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=intrinsic call 'dot' expects exactly 2 arguments, got 1"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_intrinsic_argument_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INTRINSIC_ARGUMENT_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.intrinsic-argument-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=23"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=intrinsic call 'sin' argument 0 expects a floating-point scalar or vector type|message=got 'bool'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_intrinsic_compatibility_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INTRINSIC_COMPATIBILITY_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.intrinsic-argument-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=39"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=intrinsic call 'dot' argument 1 expects a floating-point vector with width 2|message=got 'vec3'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_function_call_arity_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_FUNCTION_CALL_ARITY_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.function-call-arity
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=22"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function call 'identity' expects exactly 1 argument, got 0"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_function_call_argument_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_FUNCTION_CALL_ARGUMENT_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.function-call-argument-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=30"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function call 'identity' argument 0 expects 'vec2', got 'float'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_unresolved_function_call_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_UNRESOLVED_FUNCTION_CALL_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.unresolved-function-call
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=21"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=function call 'missingHelper' does not resolve to a declared function or supported intrinsic"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_function_signature_return_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_FUNCTION_SIGNATURE_RETURN_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.function-signature-mismatch
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=9"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=stage 'compute' function list function 'helper' signature mismatch|message=previous signature 'float(float)'|message=current signature 'int(float)'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_top_level_function_signature_parameter_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_TOP_LEVEL_FUNCTION_SIGNATURE_PARAMETER_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.function-signature-mismatch
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=3|location.column=9"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=top-level function list function 'utility' signature mismatch|message=previous signature 'float(float)'|message=current signature 'float(vec2)'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_duplicate_function_parameter_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DUPLICATE_FUNCTION_PARAMETER_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.duplicate-function-parameter
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=3|location.column=35"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=stage 'compute' function list function 'helper' contains duplicate parameter 'value'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_declaration_initializer_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DECLARATION_INITIALIZER_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.declaration-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=19"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=declaration initializer for 'value' must be type 'int', got 'bool'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_assignment_value_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_ASSIGNMENT_VALUE_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=15"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment RHS must be type 'int', got 'bool'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_assignment_target_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_ASSIGNMENT_TARGET_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target must be an assignable storage location, got 'literal' expression"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_index_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INDEX_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.index-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=27"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=index operator requires a scalar int or uint index|message=got 'float'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_index_base_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_INDEX_BASE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.index-base-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=24"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=index operator requires an array, storage-buffer pointer, descriptor array, or vector base|message=got 'float'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_constant_assignment_readonly_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_CONSTANT_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-readonly
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'COUNT' is read-only"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_compute_builtin_assignment_readonly_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_COMPUTE_BUILTIN_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-readonly
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'gl_GlobalInvocationID' is read-only"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_cbuffer_assignment_readonly_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_CBUFFER_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-readonly
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'exposure' is read-only"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_storage_buffer_resource_assignment_readonly_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_STORAGE_BUFFER_RESOURCE_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-readonly
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'values' is a resource handle"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_texture_resource_assignment_readonly_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_TEXTURE_RESOURCE_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-readonly
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'colorMap' is a resource handle"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_storage_image_resource_assignment_readonly_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_STORAGE_IMAGE_RESOURCE_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-readonly
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'colorImage' is a resource handle"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_local_array_assignment_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_LOCAL_ARRAY_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'weights' has array type 'float[4]'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_shared_array_assignment_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_SHARED_ARRAY_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target 'tile' has array type 'float[4]'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_struct_array_field_assignment_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_STRUCT_ARRAY_FIELD_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=8|location.column=20"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target member 'weights' has array type 'float[4]'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_nested_subarray_assignment_lvalue_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_NESTED_SUBARRAY_ASSIGNMENT_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.assignment-target-lvalue
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=11"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=assignment target indexed expression has array type 'float[3]'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_void_return_value_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_VOID_RETURN_VALUE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.return-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=14"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=return statement in void function must not return a value"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_missing_return_value_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_MISSING_RETURN_VALUE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.return-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=return statement must return type 'float'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_return_value_type_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_RETURN_VALUE_TYPE_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.return-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=4|location.column=14"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=return statement must return type 'float', got 'bool'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_INCREMENT_DECREMENT_OPERAND_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadIncrementDecrementOperandShader.cgl)
 add_test(NAME cglc_check_increment_decrement_operand_failure
   COMMAND ${CMAKE_COMMAND}
@@ -2208,7 +2823,7 @@ add_test(NAME cglc_check_increment_decrement_operand_failure
     -DMODE=check-failure
     -DEXPECTED_DIAGNOSTIC=sema.increment-decrement-operand
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
-    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=7"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=increment/decrement updates require a scalar numeric local variable operand|message=got 'vec2'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_INCREMENT_DECREMENT_EXPRESSION_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadIncrementDecrementExpressionShader.cgl)
@@ -2219,7 +2834,7 @@ add_test(NAME cglc_check_increment_decrement_expression_failure
     -DMODE=check-failure
     -DEXPECTED_DIAGNOSTIC=sema.increment-decrement-update-form
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
-    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7|location.column=23"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=increment/decrement is only defined as a standalone update|message=expression-valued uses are not defined"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_CHECK_FAILURE_WHILE_CONDITION_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadWhileConditionShader.cgl)
@@ -2232,6 +2847,16 @@ add_test(NAME cglc_check_while_condition_failure
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=6|location.column=14"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=condition must be scalar bool|message=got 'int'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_do_while_condition_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_CHECK_FAILURE_DO_WHILE_CONDITION_SHADER}
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.logical-operand-type
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=7"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=logical not operator requires a scalar bool operand|message=got 'int'"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_unresolved_array_size_failure
   COMMAND ${CMAKE_COMMAND}

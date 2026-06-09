@@ -287,10 +287,15 @@ void testPackageMetadataHelpers() {
     const crossgl::PackageIntegrityResult recordedVerify =
         crossgl::verifyPackage(recordedPackageDir);
     expect(recordedVerify.success && recordedVerify.diagnostics.empty(),
-           "package verify honors recorded DirectX native requirements over "
-           "generated native-status defaults");
+           "package verify accepts recorded DirectX native requirements that "
+           "match the promoted target contract");
     const std::string recordedVerifyJson =
         crossgl::packageVerifyJson(recordedVerify, recordedPackageDir);
+    expect(recordedVerifyJson.find("\"success\": true") != std::string::npos &&
+               recordedVerifyJson.find("package.verify.invalid-manifest") ==
+                   std::string::npos,
+           "package verify JSON reports recorded DirectX native package-mode "
+           "contract success");
     expect(recordedVerifyJson.find("\"nativeBinaryStatus\": null") !=
                std::string::npos,
            "package verify JSON summary preserves recorded native status "
@@ -359,10 +364,18 @@ void testPackageMetadataHelpers() {
            "package metadata preserves recorded required path artifacts");
     const crossgl::PackageIntegrityResult recordedSourceOnlyVerify =
         crossgl::verifyPackage(recordedSourceOnlyPackageDir);
-    expect(recordedSourceOnlyVerify.success &&
-               recordedSourceOnlyVerify.diagnostics.empty(),
-           "package verify honors recorded DirectX required artifacts over "
-           "generated native-binary defaults");
+    expect(!recordedSourceOnlyVerify.success &&
+               !recordedSourceOnlyVerify.diagnostics.empty(),
+           "package verify rejects recorded DirectX required artifacts that "
+           "drift from the target contract");
+    const std::string recordedSourceOnlyVerifyJson =
+        crossgl::packageVerifyJson(recordedSourceOnlyVerify,
+                                   recordedSourceOnlyPackageDir);
+    expect(recordedSourceOnlyVerifyJson.find(
+               "packageArtifactRequirements.requiredPathArtifacts must match "
+               "manifest target contract") != std::string::npos,
+           "package verify JSON reports recorded DirectX required artifact "
+           "contract drift");
   }
 
   const std::filesystem::path incompletePackageDir =
@@ -569,6 +582,24 @@ void testDiagnosticCodeContract() {
     expect(!crossgl::isValidDiagnosticCode(code),
            "diagnostic code inventory rejects invalid code shape");
   }
+
+  crossgl::Diagnostic diagnostic;
+  diagnostic.severity = crossgl::DiagnosticSeverity::Error;
+  diagnostic.code = "sema.path-normalization";
+  diagnostic.message = "path normalization fixture";
+  diagnostic.location.file =
+      "/tmp/crossgl/generated/path-normalization-fixture.cgl";
+  diagnostic.originalLocation =
+      crossgl::SourceLocation{"/tmp/crossgl/shaders/original-fixture.crossgl"};
+  crossgl::DiagnosticEngine diagnostics;
+  diagnostics.report(std::move(diagnostic));
+  expect(diagnostics.diagnostics().size() == 1 &&
+             diagnostics.diagnostics()[0].location.file ==
+                 "path-normalization-fixture.cgl" &&
+             diagnostics.diagnostics()[0].originalLocation.has_value() &&
+             diagnostics.diagnostics()[0].originalLocation->file ==
+                 "original-fixture.crossgl",
+         "diagnostic reporting normalizes generated and original paths");
 }
 
 void testToolchainOptimizationPolicyMetadata() {
@@ -691,6 +722,15 @@ void testHIRTypeSemanticsHelpers() {
          "array element type preserves pointer markers");
   expect(!element.arraySize.has_value(), "array element type removes array shape");
 
+  const crossgl::HIRType multidimArray{
+      "float", std::optional<std::string>{"2][3"}};
+  const crossgl::HIRType multidimElement =
+      crossgl::arrayElementType(multidimArray);
+  expect(multidimElement.name == "float" &&
+             multidimElement.arraySize == std::optional<std::string>{"3"},
+         "array element type removes only the indexed dimension for "
+         "multidimensional arrays");
+
   const crossgl::HIRType bufferElement = crossgl::bufferElementType(arrayOfPointers);
   expect(bufferElement.name == "vec4",
          "buffer element type strips trailing pointer markers");
@@ -777,8 +817,10 @@ void testHIRTypeSemanticsHelpers() {
          "HIR type semantics resolves builtins and declared structs");
   expect(crossgl::vectorWidthFromName("uvec3") ==
              std::optional<std::size_t>{3} &&
-             crossgl::scalarTypeForVector("bvec4").name == "bool",
-         "HIR type semantics exposes vector shape helpers");
+             crossgl::scalarTypeForVector("bvec4").name == "bool" &&
+             crossgl::matrixElementCountFromName("mat4x4") ==
+                 std::optional<std::size_t>{16},
+         "HIR type semantics exposes aggregate shape helpers");
   expect(crossgl::isScalarAggregateTypePair(
              crossgl::HIRType{"float", std::nullopt},
              crossgl::HIRType{"vec4", std::nullopt}) &&
@@ -1640,6 +1682,25 @@ void testHIRIntrinsicRegistry() {
              crossgl::formatHIRIntrinsicArityExpectation(*dot) ==
                  "exactly 2 arguments",
          "HIR intrinsic registry exposes exact arity and purity helpers");
+  const crossgl::HIRIntrinsicSignature *smoothstep =
+      crossgl::lookupHIRIntrinsic("smoothstep");
+  const crossgl::HIRIntrinsicSignature *inverse =
+      crossgl::lookupHIRIntrinsic("inverse");
+  const crossgl::HIRIntrinsicSignature *transpose =
+      crossgl::lookupHIRIntrinsic("transpose");
+  expect(smoothstep != nullptr && inverse != nullptr && transpose != nullptr &&
+             smoothstep->resultRule ==
+                 crossgl::HIRIntrinsicResultRule::FirstArgument &&
+             smoothstep->minimumArity == 3 &&
+             smoothstep->maximumArity == std::optional<std::size_t>{3} &&
+             smoothstep->compatibilityRule ==
+                 crossgl::HIRIntrinsicArgumentCompatibilityRule::
+                     SameTypeOrScalarComponentWithFirst &&
+             inverse->argumentDomain ==
+                 crossgl::HIRIntrinsicArgumentDomain::FloatMatrix &&
+             transpose->argumentDomain ==
+                 crossgl::HIRIntrinsicArgumentDomain::FloatMatrix,
+         "HIR intrinsic registry includes CrossTL shared math intrinsics");
   const std::array<crossgl::HIRIntrinsicSignature, 2> arityOverloads = {{
       {"testIntrinsic", crossgl::HIRIntrinsicResultRule::FixedFloat, 1,
        std::size_t{1}},
@@ -3758,6 +3819,9 @@ bool expressionPolicyValueTypeSupported(const crossgl::HIRType &type) {
 
 bool expressionPolicySupported(const crossgl::HIRExpression &expression);
 
+bool expressionPolicyConstructorSupported(
+    const crossgl::HIRExpression &expression);
+
 bool expressionPolicyTextureSampleSupported(
     const crossgl::HIRExpression &expression) {
   return expression.value == "textureLod" && expression.children.size() == 1 &&
@@ -3771,11 +3835,19 @@ bool expressionPolicyTextureCompareSupported(
          expressionPolicySupported(expression.children.front());
 }
 
+bool expressionPolicyConstructorSupported(
+    const crossgl::HIRExpression &expression) {
+  return crossgl::backendConstructorShapeSupported(
+      expression, expressionPolicyValueTypeSupported,
+      expressionPolicySupported);
+}
+
 bool expressionPolicySupported(const crossgl::HIRExpression &expression) {
   return crossgl::expressionSupportedByPolicy(
-      expression, expressionPolicyValueTypeSupported, expressionPolicySupported,
+      expression, expressionPolicySupported,
       expressionPolicyTextureSampleSupported,
-      expressionPolicyTextureCompareSupported);
+      expressionPolicyTextureCompareSupported,
+      expressionPolicyConstructorSupported);
 }
 
 void testBackendExpressionSupportPolicyHelper() {
@@ -3785,17 +3857,19 @@ void testBackendExpressionSupportPolicyHelper() {
     result.value = std::move(value);
     return result;
   };
-  auto typedExpression = [&](crossgl::HIRExpressionKind kind,
-                             crossgl::HIRType type,
-                             std::vector<crossgl::HIRExpression> children = {}) {
-    crossgl::HIRExpression result = expression(kind);
-    result.type = std::move(type);
-    result.children = std::move(children);
-    return result;
-  };
+  auto typedExpression =
+      [&](crossgl::HIRExpressionKind kind, std::string value,
+          crossgl::HIRType type,
+          std::vector<crossgl::HIRExpression> children = {}) {
+        crossgl::HIRExpression result = expression(kind, std::move(value));
+        result.type = std::move(type);
+        result.children = std::move(children);
+        return result;
+      };
 
-  const crossgl::HIRExpression literal =
+  crossgl::HIRExpression literal =
       expression(crossgl::HIRExpressionKind::Literal, "1.0");
+  literal.type = crossgl::HIRType{"float", std::nullopt};
   expect(expressionPolicySupported(literal),
          "expression support policy accepts literals");
 
@@ -3837,25 +3911,31 @@ void testBackendExpressionSupportPolicyHelper() {
          "expression support policy rejects oversized two-child expressions");
 
   const crossgl::HIRExpression constructor = typedExpression(
-      crossgl::HIRExpressionKind::Constructor,
+      crossgl::HIRExpressionKind::Constructor, "float",
       crossgl::HIRType{"float", std::nullopt}, {literal});
   expect(expressionPolicySupported(constructor),
          "expression support policy accepts supported constructors");
 
   const crossgl::HIRExpression emptyConstructor = typedExpression(
-      crossgl::HIRExpressionKind::Constructor,
+      crossgl::HIRExpressionKind::Constructor, "float",
       crossgl::HIRType{"float", std::nullopt});
-  expect(expressionPolicySupported(emptyConstructor),
-         "expression support policy preserves constructor arity compatibility");
+  expect(!expressionPolicySupported(emptyConstructor),
+         "expression support policy rejects empty constructors");
+
+  const crossgl::HIRExpression mismatchedConstructor = typedExpression(
+      crossgl::HIRExpressionKind::Constructor, "vec2",
+      crossgl::HIRType{"float", std::nullopt}, {literal});
+  expect(!expressionPolicySupported(mismatchedConstructor),
+         "expression support policy rejects mismatched constructors");
 
   const crossgl::HIRExpression unsupportedConstructor = typedExpression(
-      crossgl::HIRExpressionKind::Constructor,
+      crossgl::HIRExpressionKind::Constructor, "vec4",
       crossgl::HIRType{"vec4", std::nullopt}, {literal});
   expect(!expressionPolicySupported(unsupportedConstructor),
          "expression support policy rejects unsupported constructor types");
 
   const crossgl::HIRExpression constructorWithUnsupportedChild =
-      typedExpression(crossgl::HIRExpressionKind::Constructor,
+      typedExpression(crossgl::HIRExpressionKind::Constructor, "float",
                       crossgl::HIRType{"float", std::nullopt},
                       {expression(crossgl::HIRExpressionKind::Call, "f")});
   expect(!expressionPolicySupported(constructorWithUnsupportedChild),
@@ -4635,6 +4715,73 @@ void testHIROptimizationPipelineDefaultPasses() {
                             "opt.hir-duplicate-function"),
          "HIR default validation pass allows forward declarations");
 
+  crossgl::HIRModule conflictingStageReturnModule = simpleModule();
+  crossgl::HIRFunction stageReturnPrototype;
+  stageReturnPrototype.returnType = crossgl::HIRType{"float", std::nullopt};
+  stageReturnPrototype.name = "helper";
+  crossgl::HIRFunction stageReturnDefinition = stageReturnPrototype;
+  stageReturnDefinition.returnType = crossgl::HIRType{"int", std::nullopt};
+  stageReturnDefinition.body.push_back(
+      crossgl::HIRStatement{crossgl::HIRStatementKind::Return});
+  conflictingStageReturnModule.stages.front().functions.push_back(
+      stageReturnPrototype);
+  conflictingStageReturnModule.stages.front().functions.push_back(
+      stageReturnDefinition);
+  expect(hasDiagnosticCodeAndMessage(
+             collectDefaultHIRValidationDiagnostics(
+                 conflictingStageReturnModule),
+             "opt.hir-function-signature-mismatch",
+             "previous signature 'float()', current signature 'int()'"),
+         "HIR default validation pass rejects stage prototype/definition "
+         "return type conflicts");
+
+  crossgl::HIRModule conflictingTopLevelParameterModule = simpleModule();
+  crossgl::HIRFunction topLevelParameterPrototype;
+  topLevelParameterPrototype.returnType =
+      crossgl::HIRType{"float", std::nullopt};
+  topLevelParameterPrototype.name = "utility";
+  topLevelParameterPrototype.parameters.push_back(crossgl::HIRParameter{
+      crossgl::HIRType{"float", std::nullopt}, "value"});
+  crossgl::HIRFunction topLevelParameterDefinition =
+      topLevelParameterPrototype;
+  topLevelParameterDefinition.parameters.front().type =
+      crossgl::HIRType{"vec2", std::nullopt};
+  topLevelParameterDefinition.body.push_back(
+      crossgl::HIRStatement{crossgl::HIRStatementKind::Return});
+  conflictingTopLevelParameterModule.functions.push_back(
+      topLevelParameterPrototype);
+  conflictingTopLevelParameterModule.functions.push_back(
+      topLevelParameterDefinition);
+  expect(hasDiagnosticCodeAndMessage(
+             collectDefaultHIRValidationDiagnostics(
+                 conflictingTopLevelParameterModule),
+             "opt.hir-function-signature-mismatch",
+             "top-level function list function 'utility' signature mismatch"),
+         "HIR default validation pass rejects top-level prototype/definition "
+         "parameter type conflicts");
+
+  crossgl::HIRModule qualifiedForwardDeclarationModule = simpleModule();
+  crossgl::HIRFunction qualifiedPrototype;
+  qualifiedPrototype.returnType = crossgl::HIRType{"float", std::nullopt};
+  qualifiedPrototype.name = "loadValue";
+  qualifiedPrototype.parameters.push_back(crossgl::HIRParameter{
+      crossgl::HIRType{"buffer float*", std::nullopt}, "values"});
+  crossgl::HIRFunction qualifiedDefinition = qualifiedPrototype;
+  qualifiedDefinition.parameters.front().type =
+      crossgl::HIRType{"float*", std::nullopt};
+  qualifiedDefinition.body.push_back(
+      crossgl::HIRStatement{crossgl::HIRStatementKind::Return});
+  qualifiedForwardDeclarationModule.stages.front().functions.push_back(
+      qualifiedPrototype);
+  qualifiedForwardDeclarationModule.stages.front().functions.push_back(
+      qualifiedDefinition);
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 qualifiedForwardDeclarationModule),
+             "opt.hir-function-signature-mismatch"),
+         "HIR default validation pass accepts qualifier-normalized forward "
+         "declarations");
+
   crossgl::HIRModule emptyStageFunctionModule = simpleModule();
   emptyStageFunctionModule.stages.front().functions.front().name.clear();
   expect(hasDiagnosticCode(
@@ -4803,7 +4950,7 @@ void testHIROptimizationLevelTracePolicies() {
       "hir.optimize.cleanup-dead-local-stores",
       "hir.validate.storage-buffer-shapes",
   };
-  constexpr std::array<std::string_view, 12> o2TracePolicy = {
+  constexpr std::array<std::string_view, 13> o2TracePolicy = {
       "hir.validate.module-shape",
       "hir.validate.typed-symbols",
       "hir.optimize.fold-constant-intrinsics",
@@ -4813,6 +4960,7 @@ void testHIROptimizationLevelTracePolicies() {
       "hir.optimize.cleanup-unreachable-statements",
       "hir.optimize.cleanup-dead-local-declarations",
       "hir.optimize.cleanup-dead-local-stores",
+      "hir.optimize.o2.pure-expression-cse",
       "hir.optimize.o2.inline-scalar-temporaries",
       "hir.optimize.o2.inline-literal-vector-temporaries",
       "hir.validate.storage-buffer-shapes",
@@ -4923,6 +5071,8 @@ void testHIROptimizationLevelTracePolicies() {
              o1Trace.find(
                  "\"name\": \"hir.optimize.cleanup-dead-local-stores\"") !=
                  std::string::npos &&
+             o1Trace.find("hir.optimize.o2.pure-expression-cse") ==
+                 std::string::npos &&
              o1Trace.find("hir.optimize.o2.inline-scalar-temporaries") ==
                  std::string::npos &&
              o1Trace.find("hir.optimize.o2.inline-literal-vector-temporaries") ==
@@ -4938,16 +5088,18 @@ void testHIROptimizationLevelTracePolicies() {
              o2Result.passScheduleFingerprint == o2TracePolicyFingerprint &&
              o2Trace.find("\"optimizationLevel\": \"O2\"") !=
                  std::string::npos &&
-             o2Trace.find("\"id\": \"hir-o2-conservative-inline\"") !=
+             o2Trace.find("\"id\": \"hir-o2-conservative-local-values\"") !=
                  std::string::npos &&
-             o2Trace.find("\"name\": \"O2 conservative inline\"") !=
+             o2Trace.find("\"name\": \"O2 conservative local values\"") !=
                  std::string::npos &&
              o2Trace.find("\"backendInputMode\": \"source-validation\"") !=
                  std::string::npos &&
              o2Trace.find(o2TracePolicyFingerprint) != std::string::npos &&
              o2Trace.find("\"id\": \"hir-o1-safe-cleanup\"") ==
                  std::string::npos &&
-             o2Trace.find("\"passCount\": 12") != std::string::npos &&
+             o2Trace.find("\"passCount\": 13") != std::string::npos &&
+             o2Trace.find("hir.optimize.o2.pure-expression-cse") !=
+                 std::string::npos &&
              o2Trace.find("hir.optimize.o2.inline-scalar-temporaries") !=
                  std::string::npos &&
              o2Trace.find(
@@ -5623,6 +5775,115 @@ void testHIRBackendInputRawStatementValidation() {
          "HIR backend-input descriptor rejects unstable contract versions");
 }
 
+void testHIRVerifierPublicEntryPoint() {
+  constexpr std::array<std::string_view, 3> sourceVerifierPasses = {
+      "hir.validate.module-shape",
+      "hir.validate.typed-symbols",
+      "hir.validate.storage-buffer-shapes",
+  };
+  constexpr std::array<std::string_view, 4> backendVerifierPasses = {
+      "hir.validate.module-shape",
+      "hir.validate.typed-symbols",
+      "hir.validate.storage-buffer-shapes",
+      "hir.validate.backend-input",
+  };
+  expect(crossgl::hirVerifierModeName(crossgl::HIRVerifierMode::Source) ==
+             "source-validation" &&
+             crossgl::hirVerifierModeName(
+                 crossgl::HIRVerifierMode::BackendInput) ==
+                 "backend-input-validation",
+         "HIR verifier mode names match backend input policy names");
+  expect(passNamesMatch(
+             crossgl::hirVerifierPassPipeline(crossgl::HIRVerifierMode::Source),
+             sourceVerifierPasses),
+         "HIR source verifier exposes validation-only passes");
+  expect(passNamesMatch(crossgl::hirVerifierPassPipeline(
+                            crossgl::HIRVerifierMode::BackendInput),
+                        backendVerifierPasses),
+         "HIR backend verifier exposes validation-only passes");
+
+  crossgl::HIRModule validModule = simpleModule();
+  const std::string before = crossgl::printHIR(validModule);
+  crossgl::DiagnosticEngine diagnostics;
+  const crossgl::HIRPassPipelineResult result =
+      crossgl::verifyHIRModule(validModule, diagnostics);
+  expect(!diagnostics.hasErrors() && result.completed &&
+             result.passCount == backendVerifierPasses.size() &&
+             result.scheduledPassCount == backendVerifierPasses.size() &&
+             result.changedPassCount == 0 && !result.changed &&
+             result.optimizationLevel == crossgl::OptimizationLevel::O0 &&
+             result.optimizationPolicyId == "hir-o0-validation-only" &&
+             result.backendInputMode == "backend-input-validation" &&
+             crossgl::printHIR(validModule) == before,
+         "HIR public verifier accepts valid modules without mutation or "
+         "optimization passes");
+  expect(crossgl::hirPassTraceJson(result).find("hir.optimize.") ==
+             std::string::npos,
+         "HIR public verifier trace excludes optimizer passes");
+  const crossgl::HIRBackendInputDescriptor descriptor =
+      crossgl::backendInputDescriptorForPipelineResult(result);
+  expect(crossgl::hirBackendInputDescriptorIsValidated(descriptor),
+         "HIR public verifier result can admit backend input");
+
+  crossgl::HIRModule missingEntryPoint = simpleModule();
+  missingEntryPoint.stages.front().entryPointName = "missing";
+  crossgl::DiagnosticEngine missingDiagnostics;
+  const crossgl::HIRPassPipelineResult missingResult =
+      crossgl::verifyHIRModule(missingEntryPoint, missingDiagnostics);
+  expect(hasDiagnosticCodeAndMessage(
+             missingDiagnostics.diagnostics(), "opt.hir-missing-entry-point",
+             "entry point 'missing' must match a stage function") &&
+             missingResult.scheduledPassCount == backendVerifierPasses.size() &&
+             missingResult.passCount == 1 &&
+             missingResult.passes.front().id == "hir.validate.module-shape" &&
+             missingResult.passes.front().status ==
+                 crossgl::HIRPassStatus::Failed,
+         "HIR public verifier reports module-shape diagnostics "
+         "deterministically");
+
+  auto token = [](crossgl::TokenKind kind, std::string text) {
+    crossgl::Token result;
+    result.kind = kind;
+    result.text = std::move(text);
+    return result;
+  };
+  crossgl::HIRStatement rawStatement;
+  rawStatement.kind = crossgl::HIRStatementKind::Raw;
+  rawStatement.rawTokens.push_back(
+      token(crossgl::TokenKind::Identifier, "backend_specific"));
+
+  crossgl::HIRModule sourceRawModule = simpleModule();
+  sourceRawModule.stages.front().functions.front().body.push_back(rawStatement);
+  crossgl::HIRVerifierConfig sourceConfig;
+  sourceConfig.mode = crossgl::HIRVerifierMode::Source;
+  crossgl::DiagnosticEngine sourceDiagnostics;
+  const crossgl::HIRPassPipelineResult sourceResult =
+      crossgl::verifyHIRModule(sourceRawModule, sourceDiagnostics,
+                               sourceConfig);
+  expect(!sourceDiagnostics.hasErrors() &&
+             sourceResult.passCount == sourceVerifierPasses.size() &&
+             sourceResult.backendInputMode == "source-validation",
+         "HIR source verifier accepts structured source-boundary raw HIR");
+
+  crossgl::HIRModule backendRawModule = simpleModule();
+  backendRawModule.stages.front().functions.front().body.push_back(
+      std::move(rawStatement));
+  crossgl::DiagnosticEngine backendDiagnostics;
+  const crossgl::HIRPassPipelineResult backendResult =
+      crossgl::verifyHIRModule(backendRawModule, backendDiagnostics);
+  expect(hasDiagnosticCodeAndMessage(
+             backendDiagnostics.diagnostics(),
+             "opt.hir-raw-statement-backend-input",
+             "must be lowered to structured HIR before backend/package input") &&
+             backendResult.scheduledPassCount == backendVerifierPasses.size() &&
+             backendResult.passCount == backendVerifierPasses.size() &&
+             backendResult.passes.back().id == "hir.validate.backend-input" &&
+             backendResult.passes.back().status ==
+                 crossgl::HIRPassStatus::Failed,
+         "HIR public verifier reports backend-input diagnostics "
+         "deterministically");
+}
+
 void testHIRControlTransferVerifierContract() {
   constexpr std::string_view diagnosticCode =
       "opt.hir-control-transfer-placement";
@@ -5782,6 +6043,9 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
   auto type = [](std::string name) {
     return crossgl::HIRType{std::move(name), std::nullopt};
   };
+  auto arrayType = [](std::string name, std::string arraySize) {
+    return crossgl::HIRType{std::move(name), std::move(arraySize)};
+  };
   auto expression = [](crossgl::HIRExpressionKind kind, std::string value,
                        crossgl::HIRType expressionType = {}) {
     crossgl::HIRExpression result;
@@ -5798,6 +6062,69 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
                         crossgl::HIRType expressionType = {}) {
     return expression(crossgl::HIRExpressionKind::Identifier,
                       std::move(value), std::move(expressionType));
+  };
+  auto unary = [&](std::string op, crossgl::HIRExpression operand,
+                   crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::Unary, std::move(op),
+                   std::move(expressionType));
+    result.children.push_back(std::move(operand));
+    return result;
+  };
+  auto binary = [&](std::string op, crossgl::HIRExpression left,
+                    crossgl::HIRExpression right,
+                    crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::Binary, std::move(op),
+                   std::move(expressionType));
+    result.children.push_back(std::move(left));
+    result.children.push_back(std::move(right));
+    return result;
+  };
+  auto member = [&](crossgl::HIRExpression base, std::string name,
+                    crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::MemberAccess, std::move(name),
+                   std::move(expressionType));
+    result.children.push_back(std::move(base));
+    return result;
+  };
+  auto index = [&](crossgl::HIRExpression base, crossgl::HIRExpression offset,
+                   crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::IndexAccess, "",
+                   std::move(expressionType));
+    result.children.push_back(std::move(base));
+    result.children.push_back(std::move(offset));
+    return result;
+  };
+  auto select = [&](crossgl::HIRExpression condition,
+                    crossgl::HIRExpression trueValue,
+                    crossgl::HIRExpression falseValue,
+                    crossgl::HIRType expressionType) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::Select, "?",
+                   std::move(expressionType));
+    result.children.push_back(std::move(condition));
+    result.children.push_back(std::move(trueValue));
+    result.children.push_back(std::move(falseValue));
+    return result;
+  };
+  auto call = [&](std::string name, crossgl::HIRType expressionType,
+                  std::vector<crossgl::HIRExpression> arguments) {
+    crossgl::HIRExpression result =
+        expression(crossgl::HIRExpressionKind::Call, std::move(name),
+                   std::move(expressionType));
+    result.children = std::move(arguments);
+    return result;
+  };
+  auto functionSignature = [&](std::string name, crossgl::HIRType returnType,
+                               std::vector<crossgl::HIRParameter> parameters) {
+    crossgl::HIRFunction function;
+    function.name = std::move(name);
+    function.returnType = std::move(returnType);
+    function.parameters = std::move(parameters);
+    return function;
   };
   auto expressionStatement = [](crossgl::HIRExpression value) {
     crossgl::HIRStatement statement;
@@ -5821,6 +6148,14 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
     statement.target = std::move(target);
     statement.value = std::move(value);
     return statement;
+  };
+  auto constant = [&](std::string name, crossgl::HIRType constantType,
+                      crossgl::HIRExpression value) {
+    crossgl::HIRConstant result;
+    result.name = std::move(name);
+    result.type = std::move(constantType);
+    result.value = std::move(value);
+    return result;
   };
   auto returnStatement = [](crossgl::HIRExpression value = {}) {
     crossgl::HIRStatement statement;
@@ -5961,6 +6296,68 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       "HIR typed-symbol validation diagnoses non-bool if conditions");
 
   expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(unary(
+          "!", literal("1", type("int")), type("bool")))),
+      "opt.hir-logical-operand-type",
+      "HIR typed-symbol validation diagnoses non-bool logical-not operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(binary(
+          "&&", literal("1", type("int")), literal("true", type("bool")),
+          type("bool")))),
+      "opt.hir-logical-operand-type",
+      "HIR typed-symbol validation diagnoses non-bool logical binary operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(binary(
+          "+", literal("1", type("int")), literal("true", type("bool")),
+          type("int")))),
+      "opt.hir-binary-operand-type",
+      "HIR typed-symbol validation diagnoses non-numeric arithmetic operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(binary(
+          "<", literal("0.0", type("vec2")), literal("1.0", type("vec2")),
+          type("bool")))),
+      "opt.hir-comparison-operand-type",
+      "HIR typed-symbol validation diagnoses non-scalar comparison operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(binary(
+          "==", identifier("colorMap", type("sampler2D")),
+          identifier("colorMap", type("sampler2D")), type("bool")))),
+      "opt.hir-equality-operand-type",
+      "HIR typed-symbol validation diagnoses resource equality operands");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(select(
+          literal("1", type("int")), literal("1.0", type("float")),
+          literal("0.0", type("float")), type("float")))),
+      "opt.hir-select-condition-type",
+      "HIR typed-symbol validation diagnoses non-bool select conditions");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(select(
+          literal("true", type("bool")), literal("0.0", type("vec2")),
+          literal("0.0", type("vec3")), type("vec2")))),
+      "opt.hir-select-branch-type",
+      "HIR typed-symbol validation diagnoses incompatible select branches");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(
+          index(literal("1.0", type("float")), literal("0", type("int")),
+                type("float")))),
+      "opt.hir-index-base-type",
+      "HIR typed-symbol validation diagnoses non-indexable base types");
+
+  expectInvalidTypedSymbol(
+      moduleWithVoidStageStatement(expressionStatement(
+          index(identifier("weights", arrayType("float", "4")),
+                literal("0.5", type("float")), type("float")))),
+      "opt.hir-index-type",
+      "HIR typed-symbol validation diagnoses non-integer index operands");
+
+  expectInvalidTypedSymbol(
       moduleWithVoidStageStatement(declaration(
           "value", type("int"), literal("1.0", type("float")))),
       "opt.hir-declaration-type",
@@ -5980,6 +6377,235 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
       "opt.hir-assignment-type",
       "HIR typed-symbol validation diagnoses assignment type mismatches");
 
+  crossgl::HIRModule nonAssignableAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &nonAssignableAssignmentTargetMain =
+      nonAssignableAssignmentTargetModule.stages.front().functions.front();
+  nonAssignableAssignmentTargetMain.body.push_back(
+      declaration("value", type("vec2")));
+  nonAssignableAssignmentTargetMain.body.push_back(
+      declaration("other", type("vec2")));
+  nonAssignableAssignmentTargetMain.body.push_back(assignment(
+      member(binary("+", identifier("value", type("vec2")),
+                    identifier("other", type("vec2")), type("vec2")),
+             "x", type("float")),
+      literal("2.0", type("float"))));
+  expectInvalidTypedSymbol(
+      std::move(nonAssignableAssignmentTargetModule),
+      "opt.hir-assignment-target-lvalue",
+      "HIR typed-symbol validation rejects non-assignable assignment targets");
+
+  crossgl::HIRModule duplicateSwizzleAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &duplicateSwizzleAssignmentTargetMain =
+      duplicateSwizzleAssignmentTargetModule.stages.front().functions.front();
+  duplicateSwizzleAssignmentTargetMain.body.push_back(
+      declaration("color", type("vec4")));
+  duplicateSwizzleAssignmentTargetMain.body.push_back(assignment(
+      member(identifier("color", type("vec4")), "xx", type("vec2")),
+      literal("vec2(0.0, 1.0)", type("vec2"))));
+  expectInvalidTypedSymbol(
+      std::move(duplicateSwizzleAssignmentTargetModule),
+      "opt.hir-assignment-target-swizzle-duplicate",
+      "HIR typed-symbol validation rejects duplicate-component swizzle "
+      "assignment targets");
+
+  crossgl::HIRModule constantAssignmentTargetModule = simpleModule();
+  constantAssignmentTargetModule.constants.push_back(
+      constant("COUNT", type("int"), literal("1", type("int"))));
+  crossgl::HIRFunction &constantAssignmentTargetMain =
+      constantAssignmentTargetModule.stages.front().functions.front();
+  constantAssignmentTargetMain.body.push_back(
+      assignment(identifier("COUNT", type("int")), literal("2", type("int"))));
+  expectInvalidTypedSymbol(
+      std::move(constantAssignmentTargetModule),
+      "opt.hir-assignment-target-readonly",
+      "HIR typed-symbol validation rejects assignments to constants");
+
+  crossgl::HIRModule cbufferAssignmentTargetModule = simpleModule();
+  cbufferAssignmentTargetModule.structs.push_back(crossgl::HIRStruct{
+      "Constants",
+      {crossgl::HIRField{crossgl::HIRType{"float", std::nullopt}, "exposure"}}});
+  cbufferAssignmentTargetModule.stages.front().resources.push_back(
+      crossgl::HIRResource{crossgl::HIRResourceKind::Uniform,
+                           type("Constants"), "Constants"});
+  crossgl::HIRFunction &cbufferAssignmentTargetMain =
+      cbufferAssignmentTargetModule.stages.front().functions.front();
+  cbufferAssignmentTargetMain.body.push_back(assignment(
+      identifier("exposure", type("float")), literal("1.0", type("float"))));
+  expectInvalidTypedSymbol(
+      std::move(cbufferAssignmentTargetModule),
+      "opt.hir-assignment-target-readonly",
+      "HIR typed-symbol validation rejects assignments to cbuffer fields");
+
+  crossgl::HIRModule computeBuiltinAssignmentTargetModule = simpleModule();
+  computeBuiltinAssignmentTargetModule.stages.front().stage = "compute";
+  crossgl::HIRFunction &computeBuiltinAssignmentTargetMain =
+      computeBuiltinAssignmentTargetModule.stages.front().functions.front();
+  computeBuiltinAssignmentTargetMain.body.push_back(assignment(
+      member(identifier("gl_NumWorkGroups", type("uvec3")), "x", type("uint")),
+      literal("1u", type("uint"))));
+  expectInvalidTypedSymbol(
+      std::move(computeBuiltinAssignmentTargetModule),
+      "opt.hir-assignment-target-readonly",
+      "HIR typed-symbol validation rejects assignments to compute built-ins");
+
+  crossgl::HIRModule resourceHandleAssignmentTargetModule = simpleModule();
+  resourceHandleAssignmentTargetModule.stages.front().resources.push_back(
+      crossgl::HIRResource{crossgl::HIRResourceKind::Buffer, type("float*"),
+                           "values"});
+  crossgl::HIRFunction &resourceHandleAssignmentTargetMain =
+      resourceHandleAssignmentTargetModule.stages.front().functions.front();
+  resourceHandleAssignmentTargetMain.returnType = type("void");
+  resourceHandleAssignmentTargetMain.body.push_back(assignment(
+      identifier("values", type("float*")),
+      identifier("values", type("float*"))));
+  expectInvalidTypedSymbol(
+      std::move(resourceHandleAssignmentTargetModule),
+      "opt.hir-assignment-target-readonly",
+      "HIR typed-symbol validation rejects direct assignments to resource "
+      "handles");
+
+  crossgl::HIRModule storageBufferElementAssignmentTargetModule = simpleModule();
+  storageBufferElementAssignmentTargetModule.stages.front().resources.push_back(
+      crossgl::HIRResource{crossgl::HIRResourceKind::Buffer, type("float*"),
+                           "values"});
+  crossgl::HIRFunction &storageBufferElementAssignmentTargetMain =
+      storageBufferElementAssignmentTargetModule.stages.front()
+          .functions.front();
+  storageBufferElementAssignmentTargetMain.returnType = type("void");
+  storageBufferElementAssignmentTargetMain.body.push_back(assignment(
+      index(identifier("values", type("float*")),
+            literal("0", type("int")), type("float")),
+      literal("1.0", type("float"))));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(storageBufferElementAssignmentTargetModule)),
+             "opt.hir-assignment-target-readonly"),
+         "HIR typed-symbol validation keeps storage-buffer element writes "
+         "writable");
+
+  crossgl::HIRModule localArrayAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &localArrayAssignmentTargetMain =
+      localArrayAssignmentTargetModule.stages.front().functions.front();
+  localArrayAssignmentTargetMain.returnType = type("void");
+  localArrayAssignmentTargetMain.body.push_back(
+      declaration("weights", arrayType("float", "4")));
+  localArrayAssignmentTargetMain.body.push_back(assignment(
+      identifier("weights", arrayType("float", "4")),
+      identifier("weights", arrayType("float", "4"))));
+  expectInvalidTypedSymbol(
+      std::move(localArrayAssignmentTargetModule),
+      "opt.hir-assignment-target-lvalue",
+      "HIR typed-symbol validation rejects direct assignments to whole arrays");
+
+  crossgl::HIRModule localArrayElementAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &localArrayElementAssignmentTargetMain =
+      localArrayElementAssignmentTargetModule.stages.front().functions.front();
+  localArrayElementAssignmentTargetMain.returnType = type("void");
+  localArrayElementAssignmentTargetMain.body.push_back(
+      declaration("weights", arrayType("float", "4")));
+  localArrayElementAssignmentTargetMain.body.push_back(assignment(
+      index(identifier("weights", arrayType("float", "4")),
+            literal("0", type("int")), type("float")),
+      literal("1.0", type("float"))));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(localArrayElementAssignmentTargetModule)),
+             "opt.hir-assignment-target-lvalue"),
+         "HIR typed-symbol validation keeps array element writes writable");
+
+  crossgl::HIRModule structArrayFieldAssignmentTargetModule = simpleModule();
+  structArrayFieldAssignmentTargetModule.structs.push_back(crossgl::HIRStruct{
+      "Particle",
+      {crossgl::HIRField{crossgl::HIRType{"float", std::string{"4"}},
+                         "weights"}}});
+  crossgl::HIRFunction &structArrayFieldAssignmentTargetMain =
+      structArrayFieldAssignmentTargetModule.stages.front().functions.front();
+  structArrayFieldAssignmentTargetMain.returnType = type("void");
+  structArrayFieldAssignmentTargetMain.body.push_back(
+      declaration("particle", type("Particle")));
+  structArrayFieldAssignmentTargetMain.body.push_back(assignment(
+      member(identifier("particle", type("Particle")), "weights",
+             arrayType("float", "4")),
+      member(identifier("particle", type("Particle")), "weights",
+             arrayType("float", "4"))));
+  expectInvalidTypedSymbol(
+      std::move(structArrayFieldAssignmentTargetModule),
+      "opt.hir-assignment-target-lvalue",
+      "HIR typed-symbol validation rejects direct assignments to whole "
+      "struct array fields");
+
+  crossgl::HIRModule structArrayElementAssignmentTargetModule = simpleModule();
+  structArrayElementAssignmentTargetModule.structs.push_back(crossgl::HIRStruct{
+      "Particle",
+      {crossgl::HIRField{crossgl::HIRType{"float", std::string{"4"}},
+                         "weights"}}});
+  crossgl::HIRFunction &structArrayElementAssignmentTargetMain =
+      structArrayElementAssignmentTargetModule.stages.front().functions.front();
+  structArrayElementAssignmentTargetMain.returnType = type("void");
+  structArrayElementAssignmentTargetMain.body.push_back(
+      declaration("particle", type("Particle")));
+  structArrayElementAssignmentTargetMain.body.push_back(assignment(
+      index(member(identifier("particle", type("Particle")), "weights",
+                   arrayType("float", "4")),
+            literal("0", type("int")), type("float")),
+      literal("1.0", type("float"))));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(structArrayElementAssignmentTargetModule)),
+             "opt.hir-assignment-target-lvalue"),
+         "HIR typed-symbol validation keeps struct array field element writes "
+         "writable");
+
+  crossgl::HIRModule nestedSubarrayAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &nestedSubarrayAssignmentTargetMain =
+      nestedSubarrayAssignmentTargetModule.stages.front().functions.front();
+  nestedSubarrayAssignmentTargetMain.returnType = type("void");
+  nestedSubarrayAssignmentTargetMain.body.push_back(
+      declaration("grid", arrayType("float", "2][3")));
+  nestedSubarrayAssignmentTargetMain.body.push_back(assignment(
+      index(identifier("grid", arrayType("float", "2][3")),
+            literal("0", type("int")), arrayType("float", "3")),
+      index(identifier("grid", arrayType("float", "2][3")),
+            literal("1", type("int")), arrayType("float", "3"))));
+  expectInvalidTypedSymbol(
+      std::move(nestedSubarrayAssignmentTargetModule),
+      "opt.hir-assignment-target-lvalue",
+      "HIR typed-symbol validation rejects direct assignments to nested "
+      "subarrays");
+
+  crossgl::HIRModule nestedScalarElementAssignmentTargetModule = simpleModule();
+  crossgl::HIRFunction &nestedScalarElementAssignmentTargetMain =
+      nestedScalarElementAssignmentTargetModule.stages.front().functions.front();
+  nestedScalarElementAssignmentTargetMain.returnType = type("void");
+  nestedScalarElementAssignmentTargetMain.body.push_back(
+      declaration("grid", arrayType("float", "2][3")));
+  nestedScalarElementAssignmentTargetMain.body.push_back(assignment(
+      index(index(identifier("grid", arrayType("float", "2][3")),
+                  literal("0", type("int")), arrayType("float", "3")),
+            literal("0", type("int")), type("float")),
+      literal("1.0", type("float"))));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(nestedScalarElementAssignmentTargetModule)),
+             "opt.hir-assignment-target-lvalue"),
+         "HIR typed-symbol validation keeps nested scalar element writes "
+         "writable");
+
+  crossgl::HIRModule shadowedConstantAssignmentTargetModule = simpleModule();
+  shadowedConstantAssignmentTargetModule.constants.push_back(
+      constant("COUNT", type("int"), literal("1", type("int"))));
+  crossgl::HIRFunction &shadowedConstantAssignmentTargetMain =
+      shadowedConstantAssignmentTargetModule.stages.front().functions.front();
+  shadowedConstantAssignmentTargetMain.body.push_back(
+      declaration("COUNT", type("int"), literal("1", type("int"))));
+  shadowedConstantAssignmentTargetMain.body.push_back(
+      assignment(identifier("COUNT", type("int")), literal("2", type("int"))));
+  expect(!hasDiagnosticCode(collectDefaultHIRValidationDiagnostics(
+                                shadowedConstantAssignmentTargetModule),
+                            "opt.hir-assignment-target-readonly"),
+         "HIR typed-symbol validation lets locals shadow constants before "
+         "assignment");
+
   crossgl::HIRModule mismatchedReturnModule = simpleModule();
   crossgl::HIRFunction &mismatchedReturnMain =
       mismatchedReturnModule.stages.front().functions.front();
@@ -5988,6 +6614,75 @@ void testHIROptimizationPipelineTypedSymbolValidation() {
   expectInvalidTypedSymbol(
       std::move(mismatchedReturnModule), "opt.hir-return-type",
       "HIR typed-symbol validation diagnoses return type mismatches");
+
+  crossgl::HIRModule userCallArityModule = simpleModule();
+  userCallArityModule.functions.push_back(functionSignature(
+      "scale", type("float"),
+      {crossgl::HIRParameter{type("float"), "value"}}));
+  crossgl::HIRFunction &userCallArityMain =
+      userCallArityModule.stages.front().functions.front();
+  userCallArityMain.returnType = type("void");
+  userCallArityMain.body.push_back(
+      expressionStatement(call("scale", type("float"), {})));
+  expectInvalidTypedSymbol(
+      std::move(userCallArityModule), "opt.hir-function-call-arity",
+      "HIR typed-symbol validation diagnoses user function call arity "
+      "mismatches");
+
+  crossgl::HIRModule userCallArgumentTypeModule = simpleModule();
+  userCallArgumentTypeModule.stages.front().functions.push_back(
+      functionSignature("identity", type("vec2"),
+                        {crossgl::HIRParameter{type("vec2"), "value"}}));
+  crossgl::HIRFunction &userCallArgumentTypeMain =
+      userCallArgumentTypeModule.stages.front().functions.front();
+  userCallArgumentTypeMain.returnType = type("void");
+  userCallArgumentTypeMain.body.push_back(expressionStatement(
+      call("identity", type("vec2"), {literal("1.0", type("float"))})));
+  expectInvalidTypedSymbol(
+      std::move(userCallArgumentTypeModule),
+      "opt.hir-function-call-argument-type",
+      "HIR typed-symbol validation diagnoses user function call argument type "
+      "mismatches");
+
+  crossgl::HIRModule userCallResultTypeModule = simpleModule();
+  userCallResultTypeModule.stages.front().functions.push_back(
+      functionSignature("helper", type("float"), {}));
+  crossgl::HIRFunction &userCallResultTypeMain =
+      userCallResultTypeModule.stages.front().functions.front();
+  userCallResultTypeMain.returnType = type("void");
+  userCallResultTypeMain.body.push_back(
+      expressionStatement(call("helper", type("int"), {})));
+  expectInvalidTypedSymbol(
+      std::move(userCallResultTypeModule), "opt.hir-function-call-type",
+      "HIR typed-symbol validation diagnoses user function call result type "
+      "mismatches");
+
+  crossgl::HIRModule unresolvedUserCallModule = simpleModule();
+  crossgl::HIRFunction &unresolvedUserCallMain =
+      unresolvedUserCallModule.stages.front().functions.front();
+  unresolvedUserCallMain.returnType = type("void");
+  unresolvedUserCallMain.body.push_back(expressionStatement(
+      call("missingHelper", {}, {literal("1.0", type("float"))})));
+  expectInvalidTypedSymbol(
+      std::move(unresolvedUserCallModule),
+      "opt.hir-unresolved-function-call",
+      "HIR typed-symbol validation diagnoses unresolved function calls");
+
+  crossgl::HIRModule qualifiedUserCallModule = simpleModule();
+  qualifiedUserCallModule.functions.push_back(functionSignature(
+      "loadValue", type("float"),
+      {crossgl::HIRParameter{type("buffer float*"), "values"}}));
+  crossgl::HIRFunction &qualifiedUserCallMain =
+      qualifiedUserCallModule.stages.front().functions.front();
+  qualifiedUserCallMain.returnType = type("void");
+  qualifiedUserCallMain.body.push_back(expressionStatement(
+      call("loadValue", type("float"), {identifier("values", type("float*"))})));
+  expect(!hasDiagnosticCode(
+             collectDefaultHIRValidationDiagnostics(
+                 std::move(qualifiedUserCallModule)),
+             "opt.hir-function-call-argument-type"),
+         "HIR typed-symbol validation accepts address-space-qualified user "
+         "function arguments after qualifier normalization");
 
   crossgl::HIRExpression missingMember =
       expression(crossgl::HIRExpressionKind::MemberAccess, "missing",
@@ -6567,6 +7262,121 @@ void testHIRForInitializerTypedSymbolScope() {
                             "opt.hir-identifier-type"),
          "HIR typed-symbol validation restores an outer declaration hidden by "
          "a for initializer declaration");
+}
+
+crossgl::HIRType constructorVerifierType(std::string name) {
+  return crossgl::HIRType{std::move(name), std::nullopt};
+}
+
+crossgl::HIRExpression constructorVerifierLiteral(std::string value,
+                                                  std::string typeName) {
+  crossgl::HIRExpression expression;
+  expression.kind = crossgl::HIRExpressionKind::Literal;
+  expression.value = std::move(value);
+  expression.type = constructorVerifierType(std::move(typeName));
+  return expression;
+}
+
+crossgl::HIRExpression constructorVerifierConstructor(
+    std::string name, std::vector<crossgl::HIRExpression> operands) {
+  crossgl::HIRExpression expression;
+  expression.kind = crossgl::HIRExpressionKind::Constructor;
+  expression.type = constructorVerifierType(name);
+  expression.value = std::move(name);
+  expression.children = std::move(operands);
+  return expression;
+}
+
+std::vector<crossgl::Diagnostic> constructorVerifierDiagnostics(
+    crossgl::HIRExpression expression) {
+  crossgl::HIRStatement statement;
+  statement.kind = crossgl::HIRStatementKind::Expression;
+  statement.value = std::move(expression);
+
+  crossgl::HIRModule module = simpleModule();
+  crossgl::HIRFunction &main = module.stages.front().functions.front();
+  main.returnType = constructorVerifierType("void");
+  main.body.push_back(std::move(statement));
+  return collectDefaultHIRValidationDiagnostics(std::move(module));
+}
+
+void testHIROptimizationPipelineScalarConstructorValidation() {
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "float", {constructorVerifierLiteral("true", "bool")})),
+             "opt.hir-scalar-constructor"),
+         "HIR typed-symbol validation diagnoses scalar constructor operand "
+         "domain mismatches");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "float", {constructorVerifierLiteral("1", "int")})),
+             "opt.hir-scalar-constructor"),
+         "HIR typed-symbol validation accepts scalar numeric constructor casts");
+}
+
+void testHIROptimizationPipelineVectorConstructorValidation() {
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "vec3", {constructorVerifierLiteral("1.0", "float"),
+                          constructorVerifierLiteral("2.0", "float")})),
+             "opt.hir-vector-constructor"),
+         "HIR typed-symbol validation diagnoses short vector constructors");
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "vec3",
+                 {constructorVerifierConstructor(
+                      "vec2", {constructorVerifierLiteral("1.0", "float"),
+                               constructorVerifierLiteral("2.0", "float")}),
+                  constructorVerifierLiteral("true", "bool")})),
+             "opt.hir-vector-constructor"),
+         "HIR typed-symbol validation diagnoses vector constructor component "
+         "domain mismatches");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "bvec2", {constructorVerifierLiteral("true", "bool"),
+                           constructorVerifierLiteral("false", "bool")})),
+             "opt.hir-vector-constructor"),
+         "HIR typed-symbol validation accepts bool vector constructors");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "vec3",
+                 {constructorVerifierConstructor(
+                      "vec2", {constructorVerifierLiteral("1.0", "float"),
+                               constructorVerifierLiteral("2.0", "float")}),
+                  constructorVerifierLiteral("3.0", "float")})),
+             "opt.hir-vector-constructor"),
+         "HIR typed-symbol validation accepts flattened vector constructors");
+}
+
+void testHIROptimizationPipelineMatrixConstructorValidation() {
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "mat2", {constructorVerifierLiteral("1.0", "float"),
+                          constructorVerifierLiteral("0.0", "float"),
+                          constructorVerifierLiteral("0.0", "float")})),
+             "opt.hir-matrix-constructor"),
+         "HIR typed-symbol validation diagnoses short matrix constructors");
+  expect(hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "mat2", {constructorVerifierLiteral("1.0", "float"),
+                          constructorVerifierLiteral("0.0", "float"),
+                          constructorVerifierLiteral("0.0", "float"),
+                          constructorVerifierLiteral("true", "bool")})),
+             "opt.hir-matrix-constructor"),
+         "HIR typed-symbol validation diagnoses matrix constructor component "
+         "domain mismatches");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "mat2", {constructorVerifierLiteral("1.0", "float")})),
+             "opt.hir-matrix-constructor"),
+         "HIR typed-symbol validation accepts matrix scalar splat constructors");
+  expect(!hasDiagnosticCode(
+             constructorVerifierDiagnostics(constructorVerifierConstructor(
+                 "mat2", {constructorVerifierConstructor(
+                             "mat2", {constructorVerifierLiteral("1.0",
+                                                                 "float")})})),
+             "opt.hir-matrix-constructor"),
+         "HIR typed-symbol validation accepts matrix-from-matrix constructors");
 }
 
 void testHIROptimizationPipelineRuntimeResourceArrayShapeValidation() {
@@ -8726,7 +9536,7 @@ void testHIRRawFallbackClearsPartialParsedFields() {
 void testHIRParsedStatementLocationWithoutRawTokens() {
   constexpr std::string_view source = R"(shader ParsedReturnLocationShader {
   compute {
-    int main() {
+    void main() {
       return;
     }
   }
@@ -8739,6 +9549,10 @@ void testHIRParsedStatementLocationWithoutRawTokens() {
     return;
   }
 
+  // Source semantics now rejects `int main() { return; }`; mutate the parsed HIR
+  // to keep verifier diagnostic-location coverage on the structured statement.
+  hir->stages.front().functions.front().returnType =
+      crossgl::HIRType{"int", std::nullopt};
   const crossgl::HIRFunction &function = hir->stages.front().functions.front();
   expect(function.body.size() == 1,
          "parsed statement location test has one return statement");
@@ -9017,8 +9831,9 @@ shader HelperFunctionReachabilityShader {
                                                         "result");
   expect(resultDeclaration != nullptr &&
              resultDeclaration->value.kind == crossgl::HIRExpressionKind::Call &&
-             resultDeclaration->value.value == "usedHelper",
-         "HIR optimizer preserves same-stage helper call expressions");
+             resultDeclaration->value.value == "usedHelper" &&
+             resultDeclaration->value.type.name == "float",
+         "HIR optimizer preserves typed same-stage helper call expressions");
 }
 
 void testHIRArrayArgumentHelperCallSideEffectsPass() {
@@ -13481,6 +14296,12 @@ shader HexLiteralShader {
       float partial_sum = 1.0;
       int offset = 1;
       partial_sum += __shfl_down_sync(0xFFFFFFFF, partial_sum, offset);
+      mat4 identity = mat4(1.0, 0.0, 0.0, 0.0,
+                           0.0, 1.0, 0.0, 0.0,
+                           0.0, 0.0, 1.0, 0.0,
+                           0.0, 0.0, 0.0, 1.0);
+      mat4 corrected = transpose(inverse(identity));
+      float eased = smoothstep(0.0, 1.0, partial_sum);
       return;
     }
   }
@@ -13501,6 +14322,15 @@ shader HexLiteralShader {
                hirExpressionIsLiteral(shuffleCall->children.front(),
                                       "0xFFFFFFFF"),
            "split lexer hex literal is preserved as one HIR literal");
+    expect(findHIRCallExpression(hexHIR->stages.front().functions.front().body,
+                                 "transpose") != nullptr &&
+               findHIRCallExpression(
+                   hexHIR->stages.front().functions.front().body,
+                   "inverse") != nullptr &&
+               findHIRCallExpression(
+                   hexHIR->stages.front().functions.front().body,
+                   "smoothstep") != nullptr,
+           "shared-contract math intrinsics build HIR call expressions");
   }
 
   constexpr std::string_view elseIfSource = R"(
@@ -13712,7 +14542,9 @@ void expectSourcePackageProjectionFields(
     const crossgl::TargetLegalizationContractProjection &projection,
     crossgl::TargetKind target, std::string_view nativeCapabilityId,
     std::string_view toolCapabilityId, std::string_view validationCapabilityId,
-    std::string_view context) {
+    std::string_view context,
+    std::string_view expectedOptimizationLevelMode = "unknown",
+    std::string_view expectedToolProvenanceMode = "planned") {
   const std::string targetLabel = crossgl::targetName(target);
   const std::string evidencePrefix = "target-legalization.v1." + targetLabel;
   const std::string expectedDescriptorBinaryKind =
@@ -13849,13 +14681,19 @@ void expectSourcePackageProjectionFields(
                   .requiresProducedNativeArtifact &&
              projection.sourcePackageDescriptorPolicy.validationStatus ==
                  "unavailable" &&
+             std::string_view(
+                 crossgl::
+                     targetSourcePackageDescriptorOptimizationLevelModeName(
+                         projection.sourcePackageDescriptorPolicy
+                             .optimizationLevelMode)) ==
+                 expectedOptimizationLevelMode &&
              projection.sourcePackageDescriptorPolicy.fixedOptimizationLevel ==
                  "unknown" &&
              projection.sourcePackageDescriptorPolicy
                      .optimizationEvidenceModeName ==
                  expectedOptimizationEvidenceMode &&
              projection.sourcePackageDescriptorPolicy.toolProvenanceModeName ==
-                 "planned",
+                 expectedToolProvenanceMode,
          std::string(context) +
              " records the baseline source-package descriptor policy");
 
@@ -13929,13 +14767,13 @@ void expectSourcePackageProjectionFields(
              jsonHasStringField(projectionJson, "validationStatus",
                                 "unavailable") &&
              jsonHasStringField(projectionJson, "optimizationLevelMode",
-                                "unknown") &&
+                                expectedOptimizationLevelMode) &&
              jsonHasStringField(projectionJson, "fixedOptimizationLevel",
                                 "unknown") &&
              jsonHasStringField(projectionJson, "optimizationEvidenceMode",
                                 expectedOptimizationEvidenceMode) &&
              jsonHasStringField(projectionJson, "toolProvenanceMode",
-                                "planned") &&
+                                expectedToolProvenanceMode) &&
              jsonHasSizeField(projectionJson, "missingToolCount",
                               projection.missingToolCount) &&
              jsonHasStringValue(projectionJson, toolCapabilityId) &&
@@ -14155,6 +14993,16 @@ std::string resultV0OptionalNativeToolStatusName(
   return "not-required";
 }
 
+std::string resultV0SelectionReasonName(
+    const crossgl::TargetLegalizationResult &result) {
+  if (result.requestedTarget != crossgl::TargetKind::Auto) {
+    return "explicit-target";
+  }
+  return result.packageSelection.selectedTarget == crossgl::defaultTargetForHost()
+             ? "auto-host-default"
+             : "auto-recommended-target";
+}
+
 void expectTargetLegalizationResultV0EvidenceProjection(
     const crossgl::TargetLegalizationResult &result,
     std::string_view expectedABIState, std::string_view expectedRewriteStatus,
@@ -14265,6 +15113,12 @@ void expectTargetLegalizationResultV0Json(
   const std::string json = crossgl::targetLegalizationResultV0Json(result);
   const std::string evidencePrefix =
       "target-legalization.v1." + std::string(expectedTarget);
+  const std::string requestedTarget =
+      crossgl::targetName(result.requestedTarget);
+  const std::string preferredTarget =
+      crossgl::targetName(result.packageSelection.preferredTarget);
+  const std::string selectedTarget =
+      crossgl::targetName(result.packageSelection.selectedTarget);
   expect(crossgl::isJsonObjectDocument(json) &&
              jsonHasStringField(json, "contract",
                                 "crossgl.target-legalization-result.v0") &&
@@ -14275,6 +15129,18 @@ void expectTargetLegalizationResultV0Json(
              jsonHasStringField(json, "consumerMigration", "pending") &&
              jsonHasStringField(json, "productionBehavior", "unchanged") &&
              jsonHasStringField(json, "target", expectedTarget) &&
+             jsonHasStringField(json, "requestedTarget", requestedTarget) &&
+             jsonHasStringField(json, "preferredTarget", preferredTarget) &&
+             jsonHasStringField(json, "resolvedTarget", expectedTarget) &&
+             jsonHasStringField(json, "selectedTarget", selectedTarget) &&
+             jsonHasStringField(json, "selectionReason",
+                                resultV0SelectionReasonName(result)) &&
+             jsonHasBoolField(json, "autoRequested",
+                              result.requestedTarget ==
+                                  crossgl::TargetKind::Auto) &&
+             jsonHasBoolField(json, "selectedTargetBuildable",
+                              result.packageSelection
+                                  .selectedTargetBuildable) &&
              jsonHasStringField(json, "profile",
                                 std::string(expectedTarget) + ".v0." +
                                     std::string(expectedPackageMode)) &&
@@ -14397,6 +15263,9 @@ bool debugMetadataHasRequiredCapability(
 const crossgl::ReflectionTargetResourceBinding *
 findTargetResourceBinding(const crossgl::ReflectionDocument &document,
                           std::string_view name);
+void expectReflectionBindingsConsumeLegalizationRecords(
+    const crossgl::HIRModule &module, crossgl::TargetKind target,
+    const crossgl::ReflectionDocument &document, std::string_view label);
 
 void testRuntimeDescriptorArrayPolicyHelper() {
   auto type = [](std::string name,
@@ -14404,11 +15273,13 @@ void testRuntimeDescriptorArrayPolicyHelper() {
     return crossgl::HIRType{std::move(name), std::move(arraySize)};
   };
   auto resource = [](crossgl::HIRResourceKind kind, crossgl::HIRType type,
-                     std::string name, std::size_t binding) {
+                     std::string name, std::size_t binding,
+                     std::size_t set = 0) {
     crossgl::HIRResource result;
     result.kind = kind;
     result.type = std::move(type);
     result.name = std::move(name);
+    result.set = set;
     result.binding = binding;
     return result;
   };
@@ -14511,6 +15382,31 @@ void testRuntimeDescriptorArrayPolicyHelper() {
                             "runtime-texture-descriptor-array"),
          "target decisions treat DirectX single-unbounded runtime descriptor "
          "arrays as supported source-package ABI");
+  expect(crossgl::openglTextualBackendSupported(singleTextureModule),
+         "OpenGL scaffold supports an unreferenced runtime texture descriptor "
+         "array");
+  const std::vector<crossgl::TargetCapability> openglTextureCapabilities =
+      crossgl::targetFeatureRequirements(singleTextureModule,
+                                         crossgl::TargetKind::OpenGL);
+  expect(hasCapability(openglTextureCapabilities, crossgl::TargetKind::OpenGL,
+                       "resource", "runtime-descriptor-array") &&
+             hasCapability(openglTextureCapabilities,
+                           crossgl::TargetKind::OpenGL, "resource",
+                           "runtime-texture-descriptor-array"),
+         "OpenGL target capabilities expose runtime texture descriptor-array "
+         "metadata");
+  const std::vector<crossgl::TargetCapability> openglTextureMissing =
+      crossgl::missingTargetCapabilities(singleTextureModule,
+                                         crossgl::TargetKind::OpenGL);
+  expect(!hasCapability(openglTextureMissing, crossgl::TargetKind::OpenGL,
+                        "layout", "runtime-array") &&
+             !hasCapability(openglTextureMissing, crossgl::TargetKind::OpenGL,
+                            "resource", "runtime-descriptor-array") &&
+             !hasCapability(openglTextureMissing, crossgl::TargetKind::OpenGL,
+                            "resource",
+                            "runtime-texture-descriptor-array"),
+         "target decisions treat OpenGL unreferenced runtime texture "
+         "descriptor arrays as supported source-package ABI");
   const crossgl::ReflectionDocument runtimeTextureReflection =
       crossgl::buildReflectionDocument(
           singleTextureModule, crossgl::TargetKind::DirectX,
@@ -14562,6 +15458,31 @@ void testRuntimeDescriptorArrayPolicyHelper() {
                             "runtime-sampler-descriptor-array"),
          "target decisions treat DirectX single-unbounded runtime sampler "
          "descriptor arrays as supported source-package ABI");
+  expect(crossgl::openglTextualBackendSupported(singleSamplerModule),
+         "OpenGL scaffold supports an unreferenced runtime sampler descriptor "
+         "array");
+  const std::vector<crossgl::TargetCapability> openglSamplerCapabilities =
+      crossgl::targetFeatureRequirements(singleSamplerModule,
+                                         crossgl::TargetKind::OpenGL);
+  expect(hasCapability(openglSamplerCapabilities, crossgl::TargetKind::OpenGL,
+                       "resource", "runtime-descriptor-array") &&
+             hasCapability(openglSamplerCapabilities,
+                           crossgl::TargetKind::OpenGL, "resource",
+                           "runtime-sampler-descriptor-array"),
+         "OpenGL target capabilities expose runtime sampler descriptor-array "
+         "metadata");
+  const std::vector<crossgl::TargetCapability> openglSamplerMissing =
+      crossgl::missingTargetCapabilities(singleSamplerModule,
+                                         crossgl::TargetKind::OpenGL);
+  expect(!hasCapability(openglSamplerMissing, crossgl::TargetKind::OpenGL,
+                        "layout", "runtime-array") &&
+             !hasCapability(openglSamplerMissing, crossgl::TargetKind::OpenGL,
+                            "resource", "runtime-descriptor-array") &&
+             !hasCapability(openglSamplerMissing, crossgl::TargetKind::OpenGL,
+                            "resource",
+                            "runtime-sampler-descriptor-array"),
+         "target decisions treat OpenGL unreferenced runtime sampler "
+         "descriptor arrays as supported source-package ABI");
   const crossgl::ReflectionDocument runtimeSamplerReflection =
       crossgl::buildReflectionDocument(
           singleSamplerModule, crossgl::TargetKind::DirectX,
@@ -14601,6 +15522,56 @@ void testRuntimeDescriptorArrayPolicyHelper() {
                             "directx.unsupported-runtime-resource-array"),
          "target decisions accept DirectX runtime texture and sampler arrays "
          "when their register classes remain distinct");
+  expect(crossgl::openglTextualBackendSupported(multipleRuntimeModule),
+         "OpenGL scaffold accepts unreferenced runtime texture and sampler "
+         "arrays");
+  const crossgl::TargetPackageDecision multipleOpenGLDecision =
+      crossgl::targetPackageDecision(multipleRuntimeModule,
+                                     crossgl::TargetKind::OpenGL);
+  expect(multipleOpenGLDecision.sourcePackageSupported &&
+             !hasCapability(multipleOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "diagnostic",
+                            "opengl.unsupported-runtime-resource-array") &&
+             !hasCapability(multipleOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "resource",
+                            "runtime-texture-descriptor-array") &&
+             !hasCapability(multipleOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "resource",
+                            "runtime-sampler-descriptor-array"),
+         "target decisions accept OpenGL unreferenced runtime texture and "
+         "sampler descriptor arrays");
+
+  crossgl::HIRModule distinctRegisterSpaceRuntimeModule = moduleWithResources({
+      resource(crossgl::HIRResourceKind::Buffer, type("vec4*"), "values", 0),
+      resource(crossgl::HIRResourceKind::Texture,
+               type("sampler2D", std::string{}), "maps", 1),
+      resource(crossgl::HIRResourceKind::Texture,
+               type("sampler2D", std::string{}), "detailMaps", 3, 1),
+      resource(crossgl::HIRResourceKind::Sampler, type("sampler"),
+               "linearSampler", 2),
+  });
+  expect(crossgl::directxTextualBackendSupported(
+             distinctRegisterSpaceRuntimeModule),
+         "DirectX scaffold accepts runtime texture arrays in distinct HLSL "
+         "register spaces");
+  const std::string distinctRegisterSpaceDirectX =
+      crossgl::generateDirectXSource(distinctRegisterSpaceRuntimeModule);
+  expect(distinctRegisterSpaceDirectX.find(
+             "Texture2D<float4> maps[] : register(t1, space0);") !=
+             std::string::npos &&
+             distinctRegisterSpaceDirectX.find(
+                 "Texture2D<float4> detailMaps[] : register(t3, space1);") !=
+                 std::string::npos,
+         "DirectX source emits distinct-space runtime texture arrays");
+  const crossgl::TargetPackageDecision distinctRegisterSpaceDecision =
+      crossgl::targetPackageDecision(distinctRegisterSpaceRuntimeModule,
+                                     crossgl::TargetKind::DirectX);
+  expect(distinctRegisterSpaceDecision.sourcePackageSupported &&
+             !hasCapability(distinctRegisterSpaceDecision.missingCapabilities,
+                            crossgl::TargetKind::DirectX, "diagnostic",
+                            "directx.unsupported-runtime-resource-array"),
+         "target decisions accept distinct-space DirectX runtime texture "
+         "descriptor arrays");
 
   crossgl::HIRModule sameRegisterClassRuntimeModule = moduleWithResources({
       resource(crossgl::HIRResourceKind::Buffer, type("vec4*"), "values", 0),
@@ -14624,6 +15595,141 @@ void testRuntimeDescriptorArrayPolicyHelper() {
                            "directx.unsupported-runtime-resource-array"),
          "target decisions keep same-register-class runtime arrays unsupported "
          "with a diagnostic capability");
+  expect(crossgl::openglHasUnsupportedRuntimeResourceArray(
+             sameRegisterClassRuntimeModule),
+         "OpenGL policy rejects multiple runtime texture descriptor arrays");
+  expect(!crossgl::openglTextualBackendSupported(
+             sameRegisterClassRuntimeModule),
+         "OpenGL scaffold rejects multiple runtime texture descriptor arrays");
+  crossgl::DiagnosticEngine sameRegisterClassOpenGLDiagnostics;
+  expect(crossgl::diagnoseOpenGLUnsupportedRuntimeResourceArray(
+             sameRegisterClassRuntimeModule,
+             sameRegisterClassOpenGLDiagnostics),
+         "OpenGL multiple runtime texture descriptor-array helper emits a "
+         "diagnostic");
+  expect(hasDiagnosticMessageFragment(
+             sameRegisterClassOpenGLDiagnostics.diagnostics(),
+             "opengl.unsupported-runtime-resource-array", "maps (texture)") &&
+             hasDiagnosticMessageFragment(
+                 sameRegisterClassOpenGLDiagnostics.diagnostics(),
+                 "opengl.unsupported-runtime-resource-array",
+                 "detailMaps (texture)"),
+         "OpenGL multiple runtime texture descriptor-array diagnostic names "
+         "both arrays");
+  const crossgl::TargetPackageDecision sameRegisterClassOpenGLDecision =
+      crossgl::targetPackageDecision(sameRegisterClassRuntimeModule,
+                                     crossgl::TargetKind::OpenGL);
+  expect(!sameRegisterClassOpenGLDecision.sourcePackageSupported &&
+             hasCapability(sameRegisterClassOpenGLDecision.missingCapabilities,
+                           crossgl::TargetKind::OpenGL, "diagnostic",
+                           "opengl.unsupported-runtime-resource-array"),
+         "target decisions keep OpenGL multiple runtime texture descriptor "
+         "arrays unsupported with a diagnostic capability");
+}
+
+void testMetalRuntimeTextureSamplerDescriptorTableSourceAndReflection() {
+  constexpr std::string_view source = R"(
+shader MetalRuntimeTextureSamplerDescriptorArrayShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) uniform sampler2D maps[];
+    layout(set = 0, binding = 2) sampler linearSamplers[];
+    layout(set = 0, binding = 3) buffer int* descriptors;
+    void main() {
+      int descriptor = descriptors[0];
+      vec4 color = textureLod(maps[nonuniform(descriptor)],
+                              linearSamplers[nonuniform(descriptor)],
+                              vec2(0.25, 0.75), 0.0);
+      values[0] = color;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "Metal runtime texture/sampler descriptor table fixture builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  crossgl::DiagnosticEngine diagnostics;
+  expect(crossgl::metalNativeBackendSupported(*hir, diagnostics) &&
+             diagnostics.diagnostics().empty(),
+         "Metal native backend accepts referenced runtime texture/sampler "
+         "descriptor arrays through typed descriptor tables");
+
+  const std::string metal = crossgl::generateMetalSource(*hir);
+  expect(metal.find("struct "
+                    "CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                    "texture2d_float") != std::string::npos &&
+             metal.find("array<texture2d<float>, 1024> descriptors "
+                        "[[id(0)]];") != std::string::npos &&
+             metal.find("struct "
+                        "CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                        "sampler") != std::string::npos &&
+             metal.find("array<sampler, 1024> descriptors [[id(0)]];") !=
+                 std::string::npos &&
+             metal.find("constant "
+                        "CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                        "texture2d_float& maps [[buffer(1)]]") !=
+                 std::string::npos &&
+             metal.find("constant "
+                        "CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                        "sampler& linearSamplers [[buffer(2)]]") !=
+                 std::string::npos &&
+             metal.find("maps.descriptors[descriptor].sample("
+                        "linearSamplers.descriptors[descriptor]") !=
+                 std::string::npos,
+         "Metal source emits typed texture/sampler descriptor tables and "
+         "lowers runtime descriptor element access explicitly");
+
+  const crossgl::ReflectionDocument reflection =
+      crossgl::buildReflectionDocument(
+          *hir, crossgl::TargetKind::Metal,
+          "/tmp/MetalRuntimeTextureSamplerDescriptorArrayShader.metallib");
+  const crossgl::ReflectionTargetResourceBinding *maps =
+      findTargetResourceBinding(reflection, "maps");
+  const crossgl::ReflectionTargetResourceBinding *linearSamplers =
+      findTargetResourceBinding(reflection, "linearSamplers");
+  expect(maps != nullptr && linearSamplers != nullptr &&
+             maps->kind == "texture" &&
+             maps->sourceType == "sampler2D[]" &&
+             maps->metalType ==
+                 std::optional<std::string>{
+                     "constant "
+                     "CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                     "texture2d_float&"} &&
+             maps->addressSpace == "constant" &&
+             maps->abi == "kernelArgument" &&
+             maps->bindingClass == "buffer" &&
+             maps->argumentIndex == std::optional<std::size_t>{1} &&
+             maps->arraySize == std::optional<std::string>{""} &&
+             !maps->arrayElementCount.has_value() &&
+             maps->arrayDimensions.size() == 1 &&
+             maps->arrayDimensions[0].kind == "runtime" &&
+             linearSamplers->kind == "sampler" &&
+             linearSamplers->sourceType == "sampler[]" &&
+             linearSamplers->metalType ==
+                 std::optional<std::string>{
+                     "constant "
+                     "CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                     "sampler&"} &&
+             linearSamplers->addressSpace == "constant" &&
+             linearSamplers->abi == "kernelArgument" &&
+             linearSamplers->bindingClass == "buffer" &&
+             linearSamplers->argumentIndex == std::optional<std::size_t>{2} &&
+             linearSamplers->arraySize == std::optional<std::string>{""} &&
+             !linearSamplers->arrayElementCount.has_value() &&
+             linearSamplers->arrayDimensions.size() == 1 &&
+             linearSamplers->arrayDimensions[0].kind == "runtime",
+         "Metal reflection records runtime texture/sampler descriptor tables "
+         "as buffer argument-table bindings with runtime source dimensions");
+  expectReflectionBindingsConsumeLegalizationRecords(*hir,
+                                                     crossgl::TargetKind::Metal,
+                                                     reflection, "Metal");
 }
 
 void expectNonUniformDescriptorIndexFamilies(
@@ -15098,6 +16204,29 @@ bool reflectionProjectionThrows(
   return false;
 }
 
+bool reflectionProjectionReportsDiagnostic(
+    const crossgl::HIRModule &module,
+    const crossgl::TargetLegalizationContract &contract,
+    std::string_view expectedFragment) {
+  crossgl::DiagnosticEngine diagnostics;
+  try {
+    const std::optional<crossgl::ReflectionDocument> document =
+        crossgl::buildReflectionDocument(
+            module, contract,
+            "/tmp/ReflectionResourceBindingDriftShader.bin", diagnostics);
+    const crossgl::Diagnostic *diagnostic = findDiagnostic(
+        diagnostics.diagnostics(),
+        "artifact.reflection-target-resource-binding-projection");
+    return !document && diagnostics.diagnostics().size() == 1 &&
+           diagnostic != nullptr &&
+           diagnostic->severity == crossgl::DiagnosticSeverity::Error &&
+           diagnostic->message.find(expectedFragment) != std::string::npos &&
+           diagnostic->message.find("runtime_error") == std::string::npos;
+  } catch (const std::exception &) {
+    return false;
+  }
+}
+
 void testReflectionResourceBindingProjectionRejectsContractDrift() {
   constexpr std::string_view source = R"(
 shader ReflectionResourceBindingDriftShader {
@@ -15213,6 +16342,11 @@ shader ReflectionResourceBindingDriftShader {
                                     "orphan legalization resource binding"),
          "reflection projection rejects legalization binding records without "
          "backend-plan resources");
+  expect(reflectionProjectionReportsDiagnostic(
+             *hir, orphanRecordContract,
+             "orphan legalization resource binding"),
+         "reflection diagnostic builder reports orphan legalization binding "
+         "records without escaping runtime_error text");
 }
 
 void testTargetLegalizationStorageImageProducerFacts() {
@@ -16362,68 +17496,358 @@ shader CompileRequestRemapInvalidShader {
   std::filesystem::remove_all(invalidOutputPath, error);
 }
 
-void testSourceCheckRawStatementContractBoundary() {
+void testSwitchControlFlowHIR() {
   constexpr std::string_view source = R"(
-shader UniversalPBRShaderContractShape {
-  compute precompute_environment {
-    layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-
-    vec3 getSamplingVector(vec2 uv, int face) {
-      vec3 result;
-      switch (face) {
-        case 0: result = vec3(1.0, -uv.y, -uv.x); break;
-        case 1: result = vec3(-1.0, -uv.y, uv.x); break;
-        case 2: result = vec3(uv.x, 1.0, uv.y); break;
-        case 3: result = vec3(uv.x, -1.0, -uv.y); break;
-        case 4: result = vec3(uv.x, -uv.y, 1.0); break;
-        case 5: result = vec3(-uv.x, -uv.y, -1.0); break;
-      }
-      return normalize(result);
-    }
-
+shader SwitchControlFlowShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
     void main() {
-      vec3 direction = getSamplingVector(vec2(0.0, 0.0), 0);
+      int mode = values[0];
+      int total = 0;
+      switch (mode) {
+        case 0:
+          total = 1;
+          break;
+        case 1:
+          total = 2;
+          break;
+        default:
+          total = 3;
+          break;
+      }
+      values[1] = total;
       return;
     }
   }
 }
 )";
 
-  const std::filesystem::path inputPath =
-      unitTestTempDirectoryPath() /
-      "crossgl-universal-pbr-raw-contract-shape.cgl";
-  std::error_code cleanupError;
-  std::filesystem::remove(inputPath, cleanupError);
-  {
-    std::ofstream input(inputPath, std::ios::binary);
-    input << source;
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "switch control-flow source builds HIR");
+  if (!hir) {
+    return;
   }
 
-  const crossgl::CheckResult check = crossgl::checkFile(inputPath);
-  expect(!check.success &&
-             hasDiagnosticCode(check.diagnostics,
-                               "spec.unsupported-for-native-v0"),
-         "source check rejects translator-compatible raw switch statements");
+  const crossgl::HIRStage *stage = crossgl::singleComputeStage(*hir);
+  const crossgl::HIRFunction *entry =
+      stage == nullptr ? nullptr : crossgl::entryFunction(*stage);
+  expect(stage != nullptr && entry != nullptr,
+         "switch control-flow HIR has a compute entry");
+  if (stage == nullptr || entry == nullptr) {
+    return;
+  }
 
-  crossgl::DiagnosticEngine hirDumpDiagnostics;
-  const std::optional<std::string> hirDump =
-      crossgl::dumpIR(inputPath, crossgl::DumpStage::HIR,
-                      crossgl::TargetKind::Auto, hirDumpDiagnostics);
-  expect(!hirDump &&
-             hasDiagnosticCode(hirDumpDiagnostics.diagnostics(),
-                               "spec.unsupported-for-native-v0"),
-         "HIR dump rejects unsupported switch statements before raw preservation");
+  expect(entry->body.size() == 5,
+         "switch control-flow body preserves declarations, lowered block, "
+         "store, and return");
+  if (entry->body.size() < 5) {
+    return;
+  }
 
-  crossgl::DiagnosticEngine backendDumpDiagnostics;
-  const std::optional<std::string> backendDump =
-      crossgl::dumpIR(inputPath, crossgl::DumpStage::Backend,
-                      crossgl::TargetKind::Auto, backendDumpDiagnostics);
-  expect(!backendDump &&
-             hasDiagnosticCode(backendDumpDiagnostics.diagnostics(),
-                               "spec.unsupported-for-native-v0"),
-         "backend dump rejects unsupported switch statements before backend input");
+  const crossgl::HIRStatement &switchBlock = entry->body[2];
+  expect(switchBlock.kind == crossgl::HIRStatementKind::Block &&
+             switchBlock.body.size() == 2,
+         "switch lowers into a lexical block with a selector declaration and "
+         "if chain");
+  if (switchBlock.kind != crossgl::HIRStatementKind::Block ||
+      switchBlock.body.size() < 2) {
+    return;
+  }
 
-  std::filesystem::remove(inputPath, cleanupError);
+  const crossgl::HIRStatement &selector = switchBlock.body[0];
+  expect(selector.kind == crossgl::HIRStatementKind::Declaration &&
+             selector.name == "__crossgl_selector" &&
+             selector.declaredType.name == "int" &&
+             selector.value.kind == crossgl::HIRExpressionKind::Identifier &&
+             selector.value.value == "mode",
+         "switch lowering evaluates the selector once into a typed temp");
+
+  auto matchesCaseCondition =
+      [](const crossgl::HIRExpression &condition, std::string_view literal) {
+        return condition.kind == crossgl::HIRExpressionKind::Binary &&
+               condition.value == "==" && condition.children.size() == 2 &&
+               condition.children[0].kind ==
+                   crossgl::HIRExpressionKind::Identifier &&
+               condition.children[0].value == "__crossgl_selector" &&
+               condition.children[1].kind ==
+                   crossgl::HIRExpressionKind::Literal &&
+               condition.children[1].value == literal &&
+               condition.type.name == "bool";
+      };
+  auto matchesTotalAssignment =
+      [](const crossgl::HIRStatement &statement, std::string_view literal) {
+        return statement.kind == crossgl::HIRStatementKind::Assignment &&
+               statement.target.value == "total" &&
+               statement.value.kind == crossgl::HIRExpressionKind::Literal &&
+               statement.value.value == literal;
+      };
+
+  const crossgl::HIRStatement &case0 = switchBlock.body[1];
+  expect(case0.kind == crossgl::HIRStatementKind::If &&
+             matchesCaseCondition(case0.value, "0") && case0.body.size() == 1 &&
+             matchesTotalAssignment(case0.body.front(), "1") &&
+             case0.elseBody.size() == 1,
+         "switch case 0 lowers to the first if branch");
+  if (case0.elseBody.empty()) {
+    return;
+  }
+
+  const crossgl::HIRStatement &case1 = case0.elseBody.front();
+  expect(case1.kind == crossgl::HIRStatementKind::If &&
+             matchesCaseCondition(case1.value, "1") && case1.body.size() == 1 &&
+             matchesTotalAssignment(case1.body.front(), "2") &&
+             case1.elseBody.size() == 1 &&
+             matchesTotalAssignment(case1.elseBody.front(), "3"),
+         "switch case 1 and default lower to a nested if/else chain");
+
+  const std::string hirText = crossgl::printHIR(*hir);
+  expect(hirText.find("raw switch") == std::string::npos &&
+             hirText.find("case ") == std::string::npos &&
+             hirText.find("default") == std::string::npos &&
+             hirText.find("break") == std::string::npos,
+         "switch-local labels and terminal breaks do not survive HIR lowering");
+
+  crossgl::DiagnosticEngine diagnostics;
+  (void)crossgl::runHIRPassPipeline(*hir, diagnostics);
+  expect(!diagnostics.hasErrors(),
+         "lowered switch control flow optimizes without diagnostics");
+}
+
+void testSwitchRestrictedBoundaryDiagnostics() {
+  auto expectUnsupportedSwitchDiagnostic = [](std::string_view source,
+                                              std::string_view description) {
+    const std::vector<crossgl::Diagnostic> diagnostics =
+        collectDiagnostics(source);
+    expect(hasDiagnosticCodeAndMessage(
+               diagnostics, "spec.unsupported-for-native-v0",
+               "restricted switch/case/default statements"),
+           std::string(description) + " is rejected by native-v0 diagnostics");
+  };
+
+  expectUnsupportedSwitchDiagnostic(R"(
+shader SwitchFallthroughBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 0:
+          values[1] = 1;
+        default:
+          values[1] = 2;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                    "unsupported switch fallthrough");
+
+  expectUnsupportedSwitchDiagnostic(R"(
+shader SwitchGroupedLabelsBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 0:
+        case 1:
+          values[1] = 1;
+        case 2:
+          values[1] = 2;
+          break;
+        default:
+          values[1] = 3;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                    "unsupported switch grouped fallthrough");
+
+  expectUnsupportedSwitchDiagnostic(R"(
+shader SwitchIncompatibleLabelBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 1.5:
+          values[1] = 1;
+          break;
+        default:
+          values[1] = 2;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                    "unsupported switch incompatible case label");
+
+  expectUnsupportedSwitchDiagnostic(R"(
+shader SwitchDuplicateCaseLabelBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 0:
+          values[1] = 1;
+          break;
+        case 0:
+          values[1] = 2;
+          break;
+        default:
+          values[1] = 3;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                    "unsupported switch duplicate case label");
+
+  expectUnsupportedSwitchDiagnostic(R"(
+shader SwitchNonTerminalBreakBoundaryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      switch (mode) {
+        case 0:
+          break;
+          values[1] = 1;
+        default:
+          values[1] = 2;
+          break;
+      }
+      return;
+    }
+  }
+}
+)",
+                                    "unsupported switch non-terminal break");
+
+  constexpr std::string_view nestedLoopBreakSource = R"(
+shader SwitchNestedLoopBreakShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      int total = 0;
+      switch (mode) {
+        case 0:
+          for (int i = 0; i < 1; i++) {
+            break;
+          }
+          total = 1;
+          break;
+        default:
+          total = 2;
+          break;
+      }
+      values[1] = total;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(nestedLoopBreakSource);
+  expect(hir.has_value(), "switch nested loop break source builds HIR");
+  if (!hir) {
+    return;
+  }
+  const std::string hirText = crossgl::printHIR(*hir);
+  expect(hirText.find("raw switch") == std::string::npos &&
+             hirText.find("for i < 1 : bool") != std::string::npos &&
+             hirText.find("break") != std::string::npos,
+         "switch lowering allows breaks that target a nested loop");
+
+  crossgl::DiagnosticEngine diagnostics;
+  (void)crossgl::runHIRPassPipeline(*hir, diagnostics);
+  expect(!diagnostics.hasErrors(),
+         "switch nested loop break optimizes without diagnostics");
+}
+
+void testSwitchControlFlowTextBackendOutput() {
+  constexpr std::string_view source = R"(
+shader SwitchBackendOutputShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      int total = 0;
+      switch (mode) {
+        case 0:
+        case 1:
+          total = 10;
+          break;
+        case 2:
+          total = 20;
+          break;
+        default:
+          total = 30;
+          break;
+      }
+      values[1] = total;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "switch backend output source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::directxTextualBackendSupported(*hir),
+         "DirectX textual backend accepts lowered restricted switch HIR");
+  const std::string directx = crossgl::generateDirectXSource(*hir);
+  expect(containsInOrder(directx,
+                         {"int __crossgl_selector = mode;",
+                          "if (__crossgl_selector == 0 || "
+                          "__crossgl_selector == 1) {",
+                          "total = 10;", "} else {",
+                          "if (__crossgl_selector == 2) {", "total = 20;",
+                          "} else {", "total = 30;", "values[1] = total;"}),
+         "DirectX backend emits grouped restricted switch as an if/else chain");
+  expect(directx.find("switch (") == std::string::npos &&
+             directx.find("case ") == std::string::npos &&
+             directx.find("default:") == std::string::npos,
+         "DirectX backend output does not preserve switch labels");
+
+  expect(crossgl::openglTextualBackendSupported(*hir),
+         "OpenGL textual backend accepts lowered restricted switch HIR");
+  const std::string opengl = crossgl::generateOpenGLSource(*hir);
+  expect(containsInOrder(opengl,
+                         {"int __crossgl_selector = mode;",
+                          "if (__crossgl_selector == 0 || "
+                          "__crossgl_selector == 1) {",
+                          "total = 10;", "} else {",
+                          "if (__crossgl_selector == 2) {", "total = 20;",
+                          "} else {", "total = 30;", "values[1] = total;"}),
+         "OpenGL backend emits grouped restricted switch as an if/else chain");
+  expect(opengl.find("switch (") == std::string::npos &&
+             opengl.find("case ") == std::string::npos &&
+             opengl.find("default:") == std::string::npos,
+         "OpenGL backend output does not preserve switch labels");
 }
 
 void testTargetCapabilityRegistry() {
@@ -16535,7 +17959,7 @@ shader TargetCapabilityStorageImageShader {
       crossgl::targetPackageDecision(*hir, crossgl::TargetKind::DirectX);
   expect(directxPackage.target == crossgl::TargetKind::DirectX &&
              directxPackage.targetName == "directx" &&
-             !directxPackage.nativeImplemented &&
+             directxPackage.nativeImplemented &&
              directxPackage.sourcePackageSupported &&
              directxPackage.packageBuildSupported &&
              directxPackage.packageMode == "source-package" &&
@@ -16771,7 +18195,13 @@ shader TargetCapabilityNotImplementedShader {
                decision.packageMode == "unsupported" &&
                hasCapability(decision.missingCapabilities,
                              crossgl::TargetKind::DirectX, "backend",
-                             "hlsl-lowering") &&
+                             "native-dxil-package") &&
+               hasCapability(decision.missingCapabilities,
+                             crossgl::TargetKind::DirectX, "toolchain",
+                             "dxc") &&
+               hasCapability(decision.missingCapabilities,
+                             crossgl::TargetKind::DirectX, "validation",
+                             "dxil-validator") &&
                hasCapability(decision.missingCapabilities,
                              crossgl::TargetKind::DirectX, "diagnostic",
                              "directx.source-unsupported"),
@@ -16815,7 +18245,15 @@ shader TargetCapabilityNotImplementedShader {
     expect(notImplementedDiagnostic->target == "directx" &&
                std::find(notImplementedDiagnostic->missingCapabilities.begin(),
                          notImplementedDiagnostic->missingCapabilities.end(),
-                         "directx.backend.hlsl-lowering") !=
+                         "directx.backend.native-dxil-package") !=
+                   notImplementedDiagnostic->missingCapabilities.end() &&
+               std::find(notImplementedDiagnostic->missingCapabilities.begin(),
+                         notImplementedDiagnostic->missingCapabilities.end(),
+                         "directx.toolchain.dxc") !=
+                   notImplementedDiagnostic->missingCapabilities.end() &&
+               std::find(notImplementedDiagnostic->missingCapabilities.begin(),
+                         notImplementedDiagnostic->missingCapabilities.end(),
+                         "directx.validation.dxil-validator") !=
                    notImplementedDiagnostic->missingCapabilities.end() &&
                std::find(notImplementedDiagnostic->missingCapabilities.begin(),
                          notImplementedDiagnostic->missingCapabilities.end(),
@@ -17049,12 +18487,28 @@ shader ComputeInvocationBuiltinShader {
     const std::string mismatchSource =
         "shader Bad" + std::string(expected.localName) +
         "BuiltinShader { compute { layout(local_size_x = 1, local_size_y = "
-        "1, local_size_z = 1) in; void main() { uvec2 bad = " +
+        "1, local_size_z = 1) in; void main() { uvec3 bad = " +
         std::string(expected.sourceName) + "; return; } } }";
     std::optional<crossgl::HIRModule> mismatchHir = parseHIR(mismatchSource);
     expect(mismatchHir.has_value(),
            label + " mismatch fixture builds parseable HIR");
     if (mismatchHir) {
+      crossgl::HIRStatement *badDeclaration = nullptr;
+      for (crossgl::HIRStatement &statement :
+           mismatchHir->stages.front().functions.front().body) {
+        if (statement.kind == crossgl::HIRStatementKind::Declaration &&
+            statement.name == "bad") {
+          badDeclaration = &statement;
+          break;
+        }
+      }
+      expect(badDeclaration != nullptr,
+             label + " mismatch fixture exposes a mutable HIR declaration");
+      if (!badDeclaration) {
+        continue;
+      }
+      badDeclaration->declaredType.name = "uvec2";
+
       crossgl::DiagnosticEngine mismatchDiagnostics;
       (void)crossgl::runHIRPassPipeline(*mismatchHir, mismatchDiagnostics);
       expect(hasDiagnosticCode(mismatchDiagnostics.diagnostics(),
@@ -18916,7 +20370,7 @@ shader TargetLegalizationShader {
              directxPlannedPolicy.validationStatus == "unavailable" &&
              directxPlannedPolicy.optimizationLevelMode ==
                  crossgl::TargetSourcePackageDescriptorOptimizationLevelMode::
-                     Unknown &&
+                     RequestedLevel &&
              directxPlannedPolicy.fixedOptimizationLevel == "unknown" &&
              directxPlannedPolicy.optimizationEvidenceMode ==
                  crossgl::
@@ -18926,14 +20380,22 @@ shader TargetLegalizationShader {
                  "directx-dxc" &&
              directxPlannedPolicy.toolProvenanceMode ==
                  crossgl::TargetSourcePackageDescriptorToolProvenanceMode::
-                     Planned &&
-             directxPlannedPolicy.toolProvenanceModeName == "planned" &&
-             directxPlannedPolicy.nativeToolName.empty() &&
+                     NativeCompiler &&
+             directxPlannedPolicy.toolProvenanceModeName ==
+                 "native-compiler" &&
+             directxPlannedPolicy.nativeToolName == "dxc" &&
+             directxPlannedPolicy.nativeToolRole == "compiler" &&
+             directxPlannedPolicy.nativeToolExecutable == "dxc" &&
+             directxPlannedPolicy.nativeToolProbeName == "dxc" &&
              std::string_view(
                  crossgl::
                      targetSourcePackageDescriptorOptimizationLevelModeName(
                          directxPlannedPolicy.optimizationLevelMode)) ==
-                 "unknown" &&
+                 "requested-level" &&
+             std::string_view(
+                 crossgl::targetSourcePackageDescriptorToolProvenanceModeName(
+                     directxPlannedPolicy.toolProvenanceMode)) ==
+                 "native-compiler" &&
              directxEmittedPolicy.target == crossgl::TargetKind::DirectX &&
              directxEmittedPolicy.supported &&
              directxEmittedPolicy.binaryKind == "directx.dxil" &&
@@ -19198,6 +20660,16 @@ shader TargetLegalizationShader {
                        "target-legalization.v1.opengl.rewrite.rewritten") &&
              jsonHasStringField(openglBindingRewriteProjectionJson,
                                 "rewriteState", "rewritten") &&
+             jsonHasStringField(openglBindingRewriteProjectionJson,
+                                "nativeBinaryStatus", "planned") &&
+             jsonHasBoolField(openglBindingRewriteProjectionJson,
+                              "includesNativeBinaryStatus", true) &&
+             jsonHasBoolField(openglBindingRewriteProjectionJson,
+                              "requiresProducedNativeArtifact", false) &&
+             jsonHasStringField(openglBindingRewriteProjectionJson,
+                                "validationStatus", "unavailable") &&
+             jsonHasStringField(openglBindingRewriteProjectionJson,
+                                "toolProvenanceMode", "planned") &&
              jsonHasStringValue(
                  openglBindingRewriteProjectionJson,
                  "target-legalization.v1.opengl.rewrite.applied."
@@ -19293,7 +20765,8 @@ shader TargetLegalizationShader {
       directxProjection, crossgl::TargetKind::DirectX,
       "directx.backend.native-dxil-package", "directx.toolchain.dxc",
       "directx.validation.dxil-validator",
-      "DirectX source-package legalization projection");
+      "DirectX source-package legalization projection", "requested-level",
+      "native-compiler");
   expect(directxProjection.targetProfile.resolvedTarget ==
                  crossgl::TargetKind::DirectX &&
              directxProjection.targetProfile.preferredTarget ==
@@ -19404,6 +20877,16 @@ shader TargetLegalizationShader {
              jsonHasStringValue(directxProjectionJson,
                                 "requiredPathArtifactKeys") &&
              jsonHasStringValue(directxProjectionJson, "backendSource") &&
+             jsonHasStringField(directxProjectionJson, "nativeBinaryStatus",
+                                "planned") &&
+             jsonHasBoolField(directxProjectionJson,
+                              "includesNativeBinaryStatus", true) &&
+             jsonHasBoolField(directxProjectionJson,
+                              "requiresProducedNativeArtifact", false) &&
+             jsonHasStringField(directxProjectionJson, "validationStatus",
+                                "unavailable") &&
+             jsonHasStringField(directxProjectionJson, "toolProvenanceMode",
+                                "native-compiler") &&
              jsonHasStringValue(
                  directxProjectionJson,
                  "target-legalization.v1.directx.package-artifact.required."
@@ -20072,6 +21555,25 @@ shader TargetLegalizationShader {
              autoProjection.targetProfile.resolvedTarget ==
                  autoSelection.selectedTarget,
          "target legalization facade mirrors auto target recommendation");
+  const std::string autoResultV0Json =
+      crossgl::targetLegalizationResultV0Json(autoLegalization);
+  expect(jsonHasStringField(autoResultV0Json, "requestedTarget", "auto") &&
+             jsonHasStringField(autoResultV0Json, "preferredTarget",
+                                crossgl::targetName(
+                                    autoSelection.preferredTarget)) &&
+             jsonHasStringField(autoResultV0Json, "resolvedTarget",
+                                autoLegalization.targetName) &&
+             jsonHasStringField(autoResultV0Json, "selectedTarget",
+                                crossgl::targetName(
+                                    autoSelection.selectedTarget)) &&
+             jsonHasStringField(autoResultV0Json, "selectionReason",
+                                resultV0SelectionReasonName(
+                                    autoLegalization)) &&
+             jsonHasBoolField(autoResultV0Json, "autoRequested", true) &&
+             jsonHasBoolField(autoResultV0Json, "selectedTargetBuildable",
+                              autoSelection.selectedTargetBuildable),
+         "target legalization v0 result JSON records auto requested target "
+         "selection evidence");
 
   const std::vector<crossgl::TargetLegalizationResult> legalizations =
       crossgl::legalizeTargets(*hir, crossgl::TargetKind::DirectX);
@@ -21508,9 +23010,10 @@ void testScalarVectorFixtureTargetFeatureEvidence() {
     bool scalarComparison = false;
     bool scalarConstructor = false;
     bool vectorConstructor = false;
+    bool matrixConstructor = false;
   };
 
-  const std::array<FixtureFeatureCase, 8> cases = {{
+  const std::array<FixtureFeatureCase, 9> cases = {{
       {
           "ArithmeticComputeShader.cgl",
           R"(
@@ -21710,6 +23213,30 @@ shader Vector3BufferComputeShader {
           false,
           true,
       },
+      {
+          "MatrixConstructorComputeShader.cgl",
+          R"(
+shader MatrixConstructorComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    void main() {
+      mat2 transform = mat2(1.0, 0.0, 0.0, 1.0);
+      return;
+    }
+  }
+}
+)",
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          true,
+      },
   }};
 
   const std::array<crossgl::TargetKind, 4> targets = {
@@ -21735,6 +23262,16 @@ shader Vector3BufferComputeShader {
     expect(hir.has_value(), label + " scalar/vector feature source builds HIR");
     if (!hir) {
       continue;
+    }
+
+    if (testCase.matrixConstructor) {
+      expect(crossgl::openglTextualBackendSupported(*hir),
+             label + " OpenGL source package accepts local matrix "
+                     "constructors");
+      const std::string opengl = crossgl::generateOpenGLSource(*hir);
+      expect(opengl.find("mat2 transform = mat2(1.0, 0.0, 0.0, 1.0)") !=
+                 std::string::npos,
+             label + " OpenGL source emits GLSL matrix constructors");
     }
 
     for (crossgl::TargetKind target : targets) {
@@ -21772,6 +23309,8 @@ shader Vector3BufferComputeShader {
                        testCase.scalarConstructor);
       expectCapability("operation", "vector-constructor",
                        testCase.vectorConstructor);
+      expectCapability("operation", "matrix-constructor",
+                       testCase.matrixConstructor);
 
       const crossgl::ReflectionDocument reflection =
           crossgl::buildReflectionDocument(
@@ -21806,6 +23345,8 @@ shader Vector3BufferComputeShader {
                               testCase.scalarConstructor);
       expectReflectionFeature("operation", "vector-constructor",
                               testCase.vectorConstructor);
+      expectReflectionFeature("operation", "matrix-constructor",
+                              testCase.matrixConstructor);
 
       if (target == crossgl::TargetKind::DirectX ||
           target == crossgl::TargetKind::OpenGL) {
@@ -21837,6 +23378,8 @@ shader Vector3BufferComputeShader {
                               testCase.scalarConstructor);
         expectSourceSatisfied("operation", "vector-constructor",
                               testCase.vectorConstructor);
+        expectSourceSatisfied("operation", "matrix-constructor",
+                              testCase.matrixConstructor);
       }
     }
   }
@@ -22218,6 +23761,13 @@ void testSPIRVModuleBuilder() {
   module.addExtension("SPV_EXT_descriptor_indexing");
   module.addExtInstImport(crossgl::SPIRVModule::id("%glsl_std_450"),
                           "GLSL.std.450");
+  module.addExtInstImport(crossgl::SPIRVModule::id("%glsl_std_450"),
+                          "GLSL.std.450");
+  expect(module.extInstImports().size() == 1,
+         "SPIR-V module builder deduplicates extended instruction imports");
+  expect(module.extInstImports().front().result.str() == "%glsl_std_450" &&
+             module.extInstImports().front().instructionSet == "GLSL.std.450",
+         "SPIR-V module builder exposes extended instruction imports");
   module.setMemoryModel(crossgl::SPIRVAddressingModel::Logical,
                         crossgl::SPIRVMemoryModel::GLSL450);
   module.addEntryPoint(crossgl::SPIRVExecutionModel::GLCompute, mainFunction,
@@ -22354,6 +23904,53 @@ void testSPIRVModuleBuilder() {
   expect(rejectedDuplicateEntryLabel,
          "SPIR-V module builder rejects entry labels that collide with "
          "caller-defined result ids");
+}
+
+void testVulkanSPIRVImportMetadataCanonicalization() {
+  const std::vector<crossgl::VulkanSPIRVImport> canonical =
+      crossgl::canonicalizeVulkanSPIRVImports({
+          {"%debug_printf", "NonSemantic.DebugPrintf"},
+          {"%glsl_std_450", "GLSL.std.450"},
+          {"%debug_printf", "NonSemantic.DebugPrintf"},
+          {"%shader_debug_info", "NonSemantic.Shader.DebugInfo.100"},
+          {"%glsl_std_450", "GLSL.std.450"},
+      });
+  expect(canonical.size() == 3,
+         "Vulkan SPIR-V import metadata canonicalization removes exact repeats");
+  if (canonical.size() == 3) {
+    expect(canonical[0].resultId == "%glsl_std_450" &&
+               canonical[0].instructionSet == "GLSL.std.450" &&
+               canonical[1].resultId == "%debug_printf" &&
+               canonical[1].instructionSet == "NonSemantic.DebugPrintf" &&
+               canonical[2].resultId == "%shader_debug_info" &&
+               canonical[2].instructionSet ==
+                   "NonSemantic.Shader.DebugInfo.100",
+           "Vulkan SPIR-V import metadata canonicalization sorts "
+           "dependencies deterministically");
+  }
+
+  auto rejectsImportMetadata =
+      [](std::vector<crossgl::VulkanSPIRVImport> imports) {
+        try {
+          static_cast<void>(
+              crossgl::canonicalizeVulkanSPIRVImports(std::move(imports)));
+        } catch (const std::logic_error &) {
+          return true;
+        }
+        return false;
+      };
+  expect(rejectsImportMetadata({{"%a", "GLSL.std.450"},
+                                {"%b", "GLSL.std.450"}}),
+         "Vulkan SPIR-V import metadata rejects repeated instruction sets "
+         "with different result ids");
+  expect(rejectsImportMetadata({{"%shared", "GLSL.std.450"},
+                                {"%shared", "NonSemantic.DebugPrintf"}}),
+         "Vulkan SPIR-V import metadata rejects result ids reused for "
+         "different instruction sets");
+  expect(rejectsImportMetadata({{"", "GLSL.std.450"}}),
+         "Vulkan SPIR-V import metadata rejects empty result ids");
+  expect(rejectsImportMetadata({{"%missing_set", ""}}),
+         "Vulkan SPIR-V import metadata rejects empty instruction sets");
 }
 
 void testBackendIRContracts() {
@@ -23550,8 +25147,8 @@ shader OpenGLSourcePredicateSupportedShader {
   constexpr std::string_view storageBufferElementSource = R"(
 shader OpenGLSourcePredicateUnsupportedStorageElementShader {
   struct Particle {
+    double transform;
     float mass;
-    mat2 transform;
   }
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -24576,6 +26173,8 @@ void testPackageReleaseReportArtifactInventory() {
   const std::filesystem::path packagePath = root / "InventoryShader.cglb";
   const std::uintmax_t backendBytes = 15;
   const std::uintmax_t intermediateBytes = 9;
+  const std::uintmax_t nativeBytes = 21;
+  const std::uintmax_t descriptorBytes = 13;
 
   std::error_code error;
   std::filesystem::remove_all(root, error);
@@ -24584,7 +26183,8 @@ void testPackageReleaseReportArtifactInventory() {
   crossgl::PackageReleasePackageArtifactRequirements requirements;
   requirements.target = "metal";
   requirements.packageMode = "native";
-  requirements.requiredPathArtifacts = {"backendSource", "intermediate"};
+  requirements.requiredPathArtifacts = {"backendSource", "intermediate",
+                                        "nativeBinary"};
 
   crossgl::PackageReleasePublishPlanArtifact backendArtifact;
   backendArtifact.name = "backendSource";
@@ -24592,11 +26192,11 @@ void testPackageReleaseReportArtifactInventory() {
   backendArtifact.module = "InventoryShader";
   backendArtifact.target = "metal";
   backendArtifact.packageArtifactPath =
-      "backend/metal/InventoryShader.metallib";
+      "backend/metal/InventoryShader.metal";
   backendArtifact.sourcePath =
-      packagePath / "backend" / "metal" / "InventoryShader.metallib";
+      packagePath / "backend" / "metal" / "InventoryShader.metal";
   backendArtifact.destinationPath =
-      "packages/metal/InventoryShader.backend";
+      "packages/metal/InventoryShader.source";
   backendArtifact.sizeBytes = backendBytes;
   backendArtifact.sha256 = crossgl::sha256("inventory backend");
 
@@ -24605,13 +26205,40 @@ void testPackageReleaseReportArtifactInventory() {
   intermediateArtifact.packagePath = packagePath;
   intermediateArtifact.module = "InventoryShader";
   intermediateArtifact.target = "metal";
-  intermediateArtifact.packageArtifactPath = "ir/InventoryShader.hir.json";
+  intermediateArtifact.packageArtifactPath =
+      "backend/metal/InventoryShader.air";
   intermediateArtifact.sourcePath =
-      packagePath / "ir" / "InventoryShader.hir.json";
+      packagePath / "backend" / "metal" / "InventoryShader.air";
   intermediateArtifact.destinationPath =
       "packages/metal/InventoryShader.intermediate";
   intermediateArtifact.sizeBytes = intermediateBytes;
   intermediateArtifact.sha256 = crossgl::sha256("inventory intermediate");
+
+  crossgl::PackageReleasePublishPlanArtifact nativeArtifact;
+  nativeArtifact.name = "nativeBinary";
+  nativeArtifact.packagePath = packagePath;
+  nativeArtifact.module = "InventoryShader";
+  nativeArtifact.target = "metal";
+  nativeArtifact.packageArtifactPath =
+      "backend/metal/InventoryShader.metallib";
+  nativeArtifact.sourcePath =
+      packagePath / "backend" / "metal" / "InventoryShader.metallib";
+  nativeArtifact.destinationPath = "packages/metal/InventoryShader.native";
+  nativeArtifact.sizeBytes = nativeBytes;
+  nativeArtifact.sha256 = crossgl::sha256("inventory native");
+
+  crossgl::PackageReleasePublishPlanArtifact descriptorArtifact;
+  descriptorArtifact.name = "nativeArtifactDescriptor";
+  descriptorArtifact.packagePath = packagePath;
+  descriptorArtifact.module = "InventoryShader";
+  descriptorArtifact.target = "metal";
+  descriptorArtifact.packageArtifactPath = "metadata/native-artifact.json";
+  descriptorArtifact.sourcePath =
+      packagePath / "metadata" / "native-artifact.json";
+  descriptorArtifact.destinationPath =
+      "packages/metal/InventoryShader.descriptor";
+  descriptorArtifact.sizeBytes = descriptorBytes;
+  descriptorArtifact.sha256 = crossgl::sha256("inventory descriptor");
 
   crossgl::PackageReleasePublishPlanPackage package;
   package.packagePath = packagePath;
@@ -24621,17 +26248,21 @@ void testPackageReleaseReportArtifactInventory() {
       crossgl::PackageReleasePromotionSourceHash{"sha256",
                                                  crossgl::sha256("source")};
   package.artifactRequirements = requirements;
-  package.totalArtifactBytes = backendBytes + intermediateBytes;
-  package.artifacts = {backendArtifact, intermediateArtifact};
+  package.totalArtifactBytes =
+      backendBytes + intermediateBytes + nativeBytes + descriptorBytes;
+  package.artifacts = {descriptorArtifact, intermediateArtifact, nativeArtifact,
+                       backendArtifact};
 
   crossgl::PackageReleasePublishPlanResult plan;
   plan.success = true;
   plan.releaseEligible = true;
   plan.bundlePath = root / "package-release-bundle.json";
   plan.planPath = planPath;
-  plan.totalArtifactBytes = backendBytes + intermediateBytes;
+  plan.totalArtifactBytes =
+      backendBytes + intermediateBytes + nativeBytes + descriptorBytes;
   plan.packages.push_back(package);
-  plan.artifacts = {backendArtifact, intermediateArtifact};
+  plan.artifacts = {descriptorArtifact, intermediateArtifact, nativeArtifact,
+                    backendArtifact};
 
   {
     std::ofstream output(planPath, std::ios::binary);
@@ -24643,10 +26274,12 @@ void testPackageReleaseReportArtifactInventory() {
   stage.planPath = planPath;
   stage.stagePath = stagePath;
   stage.packageCount = 1;
-  stage.artifactCount = 2;
-  stage.totalArtifactBytes = backendBytes + intermediateBytes;
-  stage.stagedArtifactCount = 2;
-  stage.stagedArtifactBytes = backendBytes + intermediateBytes;
+  stage.artifactCount = 4;
+  stage.totalArtifactBytes =
+      backendBytes + intermediateBytes + nativeBytes + descriptorBytes;
+  stage.stagedArtifactCount = 4;
+  stage.stagedArtifactBytes =
+      backendBytes + intermediateBytes + nativeBytes + descriptorBytes;
   for (const crossgl::PackageReleasePublishPlanArtifact &artifact :
        plan.artifacts) {
     crossgl::PackageReleasePublishStageArtifact staged;
@@ -24668,46 +26301,56 @@ void testPackageReleaseReportArtifactInventory() {
   const crossgl::PackageReleaseReportArtifactInventoryResult inventory =
       crossgl::loadPackageReleaseReportArtifactInventory(options);
 
+  std::ostringstream inventoryDiagnosticSummary;
+  for (const crossgl::Diagnostic &diagnostic : inventory.diagnostics) {
+    inventoryDiagnosticSummary << diagnostic.code << ": "
+                               << diagnostic.message << "; ";
+  }
   expect(inventory.success,
-         "release report artifact inventory loads plan and stage records");
+         "release report artifact inventory loads plan and stage records; "
+         "diagnostics=" +
+             inventoryDiagnosticSummary.str());
   expect(inventory.diagnostics.empty(),
          "release report artifact inventory has no diagnostics for valid "
-         "plan and stage records");
-  expect(inventory.artifactRecordCount == 4,
+         "plan and stage records; diagnostics=" +
+             inventoryDiagnosticSummary.str());
+  expect(inventory.artifactRecordCount == 8,
          "release report artifact inventory counts every source record");
-  expect(inventory.publishPlanArtifactRecordCount == 2,
+  expect(inventory.publishPlanArtifactRecordCount == 4,
          "release report artifact inventory counts plan records");
-  expect(inventory.publishStageArtifactRecordCount == 2,
+  expect(inventory.publishStageArtifactRecordCount == 4,
          "release report artifact inventory counts stage records");
-  expect(inventory.stagedArtifactRecordCount == 2,
+  expect(inventory.stagedArtifactRecordCount == 4,
          "release report artifact inventory counts staged records");
   expect(inventory.totalArtifactRecordBytes ==
-             2 * (backendBytes + intermediateBytes),
+             2 * (backendBytes + intermediateBytes + nativeBytes +
+                  descriptorBytes),
          "release report artifact inventory sums record byte sizes");
-  expect(inventory.records.size() == 4,
+  expect(inventory.records.size() == 8,
          "release report artifact inventory exposes sorted records");
-  if (inventory.records.size() == 4) {
+  if (inventory.records.size() == 8) {
     expect(inventory.records[0].sourceRecordKind == "publish-plan" &&
                inventory.records[0].packagePath.lexically_normal() ==
                    packagePath.lexically_normal() &&
                inventory.records[0].packageArtifactPath ==
-                   "backend/metal/InventoryShader.metallib" &&
+                   "backend/metal/InventoryShader.air" &&
                !inventory.records[0].stagedPath &&
                inventory.records[0].destinationPath ==
-                   "packages/metal/InventoryShader.backend" &&
-               inventory.records[0].sizeBytes == backendBytes &&
-               inventory.records[0].sha256 == backendArtifact.sha256,
+                   "packages/metal/InventoryShader.intermediate" &&
+               inventory.records[0].sizeBytes == intermediateBytes &&
+               inventory.records[0].sha256 == intermediateArtifact.sha256,
            "release report artifact inventory records plan artifact fields");
     expect(inventory.records[1].sourceRecordKind == "publish-stage" &&
                inventory.records[1].stagedPath &&
                inventory.records[1].stagedPath->lexically_normal() ==
-                   (stagePath / "packages/metal/InventoryShader.backend")
+                   (stagePath /
+                    "packages/metal/InventoryShader.intermediate")
                        .lexically_normal() &&
                inventory.records[1].destinationPath ==
-                   "packages/metal/InventoryShader.backend",
+                   "packages/metal/InventoryShader.intermediate",
            "release report artifact inventory records staged artifact fields");
     expect(inventory.records[2].packageArtifactPath ==
-               "ir/InventoryShader.hir.json",
+               "backend/metal/InventoryShader.metal",
            "release report artifact inventory ordering is deterministic");
   }
 
@@ -26140,6 +27783,89 @@ shader WhileControlFlowShader {
                  7,
          "while-lowered HIR source map records the original while keyword as a "
          "for statement");
+}
+
+void testDoWhileControlFlowHIR() {
+  constexpr std::string_view source = R"(
+shader DoWhileControlFlowShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    void main() {
+      int value = 0;
+      float total = 0.0;
+      do {
+        value = value + 1;
+        if (value < 2) {
+          continue;
+        }
+        total += float(value);
+      } while (value < 4);
+      values[0] = total;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "do-while control-flow source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  const std::vector<crossgl::HIRStatement> &body =
+      hir->stages.front().functions.front().body;
+  expect(body.size() == 5,
+         "do-while body preserves declarations, lowered loop, store, and return");
+  const crossgl::HIRStatement &loop = body[2];
+  expect(loop.kind == crossgl::HIRStatementKind::For,
+         "do-while lowers into the existing HIR loop statement kind");
+  expect(loop.initializer.empty() && loop.update.empty() &&
+             loop.updateTokens.empty(),
+         "do-while HIR loop has no initializer or header update");
+  expect(loop.value.kind == crossgl::HIRExpressionKind::Literal &&
+             loop.value.value == "true" && loop.value.type.name == "bool",
+         "do-while HIR loop uses an unconditional header condition");
+  expect(loop.body.size() == 4,
+         "do-while HIR loop preserves body and trailing condition break");
+
+  expect(loop.body[0].kind == crossgl::HIRStatementKind::Assignment &&
+             loop.body[0].target.value == "value",
+         "do-while HIR loop preserves the body update before the condition");
+  expect(loop.body[1].kind == crossgl::HIRStatementKind::If &&
+             loop.body[1].body.size() == 1 &&
+             loop.body[1].body.front().kind == crossgl::HIRStatementKind::Block,
+         "do-while HIR rewrites continue through an explicit block");
+  const crossgl::HIRStatement &continueBlock = loop.body[1].body.front();
+  expect(continueBlock.body.size() == 2 &&
+             continueBlock.body[0].kind == crossgl::HIRStatementKind::If &&
+             continueBlock.body[0].body.size() == 1 &&
+             continueBlock.body[0].body.front().kind ==
+                 crossgl::HIRStatementKind::Break &&
+             continueBlock.body[1].kind == crossgl::HIRStatementKind::Continue,
+         "do-while continue rewrite checks the trailing condition before continuing");
+  expect(loop.body[2].kind == crossgl::HIRStatementKind::Assignment &&
+             loop.body[2].target.value == "total",
+         "do-while HIR keeps body work before the trailing condition check");
+  expect(loop.body[3].kind == crossgl::HIRStatementKind::If &&
+             loop.body[3].body.size() == 1 &&
+             loop.body[3].body.front().kind == crossgl::HIRStatementKind::Break,
+         "do-while HIR appends the condition break at the loop tail");
+
+  const std::string hirText = crossgl::printHIR(*hir);
+  const std::size_t bodyUpdate =
+      hirText.find("assign value : int = value + 1 : int");
+  const std::size_t continueRewrite = hirText.find("continue");
+  const std::size_t bodyWork =
+      hirText.find("assign total : float = total + float(value) : float");
+  const std::size_t tailBreak = hirText.rfind("break");
+  expect(bodyUpdate != std::string::npos &&
+             continueRewrite != std::string::npos &&
+             bodyWork != std::string::npos && tailBreak != std::string::npos &&
+             bodyUpdate < continueRewrite && continueRewrite < bodyWork &&
+             bodyWork < tailBreak,
+         "do-while HIR text preserves body-before-condition ordering");
 }
 
 void testHIRControlTransferStatements() {
@@ -28019,6 +29745,162 @@ shader VulkanGraphicsFragmentDiscardShader {
          "Vulkan graphics fragment-discard prototype SPIR-V binary exists");
 }
 
+void testVulkanGraphicsFoldedScalarConstantsPrototypeAssembly() {
+  constexpr std::string_view source = R"(
+shader VulkanGraphicsFoldedScalarConstantsShader {
+  const int VERTEX_LANES = 1 + 1;
+  const float POSITION_BIAS = 0.25;
+  const int FRAGMENT_SLOT = VERTEX_LANES - 1;
+  const float COLOR_SCALE = 0.5 + 0.25;
+
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      int lanes = VERTEX_LANES;
+      float bias = lanes == VERTEX_LANES ? POSITION_BIAS : 0.0;
+      output.uv = input.texCoord;
+      output.position =
+          vec4(input.position.x + bias,
+               input.position.y,
+               input.position.z,
+               1.0);
+      return output;
+    }
+  }
+  fragment {
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      int slot = FRAGMENT_SLOT;
+      float scale = slot == FRAGMENT_SLOT ? COLOR_SCALE : 1.0;
+      output.color = vec4(input.uv.x * scale,
+                          input.uv.y,
+                          scale,
+                          1.0);
+      return output;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "Vulkan graphics folded scalar constants source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  crossgl::DiagnosticEngine supportDiagnostics;
+  expect(crossgl::vulkanPrototypeBinarySupported(*hir, supportDiagnostics) &&
+             !supportDiagnostics.hasErrors(),
+         "Vulkan graphics prototype support accepts folded scalar constants");
+  expect(!hasDiagnosticCode(supportDiagnostics.diagnostics(),
+                            "vulkan.prototype-unsupported-graphics-constant"),
+         "Vulkan graphics folded scalar constants avoid graphics constant "
+         "unsupported diagnostic");
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assembly.empty() && !assemblyDiagnostics.hasErrors(),
+         "Vulkan graphics folded scalar constants assembly has no diagnostics");
+  expect(!hasDiagnosticCode(assemblyDiagnostics.diagnostics(),
+                            "vulkan.prototype-unsupported-graphics-constant"),
+         "Vulkan graphics folded scalar constants assembly avoids graphics "
+         "constant unsupported diagnostic");
+
+  const auto hasConstantLine = [&](std::string_view value) {
+    std::size_t offset = 0;
+    while ((offset = assembly.find("OpConstant", offset)) !=
+           std::string::npos) {
+      const std::size_t lineEnd = assembly.find('\n', offset);
+      const std::string_view line(
+          assembly.data() + offset,
+          (lineEnd == std::string::npos ? assembly.size() : lineEnd) -
+              offset);
+      const std::string needle = " " + std::string(value);
+      if (line.ends_with(needle)) {
+        return true;
+      }
+      offset += std::string_view("OpConstant").size();
+    }
+    return false;
+  };
+  expect(hasConstantLine("2") && hasConstantLine("1") &&
+             hasConstantLine("0.25") && hasConstantLine("0.75"),
+         "Vulkan graphics folded scalar constants emit SPIR-V constants");
+  expect(assembly.find("OpIEqual") != std::string::npos &&
+             assembly.find("OpSelect") != std::string::npos,
+         "Vulkan graphics folded scalar constants are used in emitted "
+         "expressions");
+
+  constexpr std::string_view unsupportedSource = R"(
+shader VulkanGraphicsVectorConstantUnsupportedShader {
+  const vec3 AXIS = vec3(1.0, 0.0, 0.0);
+
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+  fragment {
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      output.color = vec4(input.uv, 0.0, 1.0);
+      return output;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> unsupportedHir =
+      parseHIR(unsupportedSource);
+  expect(unsupportedHir.has_value(),
+         "Vulkan graphics unsupported vector constant source builds HIR");
+  if (!unsupportedHir) {
+    return;
+  }
+  crossgl::DiagnosticEngine unsupportedDiagnostics;
+  expect(!crossgl::vulkanPrototypeBinarySupported(*unsupportedHir,
+                                                  unsupportedDiagnostics) &&
+             unsupportedDiagnostics.hasErrors() &&
+             hasDiagnosticCode(
+                 unsupportedDiagnostics.diagnostics(),
+                 "vulkan.prototype-unsupported-graphics-constant"),
+         "Vulkan graphics prototype support rejects non-scalar module "
+         "constants");
+}
+
 void testVulkanGraphicsUniformMemberSwizzlePrototypeAssembly() {
   constexpr std::string_view source = R"(
 shader VulkanGraphicsUniformMemberSwizzleShader {
@@ -28245,10 +30127,20 @@ shader VulkanGraphicsMathIntrinsicShader {
          "Vulkan graphics prototype support accepts math intrinsics");
 
   crossgl::DiagnosticEngine assemblyDiagnostics;
-  const std::string assembly =
-      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  const crossgl::VulkanPrototypeAssemblyArtifact artifact =
+      crossgl::generateVulkanPrototypeAssemblyArtifact(*hir,
+                                                       assemblyDiagnostics);
+  const std::string &assembly = artifact.assembly;
   expect(!assembly.empty() && !assemblyDiagnostics.hasErrors(),
          "Vulkan graphics math intrinsic assembly has no diagnostics");
+  expect(artifact.extendedInstructionImports.size() == 1 &&
+             artifact.extendedInstructionImports.front().instructionSet ==
+                 "GLSL.std.450" &&
+             assembly.find(artifact.extendedInstructionImports.front().resultId +
+                           " = OpExtInstImport \"GLSL.std.450\"") !=
+                 std::string::npos,
+         "Vulkan graphics math intrinsic assembly exposes GLSL.std.450 "
+         "metadata");
   expect(assembly.find("OpExtInstImport \"GLSL.std.450\"") !=
              std::string::npos &&
              assembly.find("Normalize") != std::string::npos &&
@@ -28758,6 +30650,107 @@ shader VulkanGraphicsHelperFunctionShader {
          "Vulkan graphics helper-function prototype assembly file exists");
   expect(std::filesystem::exists(result.spvPath),
          "Vulkan graphics helper-function SPIR-V binary exists");
+
+  std::filesystem::remove_all(packageDir, error);
+}
+
+void testVulkanGraphicsMatrixConstructorPrototypeAssembly() {
+  constexpr std::string_view source = R"(
+shader VulkanGraphicsMatrixConstructorShader {
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+  fragment {
+    mat3 basisFromSeed(mat2 seed) {
+      return mat3(seed);
+    }
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      mat2 flattened = mat2(1.0, 0.0, 0.0, 1.0);
+      mat2 diagonal = mat2(1.0);
+      mat3 expanded = basisFromSeed(flattened);
+      mat3 basis = mat3(vec3(1.0, 0.0, 0.0),
+                        vec3(0.0, 1.0, 0.0),
+                        vec3(0.0, 0.0, 1.0));
+      output.color = vec4(input.uv, 0.0, 1.0);
+      return output;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "Vulkan graphics matrix-constructor source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  crossgl::DiagnosticEngine supportDiagnostics;
+  expect(crossgl::vulkanPrototypeBinarySupported(*hir, supportDiagnostics) &&
+             !supportDiagnostics.hasErrors(),
+         "Vulkan graphics prototype support accepts local/helper matrix "
+         "constructors");
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assembly.empty() && !assemblyDiagnostics.hasErrors(),
+         "Vulkan graphics matrix-constructor assembly has no diagnostics");
+  expect(assembly.find("OpTypeMatrix") != std::string::npos &&
+             assembly.find("OpCompositeConstruct") != std::string::npos,
+         "Vulkan graphics prototype emits matrix composite types and "
+         "constructors");
+  expect(assembly.find("OpCompositeExtract") != std::string::npos &&
+             assembly.find("%func_fragment_basisFromSeed") !=
+                 std::string::npos &&
+             assembly.find("OpFunctionCall") != std::string::npos,
+         "Vulkan graphics prototype lowers matrix helper parameter and return "
+         "paths");
+
+  if (!crossgl::findExecutable("spirv-as") ||
+      !crossgl::findExecutable("spirv-val")) {
+    return;
+  }
+
+  const std::filesystem::path packageDir =
+      unitTestTempDirectoryPath() /
+      "crossgl-vulkan-graphics-matrix-constructor-prototype-test";
+  std::error_code error;
+  std::filesystem::remove_all(packageDir, error);
+
+  crossgl::DiagnosticEngine buildDiagnostics;
+  const crossgl::VulkanBuildResult result =
+      crossgl::buildVulkanPrototypeBinary(*hir, packageDir, buildDiagnostics);
+  expect(result.success,
+         "Vulkan graphics matrix-constructor prototype binary assembles and "
+         "validates");
+  expect(!buildDiagnostics.hasErrors(),
+         "Vulkan graphics matrix-constructor prototype binary build has no "
+         "diagnostics");
+  expect(std::filesystem::exists(result.assemblyPath),
+         "Vulkan graphics matrix-constructor prototype assembly file exists");
+  expect(std::filesystem::exists(result.spvPath),
+         "Vulkan graphics matrix-constructor SPIR-V binary exists");
 
   std::filesystem::remove_all(packageDir, error);
 }
@@ -30859,8 +32852,8 @@ shader TextureCompareLodManualKernelListShader {
              directxDebugDocument.targetDecision.selectedTarget == "directx" &&
              directxDebugDocument.targetDecision.selectionReason ==
                  "explicit-target" &&
-             !directxDebugDocument.targetDecision
-                  .selectedTargetNativeImplemented &&
+             directxDebugDocument.targetDecision
+                 .selectedTargetNativeImplemented &&
              directxDebugDocument.targetDecision
                  .selectedTargetSourcePackageSupported &&
              directxDebugDocument.targetDecision.selectedTargetPackageBuildSupported &&
@@ -30973,7 +32966,7 @@ shader TextureCompareLodManualKernelListShader {
           ? nullptr
           : findCapabilityGroup(directxSummary->requiredCapabilityGroups,
                                 "operation");
-  expect(directxSummary != nullptr && !directxSummary->nativeImplemented &&
+  expect(directxSummary != nullptr && directxSummary->nativeImplemented &&
              directxSummary->sourcePackageSupported &&
              directxSummary->packageBuildSupported &&
              directxSummary->packageBuildSupported ==
@@ -34554,6 +36547,8 @@ shader UnsizedStorageBufferArrayUnsupportedShader {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
     layout(set = 0, binding = 0) buffer float* values[];
     void main() {
+      float first = values[0][0];
+      values[0][1] = first + 1.0;
       return;
     }
   }
@@ -34580,8 +36575,12 @@ shader UnsizedStorageBufferArrayUnsupportedShader {
   const std::string directx =
       crossgl::printBackendIR(*hir, crossgl::TargetKind::DirectX);
   expect(directx.find("RWStructuredBuffer<float> values[] : register(u0, "
-                      "space0);") != std::string::npos,
-         "DirectX backend emits an HLSL unbounded storage-buffer array");
+                      "space0);") != std::string::npos &&
+             directx.find("float first = values[0][0];") !=
+                 std::string::npos &&
+             directx.find("values[0][1] = first + 1.0;") !=
+                 std::string::npos,
+         "DirectX backend emits an HLSL unbounded storage-buffer array and access");
 
   const crossgl::ReflectionDocument directxReflection =
       crossgl::buildReflectionDocument(
@@ -34599,18 +36598,65 @@ shader UnsizedStorageBufferArrayUnsupportedShader {
              directxValuesBinding->arrayDimensions[0].kind == "runtime",
          "DirectX reflection preserves unbounded storage-buffer array metadata");
 
-  expect(!crossgl::openglTextualBackendSupported(*hir),
-         "OpenGL scaffold rejects unsized storage-buffer descriptor arrays");
-  expect(crossgl::openglHasUnsupportedStorageBufferArray(*hir),
-         "OpenGL buffer analysis reports unsized storage-buffer arrays");
+  expect(crossgl::openglTextualBackendSupported(*hir),
+         "OpenGL scaffold accepts a single unsized storage-buffer descriptor array");
+  expect(!crossgl::openglHasUnsupportedStorageBufferArray(*hir),
+         "OpenGL buffer analysis accepts a single unsized storage-buffer array");
   crossgl::DiagnosticEngine openglDiagnostics;
-  expect(crossgl::diagnoseOpenGLUnsupportedStorageBufferArray(*hir,
-                                                              openglDiagnostics),
-         "OpenGL unsized storage-buffer array helper emits a diagnostic");
-  expect(hasDiagnosticMessageFragment(
-             openglDiagnostics.diagnostics(),
-             "opengl.unsupported-storage-buffer-array", "values"),
-         "OpenGL unsized storage-buffer array diagnostic names the buffer");
+  expect(!crossgl::diagnoseOpenGLUnsupportedStorageBufferArray(
+             *hir, openglDiagnostics) &&
+             openglDiagnostics.diagnostics().empty(),
+         "OpenGL unsized storage-buffer array helper does not emit a diagnostic");
+
+  const std::string opengl =
+      crossgl::printBackendIR(*hir, crossgl::TargetKind::OpenGL);
+  expect(opengl.find("layout(binding = 0, std430) buffer values_Buffer") !=
+             std::string::npos &&
+             opengl.find("} values_Buffers[];") != std::string::npos &&
+             opengl.find("float first = values_Buffers[0].values[0];") !=
+                 std::string::npos &&
+             opengl.find("values_Buffers[0].values[1] = first + 1.0;") !=
+                 std::string::npos,
+         "OpenGL backend emits an unbounded storage-buffer block array and access");
+
+  const crossgl::ReflectionDocument openglReflection =
+      crossgl::buildReflectionDocument(
+          *hir, crossgl::TargetKind::OpenGL,
+          "/tmp/UnsizedStorageBufferArrayUnsupportedShader.glsl");
+  const crossgl::ReflectionTargetResourceBinding *openglValuesBinding =
+      findTargetResourceBinding(openglReflection, "values");
+  expect(openglValuesBinding != nullptr &&
+             openglValuesBinding->bindingClass == "storage-buffer" &&
+             openglValuesBinding->arraySize == "" &&
+             !openglValuesBinding->arrayElementCount.has_value() &&
+             openglValuesBinding->arrayDimensions.size() == 1 &&
+             openglValuesBinding->arrayDimensions[0].kind == "runtime" &&
+             openglValuesBinding->storageBufferLayout.has_value() &&
+             openglValuesBinding->storageBufferLayout->layout == "std430",
+         "OpenGL reflection preserves unbounded storage-buffer array metadata");
+
+  const std::vector<crossgl::TargetCapability> openglCapabilities =
+      crossgl::targetFeatureRequirements(*hir, crossgl::TargetKind::OpenGL);
+  expect(hasCapability(openglCapabilities, crossgl::TargetKind::OpenGL,
+                       "resource", "runtime-descriptor-array") &&
+             hasCapability(openglCapabilities, crossgl::TargetKind::OpenGL,
+                           "resource",
+                           "runtime-storage-buffer-descriptor-array") &&
+             hasCapability(openglCapabilities, crossgl::TargetKind::OpenGL,
+                           "layout", "runtime-array"),
+         "OpenGL target capabilities record unbounded storage-buffer "
+         "descriptor-array requirements");
+  const std::vector<crossgl::TargetCapability> openglMissing =
+      crossgl::missingTargetCapabilities(*hir, crossgl::TargetKind::OpenGL);
+  expect(!hasCapability(openglMissing, crossgl::TargetKind::OpenGL, "layout",
+                        "runtime-array") &&
+             !hasCapability(openglMissing, crossgl::TargetKind::OpenGL,
+                            "resource", "runtime-descriptor-array") &&
+             !hasCapability(openglMissing, crossgl::TargetKind::OpenGL,
+                            "resource",
+                            "runtime-storage-buffer-descriptor-array"),
+         "OpenGL target decisions accept single unbounded storage-buffer "
+         "descriptor arrays");
 }
 
 void testDirectXStorageBufferElementTypeUnsupportedDiagnostic() {
@@ -34792,6 +36838,67 @@ shader OpenGLStorageBufferArrayShader {
 
   std::filesystem::remove(inputPath, error);
   std::filesystem::remove_all(outputPath, error);
+}
+
+void testOpenGLUnsizedStructStorageBufferDescriptorArraySource() {
+  constexpr std::string_view source = R"(
+shader OpenGLUnsizedStructStorageBufferArrayShader {
+  struct Particle {
+    vec3 position;
+    float mass;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles[];
+    void main() {
+      float mass = particles[0][0].mass;
+      particles[0][1].mass = mass + 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "OpenGL unsized struct storage-buffer array fixture builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::openglTextualBackendSupported(*hir),
+         "OpenGL scaffold supports single unsized struct storage-buffer arrays");
+  const std::string opengl =
+      crossgl::printBackendIR(*hir, crossgl::TargetKind::OpenGL);
+  expect(opengl.find("struct Particle") != std::string::npos &&
+             opengl.find("layout(binding = 0, std430) buffer "
+                         "particles_Buffer") != std::string::npos &&
+             opengl.find("Particle particles[];") != std::string::npos &&
+             opengl.find("} particles_Buffers[];") != std::string::npos &&
+             opengl.find("float mass = particles_Buffers[0].particles[0].mass;") !=
+                 std::string::npos &&
+             opengl.find("particles_Buffers[0].particles[1].mass = mass + "
+                         "1.0;") != std::string::npos,
+         "OpenGL backend emits struct declarations and access for unbounded "
+         "storage-buffer block arrays");
+
+  const crossgl::ReflectionDocument openglReflection =
+      crossgl::buildReflectionDocument(
+          *hir, crossgl::TargetKind::OpenGL,
+          "/tmp/OpenGLUnsizedStructStorageBufferArrayShader.glsl");
+  const auto *particlesBinding =
+      findTargetResourceBinding(openglReflection, "particles");
+  expect(particlesBinding != nullptr &&
+             particlesBinding->bindingClass == "storage-buffer" &&
+             particlesBinding->arraySize == "" &&
+             !particlesBinding->arrayElementCount.has_value() &&
+             particlesBinding->arrayDimensions.size() == 1 &&
+             particlesBinding->arrayDimensions[0].kind == "runtime" &&
+             particlesBinding->storageBufferLayout.has_value() &&
+             particlesBinding->storageBufferLayout->layout == "std430" &&
+             particlesBinding->storageBufferLayout->elementType == "Particle",
+         "OpenGL reflection records runtime struct storage-buffer array "
+         "metadata");
 }
 
 void testStructStorageBufferDescriptorArraySourceAndReflection() {
@@ -36391,6 +38498,62 @@ shader MetalNativeSupportPredicateSupportedShader {
          "Metal native support predicate does not create package output for "
          "supported shaders");
 
+  auto type = [](std::string name) {
+    return crossgl::HIRType{std::move(name), std::nullopt};
+  };
+  auto expression = [](crossgl::HIRExpressionKind kind, std::string value,
+                       crossgl::HIRType expressionType = {}) {
+    crossgl::HIRExpression result;
+    result.kind = kind;
+    result.value = std::move(value);
+    result.type = std::move(expressionType);
+    return result;
+  };
+  auto literal = [&](std::string value, crossgl::HIRType expressionType) {
+    return expression(crossgl::HIRExpressionKind::Literal, std::move(value),
+                      std::move(expressionType));
+  };
+  auto expressionStatement = [](crossgl::HIRExpression value) {
+    crossgl::HIRStatement statement;
+    statement.kind = crossgl::HIRStatementKind::Expression;
+    statement.value = std::move(value);
+    return statement;
+  };
+  auto constructor = [&](std::string name, crossgl::HIRType expressionType,
+                         std::vector<crossgl::HIRExpression> children) {
+    crossgl::HIRExpression result = expression(
+        crossgl::HIRExpressionKind::Constructor, std::move(name),
+        std::move(expressionType));
+    result.children = std::move(children);
+    return result;
+  };
+
+  crossgl::HIRModule matAliasModule = simpleModule();
+  matAliasModule.stages.front().functions.front().body.push_back(
+      expressionStatement(constructor("mat2x2", type("mat2x2"),
+                                      {literal("1.0", type("float"))})));
+  crossgl::DiagnosticEngine matAliasDiagnostics;
+  expect(crossgl::metalNativeBackendSupported(matAliasModule,
+                                              matAliasDiagnostics),
+         "Metal native support predicate accepts mat2x2 constructor aliases");
+  const std::string matAliasMetal = crossgl::generateMetalSource(matAliasModule);
+  expect(matAliasMetal.find("float2x2(1.0)") != std::string::npos,
+         "Metal source emission maps mat2x2 constructors to float2x2");
+
+  crossgl::HIRModule invalidConstructorModule = simpleModule();
+  invalidConstructorModule.stages.front().functions.front().body.push_back(
+      expressionStatement(constructor("vec3", type("vec2"),
+                                      {literal("0.0", type("float")),
+                                       literal("1.0", type("float"))})));
+  crossgl::DiagnosticEngine invalidConstructorDiagnostics;
+  expect(!crossgl::metalNativeBackendSupported(
+             invalidConstructorModule, invalidConstructorDiagnostics),
+         "Metal native support predicate rejects malformed constructors");
+  expect(hasDiagnostic(invalidConstructorDiagnostics.diagnostics(),
+                       "metal.unsupported-constructor"),
+         "Metal native support predicate reports malformed constructor "
+         "diagnostics");
+
   constexpr std::string_view unsupportedSource = R"(
 shader MetalNativeSupportPredicateStorageBufferNonUniformShader {
   compute {
@@ -37375,8 +39538,8 @@ void testOpenGLStorageBufferElementTypeUnsupportedDiagnostic() {
   constexpr std::string_view source = R"(
 shader OpenGLStructBufferUnsupportedShader {
   struct Particle {
+    double transform;
     float mass;
-    mat2 transform;
   }
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -37997,6 +40160,268 @@ shader DirectXMatrixFunctionParameterArrayShader {
          "and local-declaration capabilities");
 }
 
+void testDirectXMatrixConstructorHLSL() {
+  constexpr std::string_view source = R"(
+shader DirectXMatrixConstructorShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    void main() {
+      mat2 flattened = mat2(1.0, 2.0, 3.0, 4.0);
+      mat2 diagonal = mat2(5.0);
+      mat3 expanded = mat3(flattened);
+      vec3 c0 = vec3(1.0, 2.0, 3.0);
+      vec3 c1 = vec3(4.0, 5.0, 6.0);
+      vec3 c2 = vec3(7.0, 8.0, 9.0);
+      mat3 basis = mat3(c0, c1, c2);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "DirectX matrix-constructor source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::directxTextualBackendSupported(*hir),
+         "DirectX source package supports matrix constructors");
+  const std::string directx = crossgl::generateDirectXSource(*hir);
+  expect(directx.find(
+             "float2x2 flattened = float2x2(1.0, 3.0, 2.0, 4.0);") !=
+             std::string::npos,
+         "DirectX backend transposes flattened matrix constructor scalars to "
+         "HLSL row order");
+  expect(directx.find(
+             "float2x2 diagonal = float2x2(5.0, 0.0, 0.0, 5.0);") !=
+             std::string::npos,
+         "DirectX backend expands scalar diagonal matrix constructors");
+  expect(directx.find(
+             "float3x3 expanded = float3x3(flattened[0][0], "
+             "flattened[0][1], 0.0, flattened[1][0], flattened[1][1], "
+             "0.0, 0.0, 0.0, 1.0);") != std::string::npos,
+         "DirectX backend expands smaller source matrices into identity-filled "
+         "larger matrices");
+  expect(directx.find(
+             "float3x3 basis = float3x3(c0[0], c1[0], c2[0], c0[1], "
+             "c1[1], c2[1], c0[2], c1[2], c2[2]);") !=
+             std::string::npos,
+         "DirectX backend lowers vector-column matrix constructors to HLSL "
+         "row-order scalar constructors");
+
+  const std::vector<crossgl::TargetCapability> directxMissing =
+      crossgl::missingTargetCapabilities(*hir, crossgl::TargetKind::DirectX);
+  expect(!hasCapability(directxMissing, crossgl::TargetKind::DirectX,
+                        "operation", "matrix-constructor"),
+         "DirectX matrix constructor source satisfies matrix-constructor "
+         "capability");
+}
+
+void testDirectXMatrixStorageBufferHLSL() {
+  constexpr std::string_view source = R"(
+shader DirectXMatrixStorageBufferShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer mat4* transforms;
+    layout(set = 0, binding = 1) buffer float* values;
+    void main() {
+      mat4 transform = transforms[0];
+      transforms[1] = transform;
+      values[0] = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "DirectX matrix storage-buffer source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::directxTextualBackendSupported(*hir),
+         "DirectX source package supports matrix storage-buffer elements");
+  expect(!crossgl::directxHasUnsupportedStorageBufferElementType(*hir),
+         "DirectX matrix storage-buffer element gate accepts mat4 buffers");
+
+  const std::string directx = crossgl::generateDirectXSource(*hir);
+  expect(directx.find("RWStructuredBuffer<float4x4> transforms : "
+                      "register(u0, space0);") != std::string::npos &&
+             directx.find("RWStructuredBuffer<float> values : register(u1, "
+                          "space0);") != std::string::npos,
+         "DirectX backend emits matrix storage-buffer resources");
+  expect(directx.find("float4x4 transform = transforms[0];") !=
+                 std::string::npos &&
+             directx.find("transforms[1] = transform;") != std::string::npos &&
+             directx.find("values[0] = 1.0;") != std::string::npos,
+         "DirectX backend reads and writes matrix storage-buffer values");
+
+  const crossgl::ReflectionDocument reflection =
+      crossgl::buildReflectionDocument(*hir, crossgl::TargetKind::DirectX,
+                                       "/tmp/DirectXMatrixStorageBufferShader.dxil");
+  const crossgl::ReflectionTargetResourceBinding *transforms =
+      findTargetResourceBinding(reflection, "transforms");
+  expect(transforms != nullptr && transforms->hlslType.has_value() &&
+             *transforms->hlslType == "RWStructuredBuffer<float4x4>" &&
+             transforms->descriptorType == "UAV",
+         "DirectX reflection records matrix storage-buffer HLSL ABI");
+
+  const std::vector<crossgl::TargetCapability> directxMissing =
+      crossgl::missingTargetCapabilities(*hir, crossgl::TargetKind::DirectX);
+  expect(!hasCapability(directxMissing, crossgl::TargetKind::DirectX,
+                        "backend", "hlsl-lowering") &&
+             !hasCapability(directxMissing, crossgl::TargetKind::DirectX,
+                            "diagnostic",
+                            "directx.unsupported-storage-buffer-element-type"),
+         "DirectX matrix storage-buffer source satisfies HLSL and diagnostic "
+         "capabilities");
+
+  constexpr std::string_view structSource = R"(
+shader DirectXStructMatrixStorageBufferShader {
+  struct Transform {
+    mat4 matrix;
+    float weight;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Transform* transforms;
+    void main() {
+      transforms[1].matrix = transforms[0].matrix;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> structHir = parseHIR(structSource);
+  expect(structHir.has_value(),
+         "DirectX struct matrix storage-buffer source builds HIR");
+  if (!structHir) {
+    return;
+  }
+
+  expect(crossgl::directxTextualBackendSupported(*structHir),
+         "DirectX source package supports matrix fields in storage-buffer "
+         "structs");
+  const std::string structDirectX = crossgl::generateDirectXSource(*structHir);
+  expect(structDirectX.find("struct Transform") != std::string::npos &&
+             structDirectX.find("float4x4 matrix;") != std::string::npos &&
+             structDirectX.find("RWStructuredBuffer<Transform> transforms : "
+                                "register(u0, space0);") !=
+                 std::string::npos &&
+             structDirectX.find("transforms[1].matrix = transforms[0].matrix;") !=
+                 std::string::npos,
+         "DirectX backend emits struct storage buffers with matrix fields");
+}
+
+void testOpenGLMatrixStorageBufferGLSL() {
+  constexpr std::string_view source = R"(
+shader OpenGLMatrixStorageBufferShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer mat4* transforms;
+    layout(set = 0, binding = 1) buffer float* values;
+    void main() {
+      mat4 transform = transforms[0];
+      transforms[1] = transform;
+      values[0] = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "OpenGL matrix storage-buffer source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::openglTextualBackendSupported(*hir),
+         "OpenGL source package supports matrix storage-buffer elements");
+  expect(!crossgl::openglHasUnsupportedStorageBufferElementType(*hir),
+         "OpenGL matrix storage-buffer element gate accepts mat4 buffers");
+
+  const std::string opengl = crossgl::generateOpenGLSource(*hir);
+  expect(opengl.find("layout(binding = 0, std430) buffer transforms_Buffer") !=
+                 std::string::npos &&
+             opengl.find("  mat4 transforms[];") != std::string::npos &&
+             opengl.find("layout(binding = 1, std430) buffer values_Buffer") !=
+                 std::string::npos &&
+             opengl.find("  float values[];") != std::string::npos,
+         "OpenGL backend emits matrix storage-buffer resources");
+  expect(opengl.find("mat4 transform = transforms[0];") != std::string::npos &&
+             opengl.find("transforms[1] = transform;") != std::string::npos &&
+             opengl.find("values[0] = 1.0;") != std::string::npos,
+         "OpenGL backend reads and writes matrix storage-buffer values");
+
+  const crossgl::ReflectionDocument reflection =
+      crossgl::buildReflectionDocument(
+          *hir, crossgl::TargetKind::OpenGL,
+          "/tmp/OpenGLMatrixStorageBufferShader.glsl");
+  const crossgl::ReflectionTargetResourceBinding *transforms =
+      findTargetResourceBinding(reflection, "transforms");
+  expect(transforms != nullptr && transforms->storageBufferLayout.has_value() &&
+             transforms->storageBufferLayout->layout == "std430" &&
+             transforms->storageBufferLayout->elementType == "mat4" &&
+             transforms->storageBufferLayout->elementSizeBytes == 64 &&
+             transforms->storageBufferLayout->arrayStrideBytes == 64 &&
+             transforms->storageBufferLayout->alignmentBytes == 16,
+         "OpenGL reflection records matrix storage-buffer std430 ABI");
+
+  const std::vector<crossgl::TargetCapability> openglMissing =
+      crossgl::missingTargetCapabilities(*hir, crossgl::TargetKind::OpenGL);
+  expect(!hasCapability(openglMissing, crossgl::TargetKind::OpenGL, "backend",
+                        "glsl-lowering") &&
+             !hasCapability(openglMissing, crossgl::TargetKind::OpenGL,
+                            "diagnostic",
+                            "opengl.unsupported-storage-buffer-element-type"),
+         "OpenGL matrix storage-buffer source satisfies GLSL and diagnostic "
+         "capabilities");
+
+  constexpr std::string_view structSource = R"(
+shader OpenGLStructMatrixStorageBufferShader {
+  struct Transform {
+    mat4 matrix;
+    float weight;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Transform* transforms;
+    void main() {
+      transforms[1].matrix = transforms[0].matrix;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> structHir = parseHIR(structSource);
+  expect(structHir.has_value(),
+         "OpenGL struct matrix storage-buffer source builds HIR");
+  if (!structHir) {
+    return;
+  }
+
+  expect(crossgl::openglTextualBackendSupported(*structHir),
+         "OpenGL source package supports matrix fields in storage-buffer "
+         "structs");
+  const std::string structOpenGL = crossgl::generateOpenGLSource(*structHir);
+  expect(structOpenGL.find("struct Transform") != std::string::npos &&
+             structOpenGL.find("  mat4 matrix;") != std::string::npos &&
+             structOpenGL.find(
+                 "layout(binding = 0, std430) buffer transforms_Buffer") !=
+                 std::string::npos &&
+             structOpenGL.find("  Transform transforms[];") !=
+                 std::string::npos &&
+             structOpenGL.find(
+                 "transforms[1].matrix = transforms[0].matrix;") !=
+                 std::string::npos,
+         "OpenGL backend emits struct storage buffers with matrix fields");
+}
+
 void testDirectXFoldedNestedFunctionParameterArrayHLSL() {
   constexpr std::string_view source = R"(
 shader DirectXFoldedNestedFunctionParameterArrayShader {
@@ -38170,7 +40595,7 @@ shader DirectXNestedLocalFunctionParameterArrayShader {
          "and local-declaration capabilities");
 }
 
-void testDirectXFunctionParameterArrayUnsupportedDiagnostics() {
+void testDirectXFunctionParameterStructArrayHLSL() {
   constexpr std::string_view source = R"(
 shader DirectXFunctionParameterArrayUnsupportedShader {
   const int COUNT = 2;
@@ -38204,43 +40629,155 @@ shader DirectXFunctionParameterArrayUnsupportedShader {
 
   std::optional<crossgl::HIRModule> hir = parseHIR(source);
   expect(hir.has_value(),
-         "DirectX unsupported function parameter array source builds HIR");
+         "DirectX struct function-parameter array source builds HIR");
   if (!hir) {
     return;
   }
 
-  expect(!crossgl::directxTextualBackendSupported(*hir),
-         "DirectX scaffold gates unsupported helper array call features");
-  expect(crossgl::directxHasUnsupportedFunctionParameterArrayCallFeature(*hir),
-         "DirectX analysis detects unsupported helper array call features");
+  expect(crossgl::directxTextualBackendSupported(*hir),
+         "DirectX source package supports read-only fixed-size struct helper "
+         "array parameters");
+  expect(!crossgl::directxHasUnsupportedFunctionParameterArrayCallFeature(*hir),
+         "DirectX analysis accepts read-only struct helper array calls");
+  expect(!crossgl::directxHasUnsupportedFunctionParameterArrayWrite(*hir),
+         "DirectX write gate keeps read-only struct helper array calls "
+         "positive");
 
   crossgl::DiagnosticEngine diagnostics;
-  expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
+  expect(!crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
              *hir, diagnostics),
-         "DirectX helper array feature diagnostic emits a diagnostic");
-  expect(hasDiagnosticMessageFragment(
-             diagnostics.diagnostics(),
-             "directx.unsupported-function-parameter-array-call-feature",
-             "struct-elements"),
-         "DirectX helper array diagnostic names struct element arrays");
-  expect(hasDiagnosticMessageFragment(
-             diagnostics.diagnostics(),
-             "directx.unsupported-function-parameter-array-call-feature",
-             "direct-resource-array-arguments"),
-         "DirectX helper array diagnostic names direct resource arrays");
-  expect(hasDiagnosticMessageFragment(
-             diagnostics.diagnostics(),
-             "directx.unsupported-function-parameter-array-call-feature",
-             "value-copy-read-only"),
-         "DirectX helper array diagnostic names the shared call ABI");
+         "DirectX helper array feature diagnostic stays quiet for read-only "
+         "struct arrays");
+  expect(diagnostics.diagnostics().empty(),
+         "DirectX read-only struct helper array call has no feature "
+         "diagnostic");
 
-  const std::string directx =
-      crossgl::printBackendIR(*hir, crossgl::TargetKind::DirectX);
-  expect(directx.find("direct-resource-array-arguments") !=
+  const std::string directx = crossgl::generateDirectXSource(*hir);
+  expect(directx.find("void consumePayloads(Payload payloads[COUNT])") !=
                  std::string::npos &&
-             directx.find("struct-elements") != std::string::npos &&
-             directx.find("value-copy-read-only") != std::string::npos,
-         "DirectX backend dump explains unsupported helper array call features");
+             directx.find("float weight = payloads[0].weights[0];") !=
+                 std::string::npos &&
+             directx.find("particles[1].mass = weight;") !=
+                 std::string::npos &&
+             directx.find("consumePayloads(particles[0].payloads);") !=
+                 std::string::npos &&
+             directx.find("void consumeMaps(Texture2D<float4> maps[COUNT])") !=
+                 std::string::npos &&
+             directx.find("consumeMaps(colorMaps);") != std::string::npos,
+         "DirectX backend emits read-only struct helper arrays and direct "
+         "storage-buffer field arguments");
+
+  const std::string backendDump =
+      crossgl::printBackendIR(*hir, crossgl::TargetKind::DirectX);
+  expect(backendDump.find("unsupported fixed-size helper array call feature") ==
+                 std::string::npos &&
+             backendDump.find("void consumePayloads(Payload payloads[COUNT])") !=
+                 std::string::npos,
+         "DirectX backend dump emits the supported struct helper array "
+         "scaffold");
+
+  constexpr std::string_view forwardedStructSource = R"(
+shader DirectXForwardedStructFunctionParameterArrayShader {
+  const int COUNT = 2;
+  struct Payload {
+    float weights[COUNT];
+  }
+  struct Particle {
+    Payload payloads[COUNT];
+    float mass;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    void consumePayloads(Payload payloads[COUNT]) {
+      float weight = payloads[0].weights[0];
+      particles[1].mass = weight;
+      return;
+    }
+    void forwardPayloads(Payload payloads[COUNT]) {
+      consumePayloads(payloads);
+      return;
+    }
+    void main() {
+      forwardPayloads(particles[0].payloads);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> forwardedStructHir =
+      parseHIR(forwardedStructSource);
+  expect(forwardedStructHir.has_value(),
+         "DirectX forwarded struct function-parameter array source builds HIR");
+  if (forwardedStructHir) {
+    expect(!crossgl::directxTextualBackendSupported(*forwardedStructHir),
+           "DirectX keeps struct helper array forwarding rejected");
+    expect(crossgl::directxHasUnsupportedFunctionParameterArrayCallFeature(
+               *forwardedStructHir),
+           "DirectX analysis detects struct helper array forwarding");
+    crossgl::DiagnosticEngine forwardedDiagnostics;
+    expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
+               *forwardedStructHir, forwardedDiagnostics),
+           "DirectX forwarded struct helper array diagnostic emits a "
+           "diagnostic");
+    expect(hasDiagnosticMessageFragment(
+               forwardedDiagnostics.diagnostics(),
+               "directx.unsupported-function-parameter-array-call-feature",
+               "struct-array-forwarding=unsupported"),
+           "DirectX forwarded struct helper array diagnostic names forwarding");
+  }
+
+  constexpr std::string_view directResourceOnlySource = R"(
+shader DirectXFunctionParameterResourceArrayShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[COUNT];
+    void consumeMaps(sampler2D maps[COUNT]) {
+      return;
+    }
+    void main() {
+      consumeMaps(colorMaps);
+      values[0] = vec4(1.0, 0.0, 0.0, 1.0);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> directResourceOnlyHir =
+      parseHIR(directResourceOnlySource);
+  expect(directResourceOnlyHir.has_value(),
+         "DirectX direct resource-array parameter source builds HIR");
+  if (directResourceOnlyHir) {
+    expect(crossgl::directxTextualBackendSupported(*directResourceOnlyHir),
+           "DirectX supports direct resource-array helper arguments");
+    expect(!crossgl::directxHasUnsupportedFunctionParameterArrayCallFeature(
+               *directResourceOnlyHir),
+           "DirectX no longer reports direct resource-array helper arguments "
+           "as unsupported");
+    crossgl::DiagnosticEngine directResourceOnlyDiagnostics;
+    expect(!crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayCallFeature(
+               *directResourceOnlyHir, directResourceOnlyDiagnostics),
+           "DirectX does not emit direct resource-array helper argument "
+           "diagnostics");
+    expect(!hasDiagnosticMessageFragment(
+               directResourceOnlyDiagnostics.diagnostics(),
+               "directx.unsupported-function-parameter-array-call-feature",
+               "struct-elements"),
+           "DirectX isolated direct resource-array diagnostic does not depend "
+           "on struct-element rejection");
+    const std::string directResourceOnlyHlsl =
+        crossgl::generateDirectXSource(*directResourceOnlyHir);
+    expect(directResourceOnlyHlsl.find("void consumeMaps(Texture2D<float4> "
+                                       "maps[COUNT])") != std::string::npos &&
+               directResourceOnlyHlsl.find("consumeMaps(colorMaps);") !=
+                   std::string::npos,
+           "DirectX emits helper parameters for direct texture resource "
+           "arrays");
+  }
 
   constexpr std::string_view writeThroughSource = R"(
 shader DirectXFunctionParameterArrayWriteShader {
@@ -38270,20 +40807,235 @@ shader DirectXFunctionParameterArrayWriteShader {
   if (!writeHir) {
     return;
   }
-  expect(!crossgl::directxTextualBackendSupported(*writeHir),
-         "DirectX source package gates writes through helper array parameters");
-  expect(crossgl::directxHasUnsupportedFunctionParameterArrayWrite(*writeHir),
-         "DirectX analysis detects writes through helper array parameters");
+  expect(crossgl::directxTextualBackendSupported(*writeHir),
+         "DirectX source package supports direct storage-buffer field helper "
+         "array writeback");
+  expect(!crossgl::directxHasUnsupportedFunctionParameterArrayWrite(*writeHir),
+         "DirectX helper array write gate accepts direct storage-buffer field "
+         "writeback");
 
   crossgl::DiagnosticEngine writeDiagnostics;
-  expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
+  expect(!crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
              *writeHir, writeDiagnostics),
-         "DirectX helper array write diagnostic emits a diagnostic");
+         "DirectX helper array write diagnostic stays silent for direct "
+         "storage-buffer field writeback");
+
+  const std::string writeHlsl = crossgl::generateDirectXSource(*writeHir);
+  expect(writeHlsl.find(
+             "float crossgl_param_array_writeback_0_rewriteWeight_weights"
+             "[COUNT];") != std::string::npos &&
+             writeHlsl.find(
+                 "crossgl_param_array_writeback_0_rewriteWeight_weights"
+                 "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+                 "particles[0].weights"
+                 "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];") !=
+                 std::string::npos &&
+             writeHlsl.find(
+                 "float value = rewriteWeight("
+                 "crossgl_param_array_writeback_0_rewriteWeight_weights);") !=
+                 std::string::npos &&
+             writeHlsl.find(
+                 "particles[0].weights"
+                 "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+                 "crossgl_param_array_writeback_0_rewriteWeight_weights"
+                 "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];") !=
+                 std::string::npos &&
+             writeHlsl.find("particles[1].weights[0] = value;") !=
+                 std::string::npos,
+         "DirectX backend copies a direct storage-buffer field array into a "
+         "temporary, calls the helper, and copies mutations back");
+
+  constexpr std::string_view nestedExpressionWriteSource = R"(
+shader DirectXNestedExpressionFunctionParameterArrayWriteShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float rewriteWeight(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      particles[1].weights[0] = rewriteWeight(particles[0].weights) + 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> nestedExpressionWriteHir =
+      parseHIR(nestedExpressionWriteSource);
+  expect(nestedExpressionWriteHir.has_value(),
+         "DirectX nested-expression parameter-array write source builds HIR");
+  if (!nestedExpressionWriteHir) {
+    return;
+  }
+  expect(crossgl::directxTextualBackendSupported(*nestedExpressionWriteHir),
+         "DirectX source package supports left-operand nested-expression "
+         "helper array writeback");
+  expect(!crossgl::directxHasUnsupportedFunctionParameterArrayWrite(
+             *nestedExpressionWriteHir),
+         "DirectX helper array write gate accepts left-operand "
+         "nested-expression writeback");
+
+  crossgl::DiagnosticEngine nestedExpressionDiagnostics;
+  expect(!crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
+             *nestedExpressionWriteHir, nestedExpressionDiagnostics),
+         "DirectX helper array write diagnostic stays silent for left-operand "
+         "nested-expression writeback");
+
+  const std::string nestedExpressionHlsl =
+      crossgl::generateDirectXSource(*nestedExpressionWriteHir);
+  const std::size_t nestedCopyIn = nestedExpressionHlsl.find(
+      "crossgl_param_array_writeback_0_rewriteWeight_weights"
+      "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+      "particles[0].weights"
+      "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];");
+  const std::size_t nestedHelperResult = nestedExpressionHlsl.find(
+      "float crossgl_param_array_writeback_1_result = rewriteWeight("
+      "crossgl_param_array_writeback_0_rewriteWeight_weights);");
+  const std::size_t nestedCopyBack = nestedExpressionHlsl.find(
+      "particles[0].weights"
+      "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+      "crossgl_param_array_writeback_0_rewriteWeight_weights"
+      "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];");
+  const std::size_t nestedFinalAssignment = nestedExpressionHlsl.find(
+      "particles[1].weights[0] = crossgl_param_array_writeback_1_result + "
+      "1.0;");
+  expect(nestedCopyIn != std::string::npos &&
+             nestedHelperResult != std::string::npos &&
+             nestedCopyBack != std::string::npos &&
+             nestedFinalAssignment != std::string::npos &&
+             nestedCopyIn < nestedHelperResult &&
+             nestedHelperResult < nestedCopyBack &&
+             nestedCopyBack < nestedFinalAssignment,
+         "DirectX backend materializes a left-operand helper result, copies "
+         "mutations back, then uses the saved result in the final expression");
+
+  constexpr std::string_view nestedExpressionRhsWriteSource = R"(
+shader DirectXNestedExpressionFunctionParameterArrayWriteUnsupportedShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float rewriteWeight(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      particles[1].weights[0] = 1.0 + rewriteWeight(particles[0].weights);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> nestedExpressionRhsWriteHir =
+      parseHIR(nestedExpressionRhsWriteSource);
+  expect(nestedExpressionRhsWriteHir.has_value(),
+         "DirectX RHS nested-expression parameter-array write source builds "
+         "HIR");
+  if (!nestedExpressionRhsWriteHir) {
+    return;
+  }
+  expect(crossgl::directxTextualBackendSupported(
+             *nestedExpressionRhsWriteHir),
+         "DirectX source package supports safe RHS nested-expression helper "
+         "array writeback");
+  expect(!crossgl::directxHasUnsupportedFunctionParameterArrayWrite(
+             *nestedExpressionRhsWriteHir),
+         "DirectX helper array write gate accepts safe RHS "
+         "nested-expression writeback");
+
+  crossgl::DiagnosticEngine nestedExpressionRhsDiagnostics;
+  expect(!crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
+             *nestedExpressionRhsWriteHir, nestedExpressionRhsDiagnostics),
+         "DirectX RHS nested-expression helper array write diagnostic stays "
+         "silent for safe writeback");
+
+  const std::string nestedExpressionRhsHlsl =
+      crossgl::generateDirectXSource(*nestedExpressionRhsWriteHir);
+  expect(containsInOrder(
+             nestedExpressionRhsHlsl,
+             {"float crossgl_param_array_writeback_0_rewriteWeight_weights"
+              "[COUNT];",
+              "crossgl_param_array_writeback_0_rewriteWeight_weights"
+              "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+              "particles[0].weights"
+              "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];",
+              "float crossgl_param_array_writeback_1_result = rewriteWeight("
+              "crossgl_param_array_writeback_0_rewriteWeight_weights);",
+              "particles[0].weights"
+              "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = "
+              "crossgl_param_array_writeback_0_rewriteWeight_weights"
+              "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];",
+              "particles[1].weights[0] = 1.0 + "
+              "crossgl_param_array_writeback_1_result;"}) &&
+             nestedExpressionRhsHlsl.find(
+                 "particles[1].weights[0] = 1.0 + "
+                 "rewriteWeight(particles[0].weights);") == std::string::npos,
+         "DirectX backend materializes a RHS helper result, copies mutations "
+         "back, then uses the saved result in the final expression");
+
+  constexpr std::string_view unsafeNestedExpressionRhsWriteSource = R"(
+shader DirectXUnsafeNestedExpressionFunctionParameterArrayWriteShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float readOffset() {
+      return particles[1].weights[0];
+    }
+    float rewriteWeight(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      particles[1].weights[0] = readOffset() + rewriteWeight(particles[0].weights);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> unsafeNestedExpressionRhsWriteHir =
+      parseHIR(unsafeNestedExpressionRhsWriteSource);
+  expect(unsafeNestedExpressionRhsWriteHir.has_value(),
+         "DirectX unsafe RHS nested-expression parameter-array write source "
+         "builds HIR");
+  if (!unsafeNestedExpressionRhsWriteHir) {
+    return;
+  }
+  expect(!crossgl::directxTextualBackendSupported(
+             *unsafeNestedExpressionRhsWriteHir),
+         "DirectX keeps RHS nested-expression helper array writeback rejected "
+         "when the other operand has call-like evaluation");
+  expect(crossgl::directxHasUnsupportedFunctionParameterArrayWrite(
+             *unsafeNestedExpressionRhsWriteHir),
+         "DirectX helper array write gate rejects unsafe RHS "
+         "nested-expression writeback");
+
+  crossgl::DiagnosticEngine unsafeNestedExpressionRhsDiagnostics;
+  expect(crossgl::diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
+             *unsafeNestedExpressionRhsWriteHir,
+             unsafeNestedExpressionRhsDiagnostics),
+         "DirectX unsafe RHS nested-expression helper array writeback emits a "
+         "diagnostic");
   expect(hasDiagnosticMessageFragment(
-             writeDiagnostics.diagnostics(),
+             unsafeNestedExpressionRhsDiagnostics.diagnostics(),
              "directx.unsupported-function-parameter-array-write",
-             "value-copy-read-only"),
-         "DirectX helper array write diagnostic names the shared call ABI");
+             "other operand has no call-like evaluation"),
+         "DirectX unsafe RHS nested-expression helper array write diagnostic "
+         "describes the supported writeback shape");
 
   constexpr std::string_view nestedWriteThroughSource = R"(
 shader DirectXNestedFunctionParameterArrayWriteUnsupportedShader {
@@ -38529,6 +41281,68 @@ shader OpenGLLocalFunctionParameterArrayShader {
                               "index-access"),
            "OpenGL local array helper support satisfies GLSL lowering, local "
            "declaration, and index access capabilities");
+  }
+
+  constexpr std::string_view matrixLocalArraySource = R"(
+shader OpenGLMatrixFunctionParameterArrayShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    mat2 readTransform(mat2 transforms[COUNT], int index) {
+      return transforms[index];
+    }
+    void main() {
+      mat2 transforms[COUNT];
+      transforms[0] = mat2(1.0, 0.0, 0.0, 1.0);
+      transforms[1] = mat2(0.5, 0.0, 0.0, 0.5);
+      mat2 selected = readTransform(transforms, 1);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> matrixLocalArrayHir =
+      parseHIR(matrixLocalArraySource);
+  expect(matrixLocalArrayHir.has_value(),
+         "OpenGL matrix function parameter array source builds HIR");
+  if (matrixLocalArrayHir) {
+    expect(crossgl::openglTextualBackendSupported(*matrixLocalArrayHir),
+           "OpenGL supports fixed-size matrix local arrays passed to helper "
+           "array parameters");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayCallFeatures(
+               *matrixLocalArrayHir),
+           "OpenGL classifier accepts matrix local array helper calls");
+    const std::string matrixLocalArrayOpenGL =
+        crossgl::generateOpenGLSource(*matrixLocalArrayHir);
+    expect(matrixLocalArrayOpenGL.find(
+               "mat2 readTransform(mat2 transforms[COUNT], int index)") !=
+                   std::string::npos &&
+               matrixLocalArrayOpenGL.find("return transforms[index];") !=
+                   std::string::npos &&
+               matrixLocalArrayOpenGL.find("mat2 transforms[COUNT];") !=
+                   std::string::npos &&
+               matrixLocalArrayOpenGL.find(
+                   "transforms[0] = mat2(1.0, 0.0, 0.0, 1.0);") !=
+                   std::string::npos &&
+               matrixLocalArrayOpenGL.find(
+                   "mat2 selected = readTransform(transforms, 1);") !=
+                   std::string::npos,
+           "OpenGL GLSL source preserves fixed-size matrix helper arrays and "
+           "local matrix array arguments");
+    const std::vector<crossgl::TargetCapability> matrixOpenGLMissing =
+        crossgl::missingTargetCapabilities(*matrixLocalArrayHir,
+                                           crossgl::TargetKind::OpenGL);
+    expect(!hasCapability(matrixOpenGLMissing, crossgl::TargetKind::OpenGL,
+                          "backend", "glsl-lowering") &&
+               !hasCapability(matrixOpenGLMissing,
+                              crossgl::TargetKind::OpenGL, "array",
+                              "matrix-elements") &&
+               !hasCapability(matrixOpenGLMissing,
+                              crossgl::TargetKind::OpenGL, "operation",
+                              "matrix-constructor"),
+           "OpenGL matrix local helper support satisfies GLSL lowering, "
+           "matrix-elements, and matrix-constructor capabilities");
   }
 
   constexpr std::string_view foldedLocalArraySource = R"(
@@ -38786,6 +41600,270 @@ shader OpenGLFunctionParameterArrayWriteShader {
            "promising caller write-through");
   }
 
+  constexpr std::string_view storageWriteThroughSource = R"(
+shader OpenGLFunctionParameterArrayWriteThroughShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float rewriteWeight(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      float value = rewriteWeight(particles[0].weights);
+      particles[1].weights[0] = value;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> storageWriteThroughHir =
+      parseHIR(storageWriteThroughSource);
+  expect(storageWriteThroughHir.has_value(),
+         "OpenGL storage helper array write-through source builds HIR");
+  if (storageWriteThroughHir) {
+    expect(crossgl::openglTextualBackendSupported(*storageWriteThroughHir),
+           "OpenGL supports direct storage-buffer field array helper "
+           "write-through via local copy lowering");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayWrite(
+               *storageWriteThroughHir),
+           "OpenGL helper array write gate accepts direct storage-buffer field "
+           "write-through calls");
+
+    crossgl::DiagnosticEngine storageWriteDiagnostics;
+    expect(!crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayWrite(
+               *storageWriteThroughHir, storageWriteDiagnostics) &&
+               storageWriteDiagnostics.diagnostics().empty(),
+           "OpenGL helper array write diagnostic stays silent for lowered "
+           "storage-buffer field write-through calls");
+
+    const std::string storageWriteOpenGL =
+        crossgl::generateOpenGLSource(*storageWriteThroughHir);
+    expect(storageWriteOpenGL.find(
+               "float crossgl_param_array_writeback_0_rewriteWeight_weights"
+               "[COUNT];") != std::string::npos &&
+               storageWriteOpenGL.find(
+                   "crossgl_param_array_writeback_0_rewriteWeight_weights"
+                   "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] "
+                   "= particles[0].weights"
+                   "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];") !=
+                   std::string::npos &&
+               storageWriteOpenGL.find(
+                   "float value = rewriteWeight("
+                   "crossgl_param_array_writeback_0_rewriteWeight_weights);") !=
+                   std::string::npos &&
+               storageWriteOpenGL.find(
+                   "particles[0].weights"
+                   "[crossgl_param_array_writeback_0_rewriteWeight_weights_i] "
+                   "= crossgl_param_array_writeback_0_rewriteWeight_weights"
+                   "[crossgl_param_array_writeback_0_rewriteWeight_weights_i];") !=
+                   std::string::npos,
+           "OpenGL backend emits copy-in, rewritten helper call, and copy-out "
+           "for storage-buffer field array write-through");
+  }
+
+  constexpr std::string_view rhsNestedExpressionWriteThroughSource = R"(
+shader OpenGLNestedExpressionFunctionParameterArrayWriteRhsUnsupportedShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float rewrite(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      float bias = particles[1].weights[0];
+      particles[1].weights[0] = bias + rewrite(particles[0].weights);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> rhsNestedExpressionWriteThroughHir =
+      parseHIR(rhsNestedExpressionWriteThroughSource);
+  expect(rhsNestedExpressionWriteThroughHir.has_value(),
+         "OpenGL RHS nested-expression helper array write-through source "
+         "builds HIR");
+  if (rhsNestedExpressionWriteThroughHir) {
+    expect(crossgl::openglTextualBackendSupported(
+               *rhsNestedExpressionWriteThroughHir),
+           "OpenGL supports RHS nested-expression helper array write-through "
+           "via local copy lowering");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayWrite(
+               *rhsNestedExpressionWriteThroughHir),
+           "OpenGL helper array write gate accepts RHS nested-expression "
+           "write-through calls");
+
+    crossgl::DiagnosticEngine rhsNestedExpressionWriteDiagnostics;
+    expect(!crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayWrite(
+               *rhsNestedExpressionWriteThroughHir,
+               rhsNestedExpressionWriteDiagnostics) &&
+               rhsNestedExpressionWriteDiagnostics.diagnostics().empty(),
+           "OpenGL helper array write diagnostic stays silent for lowered RHS "
+           "nested-expression write-through calls");
+    expect(crossgl::openGLSourcePackageSupported(
+               *rhsNestedExpressionWriteThroughHir,
+               rhsNestedExpressionWriteDiagnostics) &&
+               rhsNestedExpressionWriteDiagnostics.diagnostics().empty(),
+           "OpenGL source package predicate accepts RHS nested-expression "
+           "helper array write-through calls");
+
+    const std::string rhsNestedExpressionWriteOpenGL =
+        crossgl::generateOpenGLSource(*rhsNestedExpressionWriteThroughHir);
+    expect(containsInOrder(
+               rhsNestedExpressionWriteOpenGL,
+               {"float bias = particles[1].weights[0];",
+                "float crossgl_param_array_writeback_1_lhs = bias;",
+                "float crossgl_param_array_writeback_0_rewrite_weights[COUNT];",
+                "crossgl_param_array_writeback_0_rewrite_weights"
+                "[crossgl_param_array_writeback_0_rewrite_weights_i] = "
+                "particles[0].weights"
+                "[crossgl_param_array_writeback_0_rewrite_weights_i];",
+                "float crossgl_param_array_writeback_2_result = rewrite("
+                "crossgl_param_array_writeback_0_rewrite_weights);",
+                "particles[0].weights"
+                "[crossgl_param_array_writeback_0_rewrite_weights_i] = "
+                "crossgl_param_array_writeback_0_rewrite_weights"
+                "[crossgl_param_array_writeback_0_rewrite_weights_i];",
+                "particles[1].weights[0] = "
+                "crossgl_param_array_writeback_1_lhs + "
+                "crossgl_param_array_writeback_2_result;"}) &&
+               rhsNestedExpressionWriteOpenGL.find(
+                   "particles[1].weights[0] = bias + "
+                   "rewrite(particles[0].weights);") == std::string::npos,
+           "OpenGL backend materializes RHS nested helper calls before "
+           "copy-back and preserves the rewritten RHS expression");
+  }
+
+  constexpr std::string_view unsafeRhsNestedExpressionWriteThroughSource = R"(
+shader OpenGLUnsafeNestedExpressionFunctionParameterArrayWriteShader {
+  const int COUNT = 2;
+  struct Particle {
+    float weights[COUNT];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    float readOffset() {
+      return particles[1].weights[0];
+    }
+    float rewrite(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      particles[1].weights[0] = readOffset() + rewrite(particles[0].weights);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> unsafeRhsNestedExpressionWriteThroughHir =
+      parseHIR(unsafeRhsNestedExpressionWriteThroughSource);
+  expect(unsafeRhsNestedExpressionWriteThroughHir.has_value(),
+         "OpenGL unsafe RHS nested-expression helper array write-through "
+         "source builds HIR");
+  if (unsafeRhsNestedExpressionWriteThroughHir) {
+    expect(!crossgl::openglTextualBackendSupported(
+               *unsafeRhsNestedExpressionWriteThroughHir),
+           "OpenGL keeps RHS nested-expression helper array write-through "
+           "rejected when the other operand has call-like evaluation");
+    expect(crossgl::openglHasUnsupportedFunctionParameterArrayWrite(
+               *unsafeRhsNestedExpressionWriteThroughHir),
+           "OpenGL helper array write gate still rejects unsafe RHS "
+           "nested-expression write-through calls");
+
+    crossgl::DiagnosticEngine unsafeRhsNestedExpressionWriteDiagnostics;
+    expect(crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayWrite(
+               *unsafeRhsNestedExpressionWriteThroughHir,
+               unsafeRhsNestedExpressionWriteDiagnostics),
+           "OpenGL unsafe RHS nested-expression helper array write-through "
+           "emits a diagnostic");
+    expect(hasDiagnosticMessageFragment(
+               unsafeRhsNestedExpressionWriteDiagnostics.diagnostics(),
+               "opengl.unsupported-function-parameter-array-write",
+               "rewrite.weights"),
+           "OpenGL unsafe RHS nested-expression write diagnostic names the "
+           "rejected helper array parameter");
+  }
+
+  constexpr std::string_view nestedStorageWriteThroughSource = R"(
+shader OpenGLNestedStorageFunctionParameterArrayWriteShader {
+  const int ROWS = 2;
+  const int COLS = 3;
+  struct Tile {
+    float grid[ROWS][COLS];
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Tile* tiles;
+    float rewriteGrid(float grid[ROWS][COLS]) {
+      grid[1][2] = grid[0][0] + 1.0;
+      return grid[1][2];
+    }
+    void main() {
+      float selected = rewriteGrid(tiles[0].grid);
+      tiles[1].grid[0][0] = selected;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> nestedStorageWriteThroughHir =
+      parseHIR(nestedStorageWriteThroughSource);
+  expect(nestedStorageWriteThroughHir.has_value(),
+         "OpenGL nested storage helper array write-through source builds HIR");
+  if (nestedStorageWriteThroughHir) {
+    expect(crossgl::openglTextualBackendSupported(
+               *nestedStorageWriteThroughHir),
+           "OpenGL supports nested fixed storage-buffer field array helper "
+           "write-through via nested local copy lowering");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayWrite(
+               *nestedStorageWriteThroughHir),
+           "OpenGL helper array write gate accepts nested direct "
+           "storage-buffer field write-through calls");
+
+    const std::string nestedStorageWriteOpenGL =
+        crossgl::generateOpenGLSource(*nestedStorageWriteThroughHir);
+    expect(nestedStorageWriteOpenGL.find(
+               "float crossgl_param_array_writeback_0_rewriteGrid_grid[ROWS]"
+               "[COLS];") != std::string::npos &&
+               nestedStorageWriteOpenGL.find(
+                   "for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i0 = 0; "
+                   "crossgl_param_array_writeback_0_rewriteGrid_grid_i0 < ROWS;") !=
+                   std::string::npos &&
+               nestedStorageWriteOpenGL.find(
+                   "for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i1 = 0; "
+                   "crossgl_param_array_writeback_0_rewriteGrid_grid_i1 < COLS;") !=
+                   std::string::npos &&
+               nestedStorageWriteOpenGL.find(
+                   "float selected = rewriteGrid("
+                   "crossgl_param_array_writeback_0_rewriteGrid_grid);") !=
+                   std::string::npos &&
+               nestedStorageWriteOpenGL.find(
+                   "tiles[0].grid"
+                   "[crossgl_param_array_writeback_0_rewriteGrid_grid_i0]"
+                   "[crossgl_param_array_writeback_0_rewriteGrid_grid_i1] = "
+                   "crossgl_param_array_writeback_0_rewriteGrid_grid"
+                   "[crossgl_param_array_writeback_0_rewriteGrid_grid_i0]"
+                   "[crossgl_param_array_writeback_0_rewriteGrid_grid_i1];") !=
+                   std::string::npos,
+           "OpenGL backend emits nested copy-in, rewritten helper call, and "
+           "nested copy-out for fixed storage-buffer field arrays");
+  }
+
   constexpr std::string_view nestedWriteThroughSource = R"(
 shader OpenGLNestedFunctionParameterArrayWriteShader {
   const int ROWS = 2;
@@ -38889,7 +41967,7 @@ shader OpenGLFunctionParameterStructArrayUnsupportedShader {
   }
 
   constexpr std::string_view resourceArraySource = R"(
-shader OpenGLFunctionParameterResourceArrayUnsupportedShader {
+shader OpenGLFunctionParameterResourceArrayShader {
   const int COUNT = 2;
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
@@ -38913,30 +41991,37 @@ shader OpenGLFunctionParameterResourceArrayUnsupportedShader {
   expect(resourceArrayHir.has_value(),
          "OpenGL resource-array parameter fixture builds HIR");
   if (resourceArrayHir) {
-    expect(!crossgl::openglTextualBackendSupported(*resourceArrayHir),
-           "OpenGL rejects direct resource-array helper arguments");
-    expect(crossgl::openglHasUnsupportedFunctionParameterArrayCallFeatures(
+    expect(crossgl::openglTextualBackendSupported(*resourceArrayHir),
+           "OpenGL supports fixed-size direct sampled resource-array helper "
+           "arguments");
+    expect(!crossgl::openglHasUnsupportedFunctionParameterArrayCallFeatures(
                *resourceArrayHir),
-           "OpenGL classifies direct resource-array arguments as unsupported");
+           "OpenGL classifies fixed-size sampled resource-array arguments as "
+           "supported");
     crossgl::DiagnosticEngine resourceArrayDiagnostics;
-    expect(crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayCallFeatures(
-               *resourceArrayHir, resourceArrayDiagnostics),
-           "OpenGL emits direct resource-array argument diagnostic");
-    const std::vector<crossgl::Diagnostic> diagnostics =
-        resourceArrayDiagnostics.diagnostics();
-    expect(hasDiagnosticMessageFragment(
-               diagnostics,
-               "opengl.unsupported-function-parameter-array-call-feature",
-               "sampleFirst.maps") &&
-               hasDiagnosticMessageFragment(
-                   diagnostics,
-                   "opengl.unsupported-function-parameter-array-call-feature",
-                   "sampleFirst.samplers") &&
-               hasDiagnosticMessageFragment(
-                   diagnostics,
-                   "opengl.unsupported-function-parameter-array-call-feature",
-                   "direct-resource-array-arguments"),
-           "OpenGL diagnostic names direct resource-array parameters");
+    expect(!crossgl::diagnoseOpenGLUnsupportedFunctionParameterArrayCallFeatures(
+               *resourceArrayHir, resourceArrayDiagnostics) &&
+               resourceArrayDiagnostics.diagnostics().empty(),
+           "OpenGL does not emit direct sampled resource-array helper argument "
+           "diagnostics");
+    expect(crossgl::openGLSourcePackageSupported(*resourceArrayHir,
+                                                 resourceArrayDiagnostics) &&
+               resourceArrayDiagnostics.diagnostics().empty(),
+           "OpenGL source package predicate accepts fixed-size sampled "
+           "resource-array helper arguments");
+    const std::string resourceArrayOpenGL =
+        crossgl::generateOpenGLSource(*resourceArrayHir);
+    expect(resourceArrayOpenGL.find(
+               "vec4 sampleFirst(texture2D maps[COUNT], sampler "
+               "samplers[COUNT])") != std::string::npos &&
+               resourceArrayOpenGL.find(
+                   "return textureLod(sampler2D(maps[0], samplers[0]), "
+                   "vec2(0.5, 0.5), 0.0);") != std::string::npos &&
+               resourceArrayOpenGL.find(
+                   "vec4 color = sampleFirst(colorMaps, linearSamplers);") !=
+                   std::string::npos,
+           "OpenGL emits sampled resource-array helper parameters and "
+           "helper-side texture sampling");
   }
 }
 
@@ -38992,6 +42077,100 @@ shader VulkanFunctionParameterArrayShader {
          "Vulkan prototype emits by-value array parameters, constant element "
          "extraction, parameter forwarding, and storage-field array call "
          "arguments");
+
+  constexpr std::string_view resourceArraySource = R"(
+shader VulkanFunctionParameterResourceArrayShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[COUNT];
+    layout(set = 0, binding = 5) sampler linearSamplers[COUNT];
+    vec4 sampleFirst(sampler2D maps[COUNT], sampler samplers[COUNT]) {
+      return textureLod(maps[0], samplers[0], vec2(0.5, 0.5), 0.0);
+    }
+    void main() {
+      vec4 color = sampleFirst(colorMaps, linearSamplers);
+      values[0] = color;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> resourceArrayHir =
+      parseHIR(resourceArraySource);
+  expect(resourceArrayHir.has_value(),
+         "Vulkan resource-array parameter fixture builds HIR");
+  if (resourceArrayHir) {
+    crossgl::DiagnosticEngine resourceArrayDiagnostics;
+    const std::string resourceArrayAssembly =
+        crossgl::generateVulkanPrototypeAssembly(*resourceArrayHir,
+                                                 resourceArrayDiagnostics);
+    expect(!resourceArrayDiagnostics.hasErrors(),
+           "Vulkan prototype lowers fixed sampled resource-array helper "
+           "arguments without diagnostics");
+    expect(resourceArrayAssembly.find(
+               "%func_sampleFirst = OpFunction %vec4 None %fn_vec4__") !=
+               std::string::npos &&
+               resourceArrayAssembly.find(
+                   "%param_sampleFirst_maps = OpFunctionParameter") ==
+                   std::string::npos &&
+               resourceArrayAssembly.find(
+                   "%param_sampleFirst_samplers = OpFunctionParameter") ==
+                   std::string::npos &&
+               resourceArrayAssembly.find(
+                   "OpAccessChain %ptr_UniformConstant_sampledImage_sampler2D "
+                   "%resource_colorMaps %const_int__0") != std::string::npos &&
+               resourceArrayAssembly.find(
+                   "OpAccessChain %ptr_UniformConstant_sampler_sampler "
+                   "%resource_linearSamplers %const_int__0") !=
+                   std::string::npos &&
+               resourceArrayAssembly.find(
+                   "OpFunctionCall %vec4 %func_sampleFirst\n") !=
+                   std::string::npos,
+           "Vulkan prototype erases sampled resource-array helper parameters "
+           "and aliases helper indexing to original descriptors");
+  }
+
+  constexpr std::string_view dynamicResourceArrayIndexSource = R"(
+shader VulkanFunctionParameterResourceArrayDynamicIndexShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[COUNT];
+    layout(set = 0, binding = 5) sampler linearSamplers[COUNT];
+    vec4 sampleAt(sampler2D maps[COUNT], sampler samplers[COUNT], int index) {
+      return textureLod(maps[index], samplers[0], vec2(0.5, 0.5), 0.0);
+    }
+    void main() {
+      vec4 color = sampleAt(colorMaps, linearSamplers, 0);
+      values[0] = color;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicResourceArrayIndexHir =
+      parseHIR(dynamicResourceArrayIndexSource);
+  expect(dynamicResourceArrayIndexHir.has_value(),
+         "Vulkan resource-array dynamic-index fixture builds HIR");
+  if (dynamicResourceArrayIndexHir) {
+    crossgl::DiagnosticEngine dynamicDiagnostics;
+    const std::string dynamicAssembly =
+        crossgl::generateVulkanPrototypeAssembly(*dynamicResourceArrayIndexHir,
+                                                 dynamicDiagnostics);
+    expect(dynamicAssembly.empty(),
+           "Vulkan prototype rejects dynamic helper resource-array indices");
+    expect(hasDiagnosticMessageFragment(
+               dynamicDiagnostics.diagnostics(),
+               "vulkan.prototype-unsupported-function-parameter-resource-array",
+               "requires literal or folded constant indices"),
+           "Vulkan prototype diagnostic names dynamic helper resource-array "
+           "indices");
+  }
 }
 
 void testVulkanLocalFunctionParameterArraySPIRV() {
@@ -39312,6 +42491,37 @@ shader VulkanFoldedNestedLocalFunctionParameterArrayShader {
 }
 
 void testVulkanFunctionParameterArrayDiagnostics() {
+  constexpr std::string_view entryParameterSource = R"(
+shader VulkanEntryFunctionParameterArrayUnsupportedShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    float readWeight(float weights[COUNT]) {
+      return weights[0];
+    }
+    void main(float weights[COUNT]) {
+      float total = readWeight(weights);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> entryParameterDiagnostics =
+      collectVulkanPrototypeDiagnostics(entryParameterSource);
+  const crossgl::Diagnostic *entryParameterDiagnostic = findDiagnostic(
+      entryParameterDiagnostics,
+      "vulkan.prototype-unsupported-entry-point-function-parameter-array");
+  expect(entryParameterDiagnostic != nullptr &&
+             entryParameterDiagnostic->message.find(
+                 "entry-point array parameters remain outside the Vulkan "
+                 "prototype ABI") != std::string::npos &&
+             !hasDiagnostic(
+                 entryParameterDiagnostics,
+                 "vulkan.prototype-unsupported-function-parameter-array"),
+         "Vulkan entry-point array parameters use the entry ABI diagnostic "
+         "instead of the helper ABI diagnostic");
+
   constexpr std::string_view writeThroughSource = R"(
 shader VulkanFunctionParameterArrayWriteShader {
   const int COUNT = 2;
@@ -39334,15 +42544,76 @@ shader VulkanFunctionParameterArrayWriteShader {
 }
 )";
 
-  const std::vector<crossgl::Diagnostic> diagnostics =
-      collectVulkanPrototypeDiagnostics(writeThroughSource);
-  const crossgl::Diagnostic *writeDiagnostic = findDiagnostic(
-      diagnostics, "vulkan.prototype-unsupported-function-parameter-array");
-  expect(writeDiagnostic != nullptr &&
-             writeDiagnostic->message.find("read-only value-copy ABI") !=
+  std::optional<crossgl::HIRModule> writeThroughHir =
+      parseHIR(writeThroughSource);
+  expect(writeThroughHir.has_value(),
+         "Vulkan storage helper array write-through source builds HIR");
+  if (writeThroughHir) {
+    crossgl::DiagnosticEngine writeThroughDiagnostics;
+    const std::string writeThroughAssembly =
+        crossgl::generateVulkanPrototypeAssembly(*writeThroughHir,
+                                                 writeThroughDiagnostics);
+    expect(!writeThroughDiagnostics.hasErrors(),
+           "Vulkan prototype lowers direct storage-buffer field helper array "
+           "writes without diagnostics");
+    expect(writeThroughAssembly.find(
+               "%param_rewriteWeight_weights = OpFunctionParameter "
+               "%ptr_Function_float_COUNT_") != std::string::npos &&
+               writeThroughAssembly.find(
+                   "%ptr_Function_float_COUNT_ = OpTypePointer Function "
+                   "%fnarr_float_COUNT_") != std::string::npos &&
+               writeThroughAssembly.find(
+                   "%var_param_array_writeback_rewriteWeight_weights = "
+                   "OpVariable %ptr_Function_float_COUNT_ Function") !=
+                   std::string::npos &&
+               writeThroughAssembly.find(
+                   "OpFunctionCall %float %func_rewriteWeight "
+                   "%var_param_array_writeback_rewriteWeight_weights") !=
+                   std::string::npos &&
+               countOccurrences(
+                   writeThroughAssembly,
+                   "OpAccessChain %ptr_Function_float "
+                   "%var_param_array_writeback_rewriteWeight_weights") >= 4 &&
+               countOccurrences(writeThroughAssembly,
+                                "OpAccessChain %ptr_Function_float "
+                                "%param_rewriteWeight_weights") >= 2,
+           "Vulkan prototype copies a storage-buffer field array into a "
+           "Function temporary, calls the helper through pointer ABI, writes "
+           "inside the helper, and copies temporary elements back");
+  }
+
+  constexpr std::string_view unsupportedLocalWriteBackSource = R"(
+shader VulkanFunctionParameterArrayWriteUnsupportedShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    float rewriteWeight(float weights[COUNT]) {
+      weights[0] = 1.0;
+      return weights[0];
+    }
+    void main() {
+      float weights[COUNT];
+      weights[0] = values[0];
+      float value = rewriteWeight(weights);
+      values[1] = value;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> localWriteDiagnostics =
+      collectVulkanPrototypeDiagnostics(unsupportedLocalWriteBackSource);
+  const crossgl::Diagnostic *localWriteDiagnostic = findDiagnostic(
+      localWriteDiagnostics,
+      "vulkan.prototype-unsupported-function-parameter-array");
+  expect(localWriteDiagnostic != nullptr &&
+             localWriteDiagnostic->message.find(
+                 "direct non-aliased storage-buffer field array argument") !=
                  std::string::npos,
-         "Vulkan keeps a planned diagnostic for writes through helper array "
-         "parameters");
+         "Vulkan keeps a diagnostic for helper array writes when the caller "
+         "passes a local array rather than a storage-buffer field array");
 
   constexpr std::string_view dynamicNestedIndexSource = R"(
 shader VulkanDynamicNestedLocalFunctionParameterArrayUnsupportedShader {
@@ -39500,13 +42771,90 @@ shader VulkanSupportPredicateGraphicsResourceShader {
   }
 }
 )";
-  expectVulkanPrototypeUnsupported(
+  expectVulkanPrototypeSupport(
       graphicsResourceSource,
+      "graphics-stage declared resource support predicate");
+
+  constexpr std::string_view graphicsTextureArrayResourceSource = R"(
+shader VulkanSupportPredicateGraphicsTextureArrayResourceShader {
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+  fragment {
+    layout(set = 0, binding = 1) uniform sampler2D albedo[2];
+    layout(set = 0, binding = 2) sampler linearSampler;
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      output.color = vec4(input.uv.x, input.uv.y, 0.0, 1.0);
+      return output;
+    }
+  }
+}
+)";
+  expectVulkanPrototypeSupport(
+      graphicsTextureArrayResourceSource,
+      "graphics-stage declared texture array resource support predicate");
+
+  constexpr std::string_view graphicsUnsupportedResourceSource = R"(
+shader VulkanSupportPredicateGraphicsUnsupportedResourceShader {
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+  fragment {
+    layout(set = 0, binding = 4) buffer vec4* debugValues[];
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      output.color = vec4(input.uv.x, input.uv.y, 0.0, 1.0);
+      return output;
+    }
+  }
+}
+)";
+  expectVulkanPrototypeUnsupported(
+      graphicsUnsupportedResourceSource,
       "vulkan.prototype-unsupported-graphics-stage-resource",
-      "fragment.linearSampler (sampler, type sampler, set 0 binding 2; "
-      "reason: descriptor is not referenced by a supported fragment texture "
-      "operation)",
-      "graphics-stage resource rejection support predicate");
+      "fragment.debugValues (storage-buffer, type vec4*[], set 0 binding 4; "
+      "reason: storage-buffer descriptor arrays require fixed-size numeric "
+      "resource array sizes)",
+      "graphics-stage unsupported resource rejection support predicate");
 
   constexpr std::string_view uniformSource = R"(
 shader VulkanSupportPredicateUniformShader {
@@ -40857,6 +44205,223 @@ shader RuntimeArrayLegacyZeroOuterIndexShader {
            "Metal runtime array native path produces a metallib");
   }
 
+  constexpr std::string_view metalRuntimeTextureTableSource = R"(
+shader MetalRuntimeTextureDescriptorArrayPolicyShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) uniform sampler2D maps[];
+    void main() {
+      values[0] = vec4(1.0, 0.0, 0.0, 1.0);
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> metalRuntimeTextureTableHir =
+      parseHIR(metalRuntimeTextureTableSource);
+  expect(metalRuntimeTextureTableHir.has_value(),
+         "Metal runtime texture descriptor-array policy source builds HIR");
+  if (!metalRuntimeTextureTableHir) {
+    return;
+  }
+
+  crossgl::DiagnosticEngine metalRuntimeTextureTableDiagnostics;
+  expect(crossgl::metalNativeBackendSupported(
+             *metalRuntimeTextureTableHir,
+             metalRuntimeTextureTableDiagnostics),
+         "Metal accepts one unused runtime texture descriptor-array table");
+  expect(metalRuntimeTextureTableDiagnostics.diagnostics().empty(),
+         "Metal unused runtime texture descriptor-array table has no diagnostics");
+
+  const std::string metalRuntimeTextureTableSourceText =
+      crossgl::generateMetalSource(*metalRuntimeTextureTableHir);
+  expect(metalRuntimeTextureTableSourceText.find(
+             "struct CrossGLMetalRuntimeResourceDescriptorArrayTable") !=
+             std::string::npos,
+         "Metal runtime texture descriptor-array source emits table type");
+  expect(metalRuntimeTextureTableSourceText.find(
+             "constant CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+             "texture2d_float& maps [[buffer(1)]]") != std::string::npos,
+         "Metal runtime texture descriptor-array source emits table parameter");
+  expect(metalRuntimeTextureTableSourceText.find(
+             "array<texture2d<float>, 1024> descriptors [[id(0)]];") !=
+             std::string::npos,
+         "Metal runtime texture descriptor-array source emits a fixed-capacity "
+         "argument-buffer texture table");
+
+  const crossgl::ReflectionDocument metalRuntimeTextureTableReflection =
+      crossgl::buildReflectionDocument(
+          *metalRuntimeTextureTableHir, crossgl::TargetKind::Metal,
+          "/tmp/MetalRuntimeTextureDescriptorArrayPolicyShader.metallib");
+  const crossgl::ReflectionTargetResourceBinding *metalRuntimeMapsBinding =
+      findTargetResourceBinding(metalRuntimeTextureTableReflection, "maps");
+  expect(metalRuntimeMapsBinding != nullptr &&
+             metalRuntimeMapsBinding->sourceType == "sampler2D[]" &&
+             metalRuntimeMapsBinding->metalType ==
+                 "constant CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                 "texture2d_float&" &&
+             metalRuntimeMapsBinding->addressSpace == "constant" &&
+             metalRuntimeMapsBinding->bindingClass == "buffer" &&
+             metalRuntimeMapsBinding->argumentIndex == 1 &&
+             metalRuntimeMapsBinding->arraySize ==
+                 std::optional<std::string>{""} &&
+             !metalRuntimeMapsBinding->arrayElementCount.has_value() &&
+             metalRuntimeMapsBinding->arrayDimensions.size() == 1 &&
+             metalRuntimeMapsBinding->arrayDimensions[0].kind == "runtime",
+         "Metal runtime texture descriptor-array reflection records table ABI without fixed element count");
+  if (crossgl::findExecutable("xcrun")) {
+    const std::filesystem::path metalRuntimeTextureTablePackageDir =
+        unitTestTempDirectoryPath() /
+        "crossgl-unit-runtime-texture-descriptor-array-table-metal.cglb";
+    std::filesystem::remove_all(metalRuntimeTextureTablePackageDir,
+                                removeError);
+    crossgl::DiagnosticEngine metalRuntimeTextureBuildDiagnostics;
+    const crossgl::MetalBuildResult metalRuntimeTextureBuildResult =
+        crossgl::buildMetalBinary(*metalRuntimeTextureTableHir,
+                                  metalRuntimeTextureTablePackageDir,
+                                  metalRuntimeTextureBuildDiagnostics);
+    expect(metalRuntimeTextureBuildResult.success,
+           "Metal native path builds unused runtime texture descriptor-array table");
+    expect(!metalRuntimeTextureBuildDiagnostics.hasErrors(),
+           "Metal unused runtime texture descriptor-array table build has no diagnostics");
+    expect(!metalRuntimeTextureBuildResult.metallibPath.empty() &&
+               std::filesystem::exists(
+                   metalRuntimeTextureBuildResult.metallibPath),
+           "Metal unused runtime texture descriptor-array table build produces a metallib");
+  }
+
+  constexpr std::string_view metalRuntimeTextureSampleSource = R"(
+shader MetalRuntimeTextureDescriptorArraySampleUnsupportedShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) uniform sampler2D maps[];
+    layout(set = 0, binding = 2) sampler linearSampler;
+    void main() {
+      values[0] = textureLod(maps[0], linearSampler, vec2(0.0, 0.0), 0.0);
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> metalRuntimeTextureSampleHir =
+      parseHIR(metalRuntimeTextureSampleSource);
+  expect(metalRuntimeTextureSampleHir.has_value(),
+         "Metal sampled runtime texture descriptor-array source builds HIR");
+  if (metalRuntimeTextureSampleHir) {
+    crossgl::DiagnosticEngine metalRuntimeTextureSampleSupportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(
+               *metalRuntimeTextureSampleHir,
+               metalRuntimeTextureSampleSupportDiagnostics),
+           "Metal accepts sampled runtime texture descriptor arrays through "
+           "typed descriptor tables");
+    expect(metalRuntimeTextureSampleSupportDiagnostics.diagnostics().empty(),
+           "Metal sampled runtime texture descriptor arrays produce no "
+           "diagnostics");
+    const std::string metalRuntimeTextureSampleText =
+        crossgl::generateMetalSource(*metalRuntimeTextureSampleHir);
+    expect(metalRuntimeTextureSampleText.find(
+               "maps.descriptors[0].sample(linearSampler") !=
+               std::string::npos,
+           "Metal sampled runtime texture descriptor arrays lower element "
+           "access through the texture table");
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path metalRuntimeTextureSamplePackageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-unit-runtime-texture-descriptor-array-sample-metal.cglb";
+      std::filesystem::remove_all(metalRuntimeTextureSamplePackageDir,
+                                  removeError);
+      crossgl::DiagnosticEngine metalRuntimeTextureSampleDiagnostics;
+      const crossgl::MetalBuildResult metalRuntimeTextureSampleResult =
+          crossgl::buildMetalBinary(*metalRuntimeTextureSampleHir,
+                                    metalRuntimeTextureSamplePackageDir,
+                                    metalRuntimeTextureSampleDiagnostics);
+      expect(metalRuntimeTextureSampleResult.success,
+             "Metal builds sampled runtime texture descriptor arrays through "
+             "typed descriptor tables");
+      expect(!metalRuntimeTextureSampleDiagnostics.hasErrors(),
+             "Metal sampled runtime texture descriptor arrays build with no "
+             "diagnostics");
+    }
+  }
+
+  constexpr std::string_view metalRuntimeSamplerSampleSource = R"(
+shader MetalRuntimeSamplerDescriptorArraySampleUnsupportedShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) uniform sampler2D map;
+    layout(set = 0, binding = 2) sampler linearSamplers[];
+    void main() {
+      values[0] = textureLod(map, linearSamplers[0], vec2(0.0, 0.0), 0.0);
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> metalRuntimeSamplerSampleHir =
+      parseHIR(metalRuntimeSamplerSampleSource);
+  expect(metalRuntimeSamplerSampleHir.has_value(),
+         "Metal sampled runtime sampler descriptor-array source builds HIR");
+  if (metalRuntimeSamplerSampleHir) {
+    crossgl::DiagnosticEngine metalRuntimeSamplerSampleDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(
+               *metalRuntimeSamplerSampleHir,
+               metalRuntimeSamplerSampleDiagnostics),
+           "Metal accepts sampled runtime sampler descriptor arrays through "
+           "typed descriptor tables");
+    expect(metalRuntimeSamplerSampleDiagnostics.diagnostics().empty(),
+           "Metal sampled runtime sampler descriptor arrays produce no "
+           "diagnostics");
+    const std::string metalRuntimeSamplerSampleText =
+        crossgl::generateMetalSource(*metalRuntimeSamplerSampleHir);
+    expect(metalRuntimeSamplerSampleText.find(
+               "map.sample(linearSamplers.descriptors[0]") !=
+               std::string::npos,
+           "Metal sampled runtime sampler descriptor arrays lower element "
+           "access through the sampler table");
+  }
+
+  constexpr std::string_view metalRuntimeTextureSamplerSampleSource = R"(
+shader MetalRuntimeTextureSamplerDescriptorArraySampleUnsupportedShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) uniform sampler2D maps[];
+    layout(set = 0, binding = 2) sampler linearSamplers[];
+    void main() {
+      values[0] = textureLod(maps[0], linearSamplers[0],
+                             vec2(0.0, 0.0), 0.0);
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> metalRuntimeTextureSamplerSampleHir =
+      parseHIR(metalRuntimeTextureSamplerSampleSource);
+  expect(metalRuntimeTextureSamplerSampleHir.has_value(),
+         "Metal sampled runtime texture/sampler descriptor-array source builds "
+         "HIR");
+  if (metalRuntimeTextureSamplerSampleHir) {
+    crossgl::DiagnosticEngine metalRuntimeTextureSamplerSampleDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(
+               *metalRuntimeTextureSamplerSampleHir,
+               metalRuntimeTextureSamplerSampleDiagnostics),
+           "Metal accepts sampled runtime texture plus sampler descriptor "
+           "arrays through typed descriptor tables");
+    expect(metalRuntimeTextureSamplerSampleDiagnostics.diagnostics().empty(),
+           "Metal sampled runtime texture/sampler descriptor arrays produce "
+           "no diagnostics");
+    const std::string metalRuntimeTextureSamplerSampleText =
+        crossgl::generateMetalSource(*metalRuntimeTextureSamplerSampleHir);
+    expect(metalRuntimeTextureSamplerSampleText.find(
+               "maps.descriptors[0].sample("
+               "linearSamplers.descriptors[0]") != std::string::npos,
+           "Metal sampled runtime texture/sampler descriptor arrays lower "
+           "both operands through descriptor tables");
+  }
+
   constexpr std::string_view resourceSource = R"(
 shader RuntimeResourceArrayShader {
   compute {
@@ -40989,34 +44554,181 @@ shader VulkanRuntimeTextureDescriptorArrayConflictShader {
          "DirectX runtime resource array helper accepts distinct texture and "
          "sampler register classes");
 
-  expect(!crossgl::openglTextualBackendSupported(*resourceHir),
-         "OpenGL scaffold rejects runtime resource descriptor arrays");
+  expect(crossgl::openglTextualBackendSupported(*resourceHir),
+         "OpenGL scaffold accepts unreferenced runtime texture plus sampler "
+         "descriptor arrays");
   crossgl::DiagnosticEngine runtimeResourceOpenGLDiagnostics;
-  expect(crossgl::diagnoseOpenGLUnsupportedRuntimeResourceArray(
-             *resourceHir, runtimeResourceOpenGLDiagnostics),
-         "OpenGL runtime resource array helper emits a diagnostic");
-  expect(hasDiagnosticMessageFragment(
-             runtimeResourceOpenGLDiagnostics.diagnostics(),
-             "opengl.unsupported-runtime-resource-array", "maps"),
-         "OpenGL runtime resource array diagnostic names the texture array");
-  expect(hasDiagnosticMessageFragment(
-             runtimeResourceOpenGLDiagnostics.diagnostics(),
-             "opengl.unsupported-runtime-resource-array", "linearSamplers"),
-         "OpenGL runtime resource array diagnostic names the sampler array");
+  expect(!crossgl::diagnoseOpenGLUnsupportedRuntimeResourceArray(
+             *resourceHir, runtimeResourceOpenGLDiagnostics) &&
+             runtimeResourceOpenGLDiagnostics.diagnostics().empty(),
+         "OpenGL runtime resource array helper accepts unreferenced "
+         "texture/sampler runtime arrays");
+  crossgl::DiagnosticEngine runtimeResourceOpenGLSupportDiagnostics;
+  expect(crossgl::openGLSourcePackageSupported(
+             *resourceHir, runtimeResourceOpenGLSupportDiagnostics) &&
+             runtimeResourceOpenGLSupportDiagnostics.diagnostics().empty(),
+         "OpenGL source-package predicate accepts unreferenced runtime "
+         "texture/sampler descriptor arrays");
+  const std::string runtimeResourceOpenGLSource =
+      crossgl::generateOpenGLSource(*resourceHir);
+  expect(runtimeResourceOpenGLSource.find(
+             "layout(binding = 1) uniform texture2D maps[];") !=
+                 std::string::npos &&
+             runtimeResourceOpenGLSource.find(
+                 "layout(binding = 2) uniform sampler linearSamplers[];") !=
+                 std::string::npos,
+         "OpenGL source emits unreferenced runtime texture and sampler "
+         "descriptor arrays");
+  const crossgl::ReflectionDocument openglReflection =
+      crossgl::buildReflectionDocument(*resourceHir,
+                                       crossgl::TargetKind::OpenGL,
+                                       "/tmp/RuntimeResourceArrayShader.glsl");
+  const crossgl::ReflectionTargetResourceBinding *openglMapsBinding =
+      findTargetResourceBinding(openglReflection, "maps");
+  const crossgl::ReflectionTargetResourceBinding *openglSamplersBinding =
+      findTargetResourceBinding(openglReflection, "linearSamplers");
+  expect(openglMapsBinding != nullptr &&
+             openglMapsBinding->bindingClass == "texture" &&
+             openglMapsBinding->arraySize == std::optional<std::string>{""} &&
+             !openglMapsBinding->arrayElementCount.has_value() &&
+             openglMapsBinding->arrayDimensions.size() == 1 &&
+             openglMapsBinding->arrayDimensions[0].kind == "runtime",
+         "OpenGL reflection records runtime texture descriptor-array "
+         "dimensions");
+  expect(openglSamplersBinding != nullptr &&
+             openglSamplersBinding->bindingClass == "sampler" &&
+             openglSamplersBinding->arraySize ==
+                 std::optional<std::string>{""} &&
+             !openglSamplersBinding->arrayElementCount.has_value() &&
+             openglSamplersBinding->arrayDimensions.size() == 1 &&
+             openglSamplersBinding->arrayDimensions[0].kind == "runtime",
+         "OpenGL reflection records runtime sampler descriptor-array "
+         "dimensions");
+  const crossgl::TargetPackageDecision runtimeResourceOpenGLDecision =
+      crossgl::targetPackageDecision(*resourceHir,
+                                     crossgl::TargetKind::OpenGL);
+  expect(runtimeResourceOpenGLDecision.sourcePackageSupported &&
+             !hasCapability(runtimeResourceOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "diagnostic",
+                            "opengl.unsupported-runtime-resource-array") &&
+             !hasCapability(runtimeResourceOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "resource",
+                            "runtime-texture-descriptor-array") &&
+             !hasCapability(runtimeResourceOpenGLDecision.missingCapabilities,
+                            crossgl::TargetKind::OpenGL, "resource",
+                            "runtime-sampler-descriptor-array"),
+         "target decisions accept unreferenced OpenGL runtime texture and "
+         "sampler descriptor arrays");
 
-  const std::filesystem::path metalResourcePackageDir =
-      unitTestTempDirectoryPath() /
-      "crossgl-unit-runtime-resource-array-metal.cglb";
-  std::filesystem::remove_all(metalResourcePackageDir, removeError);
-  crossgl::DiagnosticEngine runtimeResourceMetalDiagnostics;
-  const crossgl::MetalBuildResult runtimeResourceMetalResult =
-      crossgl::buildMetalBinary(*resourceHir, metalResourcePackageDir,
-                                runtimeResourceMetalDiagnostics);
-  expect(!runtimeResourceMetalResult.success,
-         "Metal build rejects runtime resource arrays before compiling");
-  expect(hasDiagnostic(runtimeResourceMetalDiagnostics.diagnostics(),
-                       "metal.unsupported-runtime-resource-array"),
-         "Metal build reports runtime resource array diagnostic");
+  constexpr std::string_view referencedOpenGLRuntimeTextureSource = R"(
+shader OpenGLReferencedRuntimeTextureDescriptorArrayShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 1) uniform sampler2D maps[];
+    layout(set = 0, binding = 2) sampler linearSampler;
+    void main() {
+      values[0] = textureLod(maps[0], linearSampler, vec2(0.0, 0.0), 0.0);
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> referencedOpenGLRuntimeTextureHir =
+      parseHIR(referencedOpenGLRuntimeTextureSource);
+  expect(referencedOpenGLRuntimeTextureHir.has_value(),
+         "OpenGL referenced runtime texture descriptor-array source builds "
+         "HIR");
+  if (referencedOpenGLRuntimeTextureHir) {
+    expect(!crossgl::openglTextualBackendSupported(
+               *referencedOpenGLRuntimeTextureHir),
+           "OpenGL scaffold rejects referenced runtime texture descriptor "
+           "arrays");
+    crossgl::DiagnosticEngine referencedRuntimeTextureDiagnostics;
+    expect(crossgl::diagnoseOpenGLUnsupportedRuntimeResourceArray(
+               *referencedOpenGLRuntimeTextureHir,
+               referencedRuntimeTextureDiagnostics),
+           "OpenGL referenced runtime texture descriptor-array helper emits "
+           "a diagnostic");
+    expect(hasDiagnosticMessageFragment(
+               referencedRuntimeTextureDiagnostics.diagnostics(),
+               "opengl.unsupported-runtime-resource-array", "maps (texture)"),
+           "OpenGL referenced runtime texture descriptor-array diagnostic "
+           "names the array");
+    crossgl::DiagnosticEngine referencedRuntimeTextureSupportDiagnostics;
+    expect(!crossgl::openGLSourcePackageSupported(
+               *referencedOpenGLRuntimeTextureHir,
+               referencedRuntimeTextureSupportDiagnostics),
+           "OpenGL source-package predicate rejects referenced runtime "
+           "texture descriptor arrays");
+    expect(hasDiagnostic(
+               referencedRuntimeTextureSupportDiagnostics.diagnostics(),
+               "opengl.unsupported-runtime-resource-array"),
+           "OpenGL source-package predicate reports the runtime texture "
+           "descriptor-array diagnostic");
+  }
+
+  crossgl::DiagnosticEngine runtimeResourceMetalSupportDiagnostics;
+  expect(crossgl::metalNativeBackendSupported(
+             *resourceHir, runtimeResourceMetalSupportDiagnostics),
+         "Metal accepts one unused runtime texture descriptor array and one "
+         "unused runtime sampler descriptor array");
+  expect(runtimeResourceMetalSupportDiagnostics.diagnostics().empty(),
+         "Metal unused runtime resource descriptor arrays have no diagnostics");
+  const std::string runtimeResourceMetalSource =
+      crossgl::generateMetalSource(*resourceHir);
+  expect(runtimeResourceMetalSource.find(
+             "constant CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+             "texture2d_float& maps [[buffer(1)]]") != std::string::npos &&
+             runtimeResourceMetalSource.find(
+                 "constant CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                 "sampler& linearSamplers [[buffer(2)]]") !=
+                 std::string::npos,
+         "Metal source emits table parameters for unused runtime texture and "
+         "sampler descriptor arrays");
+  const crossgl::ReflectionTargetResourceBinding *metalSamplersBinding =
+      findTargetResourceBinding(metalReflection, "linearSamplers");
+  expect(mapsBinding != nullptr &&
+             mapsBinding->metalType ==
+                 "constant CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                 "texture2d_float&" &&
+             mapsBinding->bindingClass == "buffer" &&
+             mapsBinding->argumentIndex == 1 &&
+             metalSamplersBinding != nullptr &&
+             metalSamplersBinding->sourceType == "sampler[]" &&
+             metalSamplersBinding->metalType ==
+                 "constant CrossGLMetalRuntimeResourceDescriptorArrayTable_"
+                 "sampler&" &&
+             metalSamplersBinding->addressSpace == "constant" &&
+             metalSamplersBinding->bindingClass == "buffer" &&
+             metalSamplersBinding->argumentIndex == 2 &&
+             metalSamplersBinding->arraySize ==
+                 std::optional<std::string>{""} &&
+             !metalSamplersBinding->arrayElementCount.has_value() &&
+             metalSamplersBinding->arrayDimensions.size() == 1 &&
+             metalSamplersBinding->arrayDimensions[0].kind == "runtime",
+         "Metal reflection records runtime texture and sampler descriptor "
+         "arrays as table-backed buffer arguments");
+  if (crossgl::findExecutable("xcrun")) {
+    const std::filesystem::path metalResourcePackageDir =
+        unitTestTempDirectoryPath() /
+        "crossgl-unit-runtime-resource-array-metal.cglb";
+    std::filesystem::remove_all(metalResourcePackageDir, removeError);
+    crossgl::DiagnosticEngine runtimeResourceMetalDiagnostics;
+    const crossgl::MetalBuildResult runtimeResourceMetalResult =
+        crossgl::buildMetalBinary(*resourceHir, metalResourcePackageDir,
+                                  runtimeResourceMetalDiagnostics);
+    expect(runtimeResourceMetalResult.success,
+           "Metal native path builds unused runtime texture/sampler "
+           "descriptor-array tables");
+    expect(!runtimeResourceMetalDiagnostics.hasErrors(),
+           "Metal unused runtime resource descriptor-array build has no "
+           "diagnostics");
+    expect(!runtimeResourceMetalResult.metallibPath.empty() &&
+               std::filesystem::exists(runtimeResourceMetalResult.metallibPath),
+           "Metal unused runtime resource descriptor-array build produces a "
+           "metallib");
+  }
 
   constexpr std::string_view nonFinalRuntimeFieldSource = R"(
 shader RuntimeArrayNonFinalShader {
@@ -41201,15 +44913,35 @@ shader RuntimeArrayDynamicOuterIndexShader {
         unitTestTempDirectoryPath() /
         "crossgl-unit-runtime-array-dynamic-metal.cglb";
     std::filesystem::remove_all(dynamicMetalPackageDir, removeError);
-    crossgl::DiagnosticEngine dynamicMetalDiagnostics;
-    const crossgl::MetalBuildResult dynamicMetalResult =
-        crossgl::buildMetalBinary(*dynamicOuterIndexHir, dynamicMetalPackageDir,
-                                  dynamicMetalDiagnostics);
-    expect(!dynamicMetalResult.success,
-           "Metal build rejects dynamic runtime-tail block indexes before compiling");
-    expect(hasDiagnostic(dynamicMetalDiagnostics.diagnostics(),
-                         "metal.unsupported-runtime-array-block-index"),
-           "Metal build reports dynamic runtime-tail block index diagnostic");
+    crossgl::DiagnosticEngine dynamicMetalSupportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(
+               *dynamicOuterIndexHir, dynamicMetalSupportDiagnostics),
+           "Metal backend accepts provably local-zero outer index for "
+           "runtime-tail blocks");
+    expect(!dynamicMetalSupportDiagnostics.hasErrors(),
+           "Metal local-zero runtime-tail block index has no preflight "
+           "diagnostics");
+
+    const std::string dynamicMetalSource =
+        crossgl::generateMetalSource(*dynamicOuterIndexHir);
+    expect(dynamicMetalSource.find("payloads[i].count = 1.0;") !=
+               std::string::npos,
+           "Metal backend preserves provably local-zero runtime-tail block "
+           "index in generated source");
+
+    if (crossgl::findExecutable("xcrun")) {
+      crossgl::DiagnosticEngine dynamicMetalDiagnostics;
+      const crossgl::MetalBuildResult dynamicMetalResult =
+          crossgl::buildMetalBinary(*dynamicOuterIndexHir,
+                                    dynamicMetalPackageDir,
+                                    dynamicMetalDiagnostics);
+      expect(dynamicMetalResult.success,
+             "Metal build accepts provably local-zero runtime-tail block "
+             "index");
+      expect(!dynamicMetalDiagnostics.hasErrors(),
+             "Metal local-zero runtime-tail block index build has no "
+             "diagnostics");
+    }
   }
 }
 
@@ -41817,6 +45549,9 @@ shader MetalStorageBufferDynamicDescriptorArrayShader {
          "Metal dynamic descriptor-index source emits buffer selector helper");
   expect(metal.find("switch (descriptorIndex)") != std::string::npos,
          "Metal dynamic descriptor-index source emits selector switch");
+  expect(metal.find("if (descriptorIndex < 0 || descriptorIndex >= 2)") !=
+             std::string::npos,
+         "Metal dynamic descriptor-index selector guards descriptor bounds");
   expect(metal.find("float first = "
                     "cgl_select_compute_values(descriptor, values_0, values_1)"
                     "[0];") != std::string::npos,
@@ -41829,13 +45564,16 @@ void testMetalStorageBufferOutOfRangeDescriptorArrayIndexDiagnostic() {
   constexpr std::string_view source = R"(
 shader MetalStorageBufferOutOfRangeDescriptorArrayUnsupportedShader {
   const int BAD_INDEX = 2;
+  const int NEGATIVE_INDEX = -1;
 
   compute {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
     layout(set = 0, binding = 0) buffer float* values[2];
     void main() {
       float first = values[BAD_INDEX][0];
-      values[0][1] = first;
+      float second = values[+BAD_INDEX][0];
+      float third = values[NEGATIVE_INDEX][0];
+      values[0][1] = first + second + third;
       return;
     }
   }
@@ -41849,11 +45587,14 @@ shader MetalStorageBufferOutOfRangeDescriptorArrayUnsupportedShader {
     return;
   }
 
-  expect(!hir->constants.empty() &&
-             hir->constants.front().name == "BAD_INDEX" &&
-             hir->constants.front().foldedValue.has_value() &&
-             *hir->constants.front().foldedValue == "2",
-         "Metal out-of-range descriptor-index fixture records the folded index");
+  expect(hir->constants.size() == 2 &&
+             hir->constants[0].name == "BAD_INDEX" &&
+             hir->constants[0].foldedValue.has_value() &&
+             *hir->constants[0].foldedValue == "2" &&
+             hir->constants[1].name == "NEGATIVE_INDEX" &&
+             hir->constants[1].foldedValue.has_value() &&
+             *hir->constants[1].foldedValue == "-1",
+         "Metal out-of-range descriptor-index fixture records folded indexes");
 
   const crossgl::HIRStage &stage = hir->stages.front();
   expect(stage.resources.size() == 1 &&
@@ -41880,6 +45621,10 @@ shader MetalStorageBufferOutOfRangeDescriptorArrayUnsupportedShader {
              diagnostics.diagnostics(),
              "metal.unsupported-storage-buffer-array-index", "index 2"),
          "Metal out-of-range descriptor-index failure reports the folded index");
+  expect(hasDiagnosticMessageFragment(
+             diagnostics.diagnostics(),
+             "metal.unsupported-storage-buffer-array-index", "index -1"),
+         "Metal out-of-range descriptor-index failure reports negative folded indexes");
   expect(hasDiagnosticMessageFragment(
              diagnostics.diagnostics(),
              "metal.unsupported-storage-buffer-array-index",
@@ -42313,6 +46058,44 @@ shader Vec3LayoutConformance {
        "vec3",
        12,
        16,
+       16,
+       {}},
+      {"shared-mat3-storage-layout",
+       R"(
+shader Mat3LayoutConformance {
+  compute {
+    layout(set = 0, binding = 0) buffer mat3* transforms;
+    void main() {
+      return;
+    }
+  }
+}
+)",
+       crossgl::TargetKind::Vulkan,
+       "/tmp/Mat3LayoutConformance.spv",
+       "std430",
+       "mat3",
+       48,
+       48,
+       16,
+       {}},
+      {"shared-mat4-storage-layout",
+       R"(
+shader Mat4LayoutConformance {
+  compute {
+    layout(set = 0, binding = 0) buffer mat4* transforms;
+    void main() {
+      return;
+    }
+  }
+}
+)",
+       crossgl::TargetKind::Vulkan,
+       "/tmp/Mat4LayoutConformance.spv",
+       "std430",
+       "mat4",
+       64,
+       64,
        16,
        {}},
       {"metal-vec3-buffer",
@@ -43608,8 +47391,7 @@ shader StructAggregateFieldComputeShader {
     layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
     layout(set = 0, binding = 0) buffer Particle* particles;
     void main() {
-      float unsupported = particles[0].transform;
-      particles[1].mass = unsupported;
+      particles[1].transform = particles[0].transform;
       return;
     }
   }
@@ -43880,6 +47662,8 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
   helper.name = "sumWeights";
   helper.parameters.push_back({arrayType("float", "COLS"), "weights"});
   helper.parameters.push_back({arrayType("vec4", "ROWS][COLS"), "grid"});
+  helper.parameters.push_back(
+      {arrayType("mat2x2", "ROWS][COLS"), "transforms"});
   crossgl::HIRStatement helperReturn;
   helperReturn.kind = crossgl::HIRStatementKind::Return;
   helperReturn.value = literal("0.0", "float");
@@ -43893,12 +47677,16 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
       {arrayType("float", "COLS"), "weights"});
   forwardingHelper.parameters.push_back(
       {arrayType("vec4", "ROWS][COLS"), "grid"});
+  forwardingHelper.parameters.push_back(
+      {arrayType("mat2x2", "ROWS][COLS"), "transforms"});
   crossgl::HIRExpression forwardedCall =
       expression(crossgl::HIRExpressionKind::Call, "sumWeights", type("float"));
   forwardedCall.children.push_back(
       identifier("weights", arrayType("float", "COLS")));
   forwardedCall.children.push_back(
       identifier("grid", arrayType("vec4", "ROWS][COLS")));
+  forwardedCall.children.push_back(
+      identifier("transforms", arrayType("mat2x2", "ROWS][COLS")));
   crossgl::HIRStatement forwardingReturn;
   forwardingReturn.kind = crossgl::HIRStatementKind::Return;
   forwardingReturn.value = std::move(forwardedCall);
@@ -43920,10 +47708,18 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
   gridDeclaration.name = "grid";
   mainFunction.body.push_back(std::move(gridDeclaration));
 
+  crossgl::HIRStatement transformsDeclaration;
+  transformsDeclaration.kind = crossgl::HIRStatementKind::Declaration;
+  transformsDeclaration.declaredType = arrayType("mat2x2", "ROWS][COLS");
+  transformsDeclaration.name = "transforms";
+  mainFunction.body.push_back(std::move(transformsDeclaration));
+
   crossgl::HIRExpression call = expression(crossgl::HIRExpressionKind::Call,
                                            "forwardWeights", type("float"));
   call.children.push_back(identifier("weights", arrayType("float", "COLS")));
   call.children.push_back(identifier("grid", arrayType("vec4", "ROWS][COLS")));
+  call.children.push_back(
+      identifier("transforms", arrayType("mat2x2", "ROWS][COLS")));
   crossgl::HIRStatement callStatement;
   callStatement.kind = crossgl::HIRStatementKind::Expression;
   callStatement.value = std::move(call);
@@ -43941,19 +47737,26 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
 
   const std::string metal = crossgl::generateMetalSource(module);
   expect(metal.find("float sumWeights(array<float, COLS> weights, "
-                    "array<array<float4, COLS>, ROWS> grid)") !=
+                    "array<array<float4, COLS>, ROWS> grid, "
+                    "array<array<float2x2, COLS>, ROWS> transforms)") !=
              std::string::npos,
          "Metal backend emits fixed-size helper array parameters");
   expect(metal.find("float forwardWeights(array<float, COLS> weights, "
-                    "array<array<float4, COLS>, ROWS> grid)") !=
+                    "array<array<float4, COLS>, ROWS> grid, "
+                    "array<array<float2x2, COLS>, ROWS> transforms)") !=
              std::string::npos,
          "Metal backend emits fixed-size forwarding helper array parameters");
-  expect(metal.find("return sumWeights(weights, grid);") != std::string::npos,
+  expect(metal.find("return sumWeights(weights, grid, transforms);") !=
+             std::string::npos,
          "Metal backend preserves helper-to-helper array parameter forwarding");
   expect(metal.find("array<array<float4, COLS>, ROWS> grid;") !=
              std::string::npos,
          "Metal backend emits nested fixed-size local arrays");
-  expect(metal.find("forwardWeights(weights, grid);") != std::string::npos,
+  expect(metal.find("array<array<float2x2, COLS>, ROWS> transforms;") !=
+             std::string::npos,
+         "Metal backend maps matrix aliases in nested fixed-size local arrays");
+  expect(metal.find("forwardWeights(weights, grid, transforms);") !=
+             std::string::npos,
          "Metal backend preserves helper calls with fixed-size array arguments");
   expect(metal.find("ROWS][COLS") == std::string::npos,
          "Metal backend does not emit flattened multidimensional array sizes");
@@ -43988,33 +47791,6 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
     }
     return false;
   };
-  auto expectUnsupportedArrayCallFeature =
-      [&](crossgl::HIRModule invalidModule, std::string_view featureName,
-          std::string_view label) {
-        const std::filesystem::path packageDir =
-            unitTestTempDirectoryPath() /
-            ("crossgl-metal-unsupported-array-call-" + std::string(label));
-        std::error_code error;
-        std::filesystem::remove_all(packageDir, error);
-
-        crossgl::DiagnosticEngine diagnostics;
-        const crossgl::MetalBuildResult result =
-            crossgl::buildMetalBinary(invalidModule, packageDir, diagnostics);
-        expect(!result.success,
-               "Metal unsupported helper array call feature fails validation");
-        expect(hasDiagnosticCode(
-                   diagnostics.diagnostics(),
-                   "metal.unsupported-function-parameter-array-call-feature"),
-               "Metal unsupported helper array call feature reports target "
-               "diagnostic");
-        expect(hasDiagnosticMessage(
-                   diagnostics.diagnostics(),
-                   "metal.unsupported-function-parameter-array-call-feature",
-                   featureName),
-               "Metal unsupported helper array call diagnostic names the "
-               "rejected ABI feature");
-      };
-
   crossgl::HIRModule structElementCallModule;
   structElementCallModule.name = "MetalStructElementArrayCallShader";
   structElementCallModule.structs.push_back(
@@ -44055,49 +47831,88 @@ void testMetalFunctionParameterArraySourceAndDiagnostics() {
   structElementStage.entryPointName = "main";
   structElementStage.functions.push_back(std::move(structElementMain));
   structElementCallModule.stages.push_back(std::move(structElementStage));
-  expectUnsupportedArrayCallFeature(std::move(structElementCallModule),
-                                    "struct-elements",
-                                    "struct-elements");
+  crossgl::DiagnosticEngine structElementSupportDiagnostics;
+  expect(crossgl::metalNativeBackendSupported(structElementCallModule,
+                                              structElementSupportDiagnostics),
+         "Metal struct-element helper array call passes native support "
+         "preflight");
+  expect(!structElementSupportDiagnostics.hasErrors(),
+         "Metal struct-element helper array call emits no preflight "
+         "diagnostics");
+  const std::string structElementMetal =
+      crossgl::generateMetalSource(structElementCallModule);
+  expect(structElementMetal.find(
+             "void consumePayloads(array<Payload, 2> payloads)") !=
+             std::string::npos,
+         "Metal backend emits struct-element helper array parameter");
+  expect(structElementMetal.find("consumePayloads(payloads);") !=
+             std::string::npos,
+         "Metal backend preserves struct-element helper array call");
 
-  crossgl::HIRModule directResourceCallModule;
-  directResourceCallModule.name = "MetalDirectResourceArrayCallShader";
-
-  crossgl::HIRFunction directResourceHelper;
-  directResourceHelper.returnType = type("void");
-  directResourceHelper.name = "consumeTextures";
-  directResourceHelper.parameters.push_back(
-      {arrayType("texture2D", "2"), "textures"});
-  crossgl::HIRStatement directResourceHelperReturn;
-  directResourceHelperReturn.kind = crossgl::HIRStatementKind::Return;
-  directResourceHelper.body.push_back(std::move(directResourceHelperReturn));
-  directResourceCallModule.functions.push_back(std::move(directResourceHelper));
-
-  crossgl::HIRFunction directResourceMain;
-  directResourceMain.returnType = type("void");
-  directResourceMain.name = "main";
-  crossgl::HIRExpression directResourceCall = expression(
-      crossgl::HIRExpressionKind::Call, "consumeTextures", type("void"));
-  directResourceCall.children.push_back(
-      identifier("textures", arrayType("texture2D", "2")));
-  crossgl::HIRStatement directResourceCallStatement;
-  directResourceCallStatement.kind = crossgl::HIRStatementKind::Expression;
-  directResourceCallStatement.value = std::move(directResourceCall);
-  directResourceMain.body.push_back(std::move(directResourceCallStatement));
-  crossgl::HIRStatement directResourceMainReturn;
-  directResourceMainReturn.kind = crossgl::HIRStatementKind::Return;
-  directResourceMain.body.push_back(std::move(directResourceMainReturn));
-
-  crossgl::HIRStage directResourceStage;
-  directResourceStage.stage = "compute";
-  directResourceStage.entryPointName = "main";
-  directResourceStage.resources.push_back(
-      {crossgl::HIRResourceKind::Texture, arrayType("texture2D", "2"),
-       "textures"});
-  directResourceStage.functions.push_back(std::move(directResourceMain));
-  directResourceCallModule.stages.push_back(std::move(directResourceStage));
-  expectUnsupportedArrayCallFeature(std::move(directResourceCallModule),
-                                    "direct-resource-array-arguments",
-                                    "direct-resource-array");
+  constexpr std::string_view directResourceArraySource = R"(
+shader MetalFunctionParameterResourceArrayShader {
+  const int COUNT = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[COUNT];
+    layout(set = 0, binding = 5) sampler linearSamplers[COUNT];
+    vec4 sampleFirst(sampler2D maps[COUNT], sampler samplers[COUNT]) {
+      return textureLod(maps[0], samplers[0], vec2(0.5, 0.5), 0.0);
+    }
+    void main() {
+      vec4 color = sampleFirst(colorMaps, linearSamplers);
+      values[0] = color;
+      return;
+    }
+  }
+}
+)";
+  std::optional<crossgl::HIRModule> directResourceArrayHir =
+      parseHIR(directResourceArraySource);
+  expect(directResourceArrayHir.has_value(),
+         "Metal direct resource-array helper fixture builds HIR");
+  if (directResourceArrayHir) {
+    crossgl::DiagnosticEngine supportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(*directResourceArrayHir,
+                                                supportDiagnostics),
+           "Metal supports fixed-size sampled resource arrays passed to helper "
+           "parameters");
+    expect(supportDiagnostics.diagnostics().empty(),
+           "Metal sampled resource-array helper support emits no diagnostics");
+    const std::string directResourceMetal =
+        crossgl::generateMetalSource(*directResourceArrayHir);
+    expect(directResourceMetal.find(
+               "float4 sampleFirst(array<texture2d<float>, COUNT> maps, "
+               "array<sampler, COUNT> samplers)") != std::string::npos &&
+               directResourceMetal.find(
+                   "return maps[0].sample(samplers[0], float2(0.5, 0.5), "
+                   "level(0.0));") != std::string::npos &&
+               directResourceMetal.find(
+                   "float4 color = sampleFirst(colorMaps, linearSamplers);") !=
+                   std::string::npos,
+           "Metal emits sampled resource-array helper parameters and "
+           "helper-side texture sampling");
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-function-parameter-resource-array-helper-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+      crossgl::DiagnosticEngine buildDiagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*directResourceArrayHir, packageDir,
+                                    buildDiagnostics);
+      expect(result.success,
+             "Metal sampled resource-array helper parameter source compiles to "
+             "metallib");
+      expect(!buildDiagnostics.hasErrors(),
+             "Metal sampled resource-array helper parameter build has no "
+             "diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal sampled resource-array helper parameter metallib exists");
+    }
+  }
 
   constexpr std::string_view aritySource = R"(
 shader MetalFunctionCallArityShader {
@@ -44115,17 +47930,31 @@ shader MetalFunctionCallArityShader {
 }
 )";
 
-  std::optional<crossgl::HIRModule> arityHir = parseHIR(aritySource);
-  expect(arityHir.has_value(), "Metal helper-call arity source builds HIR");
-  if (arityHir.has_value()) {
-    crossgl::DiagnosticEngine arityDiagnostics;
-    expect(!crossgl::metalNativeBackendSupported(*arityHir, arityDiagnostics),
-           "Metal helper-call arity mismatch fails native support preflight");
-    expect(hasDiagnosticMessage(arityDiagnostics.diagnostics(),
-                                "metal.function-call-arity", "expects 2"),
-           "Metal helper-call arity diagnostic reports expected argument "
-           "count before source emission");
+  const std::vector<crossgl::Diagnostic> arityDiagnostics =
+      collectDiagnostics(aritySource);
+  expect(hasDiagnosticMessage(arityDiagnostics, "sema.function-call-arity",
+                              "expects exactly 2 arguments"),
+         "source helper-call arity diagnostic reports expected argument count "
+         "before backend preflight");
+
+  constexpr std::string_view unresolvedCallSource = R"(
+shader BadUnresolvedFunctionCallShader {
+  compute {
+    void main() {
+      float value = missingHelper(1.0);
+      return;
+    }
   }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> unresolvedCallDiagnostics =
+      collectDiagnostics(unresolvedCallSource);
+  expect(hasDiagnosticMessage(unresolvedCallDiagnostics,
+                              "sema.unresolved-function-call",
+                              "function call 'missingHelper' does not resolve"),
+         "source helper-call diagnostics reject unresolved callees before "
+         "backend preflight");
 
   constexpr std::string_view dynamicNestedReadSource = R"(
 shader MetalDynamicNestedFunctionParameterArrayReadShader {
@@ -44267,6 +48096,188 @@ shader MetalDynamicNestedVectorFunctionParameterArrayReadShader {
       expect(std::filesystem::exists(result.metallibPath),
              "Metal dynamic nested vector helper array metallib exists");
     }
+  }
+
+  constexpr std::string_view dynamicNestedMatrixReadSource = R"(
+shader MetalDynamicNestedMatrixFunctionParameterArrayReadShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    mat2 readGrid(mat2 grid[ROWS][COLS], int row, int col) {
+      return grid[row][col];
+    }
+    void main() {
+      mat2 localGrid[ROWS][COLS];
+      int row = 1;
+      int col = 0;
+      mat2 selected = readGrid(localGrid, row, col);
+      localGrid[0][0] = selected;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicNestedMatrixReadHir =
+      parseHIR(dynamicNestedMatrixReadSource);
+  expect(dynamicNestedMatrixReadHir.has_value(),
+         "Metal dynamic nested matrix parameter-array read source builds HIR");
+  if (dynamicNestedMatrixReadHir.has_value()) {
+    crossgl::DiagnosticEngine supportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(*dynamicNestedMatrixReadHir,
+                                                supportDiagnostics),
+           "Metal dynamic nested matrix helper array reads pass native "
+           "support preflight");
+    expect(!supportDiagnostics.hasErrors(),
+           "Metal dynamic nested matrix helper array reads have no preflight "
+           "diagnostics");
+
+    const std::string dynamicNestedMatrixMetal =
+        crossgl::generateMetalSource(*dynamicNestedMatrixReadHir);
+    expect(dynamicNestedMatrixMetal.find(
+               "float2x2 readGrid(array<array<float2x2, COLS>, ROWS> grid, "
+               "int row, int col)") != std::string::npos,
+           "Metal backend emits matrix nested helper array parameter for "
+           "dynamic reads");
+    expect(dynamicNestedMatrixMetal.find("return grid[row][col];") !=
+               std::string::npos,
+           "Metal backend preserves dynamic matrix nested helper array read");
+
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-dynamic-nested-matrix-helper-array-read-native-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+
+      crossgl::DiagnosticEngine diagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*dynamicNestedMatrixReadHir, packageDir,
+                                    diagnostics);
+      expect(result.success,
+             "Metal dynamic nested matrix helper array reads compile to "
+             "metallib");
+      expect(!diagnostics.hasErrors(),
+             "Metal dynamic nested matrix helper array read native build has "
+             "no diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal dynamic nested matrix helper array read metallib exists");
+    }
+  }
+
+  constexpr std::string_view dynamicNestedStructReadSource = R"(
+shader MetalDynamicNestedStructFunctionParameterArrayReadShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+  struct Payload {
+    float value;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    Payload readGrid(Payload grid[ROWS][COLS], int row, int col) {
+      return grid[row][col];
+    }
+    void main() {
+      Payload localGrid[ROWS][COLS];
+      Payload seed;
+      seed.value = 1.0;
+      localGrid[0][0] = seed;
+      int row = 0;
+      int col = 0;
+      Payload selected = readGrid(localGrid, row, col);
+      localGrid[0][1] = selected;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicNestedStructReadHir =
+      parseHIR(dynamicNestedStructReadSource);
+  expect(dynamicNestedStructReadHir.has_value(),
+         "Metal dynamic nested struct parameter-array read source builds HIR");
+  if (dynamicNestedStructReadHir.has_value()) {
+    crossgl::DiagnosticEngine supportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(*dynamicNestedStructReadHir,
+                                                supportDiagnostics),
+           "Metal dynamic nested struct helper array reads pass native "
+           "support preflight");
+    expect(!supportDiagnostics.hasErrors(),
+           "Metal dynamic nested struct helper array reads have no preflight "
+           "diagnostics");
+
+    const std::string dynamicNestedStructMetal =
+        crossgl::generateMetalSource(*dynamicNestedStructReadHir);
+    expect(dynamicNestedStructMetal.find(
+               "Payload readGrid(array<array<Payload, COLS>, ROWS> grid, "
+               "int row, int col)") != std::string::npos,
+           "Metal backend emits struct nested helper array parameter for "
+           "dynamic reads");
+    expect(dynamicNestedStructMetal.find("return grid[row][col];") !=
+               std::string::npos,
+           "Metal backend preserves dynamic struct nested helper array read");
+
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-dynamic-nested-struct-helper-array-read-native-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+
+      crossgl::DiagnosticEngine diagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*dynamicNestedStructReadHir, packageDir,
+                                    diagnostics);
+      expect(result.success,
+             "Metal dynamic nested struct helper array reads compile to "
+             "metallib");
+      expect(!diagnostics.hasErrors(),
+             "Metal dynamic nested struct helper array read native build has "
+             "no diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal dynamic nested struct helper array read metallib exists");
+    }
+  }
+
+  constexpr std::string_view dynamicNestedResourceReadSource = R"(
+shader MetalDynamicNestedResourceFunctionParameterArrayReadUnsupportedShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[ROWS][COLS];
+    layout(set = 0, binding = 5) sampler linearSamplers[ROWS][COLS];
+    vec4 readGrid(sampler2D maps[ROWS][COLS], sampler samplers[ROWS][COLS], int row, int col) {
+      return textureLod(maps[row][col], samplers[row][col], vec2(0.5, 0.5), 0.0);
+    }
+    void main() {
+      int row = 0;
+      int col = 1;
+      values[0] = readGrid(colorMaps, linearSamplers, row, col);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicNestedResourceReadHir =
+      parseHIR(dynamicNestedResourceReadSource);
+  expect(dynamicNestedResourceReadHir.has_value(),
+         "Metal dynamic nested resource parameter-array read diagnostic "
+         "source builds HIR");
+  if (dynamicNestedResourceReadHir.has_value()) {
+    crossgl::DiagnosticEngine supportDiagnostics;
+    expect(!crossgl::metalNativeBackendSupported(
+               *dynamicNestedResourceReadHir, supportDiagnostics),
+           "Metal dynamic nested resource helper array reads remain "
+           "unsupported");
+    expect(hasDiagnosticCode(
+               supportDiagnostics.diagnostics(),
+               "metal.unsupported-dynamic-nested-helper-array-read"),
+           "Metal dynamic nested resource helper array reads keep the "
+           "unsupported read diagnostic");
   }
 
   constexpr std::string_view writeThroughSource = R"(
@@ -44434,21 +48445,119 @@ shader MetalDynamicNestedMatrixFunctionParameterArrayWriteShader {
          "Metal dynamic nested matrix parameter-array write source builds HIR");
   if (dynamicNestedMatrixWriteHir.has_value()) {
     crossgl::DiagnosticEngine supportDiagnostics;
-    expect(!crossgl::metalNativeBackendSupported(
-               *dynamicNestedMatrixWriteHir, supportDiagnostics),
-           "Metal dynamic nested matrix helper array writes fail native "
+    expect(crossgl::metalNativeBackendSupported(*dynamicNestedMatrixWriteHir,
+                                                supportDiagnostics),
+           "Metal dynamic nested matrix helper array writes pass native "
            "support preflight");
-    expect(hasDiagnosticCode(
-               supportDiagnostics.diagnostics(),
-               "metal.unsupported-dynamic-nested-helper-array-write"),
-           "Metal dynamic nested matrix helper array writes report target "
-           "diagnostic");
-    expect(hasDiagnosticMessage(
-               supportDiagnostics.diagnostics(),
-               "metal.unsupported-dynamic-nested-helper-array-write",
-               "function 'rewriteGrid' parameter 'grid'"),
-           "Metal dynamic nested matrix helper array write diagnostic names "
-           "the helper parameter");
+    expect(!supportDiagnostics.hasErrors(),
+           "Metal dynamic nested matrix helper array writes have no preflight "
+           "diagnostics");
+
+    const std::string dynamicNestedMatrixMetal =
+        crossgl::generateMetalSource(*dynamicNestedMatrixWriteHir);
+    expect(dynamicNestedMatrixMetal.find(
+               "float2x2 rewriteGrid(array<array<float2x2, COLS>, ROWS> grid, "
+               "int row, int col)") != std::string::npos,
+           "Metal backend emits matrix nested helper array parameter for "
+           "dynamic writes");
+    expect(dynamicNestedMatrixMetal.find("grid[row][col] = grid[0][0];") !=
+               std::string::npos,
+           "Metal backend preserves dynamic matrix nested helper array write");
+
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-dynamic-nested-matrix-helper-array-write-native-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+
+      crossgl::DiagnosticEngine diagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*dynamicNestedMatrixWriteHir, packageDir,
+                                    diagnostics);
+      expect(result.success,
+             "Metal dynamic nested matrix helper array writes compile to "
+             "metallib");
+      expect(!diagnostics.hasErrors(),
+             "Metal dynamic nested matrix helper array write native build has "
+             "no diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal dynamic nested matrix helper array write metallib exists");
+    }
+  }
+
+  constexpr std::string_view dynamicNestedStructWriteSource = R"(
+shader MetalDynamicNestedStructFunctionParameterArrayWriteShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+  struct Payload {
+    float value;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    Payload rewriteGrid(Payload grid[ROWS][COLS], int row, int col, Payload replacement) {
+      grid[row][col] = replacement;
+      return grid[0][0];
+    }
+    void main() {
+      Payload localGrid[ROWS][COLS];
+      Payload seed;
+      seed.value = 1.0;
+      localGrid[0][0] = seed;
+      int row = 1;
+      int col = 0;
+      Payload selected = rewriteGrid(localGrid, row, col, seed);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> dynamicNestedStructWriteHir =
+      parseHIR(dynamicNestedStructWriteSource);
+  expect(dynamicNestedStructWriteHir.has_value(),
+         "Metal dynamic nested struct parameter-array write source builds HIR");
+  if (dynamicNestedStructWriteHir.has_value()) {
+    crossgl::DiagnosticEngine supportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(
+               *dynamicNestedStructWriteHir, supportDiagnostics),
+           "Metal dynamic nested struct helper array writes pass native "
+           "support preflight");
+    expect(!supportDiagnostics.hasErrors(),
+           "Metal dynamic nested struct helper array writes have no preflight "
+           "diagnostics");
+
+    const std::string dynamicNestedStructMetal =
+        crossgl::generateMetalSource(*dynamicNestedStructWriteHir);
+    expect(dynamicNestedStructMetal.find(
+               "Payload rewriteGrid(array<array<Payload, COLS>, ROWS> grid, "
+               "int row, int col, Payload replacement)") != std::string::npos,
+           "Metal backend emits struct nested helper array parameter for "
+           "dynamic writes");
+    expect(dynamicNestedStructMetal.find("grid[row][col] = replacement;") !=
+               std::string::npos,
+           "Metal backend preserves dynamic struct nested helper array write");
+
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path packageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-metal-dynamic-nested-struct-helper-array-write-native-test";
+      std::error_code error;
+      std::filesystem::remove_all(packageDir, error);
+
+      crossgl::DiagnosticEngine diagnostics;
+      const crossgl::MetalBuildResult result =
+          crossgl::buildMetalBinary(*dynamicNestedStructWriteHir, packageDir,
+                                    diagnostics);
+      expect(result.success,
+             "Metal dynamic nested struct helper array writes compile to "
+             "metallib");
+      expect(!diagnostics.hasErrors(),
+             "Metal dynamic nested struct helper array write native build has "
+             "no diagnostics");
+      expect(std::filesystem::exists(result.metallibPath),
+             "Metal dynamic nested struct helper array write metallib exists");
+    }
   }
 
   constexpr std::string_view entryArraySource = R"(
@@ -47845,10 +51954,19 @@ shader AtanIntrinsicComputeShader {
          "atan intrinsic Vulkan HIR keeps call expressions");
 
   crossgl::DiagnosticEngine assemblyDiagnostics;
-  const std::string assembly =
-      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  const crossgl::VulkanPrototypeAssemblyArtifact artifact =
+      crossgl::generateVulkanPrototypeAssemblyArtifact(*hir,
+                                                       assemblyDiagnostics);
+  const std::string &assembly = artifact.assembly;
   expect(!assemblyDiagnostics.hasErrors(),
          "atan intrinsic Vulkan prototype assembly has no diagnostics");
+  expect(artifact.extendedInstructionImports.size() == 1 &&
+             artifact.extendedInstructionImports.front().resultId ==
+                 "%glsl_std_450" &&
+             artifact.extendedInstructionImports.front().instructionSet ==
+                 "GLSL.std.450",
+         "atan intrinsic Vulkan prototype assembly exposes GLSL.std.450 "
+         "metadata");
   expect(assembly.find("%glsl_std_450 = OpExtInstImport \"GLSL.std.450\"") !=
              std::string::npos,
          "atan intrinsic Vulkan prototype assembly imports GLSL.std.450");
@@ -47942,10 +52060,19 @@ shader MathIntrinsicComputeShader {
   }
 
   crossgl::DiagnosticEngine assemblyDiagnostics;
-  const std::string assembly =
-      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  const crossgl::VulkanPrototypeAssemblyArtifact artifact =
+      crossgl::generateVulkanPrototypeAssemblyArtifact(*hir,
+                                                       assemblyDiagnostics);
+  const std::string &assembly = artifact.assembly;
   expect(!assemblyDiagnostics.hasErrors(),
          "math intrinsic Vulkan prototype assembly has no diagnostics");
+  expect(artifact.extendedInstructionImports.size() == 1 &&
+             artifact.extendedInstructionImports.front().resultId ==
+                 "%glsl_std_450" &&
+             artifact.extendedInstructionImports.front().instructionSet ==
+                 "GLSL.std.450",
+         "math intrinsic Vulkan prototype assembly exposes GLSL.std.450 "
+         "metadata");
   expect(assembly.find("%glsl_std_450 = OpExtInstImport \"GLSL.std.450\"") !=
              std::string::npos,
          "math intrinsic Vulkan prototype assembly imports GLSL.std.450");
@@ -48314,6 +52441,181 @@ shader BadSignedUnsignedScalarConstructorShader {
          "scalar-constructor Vulkan prototype assembly file exists");
   expect(std::filesystem::exists(result.spvPath),
          "scalar-constructor Vulkan prototype SPIR-V binary exists");
+}
+
+void testVulkanPrototypeMatrixConstructorAssembly() {
+  constexpr std::string_view source = R"(
+shader MatrixConstructorComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    void main() {
+      mat2 flattened = mat2(1.0, 0.0, 0.0, 1.0);
+      mat2 diagonal = mat2(1.0);
+      mat3 expanded = mat3(flattened);
+      mat3 basis = mat3(vec3(1.0, 0.0, 0.0),
+                        vec3(0.0, 1.0, 0.0),
+                        vec3(0.0, 0.0, 1.0));
+      values[0] = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "matrix-constructor Vulkan compute source builds HIR");
+  if (!hir) {
+    return;
+  }
+  const std::vector<crossgl::HIRStatement> &body =
+      hir->stages.front().functions.front().body;
+  expect(body.size() >= 5, "matrix-constructor HIR keeps all body statements");
+  if (body.size() >= 4) {
+    expect(body[0].value.kind == crossgl::HIRExpressionKind::Constructor &&
+               body[0].value.type.name == "mat2",
+           "matrix-constructor HIR keeps flattened mat2 constructor");
+    expect(body[1].value.kind == crossgl::HIRExpressionKind::Constructor &&
+               body[1].value.type.name == "mat2",
+           "matrix-constructor HIR keeps scalar diagonal mat2 constructor");
+    expect(body[2].value.kind == crossgl::HIRExpressionKind::Constructor &&
+               body[2].value.type.name == "mat3",
+           "matrix-constructor HIR keeps matrix expansion constructor");
+    expect(body[3].value.kind == crossgl::HIRExpressionKind::Constructor &&
+               body[3].value.type.name == "mat3",
+           "matrix-constructor HIR keeps column-vector mat3 constructor");
+  }
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assemblyDiagnostics.hasErrors(),
+         "matrix-constructor Vulkan prototype assembly has no diagnostics");
+  expect(assembly.find("%mat2 = OpTypeMatrix %vec2 2") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly emits mat2 type");
+  expect(assembly.find("%mat3 = OpTypeMatrix %vec3 3") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly emits mat3 type");
+  expect(assembly.find("OpCompositeConstruct %mat2") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly constructs mat2 values");
+  expect(assembly.find("OpCompositeConstruct %mat3") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly constructs mat3 values");
+  expect(assembly.find("OpCompositeExtract %float") != std::string::npos,
+         "matrix-constructor Vulkan prototype assembly extracts source matrix "
+         "components for expansion");
+
+  if (!crossgl::findExecutable("spirv-as") ||
+      !crossgl::findExecutable("spirv-val")) {
+    return;
+  }
+
+  const std::filesystem::path packageDir =
+      unitTestTempDirectoryPath() /
+      "crossgl-vulkan-matrix-constructor-prototype-test";
+  std::error_code error;
+  std::filesystem::remove_all(packageDir, error);
+
+  crossgl::DiagnosticEngine buildDiagnostics;
+  const crossgl::VulkanBuildResult result =
+      crossgl::buildVulkanPrototypeBinary(*hir, packageDir, buildDiagnostics);
+  expect(result.success,
+         "matrix-constructor Vulkan prototype binary assembles and validates");
+  expect(!buildDiagnostics.hasErrors(),
+         "matrix-constructor Vulkan prototype binary build has no diagnostics");
+  expect(std::filesystem::exists(result.assemblyPath),
+         "matrix-constructor Vulkan prototype assembly file exists");
+  expect(std::filesystem::exists(result.spvPath),
+         "matrix-constructor Vulkan prototype SPIR-V binary exists");
+}
+
+void testAggregateConstructorDiagnostics() {
+  constexpr std::string_view validVectorSource = R"(
+shader ValidAggregateConstructorShader {
+  compute {
+    void main() {
+      vec2 xy = vec2(1.0, 2.0);
+      vec3 xyz = vec3(xy, 3.0);
+      vec3 converted = vec3(1, 2u, 3.0);
+      vec4 splat = vec4(1.0);
+      ivec2 indices = ivec2(0, 1);
+      uvec2 unsignedIndices = uvec2(0u, 1u);
+      ivec2 signedIndices = ivec2(unsignedIndices);
+      vec2 uv = vec2(indices);
+      bvec2 mask = bvec2(true, false);
+      mat4 identity = mat4(1.0);
+      mat2 transform = mat2(1.0, 0.0, 0.0, 1.0);
+      mat3 normal = mat3(identity);
+      mat3 basis = mat3(vec3(1.0, 0.0, 0.0),
+                        vec3(0.0, 1.0, 0.0),
+                        vec3(0.0, 0.0, 1.0));
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> validHir = parseHIR(validVectorSource);
+  expect(validHir.has_value(),
+         "aggregate constructors accept scalar splats and flattened operands");
+
+  constexpr std::string_view badVectorAritySource = R"(
+shader BadVectorConstructorArityShader {
+  compute {
+    void main() {
+      vec3 bad = vec3(1.0, 2.0);
+      return;
+    }
+  }
+}
+)";
+  const std::vector<crossgl::Diagnostic> badVectorArityDiagnostics =
+      collectDiagnostics(badVectorAritySource);
+  expect(hasDiagnostic(badVectorArityDiagnostics, "sema.vector-constructor"),
+         "vector constructors reject under-width operand lists");
+
+  constexpr std::string_view badVectorTypeSource = R"(
+shader BadVectorConstructorOperandTypeShader {
+  compute {
+    void main() {
+      vec3 bad = vec3(vec2(1.0, 2.0), true);
+      return;
+    }
+  }
+}
+)";
+  const std::vector<crossgl::Diagnostic> badVectorTypeDiagnostics =
+      collectDiagnostics(badVectorTypeSource);
+  expect(hasDiagnostic(badVectorTypeDiagnostics, "sema.vector-constructor"),
+         "vector constructors reject mismatched scalar component types");
+
+  constexpr std::string_view badMatrixAritySource = R"(
+shader BadMatrixConstructorArityShader {
+  compute {
+    void main() {
+      mat2 bad = mat2(1.0, 0.0, 0.0);
+      return;
+    }
+  }
+}
+)";
+  const std::vector<crossgl::Diagnostic> badMatrixArityDiagnostics =
+      collectDiagnostics(badMatrixAritySource);
+  expect(hasDiagnostic(badMatrixArityDiagnostics, "sema.matrix-constructor"),
+         "matrix constructors reject under-width operand lists");
+
+  constexpr std::string_view badMatrixTypeSource = R"(
+shader BadMatrixConstructorOperandTypeShader {
+  compute {
+    void main() {
+      mat2 bad = mat2(1.0, 0.0, 0.0, true);
+      return;
+    }
+  }
+}
+)";
+  const std::vector<crossgl::Diagnostic> badMatrixTypeDiagnostics =
+      collectDiagnostics(badMatrixTypeSource);
+  expect(hasDiagnostic(badMatrixTypeDiagnostics, "sema.matrix-constructor"),
+         "matrix constructors reject non-float scalar operands");
 }
 
 void testVulkanPrototypeVectorSwizzleAssembly() {
@@ -49544,6 +53846,294 @@ shader BadWidthSwizzleShader {
       collectDiagnostics(widthSource);
   expect(hasDiagnostic(widthDiagnostics, "sema.invalid-swizzle"),
          "out-of-range vector swizzle components produce a diagnostic");
+
+  constexpr std::string_view duplicateReadSource = R"(
+shader DuplicateSwizzleReadShader {
+  compute {
+    void main() {
+      vec4 color = vec4(1.0, 2.0, 3.0, 4.0);
+      vec2 same = color.xx;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> duplicateReadDiagnostics =
+      collectDiagnostics(duplicateReadSource);
+  expect(!hasDiagnostic(duplicateReadDiagnostics, "sema.invalid-swizzle") &&
+             !hasDiagnostic(duplicateReadDiagnostics,
+                            "sema.assignment-target-swizzle-duplicate"),
+         "duplicate vector swizzle reads remain valid");
+}
+
+void testIndexAccessDiagnostics() {
+  constexpr std::string_view invalidIndexTypeSource = R"(
+shader BadIndexTypeShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values;
+    uniform sampler2D maps[2];
+    void main() {
+      float weights[4];
+      vec4 color = vec4(1.0);
+      bool flag = true;
+      float first = weights[0.5];
+      float second = values[color.x];
+      vec4 sampled = texture(maps[flag], vec2(0.5, 0.5));
+      float component = color[true];
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> invalidIndexTypeDiagnostics =
+      collectDiagnostics(invalidIndexTypeSource);
+  expect(hasDiagnosticCodeAndMessage(invalidIndexTypeDiagnostics,
+                                     "sema.index-type", "got 'float'") &&
+             hasDiagnosticCodeAndMessage(invalidIndexTypeDiagnostics,
+                                         "sema.index-type", "got 'bool'") &&
+             invalidIndexTypeDiagnostics.size() == 4,
+         "array, storage-buffer, descriptor-array, and vector indexes reject "
+         "non-integer operands");
+
+  constexpr std::string_view invalidBaseSource = R"(
+shader BadIndexBaseShader {
+  compute {
+    void main() {
+      float value = 1.0;
+      float bad = value[0];
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> invalidBaseDiagnostics =
+      collectDiagnostics(invalidBaseSource);
+  expect(hasDiagnosticCodeAndMessage(invalidBaseDiagnostics,
+                                     "sema.index-base-type", "got 'float'") &&
+             invalidBaseDiagnostics.size() == 1,
+         "index access rejects scalar base operands");
+
+  constexpr std::string_view validIndexSource = R"(
+shader ValidIndexShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values;
+    uniform sampler2D maps[2];
+    void main() {
+      uint slot = 1u;
+      float weights[4];
+      vec4 color = vec4(1.0);
+      float first = weights[slot];
+      float second = values[slot];
+      vec4 sampled = texture(maps[slot], vec2(0.5, 0.5));
+      float component = color[slot];
+      values[0] = first + second + sampled.x + component;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> validIndexDiagnostics =
+      collectDiagnostics(validIndexSource);
+  expect(!hasDiagnostic(validIndexDiagnostics, "sema.index-type") &&
+             !hasDiagnostic(validIndexDiagnostics, "sema.index-base-type"),
+         "uint indexes remain valid for arrays, storage-buffer pointers, "
+         "descriptor arrays, and vectors");
+}
+
+void testAssignmentTargetAggregateDiagnostics() {
+  constexpr std::string_view aggregateAssignmentSource = R"(
+shader BadAggregateAssignmentShader {
+  struct Particle {
+    float weights[4];
+  };
+  compute {
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    shared float tile[4];
+    void main() {
+      float weights[4];
+      float grid[2][3];
+      weights = weights;
+      tile = tile;
+      grid[0] = grid[1];
+      particles[1].weights = particles[0].weights;
+      weights[0] = tile[0];
+      grid[0][0] = weights[0];
+      particles[1].weights[0] = weights[0];
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> aggregateDiagnostics =
+      collectDiagnostics(aggregateAssignmentSource);
+  expect(hasDiagnosticCodeAndMessage(aggregateDiagnostics,
+                                     "sema.assignment-target-lvalue",
+                                     "target 'weights' has array type") &&
+             hasDiagnosticCodeAndMessage(aggregateDiagnostics,
+                                         "sema.assignment-target-lvalue",
+                                         "target 'tile' has array type") &&
+             hasDiagnosticCodeAndMessage(
+                 aggregateDiagnostics, "sema.assignment-target-lvalue",
+                 "target indexed expression has array type") &&
+             hasDiagnosticCodeAndMessage(
+                 aggregateDiagnostics, "sema.assignment-target-lvalue",
+                 "target member 'weights' has array type") &&
+             aggregateDiagnostics.size() == 4,
+         "direct assignments to whole local, shared, member, and nested arrays "
+         "produce diagnostics while element writes remain valid");
+}
+
+void testAssignmentTargetReadOnlyDiagnostics() {
+  constexpr std::string_view constantAssignmentSource = R"(
+shader BadConstantAssignmentShader {
+  const int COUNT = 1;
+  compute {
+    void main() {
+      COUNT = 2;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> constantAssignmentDiagnostics =
+      collectDiagnostics(constantAssignmentSource);
+  expect(hasDiagnostic(constantAssignmentDiagnostics,
+                       "sema.assignment-target-readonly"),
+         "assignments to top-level constants produce a diagnostic");
+
+  constexpr std::string_view builtinAssignmentSource = R"(
+shader BadComputeBuiltinAssignmentShader {
+  compute {
+    void main() {
+      gl_GlobalInvocationID.x = 1u;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> builtinAssignmentDiagnostics =
+      collectDiagnostics(builtinAssignmentSource);
+  expect(hasDiagnostic(builtinAssignmentDiagnostics,
+                       "sema.assignment-target-readonly"),
+         "assignments to compute built-ins produce a diagnostic");
+
+  constexpr std::string_view cbufferAssignmentSource = R"(
+shader BadCBufferAssignmentShader {
+  cbuffer Constants {
+    float exposure;
+  };
+  compute {
+    void main() {
+      exposure = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> cbufferAssignmentDiagnostics =
+      collectDiagnostics(cbufferAssignmentSource);
+  expect(hasDiagnostic(cbufferAssignmentDiagnostics,
+                       "sema.assignment-target-readonly"),
+         "assignments to cbuffer fields produce a diagnostic");
+
+  constexpr std::string_view resourceHandleAssignmentSource = R"(
+shader BadResourceHandleAssignmentShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) uniform sampler2D colorMap;
+    layout(set = 0, binding = 2) uniform image2D colorImage;
+    void main() {
+      values = values;
+      colorMap = colorMap;
+      colorImage = colorImage;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> resourceHandleAssignmentDiagnostics =
+      collectDiagnostics(resourceHandleAssignmentSource);
+  expect(hasDiagnosticCodeAndMessage(resourceHandleAssignmentDiagnostics,
+                                     "sema.assignment-target-readonly",
+                                     "target 'values' is a resource handle") &&
+             hasDiagnosticCodeAndMessage(
+                 resourceHandleAssignmentDiagnostics,
+                 "sema.assignment-target-readonly",
+                 "target 'colorMap' is a resource handle") &&
+             hasDiagnosticCodeAndMessage(
+                 resourceHandleAssignmentDiagnostics,
+                 "sema.assignment-target-readonly",
+                 "target 'colorImage' is a resource handle"),
+         "direct assignments to descriptor resource handles produce "
+         "diagnostics");
+
+  constexpr std::string_view storageBufferElementAssignmentSource = R"(
+shader StorageBufferElementAssignmentShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values;
+    void main() {
+      values[0] = 1.0;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic>
+      storageBufferElementAssignmentDiagnostics =
+          collectDiagnostics(storageBufferElementAssignmentSource);
+  expect(!hasDiagnostic(storageBufferElementAssignmentDiagnostics,
+                        "sema.assignment-target-readonly"),
+         "storage-buffer element writes remain writable");
+
+  constexpr std::string_view localShadowSource = R"(
+shader LocalConstantShadowAssignmentShader {
+  const int COUNT = 1;
+  compute {
+    void main() {
+      int COUNT = 0;
+      COUNT = 2;
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> localShadowDiagnostics =
+      collectDiagnostics(localShadowSource);
+  expect(!hasDiagnostic(localShadowDiagnostics, "sema.assignment-target-readonly"),
+         "mutable locals can shadow constants before assignment");
+
+  constexpr std::string_view parameterShadowSource = R"(
+shader ParameterConstantShadowAssignmentShader {
+  const int COUNT = 1;
+  int bump(int COUNT) {
+    COUNT = COUNT + 1;
+    return COUNT;
+  }
+  compute {
+    void main() {
+      int value = bump(COUNT);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> parameterShadowDiagnostics =
+      collectDiagnostics(parameterShadowSource);
+  expect(!hasDiagnostic(parameterShadowDiagnostics,
+                        "sema.assignment-target-readonly"),
+         "parameters can shadow constants before assignment");
 }
 
 } // namespace
@@ -49586,7 +54176,11 @@ int main() {
   testHIROptimizationPipelineExpressionShapeValidation();
   testHIROptimizationPipelineStatementShapeValidation();
   testHIRBackendInputRawStatementValidation();
+  testHIRVerifierPublicEntryPoint();
   testHIROptimizationPipelineTypedSymbolValidation();
+  testHIROptimizationPipelineScalarConstructorValidation();
+  testHIROptimizationPipelineVectorConstructorValidation();
+  testHIROptimizationPipelineMatrixConstructorValidation();
   testHIROptimizationPipelineRuntimeResourceArrayShapeValidation();
   testHIROptimizationPipelineStorageImageRuntimeArrayValidation();
   testHIRTextureExpressionTypedValidation();
@@ -49672,7 +54266,9 @@ int main() {
   testSourceRemapDiagnosticsAndHIRSourceMaps();
   testCompileRequestLogicalSourceRemapAPI();
   testDebugSourceLocationsUseGenericPathSeparators();
-  testSourceCheckRawStatementContractBoundary();
+  testSwitchControlFlowHIR();
+  testSwitchRestrictedBoundaryDiagnostics();
+  testSwitchControlFlowTextBackendOutput();
   testTargetCapabilityRegistry();
   testTargetCapabilityInventoryParity();
   testTargetLegalizationFacade();
@@ -49687,8 +54283,10 @@ int main() {
   testScalarVectorFixtureTargetFeatureEvidence();
   testFunctionParameterArrayTargetFeatureEvidence();
   testRuntimeDescriptorArrayPolicyHelper();
+  testMetalRuntimeTextureSamplerDescriptorTableSourceAndReflection();
   testNativeTargetPackageDecisionPredicates();
   testSPIRVModuleBuilder();
+  testVulkanSPIRVImportMetadataCanonicalization();
   testBackendIRContracts();
   testDirectXOpenGLComputeBackendScaffolds();
   testGraphicsABIIOContractTextBackends();
@@ -49714,6 +54312,7 @@ int main() {
   testStorageImageHIRABI();
   testStorageImageAccessQualifiers();
   testWhileControlFlowHIR();
+  testDoWhileControlFlowHIR();
   testHIRControlTransferStatements();
   testHIRControlTransferDiagnostics();
   testMetalParsedForUpdateRenderingFallback();
@@ -49728,12 +54327,14 @@ int main() {
   testTextureCompareLodHIRAndNativeBackends();
   testGraphicsShadowCompareLodBackends();
   testVulkanGraphicsFragmentDiscardPrototypeAssembly();
+  testVulkanGraphicsFoldedScalarConstantsPrototypeAssembly();
   testVulkanGraphicsUniformMemberSwizzlePrototypeAssembly();
   testVulkanGraphicsSelectPrototypeAssembly();
   testVulkanGraphicsMathIntrinsicPrototypeAssembly();
   testVulkanGraphicsNonUniformDescriptorArrayPrototypeAssembly();
   testVulkanGraphicsLoopPrototypeAssembly();
   testVulkanGraphicsHelperFunctionPrototypeAssembly();
+  testVulkanGraphicsMatrixConstructorPrototypeAssembly();
   testVulkanGraphicsIfPrototypeAssembly();
   testVulkanGraphicsConditionalDiscardPrototypeAssembly();
   testVulkanGraphicsIfBranchLocalDeclarationsPrototypeAssembly();
@@ -49762,6 +54363,7 @@ int main() {
   testUnsizedStorageBufferDescriptorArrayDirectXSourceAndOpenGLDiagnostics();
   testDirectXStorageBufferElementTypeUnsupportedDiagnostic();
   testOpenGLStorageBufferDescriptorArraySourceAndReflection();
+  testOpenGLUnsizedStructStorageBufferDescriptorArraySource();
   testStructStorageBufferDescriptorArraySourceAndReflection();
   testVulkanStructStorageBufferDescriptorArrayFieldPaths();
   testMixedResourceDescriptorArraySourceAndReflection();
@@ -49781,9 +54383,12 @@ int main() {
   testDirectXFunctionParameterArrayHLSL();
   testDirectXLocalFunctionParameterArrayHLSL();
   testDirectXMatrixFunctionParameterArrayHLSL();
+  testDirectXMatrixConstructorHLSL();
+  testDirectXMatrixStorageBufferHLSL();
+  testOpenGLMatrixStorageBufferGLSL();
   testDirectXFoldedNestedFunctionParameterArrayHLSL();
   testDirectXNestedLocalFunctionParameterArrayHLSL();
-  testDirectXFunctionParameterArrayUnsupportedDiagnostics();
+  testDirectXFunctionParameterStructArrayHLSL();
   testOpenGLFunctionParameterArrayGLSL();
   testVulkanFunctionParameterArraySPIRV();
   testVulkanLocalFunctionParameterArraySPIRV();
@@ -49863,6 +54468,8 @@ int main() {
   testVulkanPrototypeMathIntrinsicAssembly();
   testVulkanPrototypeVectorScalarArithmeticAssembly();
   testVulkanPrototypeScalarConstructorAssembly();
+  testVulkanPrototypeMatrixConstructorAssembly();
+  testAggregateConstructorDiagnostics();
   testVulkanPrototypeVectorSwizzleAssembly();
   testVulkanPrototypeVectorBufferAssembly();
   testVector3StorageBufferNativePaths();
@@ -49870,6 +54477,9 @@ int main() {
   testStorageImageDiagnostics();
   testTextureSampleDiagnostics();
   testVectorSwizzleDiagnostics();
+  testIndexAccessDiagnostics();
+  testAssignmentTargetAggregateDiagnostics();
+  testAssignmentTargetReadOnlyDiagnostics();
 
   std::error_code cleanupError;
   std::filesystem::remove_all(unitTempDirectory, cleanupError);

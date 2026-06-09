@@ -64,6 +64,7 @@ REQUIRED_ENTRY_FIELDS = {
 }
 
 OPTIONAL_ENTRY_EVIDENCE_FIELDS = {
+    "auxiliary_evidence_tests": "auxiliaryEvidenceTests",
     "target_feature_evidence_tests": "targetFeatureEvidenceTests",
 }
 
@@ -180,6 +181,14 @@ TARGET_FEATURE_EVIDENCE_KIND_PATTERNS = {
     ),
     "target-package-explanation": TARGET_PACKAGE_EXPLANATION_EVIDENCE_RE,
 }
+
+AUXILIARY_EVIDENCE_KIND_PATTERNS = {
+    "backend-dump": re.compile(r"^cglc_dump_backend_"),
+    "debug-dump": re.compile(r"^cglc_dump_debug_"),
+    "package-inspection": re.compile(r"^cglc_package_verify_"),
+    "target-explanation": re.compile(r"^cglc_(?:doctor_json|explain_targets)_"),
+}
+AUXILIARY_EVIDENCE_KINDS = set(AUXILIARY_EVIDENCE_KIND_PATTERNS)
 
 # Expected diagnostics are concrete compiler codes for the fixture, not just the
 # compatibility bucket attached to the unsupported native-v0 entry.
@@ -339,15 +348,20 @@ def validate_evidence_tests(
             errors.append(f"{entry_label}: {noun} must start with cglc_: {test_name}")
         if test_name not in known_evidence_tests:
             errors.append(f"{entry_label}: unknown {noun} {test_name!r}")
-        if (
+        allows_missing_optional_native = (
             ctest_names is not None
-            and test_name not in ctest_names
-            and not ctest_inventory_allows_missing_optional_native_evidence(
+            and field == "evidence_tests"
+            and ctest_inventory_allows_missing_optional_native_evidence(
                 command_profile,
                 target,
                 test_name,
                 ctest_names,
             )
+        )
+        if (
+            ctest_names is not None
+            and test_name not in ctest_names
+            and not allows_missing_optional_native
         ):
             errors.append(
                 f"{entry_label}: CTest inventory is missing {noun} {test_name!r}"
@@ -383,6 +397,51 @@ def target_feature_evidence_kind(test_name: str) -> str | None:
     if len(matches) != 1:
         return None
     return matches[0]
+
+
+def auxiliary_evidence_kind(test_name: str) -> str | None:
+    matches = [
+        kind
+        for kind, pattern in AUXILIARY_EVIDENCE_KIND_PATTERNS.items()
+        if pattern.search(test_name)
+    ]
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
+def validate_auxiliary_evidence_tests(
+    errors: list[str],
+    entry_label: str,
+    evidence_tests: list[str],
+    target_feature_evidence_tests: list[str],
+    auxiliary_evidence_tests: list[str],
+) -> None:
+    shared_evidence_tests = sorted(
+        set(evidence_tests).intersection(auxiliary_evidence_tests)
+    )
+    if shared_evidence_tests:
+        errors.append(
+            f"{entry_label}: auxiliary_evidence_tests must not duplicate "
+            "evidence_tests: " + ", ".join(shared_evidence_tests)
+        )
+
+    shared_target_feature_tests = sorted(
+        set(target_feature_evidence_tests).intersection(auxiliary_evidence_tests)
+    )
+    if shared_target_feature_tests:
+        errors.append(
+            f"{entry_label}: auxiliary_evidence_tests must not duplicate "
+            "target_feature_evidence_tests: " + ", ".join(shared_target_feature_tests)
+        )
+
+    for test_name in auxiliary_evidence_tests:
+        if auxiliary_evidence_kind(test_name) is None:
+            errors.append(
+                f"{entry_label}: auxiliary_evidence_tests entry {test_name!r} "
+                "must be a backend-dump, debug-dump, package-inspection, or "
+                "target-explanation evidence test"
+            )
 
 
 def validate_target_feature_evidence_tests(
@@ -545,6 +604,20 @@ def target_feature_evidence_kind_counts(
         for test_name in evidence_tests:
             if isinstance(test_name, str):
                 kind = target_feature_evidence_kind(test_name)
+                if kind is not None:
+                    counts[kind] += 1
+    return counts
+
+
+def auxiliary_evidence_kind_counts(entries: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {kind: 0 for kind in sorted(AUXILIARY_EVIDENCE_KINDS)}
+    for entry in entries:
+        evidence_tests = entry.get("auxiliary_evidence_tests")
+        if not isinstance(evidence_tests, list):
+            continue
+        for test_name in evidence_tests:
+            if isinstance(test_name, str):
+                kind = auxiliary_evidence_kind(test_name)
                 if kind is not None:
                     counts[kind] += 1
     return counts
@@ -929,6 +1002,12 @@ def target_feature_evidence_summary(entries: list[dict[str, Any]]) -> dict[str, 
     return summary
 
 
+def auxiliary_evidence_summary(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    summary = evidence_field_summary(entries, "auxiliary_evidence_tests")
+    summary["byEvidenceKind"] = auxiliary_evidence_kind_counts(entries)
+    return summary
+
+
 def build_report(
     root: Path, manifest_path: Path, payload: dict[str, Any]
 ) -> dict[str, Any]:
@@ -971,6 +1050,7 @@ def build_report(
             "byFeatureGroup": sorted_count_map(entries, "feature_group"),
             "byLanguageCategory": sorted_count_map(entries, "language_category"),
             "byCommandProfile": sorted_count_map(entries, "command_profile"),
+            "auxiliaryEvidence": auxiliary_evidence_summary(entries),
             "targetFeatureEvidence": target_feature_evidence_summary(entries),
         },
         "entries": report_entries,
@@ -1086,10 +1166,12 @@ def validate_entry(
         errors, entry_label, command_profile, target, evidence_tests
     )
 
+    optional_evidence_tests_by_field: dict[str, list[str]] = {}
     for optional_field in OPTIONAL_ENTRY_EVIDENCE_FIELDS:
         optional_tests = optional_string_list(
             errors, entry, optional_field, entry_label
         )
+        optional_evidence_tests_by_field[optional_field] = optional_tests
         validate_evidence_tests(
             errors,
             entry_label,
@@ -1115,6 +1197,14 @@ def validate_entry(
             validate_target_feature_evidence_tests(
                 errors, entry_label, command_profile, target, optional_tests
             )
+
+    validate_auxiliary_evidence_tests(
+        errors,
+        entry_label,
+        evidence_tests,
+        optional_evidence_tests_by_field.get("target_feature_evidence_tests", []),
+        optional_evidence_tests_by_field.get("auxiliary_evidence_tests", []),
+    )
 
     if status == "unsupported":
         if entry_id and not entry_id.startswith(UNSUPPORTED_ENTRY_ID_PREFIX):
@@ -1448,6 +1538,22 @@ def write_json_report(path: Path, report: dict[str, Any]) -> None:
     )
 
 
+def format_evidence_summary(label: str, summary: dict[str, Any]) -> str:
+    feature_groups = ", ".join(
+        f"{name}={count}" for name, count in summary["byFeatureGroup"].items()
+    )
+    evidence_kinds = ", ".join(
+        f"{name}={count}" for name, count in summary["byEvidenceKind"].items()
+    )
+    return (
+        f"{label}: "
+        f"entries={summary['entryCount']}, "
+        f"tests={summary['testCount']}, "
+        f"featureGroups={feature_groups or 'none'}, "
+        f"kinds={evidence_kinds or 'none'}"
+    )
+
+
 def write_text_report(path: Path, report: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     summary = report["summary"]
@@ -1462,28 +1568,9 @@ def write_text_report(path: Path, report: dict[str, Any]) -> None:
         + ", ".join(
             f"{name}={count}" for name, count in summary["byCommandProfile"].items()
         ),
-        "targetFeatureEvidence: "
-        f"entries={summary['targetFeatureEvidence']['entryCount']}, "
-        f"tests={summary['targetFeatureEvidence']['testCount']}, "
-        "featureGroups="
-        + (
-            ", ".join(
-                f"{name}={count}"
-                for name, count in summary["targetFeatureEvidence"][
-                    "byFeatureGroup"
-                ].items()
-            )
-            or "none"
-        )
-        + ", kinds="
-        + (
-            ", ".join(
-                f"{name}={count}"
-                for name, count in summary["targetFeatureEvidence"][
-                    "byEvidenceKind"
-                ].items()
-            )
-            or "none"
+        format_evidence_summary("auxiliaryEvidence", summary["auxiliaryEvidence"]),
+        format_evidence_summary(
+            "targetFeatureEvidence", summary["targetFeatureEvidence"]
         ),
         "",
     ]
@@ -1518,10 +1605,15 @@ def write_text_report(path: Path, report: dict[str, Any]) -> None:
             target_feature_evidence = (
                 f" targetFeatureEvidence={len(entry['targetFeatureEvidenceTests'])}"
             )
+        auxiliary_evidence = ""
+        if "auxiliaryEvidenceTests" in entry:
+            auxiliary_evidence = (
+                f" auxiliaryEvidence={len(entry['auxiliaryEvidenceTests'])}"
+            )
         lines.append(
             f"{entry['id']} status={entry['status']} "
             f"profile={entry['commandProfile']}{target}{diagnostic}"
-            f"{target_feature_evidence}{execution_text}"
+            f"{auxiliary_evidence}{target_feature_evidence}{execution_text}"
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -1665,6 +1757,10 @@ def self_test_manifest(root: Path | None = None) -> dict[str, Any]:
                 "target": "opengl",
                 "fixture": "tests/opengl/fixtures/SourcePackageSelfTest.cgl",
                 "evidence_tests": ["cglc_build_opengl_self_test_source_package"],
+                "auxiliary_evidence_tests": [
+                    "cglc_dump_backend_opengl_self_test",
+                    "cglc_package_verify_json_schema_opengl_self_test_source_package",
+                ],
                 "notes": "accepted package fixture",
             },
             {
@@ -1704,7 +1800,8 @@ def self_test_manifest(root: Path | None = None) -> dict[str, Any]:
         base_entry = base_entries_by_key[key]
         while counts.get(key, 0) < required_count:
             clone = dict(base_entry)
-            clone.pop("target_feature_evidence_tests", None)
+            for optional_field in OPTIONAL_ENTRY_EVIDENCE_FIELDS:
+                clone.pop(optional_field, None)
             id_prefix = (
                 UNSUPPORTED_ENTRY_ID_PREFIX.rstrip(".")
                 if key == ("known-native-v0-unsupported", "unsupported")
@@ -1875,11 +1972,15 @@ def run_self_test() -> int:
             "add_test(NAME cglc_check_control_flow_self_test COMMAND cglc --version)\n"
             "add_test(NAME cglc_dump_hir_graphics_self_test COMMAND cglc --version)\n"
             "add_test(NAME cglc_build_metal_self_test_native COMMAND cglc --version)\n"
+            "add_test(NAME cglc_dump_backend_metal_self_test COMMAND cglc --version)\n"
             "add_test(NAME cglc_doctor_json_metal_graphics_self_test_native_evidence "
             "COMMAND cglc --version)\n"
             "add_test(NAME cglc_explain_targets_metal_graphics_self_test_native_evidence "
             "COMMAND cglc --version)\n"
             "add_test(NAME cglc_build_opengl_self_test_source_package COMMAND cglc --version)\n"
+            "add_test(NAME cglc_dump_backend_opengl_self_test COMMAND cglc --version)\n"
+            "add_test(NAME cglc_package_verify_json_schema_opengl_self_test_source_package "
+            "COMMAND cglc --version)\n"
             "add_test(NAME cglc_build_opengl_self_test_native_package COMMAND cglc --version)\n"
             "add_test(NAME cglc_check_storage_image_self_test COMMAND cglc --version)\n"
             "add_test(NAME cglc_check_texture_self_test COMMAND cglc --version)\n"
@@ -1919,6 +2020,40 @@ def run_self_test() -> int:
             raise AssertionError(
                 f"unexpected target feature evidence summary: {report!r}"
             )
+        if report["summary"]["auxiliaryEvidence"] != {
+            "entryCount": 1,
+            "testCount": 2,
+            "byFeatureGroup": {
+                "resources": 1,
+            },
+            "byEvidenceKind": {
+                "backend-dump": 1,
+                "debug-dump": 0,
+                "package-inspection": 1,
+                "target-explanation": 0,
+            },
+        }:
+            raise AssertionError(f"unexpected auxiliary evidence summary: {report!r}")
+        text_report_path = root / "self-test-report.txt"
+        write_text_report(text_report_path, report)
+        text_report = text_report_path.read_text(encoding="utf-8")
+        expected_auxiliary_summary = (
+            "auxiliaryEvidence: entries=1, tests=2, featureGroups=resources=1, "
+            "kinds=backend-dump=1, debug-dump=0, package-inspection=1, "
+            "target-explanation=0"
+        )
+        if expected_auxiliary_summary not in text_report:
+            raise AssertionError(
+                f"missing auxiliary evidence text summary: {text_report!r}"
+            )
+        expected_auxiliary_entry_line = (
+            "resources.self-test-source-package status=accepted "
+            "profile=source-package-build target=opengl auxiliaryEvidence=2"
+        )
+        if expected_auxiliary_entry_line not in text_report:
+            raise AssertionError(
+                f"missing auxiliary evidence text entry line: {text_report!r}"
+            )
 
         native_entry = self_test_entry(payload, "graphics-stages.self-test-native")
         known_evidence_tests = discover_known_evidence_tests(root)
@@ -1953,6 +2088,59 @@ def run_self_test() -> int:
             missing_native_errors,
             "CTest inventory is missing evidence test "
             "'cglc_build_metal_self_test_native'",
+        )
+        native_auxiliary_entry = dict(native_entry)
+        native_auxiliary_entry["auxiliary_evidence_tests"] = [
+            "cglc_dump_backend_metal_self_test"
+        ]
+        native_auxiliary_errors = validate_entry(
+            root,
+            manifest_path,
+            native_auxiliary_entry,
+            0,
+            known_evidence_tests,
+            optional_native_unavailable_ctest_names
+            | {"cglc_dump_backend_metal_self_test"},
+        )
+        if native_auxiliary_errors:
+            raise AssertionError(
+                "expected auxiliary evidence to be allowed when its CTest is "
+                f"registered: {native_auxiliary_errors!r}"
+            )
+        missing_auxiliary_errors = validate_entry(
+            root,
+            manifest_path,
+            native_auxiliary_entry,
+            0,
+            known_evidence_tests,
+            optional_native_unavailable_ctest_names,
+        )
+        require_self_test_error(
+            missing_auxiliary_errors,
+            "CTest inventory is missing auxiliary_evidence_tests entry "
+            "'cglc_dump_backend_metal_self_test'",
+        )
+        native_build_as_auxiliary_entry = dict(native_entry)
+        native_build_as_auxiliary_entry["auxiliary_evidence_tests"] = [
+            "cglc_build_metal_self_test_native"
+        ]
+        native_build_as_auxiliary_errors = validate_entry(
+            root,
+            manifest_path,
+            native_build_as_auxiliary_entry,
+            0,
+            known_evidence_tests,
+            optional_native_unavailable_ctest_names,
+        )
+        require_self_test_error(
+            native_build_as_auxiliary_errors,
+            "CTest inventory is missing auxiliary_evidence_tests entry "
+            "'cglc_build_metal_self_test_native'",
+        )
+        require_self_test_error(
+            native_build_as_auxiliary_errors,
+            "auxiliary_evidence_tests entry 'cglc_build_metal_self_test_native' "
+            "must be a backend-dump",
         )
         if not ctest_inventory_allows_missing_optional_native_evidence(
             "native-package-build",
@@ -2189,6 +2377,14 @@ def run_self_test() -> int:
         require_self_test_error(errors, "unknown target_feature_evidence_tests entry")
 
         payload = self_test_manifest(root)
+        self_test_entry(payload, "compute-basics.self-test-check")[
+            "auxiliary_evidence_tests"
+        ] = ["cglc_missing_auxiliary_self_test"]
+        write_manifest(manifest_path, payload)
+        _, errors = validate_manifest(root, manifest_path)
+        require_self_test_error(errors, "unknown auxiliary_evidence_tests entry")
+
+        payload = self_test_manifest(root)
         payload["coverage_contract"]["required_feature_statuses"] = [
             requirement
             for requirement in payload["coverage_contract"]["required_feature_statuses"]
@@ -2414,6 +2610,17 @@ def main(argv: list[str]) -> int:
     print(
         f"validated {summary['total']} v0 conformance manifest entries "
         f"({status_counts}; {profile_counts})"
+    )
+    auxiliary_evidence = summary["auxiliaryEvidence"]
+    print(
+        "auxiliary evidence "
+        f"entries={auxiliary_evidence['entryCount']}, "
+        f"tests={auxiliary_evidence['testCount']}, "
+        "kinds="
+        + ", ".join(
+            f"{name}={count}"
+            for name, count in auxiliary_evidence["byEvidenceKind"].items()
+        )
     )
     target_feature_evidence = summary["targetFeatureEvidence"]
     print(

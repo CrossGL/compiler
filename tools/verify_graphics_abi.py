@@ -786,6 +786,18 @@ def validate_varyings(diagnostics, path, varyings, entries_by_name, target):
             locations[coordinate] = index
 
 
+def fixed_array_dimension_product(dimensions):
+    if not dimensions:
+        return None
+
+    product = 1
+    for dimension in dimensions:
+        if dimension["kind"] != "fixed" or "elementCount" not in dimension:
+            return None
+        product *= dimension["elementCount"]
+    return product
+
+
 def validate_resource_link(
     diagnostics,
     path,
@@ -814,6 +826,20 @@ def validate_resource_link(
         "source resource arrayDimensions",
         target,
     )
+    source_fixed_product = fixed_array_dimension_product(
+        resource.get("arrayDimensions", [])
+    )
+    if source_fixed_product is not None:
+        add_equal_diagnostic(
+            diagnostics,
+            path,
+            "source-array-element-count-mismatch",
+            f"{record_path}.arrayElementCount",
+            record.get("arrayElementCount"),
+            source_fixed_product,
+            "source resource arrayElementCount",
+            target,
+        )
     for field in ("set", "binding"):
         if field in resource or field in record:
             add_equal_diagnostic(
@@ -848,6 +874,160 @@ def validate_resource_link(
             "source resource storageImageFormat",
             target,
         )
+
+
+DESCRIPTOR_METADATA_OPTIONS = {
+    "vulkan": {
+        "descriptor": {
+            "uniform-buffer": (
+                ("VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER", "uniform_buffer"),
+                ("uniformBuffer", "uniform-buffer"),
+            ),
+            "storage-buffer": (
+                ("VK_DESCRIPTOR_TYPE_STORAGE_BUFFER", "storage_buffer"),
+                ("storageBuffer", "storage-buffer"),
+            ),
+            "texture": (
+                ("VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE", "combined_image_sampler"),
+                ("sampledImage", "sampled-texture"),
+            ),
+            "storage-image": (
+                ("VK_DESCRIPTOR_TYPE_STORAGE_IMAGE", "storage_image"),
+                ("storageImage", "storage-image"),
+            ),
+            "sampler": (("VK_DESCRIPTOR_TYPE_SAMPLER",), ("sampler",)),
+        },
+    },
+    "directx": {
+        "registerBinding": {
+            "uniform-buffer": (("CBV",), ("constant-buffer",)),
+            "storage-buffer": (("UAV",), ("uav",)),
+            "texture": (("SRV",), ("srv",)),
+            "storage-image": (("UAV",), ("uav",)),
+            "sampler": (("Sampler",), ("sampler",)),
+        },
+    },
+    "metal": {
+        "kernelArgument": {
+            "uniform-buffer": (None, ("buffer", "uniform-buffer")),
+            "storage-buffer": (None, ("buffer",)),
+            "texture": (None, ("texture",)),
+            "storage-image": (None, ("texture",)),
+            "sampler": (None, ("sampler",)),
+        },
+    },
+    "opengl": {
+        "programResourceBinding": {
+            "uniform-buffer": (None, ("uniform-buffer",)),
+            "storage-buffer": (None, ("storage-buffer",)),
+            "texture": (None, ("texture",)),
+            "storage-image": (None, ("image",)),
+            "sampler": (None, ("sampler",)),
+        },
+    },
+}
+
+
+def normalized_resource_metadata_kind(record, resource):
+    kind = resource["kind"]
+    address_space = resource.get("addressSpace", record.get("addressSpace"))
+
+    if kind in {"uniform", "uniform_buffer"}:
+        return "uniform-buffer"
+    if kind in {"storageBuffer", "storage_buffer"}:
+        return "storage-buffer"
+    if kind == "buffer":
+        if address_space in {"Uniform", "uniform", "constant", "constant-buffer"}:
+            return "uniform-buffer"
+        if address_space in {
+            "StorageBuffer",
+            "storage",
+            "shader-storage",
+            "buffer",
+            "device",
+            "unordered-access",
+        }:
+            return "storage-buffer"
+    if kind == "texture":
+        return "texture"
+    if kind in {"storage_image", "storageImage"}:
+        return "storage-image"
+    if kind == "sampler":
+        return "sampler"
+    return None
+
+
+def expected_descriptor_metadata_options(record, resource):
+    target_options = DESCRIPTOR_METADATA_OPTIONS.get(record["target"])
+    if target_options is None:
+        return None
+
+    abi_options = target_options.get(record["abi"])
+    if abi_options is None:
+        return None
+
+    metadata_kind = normalized_resource_metadata_kind(record, resource)
+    if metadata_kind is None:
+        return None
+    return abi_options.get(metadata_kind)
+
+
+def add_allowed_diagnostic(
+    diagnostics,
+    path,
+    code,
+    field_path,
+    actual,
+    expected_options,
+    expected_label,
+    target,
+):
+    if actual not in expected_options:
+        diagnostics.append(
+            make_diagnostic(
+                path,
+                code,
+                f"{field_path}: expected {expected_label} one of "
+                f"{list(expected_options)!r}, got {actual!r}",
+                target,
+            )
+        )
+
+
+def validate_descriptor_metadata(
+    diagnostics,
+    path,
+    record_path,
+    record,
+    resource,
+    target,
+):
+    expected = expected_descriptor_metadata_options(record, resource)
+    if expected is None:
+        return
+
+    expected_descriptor_types, expected_binding_classes = expected
+    if expected_descriptor_types is not None:
+        add_allowed_diagnostic(
+            diagnostics,
+            path,
+            "descriptor-type-mismatch",
+            f"{record_path}.descriptorType",
+            record.get("descriptorType"),
+            expected_descriptor_types,
+            "source resource descriptorType",
+            target,
+        )
+    add_allowed_diagnostic(
+        diagnostics,
+        path,
+        "binding-class-mismatch",
+        f"{record_path}.bindingClass",
+        record.get("bindingClass"),
+        expected_binding_classes,
+        "source resource bindingClass",
+        target,
+    )
 
 
 def validate_semantics(path, instance):
@@ -928,6 +1108,9 @@ def validate_semantics(path, instance):
             else:
                 previous_resource_index = resource_index
             validate_resource_link(
+                diagnostics, path, record_path, record, resource, record_target
+            )
+            validate_descriptor_metadata(
                 diagnostics, path, record_path, record, resource, record_target
             )
 

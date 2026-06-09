@@ -1,6 +1,27 @@
 set(CROSSGL_FAKE_SHADER_TOOL_SCRIPT
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/toolchain/FakeShaderTool.cmake")
 
+function(crossgl_write_fake_metal_probe_tool tool_dir tool_name)
+  if(WIN32)
+    file(WRITE "${tool_dir}/${tool_name}.cmd"
+         "@echo off\n"
+         "if \"%1\"==\"--version\" echo fake ${tool_name} 1.0\n"
+         "exit /b 0\n")
+  else()
+    file(WRITE "${tool_dir}/${tool_name}"
+         "#!/bin/sh\n"
+         "if [ \"$1\" = \"--version\" ]; then\n"
+         "  printf 'fake ${tool_name} 1.0\\n'\n"
+         "fi\n"
+         "exit 0\n")
+    file(CHMOD "${tool_dir}/${tool_name}"
+         PERMISSIONS
+           OWNER_READ OWNER_WRITE OWNER_EXECUTE
+           GROUP_READ GROUP_EXECUTE
+           WORLD_READ WORLD_EXECUTE)
+  endif()
+endfunction()
+
 function(crossgl_configure_fake_metal_xcrun out_dir behavior)
   set(tool_instance "")
   if(ARGC GREATER 2)
@@ -11,6 +32,8 @@ function(crossgl_configure_fake_metal_xcrun out_dir behavior)
   file(MAKE_DIRECTORY "${tool_dir}")
   set(tool_log "${tool_dir}/xcrun.log")
   file(REMOVE "${tool_log}")
+  crossgl_write_fake_metal_probe_tool("${tool_dir}" metal)
+  crossgl_write_fake_metal_probe_tool("${tool_dir}" metallib)
 
   if(WIN32)
     file(TO_NATIVE_PATH "${CMAKE_COMMAND}" native_cmake_command)
@@ -23,6 +46,15 @@ function(crossgl_configure_fake_metal_xcrun out_dir behavior)
   else()
     file(WRITE "${tool_dir}/xcrun"
          "#!/bin/sh\n"
+         "if [ \"$1\" = \"-find\" ]; then\n"
+         "  case \"$2\" in\n"
+         "    metal|metallib)\n"
+         "      printf '%s/%s\\n' '${tool_dir}' \"$2\"\n"
+         "      exit 0\n"
+         "      ;;\n"
+         "  esac\n"
+         "  exit 1\n"
+         "fi\n"
          "exec \"${CMAKE_COMMAND}\" -DFAKE_TOOL_NAME=xcrun -DFAKE_TOOL_BEHAVIOR=${behavior} -DFAKE_TOOL_LOG=\"${tool_log}\" -P \"${CROSSGL_FAKE_SHADER_TOOL_SCRIPT}\" -- \"$@\"\n")
     file(CHMOD "${tool_dir}/xcrun"
          PERMISSIONS
@@ -51,6 +83,18 @@ set(CROSSGL_FAKE_METAL_UNAVAILABLE_DIR
     "${CMAKE_CURRENT_BINARY_DIR}/fake-toolchain/xcrun-unavailable")
 file(MAKE_DIRECTORY "${CROSSGL_FAKE_METAL_UNAVAILABLE_DIR}")
 
+if(APPLE)
+  set(CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_TOOL_SOURCE xcrun)
+else()
+  set(CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_TOOL_SOURCE PATH)
+endif()
+set(CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS
+  "sourceHash.value|artifactHash.value|sizeBytes|toolchainProvenance.tools.1.resolvedExecutable|toolchainProvenance.tools.2.resolvedExecutable|toolchainProvenance.invocation.commandLineSha256|toolchainProvenance.invocation.environmentSha256")
+set(CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS
+  "toolchainProvenance.producer=CrossGL-Compiler|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.0.executable=cglc|toolchainProvenance.tools.1.name=xcrun metal|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.version=fake metal 1.0|toolchainProvenance.tools.1.executable=xcrun|toolchainProvenance.tools.1.executableSource=${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_TOOL_SOURCE}|toolchainProvenance.tools.1.versionProbeStatus=succeeded|toolchainProvenance.tools.2.name=xcrun metallib|toolchainProvenance.tools.2.role=linker|toolchainProvenance.tools.2.version=fake metallib 1.0|toolchainProvenance.tools.2.executable=xcrun|toolchainProvenance.tools.2.executableSource=${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_TOOL_SOURCE}|toolchainProvenance.tools.2.versionProbeStatus=succeeded")
+set(CROSSGL_REAL_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS
+  "toolchainProvenance.producer=CrossGL-Compiler|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.0.executable=cglc|toolchainProvenance.tools.1.name=xcrun metal|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=xcrun|toolchainProvenance.tools.1.executableSource=xcrun|toolchainProvenance.tools.2.name=xcrun metallib|toolchainProvenance.tools.2.role=linker|toolchainProvenance.tools.2.executable=xcrun|toolchainProvenance.tools.2.executableSource=xcrun")
+
 add_test(NAME cglc_build_metal_native_fake_xcrun_success
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -68,7 +112,8 @@ add_test(NAME cglc_build_metal_native_fake_xcrun_success
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|targetLegalizationToolRequirements.target=metal|targetLegalizationToolRequirements.packageMode=native|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=0|targetLegalizationToolRequirements.optionalNativeToolMissing=false|targetLegalizationToolRequirements.optionalNativeToolStatus=not-required|artifacts.backendSource=backend/metal/SimpleShader.metal|artifacts.intermediate=backend/metal/SimpleShader.air|artifacts.nativeBinary=backend/metal/SimpleShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json"
     "-DEXPECTED_MANIFEST_JSON_ARRAY_CONTAINS=targetLegalizationToolRequirements.requiredToolIds=metal.toolchain.xcrun-metal|targetLegalizationToolRequirements.requiredToolIds=metal.toolchain.xcrun-metallib|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.metal.tool-requirements.present"
     "-DEXPECTED_MANIFEST_JSON_ARRAY_LENGTHS=targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=0|targetLegalizationToolRequirements.toolRequirementEvidenceIds=3"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run|${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|nativeBinary=backend/metal/SimpleShader.metallib"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
@@ -89,7 +134,8 @@ add_test(NAME cglc_build_metal_native_opt_level_o0_fake_xcrun
     -DEXPECTED_NATIVE_BINARY=backend/metal/SimpleShader.metallib
     "-DEXPECTED_METAL_COMPILE_OPTIONS_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|policy.name=metal-conservative-native-package-v1|policy.profile=debug|policy.requestedOptimizationLevel=O0|policy.optimizationLevel=-O0|policy.debugInfo=true|compile.tool=xcrun metal|compile.sdk=macosx|compile.flags.0=-O0|compile.flags.1=-gline-tables-only|library.tool=xcrun metallib"
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|artifacts.backendSource=backend/metal/SimpleShader.metal|artifacts.intermediate=backend/metal/SimpleShader.air|artifacts.nativeBinary=backend/metal/SimpleShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O0|optimizationEvidence.requestedLevel=O0|optimizationEvidence.effectiveLevel=O0|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O0|optimizationEvidence.debugInfo=true|optimizationEvidence.profile=debug|optimizationEvidence.flags.0=-O0|optimizationEvidence.flags.1=-gline-tables-only|validationStatus=not-run"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O0|optimizationEvidence.requestedLevel=O0|optimizationEvidence.effectiveLevel=O0|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O0|optimizationEvidence.debugInfo=true|optimizationEvidence.profile=debug|optimizationEvidence.flags.0=-O0|optimizationEvidence.flags.1=-gline-tables-only|validationStatus=not-run|${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_O0_SUCCESS_DIR}/xcrun.log
@@ -113,7 +159,8 @@ add_test(NAME cglc_build_metal_native_opt_level_o2_fake_xcrun
     "-DEXPECTED_NATIVE_BINARY_CONTAINS=fake metal metallib"
     "-DEXPECTED_METAL_COMPILE_OPTIONS_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|policy.name=metal-conservative-native-package-v1|policy.profile=release|policy.requestedOptimizationLevel=O2|policy.optimizationLevel=-O2|policy.debugInfo=false|compile.tool=xcrun metal|compile.sdk=macosx|compile.flags.0=-O2|library.tool=xcrun metallib"
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|artifacts.backendSource=backend/metal/SimpleShader.metal|artifacts.intermediate=backend/metal/SimpleShader.air|artifacts.nativeBinary=backend/metal/SimpleShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O2|optimizationEvidence.requestedLevel=O2|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O2|optimizationEvidence.requestedLevel=O2|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run|${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_O2_SUCCESS_DIR}/xcrun.log
@@ -134,11 +181,14 @@ add_test(NAME cglc_build_metal_graphics_descriptor_array_fake_xcrun_success
     -DTOOLCHAIN_PATH=${CROSSGL_FAKE_XCRUN_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_NATIVE_SOURCE_SNIPPET}"
-    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalGraphicsDescriptorArrayShader|artifacts.backendSource=backend/metal/MetalGraphicsDescriptorArrayShader.metal|artifacts.intermediate=backend/metal/MetalGraphicsDescriptorArrayShader.air|artifacts.nativeBinary=backend/metal/MetalGraphicsDescriptorArrayShader.metallib|artifacts.graphicsAbi=backend/metal/MetalGraphicsDescriptorArrayShader.graphics-abi.json"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalGraphicsDescriptorArrayShader|packageArtifactRequirements.packageMode=native|packageArtifactRequirements.requiredPathArtifacts.0=backendSource|packageArtifactRequirements.requiredPathArtifacts.1=intermediate|packageArtifactRequirements.requiredPathArtifacts.2=nativeBinary|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=0|targetLegalizationToolRequirements.optionalNativeToolStatus=not-required|artifacts.backendSource=backend/metal/MetalGraphicsDescriptorArrayShader.metal|artifacts.intermediate=backend/metal/MetalGraphicsDescriptorArrayShader.air|artifacts.nativeBinary=backend/metal/MetalGraphicsDescriptorArrayShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/MetalGraphicsDescriptorArrayShader.native-artifact.json|artifacts.graphicsAbi=backend/metal/MetalGraphicsDescriptorArrayShader.graphics-abi.json"
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalGraphicsDescriptorArrayShader|nativeBinary=backend/metal/MetalGraphicsDescriptorArrayShader.metallib|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|functionConstants.0.name=RESOURCE_COUNT|functionConstants.0.value=2|manualTextureCompareKernelSummary.totalCount=0"
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=6|targetResourceBindings=6|vertexLayouts=1|vertexLayouts.0.attributes=3|functionConstants=1|workgroupSizes=0|manualTextureCompareKernels=0"
-    "-DEXPECTED_REFLECTION_TARGET_FIELDS=heightMaps.stage=vertex|heightMaps.entryPoint=vertex_main|heightMaps.kind=texture|heightMaps.sourceType=sampler2D[RESOURCE_COUNT]|heightMaps.metalType=array<texture2d<float>, RESOURCE_COUNT>|heightMaps.bindingClass=texture|heightMaps.argumentIndex=1|heightMaps.set=0|heightMaps.binding=1|heightMaps.arraySize=RESOURCE_COUNT|heightMaps.arrayElementCount=2|heightSamplers.stage=vertex|heightSamplers.entryPoint=vertex_main|heightSamplers.kind=sampler|heightSamplers.sourceType=sampler[RESOURCE_COUNT]|heightSamplers.metalType=array<sampler, RESOURCE_COUNT>|heightSamplers.bindingClass=sampler|heightSamplers.argumentIndex=3|heightSamplers.arrayElementCount=2|colorMaps.stage=fragment|colorMaps.entryPoint=fragment_main|colorMaps.kind=texture|colorMaps.sourceType=sampler2D[RESOURCE_COUNT]|colorMaps.metalType=array<texture2d<float>, RESOURCE_COUNT>|colorMaps.bindingClass=texture|colorMaps.argumentIndex=1|colorMaps.arrayElementCount=2|linearSamplers.stage=fragment|linearSamplers.kind=sampler|linearSamplers.sourceType=sampler[RESOURCE_COUNT]|linearSamplers.metalType=array<sampler, RESOURCE_COUNT>|linearSamplers.argumentIndex=3|shadowMaps.stage=fragment|shadowMaps.kind=texture|shadowMaps.sourceType=sampler2DShadow[RESOURCE_COUNT]|shadowMaps.metalType=array<depth2d<float>, RESOURCE_COUNT>|shadowMaps.bindingClass=texture|shadowMaps.argumentIndex=6|shadowMaps.arrayElementCount=2|shadowSamplers.stage=fragment|shadowSamplers.kind=sampler|shadowSamplers.sourceType=comparison_sampler[RESOURCE_COUNT]|shadowSamplers.metalType=array<sampler, RESOURCE_COUNT>|shadowSamplers.bindingClass=sampler|shadowSamplers.argumentIndex=8|shadowSamplers.arrayElementCount=2"
-    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|sampled-texture.kind=resource|sampler-state.kind=resource|descriptor-array.kind=resource|fixed-array.kind=layout|depth-compare-format.kind=texture|texture-sample.kind=operation|texture-explicit-lod.kind=operation|texture-shadow-compare-explicit-lod.kind=operation"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=heightMaps.stage=vertex|heightMaps.entryPoint=vertex_main|heightMaps.kind=texture|heightMaps.sourceType=sampler2D[RESOURCE_COUNT]|heightMaps.metalType=array<texture2d<float>, RESOURCE_COUNT>|heightMaps.addressSpace=texture|heightMaps.abi=kernelArgument|heightMaps.bindingClass=texture|heightMaps.argumentIndex=1|heightMaps.set=0|heightMaps.binding=1|heightMaps.arraySize=RESOURCE_COUNT|heightMaps.arrayElementCount=2|heightMaps.arrayDimensions.0.source=RESOURCE_COUNT|heightMaps.arrayDimensions.0.kind=fixed|heightMaps.arrayDimensions.0.elementCount=2|heightSamplers.stage=vertex|heightSamplers.entryPoint=vertex_main|heightSamplers.kind=sampler|heightSamplers.sourceType=sampler[RESOURCE_COUNT]|heightSamplers.metalType=array<sampler, RESOURCE_COUNT>|heightSamplers.addressSpace=sampler|heightSamplers.abi=kernelArgument|heightSamplers.bindingClass=sampler|heightSamplers.argumentIndex=3|heightSamplers.set=0|heightSamplers.binding=3|heightSamplers.arraySize=RESOURCE_COUNT|heightSamplers.arrayElementCount=2|heightSamplers.arrayDimensions.0.source=RESOURCE_COUNT|heightSamplers.arrayDimensions.0.kind=fixed|heightSamplers.arrayDimensions.0.elementCount=2|colorMaps.stage=fragment|colorMaps.entryPoint=fragment_main|colorMaps.kind=texture|colorMaps.sourceType=sampler2D[RESOURCE_COUNT]|colorMaps.metalType=array<texture2d<float>, RESOURCE_COUNT>|colorMaps.addressSpace=texture|colorMaps.abi=kernelArgument|colorMaps.bindingClass=texture|colorMaps.argumentIndex=1|colorMaps.set=0|colorMaps.binding=1|colorMaps.arraySize=RESOURCE_COUNT|colorMaps.arrayElementCount=2|colorMaps.arrayDimensions.0.source=RESOURCE_COUNT|colorMaps.arrayDimensions.0.kind=fixed|colorMaps.arrayDimensions.0.elementCount=2|linearSamplers.stage=fragment|linearSamplers.entryPoint=fragment_main|linearSamplers.kind=sampler|linearSamplers.sourceType=sampler[RESOURCE_COUNT]|linearSamplers.metalType=array<sampler, RESOURCE_COUNT>|linearSamplers.addressSpace=sampler|linearSamplers.abi=kernelArgument|linearSamplers.bindingClass=sampler|linearSamplers.argumentIndex=3|linearSamplers.set=0|linearSamplers.binding=3|linearSamplers.arraySize=RESOURCE_COUNT|linearSamplers.arrayElementCount=2|linearSamplers.arrayDimensions.0.source=RESOURCE_COUNT|linearSamplers.arrayDimensions.0.kind=fixed|linearSamplers.arrayDimensions.0.elementCount=2|shadowMaps.stage=fragment|shadowMaps.entryPoint=fragment_main|shadowMaps.kind=texture|shadowMaps.sourceType=sampler2DShadow[RESOURCE_COUNT]|shadowMaps.metalType=array<depth2d<float>, RESOURCE_COUNT>|shadowMaps.addressSpace=texture|shadowMaps.abi=kernelArgument|shadowMaps.bindingClass=texture|shadowMaps.argumentIndex=6|shadowMaps.set=0|shadowMaps.binding=6|shadowMaps.arraySize=RESOURCE_COUNT|shadowMaps.arrayElementCount=2|shadowMaps.arrayDimensions.0.source=RESOURCE_COUNT|shadowMaps.arrayDimensions.0.kind=fixed|shadowMaps.arrayDimensions.0.elementCount=2|shadowSamplers.stage=fragment|shadowSamplers.entryPoint=fragment_main|shadowSamplers.kind=sampler|shadowSamplers.sourceType=comparison_sampler[RESOURCE_COUNT]|shadowSamplers.metalType=array<sampler, RESOURCE_COUNT>|shadowSamplers.addressSpace=sampler|shadowSamplers.abi=kernelArgument|shadowSamplers.bindingClass=sampler|shadowSamplers.argumentIndex=8|shadowSamplers.set=0|shadowSamplers.binding=8|shadowSamplers.arraySize=RESOURCE_COUNT|shadowSamplers.arrayElementCount=2|shadowSamplers.arrayDimensions.0.source=RESOURCE_COUNT|shadowSamplers.arrayDimensions.0.kind=fixed|shadowSamplers.arrayDimensions.0.elementCount=2"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|vertex-shader.kind=stage|fragment-shader.kind=stage|sampled-texture.kind=resource|sampler-state.kind=resource|descriptor-array.kind=resource|fixed-array.kind=layout|depth-compare-format.kind=texture|texture-sample.kind=operation|texture-explicit-lod.kind=operation|texture-shadow-compare.kind=operation|texture-shadow-compare-explicit-lod.kind=operation|index-access.kind=operation"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/MetalGraphicsDescriptorArrayShader.metal|artifactPath=backend/metal/MetalGraphicsDescriptorArrayShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run|${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_SUCCESS_DIR}/xcrun.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=xcrun success: -sdk macosx metallib"
@@ -153,10 +203,10 @@ crossgl_add_python_expect_test(
     -DMODE=package-inspect-source-package
     -DTOOLCHAIN_PATH=${CROSSGL_FAKE_XCRUN_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=MetalGraphicsDescriptorArrayShader|summary.target=metal|summary.nativeBinaryStatus=null|summary.artifactCount=8|summary.debugArtifactsPresent=true|artifacts.5.name=nativeArtifactDescriptor|artifacts.5.path=backend/metal/MetalGraphicsDescriptorArrayShader.native-artifact.json|artifacts.5.exists=true|artifacts.7.name=graphicsAbi|artifacts.7.path=backend/metal/MetalGraphicsDescriptorArrayShader.graphics-abi.json|artifacts.7.exists=true|manifest.target=metal|manifest.artifacts.nativeArtifactDescriptor=backend/metal/MetalGraphicsDescriptorArrayShader.native-artifact.json|manifest.artifacts.graphicsAbi=backend/metal/MetalGraphicsDescriptorArrayShader.graphics-abi.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=metal|nativeArtifactDescriptor.binaryKind=metal.metallib|nativeArtifactDescriptor.sourcePath=backend/metal/MetalGraphicsDescriptorArrayShader.metal|nativeArtifactDescriptor.artifactPath=backend/metal/MetalGraphicsDescriptorArrayShader.metallib|nativeArtifactDescriptor.validationStatus=not-run|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|reflection.target=metal|reflection.module=MetalGraphicsDescriptorArrayShader|reflection.targetResourceBindings.0.stage=vertex|reflection.targetResourceBindings.0.argumentIndex=1|reflection.targetResourceBindings.1.stage=vertex|reflection.targetResourceBindings.1.argumentIndex=3|reflection.targetResourceBindings.2.stage=fragment|reflection.targetResourceBindings.2.argumentIndex=1|reflection.targetResourceBindings.4.argumentIndex=6|reflection.targetResourceBindings.5.argumentIndex=8"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/MetalGraphicsDescriptorArrayShader.metal|artifactPath=backend/metal/MetalGraphicsDescriptorArrayShader.metallib|validationStatus=not-run"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=MetalGraphicsDescriptorArrayShader|summary.target=metal|summary.nativeBinaryStatus=null|summary.artifactCount=8|summary.debugArtifactsPresent=true|artifacts.5.name=nativeArtifactDescriptor|artifacts.5.path=backend/metal/MetalGraphicsDescriptorArrayShader.native-artifact.json|artifacts.5.exists=true|artifacts.7.name=graphicsAbi|artifacts.7.path=backend/metal/MetalGraphicsDescriptorArrayShader.graphics-abi.json|artifacts.7.exists=true|manifest.target=metal|manifest.packageArtifactRequirements.packageMode=native|manifest.packageArtifactRequirements.requiredPathArtifacts.0=backendSource|manifest.packageArtifactRequirements.requiredPathArtifacts.1=intermediate|manifest.packageArtifactRequirements.requiredPathArtifacts.2=nativeBinary|manifest.artifacts.nativeArtifactDescriptor=backend/metal/MetalGraphicsDescriptorArrayShader.native-artifact.json|manifest.artifacts.graphicsAbi=backend/metal/MetalGraphicsDescriptorArrayShader.graphics-abi.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.path=backend/metal/MetalGraphicsDescriptorArrayShader.native-artifact.json|nativeArtifactDescriptor.schemaVersion=1|nativeArtifactDescriptor.kind=crossgl.nativeArtifact|nativeArtifactDescriptor.contractVersion=native-artifact-v0|nativeArtifactDescriptor.target=metal|nativeArtifactDescriptor.binaryKind=metal.metallib|nativeArtifactDescriptor.sourcePath=backend/metal/MetalGraphicsDescriptorArrayShader.metal|nativeArtifactDescriptor.artifactPath=backend/metal/MetalGraphicsDescriptorArrayShader.metallib|nativeArtifactDescriptor.optimizationLevel=O1|nativeArtifactDescriptor.optimizationEvidence.requestedLevel=O1|nativeArtifactDescriptor.optimizationEvidence.effectiveLevel=O2|nativeArtifactDescriptor.optimizationEvidence.status=applied|nativeArtifactDescriptor.optimizationEvidence.tool=xcrun metal|nativeArtifactDescriptor.optimizationEvidence.toolFlag=-O2|nativeArtifactDescriptor.validationStatus=not-run|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactPathMatchesManifest=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|nativeArtifactDescriptor.checks.validationStatusMatchesNativeStatus=true|graphicsAbi.artifactPresent=true|graphicsAbi.exists=true|graphicsAbi.health=ok|graphicsAbi.validation=lightweight-structural|graphicsAbi.summary.module=MetalGraphicsDescriptorArrayShader|graphicsAbi.summary.target=metal|graphicsAbi.summary.entryPointCount=2|graphicsAbi.summary.vertexInputCount=3|graphicsAbi.summary.varyingCount=3|graphicsAbi.summary.fragmentOutputCount=1|graphicsAbi.summary.builtinCount=1|graphicsAbi.summary.resourceCount=6|graphicsAbi.summary.abiRecordCount=6|artifactRequirementsProjection.packageArtifactRequirementsPresent=true|artifactRequirementsProjection.nativeArtifactDescriptorArtifactPresent=true|artifactRequirementsProjection.nativeArtifactDescriptorHealth=ok|artifactRequirementsProjection.nativeArtifactDescriptorPath=backend/metal/MetalGraphicsDescriptorArrayShader.native-artifact.json|packageArtifactRequirements.target=metal|packageArtifactRequirements.packageMode=native|packageArtifactRequirements.requiredPathArtifacts.0.name=backendSource|packageArtifactRequirements.requiredPathArtifacts.1.name=intermediate|packageArtifactRequirements.requiredPathArtifacts.2.name=nativeBinary|reflection.target=metal|reflection.module=MetalGraphicsDescriptorArrayShader|reflection.targetResourceBindings.0.stage=vertex|reflection.targetResourceBindings.0.addressSpace=texture|reflection.targetResourceBindings.0.abi=kernelArgument|reflection.targetResourceBindings.0.argumentIndex=1|reflection.targetResourceBindings.0.arrayDimensions.0.kind=fixed|reflection.targetResourceBindings.1.stage=vertex|reflection.targetResourceBindings.1.addressSpace=sampler|reflection.targetResourceBindings.1.argumentIndex=3|reflection.targetResourceBindings.2.stage=fragment|reflection.targetResourceBindings.2.addressSpace=texture|reflection.targetResourceBindings.2.argumentIndex=1|reflection.targetResourceBindings.4.argumentIndex=6|reflection.targetResourceBindings.5.argumentIndex=8|reflection.targetResourceBindings.5.addressSpace=sampler"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/MetalGraphicsDescriptorArrayShader.metal|artifactPath=backend/metal/MetalGraphicsDescriptorArrayShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|validationStatus=not-run"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
-    "-DEXPECTED_JSON_ARRAY_LENGTHS=artifacts=8|reflection.entryPoints=2|reflection.resources=6|reflection.targetResourceBindings=6|reflection.vertexLayouts=1|reflection.vertexLayouts.0.attributes=3|reflection.functionConstants=1|reflection.manualTextureCompareKernels=0|diagnostics.diagnostics=0"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=artifacts=8|graphicsAbi.diagnostics=0|packageArtifactRequirements.requiredPathArtifacts=3|packageArtifactRequirements.evidenceIds=4|reflection.entryPoints=2|reflection.resources=6|reflection.targetResourceBindings=6|reflection.vertexLayouts=1|reflection.vertexLayouts.0.attributes=3|reflection.functionConstants=1|reflection.manualTextureCompareKernels=0|diagnostics.diagnostics=0"
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
     -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
@@ -175,6 +225,28 @@ add_test(NAME cglc_build_metal_mixed_texture_compare_descriptor_array_fake_xcrun
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=5|targetResourceBindings=5|functionConstants=1|manualTextureCompareKernels=0|workgroupSizes=1"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.metalType=device float4*|values.bindingClass=buffer|values.argumentIndex=0|colorMaps.sourceType=sampler2D[RESOURCE_COUNT]|colorMaps.metalType=array<texture2d<float>, RESOURCE_COUNT>|colorMaps.bindingClass=texture|colorMaps.argumentIndex=2|colorMaps.arraySize=RESOURCE_COUNT|colorMaps.arrayElementCount=2|shadowMaps.sourceType=sampler2DShadow[RESOURCE_COUNT]|shadowMaps.metalType=array<depth2d<float>, RESOURCE_COUNT>|shadowMaps.bindingClass=texture|shadowMaps.argumentIndex=4|shadowMaps.arrayElementCount=2|linearSamplers.sourceType=sampler[2]|linearSamplers.metalType=array<sampler, 2>|linearSamplers.bindingClass=sampler|linearSamplers.argumentIndex=5|shadowSamplers.sourceType=sampler[2]|shadowSamplers.metalType=array<sampler, 2>|shadowSamplers.bindingClass=sampler|shadowSamplers.argumentIndex=7"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|sampled-texture.kind=resource|descriptor-array.kind=resource|depth-compare-format.kind=texture|sampler-state.kind=resource|texture-sample.kind=operation|texture-explicit-lod.kind=operation|texture-shadow-compare.kind=operation|texture-shadow-compare-explicit-lod.kind=operation|storage-buffer-write.kind=operation"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_SUCCESS_DIR}/xcrun.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=xcrun success: -sdk macosx metallib"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_metal_runtime_texture_sampler_descriptor_array_fake_xcrun_success
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_METAL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_SHADER}
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-texture-sampler-descriptor-array-fake-xcrun.cglb
+    -DEXPECTED_MODULE=MetalRuntimeTextureSamplerDescriptorArrayShader
+    -DMODE=metal-build
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_XCRUN_SUCCESS_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    "-DEXPECTED_METAL_SOURCE_SNIPPET=maps.descriptors[descriptor].sample(linearSamplers.descriptors[descriptor], float2(0.25, 0.75), level(0.0))"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalRuntimeTextureSamplerDescriptorArrayShader|artifacts.backendSource=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metal|artifacts.intermediate=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.air|artifacts.nativeBinary=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.native-artifact.json"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalRuntimeTextureSamplerDescriptorArrayShader|nativeBinary=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metallib|manualTextureCompareKernelSummary.totalCount=0"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=1|resources=4|targetResourceBindings=4|functionConstants=0|manualTextureCompareKernels=0|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.kind=buffer|values.sourceType=vec4*|values.metalType=device float4*|values.addressSpace=device|values.bindingClass=buffer|values.argumentIndex=0|maps.kind=texture|maps.sourceType=sampler2D[]|maps.metalType=constant CrossGLMetalRuntimeResourceDescriptorArrayTable_texture2d_float&|maps.addressSpace=constant|maps.abi=kernelArgument|maps.bindingClass=buffer|maps.argumentIndex=1|maps.set=0|maps.binding=1|maps.arraySize=|maps.arrayDimensions.0.kind=runtime|linearSamplers.kind=sampler|linearSamplers.sourceType=sampler[]|linearSamplers.metalType=constant CrossGLMetalRuntimeResourceDescriptorArrayTable_sampler&|linearSamplers.addressSpace=constant|linearSamplers.abi=kernelArgument|linearSamplers.bindingClass=buffer|linearSamplers.argumentIndex=2|linearSamplers.set=0|linearSamplers.binding=2|linearSamplers.arraySize=|linearSamplers.arrayDimensions.0.kind=runtime|descriptors.kind=buffer|descriptors.sourceType=int*|descriptors.metalType=device int*|descriptors.bindingClass=buffer|descriptors.argumentIndex=3"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|sampled-texture.kind=resource|sampler-state.kind=resource|runtime-descriptor-array.kind=resource|runtime-texture-descriptor-array.kind=resource|runtime-sampler-descriptor-array.kind=resource|runtime-array.kind=layout|texture-sample.kind=operation|texture-explicit-lod.kind=operation|nonuniform-descriptor-index.kind=operation|nonuniform-texture-descriptor-index.kind=operation|nonuniform-sampler-descriptor-index.kind=operation"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metal|artifactPath=backend/metal/MetalRuntimeTextureSamplerDescriptorArrayShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|validationStatus=not-run|${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_SUCCESS_DIR}/xcrun.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=xcrun success: -sdk macosx metallib"
@@ -306,7 +378,9 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       -DEXPECTED_MODULE=SimpleShader
       "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|sourceHash.algorithm=sha256|packageArtifactRequirements.target=metal|packageArtifactRequirements.packageMode=native|packageArtifactRequirements.requiresNativeBinaryStatus=false|artifacts.backendSource=backend/metal/SimpleShader.metal|artifacts.intermediate=backend/metal/SimpleShader.air|artifacts.nativeBinary=backend/metal/SimpleShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json"
       "-DEXPECTED_MANIFEST_JSON_ABSENT_PATHS=artifacts.nativeBinaryStatus"
-      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|validationStatus=not-run"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run|${CROSSGL_REAL_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
       -DMANIFEST_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/manifest-v1.schema.json
       -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
       -DPACKAGE_SCHEMA_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas
@@ -333,7 +407,9 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-package-inspect.cglb
       -DMODE=package-inspect-source-package
       "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=SimpleShader|summary.target=metal|summary.nativeBinaryStatus=null|summary.artifactCount=8|summary.debugArtifactsPresent=true|rootFiles.0.name=manifest|rootFiles.0.exists=true|rootFiles.1.name=reflection|rootFiles.1.exists=true|rootFiles.2.name=diagnostics|rootFiles.2.exists=true|artifacts.0.name=backendSource|artifacts.0.path=backend/metal/SimpleShader.metal|artifacts.0.exists=true|artifacts.1.name=intermediate|artifacts.1.path=backend/metal/SimpleShader.air|artifacts.1.exists=true|artifacts.2.name=nativeBinary|artifacts.2.path=backend/metal/SimpleShader.metallib|artifacts.2.exists=true|artifacts.3.name=debugMetadata|artifacts.3.exists=true|artifacts.4.name=hirSourceMap|artifacts.4.exists=true|artifacts.5.name=nativeArtifactDescriptor|artifacts.5.path=backend/metal/SimpleShader.native-artifact.json|artifacts.5.exists=true|artifacts.7.name=graphicsAbi|artifacts.7.path=backend/metal/SimpleShader.graphics-abi.json|artifacts.7.exists=true|manifest.target=metal|manifest.module=SimpleShader|manifest.artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|manifest.artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=metal|nativeArtifactDescriptor.binaryKind=metal.metallib|nativeArtifactDescriptor.sourcePath=backend/metal/SimpleShader.metal|nativeArtifactDescriptor.artifactPath=backend/metal/SimpleShader.metallib|nativeArtifactDescriptor.validationStatus=not-run|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|reflection.target=metal|reflection.module=SimpleShader|reflection.nativeBinary=backend/metal/SimpleShader.metallib|diagnostics.schemaVersion=1"
-      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|validationStatus=not-run"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run|${CROSSGL_REAL_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
       -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
       -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
       -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
@@ -962,6 +1038,38 @@ kernel void compute_main(device Particle* particles [[buffer(0)]]) {
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|fixed-array.kind=layout|fixed-array-field.kind=layout|index-access.kind=operation|local-declaration.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_TRANSITIVE_HELPER_RESOURCE_SOURCE_SNIPPET [=[float writeResult(float value, device float* values) {
+  values[0] = value;
+  return value;
+}
+
+float forwardResult(float value, device float* values) {
+  return writeResult(value + 1.0, values);
+}
+
+kernel void compute_main(device float* values [[buffer(0)]]) {
+  float base = values[1];
+  float result = forwardResult(base, values);
+  values[2] = result;]=])
+  add_test(NAME cglc_build_metal_transitive_helper_resource_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalTransitiveHelperResourceShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-transitive-helper-resource.cglb
+      -DEXPECTED_MODULE=MetalTransitiveHelperResourceShader
+      -DMODE=metal-build
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ float*
+      -DEXPECTED_METAL_BUFFER_NAME=values
+      "-DEXPECTED_METAL_STORE_SNIPPET=values[2] = result;"
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_TRANSITIVE_HELPER_RESOURCE_SOURCE_SNIPPET}"
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalTransitiveHelperResourceShader|nativeBinary=backend/metal/MetalTransitiveHelperResourceShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.addressSpace=device|values.bindingClass=buffer|values.argumentIndex=0|values.set=0|values.binding=0|values.abi=kernelArgument|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-arithmetic.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   set(CROSSGL_METAL_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_SOURCE_SNIPPET [=[float rewriteWeight(array<float, COUNT> weights) {
   weights[0] = 1.0;
   return weights[0];
@@ -1028,6 +1136,42 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|functionConstants=2|workgroupSizes=1"
       "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.addressSpace=device|values.bindingClass=buffer|values.argumentIndex=0|values.set=0|values.binding=0|values.abi=kernelArgument|values.storageBufferLayout.elementType=float|values.storageBufferLayout.elementSizeBytes=4|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device"
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation|scalar-arithmetic.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_DYNAMIC_NESTED_MATRIX_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_SOURCE_SNIPPET [=[float2x2 rewriteGrid(array<array<float2x2, COLS>, ROWS> grid, int row, int col) {
+  grid[row][col] = grid[0][0];
+  return grid[0][0];
+}]=])
+  add_test(NAME cglc_build_metal_dynamic_nested_matrix_function_parameter_array_write_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-dynamic-nested-matrix-function-parameter-array-write.cglb
+      -DEXPECTED_MODULE=MetalDynamicNestedMatrixFunctionParameterArrayWriteShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_DYNAMIC_NESTED_MATRIX_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedMatrixFunctionParameterArrayWriteShader|artifacts.backendSource=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.metal|artifacts.intermediate=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.air|artifacts.nativeBinary=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedMatrixFunctionParameterArrayWriteShader|nativeBinary=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1|workgroupSizes.0.sourceX=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=0|targetResourceBindings=0|functionConstants=2|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_SOURCE_SNIPPET [=[Payload rewriteGrid(array<array<Payload, COLS>, ROWS> grid, int row, int col, Payload replacement) {
+  grid[row][col] = replacement;
+  return grid[0][0];
+}]=])
+  add_test(NAME cglc_build_metal_dynamic_nested_struct_function_parameter_array_write_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedStructFunctionParameterArrayWriteShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-dynamic-nested-struct-function-parameter-array-write.cglb
+      -DEXPECTED_MODULE=MetalDynamicNestedStructFunctionParameterArrayWriteShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayWriteShader|artifacts.backendSource=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.metal|artifacts.intermediate=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.air|artifacts.nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayWriteShader|nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1|workgroupSizes.0.sourceX=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=0|targetResourceBindings=0|functionConstants=2|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   set(CROSSGL_METAL_LOCAL_ARRAY_ARGUMENT_NATIVE_SOURCE_SNIPPET [=[array<float, COUNT> localWeights;
@@ -1139,6 +1283,40 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|functionConstants=2|workgroupSizes=1"
       "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.metalType=device float4*|values.addressSpace=device|values.bindingClass=buffer|values.argumentIndex=0|values.set=0|values.binding=0|values.abi=kernelArgument|values.storageBufferLayout.elementType=vec4|values.storageBufferLayout.elementSizeBytes=16|values.storageBufferLayout.arrayStrideBytes=16|values.storageBufferLayout.layout=metal-device|indices.sourceType=int*|indices.metalType=device int*|indices.addressSpace=device|indices.bindingClass=buffer|indices.argumentIndex=1|indices.set=0|indices.binding=1|indices.abi=kernelArgument|indices.storageBufferLayout.elementType=int|indices.storageBufferLayout.elementSizeBytes=4|indices.storageBufferLayout.arrayStrideBytes=4|indices.storageBufferLayout.layout=metal-device"
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|index-access.kind=operation|local-declaration.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_DYNAMIC_NESTED_MATRIX_FUNCTION_PARAMETER_ARRAY_READ_NATIVE_SOURCE_SNIPPET [=[float2x2 readGrid(array<array<float2x2, COLS>, ROWS> grid, int row, int col) {
+  return grid[row][col];
+}]=])
+  add_test(NAME cglc_build_metal_dynamic_nested_matrix_function_parameter_array_read_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-dynamic-nested-matrix-function-parameter-array-read.cglb
+      -DEXPECTED_MODULE=MetalDynamicNestedMatrixFunctionParameterArrayReadShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_DYNAMIC_NESTED_MATRIX_FUNCTION_PARAMETER_ARRAY_READ_NATIVE_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedMatrixFunctionParameterArrayReadShader|artifacts.backendSource=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.metal|artifacts.intermediate=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.air|artifacts.nativeBinary=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedMatrixFunctionParameterArrayReadShader|nativeBinary=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayReadShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1|workgroupSizes.0.sourceX=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=0|targetResourceBindings=0|functionConstants=2|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_READ_NATIVE_SOURCE_SNIPPET [=[Payload readGrid(array<array<Payload, COLS>, ROWS> grid, int row, int col) {
+  return grid[row][col];
+}]=])
+  add_test(NAME cglc_build_metal_dynamic_nested_struct_function_parameter_array_read_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedStructFunctionParameterArrayReadShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-dynamic-nested-struct-function-parameter-array-read.cglb
+      -DEXPECTED_MODULE=MetalDynamicNestedStructFunctionParameterArrayReadShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_READ_NATIVE_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayReadShader|artifacts.backendSource=backend/metal/MetalDynamicNestedStructFunctionParameterArrayReadShader.metal|artifacts.intermediate=backend/metal/MetalDynamicNestedStructFunctionParameterArrayReadShader.air|artifacts.nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayReadShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayReadShader|nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayReadShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1|workgroupSizes.0.sourceX=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=0|targetResourceBindings=0|functionConstants=2|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_folded_array_helper_native
@@ -2068,6 +2246,58 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -DMODE=metal-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_MATRIX_SCALAR_ARITHMETIC_SOURCE_SNIPPET [=[void keep(float3x3 scaled, float3x3 rescaled, float3x3 inferred, device float* values) {
+  values[0] = 1.0;
+  return;
+}
+
+kernel void compute_main(device float* values [[buffer(0)]]) {
+  float3x3 transform = float3x3(float3(1.0, 2.0, 3.0), float3(4.0, 5.0, 6.0), float3(7.0, 8.0, 9.0));
+  float3x3 scaled = transform * 2.0;
+  float3x3 rescaled = 0.5 * transform;
+  float3x3 inferred = transform * 0.25;
+  inferred = inferred * 4.0;
+  keep(scaled, rescaled, inferred, values);]=])
+  add_test(NAME cglc_build_metal_matrix_scalar_arithmetic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_MATRIX_SCALAR_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-matrix-scalar-arithmetic.cglb
+      -DEXPECTED_MODULE=MatrixScalarArithmeticComputeShader
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ float*
+      "-DEXPECTED_METAL_STORE_SNIPPET=values[0] = 1.0;"
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_MATRIX_SCALAR_ARITHMETIC_SOURCE_SNIPPET}"
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MatrixScalarArithmeticComputeShader|nativeBinary=backend/metal/MatrixScalarArithmeticComputeShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|matrix-constructor.kind=operation|scalar-arithmetic.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=metal-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET [=[float3 columnProduct = transform * source;
+  float3 rowProduct = source * transform;
+  float3x3 composed = transform * basis;
+  float3 projected = composed * rowProduct;]=])
+  add_test(NAME cglc_build_metal_matrix_vector_arithmetic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_MATRIX_VECTOR_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-matrix-vector-arithmetic.cglb
+      -DEXPECTED_MODULE=MatrixVectorArithmeticComputeShader
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ float*
+      "-DEXPECTED_METAL_STORE_SNIPPET=values[1] = rowProduct.y;"
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET}"
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MatrixVectorArithmeticComputeShader|nativeBinary=backend/metal/MatrixVectorArithmeticComputeShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|vector-constructor.kind=operation|index-access.kind=operation|matrix-constructor.kind=operation|vector-arithmetic.kind=operation|scalar-arithmetic.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -DMODE=metal-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_vector_local_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -2102,6 +2332,42 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|vector-storage-buffer.kind=layout|local-declaration.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|index-access.kind=operation|vector-constructor.kind=operation|vector-arithmetic.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -DMODE=metal-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SOURCE_SNIPPET [=[void writeScalar(device float* dst, float value) {
+  dst[0] = value;
+  return;
+}
+
+void writeVector(device float4* dst, float4 value) {
+  dst[1] = value;
+  return;
+}
+
+kernel void compute_main(device float* values [[buffer(0)]], device float4* vectors [[buffer(1)]]) {
+  float scalar = values[1] + 2.0;
+  float4 vector = vectors[0] + float4(0.25, 0.5, 0.75, 1.0);
+  writeScalar(values, scalar);
+  writeVector(vectors, vector);
+  return;
+}]=])
+  add_test(NAME cglc_build_metal_storage_buffer_pointer_helper_param_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-storage-buffer-pointer-helper-param.cglb
+      -DEXPECTED_MODULE=StorageBufferPointerHelperParamShader
+      -DMODE=metal-build
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ float*
+      -DEXPECTED_METAL_BUFFER_NAME=values
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SOURCE_SNIPPET}"
+      "-DEXPECTED_METAL_STORE_SNIPPET=writeVector(vectors, vector);"
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=StorageBufferPointerHelperParamShader|nativeBinary=backend/metal/StorageBufferPointerHelperParamShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device|vectors.sourceType=vec4*|vectors.metalType=device float4*|vectors.bindingClass=buffer|vectors.argumentIndex=1|vectors.storageBufferLayout.elementType=vec4|vectors.storageBufferLayout.arrayStrideBytes=16|vectors.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|storage-buffer.kind=resource|storage-buffer-read.kind=operation|index-access.kind=operation|vector-storage-buffer.kind=layout|vector-constructor.kind=operation|vector-arithmetic.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_atan_intrinsic_native
     COMMAND ${CMAKE_COMMAND}
@@ -2286,6 +2552,29 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       -DEXPECTED_STRUCT_FIELD=values
       -DEXPECTED_STRUCT_FIELD_OFFSET=4
       -DEXPECTED_STRUCT_FIELD_ARRAY_STRIDE=4
+      -DMODE=metal-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_metal_runtime_array_dynamic_outer_index_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_RUNTIME_ARRAY_DYNAMIC_OUTER_INDEX_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-array-dynamic-outer-index.cglb
+      -DEXPECTED_MODULE=RuntimeArrayDynamicOuterIndexShader
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ RuntimePayload*
+      -DEXPECTED_METAL_BUFFER_NAME=payloads
+      "-DEXPECTED_METAL_STORE_SNIPPET=payloads[0].count = 1.0;"
+      -DEXPECTED_METAL_STRUCT=RuntimePayload
+      "-DEXPECTED_METAL_FIELD_SNIPPET=float count;"
+      -DEXPECTED_STORAGE_ELEMENT=RuntimePayload
+      -DEXPECTED_STORAGE_STRIDE=0
+      -DEXPECTED_STRUCT_FIELD=count
+      -DEXPECTED_STRUCT_FIELD_OFFSET=0
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=RuntimeArrayDynamicOuterIndexShader|artifacts.backendSource=backend/metal/RuntimeArrayDynamicOuterIndexShader.metal|artifacts.intermediate=backend/metal/RuntimeArrayDynamicOuterIndexShader.air|artifacts.nativeBinary=backend/metal/RuntimeArrayDynamicOuterIndexShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=RuntimeArrayDynamicOuterIndexShader|nativeBinary=backend/metal/RuntimeArrayDynamicOuterIndexShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=payloads.sourceType=RuntimePayload*|payloads.metalType=device RuntimePayload*|payloads.addressSpace=device|payloads.bindingClass=buffer|payloads.argumentIndex=0|payloads.set=0|payloads.binding=0|payloads.abi=kernelArgument|payloads.storageBufferLayout.elementType=RuntimePayload|payloads.storageBufferLayout.elementSizeBytes=4|payloads.storageBufferLayout.arrayStrideBytes=0|payloads.storageBufferLayout.layout=metal-device|payloads.storageBufferLayout.fields.0.name=count|payloads.storageBufferLayout.fields.0.offsetBytes=0"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|runtime-array.kind=layout|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -DMODE=metal-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_runtime_vector_array_native

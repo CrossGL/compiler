@@ -15,6 +15,7 @@ from .backend_loader import SourceFreeNativeBackendLoaderPlan
 from .backend_loader import plan_source_free_native_backend_loader
 from .loader import LoaderArtifactPlan
 from .package_reader import CompatibilityDiagnostic, PackageReadError
+from .package_reader import RUNTIME_METADATA_JSON_BYTE_LIMIT
 from .package_reader import NATIVE_ARTIFACT_DESCRIPTOR_CONTRACT_VERSION
 from .package_reader import SUPPORTED_NATIVE_ARTIFACT_DESCRIPTOR_SCHEMA_VERSION
 
@@ -29,10 +30,12 @@ _VULKAN_NATIVE_PROFILE_SUMMARY_FIELDS = (
     "schemaVersion",
     "module",
     "target",
+    "artifacts",
     "backendAssembly",
     "nativeBinary",
     "debug",
 )
+_VULKAN_GRAPHICS_STAGES = ("vertex", "fragment")
 
 
 @dataclass(frozen=True)
@@ -87,11 +90,14 @@ def plan_vulkan_native_loader(
         loader_name="vulkan-native",
     )
     native_profile = _vulkan_native_profile_plan(base_plan)
+    base_diagnostics = _vulkan_filtered_base_diagnostics(base_plan, native_profile)
     diagnostics = (
-        *base_plan.diagnostics,
+        *base_diagnostics,
         *_vulkan_native_loader_diagnostics(base_plan, native_profile),
     )
     native_artifact = base_plan.native_artifact
+    if native_artifact is None and not _has_blocking_diagnostics(diagnostics):
+        native_artifact = _available_artifact(base_plan, VULKAN_NATIVE_ARTIFACT)
     if _has_blocking_diagnostics(diagnostics):
         native_artifact = None
 
@@ -150,6 +156,7 @@ def _vulkan_native_loader_diagnostics(
             descriptor=plan.native_artifact_descriptor,
         )
     )
+    diagnostics.extend(_vulkan_graphics_stage_diagnostics(plan))
     return tuple(diagnostics)
 
 
@@ -390,7 +397,10 @@ def _vulkan_native_profile_diagnostics(
             )
         )
 
-    backend_assembly_path = fields.get("backendAssembly")
+    backend_assembly_path = _vulkan_profile_artifact_path(
+        fields,
+        VULKAN_BACKEND_ASSEMBLY_ARTIFACT,
+    )
     if backend_assembly is not None and not isinstance(backend_assembly_path, str):
         diagnostics.append(
             CompatibilityDiagnostic(
@@ -426,7 +436,10 @@ def _vulkan_native_profile_diagnostics(
             )
         )
 
-    native_binary_path = fields.get("nativeBinary")
+    native_binary_path = _vulkan_profile_artifact_path(
+        fields,
+        VULKAN_NATIVE_ARTIFACT,
+    )
     if native_artifact is not None and not isinstance(native_binary_path, str):
         diagnostics.append(
             CompatibilityDiagnostic(
@@ -539,6 +552,8 @@ def _vulkan_native_admission_detail(
             "entryPointCount": len(plan.entry_points),
             "resourceCount": len(plan.resources),
             "targetResourceBindingCount": len(plan.target_resource_bindings),
+            "stageCounts": _vulkan_entry_point_stage_counts(plan),
+            "graphicsStageClosure": _vulkan_graphics_stage_closure(plan),
             "entryPoints": [
                 _summarize_vulkan_entry_point(record) for record in plan.entry_points
             ],
@@ -662,7 +677,10 @@ def _vulkan_native_api_boundary(plan: VulkanNativeLoaderPlan) -> dict[str, Any]:
                 else None
             ),
             "nativeBinaryMatchesSpirv": (
-                native_profile.fields.get("nativeBinary")
+                _vulkan_profile_artifact_path(
+                    native_profile.fields,
+                    VULKAN_NATIVE_ARTIFACT,
+                )
                 == native_artifact.package_path
                 if native_profile is not None
                 and native_profile.readable
@@ -868,8 +886,14 @@ def _vulkan_native_profile_detail(
     fields = dict(native_profile.fields)
     profile_target = fields.get("target")
     module = fields.get("module")
-    backend_assembly_path = fields.get("backendAssembly")
-    native_binary_path = fields.get("nativeBinary")
+    backend_assembly_path = _vulkan_profile_artifact_path(
+        fields,
+        VULKAN_BACKEND_ASSEMBLY_ARTIFACT,
+    )
+    native_binary_path = _vulkan_profile_artifact_path(
+        fields,
+        VULKAN_NATIVE_ARTIFACT,
+    )
     descriptor_profile_path = _descriptor_native_profile_evidence_path(
         plan.native_artifact_descriptor,
     )
@@ -943,9 +967,16 @@ def _vulkan_native_admission_checks(
     profile_declared = native_profile is not None
     profile_readable = native_profile is not None and native_profile.readable
     profile_fields = native_profile.fields if native_profile is not None else {}
-    profile_native_binary = profile_fields.get("nativeBinary")
-    profile_backend_assembly = profile_fields.get("backendAssembly")
+    profile_native_binary = _vulkan_profile_artifact_path(
+        profile_fields,
+        VULKAN_NATIVE_ARTIFACT,
+    )
+    profile_backend_assembly = _vulkan_profile_artifact_path(
+        profile_fields,
+        VULKAN_BACKEND_ASSEMBLY_ARTIFACT,
+    )
     profile_module = profile_fields.get("module")
+    graphics_closure = _vulkan_graphics_stage_closure(plan)
 
     return [
         _admission_check(
@@ -1287,6 +1318,32 @@ def _vulkan_native_admission_checks(
             actual=len(plan.entry_points),
         ),
         _admission_check(
+            "reflectionGraphicsVertexFragmentPairPresent",
+            (
+                graphics_closure["hasVertexFragmentPair"]
+                if graphics_closure["graphicsPackage"]
+                else None
+            ),
+            document="reflection",
+            path="entryPoints",
+            expected="exactly one vertex entry point and one fragment entry point",
+            actual=graphics_closure["stageCounts"],
+            required=graphics_closure["graphicsPackage"],
+        ),
+        _admission_check(
+            "reflectionGraphicsStagesOnlyVertexFragment",
+            (
+                graphics_closure["hasOnlyGraphicsStages"]
+                if graphics_closure["graphicsPackage"]
+                else None
+            ),
+            document="reflection",
+            path="entryPoints",
+            expected=list(_VULKAN_GRAPHICS_STAGES),
+            actual=graphics_closure["nonGraphicsStages"],
+            required=graphics_closure["graphicsPackage"],
+        ),
+        _admission_check(
             "reflectionResourcesPresent",
             bool(plan.resources),
             document="reflection",
@@ -1452,7 +1509,7 @@ def _vulkan_api_profile_input(
     fields = native_profile.fields
     schema_version = fields.get("schemaVersion")
     target = fields.get("target")
-    native_binary = fields.get("nativeBinary")
+    native_binary = _vulkan_profile_artifact_path(fields, VULKAN_NATIVE_ARTIFACT)
     module = fields.get("module")
 
     return {
@@ -1471,7 +1528,10 @@ def _vulkan_api_profile_input(
         "moduleMatchesManifest": (
             module == plan.runtime_plan.module if native_profile.readable else None
         ),
-        "backendAssembly": fields.get("backendAssembly"),
+        "backendAssembly": _vulkan_profile_artifact_path(
+            fields,
+            VULKAN_BACKEND_ASSEMBLY_ARTIFACT,
+        ),
         "nativeBinary": native_binary,
         "nativeBinaryMatchesSpirv": (
             native_binary == native_artifact.package_path
@@ -1487,6 +1547,8 @@ def _vulkan_api_reflection_input(plan: VulkanNativeLoaderPlan) -> dict[str, Any]
         "entryPointCount": len(plan.entry_points),
         "resourceCount": len(plan.resources),
         "targetResourceBindingCount": len(plan.target_resource_bindings),
+        "stageCounts": _vulkan_entry_point_stage_counts(plan),
+        "graphicsStageClosure": _vulkan_graphics_stage_closure(plan),
         "entryPoints": [
             _summarize_vulkan_entry_point(record) for record in plan.entry_points
         ],
@@ -1558,6 +1620,11 @@ def _descriptor_artifact_hash_matches(
         "package.native_artifact_descriptor.artifact_hash_mismatch",
     ):
         return False
+    if _has_diagnostic_code(
+        plan,
+        "package.native_artifact_descriptor.artifact_hash_too_large",
+    ):
+        return False
     return True
 
 
@@ -1607,8 +1674,81 @@ def _summarize_vulkan_entry_point(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _summarize_vulkan_resource(record: dict[str, Any]) -> dict[str, Any]:
+def _vulkan_entry_point_stage_counts(
+    plan: SourceFreeNativeBackendLoaderPlan,
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for record in plan.entry_points:
+        stage = record.get("stage")
+        if isinstance(stage, str) and stage:
+            counts[stage] = counts.get(stage, 0) + 1
+    return counts
+
+
+def _vulkan_graphics_stage_closure(
+    plan: SourceFreeNativeBackendLoaderPlan,
+) -> dict[str, Any]:
+    stage_counts = _vulkan_entry_point_stage_counts(plan)
+    vertex_entries = [
+        _summarize_vulkan_entry_point(record)
+        for record in plan.entry_points
+        if record.get("stage") == "vertex"
+    ]
+    fragment_entries = [
+        _summarize_vulkan_entry_point(record)
+        for record in plan.entry_points
+        if record.get("stage") == "fragment"
+    ]
+    graphics_package = bool(vertex_entries or fragment_entries)
+    non_graphics_stages = sorted(
+        stage
+        for stage, count in stage_counts.items()
+        if count > 0 and stage not in _VULKAN_GRAPHICS_STAGES
+    )
+
     return {
+        "graphicsPackage": graphics_package,
+        "stageCounts": stage_counts,
+        "vertexEntryPoint": vertex_entries[0] if len(vertex_entries) == 1 else None,
+        "fragmentEntryPoint": (
+            fragment_entries[0] if len(fragment_entries) == 1 else None
+        ),
+        "vertexEntryPointCount": len(vertex_entries),
+        "fragmentEntryPointCount": len(fragment_entries),
+        "hasVertexFragmentPair": len(vertex_entries) == 1
+        and len(fragment_entries) == 1,
+        "hasOnlyGraphicsStages": graphics_package and not non_graphics_stages,
+        "nonGraphicsStages": non_graphics_stages,
+    }
+
+
+def _vulkan_graphics_stage_diagnostics(
+    plan: SourceFreeNativeBackendLoaderPlan,
+) -> tuple[CompatibilityDiagnostic, ...]:
+    closure = _vulkan_graphics_stage_closure(plan)
+    if not closure["graphicsPackage"]:
+        return ()
+    if closure["hasVertexFragmentPair"] and closure["hasOnlyGraphicsStages"]:
+        return ()
+    return (
+        CompatibilityDiagnostic(
+            code="vulkan_loader.graphics_entry_points_mismatch",
+            message=(
+                "Vulkan graphics native loader requires reflection.entryPoints "
+                "to contain exactly one vertex entry point and one fragment "
+                "entry point, with no compute entry points mixed into the "
+                "graphics package"
+            ),
+            document="reflection",
+            path="entryPoints",
+            expected="exactly one vertex and one fragment entry point",
+            actual=closure["stageCounts"],
+        ),
+    )
+
+
+def _summarize_vulkan_resource(record: dict[str, Any]) -> dict[str, Any]:
+    summary = {
         "stage": record.get("stage"),
         "name": record.get("name"),
         "kind": record.get("kind"),
@@ -1616,12 +1756,14 @@ def _summarize_vulkan_resource(record: dict[str, Any]) -> dict[str, Any]:
         "set": record.get("set"),
         "binding": record.get("binding"),
     }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
 
 
 def _summarize_vulkan_resource_binding(record: dict[str, Any]) -> dict[str, Any]:
     abi = record.get("abi")
     abi_summary = dict(abi) if isinstance(abi, dict) else {}
-    return {
+    summary = {
         "target": record.get("target"),
         "stage": record.get("stage"),
         "entryPoint": record.get("entryPoint"),
@@ -1637,6 +1779,71 @@ def _summarize_vulkan_resource_binding(record: dict[str, Any]) -> dict[str, Any]
         "storageClass": record.get("storageClass"),
         "spirvType": record.get("spirvType"),
     }
+    _copy_descriptor_array_metadata(summary, record)
+    return summary
+
+
+def _copy_descriptor_array_metadata(
+    summary: dict[str, Any],
+    record: dict[str, Any],
+) -> None:
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
+        if field_name in record:
+            summary[field_name] = record.get(field_name)
+
+
+def _vulkan_profile_artifact_path(
+    fields: dict[str, Any],
+    artifact_name: str,
+) -> str | None:
+    value = fields.get(artifact_name)
+    if isinstance(value, str):
+        return value
+    artifacts = fields.get("artifacts")
+    if isinstance(artifacts, dict):
+        value = artifacts.get(artifact_name)
+        if isinstance(value, str):
+            return value
+    return None
+
+
+def _vulkan_filtered_base_diagnostics(
+    plan: SourceFreeNativeBackendLoaderPlan,
+    native_profile: VulkanNativeProfilePlan | None,
+) -> tuple[CompatibilityDiagnostic, ...]:
+    return tuple(
+        diagnostic
+        for diagnostic in plan.diagnostics
+        if not _vulkan_shared_profile_link_diagnostic_is_satisfied(
+            plan,
+            native_profile,
+            diagnostic,
+        )
+    )
+
+
+def _vulkan_shared_profile_link_diagnostic_is_satisfied(
+    plan: SourceFreeNativeBackendLoaderPlan,
+    native_profile: VulkanNativeProfilePlan | None,
+    diagnostic: CompatibilityDiagnostic,
+) -> bool:
+    code_to_artifact = {
+        "package.native_profile.backend_assembly_missing": (
+            VULKAN_BACKEND_ASSEMBLY_ARTIFACT
+        ),
+        "package.native_profile.native_binary_missing": VULKAN_NATIVE_ARTIFACT,
+    }
+    artifact_name = code_to_artifact.get(diagnostic.code)
+    if artifact_name is None or native_profile is None or not native_profile.readable:
+        return False
+    artifact = _available_artifact(plan, artifact_name)
+    profile_path = _vulkan_profile_artifact_path(native_profile.fields, artifact_name)
+    return artifact is not None and profile_path == artifact.package_path
 
 
 def _vulkan_native_profile_plan(
@@ -1650,7 +1857,9 @@ def _vulkan_native_profile_plan(
     readable = False
     if artifact.exists:
         try:
-            profile = json.loads(artifact.read_text())
+            profile = json.loads(
+                artifact.read_text(byte_limit=RUNTIME_METADATA_JSON_BYTE_LIMIT)
+            )
             readable = isinstance(profile, dict)
         except (OSError, PackageReadError, UnicodeDecodeError, json.JSONDecodeError):
             profile = None

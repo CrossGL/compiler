@@ -839,6 +839,21 @@ void validateHIRFunctionNames(std::span<const HIRFunction> functions,
   }
 }
 
+struct HIRFunctionSignature {
+  HIRType returnType;
+  std::vector<HIRParameter> parameters;
+};
+
+using HIRFunctionSignatureMap =
+    std::unordered_map<std::string, HIRFunctionSignature>;
+
+HIRFunctionSignature makeHIRFunctionSignature(const HIRFunction &function) {
+  HIRFunctionSignature signature;
+  signature.returnType = function.returnType;
+  signature.parameters = function.parameters;
+  return signature;
+}
+
 SourceLocation hirFunctionSignatureSourceLocation(const HIRFunction &function) {
   if (hasHIRTypeShape(function.returnType)) {
     return function.returnType.location;
@@ -857,6 +872,74 @@ void reportHIRFunctionShape(const HIRFunction &function,
   diagnostics.error("opt.hir-function-shape",
                     "HIR " + context + " " + std::move(message),
                     hirFunctionSignatureSourceLocation(function));
+}
+
+bool hasCompleteHIRFunctionSignature(const HIRFunction &function) {
+  if (function.name.empty() || function.returnType.name.empty()) {
+    return false;
+  }
+  for (const HIRParameter &parameter : function.parameters) {
+    if (parameter.type.name.empty()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool sameHIRSignatureType(const HIRType &left, const HIRType &right) {
+  return sameType(stripTypeQualifier(left), stripTypeQualifier(right));
+}
+
+bool sameHIRFunctionSignature(const HIRFunctionSignature &left,
+                              const HIRFunctionSignature &right) {
+  if (!sameHIRSignatureType(left.returnType, right.returnType) ||
+      left.parameters.size() != right.parameters.size()) {
+    return false;
+  }
+  for (std::size_t index = 0; index < left.parameters.size(); ++index) {
+    if (!sameHIRSignatureType(left.parameters[index].type,
+                              right.parameters[index].type)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::string formatHIRFunctionSignature(const HIRFunctionSignature &signature) {
+  std::ostringstream stream;
+  stream << formatType(signature.returnType) << "(";
+  for (std::size_t index = 0; index < signature.parameters.size(); ++index) {
+    if (index != 0) {
+      stream << ", ";
+    }
+    stream << formatType(signature.parameters[index].type);
+  }
+  stream << ")";
+  return stream.str();
+}
+
+void validateHIRFunctionSignatureConsistency(
+    std::span<const HIRFunction> functions, const std::string &scopeLabel,
+    DiagnosticEngine &diagnostics) {
+  HIRFunctionSignatureMap signatures;
+  for (const HIRFunction &function : functions) {
+    if (!hasCompleteHIRFunctionSignature(function)) {
+      continue;
+    }
+    HIRFunctionSignature signature = makeHIRFunctionSignature(function);
+    const auto [existing, inserted] =
+        signatures.emplace(function.name, signature);
+    if (!inserted && !sameHIRFunctionSignature(existing->second, signature)) {
+      diagnostics.error(
+          "opt.hir-function-signature-mismatch",
+          "HIR " + scopeLabel + " function '" + function.name +
+              "' signature mismatch: previous signature '" +
+              formatHIRFunctionSignature(existing->second) +
+              "', current signature '" + formatHIRFunctionSignature(signature) +
+              "'",
+          hirFunctionSignatureSourceLocation(function));
+    }
+  }
 }
 
 void validateHIRFunctionSignatures(std::span<const HIRFunction> functions,
@@ -897,6 +980,7 @@ void validateHIRFunctionSignatures(std::span<const HIRFunction> functions,
       }
     }
   }
+  validateHIRFunctionSignatureConsistency(functions, scopeLabel, diagnostics);
 }
 
 SourceLocation hirStructSourceLocation(const HIRStruct &structure) {
@@ -1183,13 +1267,26 @@ bool validateHIRBackendInput(HIRModule &module,
 }
 
 using HIRSymbolTable = std::unordered_map<std::string, HIRType>;
+using HIRReadOnlySymbolSet = std::set<std::string>;
+using HIRResourceHandleSymbolSet = std::set<std::string>;
+using HIRIndexableResourceBaseSet = std::set<std::string>;
 
 struct HIRTypedSymbolContext {
   std::set<std::string> structNames;
   std::unordered_map<std::string, HIRStruct> structs;
   HIRSymbolTable constants;
   HIRSymbolTable globalCBufferFields;
+  HIRFunctionSignatureMap functionSignatures;
 };
+
+void addHIRFunctionSignatures(HIRFunctionSignatureMap &signatures,
+                              const std::vector<HIRFunction> &functions) {
+  for (const HIRFunction &function : functions) {
+    if (!function.name.empty()) {
+      signatures[function.name] = makeHIRFunctionSignature(function);
+    }
+  }
+}
 
 std::optional<HIRType>
 hirExpressionEffectiveType(const HIRExpression &expression,
@@ -1679,6 +1776,86 @@ void validateHIRIntrinsicArgumentTypes(
                     location);
 }
 
+std::string formatHIRFunctionArgumentCount(std::size_t count) {
+  return count == 1 ? "exactly 1 argument"
+                    : "exactly " + std::to_string(count) + " arguments";
+}
+
+bool shouldValidateHIRUserFunctionCall(
+    const HIRExpression &expression,
+    const HIRTypedSymbolContext &typedContext) {
+  if (expression.kind != HIRExpressionKind::Call || expression.value.empty()) {
+    return false;
+  }
+  if (expression.value.size() >= 2 && expression.value[0] == '_' &&
+      expression.value[1] == '_') {
+    return false;
+  }
+  if (!lookupHIRIntrinsicSignatures(expression.value).empty() ||
+      lookupHIRCallBuiltinEffect(expression.value).has_value()) {
+    return false;
+  }
+  const HIRType calleeType{expression.value, std::nullopt,
+                           expression.location};
+  return !isKnownType(calleeType, typedContext.structNames);
+}
+
+void validateHIRUserFunctionCall(
+    const HIRExpression &expression, const std::string &context,
+    const HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
+    DiagnosticEngine &diagnostics) {
+  if (!shouldValidateHIRUserFunctionCall(expression, typedContext)) {
+    return;
+  }
+  const auto function = typedContext.functionSignatures.find(expression.value);
+  if (function == typedContext.functionSignatures.end()) {
+    if (expression.type.name.empty()) {
+      diagnostics.error(
+          "opt.hir-unresolved-function-call",
+          "HIR " + context + " call '" + expression.value +
+              "' does not resolve to a declared function or supported "
+              "intrinsic",
+          expression.location);
+    }
+    return;
+  }
+
+  const HIRFunctionSignature &signature = function->second;
+  if (expression.children.size() != signature.parameters.size()) {
+    diagnostics.error(
+        "opt.hir-function-call-arity",
+        "HIR " + context + " call '" + expression.value + "' expects " +
+            formatHIRFunctionArgumentCount(signature.parameters.size()) +
+            ", got " + std::to_string(expression.children.size()),
+        expression.location);
+    return;
+  }
+
+  for (std::size_t index = 0; index < signature.parameters.size(); ++index) {
+    const HIRType &expected = signature.parameters[index].type;
+    const std::optional<HIRType> actual =
+        hirExpressionEffectiveType(expression.children[index], symbols);
+    const HIRType normalizedExpected = stripTypeQualifier(expected);
+    const HIRType normalizedActual =
+        actual.has_value() ? stripTypeQualifier(*actual) : HIRType{};
+    if (!actual.has_value() ||
+        !shouldDiagnoseExactHIRTypeMismatch(normalizedExpected,
+                                           normalizedActual, typedContext)) {
+      continue;
+    }
+    diagnostics.error(
+        "opt.hir-function-call-argument-type",
+        "HIR " + context + " call '" + expression.value + "' argument " +
+            std::to_string(index) + " expects '" + formatType(expected) +
+            "', got '" + formatType(*actual) + "'",
+        expression.children[index].location);
+  }
+
+  reportHIRExpressionResultTypeMismatch(
+      expression, signature.returnType, context,
+      "opt.hir-function-call-type", typedContext, diagnostics);
+}
+
 bool isHIRAtomicReadModifyWriteCallName(std::string_view name) {
   return isHIRAtomicIntegerReadModifyWriteIntrinsic(name);
 }
@@ -1692,7 +1869,7 @@ std::string hirAtomicReadModifyWriteDiagnosticStem(std::string_view name) {
   return std::string(hirAtomicIntegerReadModifyWriteDiagnosticStem(name));
 }
 
-const HIRExpression &unwrapHIRAtomicReadModifyWriteTargetExpression(
+const HIRExpression &unwrapHIRTransparentTargetExpression(
     const HIRExpression &expression) {
   const HIRExpression *current = &expression;
   while ((current->kind == HIRExpressionKind::Group ||
@@ -1705,11 +1882,138 @@ const HIRExpression &unwrapHIRAtomicReadModifyWriteTargetExpression(
 
 bool isHIRAtomicReadModifyWriteAssignableTarget(
     const HIRExpression &expression) {
-  const HIRExpression &target =
-      unwrapHIRAtomicReadModifyWriteTargetExpression(expression);
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
   return target.kind == HIRExpressionKind::Identifier ||
          target.kind == HIRExpressionKind::IndexAccess ||
          target.kind == HIRExpressionKind::MemberAccess;
+}
+
+bool isHIRAssignableTargetExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  switch (target.kind) {
+  case HIRExpressionKind::Identifier:
+    return true;
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::MemberAccess:
+    return !target.children.empty() &&
+           isHIRAssignableTargetExpression(target.children.front());
+  default:
+    return false;
+  }
+}
+
+const HIRExpression &
+hirAssignmentTargetDiagnosticExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty() &&
+      !isHIRAssignableTargetExpression(target.children.front())) {
+    return hirAssignmentTargetDiagnosticExpression(target.children.front());
+  }
+  return target;
+}
+
+bool hirVectorSwizzleHasDuplicateComponents(const HIRType &baseType,
+                                            std::string_view member) {
+  const std::string baseName = baseTypeName(baseType);
+  const std::optional<std::size_t> width = vectorWidthFromName(baseName);
+  if (!isVectorType(baseName) || !width.has_value() || member.empty() ||
+      member.size() > 4) {
+    return false;
+  }
+
+  static constexpr std::string_view sets[] = {"xyzw", "rgba", "stpq"};
+  const std::string_view *selectedSet = nullptr;
+  for (const std::string_view &set : sets) {
+    if (set.find(member.front()) != std::string_view::npos) {
+      selectedSet = &set;
+      break;
+    }
+  }
+  if (selectedSet == nullptr) {
+    return false;
+  }
+
+  std::array<bool, 4> seen{};
+  for (const char component : member) {
+    const std::size_t index = selectedSet->find(component);
+    if (index == std::string_view::npos || index >= *width) {
+      return false;
+    }
+    if (seen[index]) {
+      return true;
+    }
+    seen[index] = true;
+  }
+  return false;
+}
+
+const HIRExpression *hirDuplicateSwizzleAssignmentTargetExpression(
+    const HIRExpression &expression, const HIRSymbolTable &symbols) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty()) {
+    if (target.kind == HIRExpressionKind::MemberAccess) {
+      const HIRExpression &base = target.children.front();
+      const std::optional<HIRType> baseType =
+          hirExpressionEffectiveType(base, symbols);
+      if (baseType.has_value() &&
+          hirVectorSwizzleHasDuplicateComponents(*baseType, target.value)) {
+        return &target;
+      }
+    }
+    return hirDuplicateSwizzleAssignmentTargetExpression(
+        target.children.front(), symbols);
+  }
+  return nullptr;
+}
+
+const HIRExpression *
+hirAssignmentTargetRootIdentifier(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  if (target.kind == HIRExpressionKind::Identifier) {
+    return &target;
+  }
+  if ((target.kind == HIRExpressionKind::IndexAccess ||
+       target.kind == HIRExpressionKind::MemberAccess) &&
+      !target.children.empty()) {
+    return hirAssignmentTargetRootIdentifier(target.children.front());
+  }
+  return nullptr;
+}
+
+const HIRExpression *
+hirAssignmentTargetDirectIdentifier(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  return target.kind == HIRExpressionKind::Identifier ? &target : nullptr;
+}
+
+const HIRExpression *
+hirAggregateAssignmentTargetExpression(const HIRExpression &expression) {
+  const HIRExpression &target = unwrapHIRTransparentTargetExpression(expression);
+  if (!isHIRAssignableTargetExpression(target) || !isArrayType(target.type)) {
+    return nullptr;
+  }
+  const HIRResourceKind kind = resourceKindFromName(target.type.name);
+  if (kind != HIRResourceKind::Value && kind != HIRResourceKind::Shared) {
+    return nullptr;
+  }
+  return &target;
+}
+
+std::string hirAssignmentTargetDescription(const HIRExpression &target) {
+  switch (target.kind) {
+  case HIRExpressionKind::Identifier:
+    return "'" + target.value + "'";
+  case HIRExpressionKind::MemberAccess:
+    return "member '" + target.value + "'";
+  case HIRExpressionKind::IndexAccess:
+    return "indexed expression";
+  default:
+    return "'" + std::string(expressionKindName(target.kind)) + "' expression";
+  }
 }
 
 void validateHIRAtomicReadModifyWriteLValue(
@@ -1782,10 +2086,480 @@ void validateHIRCallCalleeType(const HIRExpression &expression,
                     expression.location);
 }
 
+bool isHIRNumericVectorTypeName(std::string_view name) {
+  return name == "vec2" || name == "vec3" || name == "vec4" ||
+         name == "ivec2" || name == "ivec3" || name == "ivec4" ||
+         name == "uvec2" || name == "uvec3" || name == "uvec4";
+}
+
+bool isHIRNumericAggregateType(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string name = baseTypeName(type);
+  return isHIRNumericVectorTypeName(name) || isMatrixType(name);
+}
+
+bool isHIRArithmeticOperandType(const HIRType &type) {
+  return isHIRScalarNumericType(type) || isHIRNumericAggregateType(type);
+}
+
+bool isHIRArithmeticBinaryOperator(std::string_view op) {
+  return op == "+" || op == "-" || op == "*" || op == "/" || op == "%";
+}
+
+bool isHIRRelationalBinaryOperator(std::string_view op) {
+  return op == "<" || op == "<=" || op == ">" || op == ">=";
+}
+
+bool isHIREqualityBinaryOperator(std::string_view op) {
+  return op == "==" || op == "!=";
+}
+
+bool isHIREqualityOperandPair(const HIRType &left, const HIRType &right) {
+  return (isScalarBoolType(left) && isScalarBoolType(right)) ||
+         (isHIRScalarNumericType(left) && isHIRScalarNumericType(right));
+}
+
+bool isHIRSelectBranchOperandType(const HIRType &type) {
+  if (type.name.empty() || type.arraySize.has_value() || isVoidType(type)) {
+    return false;
+  }
+  const std::string name = baseTypeName(type);
+  return isScalarBoolType(type) || isHIRScalarNumericType(type) ||
+         isHIRNumericVectorTypeName(name) || isMatrixType(name);
+}
+
+bool isHIRSelectBranchOperandPair(const HIRType &left, const HIRType &right) {
+  if (!isHIRSelectBranchOperandType(left) ||
+      !isHIRSelectBranchOperandType(right)) {
+    return false;
+  }
+  return sameType(left, right) ||
+         (isHIRScalarNumericType(left) && isHIRScalarNumericType(right));
+}
+
+bool isHIRScalarNumericConstructorType(const HIRType &type) {
+  return isHIRScalarNumericType(type);
+}
+
+bool isHIRConstructorComponentConvertible(const HIRType &targetComponentType,
+                                          const HIRType &sourceComponentType) {
+  const HIRType target = stripTypeQualifier(targetComponentType);
+  const HIRType source = stripTypeQualifier(sourceComponentType);
+  if (sameType(target, source)) {
+    return true;
+  }
+  if (isScalarBoolType(target) || isScalarBoolType(source)) {
+    return false;
+  }
+  return isHIRScalarNumericType(target) && isHIRScalarNumericType(source);
+}
+
+std::optional<HIRType> hirScalarOrVectorComponentType(const HIRType &type) {
+  if (type.name.empty() || type.arraySize.has_value()) {
+    return std::nullopt;
+  }
+  const std::string typeBase = baseTypeName(type);
+  if (isVectorType(typeBase)) {
+    return scalarTypeForVector(typeBase);
+  }
+  if (isHIRScalarNumericType(type) || isScalarBoolType(type)) {
+    return stripTypeQualifier(type);
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t> hirConstructorConstituentWidth(
+    const HIRExpression &operand, const HIRType &operandType,
+    const HIRType &componentType, std::string_view constructorName,
+    std::string_view diagnosticCode, std::string_view constructorKind,
+    const std::string &context, DiagnosticEngine &diagnostics, bool &valid) {
+  const std::optional<HIRType> operandComponentType =
+      hirScalarOrVectorComponentType(operandType);
+  if (!operandComponentType.has_value()) {
+    if (operandType.name.empty()) {
+      return std::nullopt;
+    }
+    diagnostics.error(
+        std::string(diagnosticCode),
+        "HIR " + context + " " + std::string(constructorKind) +
+            " constructor '" + std::string(constructorName) +
+            "' requires scalar or vector operands convertible to component "
+            "type '" +
+            formatType(componentType) + "', got '" + formatType(operandType) +
+            "'",
+        operand.location);
+    valid = false;
+    return std::size_t{0};
+  }
+  if (!isHIRConstructorComponentConvertible(componentType,
+                                            *operandComponentType)) {
+    diagnostics.error(
+        std::string(diagnosticCode),
+        "HIR " + context + " " + std::string(constructorKind) +
+            " constructor '" + std::string(constructorName) +
+            "' requires scalar or vector operands convertible to component "
+            "type '" +
+            formatType(componentType) + "', got '" + formatType(operandType) +
+            "'",
+        operand.location);
+    valid = false;
+    return std::size_t{0};
+  }
+
+  const std::string operandBase = baseTypeName(operandType);
+  if (isVectorType(operandBase)) {
+    return vectorWidthFromName(operandBase);
+  }
+  return std::size_t{1};
+}
+
+void validateHIRVectorConstructorTypedExpression(
+    const HIRExpression &expression, const HIRType &constructorType,
+    const std::string &context, const HIRSymbolTable &symbols,
+    DiagnosticEngine &diagnostics) {
+  const std::string targetBase = baseTypeName(constructorType);
+  const std::optional<std::size_t> targetWidth =
+      vectorWidthFromName(targetBase);
+  if (!targetWidth.has_value() || constructorType.arraySize.has_value()) {
+    return;
+  }
+
+  const HIRType componentType = scalarTypeForVector(targetBase);
+  std::size_t componentCount = 0;
+  bool allOperandWidthsKnown = true;
+  bool valid = true;
+  for (const HIRExpression &operand : expression.children) {
+    const std::optional<HIRType> operandType =
+        hirExpressionEffectiveType(operand, symbols);
+    if (!operandType.has_value()) {
+      allOperandWidthsKnown = false;
+      continue;
+    }
+    const std::optional<std::size_t> operandWidth =
+        hirConstructorConstituentWidth(
+            operand, *operandType, componentType, expression.value,
+            "opt.hir-vector-constructor", "vector", context, diagnostics,
+            valid);
+    if (!operandWidth.has_value()) {
+      allOperandWidthsKnown = false;
+      continue;
+    }
+    componentCount += *operandWidth;
+  }
+
+  const bool scalarSplat =
+      expression.children.size() == 1 && componentCount == std::size_t{1};
+  if (valid && allOperandWidthsKnown && !scalarSplat &&
+      componentCount != *targetWidth) {
+    diagnostics.error("opt.hir-vector-constructor",
+                      "HIR " + context + " vector constructor '" +
+                          expression.value + "' expects " +
+                          std::to_string(*targetWidth) +
+                          " scalar components, got " +
+                          std::to_string(componentCount),
+                      expression.location);
+  }
+}
+
+void validateHIRMatrixConstructorTypedExpression(
+    const HIRExpression &expression, const HIRType &constructorType,
+    const std::string &context, const HIRSymbolTable &symbols,
+    DiagnosticEngine &diagnostics) {
+  const std::string targetBase = baseTypeName(constructorType);
+  const std::optional<std::size_t> targetElementCount =
+      matrixElementCountFromName(targetBase);
+  if (!targetElementCount.has_value() || constructorType.arraySize.has_value()) {
+    return;
+  }
+
+  if (expression.children.size() == 1) {
+    const std::optional<HIRType> sourceType =
+        hirExpressionEffectiveType(expression.children.front(), symbols);
+    if (!sourceType.has_value() || sourceType->name.empty()) {
+      return;
+    }
+    if (!sourceType->arraySize.has_value()) {
+      const std::string sourceBase = baseTypeName(*sourceType);
+      if (isMatrixType(sourceBase) || isHIRScalarNumericType(*sourceType)) {
+        return;
+      }
+    }
+  }
+
+  const HIRType componentType{"float", std::nullopt};
+  std::size_t componentCount = 0;
+  bool allOperandTypesKnown = true;
+  bool valid = true;
+  for (const HIRExpression &operand : expression.children) {
+    const std::optional<HIRType> operandType =
+        hirExpressionEffectiveType(operand, symbols);
+    if (!operandType.has_value()) {
+      allOperandTypesKnown = false;
+      continue;
+    }
+    const std::optional<std::size_t> operandWidth =
+        hirConstructorConstituentWidth(
+            operand, *operandType, componentType, expression.value,
+            "opt.hir-matrix-constructor", "matrix", context, diagnostics,
+            valid);
+    if (!operandWidth.has_value()) {
+      allOperandTypesKnown = false;
+      continue;
+    }
+    componentCount += *operandWidth;
+  }
+
+  if (valid && allOperandTypesKnown && componentCount != *targetElementCount) {
+    diagnostics.error("opt.hir-matrix-constructor",
+                      "HIR " + context + " matrix constructor '" +
+                          expression.value + "' expects " +
+                          std::to_string(*targetElementCount) +
+                          " scalar components, got " +
+                          std::to_string(componentCount),
+                      expression.location);
+  }
+}
+
+void validateHIRConstructorTypedExpression(
+    const HIRExpression &expression, const std::string &context,
+    const HIRSymbolTable &symbols, DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::Constructor ||
+      expression.value.empty()) {
+    return;
+  }
+
+  const HIRType constructorType{expression.value, std::nullopt,
+                               expression.location};
+  if (isHIRScalarNumericConstructorType(constructorType)) {
+    if (expression.children.size() != 1) {
+      diagnostics.error("opt.hir-scalar-constructor",
+                        "HIR " + context + " scalar numeric constructor '" +
+                            expression.value +
+                            "' expects exactly one operand, got " +
+                            std::to_string(expression.children.size()),
+                        expression.location);
+      return;
+    }
+
+    const std::optional<HIRType> sourceType =
+        hirExpressionEffectiveType(expression.children.front(), symbols);
+    if (sourceType.has_value() && !sourceType->name.empty() &&
+        !isHIRScalarNumericType(*sourceType)) {
+      diagnostics.error("opt.hir-scalar-constructor",
+                        "HIR " + context + " scalar numeric constructor '" +
+                            expression.value +
+                            "' requires a scalar numeric operand, got '" +
+                            formatType(*sourceType) + "'",
+                        expression.children.front().location);
+    }
+    return;
+  }
+
+  validateHIRVectorConstructorTypedExpression(expression, constructorType,
+                                             context, symbols, diagnostics);
+  validateHIRMatrixConstructorTypedExpression(expression, constructorType,
+                                             context, symbols, diagnostics);
+}
+
+void validateHIRUnaryOperatorOperandTypes(const HIRExpression &expression,
+                                          const std::string &context,
+                                          const HIRSymbolTable &symbols,
+                                          DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::Unary ||
+      expression.children.size() != 1) {
+    return;
+  }
+
+  const HIRExpression &operand = expression.children.front();
+  const std::optional<HIRType> operandType =
+      hirExpressionEffectiveType(operand, symbols);
+  if (!operandType.has_value()) {
+    return;
+  }
+
+  if (expression.value == "!" && !isScalarBoolType(*operandType)) {
+    diagnostics.error("opt.hir-logical-operand-type",
+                      "HIR " + context +
+                          " unary operator '!' requires a scalar bool operand, got '" +
+                          formatType(*operandType) + "'",
+                      operand.location);
+  } else if ((expression.value == "+" || expression.value == "-") &&
+             !isHIRArithmeticOperandType(*operandType)) {
+    diagnostics.error("opt.hir-unary-operand-type",
+                      "HIR " + context + " unary operator '" + expression.value +
+                          "' requires a numeric scalar, vector, or matrix operand, got '" +
+                          formatType(*operandType) + "'",
+                      operand.location);
+  }
+}
+
+void validateHIRBinaryOperatorOperandTypes(const HIRExpression &expression,
+                                           const std::string &context,
+                                           const HIRSymbolTable &symbols,
+                                           DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::Binary ||
+      expression.children.size() != 2) {
+    return;
+  }
+
+  const std::optional<HIRType> leftType =
+      hirExpressionEffectiveType(expression.children[0], symbols);
+  const std::optional<HIRType> rightType =
+      hirExpressionEffectiveType(expression.children[1], symbols);
+  if (!leftType.has_value() || !rightType.has_value()) {
+    return;
+  }
+
+  if ((expression.value == "&&" || expression.value == "||") &&
+      (!isScalarBoolType(*leftType) || !isScalarBoolType(*rightType))) {
+    diagnostics.error("opt.hir-logical-operand-type",
+                      "HIR " + context + " logical operator '" + expression.value +
+                          "' requires scalar bool operands, got '" +
+                          formatType(*leftType) + " " + expression.value + " " +
+                          formatType(*rightType) + "'",
+                      expression.location);
+  } else if (isHIRArithmeticBinaryOperator(expression.value) &&
+             (!isHIRArithmeticOperandType(*leftType) ||
+              !isHIRArithmeticOperandType(*rightType))) {
+    diagnostics.error("opt.hir-binary-operand-type",
+                      "HIR " + context + " arithmetic operator '" +
+                          expression.value +
+                          "' requires numeric scalar, vector, or matrix operands, got '" +
+                          formatType(*leftType) + " " + expression.value + " " +
+                          formatType(*rightType) + "'",
+                      expression.location);
+  } else if (isHIRRelationalBinaryOperator(expression.value) &&
+             (!isHIRScalarNumericType(*leftType) ||
+              !isHIRScalarNumericType(*rightType))) {
+    diagnostics.error("opt.hir-comparison-operand-type",
+                      "HIR " + context + " comparison operator '" +
+                          expression.value +
+                          "' requires scalar numeric operands, got '" +
+                          formatType(*leftType) + " " + expression.value + " " +
+                          formatType(*rightType) + "'",
+                      expression.location);
+  } else if (isHIREqualityBinaryOperator(expression.value) &&
+             !isHIREqualityOperandPair(*leftType, *rightType)) {
+    diagnostics.error("opt.hir-equality-operand-type",
+                      "HIR " + context + " equality operator '" +
+                          expression.value +
+                          "' requires scalar bool operands or scalar numeric operands, got '" +
+                          formatType(*leftType) + " " + expression.value + " " +
+                          formatType(*rightType) + "'",
+                      expression.location);
+  }
+}
+
+void validateHIRSelectOperandTypes(const HIRExpression &expression,
+                                   const std::string &context,
+                                   const HIRSymbolTable &symbols,
+                                   DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::Select ||
+      expression.children.size() != 3) {
+    return;
+  }
+
+  const std::optional<HIRType> conditionType =
+      hirExpressionEffectiveType(expression.children[0], symbols);
+  if (conditionType.has_value() && !isScalarBoolType(*conditionType)) {
+    diagnostics.error("opt.hir-select-condition-type",
+                      "HIR " + context +
+                          " select condition must be scalar bool, got '" +
+                          formatType(*conditionType) + "'",
+                      expression.children[0].location);
+  }
+
+  const std::optional<HIRType> trueType =
+      hirExpressionEffectiveType(expression.children[1], symbols);
+  const std::optional<HIRType> falseType =
+      hirExpressionEffectiveType(expression.children[2], symbols);
+  if (trueType.has_value() && falseType.has_value() &&
+      !isHIRSelectBranchOperandPair(*trueType, *falseType)) {
+    diagnostics.error("opt.hir-select-branch-type",
+                      "HIR " + context +
+                          " select branches must have compatible scalar, vector, "
+                          "or matrix value types, got '" +
+                          formatType(*trueType) + " and " +
+                          formatType(*falseType) + "'",
+                      expression.location);
+  }
+}
+
+bool isHIRStorageBufferResourceBase(
+    const HIRExpression &base,
+    const HIRIndexableResourceBaseSet *indexableResourceBases) {
+  return indexableResourceBases != nullptr &&
+         base.kind == HIRExpressionKind::Identifier &&
+         indexableResourceBases->contains(base.value);
+}
+
+bool isHIRIndexableExpressionType(
+    const HIRExpression &base, const HIRType &type,
+    const HIRIndexableResourceBaseSet *indexableResourceBases) {
+  if (isHIRStorageBufferResourceBase(base, indexableResourceBases)) {
+    return true;
+  }
+  if (type.name.empty()) {
+    return true;
+  }
+  HIRType baseType = stripTypeQualifier(type);
+  if (baseType.name.empty()) {
+    return true;
+  }
+  if (!baseType.name.empty() && baseType.name.back() == '*') {
+    return true;
+  }
+  if (baseType.arraySize.has_value()) {
+    return true;
+  }
+  return isVectorType(baseTypeName(baseType));
+}
+
+void validateHIRIndexAccessOperandTypes(const HIRExpression &expression,
+                                        const std::string &context,
+                                        const HIRSymbolTable &symbols,
+                                        const HIRIndexableResourceBaseSet
+                                            *indexableResourceBases,
+                                        DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::IndexAccess ||
+      expression.children.size() < 2) {
+    return;
+  }
+
+  const std::optional<HIRType> baseType =
+      hirExpressionEffectiveType(expression.children[0], symbols);
+  if (baseType.has_value() &&
+      !isHIRIndexableExpressionType(expression.children[0], *baseType,
+                                    indexableResourceBases)) {
+    diagnostics.error(
+        "opt.hir-index-base-type",
+        "HIR " + context +
+            " index operator requires an array, storage-buffer pointer, "
+            "descriptor array, or vector base, got '" +
+            formatType(*baseType) + "'",
+        expression.location);
+  }
+
+  const std::optional<HIRType> indexType =
+      hirExpressionEffectiveType(expression.children[1], symbols);
+  if (expression.children[1].kind != HIRExpressionKind::NonUniform &&
+      indexType.has_value() && !isIntegerScalarType(*indexType)) {
+    diagnostics.error(
+        "opt.hir-index-type",
+        "HIR " + context +
+            " index operator requires a scalar int or uint index, got '" +
+            formatType(*indexType) + "'",
+        expression.children[1].location);
+  }
+}
+
 void validateHIRExpressionTypedSymbols(
     const HIRExpression &expression, const std::string &context,
     const HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
-    DiagnosticEngine &diagnostics, bool skipIdentifierResolution = false) {
+    DiagnosticEngine &diagnostics, bool skipIdentifierResolution = false,
+    const HIRIndexableResourceBaseSet *indexableResourceBases = nullptr) {
   if (expression.kind == HIRExpressionKind::Empty) {
     return;
   }
@@ -1827,6 +2601,8 @@ void validateHIRExpressionTypedSymbols(
         expression, constructorType, context, "opt.hir-constructor-type",
         typedContext, diagnostics);
   }
+  validateHIRConstructorTypedExpression(expression, context, symbols,
+                                        diagnostics);
 
   if (const std::optional<HIRType> callResultType =
           hirKnownCallResultType(expression, symbols)) {
@@ -1837,9 +2613,16 @@ void validateHIRExpressionTypedSymbols(
   validateHIRIntrinsicArity(expression, context, diagnostics);
   validateHIRIntrinsicArgumentTypes(expression, context, symbols, typedContext,
                                     diagnostics);
+  validateHIRUserFunctionCall(expression, context, symbols, typedContext,
+                              diagnostics);
   validateHIRAtomicReadModifyWriteLValue(expression, context, symbols,
                                         diagnostics);
   validateHIRCallCalleeType(expression, context, typedContext, diagnostics);
+  validateHIRUnaryOperatorOperandTypes(expression, context, symbols, diagnostics);
+  validateHIRBinaryOperatorOperandTypes(expression, context, symbols, diagnostics);
+  validateHIRSelectOperandTypes(expression, context, symbols, diagnostics);
+  validateHIRIndexAccessOperandTypes(expression, context, symbols,
+                                     indexableResourceBases, diagnostics);
   validateHIRTextureSampleTypedExpression(expression, context, symbols,
                                           typedContext, diagnostics);
   validateHIRTextureCompareTypedExpression(expression, context, symbols,
@@ -1884,7 +2667,8 @@ void validateHIRExpressionTypedSymbols(
         expression.children[index],
         context + " child " + std::to_string(index), symbols, typedContext,
         diagnostics, isManualHIRTextureCompareOpOperand(expression, index) ||
-                         isHIRImageAccessResourceOperand(expression, index));
+                         isHIRImageAccessResourceOperand(expression, index),
+        indexableResourceBases);
   }
 }
 
@@ -1906,21 +2690,33 @@ void validateHIRConditionType(const HIRExpression &condition,
 void validateHIRStatementTypedSymbols(
     const HIRStatement &statement, const HIRType &returnType,
     HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
+    HIRReadOnlySymbolSet &readOnlySymbols,
+    HIRResourceHandleSymbolSet &resourceHandleSymbols,
+    HIRIndexableResourceBaseSet &indexableResourceBases,
     DiagnosticEngine &diagnostics, const std::string &context);
 
 void validateHIRStatementBlockTypedSymbols(
     std::span<const HIRStatement> statements, const HIRType &returnType,
     HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
+    HIRReadOnlySymbolSet &readOnlySymbols,
+    HIRResourceHandleSymbolSet &resourceHandleSymbols,
+    HIRIndexableResourceBaseSet &indexableResourceBases,
     DiagnosticEngine &diagnostics, const std::string &context) {
   for (const HIRStatement &statement : statements) {
     validateHIRStatementTypedSymbols(statement, returnType, symbols,
-                                     typedContext, diagnostics, context);
+                                     typedContext, readOnlySymbols,
+                                     resourceHandleSymbols,
+                                     indexableResourceBases, diagnostics,
+                                     context);
   }
 }
 
 void validateHIRStatementTypedSymbols(
     const HIRStatement &statement, const HIRType &returnType,
     HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
+    HIRReadOnlySymbolSet &readOnlySymbols,
+    HIRResourceHandleSymbolSet &resourceHandleSymbols,
+    HIRIndexableResourceBaseSet &indexableResourceBases,
     DiagnosticEngine &diagnostics, const std::string &context) {
   const std::string statementContext =
       context + " " + statementKindName(statement.kind) + " statement";
@@ -1941,7 +2737,8 @@ void validateHIRStatementTypedSymbols(
                        diagnostics);
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " initializer",
-                                      symbols, typedContext, diagnostics);
+                                      symbols, typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     if (!isEmptyHIRExpressionSlot(statement.value)) {
       const std::optional<HIRType> valueType =
           hirExpressionEffectiveType(statement.value, symbols);
@@ -1954,16 +2751,65 @@ void validateHIRStatementTypedSymbols(
     }
     if (!statement.name.empty()) {
       symbols[statement.name] = statement.declaredType;
+      readOnlySymbols.erase(statement.name);
+      resourceHandleSymbols.erase(statement.name);
+      indexableResourceBases.erase(statement.name);
     }
     break;
   }
   case HIRStatementKind::Assignment: {
     validateHIRExpressionTypedSymbols(statement.target,
                                       statementContext + " target", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " value", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
+    if (!isEmptyHIRExpressionSlot(statement.target) &&
+        !isHIRAssignableTargetExpression(statement.target)) {
+      const HIRExpression &target =
+          hirAssignmentTargetDiagnosticExpression(statement.target);
+      diagnostics.error("opt.hir-assignment-target-lvalue",
+                        "HIR " + statementContext +
+                            " target must be an assignable storage location, "
+                            "got '" +
+                            expressionKindName(target.kind) + "' expression",
+                        target.location);
+    }
+    if (const HIRExpression *target =
+            hirDuplicateSwizzleAssignmentTargetExpression(statement.target,
+                                                          symbols)) {
+      diagnostics.error("opt.hir-assignment-target-swizzle-duplicate",
+                        "HIR " + statementContext +
+                            " target swizzle '" + target->value +
+                            "' cannot write the same vector component more "
+                            "than once",
+                        target->location);
+    }
+    if (const HIRExpression *direct =
+            hirAssignmentTargetDirectIdentifier(statement.target);
+        direct != nullptr && resourceHandleSymbols.contains(direct->value)) {
+      diagnostics.error("opt.hir-assignment-target-readonly",
+                        "HIR " + statementContext + " target '" +
+                            direct->value + "' is a resource handle",
+                        direct->location);
+    } else if (const HIRExpression *root =
+                   hirAssignmentTargetRootIdentifier(statement.target);
+               root != nullptr && readOnlySymbols.contains(root->value)) {
+      diagnostics.error("opt.hir-assignment-target-readonly",
+                        "HIR " + statementContext + " target '" + root->value +
+                            "' is read-only",
+                        root->location);
+    } else if (const HIRExpression *target =
+                   hirAggregateAssignmentTargetExpression(statement.target)) {
+      diagnostics.error("opt.hir-assignment-target-lvalue",
+                        "HIR " + statementContext + " target " +
+                            hirAssignmentTargetDescription(*target) +
+                            " has array type '" + formatType(target->type) +
+                            "'; assign an element instead",
+                        target->location);
+    }
     const std::optional<HIRType> targetType =
         hirExpressionEffectiveType(statement.target, symbols);
     const std::optional<HIRType> valueType =
@@ -1979,7 +2825,8 @@ void validateHIRStatementTypedSymbols(
   case HIRStatementKind::Return: {
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " value", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     if (isSourceBackedUnknownHIRType(returnType, typedContext)) {
       break;
     }
@@ -2010,7 +2857,8 @@ void validateHIRStatementTypedSymbols(
   case HIRStatementKind::Expression:
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " value", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     break;
   case HIRStatementKind::Break:
   case HIRStatementKind::Continue:
@@ -2018,8 +2866,16 @@ void validateHIRStatementTypedSymbols(
     break;
   case HIRStatementKind::Block: {
     HIRSymbolTable blockSymbols = symbols;
+    HIRReadOnlySymbolSet blockReadOnlySymbols = readOnlySymbols;
+    HIRResourceHandleSymbolSet blockResourceHandleSymbols =
+        resourceHandleSymbols;
+    HIRIndexableResourceBaseSet blockIndexableResourceBases =
+        indexableResourceBases;
     validateHIRStatementBlockTypedSymbols(statement.body, returnType,
                                           blockSymbols, typedContext,
+                                          blockReadOnlySymbols,
+                                          blockResourceHandleSymbols,
+                                          blockIndexableResourceBases,
                                           diagnostics,
                                           statementContext + " body");
     break;
@@ -2027,41 +2883,78 @@ void validateHIRStatementTypedSymbols(
   case HIRStatementKind::If: {
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " condition", symbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &indexableResourceBases);
     validateHIRConditionType(statement.value, statementContext, symbols,
                              diagnostics);
     HIRSymbolTable thenSymbols = symbols;
+    HIRReadOnlySymbolSet thenReadOnlySymbols = readOnlySymbols;
+    HIRResourceHandleSymbolSet thenResourceHandleSymbols =
+        resourceHandleSymbols;
+    HIRIndexableResourceBaseSet thenIndexableResourceBases =
+        indexableResourceBases;
     validateHIRStatementBlockTypedSymbols(statement.body, returnType,
                                           thenSymbols, typedContext,
+                                          thenReadOnlySymbols,
+                                          thenResourceHandleSymbols,
+                                          thenIndexableResourceBases,
                                           diagnostics, statementContext + " body");
     HIRSymbolTable elseSymbols = symbols;
+    HIRReadOnlySymbolSet elseReadOnlySymbols = readOnlySymbols;
+    HIRResourceHandleSymbolSet elseResourceHandleSymbols =
+        resourceHandleSymbols;
+    HIRIndexableResourceBaseSet elseIndexableResourceBases =
+        indexableResourceBases;
     validateHIRStatementBlockTypedSymbols(statement.elseBody, returnType,
                                           elseSymbols, typedContext,
+                                          elseReadOnlySymbols,
+                                          elseResourceHandleSymbols,
+                                          elseIndexableResourceBases,
                                           diagnostics, statementContext + " else");
     break;
   }
   case HIRStatementKind::For: {
     HIRSymbolTable loopSymbols = symbols;
+    HIRReadOnlySymbolSet loopReadOnlySymbols = readOnlySymbols;
+    HIRResourceHandleSymbolSet loopResourceHandleSymbols =
+        resourceHandleSymbols;
+    HIRIndexableResourceBaseSet loopIndexableResourceBases =
+        indexableResourceBases;
     for (const HIRStatement &initializer : statement.initializer) {
       validateHIRStatementTypedSymbols(initializer, returnType, loopSymbols,
-                                       typedContext, diagnostics,
+                                       typedContext, loopReadOnlySymbols,
+                                       loopResourceHandleSymbols,
+                                       loopIndexableResourceBases,
+                                       diagnostics,
                                        statementContext + " initializer");
     }
     validateHIRExpressionTypedSymbols(statement.value,
                                       statementContext + " condition", loopSymbols,
-                                      typedContext, diagnostics);
+                                      typedContext, diagnostics, false,
+                                      &loopIndexableResourceBases);
     if (!isEmptyHIRExpressionSlot(statement.value)) {
       validateHIRConditionType(statement.value, statementContext, loopSymbols,
                                diagnostics);
     }
     for (const HIRStatement &update : statement.update) {
       validateHIRStatementTypedSymbols(update, returnType, loopSymbols,
-                                       typedContext, diagnostics,
+                                       typedContext, loopReadOnlySymbols,
+                                       loopResourceHandleSymbols,
+                                       loopIndexableResourceBases,
+                                       diagnostics,
                                        statementContext + " update");
     }
     HIRSymbolTable bodySymbols = loopSymbols;
+    HIRReadOnlySymbolSet bodyReadOnlySymbols = loopReadOnlySymbols;
+    HIRResourceHandleSymbolSet bodyResourceHandleSymbols =
+        loopResourceHandleSymbols;
+    HIRIndexableResourceBaseSet bodyIndexableResourceBases =
+        loopIndexableResourceBases;
     validateHIRStatementBlockTypedSymbols(statement.body, returnType,
-                                          bodySymbols, typedContext, diagnostics,
+                                          bodySymbols, typedContext,
+                                          bodyReadOnlySymbols,
+                                          bodyResourceHandleSymbols,
+                                          bodyIndexableResourceBases, diagnostics,
                                           statementContext + " body");
     break;
   }
@@ -2083,6 +2976,7 @@ HIRTypedSymbolContext collectHIRTypedSymbolContext(const HIRModule &module) {
       context.constants[constant.name] = constant.type;
     }
   }
+  addHIRFunctionSignatures(context.functionSignatures, module.functions);
   for (const HIRStage &stage : module.stages) {
     for (const HIRResource &resource : stage.resources) {
       if (resource.kind != HIRResourceKind::Uniform) {
@@ -2112,6 +3006,23 @@ HIRSymbolTable baseHIRSymbolsForFunction(
     }
   }
   return symbols;
+}
+
+HIRReadOnlySymbolSet baseHIRReadOnlySymbolsForFunction(
+    const HIRFunction &function, const HIRTypedSymbolContext &typedContext) {
+  HIRReadOnlySymbolSet readOnlySymbols;
+  for (const auto &[name, _] : typedContext.constants) {
+    readOnlySymbols.insert(name);
+  }
+  for (const auto &[name, _] : typedContext.globalCBufferFields) {
+    readOnlySymbols.insert(name);
+  }
+  for (const HIRParameter &parameter : function.parameters) {
+    if (!parameter.name.empty()) {
+      readOnlySymbols.erase(parameter.name);
+    }
+  }
+  return readOnlySymbols;
 }
 
 HIRSymbolTable stageHIRSymbolsForFunction(
@@ -2154,8 +3065,63 @@ HIRSymbolTable stageHIRSymbolsForFunction(
   return symbols;
 }
 
+HIRReadOnlySymbolSet stageHIRReadOnlySymbolsForFunction(
+    const HIRFunction &function, const HIRStage &stage,
+    const HIRTypedSymbolContext &typedContext) {
+  HIRReadOnlySymbolSet readOnlySymbols =
+      baseHIRReadOnlySymbolsForFunction(function, typedContext);
+  if (stage.stage == "compute") {
+    readOnlySymbols.insert("gl_GlobalInvocationID");
+    readOnlySymbols.insert("gl_LocalInvocationID");
+    readOnlySymbols.insert("gl_WorkGroupID");
+    readOnlySymbols.insert("gl_NumWorkGroups");
+  }
+  for (const HIRParameter &parameter : function.parameters) {
+    if (!parameter.name.empty()) {
+      readOnlySymbols.erase(parameter.name);
+    }
+  }
+  return readOnlySymbols;
+}
+
+HIRResourceHandleSymbolSet stageHIRResourceHandleSymbolsForFunction(
+    const HIRFunction &function, const HIRStage &stage) {
+  HIRResourceHandleSymbolSet resourceHandleSymbols;
+  for (const HIRResource &resource : stage.resources) {
+    if (resource.name.empty() || resource.kind == HIRResourceKind::Shared) {
+      continue;
+    }
+    resourceHandleSymbols.insert(resource.name);
+  }
+  for (const HIRParameter &parameter : function.parameters) {
+    if (!parameter.name.empty()) {
+      resourceHandleSymbols.erase(parameter.name);
+    }
+  }
+  return resourceHandleSymbols;
+}
+
+HIRIndexableResourceBaseSet stageHIRIndexableResourceBasesForFunction(
+    const HIRFunction &function, const HIRStage &stage) {
+  HIRIndexableResourceBaseSet indexableResourceBases;
+  for (const HIRResource &resource : stage.resources) {
+    if (!resource.name.empty() && resource.kind == HIRResourceKind::Buffer) {
+      indexableResourceBases.insert(resource.name);
+    }
+  }
+  for (const HIRParameter &parameter : function.parameters) {
+    if (!parameter.name.empty()) {
+      indexableResourceBases.erase(parameter.name);
+    }
+  }
+  return indexableResourceBases;
+}
+
 void validateHIRFunctionTypedSymbols(
     const HIRFunction &function, HIRSymbolTable symbols,
+    HIRReadOnlySymbolSet readOnlySymbols,
+    HIRResourceHandleSymbolSet resourceHandleSymbols,
+    HIRIndexableResourceBaseSet indexableResourceBases,
     const HIRTypedSymbolContext &typedContext, DiagnosticEngine &diagnostics,
     const std::string &context) {
   const std::string functionName =
@@ -2170,7 +3136,9 @@ void validateHIRFunctionTypedSymbols(
                        typedContext, diagnostics);
   }
   validateHIRStatementBlockTypedSymbols(function.body, function.returnType,
-                                        symbols, typedContext, diagnostics,
+                                        symbols, typedContext, readOnlySymbols,
+                                        resourceHandleSymbols,
+                                        indexableResourceBases, diagnostics,
                                         functionContext);
 }
 
@@ -2266,6 +3234,8 @@ bool validateHIRTypedSymbols(HIRModule &module, DiagnosticEngine &diagnostics) {
   for (const HIRFunction &function : module.functions) {
     validateHIRFunctionTypedSymbols(
         function, baseHIRSymbolsForFunction(function, typedContext),
+        baseHIRReadOnlySymbolsForFunction(function, typedContext),
+        HIRResourceHandleSymbolSet{}, HIRIndexableResourceBaseSet{},
         typedContext, diagnostics, "top-level");
   }
 
@@ -2276,10 +3246,17 @@ bool validateHIRTypedSymbols(HIRModule &module, DiagnosticEngine &diagnostics) {
       validateHIRResourceTypedSymbols(resource, stageLabel, typedContext,
                                       diagnostics);
     }
+    HIRTypedSymbolContext stageTypedContext = typedContext;
+    addHIRFunctionSignatures(stageTypedContext.functionSignatures,
+                             stage.functions);
     for (const HIRFunction &function : stage.functions) {
       validateHIRFunctionTypedSymbols(
-          function, stageHIRSymbolsForFunction(function, stage, typedContext),
-          typedContext, diagnostics, "stage '" + stageLabel + "'");
+          function,
+          stageHIRSymbolsForFunction(function, stage, stageTypedContext),
+          stageHIRReadOnlySymbolsForFunction(function, stage, stageTypedContext),
+          stageHIRResourceHandleSymbolsForFunction(function, stage),
+          stageHIRIndexableResourceBasesForFunction(function, stage),
+          stageTypedContext, diagnostics, "stage '" + stageLabel + "'");
     }
   }
 
@@ -4193,6 +5170,342 @@ bool hasAnyHIRName(const std::set<std::string> &names,
   return false;
 }
 
+bool isO2CSEValueType(const HIRType &type) {
+  if (!hasHIRTypeShape(type) || type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string unqualified = stripTypeQualifier(type.name);
+  if (!unqualified.empty() && unqualified.back() == '*') {
+    return false;
+  }
+  if (resourceKindFromName(type.name) != HIRResourceKind::Value) {
+    return false;
+  }
+
+  const std::string base = baseTypeName(type);
+  return base == "bool" || isNumericScalarTypeName(base) ||
+         isVectorType(base) || isMatrixType(base);
+}
+
+bool isO2CSEValueExpression(const HIRExpression &expression) {
+  return isO2CSEValueType(expression.type);
+}
+
+bool isO2CSESupportedExpression(const HIRExpression &expression);
+
+bool areO2CSESupportedChildren(const HIRExpression &expression) {
+  return std::all_of(expression.children.begin(), expression.children.end(),
+                     isO2CSESupportedExpression);
+}
+
+bool isO2CSESupportedExpression(const HIRExpression &expression) {
+  if (!isKnownPureHIRExpression(expression)) {
+    return false;
+  }
+
+  switch (expression.kind) {
+  case HIRExpressionKind::Literal:
+    return expression.children.empty() && isO2CSEValueExpression(expression);
+  case HIRExpressionKind::Identifier:
+    return !expression.value.empty() && expression.children.empty() &&
+           !isHIRPseudoControlIdentifier(expression.value) &&
+           isO2CSEValueExpression(expression);
+  case HIRExpressionKind::Group:
+    return expression.children.size() == 1 &&
+           isO2CSESupportedExpression(expression.children.front());
+  case HIRExpressionKind::Unary:
+    return expression.children.size() == 1 &&
+           isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::Binary:
+    return expression.children.size() == 2 &&
+           isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::Select:
+    return expression.children.size() == 3 &&
+           isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::Constructor:
+    return isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::Call:
+    return isPureHIRCallExpression(expression) &&
+           isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::MemberAccess:
+    if (expression.children.size() != 1 ||
+        !isO2CSEValueExpression(expression) ||
+        !isO2CSESupportedExpression(expression.children.front())) {
+      return false;
+    }
+    return isVectorType(baseTypeName(expression.children.front().type)) ||
+           isMatrixType(baseTypeName(expression.children.front().type));
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::TextureSample:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+    return false;
+  }
+  return false;
+}
+
+bool isO2CSECandidateExpression(const HIRExpression &expression) {
+  switch (expression.kind) {
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Binary:
+  case HIRExpressionKind::Select:
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::MemberAccess:
+    return isO2CSESupportedExpression(expression);
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::Group:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::TextureSample:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+    return false;
+  }
+  return false;
+}
+
+void appendO2CSEExpressionKey(std::ostream &out,
+                              const HIRExpression &expression) {
+  out << static_cast<int>(expression.kind) << '{' << expression.value.size()
+      << ':' << expression.value << '|' << expression.type.name.size() << ':'
+      << expression.type.name << '|';
+  if (expression.type.arraySize.has_value()) {
+    out << expression.type.arraySize->size() << ':'
+        << *expression.type.arraySize;
+  } else {
+    out << '-';
+  }
+  out << '|' << expression.children.size() << '[';
+  for (const HIRExpression &child : expression.children) {
+    appendO2CSEExpressionKey(out, child);
+  }
+  out << "]}";
+}
+
+std::string o2CSEExpressionKey(const HIRExpression &expression) {
+  std::ostringstream out;
+  appendO2CSEExpressionKey(out, expression);
+  return out.str();
+}
+
+struct O2CSEAvailableExpression {
+  std::string name;
+  HIRType type;
+  SourceLocation location;
+  std::set<std::string> dependencies;
+};
+
+using O2CSEAvailableExpressionMap =
+    std::unordered_map<std::string, O2CSEAvailableExpression>;
+
+void eraseO2CSEInvalidatedExpressions(
+    O2CSEAvailableExpressionMap &available,
+    const std::set<std::string> &names) {
+  if (names.empty()) {
+    return;
+  }
+
+  for (auto iterator = available.begin(); iterator != available.end();) {
+    bool invalidated = names.find(iterator->second.name) != names.end();
+    for (const std::string &dependency : iterator->second.dependencies) {
+      invalidated = invalidated || names.find(dependency) != names.end();
+    }
+    if (invalidated) {
+      iterator = available.erase(iterator);
+    } else {
+      ++iterator;
+    }
+  }
+}
+
+std::optional<HIRExpression> o2CSEReplacementExpression(
+    const HIRExpression &expression,
+    const O2CSEAvailableExpressionMap &available) {
+  if (!isO2CSECandidateExpression(expression)) {
+    return std::nullopt;
+  }
+
+  const auto found = available.find(o2CSEExpressionKey(expression));
+  if (found == available.end()) {
+    return std::nullopt;
+  }
+  if (!sameType(found->second.type, expression.type)) {
+    return std::nullopt;
+  }
+
+  HIRExpression replacement;
+  replacement.kind = HIRExpressionKind::Identifier;
+  replacement.type = expression.type;
+  replacement.value = found->second.name;
+  replacement.location = expression.location.file.empty()
+                             ? found->second.location
+                             : expression.location;
+  return replacement;
+}
+
+bool replaceO2CSEExpression(HIRExpression &expression,
+                            const O2CSEAvailableExpressionMap &available) {
+  if (std::optional<HIRExpression> replacement =
+          o2CSEReplacementExpression(expression, available)) {
+    expression = std::move(*replacement);
+    return true;
+  }
+
+  bool changed = false;
+  switch (expression.kind) {
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::TextureSample:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+    return false;
+  case HIRExpressionKind::Group:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Binary:
+  case HIRExpressionKind::Select:
+    if (!isKnownPureHIRExpression(expression)) {
+      return false;
+    }
+    for (HIRExpression &child : expression.children) {
+      changed = replaceO2CSEExpression(child, available) || changed;
+    }
+    return changed;
+  }
+  return false;
+}
+
+bool applyO2PureExpressionCSEInBlock(std::vector<HIRStatement> &statements);
+bool applyO2PureExpressionCSEInBlockWithAvailable(
+    std::vector<HIRStatement> &statements,
+    const O2CSEAvailableExpressionMap &initialAvailable);
+
+bool applyO2PureExpressionCSEInStatement(HIRStatement &statement,
+                                         O2CSEAvailableExpressionMap &available) {
+  bool changed = false;
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration: {
+    changed = replaceO2CSEExpression(statement.value, available) || changed;
+    if (!statement.name.empty()) {
+      eraseO2CSEInvalidatedExpressions(available, {statement.name});
+    }
+    if (!statement.name.empty() && isO2CSECandidateExpression(statement.value)) {
+      std::set<std::string> dependencies;
+      collectHIRExpressionIdentifiers(statement.value, dependencies);
+      dependencies.erase(statement.name);
+      available[o2CSEExpressionKey(statement.value)] =
+          O2CSEAvailableExpression{statement.name, statement.declaredType,
+                                   statement.value.location,
+                                   std::move(dependencies)};
+    }
+    return changed;
+  }
+  case HIRStatementKind::Assignment: {
+    changed = replaceO2CSEExpression(statement.value, available) || changed;
+    std::set<std::string> assignedNames;
+    collectHIRAssignedNames(statement, assignedNames);
+    eraseO2CSEInvalidatedExpressions(available, assignedNames);
+    available.clear();
+    return changed;
+  }
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Expression: {
+    changed = replaceO2CSEExpression(statement.value, available) || changed;
+    if (hasHIRSideEffects(summarizeHIRStatementSideEffects(statement))) {
+      available.clear();
+    }
+    return changed;
+  }
+  case HIRStatementKind::Block:
+    changed = applyO2PureExpressionCSEInBlockWithAvailable(statement.body,
+                                                           available) ||
+              changed;
+    available.clear();
+    return changed;
+  case HIRStatementKind::If:
+    changed = applyO2PureExpressionCSEInBlockWithAvailable(statement.body,
+                                                           available) ||
+              changed;
+    changed = applyO2PureExpressionCSEInBlockWithAvailable(statement.elseBody,
+                                                           available) ||
+              changed;
+    available.clear();
+    return changed;
+  case HIRStatementKind::For:
+    changed = applyO2PureExpressionCSEInBlock(statement.initializer) || changed;
+    changed =
+        mutateHIRLoopUpdate(
+            statement, [](std::vector<HIRStatement> &update) {
+              return applyO2PureExpressionCSEInBlock(update);
+            }) ||
+        changed;
+    changed = applyO2PureExpressionCSEInBlock(statement.body) || changed;
+    available.clear();
+    return changed;
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Raw:
+    available.clear();
+    return false;
+  }
+  return changed;
+}
+
+bool applyO2PureExpressionCSEInBlockWithAvailable(
+    std::vector<HIRStatement> &statements,
+    const O2CSEAvailableExpressionMap &initialAvailable) {
+  bool changed = false;
+  O2CSEAvailableExpressionMap available = initialAvailable;
+  for (HIRStatement &statement : statements) {
+    changed =
+        applyO2PureExpressionCSEInStatement(statement, available) || changed;
+  }
+  return changed;
+}
+
+bool applyO2PureExpressionCSEInBlock(std::vector<HIRStatement> &statements) {
+  return applyO2PureExpressionCSEInBlockWithAvailable(
+      statements, O2CSEAvailableExpressionMap{});
+}
+
+bool applyO2PureExpressionCSE(HIRModule &module, DiagnosticEngine &) {
+  bool changed = false;
+  auto optimizeFunction = [&](HIRFunction &function) {
+    if (containsOpaqueDeadLocalCleanupStatement(function.body)) {
+      return;
+    }
+    changed =
+        mutateHIRFunctionBody(function, applyO2PureExpressionCSEInBlock) ||
+        changed;
+  };
+
+  for (HIRFunction &function : module.functions) {
+    optimizeFunction(function);
+  }
+  for (HIRStage &stage : module.stages) {
+    for (HIRFunction &function : stage.functions) {
+      optimizeFunction(function);
+    }
+  }
+  return changed;
+}
+
 bool inlineO2ScalarTemporariesInBlock(std::vector<HIRStatement> &statements);
 
 bool inlineO2ScalarTemporariesInStatement(HIRStatement &statement) {
@@ -5648,6 +6961,30 @@ sameArmHIRSelectReplacementExpression(HIRExpression &expression) {
   return replacement;
 }
 
+std::optional<HIRExpression>
+idempotentHIRMinMaxReplacementExpression(const HIRExpression &expression) {
+  if (expression.kind != HIRExpressionKind::Call ||
+      (expression.value != "min" && expression.value != "max") ||
+      expression.children.size() != 2 ||
+      !isIntegerScalarOrVectorType(expression.type)) {
+    return std::nullopt;
+  }
+
+  const HIRExpression &left = expression.children[0];
+  const HIRExpression &right = expression.children[1];
+  if (!structurallySameHIRExpression(left, right) ||
+      !isKnownPureHIRExpression(left) ||
+      !hirExpressionTypeCanReplaceParent(expression, left)) {
+    return std::nullopt;
+  }
+
+  HIRExpression replacement = groupedHIRPreservedReplacement(left);
+  if (!hirExpressionTypeCanReplaceParent(expression, replacement)) {
+    return std::nullopt;
+  }
+  return replacement;
+}
+
 std::optional<std::size_t>
 algebraicHIRBinaryReplacementChild(const HIRExpression &expression) {
   if (expression.kind != HIRExpressionKind::Binary ||
@@ -5846,6 +7183,11 @@ bool simplifyAlgebraicHIRExpression(HIRExpression &expression) {
   }
   if (std::optional<HIRExpression> replacement =
           algebraicHIRBinaryReplacementExpression(expression)) {
+    expression = std::move(*replacement);
+    return true;
+  }
+  if (std::optional<HIRExpression> replacement =
+          idempotentHIRMinMaxReplacementExpression(expression)) {
     expression = std::move(*replacement);
     return true;
   }
@@ -6647,6 +7989,9 @@ constexpr HIRPassMetadata kCleanupDeadLocalDeclarationsPass{
 constexpr HIRPassMetadata kCleanupDeadLocalStoresPass{
     "hir.optimize.cleanup-dead-local-stores",
     "hir.optimize.cleanup-dead-local-stores", "cleanup"};
+constexpr HIRPassMetadata kO2PureExpressionCSEPass{
+    "hir.optimize.o2.pure-expression-cse",
+    "hir.optimize.o2.pure-expression-cse", "optimization"};
 constexpr HIRPassMetadata kInlineO2ScalarTemporariesPass{
     "hir.optimize.o2.inline-scalar-temporaries",
     "hir.optimize.o2.inline-scalar-temporaries", "optimization"};
@@ -6673,7 +8018,7 @@ const std::array<HIRPass, 11> kDefaultHIRPasses = {
     HIRPass{kValidateBackendInputPass, validateHIRBackendInput},
 };
 
-const std::array<HIRPass, 13> kO2HIRPasses = {
+const std::array<HIRPass, 14> kO2HIRPasses = {
     HIRPass{kValidateModuleShapePass, validateHIRModuleShape},
     HIRPass{kValidateTypedSymbolsPass, validateHIRTypedSymbols},
     HIRPass{kFoldConstantIntrinsicsPass, foldConstantHIRIntrinsics},
@@ -6683,6 +8028,7 @@ const std::array<HIRPass, 13> kO2HIRPasses = {
     HIRPass{kCleanupUnreachableStatementsPass, cleanupUnreachableHIRStatements},
     HIRPass{kCleanupDeadLocalDeclarationsPass, cleanupDeadHIRLocalDeclarations},
     HIRPass{kCleanupDeadLocalStoresPass, cleanupDeadHIRLocalStores},
+    HIRPass{kO2PureExpressionCSEPass, applyO2PureExpressionCSE},
     HIRPass{kInlineO2ScalarTemporariesPass, inlineO2ScalarTemporaries},
     HIRPass{kInlineO2LiteralVectorTemporariesPass,
             inlineO2LiteralVectorTemporaries},
@@ -6755,6 +8101,16 @@ std::string_view optimizationLevelName(OptimizationLevel level) {
     return "O2";
   }
   return "O1";
+}
+
+std::string_view hirVerifierModeName(HIRVerifierMode mode) {
+  switch (mode) {
+  case HIRVerifierMode::Source:
+    return "source-validation";
+  case HIRVerifierMode::BackendInput:
+    return "backend-input-validation";
+  }
+  return "backend-input-validation";
 }
 
 std::optional<OptimizationLevel> parseOptimizationLevel(
@@ -6887,8 +8243,9 @@ HIRPassPolicyMetadata hirPassPolicyMetadataForConfig(
         kStableOptLevelPassSchedule};
   case OptimizationLevel::O2:
     return HIRPassPolicyMetadata{
-        "hir-o2-conservative-inline", "O2 conservative inline",
-        "O1 safe cleanup plus conservative temporary inlining.",
+        "hir-o2-conservative-local-values", "O2 conservative local values",
+        "O1 safe cleanup plus conservative local value reuse and temporary "
+        "inlining.",
         backendInputModeName(config.validateBackendInput),
         kStableOptLevelPassSchedule};
   }
@@ -6918,6 +8275,16 @@ std::span<const HIRPass> sourceValidationHIRPassPipeline() {
   return {kDefaultHIRPasses.data(), kDefaultHIRPasses.size() - 1};
 }
 
+std::span<const HIRPass> hirVerifierPassPipeline(HIRVerifierMode mode) {
+  switch (mode) {
+  case HIRVerifierMode::Source:
+    return kO0SourceValidationPasses;
+  case HIRVerifierMode::BackendInput:
+    return kO0BackendValidationPasses;
+  }
+  return kO0BackendValidationPasses;
+}
+
 std::span<const HIRPass>
 hirPassPipelineForConfig(HIRPassPipelineConfig config) {
   switch (config.optimizationLevel) {
@@ -6936,6 +8303,16 @@ hirPassPipelineForConfig(HIRPassPipelineConfig config) {
   }
   return config.validateBackendInput ? defaultHIRPassPipeline()
                                      : sourceValidationHIRPassPipeline();
+}
+
+HIRPassPipelineResult verifyHIRModule(HIRModule &module,
+                                      DiagnosticEngine &diagnostics,
+                                      HIRVerifierConfig config) {
+  HIRPassPipelineConfig passConfig;
+  passConfig.optimizationLevel = OptimizationLevel::O0;
+  passConfig.validateBackendInput =
+      config.mode == HIRVerifierMode::BackendInput;
+  return runHIRPassPipeline(module, diagnostics, passConfig);
 }
 
 HIRPassPipelineResult runHIRPassPipeline(HIRModule &module,

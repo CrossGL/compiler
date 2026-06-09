@@ -27,6 +27,26 @@ EVIDENCE_TEST = "cglc_mlir_optional_tool_evidence"
 VERIFIER_INPUT_LIST = "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS"
 VERIFIER_INPUT = "tests/fixtures/mlir/minimal_compute_builtin_module.mlir"
 MINIMAL_FIXTURE = "tests/fixtures/MinimalComputeShader.cgl"
+SCALAR_EXPRESSION_VERIFIER_TEST = (
+    "cglc_mlir_experiment_scalar_expression_compute_verifier"
+)
+SCALAR_EXPRESSION_VERIFIER_INPUT = (
+    "tests/fixtures/mlir/scalar_expression_compute_builtin_module.mlir"
+)
+SCALAR_EXPRESSION_FIXTURE = "tests/fixtures/ScalarExpressionComputeShader.cgl"
+STORAGE_BUFFER_VERIFIER_TEST = "cglc_mlir_experiment_storage_buffer_compute_verifier"
+STORAGE_BUFFER_VERIFIER_INPUT = (
+    "tests/fixtures/mlir/storage_buffer_compute_builtin_module.mlir"
+)
+STORAGE_BUFFER_FIXTURE = "tests/fixtures/StorageBufferComputeShader.cgl"
+IF_COMPUTE_VERIFIER_TEST = "cglc_mlir_experiment_if_compute_verifier"
+IF_COMPUTE_VERIFIER_INPUT = "tests/fixtures/mlir/if_compute_builtin_module.mlir"
+IF_COMPUTE_FIXTURE = "tests/fixtures/IfComputeShader.cgl"
+TEXTURE_SAMPLER_VERIFIER_TEST = "cglc_mlir_experiment_texture_sampler_compute_verifier"
+TEXTURE_SAMPLER_VERIFIER_INPUT = (
+    "tests/fixtures/mlir/texture_sampler_compute_builtin_module.mlir"
+)
+TEXTURE_SAMPLER_FIXTURE = "tests/fixtures/VulkanTextureSamplerLodShader.cgl"
 SOURCE_RESOURCE_CATALOG = "experimental/mlir/source_resource_catalog.v0.json"
 SOURCE_RESOURCE_CATALOG_KIND = "crossgl-mlir-source-resource-catalog-v0"
 SOURCE_RESOURCE_CATALOG_CHECKER = "tools/check_mlir_source_resource_catalog.py"
@@ -55,10 +75,14 @@ REQUIRED_GATE_FACTS = (
     "MLIR_FOUND=TRUE",
     f"target {GATE_TARGET}",
     VERIFIER_INPUT,
+    SCALAR_EXPRESSION_VERIFIER_INPUT,
+    STORAGE_BUFFER_VERIFIER_INPUT,
+    IF_COMPUTE_VERIFIER_INPUT,
+    TEXTURE_SAMPLER_VERIFIER_INPUT,
     "mlir-opt discovery",
     "mlir-opt --version probe",
 )
-REQUIRED_VERIFIER_MARKERS = (
+MINIMAL_REQUIRED_VERIFIER_MARKERS = (
     f'crossgl_fixture = "{MINIMAL_FIXTURE}"',
     'crossgl_entry_point = "main"',
     "crossgl_source_location_fact_source_file = true",
@@ -72,14 +96,509 @@ REQUIRED_VERIFIER_MARKERS = (
     'crossgl_resource_metadata = "target-independent:none"',
     "crossgl_real_mlir_smoke = true",
 )
+SCALAR_EXPRESSION_REQUIRED_VERIFIER_MARKERS = (
+    f'crossgl_fixture = "{SCALAR_EXPRESSION_FIXTURE}"',
+    'crossgl_entry_point = "main"',
+    "crossgl_source_location_fact_source_file = true",
+    "crossgl_source_location_fact_shader_module = true",
+    "crossgl_source_location_fact_compute_stage = true",
+    "crossgl_source_location_fact_entry_point = true",
+    "crossgl_source_location_fact_layout_local_size = true",
+    "crossgl_source_location_fact_local_variable_declarations = true",
+    "crossgl_source_location_fact_scalar_expression_statements = true",
+    "crossgl_source_location_fact_return_statement = true",
+    "crossgl_type_fact_void_entry_point = true",
+    "crossgl_type_fact_float_scalar = true",
+    "crossgl_type_fact_int_scalar = true",
+    "crossgl_type_fact_bool_scalar = true",
+    "crossgl_type_fact_scalar_literals = true",
+    "crossgl_type_fact_constructor_cast_expression = true",
+    "crossgl_type_fact_binary_expression_result_types = true",
+    "crossgl_type_fact_comparison_expression_result_type = true",
+    "crossgl_scalar_local_count = 4",
+    'crossgl_scalar_local_0_name = "base"',
+    'crossgl_scalar_local_0_type = "float"',
+    'crossgl_scalar_local_1_name = "scaled"',
+    'crossgl_scalar_local_1_type = "float"',
+    'crossgl_scalar_local_2_name = "count"',
+    'crossgl_scalar_local_2_type = "int"',
+    'crossgl_scalar_local_3_name = "keep"',
+    'crossgl_scalar_local_3_type = "bool"',
+    "crossgl_scalar_expression_count = 4",
+    "crossgl_scalar_expression_fact_float_literal = true",
+    "crossgl_scalar_expression_fact_int_literal = true",
+    "crossgl_scalar_expression_fact_binary_add = true",
+    "crossgl_scalar_expression_fact_binary_multiply = true",
+    "crossgl_scalar_expression_fact_constructor_cast = true",
+    "crossgl_scalar_expression_fact_comparison_greater_than = true",
+    "crossgl_scalar_expression_fact_comparison_result_bool = true",
+    "crossgl_resource_count = 0",
+    "crossgl_resource_fact_descriptors_empty = true",
+    "crossgl_resource_fact_storage_buffers_empty = true",
+    "crossgl_resource_fact_storage_images_empty = true",
+    "crossgl_resource_fact_textures_empty = true",
+    "crossgl_resource_fact_samplers_empty = true",
+    "crossgl_target_independent_resource_metadata_empty = true",
+    'crossgl_resource_metadata = "target-independent:none"',
+    'crossgl_scalar_expression_metadata = "locals:base:float,scaled:float,count:int,keep:bool;expressions:literal,binary,constructor_cast,comparison"',
+    "crossgl_real_mlir_smoke = true",
+)
+STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS = (
+    f'crossgl_fixture = "{STORAGE_BUFFER_FIXTURE}"',
+    'crossgl_entry_point = "main"',
+    "crossgl_source_location_fact_source_file = true",
+    "crossgl_source_location_fact_shader_module = true",
+    "crossgl_source_location_fact_compute_stage = true",
+    "crossgl_source_location_fact_entry_point = true",
+    "crossgl_source_location_fact_layout_local_size = true",
+    "crossgl_source_location_fact_storage_buffer_declaration = true",
+    "crossgl_source_location_fact_local_variable_declarations = true",
+    "crossgl_source_location_fact_scalar_expression_statements = true",
+    "crossgl_source_location_fact_storage_buffer_write = true",
+    "crossgl_source_location_fact_return_statement = true",
+    "crossgl_type_fact_void_entry_point = true",
+    "crossgl_type_fact_float_scalar = true",
+    "crossgl_type_fact_float_pointer_storage_buffer = true",
+    "crossgl_type_fact_storage_buffer_element_type = true",
+    "crossgl_type_fact_binary_expression_result_types = true",
+    "crossgl_resource_count = 1",
+    "crossgl_descriptor_count = 1",
+    'crossgl_descriptor_0_stage = "compute"',
+    'crossgl_descriptor_0_name = "values"',
+    'crossgl_descriptor_0_kind = "storageBuffer"',
+    "crossgl_descriptor_0_set = 0",
+    "crossgl_descriptor_0_binding = 0",
+    "crossgl_storage_buffer_count = 1",
+    'crossgl_storage_buffer_0_name = "values"',
+    'crossgl_storage_buffer_0_type = "float*"',
+    'crossgl_storage_buffer_0_element_type = "float"',
+    'crossgl_storage_buffer_0_address_space = "storage"',
+    "crossgl_storage_buffer_0_write_access = true",
+    "crossgl_resource_fact_storage_images_empty = true",
+    "crossgl_resource_fact_textures_empty = true",
+    "crossgl_resource_fact_samplers_empty = true",
+    "crossgl_target_independent_resource_metadata_count = 1",
+    'crossgl_target_independent_resource_metadata_0_stage = "compute"',
+    'crossgl_target_independent_resource_metadata_0_name = "values"',
+    'crossgl_target_independent_resource_metadata_0_kind = "storageBuffer"',
+    'crossgl_target_independent_resource_metadata_0_source_type = "float*"',
+    'crossgl_target_independent_resource_metadata_0_element_type = "float"',
+    'crossgl_target_independent_resource_metadata_0_address_space = "storage"',
+    'crossgl_target_independent_resource_metadata_0_access = "read_write"',
+    "crossgl_target_independent_resource_metadata_0_set = 0",
+    "crossgl_target_independent_resource_metadata_0_binding = 0",
+    "crossgl_target_independent_resource_metadata_0_target_independent = true",
+    'crossgl_resource_metadata = "target-independent:storageBuffer:compute:values:set=0:binding=0:type=float*:element=float:addressSpace=storage:access=read_write"',
+    "crossgl_real_mlir_smoke = true",
+)
+IF_COMPUTE_REQUIRED_VERIFIER_MARKERS = (
+    f'crossgl_fixture = "{IF_COMPUTE_FIXTURE}"',
+    'crossgl_stage = "compute"',
+    'crossgl_entry_point = "main"',
+    'crossgl_local_size = "1,1,1"',
+    "crossgl_source_location_fact_source_file = true",
+    "crossgl_source_location_fact_shader_module = true",
+    "crossgl_source_location_fact_compute_stage = true",
+    "crossgl_source_location_fact_entry_point = true",
+    "crossgl_source_location_fact_layout_local_size = true",
+    "crossgl_source_location_fact_storage_buffer_declaration = true",
+    "crossgl_source_location_fact_local_variable_declarations = true",
+    "crossgl_source_location_fact_storage_buffer_read = true",
+    "crossgl_source_location_fact_if_statement = true",
+    "crossgl_source_location_fact_then_block_assignment = true",
+    "crossgl_source_location_fact_else_block_assignment = true",
+    "crossgl_source_location_fact_storage_buffer_write = true",
+    "crossgl_source_location_fact_return_statement = true",
+    "crossgl_type_fact_void_entry_point = true",
+    "crossgl_type_fact_float_scalar = true",
+    "crossgl_type_fact_float_pointer_storage_buffer = true",
+    "crossgl_type_fact_storage_buffer_element_type = true",
+    "crossgl_type_fact_comparison_expression_result_type = true",
+    "crossgl_type_fact_branch_condition_bool = true",
+    "crossgl_type_fact_assignment_expression_result_types = true",
+    "crossgl_type_fact_unary_expression_result_types = true",
+    "crossgl_resource_count = 1",
+    "crossgl_descriptor_count = 1",
+    'crossgl_descriptor_0_stage = "compute"',
+    'crossgl_descriptor_0_name = "values"',
+    'crossgl_descriptor_0_kind = "storageBuffer"',
+    "crossgl_descriptor_0_set = 0",
+    "crossgl_descriptor_0_binding = 0",
+    "crossgl_storage_buffer_count = 1",
+    'crossgl_storage_buffer_0_name = "values"',
+    'crossgl_storage_buffer_0_type = "float*"',
+    'crossgl_storage_buffer_0_element_type = "float"',
+    'crossgl_storage_buffer_0_address_space = "storage"',
+    "crossgl_storage_buffer_0_read_access = true",
+    "crossgl_storage_buffer_0_write_access = true",
+    "crossgl_storage_buffer_read_count = 1",
+    'crossgl_storage_buffer_read_0_name = "values"',
+    "crossgl_storage_buffer_read_0_index = 0",
+    "crossgl_storage_buffer_write_count = 1",
+    'crossgl_storage_buffer_write_0_name = "values"',
+    "crossgl_storage_buffer_write_0_index = 1",
+    "crossgl_resource_fact_storage_buffer_read = true",
+    "crossgl_resource_fact_storage_buffer_write = true",
+    "crossgl_resource_fact_storage_images_empty = true",
+    "crossgl_resource_fact_textures_empty = true",
+    "crossgl_resource_fact_samplers_empty = true",
+    "crossgl_target_independent_resource_metadata_count = 1",
+    'crossgl_target_independent_resource_metadata_0_stage = "compute"',
+    'crossgl_target_independent_resource_metadata_0_name = "values"',
+    'crossgl_target_independent_resource_metadata_0_kind = "storageBuffer"',
+    'crossgl_target_independent_resource_metadata_0_source_type = "float*"',
+    'crossgl_target_independent_resource_metadata_0_element_type = "float"',
+    'crossgl_target_independent_resource_metadata_0_address_space = "storage"',
+    'crossgl_target_independent_resource_metadata_0_access = "read_write"',
+    "crossgl_target_independent_resource_metadata_0_set = 0",
+    "crossgl_target_independent_resource_metadata_0_binding = 0",
+    "crossgl_target_independent_resource_metadata_0_target_independent = true",
+    "crossgl_control_flow_if_count = 1",
+    "crossgl_control_flow_if_0_has_else = true",
+    'crossgl_branch_condition_0_expression = "x > 0.0"',
+    'crossgl_branch_condition_0_comparison = "greater_than"',
+    'crossgl_branch_condition_0_result_type = "bool"',
+    "crossgl_branch_local_assignment_count = 2",
+    'crossgl_branch_then_0_assignment = "y = x"',
+    'crossgl_branch_else_0_assignment = "y = -x"',
+    "crossgl_branch_return_fact_return_after_if = true",
+    'crossgl_resource_metadata = "target-independent:storageBuffer:compute:values:set=0:binding=0:type=float*:element=float:addressSpace=storage:access=read_write"',
+    'crossgl_if_compute_metadata = "control-flow:structured-if-else,condition:x_gt_zero,then:y=x,else:y=-x,return:after-if,storage-buffer:values[0]->values[1]"',
+    "crossgl_real_mlir_smoke = true",
+)
+TEXTURE_SAMPLER_REQUIRED_VERIFIER_MARKERS = (
+    f'crossgl_fixture = "{TEXTURE_SAMPLER_FIXTURE}"',
+    'crossgl_stage = "compute"',
+    'crossgl_entry_point = "main"',
+    'crossgl_local_size = "1,1,1"',
+    "crossgl_source_location_fact_source_file = true",
+    "crossgl_source_location_fact_shader_module = true",
+    "crossgl_source_location_fact_compute_stage = true",
+    "crossgl_source_location_fact_entry_point = true",
+    "crossgl_source_location_fact_layout_local_size = true",
+    "crossgl_source_location_fact_storage_buffer_declaration = true",
+    "crossgl_source_location_fact_texture_declaration = true",
+    "crossgl_source_location_fact_sampler_declaration = true",
+    "crossgl_source_location_fact_local_variable_declarations = true",
+    "crossgl_source_location_fact_scalar_expression_statements = true",
+    "crossgl_source_location_fact_texture_sample_lod = true",
+    "crossgl_source_location_fact_storage_buffer_write = true",
+    "crossgl_source_location_fact_return_statement = true",
+    "crossgl_type_fact_void_entry_point = true",
+    "crossgl_type_fact_vec4_scalar = true",
+    "crossgl_type_fact_vec4_pointer_storage_buffer = true",
+    "crossgl_type_fact_storage_buffer_element_type = true",
+    "crossgl_type_fact_texture_sample_result_type = true",
+    "crossgl_type_fact_texture_coordinate_type = true",
+    "crossgl_type_fact_explicit_lod_scalar = true",
+    "crossgl_type_fact_constructor_cast_expression = true",
+    "crossgl_type_fact_scalar_literals = true",
+    "crossgl_resource_count = 3",
+    "crossgl_descriptor_count = 3",
+    'crossgl_descriptor_1_name = "shadowMap"',
+    'crossgl_descriptor_1_kind = "sampledTexture"',
+    'crossgl_descriptor_2_name = "comparisonSampler"',
+    'crossgl_descriptor_2_kind = "sampler"',
+    "crossgl_texture_count = 1",
+    'crossgl_texture_0_name = "shadowMap"',
+    'crossgl_texture_0_type = "sampler2D"',
+    'crossgl_texture_0_sampled_type = "float"',
+    'crossgl_texture_0_dimension = "2d"',
+    "crossgl_sampler_count = 1",
+    'crossgl_sampler_0_name = "comparisonSampler"',
+    'crossgl_sampler_0_type = "sampler"',
+    "crossgl_sampler_0_comparison = true",
+    "crossgl_texture_sample_lod_count = 1",
+    'crossgl_texture_sample_lod_0_texture = "shadowMap"',
+    'crossgl_texture_sample_lod_0_sampler = "comparisonSampler"',
+    'crossgl_texture_sample_lod_0_coordinate_type = "vec2"',
+    'crossgl_texture_sample_lod_0_lod_type = "float"',
+    'crossgl_texture_sample_lod_0_result_type = "vec4"',
+    "crossgl_target_independent_resource_metadata_count = 3",
+    'crossgl_target_independent_resource_metadata_1_kind = "sampledTexture"',
+    'crossgl_target_independent_resource_metadata_1_source_type = "sampler2D"',
+    'crossgl_target_independent_resource_metadata_1_address_space = "uniform_constant"',
+    'crossgl_target_independent_resource_metadata_1_access = "read"',
+    'crossgl_target_independent_resource_metadata_2_kind = "sampler"',
+    'crossgl_target_independent_resource_metadata_2_source_type = "sampler"',
+    'crossgl_target_independent_resource_metadata_2_address_space = "uniform_constant"',
+    'crossgl_target_independent_resource_metadata_2_access = "read"',
+    "target-independent:sampledTexture:compute:shadowMap",
+    "target-independent:sampler:compute:comparisonSampler",
+    'crossgl_texture_sampler_metadata = "texture-lod:shadowMap+comparisonSampler:coord=vec2:lod=float:result=vec4"',
+    "crossgl_real_mlir_smoke = true",
+)
+REQUIRED_VERIFIER_MARKERS_BY_INPUT = {
+    VERIFIER_INPUT: MINIMAL_REQUIRED_VERIFIER_MARKERS,
+    SCALAR_EXPRESSION_VERIFIER_INPUT: SCALAR_EXPRESSION_REQUIRED_VERIFIER_MARKERS,
+    STORAGE_BUFFER_VERIFIER_INPUT: STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS,
+    IF_COMPUTE_VERIFIER_INPUT: IF_COMPUTE_REQUIRED_VERIFIER_MARKERS,
+    TEXTURE_SAMPLER_VERIFIER_INPUT: TEXTURE_SAMPLER_REQUIRED_VERIFIER_MARKERS,
+}
+VERIFIER_FIXTURES = (
+    {
+        "key": "minimal_compute",
+        "ctest": VERIFIER_TEST,
+        "input": VERIFIER_INPUT,
+        "fixture": MINIMAL_FIXTURE,
+        "coveredFacts": (
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "typeFacts.void_entry_point",
+            "resourceFacts.localSize",
+            "resourceFacts.targetIndependentResourceMetadata",
+        ),
+    },
+    {
+        "key": "scalar_expression_compute",
+        "ctest": SCALAR_EXPRESSION_VERIFIER_TEST,
+        "input": SCALAR_EXPRESSION_VERIFIER_INPUT,
+        "fixture": SCALAR_EXPRESSION_FIXTURE,
+        "coveredFacts": (
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.int_scalar",
+            "typeFacts.bool_scalar",
+            "typeFacts.scalar_literals",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.binary_expression_result_types",
+            "typeFacts.comparison_expression_result_type",
+            "resourceFacts.localSize",
+            "resourceFacts.targetIndependentResourceMetadata",
+        ),
+    },
+    {
+        "key": "storage_buffer_compute",
+        "ctest": STORAGE_BUFFER_VERIFIER_TEST,
+        "input": STORAGE_BUFFER_VERIFIER_INPUT,
+        "fixture": STORAGE_BUFFER_FIXTURE,
+        "coveredFacts": (
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.storage_buffer_write",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.float_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.binary_expression_result_types",
+            "resourceFacts.localSize",
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+        ),
+    },
+    {
+        "key": "if_compute",
+        "ctest": IF_COMPUTE_VERIFIER_TEST,
+        "input": IF_COMPUTE_VERIFIER_INPUT,
+        "fixture": IF_COMPUTE_FIXTURE,
+        "coveredFacts": (
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.storage_buffer_read",
+            "sourceLocationFacts.if_statement",
+            "sourceLocationFacts.then_block_assignment",
+            "sourceLocationFacts.else_block_assignment",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.float_scalar",
+            "typeFacts.float_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.comparison_expression_result_type",
+            "typeFacts.branch_condition_bool",
+            "typeFacts.assignment_expression_result_types",
+            "typeFacts.unary_expression_result_types",
+            "resourceFacts.localSize",
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].readAccess",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageBufferRead",
+            "resourceFacts.storageBufferWrite",
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+        ),
+    },
+    {
+        "key": "texture_sampler_compute",
+        "ctest": TEXTURE_SAMPLER_VERIFIER_TEST,
+        "input": TEXTURE_SAMPLER_VERIFIER_INPUT,
+        "fixture": TEXTURE_SAMPLER_FIXTURE,
+        "coveredFacts": (
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.layout_local_size",
+            "sourceLocationFacts.storage_buffer_declaration",
+            "sourceLocationFacts.texture_declaration",
+            "sourceLocationFacts.sampler_declaration",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.scalar_expression_statements",
+            "sourceLocationFacts.texture_sample_lod",
+            "sourceLocationFacts.storage_buffer_write",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.void_entry_point",
+            "typeFacts.vec4_scalar",
+            "typeFacts.vec4_pointer_storage_buffer",
+            "typeFacts.storage_buffer_element_type",
+            "typeFacts.texture_sample_result_type",
+            "typeFacts.texture_coordinate_type",
+            "typeFacts.explicit_lod_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals",
+            "resourceFacts.localSize",
+            "resourceFacts.descriptors",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.textures[].name",
+            "resourceFacts.textures[].type",
+            "resourceFacts.textures[].sampledType",
+            "resourceFacts.textures[].dimension",
+            "resourceFacts.textures[].arrayed",
+            "resourceFacts.textures[].comparison",
+            "resourceFacts.textures[].set",
+            "resourceFacts.textures[].binding",
+            "resourceFacts.samplers",
+            "resourceFacts.samplers[].name",
+            "resourceFacts.samplers[].type",
+            "resourceFacts.samplers[].comparison",
+            "resourceFacts.samplers[].set",
+            "resourceFacts.samplers[].binding",
+            "resourceFacts.targetIndependentResourceMetadata",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent",
+        ),
+    },
+)
+VERIFIER_TESTS = tuple(str(fixture["ctest"]) for fixture in VERIFIER_FIXTURES)
+VERIFIER_INPUTS = tuple(str(fixture["input"]) for fixture in VERIFIER_FIXTURES)
+VERIFIER_FIXTURE_PATHS = tuple(str(fixture["fixture"]) for fixture in VERIFIER_FIXTURES)
 REQUIRED_VERIFIER_FACT_MARKERS = (
     "crossgl_source_location_fact_source_file",
     "crossgl_source_location_fact_shader_module",
     "crossgl_source_location_fact_compute_stage",
     "crossgl_source_location_fact_entry_point",
     "crossgl_source_location_fact_layout_local_size",
+    "crossgl_source_location_fact_local_variable_declarations",
+    "crossgl_source_location_fact_scalar_expression_statements",
     "crossgl_source_location_fact_return_statement",
     "crossgl_type_fact_void_entry_point",
+    "crossgl_type_fact_int_scalar",
+    "crossgl_type_fact_bool_scalar",
+    "crossgl_type_fact_scalar_literals",
+    "crossgl_type_fact_constructor_cast_expression",
+    "crossgl_type_fact_comparison_expression_result_type",
+    "crossgl_scalar_local_count",
+    "crossgl_scalar_expression_count",
+    "crossgl_source_location_fact_storage_buffer_declaration",
+    "crossgl_source_location_fact_storage_buffer_read",
+    "crossgl_source_location_fact_if_statement",
+    "crossgl_source_location_fact_then_block_assignment",
+    "crossgl_source_location_fact_else_block_assignment",
+    "crossgl_source_location_fact_storage_buffer_write",
+    "crossgl_type_fact_float_pointer_storage_buffer",
+    "crossgl_type_fact_branch_condition_bool",
+    "crossgl_type_fact_assignment_expression_result_types",
+    "crossgl_type_fact_unary_expression_result_types",
+    "crossgl_descriptor_0_name",
+    "crossgl_storage_buffer_0_type",
+    "crossgl_storage_buffer_0_read_access",
+    "crossgl_storage_buffer_read_count",
+    "crossgl_resource_fact_storage_buffer_read",
+    "crossgl_control_flow_if_count",
+    "crossgl_branch_condition_0_expression",
+    "crossgl_branch_then_0_assignment",
+    "crossgl_branch_else_0_assignment",
+    "crossgl_branch_return_fact_return_after_if",
+    "crossgl_target_independent_resource_metadata_0_access",
+    "crossgl_source_location_fact_texture_declaration",
+    "crossgl_source_location_fact_sampler_declaration",
+    "crossgl_source_location_fact_texture_sample_lod",
+    "crossgl_type_fact_vec4_scalar",
+    "crossgl_type_fact_vec4_pointer_storage_buffer",
+    "crossgl_type_fact_texture_sample_result_type",
+    "crossgl_type_fact_texture_coordinate_type",
+    "crossgl_type_fact_explicit_lod_scalar",
+    "crossgl_descriptor_1_name",
+    "crossgl_descriptor_2_name",
+    "crossgl_texture_count",
+    "crossgl_texture_0_type",
+    "crossgl_sampler_count",
+    "crossgl_texture_sample_lod_count",
+    "crossgl_texture_sampler_metadata",
 )
 FORBIDDEN_VERIFIER_MARKERS = (
     "CrossGL pseudo-MLIR",
@@ -176,24 +695,28 @@ def validate_relative_path(value: object, field: str, errors: list[str]) -> str 
     return path_text
 
 
-def find_verifier_manifest_record(
+def find_verifier_manifest_records(
     manifest: dict[str, Any], errors: list[str]
-) -> dict[str, Any]:
+) -> dict[str, dict[str, Any]]:
     checks = require_list(
         manifest.get("optionalToolGatedChecks"),
         f"{MANIFEST_PATH}: optionalToolGatedChecks",
         errors,
     )
+    records: dict[str, dict[str, Any]] = {}
     for index, item in enumerate(checks):
         record = require_object(
             item, f"{MANIFEST_PATH}: optionalToolGatedChecks[{index}]", errors
         )
-        if record.get("name") == VERIFIER_TEST:
-            return record
-    errors.append(
-        f"{MANIFEST_PATH}: optionalToolGatedChecks must include {VERIFIER_TEST!r}"
-    )
-    return {}
+        name = record.get("name")
+        if name in VERIFIER_TESTS:
+            records[str(name)] = record
+    for test in VERIFIER_TESTS:
+        if test not in records:
+            errors.append(
+                f"{MANIFEST_PATH}: optionalToolGatedChecks must include {test!r}"
+            )
+    return records
 
 
 def check_manifest_contract(root: Path, errors: list[str]) -> None:
@@ -210,12 +733,7 @@ def check_manifest_contract(root: Path, errors: list[str]) -> None:
         errors.append(f"{MANIFEST_PATH}: manifest must be an object")
         return
 
-    record = find_verifier_manifest_record(manifest, errors)
-    evidence = require_object(
-        record.get("evidenceRecord"),
-        f"{MANIFEST_PATH}: optionalToolGatedChecks[{VERIFIER_TEST}].evidenceRecord",
-        errors,
-    )
+    manifest_records = find_verifier_manifest_records(manifest, errors)
     expected_scalars: dict[str, object] = {
         "kind": KIND,
         "generatedPath": "mlir/optional_tool_evidence.v0.json",
@@ -224,50 +742,123 @@ def check_manifest_contract(root: Path, errors: list[str]) -> None:
         "normalBuildRequired": False,
         "productionLinked": False,
     }
-    for key, expected in expected_scalars.items():
-        if evidence.get(key) != expected:
-            errors.append(
-                f"{MANIFEST_PATH}: {VERIFIER_TEST}.evidenceRecord.{key} "
-                f"must be {expected!r}"
-            )
-
-    status_values = require_string_list(
-        evidence.get("statusValues"),
-        f"{MANIFEST_PATH}: {VERIFIER_TEST}.evidenceRecord.statusValues",
-        errors,
-    )
-    if status_values != list(STATUS_VALUES):
-        errors.append(
-            f"{MANIFEST_PATH}: {VERIFIER_TEST}.evidenceRecord.statusValues "
-            f"must be {list(STATUS_VALUES)!r}"
-        )
-
-    records = set(
-        require_string_list(
-            evidence.get("records"),
-            f"{MANIFEST_PATH}: {VERIFIER_TEST}.evidenceRecord.records",
-            errors,
-        )
-    )
     required_records = {
         f"{GATE_OPTION} default",
         f"{GATE_OPTION} actual",
         "MLIR_FOUND",
         f"target {GATE_TARGET}",
         VERIFIER_INPUT_LIST,
+        "verifierInputs",
+        "verifierRegistrations",
         "mlir-opt discovery",
         "default-off no mlir-opt probe proof",
         "CTest skip labels and regex",
         "structured verifier skip diagnostics",
         "report-only source/resource catalog",
         "source/resource/entrypoint preservation fields",
+        "scalar expression metadata facts",
+        "storage-buffer resource facts",
+        "storage-buffer read/write resource facts",
+        "if-compute control-flow facts",
+        "texture-sampler resource facts",
     }
-    missing = sorted(required_records - records)
-    if missing:
-        errors.append(
-            f"{MANIFEST_PATH}: {VERIFIER_TEST}.evidenceRecord.records "
-            "missing " + ", ".join(missing)
+    for fixture in VERIFIER_FIXTURES:
+        test = str(fixture["ctest"])
+        record = manifest_records.get(test, {})
+        evidence = require_object(
+            record.get("evidenceRecord"),
+            f"{MANIFEST_PATH}: optionalToolGatedChecks[{test}].evidenceRecord",
+            errors,
         )
+        for key, expected in expected_scalars.items():
+            if evidence.get(key) != expected:
+                errors.append(
+                    f"{MANIFEST_PATH}: {test}.evidenceRecord.{key} must be {expected!r}"
+                )
+
+        status_values = require_string_list(
+            evidence.get("statusValues"),
+            f"{MANIFEST_PATH}: {test}.evidenceRecord.statusValues",
+            errors,
+        )
+        if status_values != list(STATUS_VALUES):
+            errors.append(
+                f"{MANIFEST_PATH}: {test}.evidenceRecord.statusValues "
+                f"must be {list(STATUS_VALUES)!r}"
+            )
+
+        records = set(
+            require_string_list(
+                evidence.get("records"),
+                f"{MANIFEST_PATH}: {test}.evidenceRecord.records",
+                errors,
+            )
+        )
+        missing = sorted(required_records - records)
+        if missing:
+            errors.append(
+                f"{MANIFEST_PATH}: {test}.evidenceRecord.records missing "
+                + ", ".join(missing)
+            )
+
+    real_mlir = require_object(
+        manifest.get("realMlirExperimentPath"),
+        f"{MANIFEST_PATH}: realMlirExperimentPath",
+        errors,
+    )
+    inventory = require_list(
+        real_mlir.get("verifierInputInventory"),
+        f"{MANIFEST_PATH}: realMlirExperimentPath.verifierInputInventory",
+        errors,
+    )
+    inventory_by_path: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(inventory):
+        record = require_object(
+            item,
+            f"{MANIFEST_PATH}: realMlirExperimentPath.verifierInputInventory[{index}]",
+            errors,
+        )
+        path_value = record.get("path")
+        if isinstance(path_value, str):
+            inventory_by_path[path_value] = record
+    for fixture in VERIFIER_FIXTURES:
+        input_path = str(fixture["input"])
+        record = inventory_by_path.get(input_path)
+        if record is None:
+            errors.append(
+                f"{MANIFEST_PATH}: verifierInputInventory must include {input_path!r}"
+            )
+            continue
+        expected_inventory_scalars: dict[str, object] = {
+            "sourceList": VERIFIER_INPUT_LIST,
+            "fixture": fixture["fixture"],
+            "verifierTool": "mlir-opt",
+            "verifierTest": fixture["ctest"],
+            "loweringStatus": "optional-tool-gated-smoke",
+            "productionLinked": False,
+            "pseudoMlirInput": False,
+            "mustMatchCMake": True,
+        }
+        for key, expected in expected_inventory_scalars.items():
+            if record.get(key) != expected:
+                errors.append(
+                    f"{MANIFEST_PATH}: verifierInputInventory[{input_path}].{key} "
+                    f"must be {expected!r}"
+                )
+        covered = set(
+            require_string_list(
+                record.get("coveredFixtureFacts"),
+                f"{MANIFEST_PATH}: verifierInputInventory[{input_path}]."
+                "coveredFixtureFacts",
+                errors,
+            )
+        )
+        missing_facts = sorted(set(fixture["coveredFacts"]) - covered)
+        if missing_facts:
+            errors.append(
+                f"{MANIFEST_PATH}: verifierInputInventory[{input_path}]."
+                "coveredFixtureFacts missing " + ", ".join(missing_facts)
+            )
 
 
 def check_cmake_metadata_contract(root: Path, errors: list[str]) -> None:
@@ -289,8 +880,11 @@ def check_cmake_metadata_contract(root: Path, errors: list[str]) -> None:
         "optionDefault",
         "optionActual",
         "verifierInput",
+        "verifierInputs",
         "verifierTool",
         "verifierRegistration",
+        "verifierRegistrations",
+        "ctests",
         "invokesMlirOpt",
         "usesVerifyDiagnostics",
         "buildsExperimentTarget",
@@ -310,6 +904,15 @@ def check_cmake_metadata_contract(root: Path, errors: list[str]) -> None:
         "versionProbeAttempted",
         "CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_REQUIRED_MARKERS",
         "CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_OUTPUT_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_REQUIRED_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_OUTPUT_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_REQUIRED_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_OUTPUT_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_REQUIRED_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_OUTPUT_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_REQUIRED_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_OUTPUT_MARKERS",
+        "CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS",
         "crossgl_mlir_json_string_list",
         "tools/check_mlir_optional_tool_evidence.py",
         EVIDENCE_TEST,
@@ -336,12 +939,17 @@ def check_cmake_metadata_contract(root: Path, errors: list[str]) -> None:
                     f"MLIR tooling via {forbidden!r}"
                 )
 
-    for token in (
-        f"set({VERIFIER_INPUT_LIST}",
-        VERIFIER_INPUT,
-    ):
+    for token in (f"set({VERIFIER_INPUT_LIST}", *VERIFIER_INPUTS):
         if token not in cmake_text:
             errors.append(f"{CMAKE_PATH}: missing verifier input authority {token!r}")
+    for fixture in VERIFIER_FIXTURES:
+        for token in (
+            str(fixture["ctest"]),
+            str(fixture["fixture"]),
+            str(fixture["input"]),
+        ):
+            if token not in ctest_text:
+                errors.append(f"{CTEST_PATH}: missing verifier fixture token {token!r}")
 
     for token in REQUIRED_VERIFIER_FACT_MARKERS:
         if token not in ctest_text:
@@ -351,20 +959,21 @@ def check_cmake_metadata_contract(root: Path, errors: list[str]) -> None:
 
 
 def check_verifier_input_markers(root: Path, errors: list[str]) -> None:
-    path = root / VERIFIER_INPUT
-    if not path.exists():
-        errors.append(f"missing MLIR verifier input {VERIFIER_INPUT}")
-        return
-    text = read_text(path)
-    for marker in REQUIRED_VERIFIER_MARKERS:
-        if marker not in text:
-            errors.append(
-                f"{VERIFIER_INPUT}: missing required fact-preservation marker "
-                f"{marker!r}"
-            )
-    for marker in FORBIDDEN_VERIFIER_MARKERS:
-        if marker in text:
-            errors.append(f"{VERIFIER_INPUT}: contains pseudo-MLIR marker {marker!r}")
+    for input_path, required_markers in REQUIRED_VERIFIER_MARKERS_BY_INPUT.items():
+        path = root / input_path
+        if not path.exists():
+            errors.append(f"missing MLIR verifier input {input_path}")
+            continue
+        text = read_text(path)
+        for marker in required_markers:
+            if marker not in text:
+                errors.append(
+                    f"{input_path}: missing required fact-preservation marker "
+                    f"{marker!r}"
+                )
+        for marker in FORBIDDEN_VERIFIER_MARKERS:
+            if marker in text:
+                errors.append(f"{input_path}: contains pseudo-MLIR marker {marker!r}")
 
 
 def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> None:
@@ -469,6 +1078,56 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
             f"presence for {input_path}"
         )
 
+    verifier_inputs = require_list(
+        evidence.get("verifierInputs"), f"{evidence_path}: verifierInputs", errors
+    )
+    verifier_inputs_by_key: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(verifier_inputs):
+        record = require_object(
+            item, f"{evidence_path}: verifierInputs[{index}]", errors
+        )
+        key = require_string(
+            record.get("key"), f"{evidence_path}: verifierInputs[{index}].key", errors
+        )
+        if key is not None:
+            verifier_inputs_by_key[key] = record
+    verifier_input_present_by_key: dict[str, bool | None] = {}
+    for fixture in VERIFIER_FIXTURES:
+        key = str(fixture["key"])
+        record = verifier_inputs_by_key.get(key)
+        if record is None:
+            errors.append(f"{evidence_path}: verifierInputs must include key {key!r}")
+            continue
+        record_path = validate_relative_path(
+            record.get("path"), f"{evidence_path}: verifierInputs[{key}].path", errors
+        )
+        if record_path != fixture["input"]:
+            errors.append(
+                f"{evidence_path}: verifierInputs[{key}].path must be "
+                f"{fixture['input']!r}"
+            )
+        if record.get("fixture") != fixture["fixture"]:
+            errors.append(
+                f"{evidence_path}: verifierInputs[{key}].fixture must be "
+                f"{fixture['fixture']!r}"
+            )
+        if record.get("sourceList") != VERIFIER_INPUT_LIST:
+            errors.append(
+                f"{evidence_path}: verifierInputs[{key}].sourceList must be "
+                f"{VERIFIER_INPUT_LIST!r}"
+            )
+        present = require_bool(
+            record.get("present"),
+            f"{evidence_path}: verifierInputs[{key}].present",
+            errors,
+        )
+        verifier_input_present_by_key[key] = present
+        if record_path is not None and present != (root / record_path).exists():
+            errors.append(
+                f"{evidence_path}: verifierInputs[{key}].present must match "
+                f"repository fixture presence for {record_path}"
+            )
+
     tool = require_object(
         evidence.get("verifierTool"), f"{evidence_path}: verifierTool", errors
     )
@@ -565,6 +1224,105 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
     if registration.get("productionLinked") is not False:
         errors.append(
             f"{evidence_path}: verifierRegistration.productionLinked must be false"
+        )
+
+    verifier_registrations = require_list(
+        evidence.get("verifierRegistrations"),
+        f"{evidence_path}: verifierRegistrations",
+        errors,
+    )
+    verifier_registrations_by_key: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(verifier_registrations):
+        record = require_object(
+            item, f"{evidence_path}: verifierRegistrations[{index}]", errors
+        )
+        key = require_string(
+            record.get("key"),
+            f"{evidence_path}: verifierRegistrations[{index}].key",
+            errors,
+        )
+        if key is not None:
+            verifier_registrations_by_key[key] = record
+    verifier_registration_infos: list[dict[str, Any]] = []
+    for fixture in VERIFIER_FIXTURES:
+        key = str(fixture["key"])
+        record = verifier_registrations_by_key.get(key)
+        if record is None:
+            errors.append(
+                f"{evidence_path}: verifierRegistrations must include key {key!r}"
+            )
+            continue
+        if record.get("ctest") != fixture["ctest"]:
+            errors.append(
+                f"{evidence_path}: verifierRegistrations[{key}].ctest must be "
+                f"{fixture['ctest']!r}"
+            )
+        record_mode = require_string(
+            record.get("mode"),
+            f"{evidence_path}: verifierRegistrations[{key}].mode",
+            errors,
+        )
+        if record_mode is not None and record_mode not in VERIFIER_REGISTRATION_MODES:
+            errors.append(
+                f"{evidence_path}: verifierRegistrations[{key}].mode must be one of "
+                + ", ".join(VERIFIER_REGISTRATION_MODES)
+            )
+        record_invokes_mlir_opt = require_bool(
+            record.get("invokesMlirOpt"),
+            f"{evidence_path}: verifierRegistrations[{key}].invokesMlirOpt",
+            errors,
+        )
+        record_uses_verify_diagnostics = require_bool(
+            record.get("usesVerifyDiagnostics"),
+            f"{evidence_path}: verifierRegistrations[{key}].usesVerifyDiagnostics",
+            errors,
+        )
+        record_builds_experiment_target = require_bool(
+            record.get("buildsExperimentTarget"),
+            f"{evidence_path}: verifierRegistrations[{key}].buildsExperimentTarget",
+            errors,
+        )
+        record_build_target = require_optional_string(
+            record.get("buildTarget"),
+            f"{evidence_path}: verifierRegistrations[{key}].buildTarget",
+            errors,
+        )
+        record_input = validate_relative_path(
+            record.get("input"),
+            f"{evidence_path}: verifierRegistrations[{key}].input",
+            errors,
+        )
+        if record_input != fixture["input"]:
+            errors.append(
+                f"{evidence_path}: verifierRegistrations[{key}].input must be "
+                f"{fixture['input']!r}"
+            )
+        record_required_files = require_string_list_allow_empty(
+            record.get("requiredFiles"),
+            f"{evidence_path}: verifierRegistrations[{key}].requiredFiles",
+            errors,
+        )
+        if record.get("normalBuildRequired") is not False:
+            errors.append(
+                f"{evidence_path}: verifierRegistrations[{key}]."
+                "normalBuildRequired must be false"
+            )
+        if record.get("productionLinked") is not False:
+            errors.append(
+                f"{evidence_path}: verifierRegistrations[{key}]."
+                "productionLinked must be false"
+            )
+        verifier_registration_infos.append(
+            {
+                "key": key,
+                "input": fixture["input"],
+                "mode": record_mode,
+                "invokesMlirOpt": record_invokes_mlir_opt,
+                "usesVerifyDiagnostics": record_uses_verify_diagnostics,
+                "buildsExperimentTarget": record_builds_experiment_target,
+                "buildTarget": record_build_target,
+                "requiredFiles": record_required_files,
+            }
         )
 
     report_only_catalogs = require_object(
@@ -703,6 +1461,13 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
         )
     if skip.get("ctest") != VERIFIER_TEST:
         errors.append(f"{evidence_path}: skipEvidence.ctest must be {VERIFIER_TEST!r}")
+    skip_ctests = require_string_list(
+        skip.get("ctests"), f"{evidence_path}: skipEvidence.ctests", errors
+    )
+    if skip_ctests != list(VERIFIER_TESTS):
+        errors.append(
+            f"{evidence_path}: skipEvidence.ctests must be {list(VERIFIER_TESTS)!r}"
+        )
     reason = require_optional_string(
         skip.get("reason"), f"{evidence_path}: skipEvidence.reason", errors
     )
@@ -868,6 +1633,75 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
                 f"{evidence_path}: executable verifier registration requiredFiles "
                 f"must be {[VERIFIER_INPUT]!r}"
             )
+    for info in verifier_registration_infos:
+        key = info["key"]
+        if info["mode"] == "skipped":
+            if skip_registered is not True:
+                errors.append(
+                    f"{evidence_path}: skipped verifier registration {key} must "
+                    "match skipRegistered=true"
+                )
+            if info["invokesMlirOpt"] is not False:
+                errors.append(
+                    f"{evidence_path}: skipped verifier registration {key} must "
+                    "not invoke mlir-opt"
+                )
+            if info["usesVerifyDiagnostics"] is not False:
+                errors.append(
+                    f"{evidence_path}: skipped verifier registration {key} must "
+                    "not use --verify-diagnostics"
+                )
+            if info["buildsExperimentTarget"] is not False:
+                errors.append(
+                    f"{evidence_path}: skipped verifier registration {key} must "
+                    f"not build {GATE_TARGET}"
+                )
+            if info["buildTarget"] is not None:
+                errors.append(
+                    f"{evidence_path}: skipped verifier registration {key} "
+                    "buildTarget must be null"
+                )
+            if info["requiredFiles"]:
+                errors.append(
+                    f"{evidence_path}: skipped verifier registration {key} "
+                    "requiredFiles must be empty"
+                )
+        elif info["mode"] == "executable":
+            if skip_registered is not False:
+                errors.append(
+                    f"{evidence_path}: executable verifier registration {key} "
+                    "must match skipRegistered=false"
+                )
+            if info["invokesMlirOpt"] is not True:
+                errors.append(
+                    f"{evidence_path}: executable verifier registration {key} "
+                    "must invoke mlir-opt"
+                )
+            if info["usesVerifyDiagnostics"] is not True:
+                errors.append(
+                    f"{evidence_path}: executable verifier registration {key} "
+                    "must use --verify-diagnostics"
+                )
+            if info["buildsExperimentTarget"] is not True:
+                errors.append(
+                    f"{evidence_path}: executable verifier registration {key} "
+                    f"must build {GATE_TARGET}"
+                )
+            if info["buildTarget"] != GATE_TARGET:
+                errors.append(
+                    f"{evidence_path}: executable verifier registration {key} "
+                    f"buildTarget must be {GATE_TARGET!r}"
+                )
+            if info["requiredFiles"] != [info["input"]]:
+                errors.append(
+                    f"{evidence_path}: executable verifier registration {key} "
+                    f"requiredFiles must be {[info['input']]!r}"
+                )
+
+    all_verifier_inputs_present = input_present is True and all(
+        verifier_input_present_by_key.get(str(fixture["key"])) is True
+        for fixture in VERIFIER_FIXTURES
+    )
 
     if status == "default-off":
         if option_enabled is not False:
@@ -998,10 +1832,15 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
                 "verifier registration"
             )
     elif status == "toolchain-available":
-        if not (option_enabled and mlir_found and target_created and input_present):
+        if not (
+            option_enabled
+            and mlir_found
+            and target_created
+            and all_verifier_inputs_present
+        ):
             errors.append(
                 f"{evidence_path}: toolchain-available requires enabled option, "
-                "MLIR_FOUND, target creation, and verifier input"
+                "MLIR_FOUND, target creation, and all verifier inputs"
             )
         if tool_found is not True or discovery_status != "available":
             errors.append(
@@ -1057,15 +1896,13 @@ def run_checks(root: Path, evidence: Path | None) -> list[str]:
     return errors
 
 
-def minimal_verifier_input_text() -> str:
+def verifier_input_text(required_markers: tuple[str, ...]) -> str:
     return (
         "// Builtin-MLIR verifier smoke fixture for the optional CrossGL MLIR "
         "experiment.\n"
         "// It intentionally uses only builtin module syntax and metadata "
         "attributes.\n"
-        "module attributes {\n  "
-        + ",\n  ".join(REQUIRED_VERIFIER_MARKERS)
-        + "\n} {\n}\n"
+        "module attributes {\n  " + ",\n  ".join(required_markers) + "\n} {\n}\n"
     )
 
 
@@ -1084,7 +1921,25 @@ def write_minimal_repo(root: Path) -> Path:
     (root / MANIFEST_PATH.parent).mkdir(parents=True, exist_ok=True)
     (root / CTEST_PATH.parent).mkdir(parents=True, exist_ok=True)
     (root / VERIFIER_INPUT).parent.mkdir(parents=True, exist_ok=True)
-    (root / VERIFIER_INPUT).write_text(minimal_verifier_input_text(), encoding="utf-8")
+    (root / VERIFIER_INPUT).write_text(
+        verifier_input_text(MINIMAL_REQUIRED_VERIFIER_MARKERS), encoding="utf-8"
+    )
+    (root / SCALAR_EXPRESSION_VERIFIER_INPUT).write_text(
+        verifier_input_text(SCALAR_EXPRESSION_REQUIRED_VERIFIER_MARKERS),
+        encoding="utf-8",
+    )
+    (root / STORAGE_BUFFER_VERIFIER_INPUT).write_text(
+        verifier_input_text(STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS),
+        encoding="utf-8",
+    )
+    (root / IF_COMPUTE_VERIFIER_INPUT).write_text(
+        verifier_input_text(IF_COMPUTE_REQUIRED_VERIFIER_MARKERS),
+        encoding="utf-8",
+    )
+    (root / TEXTURE_SAMPLER_VERIFIER_INPUT).write_text(
+        verifier_input_text(TEXTURE_SAMPLER_REQUIRED_VERIFIER_MARKERS),
+        encoding="utf-8",
+    )
     (root / SOURCE_RESOURCE_CATALOG).parent.mkdir(parents=True, exist_ok=True)
     (root / SOURCE_RESOURCE_CATALOG).write_text(
         json.dumps(
@@ -1105,6 +1960,10 @@ def write_minimal_repo(root: Path) -> Path:
         f"""
 set({VERIFIER_INPUT_LIST}
   {VERIFIER_INPUT}
+  {SCALAR_EXPRESSION_VERIFIER_INPUT}
+  {STORAGE_BUFFER_VERIFIER_INPUT}
+  {IF_COMPUTE_VERIFIER_INPUT}
+  {TEXTURE_SAMPLER_VERIFIER_INPUT}
 )
 """,
         encoding="utf-8",
@@ -1112,9 +1971,26 @@ set({VERIFIER_INPUT_LIST}
     (root / MANIFEST_PATH).write_text(
         json.dumps(
             {
+                "realMlirExperimentPath": {
+                    "verifierInputInventory": [
+                        {
+                            "path": fixture["input"],
+                            "sourceList": VERIFIER_INPUT_LIST,
+                            "fixture": fixture["fixture"],
+                            "coveredFixtureFacts": list(fixture["coveredFacts"]),
+                            "verifierTool": "mlir-opt",
+                            "verifierTest": fixture["ctest"],
+                            "loweringStatus": "optional-tool-gated-smoke",
+                            "productionLinked": False,
+                            "pseudoMlirInput": False,
+                            "mustMatchCMake": True,
+                        }
+                        for fixture in VERIFIER_FIXTURES
+                    ]
+                },
                 "optionalToolGatedChecks": [
                     {
-                        "name": VERIFIER_TEST,
+                        "name": fixture["ctest"],
                         "evidenceRecord": {
                             "kind": KIND,
                             "generatedPath": "mlir/optional_tool_evidence.v0.json",
@@ -1128,23 +2004,31 @@ set({VERIFIER_INPUT_LIST}
                                 "MLIR_FOUND",
                                 f"target {GATE_TARGET}",
                                 VERIFIER_INPUT_LIST,
+                                "verifierInputs",
+                                "verifierRegistrations",
                                 "mlir-opt discovery",
                                 "default-off no mlir-opt probe proof",
                                 "CTest skip labels and regex",
                                 "structured verifier skip diagnostics",
                                 "report-only source/resource catalog",
                                 "source/resource/entrypoint preservation fields",
+                                "scalar expression metadata facts",
+                                "storage-buffer resource facts",
+                                "storage-buffer read/write resource facts",
+                                "if-compute control-flow facts",
+                                "texture-sampler resource facts",
                             ],
                             "normalBuildRequired": False,
                             "productionLinked": False,
                         },
                     }
-                ]
+                    for fixture in VERIFIER_FIXTURES
+                ],
             }
         ),
         encoding="utf-8",
     )
-    output_markers = (
+    minimal_output_markers = (
         "crossgl_fixture",
         MINIMAL_FIXTURE,
         "crossgl_entry_point",
@@ -1153,17 +2037,146 @@ set({VERIFIER_INPUT_LIST}
         "target-independent:none",
         "crossgl_real_mlir_smoke",
     )
+    scalar_output_markers = (
+        "crossgl_fixture",
+        SCALAR_EXPRESSION_FIXTURE,
+        "crossgl_entry_point",
+        "crossgl_source_location_fact_local_variable_declarations",
+        "crossgl_source_location_fact_scalar_expression_statements",
+        "crossgl_type_fact_int_scalar",
+        "crossgl_type_fact_bool_scalar",
+        "crossgl_type_fact_constructor_cast_expression",
+        "crossgl_type_fact_comparison_expression_result_type",
+        "crossgl_scalar_local_count",
+        "crossgl_scalar_expression_count",
+        "locals:base:float,scaled:float,count:int,keep:bool",
+        "crossgl_real_mlir_smoke",
+    )
+    storage_output_markers = (
+        "crossgl_fixture",
+        STORAGE_BUFFER_FIXTURE,
+        "crossgl_entry_point",
+        "crossgl_source_location_fact_storage_buffer_declaration",
+        "crossgl_source_location_fact_storage_buffer_write",
+        "crossgl_type_fact_float_pointer_storage_buffer",
+        "crossgl_resource_count",
+        "crossgl_descriptor_count",
+        "crossgl_descriptor_0_name",
+        "values",
+        "crossgl_storage_buffer_0_type",
+        "float*",
+        "crossgl_target_independent_resource_metadata_0_access",
+        "read_write",
+        "crossgl_real_mlir_smoke",
+    )
+    if_output_markers = (
+        "crossgl_fixture",
+        IF_COMPUTE_FIXTURE,
+        "crossgl_entry_point",
+        "crossgl_source_location_fact_storage_buffer_read",
+        "crossgl_source_location_fact_if_statement",
+        "crossgl_source_location_fact_then_block_assignment",
+        "crossgl_source_location_fact_else_block_assignment",
+        "crossgl_source_location_fact_storage_buffer_write",
+        "crossgl_type_fact_branch_condition_bool",
+        "crossgl_type_fact_assignment_expression_result_types",
+        "crossgl_type_fact_unary_expression_result_types",
+        "crossgl_storage_buffer_0_read_access",
+        "crossgl_storage_buffer_read_count",
+        "crossgl_resource_fact_storage_buffer_read",
+        "crossgl_control_flow_if_count",
+        "crossgl_branch_condition_0_expression",
+        "x > 0.0",
+        "crossgl_branch_then_0_assignment",
+        "y = x",
+        "crossgl_branch_else_0_assignment",
+        "y = -x",
+        "crossgl_branch_return_fact_return_after_if",
+        "control-flow:structured-if-else",
+        "storage-buffer:values[0]->values[1]",
+        "crossgl_real_mlir_smoke",
+    )
+    texture_output_markers = (
+        "crossgl_fixture",
+        TEXTURE_SAMPLER_FIXTURE,
+        "crossgl_entry_point",
+        "crossgl_source_location_fact_texture_declaration",
+        "crossgl_source_location_fact_sampler_declaration",
+        "crossgl_source_location_fact_texture_sample_lod",
+        "crossgl_type_fact_vec4_scalar",
+        "crossgl_type_fact_vec4_pointer_storage_buffer",
+        "crossgl_type_fact_texture_sample_result_type",
+        "crossgl_type_fact_texture_coordinate_type",
+        "crossgl_type_fact_explicit_lod_scalar",
+        "crossgl_descriptor_1_name",
+        "shadowMap",
+        "crossgl_descriptor_2_name",
+        "comparisonSampler",
+        "crossgl_texture_count",
+        "crossgl_texture_0_type",
+        "sampler2D",
+        "crossgl_sampler_count",
+        "crossgl_texture_sample_lod_count",
+        "texture-lod:shadowMap+comparisonSampler",
+        "crossgl_real_mlir_smoke",
+    )
     ctest_text = (
         cmake_string_list(
             "CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_REQUIRED_MARKERS",
-            REQUIRED_VERIFIER_MARKERS,
+            MINIMAL_REQUIRED_VERIFIER_MARKERS,
         )
         + "\n"
         + cmake_string_list(
             "CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_OUTPUT_MARKERS",
-            output_markers,
+            minimal_output_markers,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_REQUIRED_MARKERS",
+            SCALAR_EXPRESSION_REQUIRED_VERIFIER_MARKERS,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_OUTPUT_MARKERS",
+            scalar_output_markers,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_REQUIRED_MARKERS",
+            STORAGE_BUFFER_REQUIRED_VERIFIER_MARKERS,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_OUTPUT_MARKERS",
+            storage_output_markers,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_REQUIRED_MARKERS",
+            IF_COMPUTE_REQUIRED_VERIFIER_MARKERS,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_OUTPUT_MARKERS",
+            if_output_markers,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_REQUIRED_MARKERS",
+            TEXTURE_SAMPLER_REQUIRED_VERIFIER_MARKERS,
+        )
+        + "\n"
+        + cmake_string_list(
+            "CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_OUTPUT_MARKERS",
+            texture_output_markers,
         )
         + f"""
+set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS
+  "minimal_compute|{VERIFIER_TEST}|{MINIMAL_FIXTURE}|{VERIFIER_INPUT}"
+  "scalar_expression_compute|{SCALAR_EXPRESSION_VERIFIER_TEST}|{SCALAR_EXPRESSION_FIXTURE}|{SCALAR_EXPRESSION_VERIFIER_INPUT}"
+  "storage_buffer_compute|{STORAGE_BUFFER_VERIFIER_TEST}|{STORAGE_BUFFER_FIXTURE}|{STORAGE_BUFFER_VERIFIER_INPUT}"
+  "if_compute|{IF_COMPUTE_VERIFIER_TEST}|{IF_COMPUTE_FIXTURE}|{IF_COMPUTE_VERIFIER_INPUT}"
+  "texture_sampler_compute|{TEXTURE_SAMPLER_VERIFIER_TEST}|{TEXTURE_SAMPLER_FIXTURE}|{TEXTURE_SAMPLER_VERIFIER_INPUT}")
 set(CROSSGL_MLIR_EXPERIMENT_OPTIONAL_TOOL_EVIDENCE
   "${{CMAKE_CURRENT_BINARY_DIR}}/mlir/optional_tool_evidence.v0.json")
 function(crossgl_mlir_json_string_list out)
@@ -1181,9 +2194,11 @@ file(WRITE "${{CROSSGL_MLIR_EXPERIMENT_OPTIONAL_TOOL_EVIDENCE}}"
   "{{\\"kind\\": \\"{KIND}\\", \\"mlirDiscovery\\": "
   "{{\\"optionDefault\\": \\"OFF\\", \\"optionActual\\": \\"OFF\\"}}, "
   "\\"verifierInput\\": {{}}, \\"verifierTool\\": {{}}, "
+  "\\"verifierInputs\\": [], "
   "\\"verifierRegistration\\": {{\\"mode\\": \\"skipped\\", "
   "\\"invokesMlirOpt\\": false, \\"usesVerifyDiagnostics\\": false, "
   "\\"buildsExperimentTarget\\": false, \\"requiredFiles\\": []}}, "
+  "\\"verifierRegistrations\\": [], "
   "\\"reportOnlyCatalogs\\": {{\\"sourceResourceCatalog\\": "
   "{{\\"path\\": \\"{SOURCE_RESOURCE_CATALOG}\\", "
   "\\"checker\\": \\"{SOURCE_RESOURCE_CATALOG_CHECKER}\\", "
@@ -1193,7 +2208,7 @@ file(WRITE "${{CROSSGL_MLIR_EXPERIMENT_OPTIONAL_TOOL_EVIDENCE}}"
   "\\"normalBuildRequired\\": false, \\"productionLinked\\": false}}}}, "
   "\\"toolProbeEvidence\\": {{\\"defaultOffMayRunFindProgram\\": false, "
   "\\"defaultOffMayRunVersionProbe\\": false}}, "
-  "\\"skipEvidence\\": {{}}, \\"skipDiagnostics\\": "
+  "\\"skipEvidence\\": {{\\"ctests\\": []}}, \\"skipDiagnostics\\": "
   "{{\\"missingReasons\\": [], \\"findProgramAttempted\\": false, "
   "\\"versionProbeAttempted\\": false}}}}")
 add_test(NAME {EVIDENCE_TEST}
@@ -1228,6 +2243,16 @@ add_test(NAME {EVIDENCE_TEST}
                     "fixture": MINIMAL_FIXTURE,
                     "present": True,
                 },
+                "verifierInputs": [
+                    {
+                        "key": fixture["key"],
+                        "sourceList": VERIFIER_INPUT_LIST,
+                        "path": fixture["input"],
+                        "fixture": fixture["fixture"],
+                        "present": True,
+                    }
+                    for fixture in VERIFIER_FIXTURES
+                ],
                 "verifierTool": {
                     "name": "mlir-opt",
                     "requiredForNormalBuild": False,
@@ -1247,6 +2272,22 @@ add_test(NAME {EVIDENCE_TEST}
                     "normalBuildRequired": False,
                     "productionLinked": False,
                 },
+                "verifierRegistrations": [
+                    {
+                        "key": fixture["key"],
+                        "ctest": fixture["ctest"],
+                        "mode": "skipped",
+                        "invokesMlirOpt": False,
+                        "usesVerifyDiagnostics": False,
+                        "buildsExperimentTarget": False,
+                        "buildTarget": None,
+                        "input": fixture["input"],
+                        "requiredFiles": [],
+                        "normalBuildRequired": False,
+                        "productionLinked": False,
+                    }
+                    for fixture in VERIFIER_FIXTURES
+                ],
                 "reportOnlyCatalogs": {
                     "sourceResourceCatalog": {
                         "path": SOURCE_RESOURCE_CATALOG,
@@ -1268,6 +2309,7 @@ add_test(NAME {EVIDENCE_TEST}
                 },
                 "skipEvidence": {
                     "ctest": VERIFIER_TEST,
+                    "ctests": list(VERIFIER_TESTS),
                     "skipRegistered": True,
                     "reason": (
                         f"{GATE_OPTION}=OFF; real MLIR verifier disabled by default"
@@ -1384,6 +2426,13 @@ def run_self_test() -> list[str]:
         data["verifierRegistration"]["buildsExperimentTarget"] = True
         data["verifierRegistration"]["buildTarget"] = GATE_TARGET
         data["verifierRegistration"]["requiredFiles"] = [VERIFIER_INPUT]
+        for registration_record in data["verifierRegistrations"]:
+            registration_record["mode"] = "executable"
+            registration_record["invokesMlirOpt"] = True
+            registration_record["usesVerifyDiagnostics"] = True
+            registration_record["buildsExperimentTarget"] = True
+            registration_record["buildTarget"] = GATE_TARGET
+            registration_record["requiredFiles"] = [registration_record["input"]]
         data["toolProbeEvidence"]["findProgramAttempted"] = True
         data["toolProbeEvidence"]["versionProbeAttempted"] = True
         data["skipEvidence"]["skipRegistered"] = False

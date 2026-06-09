@@ -107,6 +107,23 @@ if(NOT CROSSGL_PACKAGE_REPRODUCIBILITY_JOBS MATCHES "^[1-9][0-9]*$")
     "CROSSGL_PACKAGE_REPRODUCIBILITY_JOBS must be a positive integer")
 endif()
 
+set(CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS_DEFAULT "1")
+if(DEFINED ENV{CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS}
+    AND NOT "$ENV{CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS}" STREQUAL "")
+  set(CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS_DEFAULT
+    "$ENV{CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS}")
+elseif(DEFINED ENV{CROSSGL_CI_JOBS}
+    AND NOT "$ENV{CROSSGL_CI_JOBS}" STREQUAL "")
+  set(CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS_DEFAULT "$ENV{CROSSGL_CI_JOBS}")
+endif()
+set(CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS
+  "${CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS_DEFAULT}"
+  CACHE STRING "Worker count for cglc_invalid_json_schema_fixtures")
+if(NOT CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS MATCHES "^[1-9][0-9]*$")
+  message(FATAL_ERROR
+    "CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS must be a positive integer")
+endif()
+
 crossgl_add_python_script_test(
   NAME cglc_shared_json_schema_defs
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_shared_json_schema_defs.py
@@ -130,6 +147,24 @@ crossgl_add_required_python_test(
     "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-provenance-v1.schema.json"
     --instance
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-provenance-v1-basic.json")
+crossgl_add_required_python_test(
+  NAME cglc_source_batch_manifest_v1_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-manifest-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-batch-manifest-v1-basic.json")
+crossgl_add_required_python_test(
+  NAME cglc_source_batch_result_v1_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-batch-result-v1-basic.json")
 crossgl_add_required_python_test(
   NAME cglc_diagnostics_v1_project_json_schema
   COMMAND
@@ -222,6 +257,16 @@ crossgl_add_python_script_test(
   NAME cglc_invalid_json_schema_fixtures
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_invalid_json_schema_fixtures.py
   ARGS
+    --root ${CMAKE_CURRENT_SOURCE_DIR}
+    --jobs ${CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS})
+if(CROSSGL_PYTHON3)
+  set_tests_properties(cglc_invalid_json_schema_fixtures PROPERTIES
+    PROCESSORS "${CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS}")
+endif()
+crossgl_add_python_script_test(
+  NAME cglc_target_legalization_result_contract
+  SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_target_legalization_result_contract.py
+  ARGS
     --root ${CMAKE_CURRENT_SOURCE_DIR})
 crossgl_add_python_script_test(
   NAME cglc_ctest_registration_health
@@ -274,6 +319,26 @@ crossgl_add_python_script_test(
   ARGS
     --self-test)
 crossgl_add_required_python_test(
+  NAME cglc_hir_verifier_v0_coverage_compile
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    -m
+    py_compile
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hir_verifier_v0_coverage.py"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_support_matrix_evidence.py")
+crossgl_add_python_script_test(
+  NAME cglc_hir_verifier_v0_coverage_self_test
+  SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hir_verifier_v0_coverage.py
+  ARGS
+    --self-test)
+crossgl_add_python_script_test(
+  NAME cglc_hir_verifier_v0_coverage
+  SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hir_verifier_v0_coverage.py
+  ARGS
+    --root ${CMAKE_CURRENT_SOURCE_DIR}
+    --build-dir ${CMAKE_BINARY_DIR}
+    --ctest-config $<CONFIG>)
+crossgl_add_required_python_test(
   NAME cglc_release_provenance_manifest_compile
   COMMAND
     "${CROSSGL_PYTHON3}"
@@ -323,6 +388,12 @@ crossgl_add_python_script_test(
 crossgl_add_python_script_test(
   NAME cglc_diagnostic_provenance_fixtures
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_diagnostic_provenance_fixtures.py
+  ARGS
+    --root ${CMAKE_CURRENT_SOURCE_DIR}
+    --cglc $<TARGET_FILE:cglc>)
+crossgl_add_python_script_test(
+  NAME cglc_diagnostic_json_stability
+  SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_diagnostic_json_stability.py
   ARGS
     --root ${CMAKE_CURRENT_SOURCE_DIR}
     --cglc $<TARGET_FILE:cglc>)

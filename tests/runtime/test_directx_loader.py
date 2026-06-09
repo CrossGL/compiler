@@ -145,6 +145,71 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             self.assertEqual(summary["rejectReasons"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_native_api_boundary_preserves_storage_image_metadata_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_directx_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            storage_metadata = {
+                "storageImageFormat": "rgba8",
+                "storageImageAccess": "read_write",
+            }
+            reflection["resources"][0].update(
+                {
+                    "name": "OutputImage",
+                    "kind": "storageImage",
+                    "type": "RWTexture2D<float4>",
+                    "set": 1,
+                    "binding": 4,
+                    **storage_metadata,
+                }
+            )
+            reflection["targetResourceBindings"][0].update(
+                {
+                    "name": "OutputImage",
+                    "kind": "storageImage",
+                    "sourceType": "RWTexture2D<float4>",
+                    "addressSpace": "uav",
+                    "abi": {"space": 1, "register": "u4"},
+                    "set": 1,
+                    "binding": 4,
+                    "bindingClass": "uav",
+                    "descriptorType": "UAV",
+                    "hlslType": "RWTexture2D<float4>",
+                    **storage_metadata,
+                }
+            )
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "native loader must not parse source for storage image metadata\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads():
+                plan = plan_directx_native_loader(package_dir)
+                summary = plan.to_summary()
+
+            api_reflection = summary["directxNativeApiBoundary"]["runtimeInputs"][
+                "reflection"
+            ]
+            resource = api_reflection["resources"][0]
+            target_binding = api_reflection["targetResourceBindings"][0]
+            register_binding = api_reflection["hlslRegisterSpaceBindings"][0]
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertEqual(resource["storageImageFormat"], "rgba8")
+            self.assertEqual(resource["storageImageAccess"], "read_write")
+            self.assertEqual(target_binding["storageImageFormat"], "rgba8")
+            self.assertEqual(target_binding["storageImageAccess"], "read_write")
+            self.assertEqual(register_binding["storageImageFormat"], "rgba8")
+            self.assertEqual(register_binding["storageImageAccess"], "read_write")
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_source_free_plan_uses_manifest_dxil_descriptor_and_ignores_legacy_path(
         self,
     ) -> None:
@@ -2355,6 +2420,16 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             artifacts["nativeBinaryStatus"] = native_binary_status
         if include_native_binary:
             artifacts["nativeBinary"] = native_binary_path
+        descriptor_path: str | None = None
+        if (
+            include_native_binary
+            and isinstance(native_binary_status, str)
+            and native_binary_status in {"emitted", "validated"}
+        ):
+            descriptor_path = (
+                "backend/directx/RuntimeDirectXLoaderFixture.native-artifact.json"
+            )
+            artifacts["nativeArtifactDescriptor"] = descriptor_path
 
         self._write_package_json(
             package_dir,
@@ -2376,6 +2451,17 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                 "hlslType": "RWStructuredBuffer<float4>",
             },
         )
+        if descriptor_path is not None:
+            self._write_native_artifact_descriptor(
+                package_dir,
+                descriptor_path=descriptor_path,
+                native_binary_status=native_binary_status,
+                validation_status=(
+                    "validated" if native_binary_status == "validated" else "not-run"
+                ),
+                artifact_path=native_binary_path,
+                artifact_bytes=native_binary_bytes,
+            )
 
     def _write_source_free_directx_package(
         self,

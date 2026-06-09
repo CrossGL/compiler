@@ -1,0 +1,9 @@
+shader BadMatrixModuloShader {
+  compute {
+    void main() {
+      mat3 transform = mat3(1.0);
+      mat3 bad = transform % 2.0;
+      return;
+    }
+  }
+}

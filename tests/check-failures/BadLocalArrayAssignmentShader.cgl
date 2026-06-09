@@ -1,0 +1,9 @@
+shader BadLocalArrayAssignmentShader {
+  compute {
+    void main() {
+      float weights[4];
+      weights = weights;
+      return;
+    }
+  }
+}

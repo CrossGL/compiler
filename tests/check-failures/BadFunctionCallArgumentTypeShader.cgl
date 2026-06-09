@@ -1,0 +1,11 @@
+shader BadFunctionCallArgumentTypeShader {
+  compute {
+    vec2 identity(vec2 value) {
+      return value;
+    }
+    void main() {
+      vec2 result = identity(1.0);
+      return;
+    }
+  }
+}

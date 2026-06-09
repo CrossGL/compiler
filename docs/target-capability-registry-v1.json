@@ -254,7 +254,7 @@
       },
       "nativeArtifact": {
         "capability": "directx.native-artifact.dxil",
-        "status": "planned",
+        "status": "supported",
         "artifactFormat": "dxil",
         "pathArtifacts": [
           "backendSource",
@@ -270,14 +270,14 @@
       "packageAdmission": {
         "capability": "directx.package-admission.native-source-package",
         "packageMode": "source-package",
-        "nativeSupportClass": "planned-native",
-        "nativeImplemented": false,
+        "nativeSupportClass": "native",
+        "nativeImplemented": true,
         "sourcePackageSelectable": true,
         "packageBuildSupported": true,
         "admittedPackageModes": [
           "source-package"
         ],
-        "baselineBackendCapability": "directx.backend.hlsl-lowering",
+        "baselineBackendCapability": "directx.backend.native-dxil-package",
         "nativeArtifactCapability": "directx.native-artifact.dxil",
         "packageDecisionReason": "source-package-available",
         "packageRankScore": 1,
@@ -311,8 +311,8 @@
         {
           "id": "directx.native-artifact.dxil",
           "area": "native-artifact",
-          "status": "planned",
-          "summary": "DirectX packages are source packages today; DXIL native binary slots are tracked with nativeBinaryStatus.",
+          "status": "supported",
+          "summary": "DirectX packages can promote emitted DXIL into native packages when dxc succeeds; source packages remain available as fallback.",
           "evidence": [
             "tools/package_target_contracts.json",
             "cglc_package_target_contracts"

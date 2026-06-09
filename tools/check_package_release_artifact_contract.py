@@ -314,8 +314,11 @@ def check_package_inspect_descriptor_optimizer(
             )
 
 
-def write_package_mode_override(
-    source_path: Path, destination_path: Path, package_mode: str
+def write_package_requirement_override(
+    source_path: Path,
+    destination_path: Path,
+    label: str,
+    mutate_requirements,
 ) -> None:
     payload = load_json(source_path)
     packages = payload.get("packages")
@@ -329,83 +332,118 @@ def write_package_mode_override(
             raise CheckError(
                 f"{source_path}: package is missing packageArtifactRequirements"
             )
-        if requirements.get("packageMode") != package_mode:
-            requirements["packageMode"] = package_mode
+        before = json.dumps(requirements, sort_keys=True)
+        mutate_requirements(requirements)
+        after = json.dumps(requirements, sort_keys=True)
+        if before != after:
             changed += 1
 
     if changed == 0:
-        raise CheckError(
-            f"{source_path}: packageArtifactRequirements were already "
-            f"packageMode={package_mode!r}"
-        )
+        raise CheckError(f"{source_path}: {label} did not change requirements")
     write_json(destination_path, payload)
 
 
-def check_recorded_requirements_not_target_contract_bound(
-    root: Path, cglc: Path, paths: dict, work_dir: Path
-) -> None:
-    # Release bundle/plan readers validate recorded requirement propagation and
-    # artifact evidence only. Package build/verification admits compiler-written
-    # manifest requirements before promotion, and promotion copies that metadata
-    # through packageReleaseArtifactRequirementsRecord.
-    paths["bundle_recorded_mode_override"] = (
-        work_dir / "package-release-bundle-recorded-mode-override.json"
-    )
-    paths["bundle_recorded_mode_override_verification"] = (
-        work_dir / "package-release-bundle-recorded-mode-override-verification.json"
-    )
-    write_package_mode_override(
-        paths["bundle"], paths["bundle_recorded_mode_override"], "native"
-    )
-    run_checked(
-        "verify-bundle-recorded-mode-override",
-        [
-            cglc,
-            "package",
-            "release",
-            "--verify-bundle",
-            paths["bundle_recorded_mode_override"],
-            "--json",
-        ],
-        cwd=root,
-        stdout_path=paths["bundle_recorded_mode_override_verification"],
-    )
-    expect_success(
-        "verify-bundle-recorded-mode-override",
-        paths["bundle_recorded_mode_override_verification"],
+def set_requirements_native_mode(requirements: dict) -> None:
+    requirements["packageMode"] = "native"
+
+
+def reverse_required_path_artifacts(requirements: dict) -> None:
+    requirements["requiredPathArtifacts"] = list(
+        reversed(requirements["requiredPathArtifacts"])
     )
 
-    paths["plan_recorded_mode_override"] = (
-        work_dir / "package-release-publish-plan-recorded-mode-override.json"
+
+def append_extra_required_path_artifact(requirements: dict) -> None:
+    requirements["requiredPathArtifacts"] = list(
+        requirements["requiredPathArtifacts"]
+    ) + ["intermediate"]
+
+
+def disallow_planned_native_policy(requirements: dict) -> None:
+    requirements["allowsPlannedNativeBinary"] = False
+    requirements["allowsPlannedNativeSourceEvidence"] = False
+
+
+def check_recorded_requirements_reject_target_contract_drift(
+    root: Path, cglc: Path, paths: dict, work_dir: Path
+) -> None:
+    # Release bundle/plan readers reject requirement metadata that drifts from
+    # the target contract, even when the release document was produced from a
+    # previously valid package.
+    drift_cases = (
+        (
+            "recorded-mode-override",
+            set_requirements_native_mode,
+            "packageArtifactRequirements.packageMode must match target contract",
+        ),
+        (
+            "recorded-artifact-order-drift",
+            reverse_required_path_artifacts,
+            "packageArtifactRequirements.requiredPathArtifacts must match "
+            "target contract",
+        ),
+        (
+            "recorded-artifact-extra-drift",
+            append_extra_required_path_artifact,
+            "packageArtifactRequirements.requiredPathArtifacts must match "
+            "target contract",
+        ),
+        (
+            "recorded-native-policy-drift",
+            disallow_planned_native_policy,
+            "packageArtifactRequirements native binary policy must match "
+            "target contract",
+        ),
     )
-    paths["stage_recorded_mode_override"] = (
-        work_dir / "package-release-publish-stage-recorded-mode-override.json"
-    )
-    paths["stage_recorded_mode_override_dir"] = (
-        work_dir / "package-release-stage-recorded-mode-override"
-    )
-    write_package_mode_override(
-        paths["plan"], paths["plan_recorded_mode_override"], "native"
-    )
-    run_checked(
-        "stage-publish-recorded-mode-override",
-        [
-            cglc,
-            "package",
-            "release",
-            "--stage-publish",
-            paths["plan_recorded_mode_override"],
-            "--stage-output",
-            paths["stage_recorded_mode_override_dir"],
-            "--json",
-        ],
-        cwd=root,
-        stdout_path=paths["stage_recorded_mode_override"],
-    )
-    expect_success(
-        "stage-publish-recorded-mode-override",
-        paths["stage_recorded_mode_override"],
-    )
+
+    for suffix, mutate_requirements, expected in drift_cases:
+        bundle_key = f"bundle_{suffix.replace('-', '_')}"
+        paths[bundle_key] = work_dir / f"package-release-bundle-{suffix}.json"
+        write_package_requirement_override(
+            paths["bundle"],
+            paths[bundle_key],
+            suffix,
+            mutate_requirements,
+        )
+        run_expect_failure(
+            f"verify-bundle-{suffix}",
+            [
+                cglc,
+                "package",
+                "release",
+                "--verify-bundle",
+                paths[bundle_key],
+                "--json",
+            ],
+            cwd=root,
+            expected=expected,
+        )
+
+        plan_key = f"plan_{suffix.replace('-', '_')}"
+        stage_dir_key = f"stage_{suffix.replace('-', '_')}_dir"
+        paths[plan_key] = work_dir / f"package-release-publish-plan-{suffix}.json"
+        paths[stage_dir_key] = work_dir / f"package-release-stage-{suffix}"
+        write_package_requirement_override(
+            paths["plan"],
+            paths[plan_key],
+            suffix,
+            mutate_requirements,
+        )
+        run_expect_failure(
+            f"stage-publish-{suffix}",
+            [
+                cglc,
+                "package",
+                "release",
+                "--stage-publish",
+                paths[plan_key],
+                "--stage-output",
+                paths[stage_dir_key],
+                "--json",
+            ],
+            cwd=root,
+            expected=expected,
+        )
 
 
 def check_positive_release(
@@ -490,7 +528,9 @@ def check_positive_release(
     check_descriptor_propagates(
         load_json(paths["plan"]), "publish-plan-positive", package_path
     )
-    check_recorded_requirements_not_target_contract_bound(root, cglc, paths, work_dir)
+    check_recorded_requirements_reject_target_contract_drift(
+        root, cglc, paths, work_dir
+    )
 
 
 def remove_descriptor_manifest_evidence(package_path: Path) -> None:

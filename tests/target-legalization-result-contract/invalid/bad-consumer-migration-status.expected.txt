@@ -1,1 +1,1 @@
-$.policy.consumerMigration: expected 'pending'
+$.policy.consumerMigration: expected constant 'pending'

@@ -40,8 +40,15 @@ crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_O0_SUCCESS_DIR dxc
                                    success o0)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_O2_SUCCESS_DIR dxc
                                    success o2)
-crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR dxc
-                                   success graphics)
+crossgl_configure_fake_shader_tool(
+  CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR dxc success
+  graphics-resources)
+crossgl_configure_fake_shader_tool(
+  CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR dxc success
+  graphics-storage-buffer-resources)
+crossgl_configure_fake_shader_tool(
+  CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR dxc success
+  graphics-shadow-compare-lod)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_GRAPHICS_FAILURE_DIR dxc
                                    failure graphics)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_GLSLANG_SUCCESS_DIR
@@ -92,6 +99,19 @@ add_test(NAME cglc_build_directx_resource_register_layout_alias_source_package
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|workgroupSizes=1"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=materialParams.sourceType=Params|materialParams.hlslType=ConstantBuffer<Params>|materialParams.bindingClass=constant-buffer|materialParams.descriptorType=CBV|materialParams.argumentIndex=2|materialParams.set=1|materialParams.binding=2|fallbackParams.sourceType=Params|fallbackParams.hlslType=ConstantBuffer<Params>|fallbackParams.bindingClass=constant-buffer|fallbackParams.descriptorType=CBV|fallbackParams.argumentIndex=3|fallbackParams.set=1|fallbackParams.binding=3|values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_resource_location_layout_alias_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_RESOURCE_LOCATION_ALIAS_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-resource-location-alias-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/ResourceLocationAliasShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=register(b2, space1)"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=ResourceLocationAliasShader|nativeBinary=backend/directx/ResourceLocationAliasShader.dxil|resources.0.name=materialParams|resources.0.kind=uniform|resources.0.type=Params|resources.0.set=1|resources.0.binding=2|resources.1.name=values|resources.1.kind=buffer|resources.1.type=float*|resources.1.set=0|resources.1.binding=0"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=materialParams.sourceType=Params|materialParams.hlslType=ConstantBuffer<Params>|materialParams.bindingClass=constant-buffer|materialParams.descriptorType=CBV|materialParams.argumentIndex=2|materialParams.set=1|materialParams.binding=2|values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_source_package_fake_dxc_success
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -107,7 +127,7 @@ add_test(NAME cglc_build_directx_source_package_fake_dxc_success
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=note|diagnostics.1.code=directx.dxil-emitted"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=CrossGL opt-level O1 maps to DXC -O3|diagnostics.0.message=compute=cs_6_0|diagnostics.1.message=CrossGL opt-level O1 maps to DXC -O3|diagnostics.1.message=compute=cs_6_0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|sourceHash.algorithm=sha256|artifactPath=backend/directx/StorageBufferComputeShader.dxil|artifactHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O3|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|validationStatus=not-run|nativeBinaryStatus=emitted"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|sourceHash.algorithm=sha256|artifactPath=backend/directx/StorageBufferComputeShader.dxil|artifactHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O3|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=not-run"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value|artifactHash.value|sizeBytes"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_SUCCESS_DIR}/dxc.log
@@ -132,7 +152,7 @@ add_test(NAME cglc_build_directx_source_package_opt_level_o0_fake_dxc
     -DEXPECTED_NATIVE_BINARY_STATUS=emitted
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=uses -O0|diagnostics.0.message=CrossGL opt-level O0 maps to DXC -O0|diagnostics.1.message=CrossGL opt-level O0 maps to DXC -O0|diagnostics.1.message=command profile: dxc -O0 -T cs_6_0 -E compute_main -Fo backend/directx/StorageBufferComputeShader.dxil backend/directx/StorageBufferComputeShader.hlsl"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|artifactPath=backend/directx/StorageBufferComputeShader.dxil|optimizationLevel=O0|optimizationEvidence.requestedLevel=O0|optimizationEvidence.effectiveLevel=O0|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O0|validationStatus=not-run|nativeBinaryStatus=emitted"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|artifactPath=backend/directx/StorageBufferComputeShader.dxil|optimizationLevel=O0|optimizationEvidence.requestedLevel=O0|optimizationEvidence.effectiveLevel=O0|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O0|optimizationEvidence.profile=compute=cs_6_0|validationStatus=not-run"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_O0_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=-O0 -T cs_6_0 -E compute_main -Fo|backend/directx/StorageBufferComputeShader.dxil|backend/directx/StorageBufferComputeShader.hlsl"
@@ -152,7 +172,7 @@ add_test(NAME cglc_build_directx_source_package_opt_level_o2_fake_dxc
     -DEXPECTED_NATIVE_BINARY_STATUS=emitted
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=uses -O3|diagnostics.0.message=CrossGL opt-level O2 maps to DXC -O3|diagnostics.1.message=CrossGL opt-level O2 maps to DXC -O3|diagnostics.1.message=command profile: dxc -O3 -T cs_6_0 -E compute_main -Fo backend/directx/StorageBufferComputeShader.dxil backend/directx/StorageBufferComputeShader.hlsl"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|artifactPath=backend/directx/StorageBufferComputeShader.dxil|optimizationLevel=O2|optimizationEvidence.requestedLevel=O2|optimizationEvidence.effectiveLevel=O3|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|validationStatus=not-run|nativeBinaryStatus=emitted"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|artifactPath=backend/directx/StorageBufferComputeShader.dxil|optimizationLevel=O2|optimizationEvidence.requestedLevel=O2|optimizationEvidence.effectiveLevel=O3|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=not-run"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_O2_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T cs_6_0 -E compute_main -Fo|backend/directx/StorageBufferComputeShader.dxil|backend/directx/StorageBufferComputeShader.hlsl"
@@ -172,6 +192,9 @@ add_test(NAME cglc_build_directx_source_package_fake_dxc_tool_failure
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=warning|diagnostics.1.code=directx.dxc-failed|diagnostics.2.severity=warning|diagnostics.2.code=directx.source-package-only"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=CrossGL opt-level O1 maps to DXC -O3|diagnostics.0.message=compute=cs_6_0|diagnostics.1.message=compute=cs_6_0|diagnostics.1.message=exit status:|diagnostics.1.message=CrossGL opt-level O1 maps to DXC -O3|diagnostics.1.message=command profile: dxc -O3 -T cs_6_0 -E compute_main -Fo backend/directx/StorageBufferComputeShader.dxil backend/directx/StorageBufferComputeShader.hlsl|diagnostics.1.message=dxc diagnostics: stderr:|diagnostics.1.message=fake dxc failure|diagnostics.1.message=partial DXIL output was discarded|diagnostics.2.message=compute=cs_6_0|diagnostics.2.message=planned native binary artifact: backend/directx/StorageBufferComputeShader.dxil"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=3"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=not-run|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|nativeBinaryStatus=planned|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_FAILURE_DIR}/dxc.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T cs_6_0 -E compute_main -Fo|backend/directx/StorageBufferComputeShader.dxil|backend/directx/StorageBufferComputeShader.hlsl"
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_FAILURE_DIR}/dxc.log
@@ -194,6 +217,9 @@ add_test(NAME cglc_build_directx_source_package_fake_dxc_unavailable
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=warning|diagnostics.1.code=directx.source-package-only"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=CrossGL opt-level O1 maps to DXC -O3|diagnostics.0.message=compute=cs_6_0|diagnostics.1.message=dxc was not found|diagnostics.1.message=no dxc command was invoked|diagnostics.1.message=CrossGL opt-level O1 maps to DXC -O3|diagnostics.1.message=compute=cs_6_0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|nativeBinaryStatus=planned|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_label_optional_native_policy_test(
   cglc_build_directx_source_package_fake_dxc_tool_failure directx)
@@ -475,8 +501,8 @@ crossgl_add_python_expect_test(
     -DEXPECTED_SOURCE=backend/directx/StorageBufferComputeShader.hlsl
     -DEXPECTED_SOURCE_SNIPPET=RWStructuredBuffer
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=StorageBufferComputeShader|artifacts.backendSource=backend/directx/StorageBufferComputeShader.hlsl|artifacts.nativeBinary=backend/directx/StorageBufferComputeShader.dxil|artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=1|validationDiagnostics=0"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
     -DMANIFEST_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/manifest-v1.schema.json
     -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
     -DPACKAGE_SCHEMA_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas
@@ -547,9 +573,9 @@ crossgl_add_python_expect_test(
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-package-inspect.cglb
     -DMODE=package-inspect-source-package
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=StorageBufferComputeShader|summary.target=directx|summary.artifactCount=6|summary.debugArtifactsPresent=true|rootFiles.0.name=manifest|rootFiles.0.exists=true|rootFiles.1.name=reflection|rootFiles.1.exists=true|rootFiles.2.name=diagnostics|rootFiles.2.exists=true|artifacts.0.name=backendSource|artifacts.0.exists=true|artifacts.1.name=nativeBinary|artifacts.2.name=debugMetadata|artifacts.2.exists=true|artifacts.3.name=hirSourceMap|artifacts.3.exists=true|artifacts.4.name=nativeArtifactDescriptor|artifacts.4.path=backend/directx/StorageBufferComputeShader.native-artifact.json|artifacts.4.exists=true|manifest.target=directx|manifest.artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=directx|nativeArtifactDescriptor.binaryKind=directx.dxil|nativeArtifactDescriptor.sourcePath=backend/directx/StorageBufferComputeShader.hlsl|nativeArtifactDescriptor.nativeBinaryStatus=planned|nativeArtifactDescriptor.validationStatus=unavailable|nativeArtifactDescriptor.checks.sourcePathMatchesManifest=true|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactPathMatchesManifest=true|reflection.target=directx|diagnostics.schemaVersion=1"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=1|validationDiagnostics=0"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=StorageBufferComputeShader|summary.target=directx|summary.artifactCount=6|summary.debugArtifactsPresent=true|rootFiles.0.name=manifest|rootFiles.0.exists=true|rootFiles.1.name=reflection|rootFiles.1.exists=true|rootFiles.2.name=diagnostics|rootFiles.2.exists=true|artifacts.0.name=backendSource|artifacts.0.exists=true|artifacts.1.name=nativeBinary|artifacts.2.name=debugMetadata|artifacts.2.exists=true|artifacts.3.name=hirSourceMap|artifacts.3.exists=true|artifacts.4.name=nativeArtifactDescriptor|artifacts.4.path=backend/directx/StorageBufferComputeShader.native-artifact.json|artifacts.4.exists=true|manifest.target=directx|manifest.artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=directx|nativeArtifactDescriptor.binaryKind=directx.dxil|nativeArtifactDescriptor.sourcePath=backend/directx/StorageBufferComputeShader.hlsl|nativeArtifactDescriptor.nativeBinaryStatus=planned|nativeArtifactDescriptor.optimizationLevel=O1|nativeArtifactDescriptor.optimizationEvidence.requestedLevel=O1|nativeArtifactDescriptor.optimizationEvidence.effectiveLevel=unknown|nativeArtifactDescriptor.optimizationEvidence.policy=crossgl-to-dxc-optimization-map|nativeArtifactDescriptor.optimizationEvidence.status=unavailable|nativeArtifactDescriptor.optimizationEvidence.tool=dxc|nativeArtifactDescriptor.optimizationEvidence.toolFlag=-O3|nativeArtifactDescriptor.optimizationEvidence.profile=compute=cs_6_0|nativeArtifactDescriptor.validationStatus=unavailable|nativeArtifactDescriptor.checks.sourcePathMatchesManifest=true|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactPathMatchesManifest=true|reflection.target=directx|diagnostics.schemaVersion=1"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
     -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
@@ -582,23 +608,50 @@ function(crossgl_add_directx_compute_fake_dxc_package_inspect_test)
 
   set(directx_fake_dxc_inspect_extra_json_paths "")
   set(directx_fake_dxc_inspect_extra_json_fields "")
-  set(directx_fake_dxc_inspect_extra_native_descriptor_paths "")
+  set(directx_fake_dxc_inspect_extra_native_descriptor_paths
+    "sourceHash.value")
   set(directx_fake_dxc_inspect_extra_native_descriptor_fields
-    "|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator|validationStatus=unavailable")
+    "|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable|validationStatus=unavailable")
   set(directx_fake_dxc_inspect_extra_native_descriptor_array_lengths
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
+  set(directx_fake_dxc_inspect_extra_json_fields
+    "|nativeArtifactDescriptor.optimizationLevel=O1|nativeArtifactDescriptor.optimizationEvidence.requestedLevel=O1|nativeArtifactDescriptor.optimizationEvidence.effectiveLevel=unknown|nativeArtifactDescriptor.optimizationEvidence.policy=crossgl-to-dxc-optimization-map|nativeArtifactDescriptor.optimizationEvidence.status=unavailable|nativeArtifactDescriptor.optimizationEvidence.tool=dxc|nativeArtifactDescriptor.optimizationEvidence.toolFlag=-O3|nativeArtifactDescriptor.optimizationEvidence.profile=compute=cs_6_0|nativeArtifactDescriptor.validationStatus=unavailable")
+  if(CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
+     "planned" AND CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_TOOL_LOG)
+    set(directx_fake_dxc_inspect_extra_json_fields
+      "|nativeArtifactDescriptor.optimizationLevel=O1|nativeArtifactDescriptor.optimizationEvidence.requestedLevel=O1|nativeArtifactDescriptor.optimizationEvidence.effectiveLevel=unknown|nativeArtifactDescriptor.optimizationEvidence.policy=crossgl-to-dxc-optimization-map|nativeArtifactDescriptor.optimizationEvidence.status=not-run|nativeArtifactDescriptor.optimizationEvidence.tool=dxc|nativeArtifactDescriptor.optimizationEvidence.toolFlag=-O3|nativeArtifactDescriptor.optimizationEvidence.profile=compute=cs_6_0|nativeArtifactDescriptor.validationStatus=unavailable")
+    set(directx_fake_dxc_inspect_extra_native_descriptor_fields
+      "|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=not-run|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed|validationStatus=unavailable")
+  endif()
   if(CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
      "emitted")
     set(directx_fake_dxc_inspect_extra_json_paths
       "artifacts.1.sizeBytes|artifacts.1.sha256|nativeArtifactDescriptor.sourceHash|nativeArtifactDescriptor.artifactHash|nativeArtifactDescriptor.sizeBytes")
     set(directx_fake_dxc_inspect_extra_json_fields
-      "|nativeArtifactDescriptor.artifactPath=backend/directx/StorageBufferComputeShader.dxil|nativeArtifactDescriptor.optimizationLevel=O1|nativeArtifactDescriptor.optimizationEvidence.requestedLevel=O1|nativeArtifactDescriptor.optimizationEvidence.effectiveLevel=O3|nativeArtifactDescriptor.optimizationEvidence.policy=crossgl-to-dxc-optimization-map|nativeArtifactDescriptor.optimizationEvidence.status=applied|nativeArtifactDescriptor.optimizationEvidence.tool=dxc|nativeArtifactDescriptor.optimizationEvidence.toolFlag=-O3|nativeArtifactDescriptor.validationStatus=not-run|nativeArtifactDescriptor.checks.nativeBinaryStatusMatchesPackage=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|nativeArtifactDescriptor.checks.validationStatusMatchesNativeStatus=true")
+      "|nativeArtifactDescriptor.artifactPath=backend/directx/StorageBufferComputeShader.dxil|nativeArtifactDescriptor.optimizationLevel=O1|nativeArtifactDescriptor.optimizationEvidence.requestedLevel=O1|nativeArtifactDescriptor.optimizationEvidence.effectiveLevel=O3|nativeArtifactDescriptor.optimizationEvidence.policy=crossgl-to-dxc-optimization-map|nativeArtifactDescriptor.optimizationEvidence.status=applied|nativeArtifactDescriptor.optimizationEvidence.tool=dxc|nativeArtifactDescriptor.optimizationEvidence.toolFlag=-O3|nativeArtifactDescriptor.optimizationEvidence.profile=compute=cs_6_0|nativeArtifactDescriptor.validationStatus=not-run|nativeArtifactDescriptor.nativeBinaryStatus=null|nativeArtifactDescriptor.checks.nativeBinaryStatusMatchesPackage=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|nativeArtifactDescriptor.checks.validationStatusMatchesNativeStatus=true|packageArtifactRequirements.packageMode=native|packageArtifactRequirements.requiresNativeBinaryStatus=false|packageArtifactRequirements.allowsPlannedNativeBinary=false|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=false|targetLegalizationEvidence.packageMode=native|targetLegalizationEvidence.manifestToolRequirements.packageMode=native|targetLegalizationEvidence.manifestToolRequirements.missingToolCount=0|targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolStatus=not-required")
     set(directx_fake_dxc_inspect_extra_native_descriptor_paths
       "sourceHash.value|artifactHash.value|sizeBytes")
     set(directx_fake_dxc_inspect_extra_native_descriptor_fields
-      "|sourceHash.algorithm=sha256|artifactPath=backend/directx/StorageBufferComputeShader.dxil|artifactHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O3|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|validationStatus=not-run")
+      "|sourceHash.algorithm=sha256|artifactPath=backend/directx/StorageBufferComputeShader.dxil|artifactHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O3|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=not-run")
     set(directx_fake_dxc_inspect_extra_native_descriptor_array_lengths
       "toolchainProvenance.tools=2|validationDiagnostics=0")
+  endif()
+
+  set(directx_fake_dxc_inspect_summary_native_binary_status
+    "${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}")
+  set(directx_fake_dxc_inspect_manifest_native_binary_status_field
+    "|manifest.artifacts.nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}")
+  set(directx_fake_dxc_inspect_descriptor_native_binary_status_field
+    "|nativeArtifactDescriptor.nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}")
+  set(directx_fake_dxc_inspect_raw_descriptor_native_binary_status_field
+    "|nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}")
+  if(CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
+     "emitted")
+    set(directx_fake_dxc_inspect_summary_native_binary_status "null")
+    set(directx_fake_dxc_inspect_manifest_native_binary_status_field "")
+    set(directx_fake_dxc_inspect_raw_descriptor_native_binary_status_field "")
+    set(directx_fake_dxc_inspect_descriptor_native_binary_status_field
+      "|nativeArtifactDescriptor.nativeBinaryStatus=null")
   endif()
 
   set(inspect_definitions
@@ -608,8 +661,8 @@ function(crossgl_add_directx_compute_fake_dxc_package_inspect_test)
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_NAME}.cglb
     -DMODE=package-inspect-source-package
     "-DTOOLCHAIN_PATH=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_TOOLCHAIN_PATH}"
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}|summary.artifactCount=6|summary.debugArtifactsPresent=true|artifacts.0.name=backendSource|artifacts.0.path=backend/directx/StorageBufferComputeShader.hlsl|artifacts.0.exists=true|artifacts.1.name=nativeBinary|artifacts.1.path=backend/directx/StorageBufferComputeShader.dxil|artifacts.1.exists=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_EXISTS}|artifacts.2.name=debugMetadata|artifacts.2.path=ir/debug-metadata.json|artifacts.2.exists=true|artifacts.3.name=hirSourceMap|artifacts.3.path=ir/hir-source-map.json|artifacts.3.exists=true|artifacts.4.name=nativeArtifactDescriptor|artifacts.4.path=backend/directx/StorageBufferComputeShader.native-artifact.json|artifacts.4.exists=true|manifest.target=directx|manifest.module=StorageBufferComputeShader|manifest.artifacts.backendSource=backend/directx/StorageBufferComputeShader.hlsl|manifest.artifacts.nativeBinary=backend/directx/StorageBufferComputeShader.dxil|manifest.artifacts.nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}|manifest.artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=directx|nativeArtifactDescriptor.binaryKind=directx.dxil|nativeArtifactDescriptor.sourcePath=backend/directx/StorageBufferComputeShader.hlsl|nativeArtifactDescriptor.nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}|nativeArtifactDescriptor.checks.sourcePathMatchesManifest=true|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactPathMatchesManifest=true|reflection.target=directx|reflection.module=StorageBufferComputeShader|reflection.nativeBinary=backend/directx/StorageBufferComputeShader.dxil|diagnostics.schemaVersion=1|${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_DIAGNOSTIC_FIELDS}${directx_fake_dxc_inspect_extra_json_fields}"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|nativeBinaryStatus=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}${directx_fake_dxc_inspect_extra_native_descriptor_fields}"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=${directx_fake_dxc_inspect_summary_native_binary_status}|summary.artifactCount=6|summary.debugArtifactsPresent=true|artifacts.0.name=backendSource|artifacts.0.path=backend/directx/StorageBufferComputeShader.hlsl|artifacts.0.exists=true|artifacts.1.name=nativeBinary|artifacts.1.path=backend/directx/StorageBufferComputeShader.dxil|artifacts.1.exists=${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_NATIVE_BINARY_EXISTS}|artifacts.2.name=debugMetadata|artifacts.2.path=ir/debug-metadata.json|artifacts.2.exists=true|artifacts.3.name=hirSourceMap|artifacts.3.path=ir/hir-source-map.json|artifacts.3.exists=true|artifacts.4.name=nativeArtifactDescriptor|artifacts.4.path=backend/directx/StorageBufferComputeShader.native-artifact.json|artifacts.4.exists=true|manifest.target=directx|manifest.module=StorageBufferComputeShader|manifest.artifacts.backendSource=backend/directx/StorageBufferComputeShader.hlsl|manifest.artifacts.nativeBinary=backend/directx/StorageBufferComputeShader.dxil${directx_fake_dxc_inspect_manifest_native_binary_status_field}|manifest.artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=directx|nativeArtifactDescriptor.binaryKind=directx.dxil|nativeArtifactDescriptor.sourcePath=backend/directx/StorageBufferComputeShader.hlsl${directx_fake_dxc_inspect_descriptor_native_binary_status_field}|nativeArtifactDescriptor.checks.sourcePathMatchesManifest=true|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactPathMatchesManifest=true|reflection.target=directx|reflection.module=StorageBufferComputeShader|reflection.nativeBinary=backend/directx/StorageBufferComputeShader.dxil|diagnostics.schemaVersion=1|${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_DIAGNOSTIC_FIELDS}${directx_fake_dxc_inspect_extra_json_fields}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl${directx_fake_dxc_inspect_raw_descriptor_native_binary_status_field}${directx_fake_dxc_inspect_extra_native_descriptor_fields}"
       "-DEXPECTED_JSON_ARRAY_LENGTHS=rootFiles=3|artifacts=6|${CROSSGL_DIRECTX_FAKE_DXC_INSPECT_EXPECTED_DIAGNOSTICS_ARRAY_LENGTHS}"
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
     -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
@@ -760,11 +813,11 @@ function(crossgl_add_opengl_compute_fake_glslang_package_inspect_test)
 
   set(opengl_fake_glslang_inspect_extra_json_paths "")
   set(opengl_fake_glslang_inspect_extra_json_fields
-    "|nativeArtifactDescriptor.validationStatus=unavailable")
+    "|nativeArtifactDescriptor.validationStatus=unavailable|nativeArtifactDescriptor.checks.nativeBinaryStatusMatchesPackage=true|nativeArtifactDescriptor.checks.validationStatusMatchesNativeStatus=true")
   set(opengl_fake_glslang_inspect_extra_native_descriptor_paths
     "sourceHash.value")
   set(opengl_fake_glslang_inspect_extra_native_descriptor_fields
-    "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator|validationStatus=unavailable")
+    "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.0.executable=cglc|validationStatus=unavailable")
   set(opengl_fake_glslang_inspect_extra_native_descriptor_array_lengths
     "toolchainProvenance.tools=1|validationDiagnostics=0")
   if(CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_STATUS
@@ -774,11 +827,21 @@ function(crossgl_add_opengl_compute_fake_glslang_package_inspect_test)
     set(opengl_fake_glslang_inspect_extra_json_fields
       "|nativeArtifactDescriptor.artifactPath=backend/opengl/StorageBufferComputeShader.glsl|nativeArtifactDescriptor.validationStatus=validated|nativeArtifactDescriptor.checks.nativeBinaryStatusMatchesPackage=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|nativeArtifactDescriptor.checks.validationStatusMatchesNativeStatus=true")
     set(opengl_fake_glslang_inspect_extra_native_descriptor_paths
-      "sourceHash.value|artifactHash.value|sizeBytes")
+      "sourceHash.value|artifactHash.value|sizeBytes|toolchainProvenance.tools.1.resolvedExecutable|toolchainProvenance.tools.1.versionDetail")
     set(opengl_fake_glslang_inspect_extra_native_descriptor_fields
-      "|sourceHash.algorithm=sha256|artifactPath=backend/opengl/StorageBufferComputeShader.glsl|artifactHash.algorithm=sha256|validationStatus=validated")
+      "|sourceHash.algorithm=sha256|artifactPath=backend/opengl/StorageBufferComputeShader.glsl|artifactHash.algorithm=sha256|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=glslangValidator|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed|validationStatus=validated")
     set(opengl_fake_glslang_inspect_extra_native_descriptor_array_lengths
       "toolchainProvenance.tools=2|validationDiagnostics=0")
+  elseif(CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_VALIDATION_STATUS
+         STREQUAL "failed")
+    set(opengl_fake_glslang_inspect_extra_json_fields
+      "|nativeArtifactDescriptor.validationStatus=failed|nativeArtifactDescriptor.checks.nativeBinaryStatusMatchesPackage=true|nativeArtifactDescriptor.checks.validationStatusMatchesNativeStatus=true")
+    set(opengl_fake_glslang_inspect_extra_native_descriptor_paths
+      "sourceHash.value|toolchainProvenance.tools.1.resolvedExecutable|toolchainProvenance.tools.1.versionDetail")
+    set(opengl_fake_glslang_inspect_extra_native_descriptor_fields
+      "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=glslangValidator|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed|validationStatus=failed|validationDiagnostics.0.code=opengl.glslang-failed")
+    set(opengl_fake_glslang_inspect_extra_native_descriptor_array_lengths
+      "toolchainProvenance.tools=2|validationDiagnostics=1")
   endif()
 
   set(inspect_definitions
@@ -788,7 +851,7 @@ function(crossgl_add_opengl_compute_fake_glslang_package_inspect_test)
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_NAME}.cglb
     -DMODE=package-inspect-source-package
     "-DTOOLCHAIN_PATH=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_TOOLCHAIN_PATH}"
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=StorageBufferComputeShader|summary.target=opengl|summary.nativeBinaryStatus=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}|summary.artifactCount=6|summary.debugArtifactsPresent=true|artifacts.0.name=backendSource|artifacts.0.path=backend/opengl/StorageBufferComputeShader.comp.glsl|artifacts.0.exists=true|artifacts.1.name=nativeBinary|artifacts.1.path=backend/opengl/StorageBufferComputeShader.glsl|artifacts.1.exists=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_EXISTS}|artifacts.2.name=debugMetadata|artifacts.2.path=ir/debug-metadata.json|artifacts.2.exists=true|artifacts.3.name=hirSourceMap|artifacts.3.path=ir/hir-source-map.json|artifacts.3.exists=true|artifacts.4.name=nativeArtifactDescriptor|artifacts.4.path=backend/opengl/StorageBufferComputeShader.native-artifact.json|artifacts.4.exists=true|manifest.target=opengl|manifest.module=StorageBufferComputeShader|manifest.artifacts.backendSource=backend/opengl/StorageBufferComputeShader.comp.glsl|manifest.artifacts.nativeBinary=backend/opengl/StorageBufferComputeShader.glsl|manifest.artifacts.nativeBinaryStatus=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}|manifest.artifacts.nativeArtifactDescriptor=backend/opengl/StorageBufferComputeShader.native-artifact.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=opengl|nativeArtifactDescriptor.binaryKind=opengl.source|nativeArtifactDescriptor.sourcePath=backend/opengl/StorageBufferComputeShader.comp.glsl|nativeArtifactDescriptor.nativeBinaryStatus=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}|nativeArtifactDescriptor.checks.sourcePathMatchesManifest=true|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactPathMatchesManifest=true|reflection.target=opengl|reflection.module=StorageBufferComputeShader|reflection.nativeBinary=backend/opengl/StorageBufferComputeShader.glsl|diagnostics.schemaVersion=1|${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_DIAGNOSTIC_FIELDS}${opengl_fake_glslang_inspect_extra_json_fields}"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=StorageBufferComputeShader|summary.target=opengl|summary.nativeBinaryStatus=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}|summary.artifactCount=6|summary.debugArtifactsPresent=true|artifacts.0.name=backendSource|artifacts.0.path=backend/opengl/StorageBufferComputeShader.comp.glsl|artifacts.0.exists=true|artifacts.1.name=nativeBinary|artifacts.1.path=backend/opengl/StorageBufferComputeShader.glsl|artifacts.1.exists=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_EXISTS}|artifacts.2.name=debugMetadata|artifacts.2.path=ir/debug-metadata.json|artifacts.2.exists=true|artifacts.3.name=hirSourceMap|artifacts.3.path=ir/hir-source-map.json|artifacts.3.exists=true|artifacts.4.name=nativeArtifactDescriptor|artifacts.4.path=backend/opengl/StorageBufferComputeShader.native-artifact.json|artifacts.4.exists=true|manifest.target=opengl|manifest.module=StorageBufferComputeShader|manifest.artifacts.backendSource=backend/opengl/StorageBufferComputeShader.comp.glsl|manifest.artifacts.nativeBinary=backend/opengl/StorageBufferComputeShader.glsl|manifest.artifacts.nativeBinaryStatus=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}|manifest.artifacts.nativeArtifactDescriptor=backend/opengl/StorageBufferComputeShader.native-artifact.json|targetLegalizationEvidence.manifestToolRequirements.present=true|targetLegalizationEvidence.manifestToolRequirements.packageMode=source-package|targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolMissing=true|targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolStatus=missing|targetLegalizationEvidence.checks.manifestToolRequirementsPackageModeMatchesRequirements=true|targetLegalizationEvidence.checks.debugMetadataToolRequirementsMatchManifest=true|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=opengl|nativeArtifactDescriptor.binaryKind=opengl.source|nativeArtifactDescriptor.sourcePath=backend/opengl/StorageBufferComputeShader.comp.glsl|nativeArtifactDescriptor.nativeBinaryStatus=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}|nativeArtifactDescriptor.checks.sourcePathMatchesManifest=true|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactPathMatchesManifest=true|reflection.target=opengl|reflection.module=StorageBufferComputeShader|reflection.nativeBinary=backend/opengl/StorageBufferComputeShader.glsl|diagnostics.schemaVersion=1|${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_DIAGNOSTIC_FIELDS}${opengl_fake_glslang_inspect_extra_json_fields}"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/StorageBufferComputeShader.comp.glsl|nativeBinaryStatus=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_NATIVE_BINARY_STATUS}${opengl_fake_glslang_inspect_extra_native_descriptor_fields}"
     "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=sourcePackageValidation.target=opengl|sourcePackageValidation.tool=glslangValidator|sourcePackageValidation.policy=use-when-available|sourcePackageValidation.status=${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_VALIDATION_STATUS}"
     "-DEXPECTED_JSON_ARRAY_LENGTHS=rootFiles=3|artifacts=6|${CROSSGL_OPENGL_FAKE_GLSLANG_INSPECT_EXPECTED_DIAGNOSTICS_ARRAY_LENGTHS}"
@@ -860,6 +923,8 @@ crossgl_add_opengl_compute_fake_glslang_package_inspect_test(
 if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   set(CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS validated)
   set(CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_EXISTS true)
+  set(CROSSGL_OPENGL_SOURCE_PACKAGE_VALIDATION_STATUS validated)
+  set(CROSSGL_OPENGL_NATIVE_ARTIFACT_VALIDATION_STATUS validated)
   set(CROSSGL_OPENGL_SHADOW_LOD_NATIVE_DIAGNOSTIC
       -DEXPECTED_DIAGNOSTIC=opengl.glsl-validated)
   set(CROSSGL_OPENGL_TEXTURE_COMPARE_LOD_NATIVE_BINARY
@@ -875,6 +940,8 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
 else()
   set(CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS planned)
   set(CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_EXISTS false)
+  set(CROSSGL_OPENGL_SOURCE_PACKAGE_VALIDATION_STATUS skipped-tool-missing)
+  set(CROSSGL_OPENGL_NATIVE_ARTIFACT_VALIDATION_STATUS unavailable)
   set(CROSSGL_OPENGL_SHADOW_LOD_NATIVE_DIAGNOSTIC
       "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=warning|diagnostics.0.code=opengl.source-package-only"
       "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=glslangValidator was not found"
@@ -950,9 +1017,9 @@ add_test(NAME cglc_build_opengl_source_package_fake_glslang_tool_failure
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450"
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=opengl.backend.native-glsl-package|missingCapabilities=opengl.validation.glsl-program-validation"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2|diagnostics.0.missingCapabilities=2"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/StorageBufferComputeShader.comp.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/StorageBufferComputeShader.comp.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=failed|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|validationDiagnostics.0.code=opengl.glslang-failed"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=1|validationDiagnostics=0"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=1"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FAILURE_DIR}/glslangValidator.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator failure: -S comp"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
@@ -1261,6 +1328,29 @@ add_test(NAME cglc_build_directx_function_parameter_array_source_package
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.stage=compute|particles.entryPoint=compute_main|particles.sourceType=Particle*|particles.hlslType=RWStructuredBuffer<Particle>|particles.addressSpace=unordered-access|particles.abi=registerBinding|particles.bindingClass=uav|particles.descriptorType=UAV|particles.argumentIndex=0|particles.set=0|particles.binding=0"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|fixed-array.kind=layout|fixed-array-field.kind=layout|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|index-access.kind=operation|storage-buffer-write.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewriteWeight_weights[COUNT];
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  float value = rewriteWeight(crossgl_param_array_writeback_0_rewriteWeight_weights);
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  particles[1].weights[0] = value;]=])
+add_test(NAME cglc_build_directx_function_parameter_array_write_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-function-parameter-array-write-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXFunctionParameterArrayWriteShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXFunctionParameterArrayWriteShader|nativeBinary=backend/directx/DirectXFunctionParameterArrayWriteShader.dxil|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.stage=compute|particles.entryPoint=compute_main|particles.sourceType=Particle*|particles.hlslType=RWStructuredBuffer<Particle>|particles.addressSpace=unordered-access|particles.abi=registerBinding|particles.bindingClass=uav|particles.descriptorType=UAV|particles.argumentIndex=0|particles.set=0|particles.binding=0"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|fixed-array.kind=layout|fixed-array-field.kind=layout|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_void_parameter_list_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -1374,6 +1464,8 @@ set(CROSSGL_OPENGL_PARAM_ARRAY_WRITE_RESOURCE_FEATURE_FIELDS
     "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|fixed-array-field.kind=layout|storage-buffer.kind=resource|function-parameter-array.kind=array|scalar-vector-elements.kind=array|local-declaration.kind=operation|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation")
 set(CROSSGL_OPENGL_PARAM_ARRAY_WRITE_LOCAL_FEATURE_FIELDS
     "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|function-parameter-array.kind=array|scalar-vector-elements.kind=array|local-array.kind=array|index-access.kind=operation|scalar-arithmetic.kind=operation|local-declaration.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation")
+set(CROSSGL_OPENGL_PARAM_ARRAY_WRITE_ALIASED_LOCAL_FEATURE_FIELDS
+    "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|function-parameter-array.kind=array|scalar-vector-elements.kind=array|local-array.kind=array|index-access.kind=operation|local-declaration.kind=operation")
 set(CROSSGL_OPENGL_PARAM_ARRAY_VALIDATED_RESOURCE_FEATURE_FIELDS
     "native-glsl-package.kind=backend|glsl-program-validation.kind=validation|fixed-array.kind=layout|fixed-array-field.kind=layout|storage-buffer.kind=resource|local-declaration.kind=operation|index-access.kind=operation|storage-buffer-write.kind=operation")
 set(CROSSGL_OPENGL_PARAM_ARRAY_VALIDATED_LOCAL_FEATURE_FIELDS
@@ -1563,6 +1655,96 @@ add_test(NAME cglc_build_directx_scalar_constructor_source_package
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-constructor.kind=operation|storage-buffer-write.kind=operation|scalar-arithmetic.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_MATRIX_CONSTRUCTOR_SOURCE_SNIPPET [=[float2x2 flattened = float2x2(1.0, 3.0, 2.0, 4.0);
+  float2x2 diagonal = float2x2(5.0, 0.0, 0.0, 5.0);
+  float3x3 expanded = float3x3(flattened[0][0], flattened[0][1], 0.0, flattened[1][0], flattened[1][1], 0.0, 0.0, 0.0, 1.0);
+  float3 c0 = float3(1.0, 2.0, 3.0);
+  float3 c1 = float3(4.0, 5.0, 6.0);
+  float3 c2 = float3(7.0, 8.0, 9.0);
+  float3x3 basis = float3x3(c0[0], c1[0], c2[0], c0[1], c1[1], c2[1], c0[2], c1[2], c2[2]);]=])
+add_test(NAME cglc_build_directx_matrix_constructor_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_CONSTRUCTOR_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-matrix-constructor-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/MatrixConstructorComputeShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_MATRIX_CONSTRUCTOR_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=MatrixConstructorComputeShader|nativeBinary=backend/directx/MatrixConstructorComputeShader.dxil|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|vector-constructor.kind=operation|matrix-constructor.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_MATRIX_STORAGE_BUFFER_SOURCE_SNIPPET [=[float4x4 transform = transforms[0];
+  transforms[1] = transform;
+  values[0] = 1.0;]=])
+add_test(NAME cglc_build_directx_matrix_storage_buffer_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_MATRIX_STORAGE_BUFFER_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-matrix-storage-buffer-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXMatrixStorageBufferShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_MATRIX_STORAGE_BUFFER_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXMatrixStorageBufferShader|nativeBinary=backend/directx/DirectXMatrixStorageBufferShader.dxil|resources.0.name=transforms|resources.0.kind=buffer|resources.0.type=mat4*|resources.1.name=values|resources.1.kind=buffer|resources.1.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=transforms.sourceType=mat4*|transforms.hlslType=RWStructuredBuffer<float4x4>|transforms.bindingClass=uav|transforms.descriptorType=UAV|transforms.argumentIndex=0|transforms.set=0|transforms.binding=0|values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=1|values.set=0|values.binding=1"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_MATRIX_STORAGE_BUFFER_SOURCE_SNIPPET [=[mat4 transform = transforms[0];
+  transforms[1] = transform;
+  values[0] = 1.0;]=])
+add_test(NAME cglc_build_opengl_matrix_storage_buffer_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_MATRIX_STORAGE_BUFFER_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-matrix-storage-buffer-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLMatrixStorageBufferShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_MATRIX_STORAGE_BUFFER_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLMatrixStorageBufferShader|nativeBinary=backend/opengl/OpenGLMatrixStorageBufferShader.glsl|resources.0.name=transforms|resources.0.kind=buffer|resources.0.type=mat4*|resources.1.name=values|resources.1.kind=buffer|resources.1.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=transforms.sourceType=mat4*|transforms.bindingClass=storage-buffer|transforms.argumentIndex=0|transforms.set=0|transforms.binding=0|transforms.storageBufferLayout.elementType=mat4|transforms.storageBufferLayout.elementSizeBytes=64|transforms.storageBufferLayout.arrayStrideBytes=64|transforms.storageBufferLayout.alignmentBytes=16|transforms.storageBufferLayout.layout=std430|values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=1|values.set=0|values.binding=1|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET [=[float3 columnProduct = mul(transform, source);
+  float3 rowProduct = mul(source, transform);
+  float3x3 composed = mul(transform, basis);
+  float3 projected = mul(composed, rowProduct);]=])
+add_test(NAME cglc_build_directx_matrix_vector_arithmetic_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_VECTOR_ARITHMETIC_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-matrix-vector-arithmetic-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/MatrixVectorArithmeticComputeShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=MatrixVectorArithmeticComputeShader|nativeBinary=backend/directx/MatrixVectorArithmeticComputeShader.dxil|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_MATRIX_SCALAR_ARITHMETIC_SOURCE_SNIPPET [=[float3x3 scaled = transform * 2.0;
+  float3x3 rescaled = 0.5 * transform;
+  float3x3 inferred = transform * 0.25;
+  inferred = inferred * 4.0;]=])
+add_test(NAME cglc_build_directx_matrix_scalar_arithmetic_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_SCALAR_ARITHMETIC_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-matrix-scalar-arithmetic-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/MatrixScalarArithmeticComputeShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_MATRIX_SCALAR_ARITHMETIC_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=MatrixScalarArithmeticComputeShader|nativeBinary=backend/directx/MatrixScalarArithmeticComputeShader.dxil|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.hlslType=RWStructuredBuffer<float>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|matrix-constructor.kind=operation|scalar-arithmetic.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_VECTOR_LOCAL_SOURCE_SNIPPET [=[float4 color = float4(values[0], values[1], values[2], 1.0);
   float4 lifted = color + float4(0.5, 0.5, 0.5, 0.0);
@@ -1863,6 +2045,63 @@ add_test(NAME cglc_build_opengl_scalar_constructor_source_package
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=ScalarConstructorComputeShader"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.storageBufferLayout.layout=std430|values.storageBufferLayout.elementType=float"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-constructor.kind=operation|storage-buffer-write.kind=operation|scalar-arithmetic.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_MATRIX_CONSTRUCTOR_SOURCE_SNIPPET [=[mat2 flattened = mat2(1.0, 2.0, 3.0, 4.0);
+  mat2 diagonal = mat2(5.0);
+  mat3 expanded = mat3(flattened);
+  vec3 c0 = vec3(1.0, 2.0, 3.0);
+  vec3 c1 = vec3(4.0, 5.0, 6.0);
+  vec3 c2 = vec3(7.0, 8.0, 9.0);
+  mat3 basis = mat3(c0, c1, c2);]=])
+add_test(NAME cglc_build_opengl_matrix_constructor_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_CONSTRUCTOR_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-matrix-constructor-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/MatrixConstructorComputeShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_MATRIX_CONSTRUCTOR_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=MatrixConstructorComputeShader|nativeBinary=backend/opengl/MatrixConstructorComputeShader.glsl|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.set=0|values.binding=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|vector-constructor.kind=operation|matrix-constructor.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET [=[vec3 columnProduct = transform * source;
+  vec3 rowProduct = source * transform;
+  mat3 composed = transform * basis;
+  vec3 projected = composed * rowProduct;]=])
+add_test(NAME cglc_build_opengl_matrix_vector_arithmetic_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_VECTOR_ARITHMETIC_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-matrix-vector-arithmetic-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/MatrixVectorArithmeticComputeShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_MATRIX_VECTOR_ARITHMETIC_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=MatrixVectorArithmeticComputeShader|nativeBinary=backend/opengl/MatrixVectorArithmeticComputeShader.glsl|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.set=0|values.binding=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|vector-constructor.kind=operation|matrix-constructor.kind=operation|vector-arithmetic.kind=operation|scalar-arithmetic.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_MATRIX_SCALAR_ARITHMETIC_SOURCE_SNIPPET [=[mat3 scaled = transform * 2.0;
+  mat3 rescaled = 0.5 * transform;
+  mat3 inferred = transform * 0.25;
+  inferred = inferred * 4.0;]=])
+add_test(NAME cglc_build_opengl_matrix_scalar_arithmetic_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_MATRIX_SCALAR_ARITHMETIC_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-matrix-scalar-arithmetic-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/MatrixScalarArithmeticComputeShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_MATRIX_SCALAR_ARITHMETIC_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=MatrixScalarArithmeticComputeShader|nativeBinary=backend/opengl/MatrixScalarArithmeticComputeShader.glsl|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.set=0|values.binding=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation|local-declaration.kind=operation|matrix-constructor.kind=operation|scalar-arithmetic.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_OPENGL_VECTOR_LOCAL_SOURCE_SNIPPET [=[vec4 color = vec4(values[0], values[1], values[2], 1.0);
   vec4 lifted = color + vec4(0.5, 0.5, 0.5, 0.0);
@@ -3844,29 +4083,17 @@ set(CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS
     -DEXPECTED_DIAGNOSTIC=target.unsupported
     "-DEXPECTED_DIAGNOSTICS_JSON_PATHS=diagnostics.0.missingCapabilities"
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS})
+set(CROSSGL_VULKAN_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_CONFLICT_DIAGNOSTIC_EXPECTATIONS
+    -DEXPECTED_DIAGNOSTIC=target.unsupported
+    "-DEXPECTED_DIAGNOSTICS_JSON_PATHS=diagnostics.0.missingCapabilities"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=52|location.length=4|location.endLine=5|location.endColumn=56")
 set(CROSSGL_DIRECTX_SOURCE_UNSUPPORTED_DIAGNOSTIC_EXPECTATIONS
     -DEXPECTED_DIAGNOSTIC=directx.source-unsupported
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS})
 set(CROSSGL_OPENGL_SOURCE_UNSUPPORTED_DIAGNOSTIC_EXPECTATIONS
     -DEXPECTED_DIAGNOSTIC=opengl.source-unsupported
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS})
-
-function(crossgl_add_vulkan_graphics_stage_resource_planned_failure test_name
-         input_fixture output_name)
-  add_test(NAME ${test_name}
-    COMMAND ${CMAKE_COMMAND}
-      -DCGLC=$<TARGET_FILE:cglc>
-      -DINPUT=${input_fixture}
-      -DTARGET=vulkan
-      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/${output_name}.cglb
-      -DEXPECT_NO_OUTPUT_PACKAGE=ON
-      -DMODE=planned-build-failure
-      ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
-      "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=schemaVersion=1|diagnostics.0.target=vulkan"
-      "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-graphics-stage-resource"
-      "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-graphics-stage-resource"
-      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-endfunction()
 
 if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
   add_test(NAME cglc_build_vulkan_graphics_native
@@ -3908,6 +4135,30 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       -DEXPECTED_MODULE=VulkanGraphicsUniformBufferShader
       "-DEXPECTED_SPVASM_CONTAINS=OpDecorate %resource_vertex_vertexParams DescriptorSet 0|OpDecorate %resource_vertex_vertexParams Binding 0|OpDecorate %resource_fragment_fragmentParams DescriptorSet 0|OpDecorate %resource_fragment_fragmentParams Binding 1|%resource_vertex_vertexParams = OpVariable|%resource_fragment_fragmentParams = OpVariable|OpVectorShuffle"
       "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeImage|OpTypeSampler|OpTypeRuntimeArray"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_folded_scalar_constants_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_FOLDED_SCALAR_CONSTANTS_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-folded-scalar-constants.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsFoldedScalarConstantsShader
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsFoldedScalarConstantsShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsFoldedScalarConstantsShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsFoldedScalarConstantsShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsFoldedScalarConstantsShader|nativeBinary=backend/vulkan/VulkanGraphicsFoldedScalarConstantsShader.spv|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|vertexLayouts.0.entryPoint=vertex_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|vertexLayouts=1|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|local-declaration.kind=operation|vector-constructor.kind=operation"
+      "-DEXPECTED_SPVASM_SNIPPET=OpConstant"
+      -DEXPECTED_VULKAN_NO_DESCRIPTOR_METADATA=TRUE
+      -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_folded_scalar_constants_spvasm_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_FOLDED_SCALAR_CONSTANTS_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-folded-scalar-constants-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsFoldedScalarConstantsShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpConstant| 2| 0.25| 1| 0.75"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeImage|OpTypeSampler|OpTypeRuntimeArray|vulkan.prototype-unsupported-graphics-constant"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
   add_test(NAME cglc_build_vulkan_graphics_math_intrinsic_spvasm_native
     COMMAND ${CMAKE_COMMAND}
@@ -4030,6 +4281,39 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_CONTAINS=OpDecorate %resource_fragment_albedo DescriptorSet 0|OpDecorate %resource_fragment_albedo Binding 1|OpDecorate %resource_fragment_linearSampler DescriptorSet 0|OpDecorate %resource_fragment_linearSampler Binding 2|OpTypeImage|OpTypeSampler|OpTypeSampledImage|%resource_fragment_albedo = OpVariable|%resource_fragment_linearSampler = OpVariable|OpSampledImage|OpImageSampleImplicitLod"
       "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeRuntimeArray|OpCapability SampledImageArrayNonUniformIndexingEXT|NonUniformEXT"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_resource_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_RESOURCE_UNSUPPORTED_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-resource.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsResourceUnsupportedShader
+      -DEXPECTED_DESCRIPTOR_TYPE=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsResourceUnsupportedShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsResourceUnsupportedShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsResourceUnsupportedShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsResourceUnsupportedShader|nativeBinary=backend/vulkan/VulkanGraphicsResourceUnsupportedShader.spv|resources.0.stage=vertex|resources.0.name=camera|resources.0.kind=uniform|resources.0.type=Camera|resources.0.binding=0|resources.1.stage=fragment|resources.1.name=albedo|resources.1.kind=texture|resources.1.type=sampler2D|resources.1.binding=1|resources.2.stage=fragment|resources.2.name=linearSampler|resources.2.kind=sampler|resources.2.type=sampler|resources.2.binding=2|entryPoints.0.stage=vertex|entryPoints.1.stage=fragment"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=3|targetResourceBindings=3|vertexLayouts=1|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=camera.stage=vertex|camera.bindingClass=uniformBuffer|camera.descriptorType=VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER|camera.storageClass=Uniform|camera.set=0|camera.binding=0|albedo.stage=fragment|albedo.bindingClass=sampledImage|albedo.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE|albedo.storageClass=UniformConstant|albedo.set=0|albedo.binding=1|linearSampler.stage=fragment|linearSampler.bindingClass=sampler|linearSampler.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLER|linearSampler.storageClass=UniformConstant|linearSampler.set=0|linearSampler.binding=2"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|uniform-buffer.kind=resource|sampled-texture.kind=resource|sampler-state.kind=resource|local-declaration.kind=operation|vector-constructor.kind=operation"
+      "-DEXPECTED_SPVASM_CONTAINS=OpDecorate %resource_vertex_camera DescriptorSet 0|OpDecorate %resource_vertex_camera Binding 0|OpDecorate %resource_fragment_albedo DescriptorSet 0|OpDecorate %resource_fragment_albedo Binding 1|OpDecorate %resource_fragment_linearSampler DescriptorSet 0|OpDecorate %resource_fragment_linearSampler Binding 2|OpTypeImage|OpTypeSampler|%resource_vertex_camera = OpVariable|%resource_fragment_albedo = OpVariable|%resource_fragment_linearSampler = OpVariable"
+      -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_texture_array_resource_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_TEXTURE_ARRAY_UNSUPPORTED_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-texture-array-resource.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsTextureArrayUnsupportedShader
+      -DEXPECTED_DESCRIPTOR_TYPE=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+      -DEXPECTED_RESOURCE_ARRAY_COUNT=2
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsTextureArrayUnsupportedShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsTextureArrayUnsupportedShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsTextureArrayUnsupportedShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsTextureArrayUnsupportedShader|nativeBinary=backend/vulkan/VulkanGraphicsTextureArrayUnsupportedShader.spv|resources.0.stage=fragment|resources.0.name=albedo|resources.0.kind=texture|resources.0.type=sampler2D[2]|resources.0.binding=1|resources.1.stage=fragment|resources.1.name=linearSampler|resources.1.kind=sampler|resources.1.type=sampler|resources.1.binding=2|entryPoints.0.stage=vertex|entryPoints.1.stage=fragment"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=2|targetResourceBindings=2|vertexLayouts=1|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=albedo.stage=fragment|albedo.bindingClass=sampledImage|albedo.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE|albedo.storageClass=UniformConstant|albedo.set=0|albedo.binding=1|albedo.arrayElementCount=2|linearSampler.stage=fragment|linearSampler.bindingClass=sampler|linearSampler.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLER|linearSampler.storageClass=UniformConstant|linearSampler.set=0|linearSampler.binding=2"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|sampled-texture.kind=resource|sampler-state.kind=resource|local-declaration.kind=operation|vector-constructor.kind=operation"
+      "-DEXPECTED_SPVASM_CONTAINS=OpDecorate %resource_fragment_albedo DescriptorSet 0|OpDecorate %resource_fragment_albedo Binding 1|OpDecorate %resource_fragment_linearSampler DescriptorSet 0|OpDecorate %resource_fragment_linearSampler Binding 2|OpTypeArray|OpTypeImage|OpTypeSampler|%resource_fragment_albedo = OpVariable|%resource_fragment_linearSampler = OpVariable"
+      -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_graphics_vertex_texture_sampler_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -4261,6 +4545,10 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_uniform_buffer_spvasm_native vulkan)
   crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_folded_scalar_constants_native vulkan)
+  crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_folded_scalar_constants_spvasm_native vulkan)
+  crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_math_intrinsic_spvasm_native vulkan)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_math_intrinsic_native vulkan)
@@ -4280,6 +4568,10 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
     cglc_build_vulkan_graphics_texture_sampler_native vulkan)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_texture_sampler_spvasm_native vulkan)
+  crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_resource_native vulkan)
+  crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_texture_array_resource_native vulkan)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_vertex_texture_sampler_native vulkan)
   crossgl_label_optional_native_test(
@@ -4317,14 +4609,6 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_shadow_descriptor_array_spvasm_native vulkan)
 endif()
-crossgl_add_vulkan_graphics_stage_resource_planned_failure(
-  cglc_build_vulkan_graphics_resource_planned_failure
-  ${CROSSGL_VULKAN_GRAPHICS_RESOURCE_UNSUPPORTED_SHADER}
-  test-vulkan-graphics-resource)
-crossgl_add_vulkan_graphics_stage_resource_planned_failure(
-  cglc_build_vulkan_graphics_texture_array_resource_planned_failure
-  ${CROSSGL_VULKAN_GRAPHICS_TEXTURE_ARRAY_UNSUPPORTED_SHADER}
-  test-vulkan-graphics-texture-array-resource)
 add_test(NAME cglc_build_vulkan_function_parameter_array_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4334,19 +4618,59 @@ add_test(NAME cglc_build_vulkan_function_parameter_array_planned_failure
     -DMODE=planned-build-failure
     ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=vulkan"
-    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-function-parameter-array"
+    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-entry-point-function-parameter-array"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-entry-point-function-parameter-array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_directx_planned_failure
+set(CROSSGL_DIRECTX_FUNCTION_PARAMETER_STRUCT_ARRAY_SOURCE_SNIPPET [=[void consumePayloads(Payload payloads[COUNT]) {
+  float weight = payloads[0].weights[0];
+  particles[1].mass = weight;
+  return;
+}
+
+void consumeMaps(Texture2D<float4> maps[COUNT]) {
+  return;
+}
+
+[numthreads(1, 1, 1)]
+void compute_main(uint3 crossgl_GlobalInvocationID : SV_DispatchThreadID) {
+  consumePayloads(particles[0].payloads);
+  consumeMaps(colorMaps);
+  return;]=])
+add_test(NAME cglc_build_directx_function_parameter_struct_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_ARRAY_UNSUPPORTED_SHADER}
     -DTARGET=directx
-    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-call-feature
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=direct-resource-array-arguments=unsupported|message=struct-elements=unsupported|message=value-copy-read-only"
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-function-parameter-struct-array.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXFunctionParameterArrayUnsupportedShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_STRUCT_ARRAY_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXFunctionParameterArrayUnsupportedShader|nativeBinary=backend/directx/DirectXFunctionParameterArrayUnsupportedShader.dxil|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.1.arrayDimensions.0.kind=fixed|resources.1.arrayDimensions.0.elementCount=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|functionConstants=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.stage=compute|particles.entryPoint=compute_main|particles.sourceType=Particle*|particles.hlslType=RWStructuredBuffer<Particle>|particles.addressSpace=unordered-access|particles.abi=registerBinding|particles.bindingClass=uav|particles.descriptorType=UAV|particles.argumentIndex=0|particles.set=0|particles.binding=0|colorMaps.stage=compute|colorMaps.entryPoint=compute_main|colorMaps.sourceType=sampler2D[COUNT]|colorMaps.hlslType=Texture2D<float4>|colorMaps.addressSpace=shader-resource|colorMaps.abi=registerBinding|colorMaps.bindingClass=srv|colorMaps.descriptorType=SRV|colorMaps.argumentIndex=2|colorMaps.set=0|colorMaps.binding=2|colorMaps.arraySize=COUNT|colorMaps.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|fixed-array.kind=layout|fixed-array-field.kind=layout|descriptor-array.kind=resource|function-parameter-array.kind=array|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|sampled-texture.kind=resource|storage-buffer-write.kind=operation|index-access.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET [=[void consumeMaps(Texture2D<float4> maps[COUNT]) {
+  return;
+}
+
+[numthreads(1, 1, 1)]
+void compute_main(uint3 crossgl_GlobalInvocationID : SV_DispatchThreadID) {
+  consumeMaps(colorMaps);
+  values[0] = float4(1.0, 0.0, 0.0, 1.0);]=])
+add_test(NAME cglc_build_directx_function_parameter_resource_array_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_RESOURCE_ARRAY_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-function-parameter-resource-array.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXFunctionParameterResourceArrayShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXFunctionParameterResourceArrayShader|nativeBinary=backend/directx/DirectXFunctionParameterResourceArrayShader.dxil|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=values|resources.0.kind=buffer|resources.0.type=vec4*|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.1.arrayDimensions.0.kind=fixed|resources.1.arrayDimensions.0.elementCount=2|workgroupSizes.0.entryPoint=compute_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|functionConstants=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.hlslType=RWStructuredBuffer<float4>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0|values.set=0|values.binding=0|colorMaps.sourceType=sampler2D[COUNT]|colorMaps.hlslType=Texture2D<float4>|colorMaps.bindingClass=srv|colorMaps.descriptorType=SRV|colorMaps.argumentIndex=2|colorMaps.set=0|colorMaps.binding=2|colorMaps.arraySize=COUNT|colorMaps.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|sampled-texture.kind=resource|fixed-array.kind=layout|descriptor-array.kind=resource|function-parameter-array.kind=array|storage-buffer-write.kind=operation|index-access.kind=operation|vector-constructor.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_resource_unsupported_planned_failure
   COMMAND ${CMAKE_COMMAND}
@@ -4357,7 +4681,64 @@ add_test(NAME cglc_build_directx_graphics_resource_unsupported_planned_failure
     -DMODE=planned-build-failure
     -DEXPECTED_DIAGNOSTIC=directx.unsupported-graphics-resource
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array storage buffers, and texture/sampler resources|message=stage 'vertex' resource 'debugMatrices'|message=kind storage-buffer|message=type mat4*|message=unsupported storage-buffer element type 'mat4'|message=stage 'fragment' resource 'debugValues'|message=type vec4*[]|message=runtime storage-buffer descriptor arrays are not supported|message=register conflict for register(u4, space0)"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array or fixed-size storage-buffer descriptor arrays, and texture/sampler resources|message=stage 'vertex' resource 'debugMatrices'|message=kind storage-buffer|message=type mat4*|message=stage 'fragment' resource 'debugValues'|message=type vec4*[]|message=runtime storage-buffer descriptor arrays are not supported|message=register conflict for register(u4, space0)"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_graphics_storage_buffer_descriptor_array_conflict_planned_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_CONFLICT_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-storage-buffer-descriptor-array-conflict.cglb
+    -DMODE=planned-build-failure
+    -DEXPECTED_DIAGNOSTIC=directx.unsupported-graphics-resource
+    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=resource conflict|message=register conflict for register(u2, space0)..register(u3, space0) vs register(u3, space0)|message=stage 'fragment' resource 'debugValues'|message=stage 'fragment' resource 'overlapValues'"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewriteWeight_weights[COUNT];
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  float crossgl_param_array_writeback_1_result = rewriteWeight(crossgl_param_array_writeback_0_rewriteWeight_weights);
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  particles[1].weights[0] = crossgl_param_array_writeback_1_result + 1.0;]=])
+add_test(NAME cglc_build_directx_nested_expression_function_parameter_array_write_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-nested-expression-function-parameter-array-write.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXNestedExpressionFunctionParameterArrayWriteShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXNestedExpressionFunctionParameterArrayWriteShader|nativeBinary=backend/directx/DirectXNestedExpressionFunctionParameterArrayWriteShader.dxil|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.stage=compute|particles.entryPoint=compute_main|particles.sourceType=Particle*|particles.hlslType=RWStructuredBuffer<Particle>|particles.addressSpace=unordered-access|particles.abi=registerBinding|particles.bindingClass=uav|particles.descriptorType=UAV|particles.argumentIndex=0|particles.set=0|particles.binding=0"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|fixed-array.kind=layout|fixed-array-field.kind=layout|function-parameter-array.kind=array|scalar-vector-elements.kind=array|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|scalar-arithmetic.kind=operation|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_RHS_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewriteWeight_weights[COUNT];
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  float crossgl_param_array_writeback_1_result = rewriteWeight(crossgl_param_array_writeback_0_rewriteWeight_weights);
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  particles[1].weights[0] = 1.0 + crossgl_param_array_writeback_1_result;]=])
+add_test(NAME cglc_build_directx_nested_expression_function_parameter_array_write_rhs_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-nested-expression-function-parameter-array-write-rhs.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXNestedExpressionFunctionParameterArrayWriteUnsupportedShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_RHS_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXNestedExpressionFunctionParameterArrayWriteUnsupportedShader|nativeBinary=backend/directx/DirectXNestedExpressionFunctionParameterArrayWriteUnsupportedShader.dxil|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.stage=compute|particles.entryPoint=compute_main|particles.sourceType=Particle*|particles.hlslType=RWStructuredBuffer<Particle>|particles.addressSpace=unordered-access|particles.abi=registerBinding|particles.bindingClass=uav|particles.descriptorType=UAV|particles.argumentIndex=0|particles.set=0|particles.binding=0"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|fixed-array.kind=layout|fixed-array-field.kind=layout|function-parameter-array.kind=array|scalar-vector-elements.kind=array|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|scalar-arithmetic.kind=operation|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_LOCAL_FUNCTION_PARAMETER_ARRAY_SOURCE_SNIPPET [=[float sumWeights(float weights[COUNT]) {
   return weights[0] + weights[1];
@@ -4384,16 +4765,16 @@ crossgl_add_python_expect_test(
   NAME cglc_diagnostics_json_schema_target_failure
   DEFINITIONS
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_DIRECTX_FUNCTION_PARAMETER_ARRAY_UNSUPPORTED_SHADER}
+    -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_RESOURCE_UNSUPPORTED_SHADER}
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-diagnostics-schema.cglb
     -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=directx.unsupported-function-parameter-array-call-feature
+    -DEXPECTED_DIAGNOSTIC=directx.unsupported-graphics-resource
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/diagnostics-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=schemaVersion=1|diagnostics.0.target=directx"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=unsupported fixed-size helper array call feature|message=direct-resource-array-arguments=unsupported|message=struct-elements=unsupported|message=value-copy-read-only")
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX graphics source package supports only fixed-size uniform buffers, non-array or fixed-size storage-buffer descriptor arrays, and texture/sampler resources|message=runtime storage-buffer descriptor arrays are not supported")
 add_test(NAME cglc_build_vulkan_diagnostics_json_target_capability_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4401,7 +4782,7 @@ add_test(NAME cglc_build_vulkan_diagnostics_json_target_capability_planned_failu
     -DTARGET=vulkan
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-diagnostics-json-target-capability.cglb
     -DMODE=planned-build-failure
-    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
+    ${CROSSGL_VULKAN_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_CONFLICT_DIAGNOSTIC_EXPECTATIONS}
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=schemaVersion=1|diagnostics.0.target=vulkan"
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
@@ -4480,6 +4861,20 @@ add_test(NAME cglc_build_directx_graphics_storage_buffer_resources_source_packag
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=vertexOffsets.stage=vertex|vertexOffsets.entryPoint=vertex_main|vertexOffsets.sourceType=vec4*|vertexOffsets.hlslType=RWStructuredBuffer<float4>|vertexOffsets.addressSpace=unordered-access|vertexOffsets.abi=registerBinding|vertexOffsets.bindingClass=uav|vertexOffsets.descriptorType=UAV|vertexOffsets.argumentIndex=0|vertexOffsets.set=0|vertexOffsets.binding=0|fragmentScales.stage=fragment|fragmentScales.entryPoint=fragment_main|fragmentScales.sourceType=vec4*|fragmentScales.hlslType=RWStructuredBuffer<float4>|fragmentScales.addressSpace=unordered-access|fragmentScales.abi=registerBinding|fragmentScales.bindingClass=uav|fragmentScales.descriptorType=UAV|fragmentScales.argumentIndex=2|fragmentScales.set=0|fragmentScales.binding=2"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|native-dxil-package.kind=backend|dxc.kind=toolchain|dxil-validator.kind=validation|vertex-shader.kind=stage|fragment-shader.kind=stage|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_graphics_storage_buffer_descriptor_array_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_DESCRIPTOR_ARRAY_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-storage-buffer-descriptor-array-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXGraphicsStorageBufferDescriptorArrayShader.graphics.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=RWStructuredBuffer<float4> debugValues[2] : register(u2, space0);"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXGraphicsStorageBufferDescriptorArrayShader|nativeBinary=backend/directx/DirectXGraphicsStorageBufferDescriptorArrayShader.dxil|resources.0.stage=fragment|resources.0.name=debugValues|resources.0.kind=buffer|resources.0.type=vec4*[2]|resources.0.binding=2|resources.0.arrayDimensions.0.kind=fixed|resources.0.arrayDimensions.0.elementCount=2|targetResourceBindings.0.stage=fragment|targetResourceBindings.0.name=debugValues|targetResourceBindings.0.hlslType=RWStructuredBuffer<float4>|entryPoints.0.stage=vertex|entryPoints.1.stage=fragment|vertexLayouts.0.entryPoint=vertex_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|entryPoints=2|vertexLayouts=1|workgroupSizes=0"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=debugValues.stage=fragment|debugValues.entryPoint=fragment_main|debugValues.sourceType=vec4*[2]|debugValues.hlslType=RWStructuredBuffer<float4>|debugValues.addressSpace=unordered-access|debugValues.abi=registerBinding|debugValues.bindingClass=uav|debugValues.descriptorType=UAV|debugValues.argumentIndex=2|debugValues.set=0|debugValues.binding=2|debugValues.arraySize=2|debugValues.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|storage-buffer.kind=resource|fixed-array.kind=layout|descriptor-array.kind=resource|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 if(NOT DEFINED CROSSGL_DIRECTX_GRAPHICS_SHADOW_COMPARE_SOURCE_SNIPPET)
   set(CROSSGL_DIRECTX_GRAPHICS_SHADOW_COMPARE_SOURCE_SNIPPET [=[float visibility = shadowMap.SampleCmpLevelZero(shadowSampler, input.uv, 0.5);]=])
 endif()
@@ -4523,7 +4918,7 @@ add_test(NAME cglc_build_directx_graphics_resources_fake_dxc_success
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-resources-fake-dxc-success.cglb
     -DMODE=source-package-build
-    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     -DEXPECTED_SOURCE=backend/directx/DirectXGraphicsResourceShader.graphics.hlsl
     "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_GRAPHICS_RESOURCE_SOURCE_SNIPPET}"
@@ -4534,11 +4929,11 @@ add_test(NAME cglc_build_directx_graphics_resources_fake_dxc_success
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=note|diagnostics.1.code=directx.dxil-emitted"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=vertex=vs_6_0|diagnostics.0.message=fragment=ps_6_0|diagnostics.1.message=vertex=vs_6_0|diagnostics.1.message=fragment=ps_6_0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T vs_6_0 -E vertex_main -Fo|backend/directx/DirectXGraphicsResourceShader.vertex.dxil|backend/directx/DirectXGraphicsResourceShader.graphics.hlsl"
-    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=-O3 -T ps_6_0 -E fragment_main -Fo|backend/directx/DirectXGraphicsResourceShader.fragment.dxil|backend/directx/DirectXGraphicsResourceShader.graphics.hlsl"
-    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/DirectXGraphicsResourceShader.fragment.dxil"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_storage_buffer_resources_fake_dxc_success
@@ -4548,7 +4943,7 @@ add_test(NAME cglc_build_directx_graphics_storage_buffer_resources_fake_dxc_succ
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-storage-buffer-resources-fake-dxc-success.cglb
     -DMODE=source-package-build
-    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     -DEXPECTED_SOURCE=backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics.hlsl
     "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RESOURCE_SOURCE_SNIPPET}"
@@ -4559,11 +4954,11 @@ add_test(NAME cglc_build_directx_graphics_storage_buffer_resources_fake_dxc_succ
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=note|diagnostics.1.code=directx.dxil-emitted"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=vertex=vs_6_0|diagnostics.0.message=fragment=ps_6_0|diagnostics.1.message=vertex=vs_6_0|diagnostics.1.message=fragment=ps_6_0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T vs_6_0 -E vertex_main -Fo|backend/directx/DirectXGraphicsStorageBufferResourceShader.vertex.dxil|backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics.hlsl"
-    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=-O3 -T ps_6_0 -E fragment_main -Fo|backend/directx/DirectXGraphicsStorageBufferResourceShader.fragment.dxil|backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics.hlsl"
-    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/DirectXGraphicsStorageBufferResourceShader.fragment.dxil"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_shadow_compare_lod_fake_dxc_success
@@ -4573,7 +4968,7 @@ add_test(NAME cglc_build_directx_graphics_shadow_compare_lod_fake_dxc_success
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-shadow-compare-lod-fake-dxc-success.cglb
     -DMODE=source-package-build
-    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     -DEXPECTED_SOURCE=backend/directx/DirectXGraphicsShadowCompareLodShader.graphics.hlsl
     "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_GRAPHICS_SHADOW_COMPARE_LOD_SOURCE_SNIPPET}"
@@ -4584,11 +4979,11 @@ add_test(NAME cglc_build_directx_graphics_shadow_compare_lod_fake_dxc_success
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=note|diagnostics.1.code=directx.dxil-emitted"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=vertex=vs_6_7|diagnostics.0.message=fragment=ps_6_7|diagnostics.1.message=vertex=vs_6_7|diagnostics.1.message=fragment=ps_6_7"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T vs_6_7 -E vertex_main -Fo|backend/directx/DirectXGraphicsShadowCompareLodShader.vertex.dxil|backend/directx/DirectXGraphicsShadowCompareLodShader.graphics.hlsl"
-    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=-O3 -T ps_6_7 -E fragment_main -Fo|backend/directx/DirectXGraphicsShadowCompareLodShader.fragment.dxil|backend/directx/DirectXGraphicsShadowCompareLodShader.graphics.hlsl"
-    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/DirectXGraphicsShadowCompareLodShader.fragment.dxil"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_resources_fake_dxc_tool_failure
@@ -4635,33 +5030,7 @@ crossgl_label_optional_native_policy_test(
   cglc_build_directx_graphics_resources_fake_dxc_tool_failure directx)
 crossgl_label_optional_native_policy_test(
   cglc_build_directx_graphics_resources_fake_dxc_unavailable directx)
-set(CROSSGL_OPENGL_GRAPHICS_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_VERTEX)
-layout(location = 0) in vec3 crossgl_attr_position;
-layout(location = 1) in vec2 crossgl_attr_texCoord;
-layout(location = 0) out vec2 crossgl_varying_uv;
-
-VertexOutput vertex_main(VertexInput crossgl_user_input) {
-  VertexOutput crossgl_user_output;
-  crossgl_user_output.uv = crossgl_user_input.texCoord;
-  crossgl_user_output.position = vec4(crossgl_user_input.position, 1.0);
-  return crossgl_user_output;
-}
-
-void main() {
-  VertexInput crossgl_vertex_input;
-  crossgl_vertex_input.position = crossgl_attr_position;
-  crossgl_vertex_input.texCoord = crossgl_attr_texCoord;
-  VertexOutput crossgl_vertex_output = vertex_main(crossgl_vertex_input);
-  crossgl_varying_uv = crossgl_vertex_output.uv;
-  gl_Position = crossgl_vertex_output.position;
-}
-#endif
-
-#if defined(CROSSGL_STAGE_FRAGMENT)
-layout(location = 0) in vec2 crossgl_varying_uv;
-layout(location = 0) out vec4 crossgl_out_color;
-
-FragmentOutput fragment_main(FragmentInput crossgl_user_input) {]=])
+set(CROSSGL_OPENGL_GRAPHICS_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4698,9 +5067,9 @@ add_test(NAME cglc_build_opengl_graphics_fake_glslang_success
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}/glslangValidator.log
-    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator success: -l -S vert -DCROSSGL_STAGE_VERTEX=1"
+    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator success: -S vert"
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}/glslangValidator.log
-    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator success: -l -S frag -DCROSSGL_STAGE_FRAGMENT=1"
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator success: -S frag"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_graphics_fake_glslang_fragment_tool_failure
   COMMAND ${CMAKE_COMMAND}
@@ -4725,13 +5094,13 @@ add_test(NAME cglc_build_opengl_graphics_fake_glslang_fragment_tool_failure
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450"
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=opengl.backend.native-glsl-package|missingCapabilities=opengl.validation.glsl-program-validation"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2|diagnostics.0.missingCapabilities=2"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/SimpleShader.graphics.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/SimpleShader.graphics.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=failed|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|validationDiagnostics.0.code=opengl.glslang-failed"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=1|validationDiagnostics=0"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=1"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FRAGMENT_FAILURE_DIR}/glslangValidator.log
-    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -l -S vert -DCROSSGL_STAGE_VERTEX=1"
+    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -S vert"
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FRAGMENT_FAILURE_DIR}/glslangValidator.log
-    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -l -S frag -DCROSSGL_STAGE_FRAGMENT=1"
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -S frag"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_label_optional_native_policy_test(
   cglc_build_opengl_graphics_fake_glslang_fragment_tool_failure opengl)
@@ -4756,14 +5125,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(cglc_build_opengl_graphics_glsl_validated
     opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_VERTEX)
-// CrossGL set 0, binding 0
-layout(binding = 0, std140) uniform vertexParams_Uniform {
-  vec4 tint;
-  float zBias;
-} vertexParams;
-
-layout(location = 0) in vec3 crossgl_attr_position;]=])
+set(CROSSGL_OPENGL_GRAPHICS_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4799,17 +5161,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_TEXTURE_SAMPLER_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_FRAGMENT)
-// CrossGL set 0, binding 1
-layout(binding = 1, std140) uniform material_Uniform {
-  vec4 baseColor;
-} material;
-
-// CrossGL set 0, binding 2
-layout(binding = 2) uniform sampler2D colorMap;
-
-// CrossGL set 0, binding 3
-// sampler linearSampler is represented by OpenGL combined sampler uniforms.]=])
+set(CROSSGL_OPENGL_GRAPHICS_TEXTURE_SAMPLER_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_texture_sampler_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4847,12 +5199,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_texture_sampler_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_DESCRIPTOR_ARRAY_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_VERTEX)
-// CrossGL set 0, binding 2
-layout(binding = 2) uniform sampler2D heightMaps[RESOURCE_COUNT];
-
-// CrossGL set 0, binding 3
-// sampler vertexSamplers is represented by OpenGL combined sampler uniforms.]=])
+set(CROSSGL_OPENGL_GRAPHICS_DESCRIPTOR_ARRAY_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_descriptor_array_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4890,19 +5237,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_descriptor_array_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_SHADOW_COMPARE_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_FRAGMENT)
-// CrossGL set 0, binding 2
-layout(binding = 2) uniform sampler2DShadow shadowMap;
-
-// CrossGL set 0, binding 3
-// sampler shadowSampler is represented by OpenGL combined sampler uniforms.
-
-layout(location = 0) in vec2 crossgl_varying_uv;
-layout(location = 0) out vec4 crossgl_out_color;
-
-FragmentOutput fragment_main(FragmentInput crossgl_user_input) {
-  FragmentOutput crossgl_user_output;
-  float visibility = texture(shadowMap, vec3(crossgl_user_input.uv, 0.5));]=])
+set(CROSSGL_OPENGL_GRAPHICS_SHADOW_COMPARE_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_shadow_compare_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4940,19 +5275,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_shadow_compare_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_SHADOW_COMPARE_LOD_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_FRAGMENT)
-// CrossGL set 0, binding 2
-layout(binding = 2) uniform sampler2DShadow shadowMap;
-
-// CrossGL set 0, binding 3
-// sampler shadowSampler is represented by OpenGL combined sampler uniforms.
-
-layout(location = 0) in vec2 crossgl_varying_uv;
-layout(location = 0) out vec4 crossgl_out_color;
-
-FragmentOutput fragment_main(FragmentInput crossgl_user_input) {
-  FragmentOutput crossgl_user_output;
-  float visibility = textureLod(shadowMap, vec3(crossgl_user_input.uv, 0.5), 1.5);]=])
+set(CROSSGL_OPENGL_GRAPHICS_SHADOW_COMPARE_LOD_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_shadow_compare_lod_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -4978,7 +5301,7 @@ add_test(NAME cglc_build_opengl_graphics_shadow_compare_lod_resources_fake_glsla
     -DTOOLCHAIN_PATH=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     -DEXPECTED_SOURCE=backend/opengl/OpenGLGraphicsShadowCompareLodResourcesShader.graphics.glsl
-    "-DEXPECTED_SOURCE_SNIPPET=#extension GL_EXT_texture_shadow_lod : require"
+    "-DEXPECTED_SOURCE_SNIPPET=// CrossGL OpenGL graphics stage inventory"
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLGraphicsShadowCompareLodResourcesShader|artifacts.backendSource=backend/opengl/OpenGLGraphicsShadowCompareLodResourcesShader.graphics.glsl|artifacts.nativeBinary=backend/opengl/OpenGLGraphicsShadowCompareLodResourcesShader.glsl"
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLGraphicsShadowCompareLodResourcesShader|nativeBinary=backend/opengl/OpenGLGraphicsShadowCompareLodResourcesShader.glsl|entryPoints.0.stage=vertex|entryPoints.1.stage=fragment"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-glsl-package.kind=backend|glsl-program-validation.kind=validation|texture-shadow-compare-explicit-lod.kind=operation"
@@ -4989,9 +5312,9 @@ add_test(NAME cglc_build_opengl_graphics_shadow_compare_lod_resources_fake_glsla
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450|message=GL_EXT_texture_shadow_lod"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}/glslangValidator.log
-    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator success: -l -S vert -DCROSSGL_STAGE_VERTEX=1"
+    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator success: -S vert"
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}/glslangValidator.log
-    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator success: -l -S frag -DCROSSGL_STAGE_FRAGMENT=1"
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator success: -S frag"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   add_test(NAME cglc_build_opengl_graphics_shadow_compare_lod_resources_glsl_validated
@@ -5015,27 +5338,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_shadow_compare_lod_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_SHADOW_DESCRIPTOR_ARRAY_SOURCE_SNIPPET [=[#extension GL_EXT_texture_shadow_lod : require
-const int SHADOW_COUNT = 2;
-
-struct VertexInput {
-  vec3 position;
-  vec2 texCoord;
-};
-struct VertexOutput {
-  vec2 uv;
-  vec4 position;
-};
-struct FragmentInput {
-  vec2 uv;
-};
-struct FragmentOutput {
-  vec4 color;
-};
-
-#if defined(CROSSGL_STAGE_VERTEX)
-// CrossGL set 0, binding 6
-layout(binding = 6) uniform sampler2DShadow vertexShadowMaps[SHADOW_COUNT];]=])
+set(CROSSGL_OPENGL_GRAPHICS_SHADOW_DESCRIPTOR_ARRAY_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_shadow_descriptor_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5073,37 +5376,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_shadow_descriptor_array_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_RESERVED_IDENTIFIERS_SOURCE_SNIPPET [=[struct VertexInput {
-  vec3 position;
-  vec2 crossgl_user_sample;
-  float crossgl_user_smooth;
-};
-struct VertexOutput {
-  vec2 crossgl_user_sample;
-  float crossgl_user_smooth;
-  vec4 position;
-};
-struct FragmentInput {
-  vec2 crossgl_user_sample;
-  float crossgl_user_smooth;
-};
-struct FragmentOutput {
-  vec4 crossgl_user_sample;
-};
-
-#if defined(CROSSGL_STAGE_VERTEX)
-layout(location = 0) in vec3 crossgl_attr_position;
-layout(location = 1) in vec2 crossgl_attr_sample;
-layout(location = 2) in float crossgl_attr_smooth;
-layout(location = 0) out vec2 crossgl_varying_sample;
-layout(location = 1) out float crossgl_varying_smooth;
-
-vec2 lift(vec2 crossgl_user_sample, float crossgl_user_smooth);
-
-vec2 lift(vec2 crossgl_user_sample, float crossgl_user_smooth) {
-  vec2 crossgl_user_centroid = crossgl_user_sample + vec2(crossgl_user_smooth, crossgl_user_smooth);
-  return crossgl_user_centroid;
-}]=])
+set(CROSSGL_OPENGL_GRAPHICS_RESERVED_IDENTIFIERS_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_reserved_identifiers_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5721,7 +5994,7 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-storage-buffer-array.cglb
       -DEXPECTED_MODULE=StorageBufferArrayAccessShader
       -DMODE=metal-build
-      "-DEXPECTED_METAL_SOURCE_SNIPPET=device float* values_1 [[buffer(1)]]"
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=values_0[1] = first + 1.0;"
       "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=StorageBufferArrayAccessShader"
       "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[2]|values.metalType=device float*|values.bindingClass=buffer|values.arraySize=2|values.arrayElementCount=2|values.storageBufferLayout.elementType=float|values.storageBufferLayout.layout=metal-device"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
@@ -5735,6 +6008,23 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       "-DEXPECTED_METAL_SOURCE_SNIPPET=float first = values_1[0];"
       "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalStorageBufferFoldedDescriptorArrayShader"
       "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[DESCRIPTOR_COUNT]|values.metalType=device float*|values.bindingClass=buffer|values.arraySize=DESCRIPTOR_COUNT|values.arrayElementCount=2|values.storageBufferLayout.elementType=float|values.storageBufferLayout.layout=metal-device"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_STORAGE_BUFFER_DYNAMIC_DESCRIPTOR_ARRAY_PACKAGE_SOURCE_SNIPPET [=[device float* cgl_select_compute_values(int descriptorIndex, device float* values_0, device float* values_1) {
+  if (descriptorIndex < 0 || descriptorIndex >= 2) {
+    return values_0;
+  }
+  switch (descriptorIndex) {]=])
+  add_test(NAME cglc_build_metal_storage_buffer_dynamic_descriptor_array_native_package
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalStorageBufferDynamicDescriptorArrayShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-storage-buffer-dynamic-descriptor-array-package.cglb
+      -DEXPECTED_MODULE=MetalStorageBufferDynamicDescriptorArrayShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_STORAGE_BUFFER_DYNAMIC_DESCRIPTOR_ARRAY_PACKAGE_SOURCE_SNIPPET}"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalStorageBufferDynamicDescriptorArrayShader"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[2]|values.metalType=device float*|values.bindingClass=buffer|values.argumentIndex=0|values.arraySize=2|values.arrayElementCount=2|values.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_mixed_resource_descriptor_array_native
     COMMAND ${CMAKE_COMMAND}
@@ -6007,6 +6297,28 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|storage-image.kind=resource|descriptor-array.kind=resource|fixed-array.kind=layout|read-write.kind=storageImage|2d-dimension.kind=storageImage|2d_array-dimension.kind=storageImage|array-dimension.kind=storageImage|r32i-format.kind=storageImage|r32ui-format.kind=storageImage|storage-buffer.kind=resource|nonuniform-descriptor-index.kind=operation|nonuniform-storage-image-descriptor-index.kind=operation|storage-image-read.kind=operation|storage-image-write.kind=operation|storage-image-atomic-add.kind=operation|storage-image-atomic-exchange.kind=operation|storage-image-atomic-min.kind=operation|storage-image-atomic-max.kind=operation|storage-image-atomic-and.kind=operation|storage-image-atomic-or.kind=operation|storage-image-atomic-xor.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET [=[float4 sampleFirst(array<texture2d<float>, COUNT> maps, array<sampler, COUNT> samplers) {
+  return maps[0].sample(samplers[0], float2(0.5, 0.5), level(0.0));
+}
+
+kernel void compute_main(device float4* values [[buffer(0)]], array<texture2d<float>, COUNT> colorMaps [[texture(2)]], array<sampler, COUNT> linearSamplers [[sampler(5)]]) {
+  float4 color = sampleFirst(colorMaps, linearSamplers);
+  values[0] = color;]=])
+  add_test(NAME cglc_build_metal_function_parameter_resource_array_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_METAL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-function-parameter-resource-array.cglb
+      -DEXPECTED_MODULE=MetalFunctionParameterResourceArrayShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalFunctionParameterResourceArrayShader|artifacts.backendSource=backend/metal/MetalFunctionParameterResourceArrayShader.metal|artifacts.intermediate=backend/metal/MetalFunctionParameterResourceArrayShader.air|artifacts.nativeBinary=backend/metal/MetalFunctionParameterResourceArrayShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalFunctionParameterResourceArrayShader|nativeBinary=backend/metal/MetalFunctionParameterResourceArrayShader.metallib|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=values|resources.0.kind=buffer|resources.0.type=vec4*|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.2.name=linearSamplers|resources.2.kind=sampler|resources.2.type=sampler[COUNT]|workgroupSizes.0.entryPoint=compute_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|functionConstants=1|workgroupSizes=1|manualTextureCompareKernels=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.metalType=device float4*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=vec4|values.storageBufferLayout.layout=metal-device|colorMaps.sourceType=sampler2D[COUNT]|colorMaps.metalType=array<texture2d<float>, COUNT>|colorMaps.bindingClass=texture|colorMaps.argumentIndex=2|colorMaps.arraySize=COUNT|colorMaps.arrayElementCount=2|linearSamplers.sourceType=sampler[COUNT]|linearSamplers.metalType=array<sampler, COUNT>|linearSamplers.bindingClass=sampler|linearSamplers.argumentIndex=5|linearSamplers.arraySize=COUNT|linearSamplers.arrayElementCount=2"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|sampled-texture.kind=resource|sampler-state.kind=resource|fixed-array.kind=layout|descriptor-array.kind=resource|function-parameter-array.kind=array|texture-sample.kind=operation|texture-explicit-lod.kind=operation|index-access.kind=operation|vector-constructor.kind=operation|local-declaration.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_function_parameter_array_write_source_package
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -6033,6 +6345,73 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalNestedFunctionParameterArrayWriteUnsupportedShader|nativeBinary=backend/metal/MetalNestedFunctionParameterArrayWriteUnsupportedShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=3|resources.0.name=values|resources.0.kind=buffer|resources.0.type=float*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main"
       "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.layout=metal-device"
       "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|fixed-array.kind=layout|index-access.kind=operation|scalar-arithmetic.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_DYNAMIC_NESTED_MATRIX_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float2x2 rewriteGrid(array<array<float2x2, COLS>, ROWS> grid, int row, int col) {
+  grid[row][col] = grid[0][0];
+  return grid[0][0];
+}]=])
+  add_test(NAME cglc_build_metal_dynamic_nested_matrix_function_parameter_array_write_source_package
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-dynamic-nested-matrix-function-parameter-array-write-source.cglb
+      -DEXPECTED_MODULE=MetalDynamicNestedMatrixFunctionParameterArrayWriteShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_DYNAMIC_NESTED_MATRIX_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedMatrixFunctionParameterArrayWriteShader|artifacts.backendSource=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.metal|artifacts.intermediate=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.air|artifacts.nativeBinary=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedMatrixFunctionParameterArrayWriteShader|nativeBinary=backend/metal/MetalDynamicNestedMatrixFunctionParameterArrayWriteShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=2|workgroupSizes.0.entryPoint=compute_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=0|targetResourceBindings=0|functionConstants=2|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[Payload rewriteGrid(array<array<Payload, COLS>, ROWS> grid, int row, int col, Payload replacement) {
+  grid[row][col] = replacement;
+  return grid[0][0];
+}]=])
+  add_test(NAME cglc_build_metal_dynamic_nested_struct_function_parameter_array_write_source_package
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalDynamicNestedStructFunctionParameterArrayWriteShader.cgl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-dynamic-nested-struct-function-parameter-array-write-source.cglb
+      -DEXPECTED_MODULE=MetalDynamicNestedStructFunctionParameterArrayWriteShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_DYNAMIC_NESTED_STRUCT_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayWriteShader|artifacts.backendSource=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.metal|artifacts.intermediate=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.air|artifacts.nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalDynamicNestedStructFunctionParameterArrayWriteShader|nativeBinary=backend/metal/MetalDynamicNestedStructFunctionParameterArrayWriteShader.metallib|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=2|workgroupSizes.0.entryPoint=compute_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=0|targetResourceBindings=0|functionConstants=2|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|index-access.kind=operation|local-declaration.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_RUNTIME_RESOURCE_DESCRIPTOR_ARRAY_TABLE_SNIPPET [=[kernel void compute_main(device float4* values [[buffer(0)]], constant CrossGLMetalRuntimeResourceDescriptorArrayTable_texture2d_float& maps [[buffer(1)]]) {]=])
+  add_test(NAME cglc_build_metal_runtime_texture_descriptor_array_policy_source_package
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_METAL_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_POLICY_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-texture-descriptor-array-policy.cglb
+      -DEXPECTED_MODULE=MetalRuntimeTextureDescriptorArrayPolicyShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_RUNTIME_RESOURCE_DESCRIPTOR_ARRAY_TABLE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalRuntimeTextureDescriptorArrayPolicyShader|artifacts.backendSource=backend/metal/MetalRuntimeTextureDescriptorArrayPolicyShader.metal|artifacts.intermediate=backend/metal/MetalRuntimeTextureDescriptorArrayPolicyShader.air|artifacts.nativeBinary=backend/metal/MetalRuntimeTextureDescriptorArrayPolicyShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=MetalRuntimeTextureDescriptorArrayPolicyShader|nativeBinary=backend/metal/MetalRuntimeTextureDescriptorArrayPolicyShader.metallib|resources.0.name=values|resources.0.kind=buffer|resources.0.type=vec4*|resources.1.name=maps|resources.1.kind=texture|resources.1.type=sampler2D[]|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1|manualTextureCompareKernelSummary.totalCount=0"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2|workgroupSizes=1|manualTextureCompareKernels=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.metalType=device float4*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=vec4|values.storageBufferLayout.layout=metal-device|maps.sourceType=sampler2D[]|maps.metalType=constant CrossGLMetalRuntimeResourceDescriptorArrayTable_texture2d_float&|maps.addressSpace=constant|maps.abi=kernelArgument|maps.bindingClass=buffer|maps.argumentIndex=1|maps.set=0|maps.binding=1|maps.arraySize=|maps.arrayDimensions.0.kind=runtime"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|sampled-texture.kind=resource|descriptor-array.kind=resource|runtime-descriptor-array.kind=resource|runtime-texture-descriptor-array.kind=resource|runtime-array.kind=layout|storage-buffer-write.kind=operation|vector-constructor.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_metal_runtime_resource_array_source_package
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_RUNTIME_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-resource-array.cglb
+      -DEXPECTED_MODULE=RuntimeResourceArrayUnsupportedShader
+      -DMODE=metal-build
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=constant CrossGLMetalRuntimeResourceDescriptorArrayTable_sampler& linearSamplers [[buffer(2)]]"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=RuntimeResourceArrayUnsupportedShader|artifacts.backendSource=backend/metal/RuntimeResourceArrayUnsupportedShader.metal|artifacts.intermediate=backend/metal/RuntimeResourceArrayUnsupportedShader.air|artifacts.nativeBinary=backend/metal/RuntimeResourceArrayUnsupportedShader.metallib"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=RuntimeResourceArrayUnsupportedShader|nativeBinary=backend/metal/RuntimeResourceArrayUnsupportedShader.metallib|resources.0.name=values|resources.0.kind=buffer|resources.0.type=vec4*|resources.1.name=maps|resources.1.kind=texture|resources.1.type=sampler2D[]|resources.2.name=linearSamplers|resources.2.kind=sampler|resources.2.type=sampler[]|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|workgroupSizes=1"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=vec4*|values.metalType=device float4*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=vec4|values.storageBufferLayout.layout=metal-device|maps.sourceType=sampler2D[]|maps.metalType=constant CrossGLMetalRuntimeResourceDescriptorArrayTable_texture2d_float&|maps.addressSpace=constant|maps.abi=kernelArgument|maps.bindingClass=buffer|maps.argumentIndex=1|maps.set=0|maps.binding=1|maps.arraySize=|maps.arrayDimensions.0.kind=runtime|linearSamplers.sourceType=sampler[]|linearSamplers.metalType=constant CrossGLMetalRuntimeResourceDescriptorArrayTable_sampler&|linearSamplers.addressSpace=constant|linearSamplers.abi=kernelArgument|linearSamplers.bindingClass=buffer|linearSamplers.argumentIndex=2|linearSamplers.set=0|linearSamplers.binding=2|linearSamplers.arraySize=|linearSamplers.arrayDimensions.0.kind=runtime"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|MSL.kind=sourceLanguage|metallib.kind=binaryFormat|xcrun-metal.kind=toolchain|xcrun-metallib.kind=toolchain|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|sampled-texture.kind=resource|sampler-state.kind=resource|descriptor-array.kind=resource|runtime-descriptor-array.kind=resource|runtime-texture-descriptor-array.kind=resource|runtime-sampler-descriptor-array.kind=resource|runtime-array.kind=layout"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   crossgl_label_new_optional_native_tests(metal
@@ -6066,6 +6445,18 @@ add_test(NAME cglc_build_directx_runtime_texture_resource_array_source_package
     "-DEXPECTED_SOURCE_SNIPPET=Texture2D<float4> colorMaps[] : register(t1, space0);"
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXRuntimeTextureResourceArrayShader"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.hlslType=RWStructuredBuffer<float4>|colorMaps.sourceType=sampler2D[]|colorMaps.hlslType=Texture2D<float4>|colorMaps.bindingClass=srv|colorMaps.descriptorType=SRV|colorMaps.arraySize=|colorMaps.arrayDimensions.0.kind=runtime|linearSampler.hlslType=SamplerState|linearSampler.bindingClass=sampler"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_runtime_texture_resource_array_distinct_spaces
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/directx/fixtures/DirectXRuntimeTextureResourceArraySpacesShader.cgl
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-runtime-texture-resource-array-spaces.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/DirectXRuntimeTextureResourceArraySpacesShader.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=Texture2D<float4> detailMaps[] : register(t3, space1);"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXRuntimeTextureResourceArraySpacesShader"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.hlslType=RWStructuredBuffer<float4>|colorMaps.sourceType=sampler2D[]|colorMaps.hlslType=Texture2D<float4>|colorMaps.bindingClass=srv|colorMaps.descriptorType=SRV|colorMaps.set=0|colorMaps.binding=1|colorMaps.arraySize=|colorMaps.arrayDimensions.0.kind=runtime|detailMaps.sourceType=sampler2D[]|detailMaps.hlslType=Texture2D<float4>|detailMaps.bindingClass=srv|detailMaps.descriptorType=SRV|detailMaps.set=1|detailMaps.binding=3|detailMaps.arraySize=|detailMaps.arrayDimensions.0.kind=runtime|linearSampler.hlslType=SamplerState|linearSampler.bindingClass=sampler"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_runtime_texture_resource_array_sampler_source_package
   COMMAND ${CMAKE_COMMAND}
@@ -6107,7 +6498,7 @@ add_test(NAME cglc_build_directx_runtime_texture_resource_array_conflict_planned
     -DMODE=planned-build-failure
     -DEXPECTED_DIAGNOSTIC=directx.unsupported-runtime-resource-array
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX source package requires fixed-size descriptor arrays|message=detailMaps (texture)|message=maps (texture)|message=per register class"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=DirectX source package requires fixed-size descriptor arrays|message=runtime descriptor array 'maps' (texture) at register(t1, space0)|message=overlaps resource 'detailMap' (texture) at register(t3, space0)|message=same HLSL register class/space"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_runtime_uniform_buffer_descriptor_array
   COMMAND ${CMAKE_COMMAND}
@@ -6134,38 +6525,67 @@ add_test(NAME cglc_build_directx_runtime_resource_array_source_package
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=RuntimeResourceArrayUnsupportedShader"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.hlslType=RWStructuredBuffer<float4>|maps.sourceType=sampler2D[]|maps.hlslType=Texture2D<float4>|maps.bindingClass=srv|maps.descriptorType=SRV|maps.arraySize=|maps.arrayDimensions.0.kind=runtime|linearSamplers.sourceType=sampler[]|linearSamplers.hlslType=SamplerState|linearSamplers.bindingClass=sampler|linearSamplers.descriptorType=Sampler|linearSamplers.arraySize=|linearSamplers.arrayDimensions.0.kind=runtime"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_unsized_storage_buffer_array_planned_failure
+add_test(NAME cglc_build_opengl_unsized_storage_buffer_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_STORAGE_BUFFER_UNSIZED_DESCRIPTOR_ARRAY_UNSUPPORTED_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-unsized-storage-buffer-array.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-storage-buffer-array
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=OpenGL source package requires fixed-size storage-buffer descriptor array|message=values|message=fixed descriptor array size"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=values_Buffers[0].values[1] = first + 1.0;"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=StorageBufferUnsizedDescriptorArrayUnsupportedShader"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[]|values.bindingClass=storage-buffer|values.abi=programResourceBinding|values.arraySize=|values.arrayDimensions.0.kind=runtime|values.storageBufferLayout.elementType=float|values.storageBufferLayout.layout=std430|values.storageBufferLayout.arrayStrideBytes=4"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_runtime_resource_array_planned_failure
+if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
+  add_test(NAME cglc_build_opengl_unsized_storage_buffer_array_glsl_validated
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_STORAGE_BUFFER_UNSIZED_DESCRIPTOR_ARRAY_UNSUPPORTED_SHADER}
+      -DTARGET=opengl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-unsized-storage-buffer-array-validated.cglb
+      -DMODE=source-package-build
+      -DEXPECTED_SOURCE=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.comp.glsl
+      "-DEXPECTED_SOURCE_SNIPPET=} values_Buffers[];"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=StorageBufferUnsizedDescriptorArrayUnsupportedShader|artifacts.backendSource=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.comp.glsl|artifacts.nativeBinary=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.glsl|artifacts.nativeBinaryStatus=validated"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=StorageBufferUnsizedDescriptorArrayUnsupportedShader|nativeBinary=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.glsl"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*[]|values.bindingClass=storage-buffer|values.arraySize=|values.arrayDimensions.0.kind=runtime|values.storageBufferLayout.layout=std430"
+      -DEXPECTED_NATIVE_BINARY=backend/opengl/StorageBufferUnsizedDescriptorArrayUnsupportedShader.glsl
+      -DEXPECTED_NATIVE_BINARY_STATUS=validated
+      -DEXPECTED_DIAGNOSTIC=opengl.glsl-validated
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  crossgl_label_optional_native_test(
+    cglc_build_opengl_unsized_storage_buffer_array_glsl_validated opengl)
+endif()
+set(CROSSGL_OPENGL_RUNTIME_RESOURCE_ARRAY_SOURCE_SNIPPET [=[layout(binding = 1) uniform texture2D maps[];
+
+// CrossGL set 0, binding 2
+layout(binding = 2) uniform sampler linearSamplers[];]=])
+add_test(NAME cglc_build_opengl_runtime_resource_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_RUNTIME_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-runtime-resource-array.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-runtime-resource-array
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=OpenGL source package requires fixed-size descriptor arrays|message=maps (texture)|message=linearSamplers (sampler)"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/RuntimeResourceArrayUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_RUNTIME_RESOURCE_ARRAY_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=RuntimeResourceArrayUnsupportedShader|resources.1.name=maps|resources.1.type=sampler2D[]|resources.1.arrayDimensions.0.kind=runtime|resources.2.name=linearSamplers|resources.2.type=sampler[]|resources.2.arrayDimensions.0.kind=runtime"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.bindingClass=storage-buffer|maps.sourceType=sampler2D[]|maps.bindingClass=texture|maps.abi=programResourceBinding|maps.arraySize=|maps.arrayDimensions.0.kind=runtime|linearSamplers.sourceType=sampler[]|linearSamplers.bindingClass=sampler|linearSamplers.abi=programResourceBinding|linearSamplers.arraySize=|linearSamplers.arrayDimensions.0.kind=runtime"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|runtime-descriptor-array.kind=resource|runtime-texture-descriptor-array.kind=resource|runtime-sampler-descriptor-array.kind=resource|runtime-array.kind=layout"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_runtime_texture_descriptor_array_policy_planned_failure
+add_test(NAME cglc_build_opengl_runtime_texture_descriptor_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_OPENGL_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_POLICY_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-runtime-texture-descriptor-array-policy.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-runtime-resource-array
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=OpenGL source package requires fixed-size descriptor arrays|message=maps (texture)"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLRuntimeTextureDescriptorArrayPolicyShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=layout(binding = 1) uniform texture2D maps[];"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLRuntimeTextureDescriptorArrayPolicyShader|resources.1.name=maps|resources.1.type=sampler2D[]|resources.1.arrayDimensions.0.kind=runtime"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=maps.sourceType=sampler2D[]|maps.bindingClass=texture|maps.abi=programResourceBinding|maps.arraySize=|maps.arrayDimensions.0.kind=runtime"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|runtime-descriptor-array.kind=resource|runtime-texture-descriptor-array.kind=resource|runtime-array.kind=layout"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_function_parameter_struct_array_source_package
   COMMAND ${CMAKE_COMMAND}
@@ -6180,16 +6600,27 @@ add_test(NAME cglc_build_opengl_function_parameter_struct_array_source_package
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storage-buffer|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.arrayStrideBytes=48|particles.storageBufferLayout.fields.0.name=payloads|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=16"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_STRUCT_STORAGE_AGGREGATE_ARRAY_FIELD_FEATURE_FIELDS}|function-parameter-array.kind=array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_function_parameter_resource_array_planned_failure
+set(CROSSGL_OPENGL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET [=[vec4 sampleFirst(texture2D maps[COUNT], sampler samplers[COUNT]) {
+  return textureLod(sampler2D(maps[0], samplers[0]), vec2(0.5, 0.5), 0.0);
+}
+
+void main() {
+  vec4 color = sampleFirst(colorMaps, linearSamplers);
+  values[0] = color;]=])
+add_test(NAME cglc_build_opengl_function_parameter_resource_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/opengl/fixtures/OpenGLFunctionParameterResourceArrayUnsupportedShader.cgl
+    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-function-parameter-resource-array.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-call-feature
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=sampleFirst.maps|message=sampleFirst.samplers|message=direct-resource-array-arguments"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLFunctionParameterResourceArrayShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_FUNCTION_PARAMETER_RESOURCE_ARRAY_SOURCE_SNIPPET}"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLFunctionParameterResourceArrayShader|artifacts.backendSource=backend/opengl/OpenGLFunctionParameterResourceArrayShader.comp.glsl|artifacts.nativeBinary=backend/opengl/OpenGLFunctionParameterResourceArrayShader.glsl|artifacts.nativeBinaryStatus=planned"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLFunctionParameterResourceArrayShader|nativeBinary=backend/opengl/OpenGLFunctionParameterResourceArrayShader.glsl|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=values|resources.0.kind=buffer|resources.0.type=vec4*|resources.1.name=colorMaps|resources.1.kind=texture|resources.1.type=sampler2D[COUNT]|resources.2.name=linearSamplers|resources.2.kind=sampler|resources.2.type=sampler[COUNT]|workgroupSizes.0.entryPoint=compute_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|functionConstants=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.bindingClass=storage-buffer|colorMaps.bindingClass=texture|colorMaps.arraySize=COUNT|colorMaps.arrayElementCount=2|linearSamplers.bindingClass=sampler|linearSamplers.arraySize=COUNT|linearSamplers.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|native-glsl-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|sampled-texture.kind=resource|sampler-state.kind=resource|fixed-array.kind=layout|descriptor-array.kind=resource|function-parameter-array.kind=array|texture-sample.kind=operation|index-access.kind=operation|vector-constructor.kind=operation|storage-buffer-write.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_local_function_parameter_array_source_package
   COMMAND ${CMAKE_COMMAND}
@@ -6253,38 +6684,127 @@ add_test(NAME cglc_build_opengl_local_function_parameter_array_write_source_pack
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_LOCAL_FEATURE_FIELDS}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_function_parameter_array_write_planned_failure
+set(CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewriteWeight_weights[COUNT];
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }
+  float value = rewriteWeight(crossgl_param_array_writeback_0_rewriteWeight_weights);
+  for (int crossgl_param_array_writeback_0_rewriteWeight_weights_i = 0; crossgl_param_array_writeback_0_rewriteWeight_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewriteWeight_weights_i) {
+    particles[0].weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i] = crossgl_param_array_writeback_0_rewriteWeight_weights[crossgl_param_array_writeback_0_rewriteWeight_weights_i];
+  }]=])
+add_test(NAME cglc_build_opengl_function_parameter_array_write_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
+    -DINPUT=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-function-parameter-array-write.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-write
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=rewriteWeight.weights|message=fixed-size local array copy"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLFunctionParameterArrayWriteShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLFunctionParameterArrayWriteShader|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storage-buffer|particles.argumentIndex=0|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.arrayStrideBytes=8|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.fields.0.name=weights|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=4"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_RESOURCE_FEATURE_FIELDS}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_forwarded_function_parameter_array_write_planned_failure
+set(CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewrite_values[COUNT];
+  for (int crossgl_param_array_writeback_0_rewrite_values_i = 0; crossgl_param_array_writeback_0_rewrite_values_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_values_i) {
+    crossgl_param_array_writeback_0_rewrite_values[crossgl_param_array_writeback_0_rewrite_values_i] = values[crossgl_param_array_writeback_0_rewrite_values_i];
+  }
+  float crossgl_param_array_writeback_1_return = rewrite(crossgl_param_array_writeback_0_rewrite_values);
+  for (int crossgl_param_array_writeback_0_rewrite_values_i = 0; crossgl_param_array_writeback_0_rewrite_values_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_values_i) {
+    values[crossgl_param_array_writeback_0_rewrite_values_i] = crossgl_param_array_writeback_0_rewrite_values[crossgl_param_array_writeback_0_rewrite_values_i];
+  }
+  return crossgl_param_array_writeback_1_return;]=])
+set(CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_FEATURE_FIELDS
+    "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|function-parameter-array.kind=array|scalar-vector-elements.kind=array|local-array.kind=array|index-access.kind=operation|local-declaration.kind=operation")
+if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
+  set(CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_BINARY
+      -DEXPECTED_NATIVE_BINARY=backend/opengl/OpenGLForwardedFunctionParameterArrayWriteUnsupportedShader.glsl)
+else()
+  set(CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_BINARY)
+endif()
+add_test(NAME cglc_build_opengl_forwarded_function_parameter_array_write_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-forwarded-function-parameter-array-write.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-write
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=rewrite.values|message=forwarded helper parameter"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLForwardedFunctionParameterArrayWriteUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLForwardedFunctionParameterArrayWriteUnsupportedShader|functionConstants.0.name=COUNT|functionConstants.0.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_FEATURE_FIELDS}"
+    -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
+    ${CROSSGL_OPENGL_FORWARDED_FUNCTION_PARAMETER_ARRAY_WRITE_NATIVE_BINARY}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_opengl_aliased_function_parameter_array_write_planned_failure
+set(CROSSGL_OPENGL_ALIASED_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_blendAliased_left[COUNT];
+  for (int crossgl_param_array_writeback_0_blendAliased_left_i = 0; crossgl_param_array_writeback_0_blendAliased_left_i < COUNT; ++crossgl_param_array_writeback_0_blendAliased_left_i) {
+    crossgl_param_array_writeback_0_blendAliased_left[crossgl_param_array_writeback_0_blendAliased_left_i] = weights[crossgl_param_array_writeback_0_blendAliased_left_i];
+  }
+  float crossgl_param_array_writeback_1_result = blendAliased(crossgl_param_array_writeback_0_blendAliased_left, crossgl_param_array_writeback_0_blendAliased_left);
+  for (int crossgl_param_array_writeback_0_blendAliased_left_i = 0; crossgl_param_array_writeback_0_blendAliased_left_i < COUNT; ++crossgl_param_array_writeback_0_blendAliased_left_i) {
+    weights[crossgl_param_array_writeback_0_blendAliased_left_i] = crossgl_param_array_writeback_0_blendAliased_left[crossgl_param_array_writeback_0_blendAliased_left_i];
+  }
+  weights[1] = crossgl_param_array_writeback_1_result;]=])
+add_test(NAME cglc_build_opengl_aliased_function_parameter_array_write_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_OPENGL_ALIASED_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
     -DTARGET=opengl
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-aliased-function-parameter-array-write.cglb
-    -DMODE=planned-build-failure
-    -DEXPECTED_DIAGNOSTIC=opengl.unsupported-function-parameter-array-write
-    ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=blendAliased.left|message=aliased helper array"
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLAliasedFunctionParameterArrayWriteUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_ALIASED_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLAliasedFunctionParameterArrayWriteUnsupportedShader|functionConstants.0.name=COUNT|functionConstants.0.value=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_ALIASED_LOCAL_FEATURE_FIELDS}"
+    -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewrite_weights[COUNT];
+  for (int crossgl_param_array_writeback_0_rewrite_weights_i = 0; crossgl_param_array_writeback_0_rewrite_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_weights_i) {
+    crossgl_param_array_writeback_0_rewrite_weights[crossgl_param_array_writeback_0_rewrite_weights_i] = particles[0].weights[crossgl_param_array_writeback_0_rewrite_weights_i];
+  }
+  float crossgl_param_array_writeback_1_result = rewrite(crossgl_param_array_writeback_0_rewrite_weights);
+  for (int crossgl_param_array_writeback_0_rewrite_weights_i = 0; crossgl_param_array_writeback_0_rewrite_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_weights_i) {
+    particles[0].weights[crossgl_param_array_writeback_0_rewrite_weights_i] = crossgl_param_array_writeback_0_rewrite_weights[crossgl_param_array_writeback_0_rewrite_weights_i];
+  }
+  particles[1].weights[0] = crossgl_param_array_writeback_1_result + 1.0;]=])
+set(CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_FEATURE_FIELDS
+    "glsl-lowering.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|fixed-array.kind=layout|fixed-array-field.kind=layout|storage-buffer.kind=resource|function-parameter-array.kind=array|scalar-vector-elements.kind=array|index-access.kind=operation|storage-buffer-read.kind=operation|storage-buffer-write.kind=operation|scalar-arithmetic.kind=operation")
+add_test(NAME cglc_build_opengl_nested_expression_function_parameter_array_write_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_UNSUPPORTED_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-nested-expression-function-parameter-array-write-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLNestedExpressionFunctionParameterArrayWriteUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLNestedExpressionFunctionParameterArrayWriteUnsupportedShader|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storage-buffer|particles.argumentIndex=0|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.arrayStrideBytes=8|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.fields.0.name=weights|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=4"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_FEATURE_FIELDS}"
+    -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_RHS_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewrite_weights[COUNT];
+  for (int crossgl_param_array_writeback_0_rewrite_weights_i = 0; crossgl_param_array_writeback_0_rewrite_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_weights_i) {
+    crossgl_param_array_writeback_0_rewrite_weights[crossgl_param_array_writeback_0_rewrite_weights_i] = particles[0].weights[crossgl_param_array_writeback_0_rewrite_weights_i];
+  }
+  float crossgl_param_array_writeback_1_result = rewrite(crossgl_param_array_writeback_0_rewrite_weights);
+  for (int crossgl_param_array_writeback_0_rewrite_weights_i = 0; crossgl_param_array_writeback_0_rewrite_weights_i < COUNT; ++crossgl_param_array_writeback_0_rewrite_weights_i) {
+    particles[0].weights[crossgl_param_array_writeback_0_rewrite_weights_i] = crossgl_param_array_writeback_0_rewrite_weights[crossgl_param_array_writeback_0_rewrite_weights_i];
+  }
+  particles[1].weights[0] = 1.0 + crossgl_param_array_writeback_1_result;]=])
+add_test(NAME cglc_build_opengl_nested_expression_function_parameter_array_write_rhs_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/opengl/fixtures/OpenGLNestedExpressionFunctionParameterArrayWriteRhsUnsupportedShader.cgl
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-nested-expression-function-parameter-array-write-rhs-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLNestedExpressionFunctionParameterArrayWriteRhsUnsupportedShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_RHS_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLNestedExpressionFunctionParameterArrayWriteRhsUnsupportedShader|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.name=particles|resources.0.kind=buffer|resources.0.type=Particle*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=particles.sourceType=Particle*|particles.bindingClass=storage-buffer|particles.argumentIndex=0|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.arrayStrideBytes=8|particles.storageBufferLayout.layout=std430|particles.storageBufferLayout.fields.0.name=weights|particles.storageBufferLayout.fields.0.arrayElementCount=2|particles.storageBufferLayout.fields.0.arrayStrideBytes=4"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_NESTED_EXPRESSION_FUNCTION_PARAMETER_ARRAY_WRITE_FEATURE_FIELDS}"
+    -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_nested_function_parameter_array_write_source_package
   COMMAND ${CMAKE_COMMAND}
@@ -6299,6 +6819,31 @@ add_test(NAME cglc_build_opengl_nested_function_parameter_array_write_source_pac
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=std430"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_LOCAL_FEATURE_FIELDS}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_NESTED_STORAGE_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET [=[float crossgl_param_array_writeback_0_rewriteGrid_grid[ROWS][COLS];
+  for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i0 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i0 < ROWS; ++crossgl_param_array_writeback_0_rewriteGrid_grid_i0) {
+    for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i1 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i1 < COLS; ++crossgl_param_array_writeback_0_rewriteGrid_grid_i1) {
+      crossgl_param_array_writeback_0_rewriteGrid_grid[crossgl_param_array_writeback_0_rewriteGrid_grid_i0][crossgl_param_array_writeback_0_rewriteGrid_grid_i1] = tiles[0].grid[crossgl_param_array_writeback_0_rewriteGrid_grid_i0][crossgl_param_array_writeback_0_rewriteGrid_grid_i1];
+    }
+  }
+  float selected = rewriteGrid(crossgl_param_array_writeback_0_rewriteGrid_grid);
+  for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i0 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i0 < ROWS; ++crossgl_param_array_writeback_0_rewriteGrid_grid_i0) {
+    for (int crossgl_param_array_writeback_0_rewriteGrid_grid_i1 = 0; crossgl_param_array_writeback_0_rewriteGrid_grid_i1 < COLS; ++crossgl_param_array_writeback_0_rewriteGrid_grid_i1) {
+      tiles[0].grid[crossgl_param_array_writeback_0_rewriteGrid_grid_i0][crossgl_param_array_writeback_0_rewriteGrid_grid_i1] = crossgl_param_array_writeback_0_rewriteGrid_grid[crossgl_param_array_writeback_0_rewriteGrid_grid_i0][crossgl_param_array_writeback_0_rewriteGrid_grid_i1];
+    }
+  }]=])
+add_test(NAME cglc_build_opengl_nested_storage_function_parameter_array_write_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_NESTED_STORAGE_FUNCTION_PARAMETER_ARRAY_WRITE_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-nested-storage-function-parameter-array-write.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLNestedStorageFunctionParameterArrayWriteShader.comp.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_NESTED_STORAGE_FUNCTION_PARAMETER_ARRAY_WRITE_SOURCE_SNIPPET}"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLNestedStorageFunctionParameterArrayWriteShader|functionConstants.0.name=ROWS|functionConstants.0.value=2|functionConstants.1.name=COLS|functionConstants.1.value=3|resources.0.name=tiles|resources.0.kind=buffer|resources.0.type=Tile*|resources.0.binding=0|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=tiles.sourceType=Tile*|tiles.bindingClass=storage-buffer|tiles.argumentIndex=0|tiles.storageBufferLayout.elementType=Tile|tiles.storageBufferLayout.layout=std430|tiles.storageBufferLayout.fields.0.name=grid|tiles.storageBufferLayout.fields.0.type=float[ROWS][COLS]|tiles.storageBufferLayout.fields.0.arrayElementCount=6|tiles.storageBufferLayout.fields.0.arrayDimensions.0.source=ROWS|tiles.storageBufferLayout.fields.0.arrayDimensions.0.elementCount=2|tiles.storageBufferLayout.fields.0.arrayDimensions.1.source=COLS|tiles.storageBufferLayout.fields.0.arrayDimensions.1.elementCount=3"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=${CROSSGL_OPENGL_PARAM_ARRAY_WRITE_RESOURCE_FEATURE_FIELDS}|fixed-nested-arrays.kind=array"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_metal_unsized_storage_buffer_array_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -6311,30 +6856,6 @@ add_test(NAME cglc_build_metal_unsized_storage_buffer_array_planned_failure
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=metal.backend.native-metal-package|missingCapabilities=metal.diagnostic.metal.unsupported-storage-buffer-array"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'metal' cannot build a package for this module|message=metal.backend.native-metal-package|message=metal.diagnostic.metal.unsupported-storage-buffer-array"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_metal_runtime_resource_array_planned_failure
-  COMMAND ${CMAKE_COMMAND}
-    -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_RUNTIME_RESOURCE_ARRAY_UNSUPPORTED_SHADER}
-    -DTARGET=metal
-    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-resource-array.cglb
-    -DMODE=planned-build-failure
-    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=metal"
-    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=metal.backend.native-metal-package|missingCapabilities=metal.diagnostic.metal.unsupported-runtime-resource-array"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'metal' cannot build a package for this module|message=metal.backend.native-metal-package|message=metal.diagnostic.metal.unsupported-runtime-resource-array"
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_metal_runtime_texture_descriptor_array_policy_planned_failure
-  COMMAND ${CMAKE_COMMAND}
-    -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CROSSGL_METAL_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_POLICY_SHADER}
-    -DTARGET=metal
-    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-runtime-texture-descriptor-array-policy.cglb
-    -DMODE=planned-build-failure
-    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
-    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=metal"
-    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=metal.backend.native-metal-package|missingCapabilities=metal.diagnostic.metal.unsupported-runtime-resource-array"
-    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'metal' cannot build a package for this module|message=metal.backend.native-metal-package|message=metal.diagnostic.metal.unsupported-runtime-resource-array"
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_vulkan_runtime_texture_descriptor_array_conflict_source_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -6342,7 +6863,7 @@ add_test(NAME cglc_build_vulkan_runtime_texture_descriptor_array_conflict_source
     -DTARGET=vulkan
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-runtime-texture-descriptor-array-conflict-source.cglb
     -DMODE=planned-build-failure
-    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
+    ${CROSSGL_VULKAN_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_CONFLICT_DIAGNOSTIC_EXPECTATIONS}
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=vulkan"
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
@@ -8252,11 +8773,21 @@ add_test(NAME cglc_build_directx_storage_image_access_qualifier_source_package
     -DMODE=source-package-build
     -DEXPECTED_SOURCE=backend/directx/DirectXStorageImageAccessQualifierShader.hlsl
     "-DEXPECTED_SOURCE_SNIPPET=RWTexture2DArray<float4> writeAtlas : register(u4, space0)"
-    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXStorageImageAccessQualifierShader|artifacts.backendSource=backend/directx/DirectXStorageImageAccessQualifierShader.hlsl|artifacts.nativeBinary=backend/directx/DirectXStorageImageAccessQualifierShader.dxil"
-    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXStorageImageAccessQualifierShader|nativeBinary=backend/directx/DirectXStorageImageAccessQualifierShader.dxil|resources.0.kind=storage_image|resources.0.type=image2D|resources.5.type=image2DArray|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=4|workgroupSizes.0.y=4|workgroupSizes.0.z=2"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXStorageImageAccessQualifierShader|targetLegalizationToolRequirements.target=directx|targetLegalizationToolRequirements.packageMode=source-package|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=2|targetLegalizationToolRequirements.optionalNativeToolMissing=true|targetLegalizationToolRequirements.optionalNativeToolStatus=missing|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true|artifacts.backendSource=backend/directx/DirectXStorageImageAccessQualifierShader.hlsl|artifacts.nativeBinary=backend/directx/DirectXStorageImageAccessQualifierShader.dxil|artifacts.nativeBinaryStatus=planned|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/DirectXStorageImageAccessQualifierShader.native-artifact.json|artifacts.targetExplanation=ir/target-explanation.json"
+    "-DEXPECTED_MANIFEST_JSON_ARRAY_CONTAINS=targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.missingToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|packageArtifactRequirements.requiredPathArtifacts=backendSource|packageArtifactRequirements.requiredPathArtifacts=nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifacts.source-package|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.native-binary-status.required|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.planned-native-binary.allowed|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
+    "-DEXPECTED_MANIFEST_JSON_ARRAY_LENGTHS=targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXStorageImageAccessQualifierShader|nativeBinary=backend/directx/DirectXStorageImageAccessQualifierShader.dxil|resources.0.kind=storage_image|resources.0.type=image2D|resources.0.storageImageAccess=read|resources.1.storageImageAccess=write|resources.2.storageImageAccess=read_write|resources.3.storageImageAccess=read|resources.4.storageImageAccess=write|resources.5.type=image2DArray|resources.5.storageImageAccess=read_write|targetResourceBindings.0.storageImageAccess=read|targetResourceBindings.1.storageImageAccess=write|targetResourceBindings.2.storageImageAccess=read_write|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=4|workgroupSizes.0.y=4|workgroupSizes.0.z=2"
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=6|targetResourceBindings=6|workgroupSizes=1"
-    "-DEXPECTED_REFLECTION_TARGET_FIELDS=readColor.sourceType=image2D|readColor.hlslType=RWTexture2D<float4>|readColor.bindingClass=uav|writeColor.descriptorType=UAV|readAtlas.hlslType=RWTexture2DArray<float4>|writeAtlas.argumentIndex=4|readWriteAtlas.sourceType=image2DArray"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=readColor.sourceType=image2D|readColor.hlslType=RWTexture2D<float4>|readColor.bindingClass=uav|readColor.storageImageAccess=read|writeColor.descriptorType=UAV|writeColor.storageImageAccess=write|readWriteColor.storageImageAccess=read_write|readAtlas.hlslType=RWTexture2DArray<float4>|readAtlas.storageImageAccess=read|writeAtlas.argumentIndex=4|writeAtlas.storageImageAccess=write|readWriteAtlas.sourceType=image2DArray|readWriteAtlas.storageImageAccess=read_write"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=storage-image.kind=resource|read-only.kind=storageImage|write-only.kind=storageImage|read-write.kind=storageImage|2d-dimension.kind=storageImage|2d_array-dimension.kind=storageImage|array-dimension.kind=storageImage|rgba32f-format.kind=storageImage|storage-image-read.kind=operation|storage-image-write.kind=operation"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/DirectXStorageImageAccessQualifierShader.hlsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=targetDecision.selectedTarget=directx|targetDecision.selectedTargetPackageMode=source-package|targetDecision.selectedTargetSourcePackageSupported=true|targetDecision.selectedTargetRequiredToolCount=2|targetDecision.selectedTargetMissingToolCount=2|targetDecision.selectedTargetOptionalNativeToolMissing=true|targetDecision.selectedTargetOptionalNativeToolStatus=missing"
+    "-DEXPECTED_PACKAGE_INSPECT_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=DirectXStorageImageAccessQualifierShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiredPathArtifacts.0.name=backendSource|packageArtifactRequirements.requiredPathArtifacts.1.name=nativeBinary|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true|targetLegalizationEvidence.health=ok|targetLegalizationEvidence.packageMode=source-package|targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|targetLegalizationEvidence.packageArtifactRequirementEvidenceIds.0=target-legalization.v1.directx.package-artifacts.source-package|targetLegalizationEvidence.manifestToolRequirements.present=true|targetLegalizationEvidence.manifestToolRequirements.target=directx|targetLegalizationEvidence.manifestToolRequirements.packageMode=source-package|targetLegalizationEvidence.manifestToolRequirements.requiredToolCount=2|targetLegalizationEvidence.manifestToolRequirements.missingToolCount=2|targetLegalizationEvidence.checks.packageArtifactRequirementEvidenceIdsPresent=true|targetLegalizationEvidence.checks.debugMetadataTargetMatchesPackage=true|targetLegalizationEvidence.checks.debugMetadataPackageModeMatchesRequirements=true|targetLegalizationEvidence.debugMetadata.target=directx|targetLegalizationEvidence.debugMetadata.packageMode=source-package|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.binaryKind=directx.dxil|nativeArtifactDescriptor.sourcePath=backend/directx/DirectXStorageImageAccessQualifierShader.hlsl|nativeArtifactDescriptor.nativeBinaryStatus=planned|nativeArtifactDescriptor.checks.sourcePathMatchesManifest=true|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactPathMatchesManifest=true|reflection.resources.0.name=readColor|reflection.resources.0.storageImageAccess=read|reflection.resources.4.name=writeAtlas|reflection.resources.4.storageImageAccess=write|reflection.targetResourceBindings.2.storageImageAccess=read_write|reflection.targetResourceBindings.5.name=readWriteAtlas"
+    -DPACKAGE_INSPECT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DPYTHON3_EXECUTABLE=${CROSSGL_PYTHON3}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_storage_image_source_package
   COMMAND ${CMAKE_COMMAND}
@@ -8283,9 +8814,9 @@ add_test(NAME cglc_build_opengl_storage_image_access_qualifier_source_package
     -DEXPECTED_SOURCE=backend/opengl/OpenGLStorageImageAccessQualifierShader.comp.glsl
     "-DEXPECTED_SOURCE_SNIPPET=layout(binding = 4, rgba32f) writeonly uniform image2DArray writeAtlas;"
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLStorageImageAccessQualifierShader|artifacts.backendSource=backend/opengl/OpenGLStorageImageAccessQualifierShader.comp.glsl|artifacts.nativeBinary=backend/opengl/OpenGLStorageImageAccessQualifierShader.glsl"
-    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLStorageImageAccessQualifierShader|nativeBinary=backend/opengl/OpenGLStorageImageAccessQualifierShader.glsl|resources.0.kind=storage_image|resources.0.type=image2D|resources.5.type=image2DArray|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=4|workgroupSizes.0.y=4|workgroupSizes.0.z=2"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLStorageImageAccessQualifierShader|nativeBinary=backend/opengl/OpenGLStorageImageAccessQualifierShader.glsl|resources.0.kind=storage_image|resources.0.type=image2D|resources.0.storageImageAccess=read|resources.1.storageImageAccess=write|resources.2.storageImageAccess=read_write|resources.3.storageImageAccess=read|resources.4.storageImageAccess=write|resources.5.type=image2DArray|resources.5.storageImageAccess=read_write|targetResourceBindings.0.storageImageAccess=read|targetResourceBindings.1.storageImageAccess=write|targetResourceBindings.2.storageImageAccess=read_write|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=4|workgroupSizes.0.y=4|workgroupSizes.0.z=2"
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=6|targetResourceBindings=6|workgroupSizes=1"
-    "-DEXPECTED_REFLECTION_TARGET_FIELDS=readColor.sourceType=image2D|readColor.bindingClass=image|readColor.abi=programResourceBinding|writeColor.argumentIndex=1|readAtlas.sourceType=image2DArray|writeAtlas.binding=4|readWriteAtlas.sourceType=image2DArray"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=readColor.sourceType=image2D|readColor.bindingClass=image|readColor.abi=programResourceBinding|readColor.storageImageAccess=read|writeColor.argumentIndex=1|writeColor.storageImageAccess=write|readWriteColor.storageImageAccess=read_write|readAtlas.sourceType=image2DArray|readAtlas.storageImageAccess=read|writeAtlas.binding=4|writeAtlas.storageImageAccess=write|readWriteAtlas.sourceType=image2DArray|readWriteAtlas.storageImageAccess=read_write"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=storage-image.kind=resource|read-only.kind=storageImage|write-only.kind=storageImage|read-write.kind=storageImage|2d-dimension.kind=storageImage|2d_array-dimension.kind=storageImage|array-dimension.kind=storageImage|rgba32f-format.kind=storageImage|storage-image-read.kind=operation|storage-image-write.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_storage_image_atomic_source_package
@@ -8391,11 +8922,21 @@ add_test(NAME cglc_build_directx_storage_image_descriptor_array_source_package
     -DMODE=source-package-build
     -DEXPECTED_SOURCE=backend/directx/DirectXStorageImageDescriptorArrayShader.hlsl
     "-DEXPECTED_SOURCE_SNIPPET=RWTexture2DArray<uint4> maskAtlases[N] : register(u2, space0)"
-    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXStorageImageDescriptorArrayShader|artifacts.backendSource=backend/directx/DirectXStorageImageDescriptorArrayShader.hlsl|artifacts.nativeBinary=backend/directx/DirectXStorageImageDescriptorArrayShader.dxil"
-    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXStorageImageDescriptorArrayShader|nativeBinary=backend/directx/DirectXStorageImageDescriptorArrayShader.dxil|resources.0.kind=storage_image|resources.0.type=image2D[COUNT]|resources.1.type=iimage2D[N]|resources.2.type=uimage2DArray[N]|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=4|workgroupSizes.0.y=4|workgroupSizes.0.z=2"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXStorageImageDescriptorArrayShader|targetLegalizationToolRequirements.target=directx|targetLegalizationToolRequirements.packageMode=source-package|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=2|targetLegalizationToolRequirements.optionalNativeToolMissing=true|targetLegalizationToolRequirements.optionalNativeToolStatus=missing|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true|artifacts.backendSource=backend/directx/DirectXStorageImageDescriptorArrayShader.hlsl|artifacts.nativeBinary=backend/directx/DirectXStorageImageDescriptorArrayShader.dxil|artifacts.nativeBinaryStatus=planned|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/DirectXStorageImageDescriptorArrayShader.native-artifact.json|artifacts.targetExplanation=ir/target-explanation.json"
+    "-DEXPECTED_MANIFEST_JSON_ARRAY_CONTAINS=targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.missingToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|packageArtifactRequirements.requiredPathArtifacts=backendSource|packageArtifactRequirements.requiredPathArtifacts=nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifacts.source-package|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.native-binary-status.required|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.planned-native-binary.allowed|packageArtifactRequirements.evidenceIds=target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
+    "-DEXPECTED_MANIFEST_JSON_ARRAY_LENGTHS=targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=DirectXStorageImageDescriptorArrayShader|nativeBinary=backend/directx/DirectXStorageImageDescriptorArrayShader.dxil|functionConstants.0.name=COUNT|functionConstants.0.value=2|functionConstants.1.name=N|functionConstants.1.value=2|resources.0.stage=compute|resources.0.name=colorImages|resources.0.kind=storage_image|resources.0.type=image2D[COUNT]|resources.0.arrayDimensions.0.source=COUNT|resources.0.arrayDimensions.0.kind=fixed|resources.0.arrayDimensions.0.elementCount=2|resources.1.type=iimage2D[N]|resources.2.name=maskAtlases|resources.2.type=uimage2DArray[N]|resources.2.arrayDimensions.0.source=N|resources.2.arrayDimensions.0.kind=fixed|resources.2.arrayDimensions.0.elementCount=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=4|workgroupSizes.0.y=4|workgroupSizes.0.z=2"
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|functionConstants=2|workgroupSizes=1"
-    "-DEXPECTED_REFLECTION_TARGET_FIELDS=colorImages.sourceType=image2D[COUNT]|colorImages.hlslType=RWTexture2D<float4>|colorImages.bindingClass=uav|colorImages.descriptorType=UAV|colorImages.arraySize=COUNT|colorImages.arrayElementCount=2|labelImages.hlslType=RWTexture2D<int4>|maskAtlases.hlslType=RWTexture2DArray<uint4>|maskAtlases.arraySize=N|maskAtlases.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=colorImages.stage=compute|colorImages.entryPoint=compute_main|colorImages.sourceType=image2D[COUNT]|colorImages.hlslType=RWTexture2D<float4>|colorImages.bindingClass=uav|colorImages.descriptorType=UAV|colorImages.argumentIndex=0|colorImages.set=0|colorImages.binding=0|colorImages.arraySize=COUNT|colorImages.arrayElementCount=2|colorImages.arrayDimensions.0.source=COUNT|colorImages.arrayDimensions.0.kind=fixed|colorImages.arrayDimensions.0.elementCount=2|labelImages.sourceType=iimage2D[N]|labelImages.hlslType=RWTexture2D<int4>|labelImages.argumentIndex=1|labelImages.binding=1|labelImages.arraySize=N|labelImages.arrayElementCount=2|maskAtlases.sourceType=uimage2DArray[N]|maskAtlases.hlslType=RWTexture2DArray<uint4>|maskAtlases.argumentIndex=2|maskAtlases.binding=2|maskAtlases.arraySize=N|maskAtlases.arrayElementCount=2"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=storage-image.kind=resource|descriptor-array.kind=resource|fixed-array.kind=layout|2d-dimension.kind=storageImage|2d_array-dimension.kind=storageImage|storage-image-read.kind=operation|storage-image-write.kind=operation"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/DirectXStorageImageDescriptorArrayShader.hlsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=targetDecision.selectedTarget=directx|targetDecision.selectedTargetPackageMode=source-package|targetDecision.selectedTargetSourcePackageSupported=true|targetDecision.selectedTargetRequiredToolCount=2|targetDecision.selectedTargetMissingToolCount=2|targetDecision.selectedTargetOptionalNativeToolMissing=true|targetDecision.selectedTargetOptionalNativeToolStatus=missing"
+    "-DEXPECTED_PACKAGE_INSPECT_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=DirectXStorageImageDescriptorArrayShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiredPathArtifacts.0.name=backendSource|packageArtifactRequirements.requiredPathArtifacts.1.name=nativeBinary|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true|targetLegalizationEvidence.health=ok|targetLegalizationEvidence.packageMode=source-package|targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|targetLegalizationEvidence.packageArtifactRequirementEvidenceIds.0=target-legalization.v1.directx.package-artifacts.source-package|targetLegalizationEvidence.manifestToolRequirements.present=true|targetLegalizationEvidence.manifestToolRequirements.target=directx|targetLegalizationEvidence.manifestToolRequirements.packageMode=source-package|targetLegalizationEvidence.manifestToolRequirements.requiredToolCount=2|targetLegalizationEvidence.manifestToolRequirements.missingToolCount=2|targetLegalizationEvidence.checks.packageArtifactRequirementEvidenceIdsPresent=true|targetLegalizationEvidence.checks.debugMetadataTargetMatchesPackage=true|targetLegalizationEvidence.checks.debugMetadataPackageModeMatchesRequirements=true|targetLegalizationEvidence.debugMetadata.target=directx|targetLegalizationEvidence.debugMetadata.packageMode=source-package|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.binaryKind=directx.dxil|nativeArtifactDescriptor.sourcePath=backend/directx/DirectXStorageImageDescriptorArrayShader.hlsl|nativeArtifactDescriptor.nativeBinaryStatus=planned|nativeArtifactDescriptor.checks.sourcePathMatchesManifest=true|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactPathMatchesManifest=true|reflection.resources.0.name=colorImages|reflection.resources.0.arrayDimensions.0.elementCount=2|reflection.resources.2.name=maskAtlases|reflection.resources.2.arrayDimensions.0.source=N|reflection.targetResourceBindings.0.arrayElementCount=2|reflection.targetResourceBindings.2.binding=2"
+    -DPACKAGE_INSPECT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DPYTHON3_EXECUTABLE=${CROSSGL_PYTHON3}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_storage_image_nonuniform_descriptor_array_source_package
   COMMAND ${CMAKE_COMMAND}
@@ -8450,12 +8991,22 @@ add_test(NAME cglc_build_opengl_storage_image_descriptor_array_source_package
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-storage-image-descriptor-array.cglb
     -DMODE=source-package-build
     -DEXPECTED_SOURCE=backend/opengl/OpenGLStorageImageDescriptorArrayShader.comp.glsl
+    -DEXPECTED_NATIVE_BINARY_STATUS=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}
     "-DEXPECTED_SOURCE_SNIPPET=layout(binding = 5, rgba32ui) uniform uimage2DArray maskAtlases[2];"
-    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLStorageImageDescriptorArrayShader|artifacts.backendSource=backend/opengl/OpenGLStorageImageDescriptorArrayShader.comp.glsl|artifacts.nativeBinary=backend/opengl/OpenGLStorageImageDescriptorArrayShader.glsl"
-    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLStorageImageDescriptorArrayShader|nativeBinary=backend/opengl/OpenGLStorageImageDescriptorArrayShader.glsl|resources.0.kind=storage_image|resources.0.type=image2D[COUNT]|resources.5.type=uimage2DArray[2]|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=8|workgroupSizes.0.y=8|workgroupSizes.0.z=1"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLStorageImageDescriptorArrayShader|targetLegalizationToolRequirements.target=opengl|targetLegalizationToolRequirements.packageMode=source-package|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=2|targetLegalizationToolRequirements.optionalNativeToolMissing=true|targetLegalizationToolRequirements.optionalNativeToolStatus=missing|packageArtifactRequirements.target=opengl|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true|artifacts.backendSource=backend/opengl/OpenGLStorageImageDescriptorArrayShader.comp.glsl|artifacts.nativeBinary=backend/opengl/OpenGLStorageImageDescriptorArrayShader.glsl|artifacts.nativeBinaryStatus=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|artifacts.nativeArtifactDescriptor=backend/opengl/OpenGLStorageImageDescriptorArrayShader.native-artifact.json|artifacts.targetExplanation=ir/target-explanation.json"
+    "-DEXPECTED_MANIFEST_JSON_ARRAY_CONTAINS=targetLegalizationToolRequirements.requiredToolIds=opengl.toolchain.opengl-driver|targetLegalizationToolRequirements.requiredToolIds=opengl.validation.glsl-program-validation|targetLegalizationToolRequirements.missingToolIds=opengl.toolchain.opengl-driver|targetLegalizationToolRequirements.missingToolIds=opengl.validation.glsl-program-validation|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirements.present|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirement.required.toolchain.opengl-driver|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirement.missing.validation.glsl-program-validation|packageArtifactRequirements.requiredPathArtifacts=backendSource|packageArtifactRequirements.requiredPathArtifacts=nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifacts.source-package|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.required.backendSource|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.required.nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.native-binary-status.required|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.planned-native-binary.allowed|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.planned-native-source-evidence.allowed"
+    "-DEXPECTED_MANIFEST_JSON_ARRAY_LENGTHS=targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLStorageImageDescriptorArrayShader|nativeBinary=backend/opengl/OpenGLStorageImageDescriptorArrayShader.glsl|functionConstants.0.name=COUNT|functionConstants.0.value=2|resources.0.stage=compute|resources.0.name=colorImages|resources.0.kind=storage_image|resources.0.type=image2D[COUNT]|resources.0.storageImageFormat=rgba32f|resources.0.storageImageAccess=read_write|resources.0.arrayDimensions.0.source=COUNT|resources.0.arrayDimensions.0.kind=fixed|resources.0.arrayDimensions.0.elementCount=2|resources.0.set=0|resources.0.binding=0|resources.1.name=labelImages|resources.1.type=iimage2D[2]|resources.1.storageImageFormat=rgba32i|resources.2.name=maskImages|resources.2.type=uimage2D[COUNT]|resources.2.storageImageFormat=rgba32ui|resources.3.name=colorAtlases|resources.3.type=image2DArray[2]|resources.4.name=labelAtlases|resources.4.type=iimage2DArray[COUNT]|resources.5.name=maskAtlases|resources.5.type=uimage2DArray[2]|resources.5.storageImageFormat=rgba32ui|resources.5.storageImageAccess=read_write|resources.5.arrayDimensions.0.source=2|resources.5.arrayDimensions.0.kind=fixed|resources.5.arrayDimensions.0.elementCount=2|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=8|workgroupSizes.0.y=8|workgroupSizes.0.z=1"
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=6|targetResourceBindings=6|functionConstants=1|workgroupSizes=1"
-    "-DEXPECTED_REFLECTION_TARGET_FIELDS=colorImages.sourceType=image2D[COUNT]|colorImages.bindingClass=image|colorImages.argumentIndex=0|colorImages.arraySize=COUNT|labelImages.sourceType=iimage2D[2]|maskImages.sourceType=uimage2D[COUNT]|colorAtlases.sourceType=image2DArray[2]|labelAtlases.sourceType=iimage2DArray[COUNT]|maskAtlases.sourceType=uimage2DArray[2]|maskAtlases.arrayElementCount=2"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=colorImages.stage=compute|colorImages.entryPoint=compute_main|colorImages.sourceType=image2D[COUNT]|colorImages.addressSpace=image|colorImages.abi=programResourceBinding|colorImages.bindingClass=image|colorImages.storageImageFormat=rgba32f|colorImages.storageImageAccess=read_write|colorImages.argumentIndex=0|colorImages.set=0|colorImages.binding=0|colorImages.arraySize=COUNT|colorImages.arrayElementCount=2|colorImages.arrayDimensions.0.source=COUNT|colorImages.arrayDimensions.0.kind=fixed|colorImages.arrayDimensions.0.elementCount=2|labelImages.sourceType=iimage2D[2]|labelImages.storageImageFormat=rgba32i|labelImages.argumentIndex=1|labelImages.binding=1|maskImages.sourceType=uimage2D[COUNT]|maskImages.storageImageFormat=rgba32ui|maskImages.argumentIndex=2|maskImages.binding=2|colorAtlases.sourceType=image2DArray[2]|colorAtlases.storageImageFormat=rgba32f|colorAtlases.argumentIndex=3|colorAtlases.binding=3|labelAtlases.sourceType=iimage2DArray[COUNT]|labelAtlases.storageImageFormat=rgba32i|labelAtlases.argumentIndex=4|labelAtlases.binding=4|maskAtlases.sourceType=uimage2DArray[2]|maskAtlases.storageImageFormat=rgba32ui|maskAtlases.argumentIndex=5|maskAtlases.binding=5|maskAtlases.arraySize=2|maskAtlases.arrayElementCount=2"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=storage-image.kind=resource|descriptor-array.kind=resource|fixed-array.kind=layout|2d-dimension.kind=storageImage|2d_array-dimension.kind=storageImage|array-dimension.kind=storageImage|storage-image-read.kind=operation|storage-image-write.kind=operation"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/OpenGLStorageImageDescriptorArrayShader.comp.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|validationStatus=${CROSSGL_OPENGL_NATIVE_ARTIFACT_VALIDATION_STATUS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=sourcePackageValidation.target=opengl|sourcePackageValidation.tool=glslangValidator|sourcePackageValidation.policy=use-when-available|sourcePackageValidation.status=${CROSSGL_OPENGL_SOURCE_PACKAGE_VALIDATION_STATUS}"
+    "-DEXPECTED_PACKAGE_INSPECT_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=OpenGLStorageImageDescriptorArrayShader|summary.target=opengl|summary.nativeBinaryStatus=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|summary.artifactCount=6|summary.debugArtifactsPresent=true|targetLegalizationEvidence.health=ok|targetLegalizationEvidence.packageMode=source-package|targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|targetLegalizationEvidence.manifestToolRequirements.present=true|targetLegalizationEvidence.manifestToolRequirements.target=opengl|targetLegalizationEvidence.manifestToolRequirements.packageMode=source-package|targetLegalizationEvidence.manifestToolRequirements.requiredToolCount=2|targetLegalizationEvidence.manifestToolRequirements.missingToolCount=2|targetLegalizationEvidence.checks.packageArtifactRequirementEvidenceIdsPresent=true|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.binaryKind=opengl.source|nativeArtifactDescriptor.nativeBinaryStatus=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|reflection.resources.0.name=colorImages|reflection.resources.0.storageImageFormat=rgba32f|reflection.resources.5.name=maskAtlases|reflection.resources.5.arrayDimensions.0.elementCount=2|reflection.targetResourceBindings.0.arrayElementCount=2|reflection.targetResourceBindings.5.binding=5"
+    -DPACKAGE_INSPECT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DPYTHON3_EXECUTABLE=${CROSSGL_PYTHON3}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_storage_image_nonuniform_descriptor_array_source_package
   COMMAND ${CMAKE_COMMAND}

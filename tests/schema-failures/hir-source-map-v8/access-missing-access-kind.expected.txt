@@ -1,0 +1,1 @@
+$.hirSourceLocations.resources[0].accessKind: access resource records must declare accessKind

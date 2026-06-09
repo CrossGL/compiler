@@ -8,6 +8,7 @@ access without parsing CrossGL source or loading any graphics API.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator
 from dataclasses import dataclass
 import hashlib
 import json
@@ -25,7 +26,11 @@ except ImportError:  # pragma: no cover - supports direct script execution.
 
 ROOT_METADATA_FILES = ("manifest.json", "reflection.json", "diagnostics.json")
 RUNTIME_METADATA_JSON_BYTE_LIMIT = 16 * 1024 * 1024
+RUNTIME_ARTIFACT_BYTE_LIMIT = 512 * 1024 * 1024
+RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
+_DEFAULT_ARTIFACT_BYTE_LIMIT = object()
 NATIVE_BINARY_READY_STATUSES = frozenset(("emitted", "validated"))
+SOURCE_FREE_NATIVE_RUNTIME_TARGETS = frozenset(("directx", "metal", "vulkan"))
 RUNTIME_ARTIFACT_MODES = frozenset(("auto", "native", "source"))
 RUNTIME_ARTIFACT_SELECTION_MODES = frozenset(
     ("auto", "native", "source", "source-package")
@@ -107,6 +112,7 @@ NATIVE_ARTIFACT_DESCRIPTOR_FIELDS = frozenset(
         "artifactPath",
         "artifactHash",
         "sizeBytes",
+        "spirvDependencies",
         "sourcePath",
         "sourceHash",
         "toolchainProvenance",
@@ -159,6 +165,7 @@ NATIVE_BINARY_DESCRIPTOR_CONTRACT_DIAGNOSTIC_CODES = frozenset(
         "package.native_artifact_descriptor.artifact_path_mismatch",
         "package.native_artifact_descriptor.artifact_hash_invalid",
         "package.native_artifact_descriptor.artifact_hash_mismatch",
+        "package.native_artifact_descriptor.artifact_hash_too_large",
         "package.native_artifact_descriptor.size_bytes_invalid",
         "package.native_artifact_descriptor.size_bytes_mismatch",
     )
@@ -286,6 +293,19 @@ class _MetadataTooLargeError(PackageReadError):
         )
 
 
+class _ArtifactTooLargeError(PackageReadError):
+    def __init__(self, artifact: "Artifact", size: int, limit: int) -> None:
+        self.artifact_name = artifact.name
+        self.package_path = artifact.package_path
+        self.size = size
+        self.limit = limit
+        super().__init__(
+            "package artifact exceeds runtime byte limit: "
+            f"{artifact.name} ({artifact.package_path}) is {size} bytes; "
+            f"limit is {limit} bytes"
+        )
+
+
 @dataclass(frozen=True)
 class DebugMetadataRecord:
     """Lightweight runtime-facing summary of optional debug metadata."""
@@ -326,8 +346,13 @@ class GraphicsAbiRecord:
     """Lightweight runtime-facing summary of optional graphics ABI metadata."""
 
     module: str | None
+    target: str | None
     schema_version: Any
     abi_version: Any
+    entry_points: tuple[dict[str, Any], ...]
+    resources: tuple[dict[str, Any], ...]
+    abi_records: tuple[dict[str, Any], ...]
+    descriptor_bindings: tuple[dict[str, Any], ...]
     stage_count: int
     stage_record_counts: dict[str, int]
     resource_count: int
@@ -336,12 +361,18 @@ class GraphicsAbiRecord:
     def to_summary(self) -> dict[str, Any]:
         return {
             "module": self.module,
+            "target": self.target,
             "schemaVersion": self.schema_version,
             "abiVersion": self.abi_version,
+            "entryPointCount": len(self.entry_points),
+            "resourceDeclarationCount": len(self.resources),
+            "abiRecordCount": len(self.abi_records),
+            "descriptorBindingCount": len(self.descriptor_bindings),
             "stageCount": self.stage_count,
             "stageRecordCounts": dict(self.stage_record_counts),
             "resourceCount": self.resource_count,
             "resourceRecordCounts": dict(self.resource_record_counts),
+            "descriptorBindings": list(self.descriptor_bindings),
         }
 
 
@@ -888,6 +919,8 @@ class PackageCompatibilityReport:
     reflection_availability: dict[str, Any]
     diagnostics_availability: dict[str, Any]
     debug_metadata_availability: dict[str, Any]
+    graphics_abi_availability: dict[str, Any]
+    graphics_descriptor_bindings: dict[str, Any]
     target_legalization_evidence: dict[str, Any]
     diagnostics: tuple[CompatibilityDiagnostic, ...]
     package_artifact_requirements_declared: bool = False
@@ -1011,6 +1044,7 @@ class PackageCompatibilityReport:
                 "reflection": self.reflection_availability,
                 "diagnostics": self.diagnostics_availability,
                 "debugMetadata": self.debug_metadata_availability,
+                "graphicsAbi": self.graphics_abi_availability,
             },
             "artifacts": {
                 "required": list(self.required_artifacts),
@@ -1140,6 +1174,8 @@ class PackageCompatibilityReport:
                     SUPPORTED_DEBUG_METADATA_SCHEMA_VERSION
                 ),
                 "metadataJsonByteLimit": RUNTIME_METADATA_JSON_BYTE_LIMIT,
+                "artifactByteLimit": RUNTIME_ARTIFACT_BYTE_LIMIT,
+                "artifactStreamChunkSize": RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
             },
             "compiler": {
                 "name": self.compiler_name,
@@ -1196,6 +1232,8 @@ class PackageCompatibilityReport:
             "workgroupSizes": self.workgroup_size_summary,
             "diagnosticsMetadata": self.diagnostics_availability,
             "debugMetadata": self.debug_metadata_availability,
+            "graphicsAbi": self.graphics_abi_availability,
+            "graphicsDescriptorBindings": self.graphics_descriptor_bindings,
             "targetLegalizationEvidence": self.target_legalization_evidence,
             "targetLegalizationToolRequirements": (
                 self.target_legalization_tool_requirements
@@ -1268,18 +1306,45 @@ class Artifact:
             )
         return self
 
-    def read_bytes(self) -> bytes:
+    def iter_bytes(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ) -> Iterator[bytes]:
         artifact = self.require_exists()
-        if artifact.archive_path is not None:
-            member = artifact.archive_member or artifact.package_path
-            with zipfile.ZipFile(artifact.archive_path) as archive:
-                return archive.read(member)
-        return artifact.path.read_bytes()
+        yield from _iter_artifact_bytes(
+            artifact,
+            chunk_size=chunk_size,
+            byte_limit=_resolve_artifact_byte_limit(byte_limit),
+        )
 
-    def read_text(self, *, encoding: str = "utf-8") -> str:
-        if self.archive_path is not None:
-            return self.read_bytes().decode(encoding)
+    def read_bytes(self, *, byte_limit: int | None = None) -> bytes:
+        return b"".join(self.iter_bytes(byte_limit=byte_limit))
+
+    def read_text(
+        self,
+        *,
+        encoding: str = "utf-8",
+        byte_limit: int | None = None,
+    ) -> str:
+        if self.archive_path is not None or byte_limit is not None:
+            return self.read_bytes(byte_limit=byte_limit).decode(encoding)
         return self.require_exists().path.read_text(encoding=encoding)
+
+    def sha256(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ) -> str:
+        digest = hashlib.sha256()
+        for chunk in self.iter_bytes(
+            chunk_size=chunk_size,
+            byte_limit=_resolve_artifact_byte_limit(byte_limit),
+        ):
+            digest.update(chunk)
+        return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -1438,6 +1503,14 @@ class RuntimePackage:
     def graphics_abi_record(self) -> GraphicsAbiRecord | None:
         return self.graphics_abi
 
+    @property
+    def graphics_descriptor_bindings(self) -> dict[str, Any]:
+        return _graphics_descriptor_binding_summary(
+            target=self.target,
+            reflection=self.reflection,
+            graphics_abi=self.graphics_abi,
+        )
+
     def require_graphics_abi(self) -> GraphicsAbiRecord:
         artifact = self.graphics_abi_artifact()
         if artifact is None:
@@ -1459,13 +1532,13 @@ class RuntimePackage:
             raise PackageReadError(
                 f"runtime artifact mode must be one of auto, native, source: {mode}"
             )
-        self._require_runtime_artifact_contract()
+        contract = self._require_runtime_artifact_contract()
         if mode == "source":
             return self.require_existing_artifact("backendSource")
         if mode == "native":
-            return self._require_native_runtime_artifact()
+            return self._require_native_runtime_artifact(contract)
         if self.package_mode == "native":
-            return self._require_native_runtime_artifact()
+            return self._require_native_runtime_artifact(contract)
         return self.require_existing_artifact("backendSource")
 
     def entry_point(self, stage: str, name: str) -> dict[str, Any] | None:
@@ -1594,6 +1667,7 @@ class RuntimePackage:
             reflection=self.reflection,
             diagnostics_document=self.diagnostics,
             debug_metadata=self.debug_metadata,
+            graphics_abi=self.graphics_abi,
             target_explanation=self.target_explanation,
             artifacts=self.artifacts,
             native_binary_status=self.native_binary_status,
@@ -1651,6 +1725,7 @@ class RuntimePackage:
             "graphicsAbi": _graphics_abi_availability_summary(
                 self.graphics_abi_artifact(), self.graphics_abi
             ),
+            "graphicsDescriptorBindings": self.graphics_descriptor_bindings,
             "targetLegalizationEvidence": (
                 compatibility_report.target_legalization_evidence
             ),
@@ -1686,7 +1761,10 @@ class RuntimePackage:
             )
         return contract
 
-    def _require_native_runtime_artifact(self) -> Artifact:
+    def _require_native_runtime_artifact(
+        self,
+        contract: TargetArtifactContract,
+    ) -> Artifact:
         if self.native_binary_status == "planned":
             raise PackageReadError(
                 f"native runtime artifact is only planned for target {self.target}: "
@@ -1696,6 +1774,32 @@ class RuntimePackage:
             raise PackageReadError(
                 f"native runtime artifact is not available for target {self.target}: "
                 f"nativeBinaryStatus={self.native_binary_status!r}"
+            )
+        if (
+            _native_artifact_descriptor_required_for_runtime_artifact(
+                target=self.target,
+                artifacts=self.artifacts,
+                native_binary_status=self.native_binary_status,
+                contract=contract,
+            )
+            and self.artifact("nativeArtifactDescriptor") is None
+        ):
+            raise PackageReadError(
+                "native-ready runtime artifact requires "
+                "manifest.artifacts.nativeArtifactDescriptor"
+            )
+        if (
+            _native_profile_required_for_runtime_artifact(
+                target=self.target,
+                artifacts=self.artifacts,
+                native_binary_status=self.native_binary_status,
+                contract=contract,
+            )
+            and self.artifact("nativeProfile") is None
+        ):
+            raise PackageReadError(
+                "vulkan native runtime artifact requires "
+                "manifest.artifacts.nativeProfile"
             )
         return self.require_existing_artifact("nativeBinary")
 
@@ -1733,6 +1837,11 @@ def read_package(package_path: Path | str) -> RuntimePackage:
         raise PackageReadError("reflection.target does not match manifest.target")
 
     reflection_diagnostics: list[CompatibilityDiagnostic] = []
+    _append_reflection_target_binding_duplicate_diagnostics(
+        reflection_diagnostics,
+        target=target,
+        reflection=reflection,
+    )
     _append_reflection_target_abi_diagnostics(
         reflection_diagnostics,
         target=target,
@@ -1747,11 +1856,23 @@ def read_package(package_path: Path | str) -> RuntimePackage:
     debug_metadata = _read_optional_artifact_json_object(
         source, "debugMetadata", artifacts, root_file_name="debug metadata"
     )
-    graphics_abi = _graphics_abi_record(
-        _read_optional_artifact_json_object(
-            source, "graphicsAbi", artifacts, root_file_name="graphics ABI"
-        )
+    graphics_abi_document = _read_optional_artifact_json_object(
+        source, "graphicsAbi", artifacts, root_file_name="graphics ABI"
     )
+    graphics_abi = _graphics_abi_record(graphics_abi_document, target=target)
+    graphics_abi_diagnostics: list[CompatibilityDiagnostic] = []
+    _append_graphics_abi_diagnostics(
+        graphics_abi_diagnostics,
+        module=module,
+        target=target,
+        reflection=reflection,
+        graphics_abi=graphics_abi,
+    )
+    if graphics_abi_diagnostics:
+        messages = "; ".join(
+            diagnostic.message for diagnostic in graphics_abi_diagnostics
+        )
+        raise PackageReadError(f"graphics ABI is not compatible: {messages}")
     target_explanation = _read_optional_artifact_json_object(
         source,
         "targetExplanation",
@@ -1838,6 +1959,17 @@ def read_compatibility_report(
         diagnostic_prefix="package.target_explanation",
         expected="JSON object target explanation metadata",
     )
+    graphics_abi_document = _read_optional_artifact_json_object_for_report(
+        source,
+        "graphicsAbi",
+        artifacts,
+        root_file_name="graphics ABI",
+        diagnostics=metadata_diagnostics,
+        document="graphicsAbi",
+        diagnostic_prefix="package.graphicsAbi",
+        expected="JSON object graphics ABI metadata",
+    )
+    graphics_abi = _graphics_abi_record(graphics_abi_document, target=target)
 
     return _build_compatibility_report(
         root=source.root,
@@ -1848,6 +1980,7 @@ def read_compatibility_report(
         reflection=reflection,
         diagnostics_document=diagnostics_document,
         debug_metadata=debug_metadata,
+        graphics_abi=graphics_abi,
         target_explanation=target_explanation,
         artifacts=tuple(artifacts),
         native_binary_status=native_binary_status,
@@ -2533,7 +2666,8 @@ def _recorded_requirements_are_source_free_native_descriptor(
         return False
 
     return (
-        target_contract.package_mode in (SOURCE_PACKAGE_MODE, "native")
+        target_contract.target in SOURCE_FREE_NATIVE_RUNTIME_TARGETS
+        and target_contract.package_mode in (SOURCE_PACKAGE_MODE, "native")
         and package_mode == "native"
         and required_artifacts == ("nativeBinary",)
         and requires_native_status is False
@@ -2961,6 +3095,12 @@ def select_runtime_artifact(
 
     requested_mode = _normalize_runtime_artifact_selection_mode(package_mode)
     diagnostics = list(report.diagnostics)
+    diagnostics.extend(
+        _runtime_artifact_selection_context_diagnostics(
+            report=report,
+            requested_target=target,
+        )
+    )
     selected_mode: str | None = None
     artifact: Artifact | None = None
 
@@ -3026,6 +3166,7 @@ def _build_compatibility_report(
     reflection: dict[str, Any],
     diagnostics_document: dict[str, Any],
     debug_metadata: dict[str, Any] | None,
+    graphics_abi: GraphicsAbiRecord | None,
     target_explanation: dict[str, Any] | None,
     artifacts: tuple[Artifact, ...],
     native_binary_status: Any,
@@ -3072,6 +3213,14 @@ def _build_compatibility_report(
         diagnostics,
         target=target,
         artifacts=artifacts,
+        unreadable_documents=unreadable_documents,
+    )
+    _append_graphics_abi_diagnostics(
+        diagnostics,
+        module=module,
+        target=target,
+        reflection=reflection,
+        graphics_abi=graphics_abi,
         unreadable_documents=unreadable_documents,
     )
 
@@ -3141,6 +3290,7 @@ def _build_compatibility_report(
         _debug_metadata_record(debug_metadata) if debug_metadata is not None else None
     )
     debug_metadata_artifact = _artifact_by_name(artifacts, "debugMetadata")
+    graphics_abi_artifact = _artifact_by_name(artifacts, "graphicsAbi")
     if debug_metadata_record is not None and not debug_metadata_record.compatible:
         debug_schema_version = debug_metadata_record.schema_version
         debug_schema_artifact_path = (
@@ -3220,6 +3370,15 @@ def _build_compatibility_report(
         ),
         debug_metadata_availability=_debug_metadata_availability_summary(
             debug_metadata_artifact, debug_metadata_record
+        ),
+        graphics_abi_availability=_graphics_abi_availability_summary(
+            graphics_abi_artifact,
+            graphics_abi,
+        ),
+        graphics_descriptor_bindings=_graphics_descriptor_binding_summary(
+            target=target,
+            reflection=reflection,
+            graphics_abi=graphics_abi,
         ),
         target_legalization_evidence=target_legalization_evidence,
         diagnostics=tuple(diagnostics),
@@ -3337,6 +3496,11 @@ def _append_reflection_consistency_diagnostics(
         reflection=reflection,
     )
     _append_reflection_target_record_diagnostics(
+        diagnostics,
+        target=target,
+        reflection=reflection,
+    )
+    _append_reflection_target_binding_duplicate_diagnostics(
         diagnostics,
         target=target,
         reflection=reflection,
@@ -3558,6 +3722,73 @@ def _append_reflection_target_record_diagnostics(
             )
 
 
+def _append_reflection_target_binding_duplicate_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    target: str,
+    reflection: dict[str, Any],
+) -> None:
+    seen: dict[tuple[str, str, str, str | None], int] = {}
+    for index, record in enumerate(
+        _json_object_list(reflection.get("targetResourceBindings"))
+    ):
+        if record.get("target") != target:
+            continue
+        key = _target_resource_binding_identity(record)
+        if key is None:
+            continue
+        if key not in seen:
+            seen[key] = index
+            continue
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.reflection.target_resource_binding_duplicate",
+                message=(
+                    "reflection.targetResourceBindings entries must be unique "
+                    "for each target resource binding"
+                ),
+                document="reflection",
+                path=f"targetResourceBindings[{index}]",
+                expected={
+                    "uniqueTargetResourceBinding": {
+                        "target": target,
+                        "stage": key[0],
+                        "entryPoint": key[1],
+                        "name": key[2],
+                        "kind": key[3],
+                    }
+                },
+                actual={
+                    "duplicateOf": f"targetResourceBindings[{seen[key]}]",
+                    "target": target,
+                    "stage": key[0],
+                    "entryPoint": key[1],
+                    "name": key[2],
+                    "kind": key[3],
+                },
+            )
+        )
+
+
+def _target_resource_binding_identity(
+    record: dict[str, Any],
+) -> tuple[str, str, str, str | None] | None:
+    stage = record.get("stage")
+    entry_point = record.get("entryPoint")
+    name = record.get("name")
+    kind = record.get("kind")
+    if (
+        not isinstance(stage, str)
+        or not stage
+        or not isinstance(entry_point, str)
+        or not entry_point
+        or not isinstance(name, str)
+        or not name
+    ):
+        return None
+    return stage, entry_point, name, kind if isinstance(kind, str) else None
+
+
 def _append_reflection_target_abi_diagnostics(
     diagnostics: list[CompatibilityDiagnostic],
     *,
@@ -3591,6 +3822,246 @@ def _append_reflection_target_abi_diagnostics(
                 actual=_target_resource_binding_abi_actual(record),
             )
         )
+
+
+def _append_graphics_abi_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    module: str | None,
+    target: str | None,
+    reflection: dict[str, Any],
+    graphics_abi: GraphicsAbiRecord | None,
+    unreadable_documents: frozenset[str] = frozenset(),
+) -> None:
+    if graphics_abi is None or "graphicsAbi" in unreadable_documents:
+        return
+
+    if graphics_abi.schema_version is None:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.schema_version_missing",
+                message="graphics ABI sidecar schemaVersion is required",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="schemaVersion",
+                expected=1,
+                actual="missing",
+            )
+        )
+    elif _schema_version_is_malformed(graphics_abi.schema_version):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.schema_version_invalid",
+                message="graphics ABI sidecar schemaVersion must be an integer",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="schemaVersion",
+                expected=1,
+                actual=_contract_actual_value(graphics_abi.schema_version),
+            )
+        )
+    elif graphics_abi.schema_version != 1:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.schema_incompatible",
+                message="graphics ABI sidecar schemaVersion is not supported",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="schemaVersion",
+                expected=1,
+                actual=graphics_abi.schema_version,
+            )
+        )
+
+    if not _is_non_empty_string(graphics_abi.module):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.module_invalid",
+                message="graphics ABI sidecar module must be a non-empty string",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="module",
+                expected=module,
+                actual=_contract_actual_value(graphics_abi.module),
+            )
+        )
+    elif module is not None and graphics_abi.module != module:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.module_mismatch",
+                message="graphics ABI sidecar module must match manifest.module",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="module",
+                expected=module,
+                actual=graphics_abi.module,
+            )
+        )
+
+    has_canonical_bindings = _graphics_abi_has_canonical_binding_records(graphics_abi)
+    if not _is_non_empty_string(graphics_abi.target) and has_canonical_bindings:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.target_invalid",
+                message="graphics ABI sidecar target must be a non-empty string",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="target",
+                expected=target,
+                actual=_contract_actual_value(graphics_abi.target),
+            )
+        )
+    elif (
+        target is not None
+        and _is_non_empty_string(graphics_abi.target)
+        and graphics_abi.target != target
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.target_mismatch",
+                message="graphics ABI sidecar target must match manifest.target",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="target",
+                expected=target,
+                actual=graphics_abi.target,
+            )
+        )
+
+    if target is None:
+        return
+    _append_graphics_abi_binding_diagnostics(
+        diagnostics,
+        target=target,
+        reflection=reflection,
+        graphics_abi=graphics_abi,
+    )
+
+
+def _append_graphics_abi_binding_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    target: str,
+    reflection: dict[str, Any],
+    graphics_abi: GraphicsAbiRecord,
+) -> None:
+    if not _graphics_abi_has_canonical_binding_records(graphics_abi):
+        return
+
+    seen: dict[tuple[str, str, str, str | None], int] = {}
+    for index, record in enumerate(graphics_abi.abi_records):
+        if record.get("target") != target:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.graphicsAbi.binding_target_mismatch",
+                    message="graphics ABI resource binding target must match package target",
+                    document="graphicsAbi",
+                    artifact="graphicsAbi",
+                    path=f"abiRecords[{index}].target",
+                    expected=target,
+                    actual=record.get("target"),
+                )
+            )
+            continue
+
+        if not _target_resource_binding_abi_matches(target, record):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.graphicsAbi.binding_abi_invalid",
+                    message="graphics ABI resource binding ABI metadata does not match package target",
+                    document="graphicsAbi",
+                    artifact="graphicsAbi",
+                    path=f"abiRecords[{index}].abi",
+                    expected=TARGET_RESOURCE_BINDING_ABI_EXPECTATIONS.get(target),
+                    actual=_target_resource_binding_abi_actual(record),
+                )
+            )
+
+        key = _target_resource_binding_identity(record)
+        if key is None:
+            continue
+        if key not in seen:
+            seen[key] = index
+            continue
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.binding_duplicate",
+                message="graphics ABI resource binding records must be unique",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path=f"abiRecords[{index}]",
+                expected={
+                    "uniqueGraphicsBinding": {
+                        "target": target,
+                        "stage": key[0],
+                        "entryPoint": key[1],
+                        "name": key[2],
+                        "kind": key[3],
+                    }
+                },
+                actual={"duplicateOf": f"abiRecords[{seen[key]}]"},
+            )
+        )
+
+    reflection_keys = {
+        key
+        for record in _json_object_list(reflection.get("targetResourceBindings"))
+        if record.get("target") == target
+        if (key := _target_resource_binding_identity(record)) is not None
+    }
+    graphics_abi_keys = {
+        key
+        for record in graphics_abi.abi_records
+        if record.get("target") == target
+        if (key := _target_resource_binding_identity(record)) is not None
+    }
+    for stage, entry_point, name, kind in sorted(reflection_keys - graphics_abi_keys):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.binding_missing",
+                message="graphics ABI sidecar is missing a reflected target resource binding",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="abiRecords",
+                expected={
+                    "target": target,
+                    "stage": stage,
+                    "entryPoint": entry_point,
+                    "name": name,
+                    "kind": kind,
+                },
+                actual="missing",
+            )
+        )
+    for stage, entry_point, name, kind in sorted(graphics_abi_keys - reflection_keys):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.reflection_binding_missing",
+                message="graphics ABI resource binding does not match reflection targetResourceBindings",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="abiRecords",
+                expected={
+                    "targetResourceBindings": {
+                        "target": target,
+                        "stage": stage,
+                        "entryPoint": entry_point,
+                        "name": name,
+                        "kind": kind,
+                    }
+                },
+                actual="missing",
+            )
+        )
+
+
+def _graphics_abi_has_canonical_binding_records(
+    graphics_abi: GraphicsAbiRecord,
+) -> bool:
+    return any(
+        isinstance(record.get("target"), str) or isinstance(record.get("abi"), str)
+        for record in graphics_abi.abi_records
+    )
 
 
 def _target_resource_binding_abi_matches(
@@ -4522,6 +4993,11 @@ def _append_descriptor_source_fingerprint_diagnostics(
     descriptor: dict[str, Any],
     source_artifact: Artifact | None,
 ) -> None:
+    _descriptor_sha256_value(
+        diagnostics,
+        descriptor.get("sourceHash"),
+        descriptor_field="sourceHash",
+    )
     if source_artifact is None:
         return
 
@@ -4540,18 +5016,6 @@ def _append_descriptor_source_fingerprint_diagnostics(
                 expected=source_artifact.package_path,
                 actual=_contract_actual_value(source_path),
             )
-        )
-
-    if source_artifact.exists:
-        _append_descriptor_hash_diagnostics(
-            diagnostics,
-            descriptor=descriptor,
-            descriptor_field="sourceHash",
-            artifact=source_artifact,
-            mismatch_code="package.native_artifact_descriptor.source_hash_mismatch",
-            mismatch_message=(
-                "native artifact descriptor sourceHash does not match sourcePath bytes"
-            ),
         )
 
 
@@ -4607,6 +5071,8 @@ def _append_descriptor_native_binary_fingerprint_diagnostics(
         )
 
     if not native_binary_artifact.exists:
+        return
+    if _is_crossgl_source_input_path(native_binary_artifact.package_path):
         return
 
     _append_descriptor_hash_diagnostics(
@@ -4666,7 +5132,27 @@ def _append_descriptor_hash_diagnostics(
     )
     if hash_value is None:
         return
-    actual_hash = _artifact_sha256(artifact)
+    try:
+        actual_hash = _artifact_sha256(artifact)
+    except _ArtifactTooLargeError as error:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=(
+                    "package.native_artifact_descriptor."
+                    f"{_snake_case(descriptor_field)}_too_large"
+                ),
+                message=(
+                    f"native artifact descriptor {descriptor_field} cannot be "
+                    f"validated: {error}"
+                ),
+                document="nativeArtifactDescriptor",
+                artifact="nativeArtifactDescriptor",
+                path=descriptor_field,
+                expected=f"<= {error.limit} bytes",
+                actual=error.size,
+            )
+        )
+        return
     if hash_value == actual_hash:
         return
     diagnostics.append(
@@ -4825,8 +5311,88 @@ def _read_declared_artifact_json_object_for_report(
         return None
 
 
+def _iter_artifact_bytes(
+    artifact: Artifact,
+    *,
+    chunk_size: int,
+    byte_limit: int | None,
+) -> Iterator[bytes]:
+    chunk_size = _require_positive_int(
+        chunk_size,
+        label="artifact chunk_size",
+    )
+    byte_limit = _normalize_optional_byte_limit(
+        byte_limit,
+        label="artifact byte_limit",
+    )
+    if (
+        byte_limit is not None
+        and artifact.size is not None
+        and artifact.size > byte_limit
+    ):
+        raise _ArtifactTooLargeError(artifact, artifact.size, byte_limit)
+
+    if artifact.archive_path is not None:
+        member = artifact.archive_member or artifact.package_path
+        with zipfile.ZipFile(artifact.archive_path) as archive:
+            with archive.open(member) as handle:
+                yield from _iter_limited_binary_chunks(
+                    handle,
+                    artifact=artifact,
+                    chunk_size=chunk_size,
+                    byte_limit=byte_limit,
+                )
+        return
+
+    with artifact.path.open("rb") as handle:
+        yield from _iter_limited_binary_chunks(
+            handle,
+            artifact=artifact,
+            chunk_size=chunk_size,
+            byte_limit=byte_limit,
+        )
+
+
+def _iter_limited_binary_chunks(
+    handle: Any,
+    *,
+    artifact: Artifact,
+    chunk_size: int,
+    byte_limit: int | None,
+) -> Iterator[bytes]:
+    total = 0
+    while True:
+        chunk = handle.read(chunk_size)
+        if not chunk:
+            return
+        total += len(chunk)
+        if byte_limit is not None and total > byte_limit:
+            raise _ArtifactTooLargeError(artifact, total, byte_limit)
+        yield chunk
+
+
+def _require_positive_int(value: Any, *, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise PackageReadError(f"{label} must be a positive integer")
+    return value
+
+
+def _normalize_optional_byte_limit(value: Any, *, label: str) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise PackageReadError(f"{label} must be a non-negative integer or None")
+    return value
+
+
+def _resolve_artifact_byte_limit(value: Any) -> int | None:
+    if value is _DEFAULT_ARTIFACT_BYTE_LIMIT:
+        return RUNTIME_ARTIFACT_BYTE_LIMIT
+    return _normalize_optional_byte_limit(value, label="artifact byte_limit")
+
+
 def _artifact_sha256(artifact: Artifact) -> str:
-    return hashlib.sha256(artifact.read_bytes()).hexdigest()
+    return artifact.sha256()
 
 
 def _is_lowercase_sha256(value: Any) -> bool:
@@ -5251,6 +5817,29 @@ def _normalize_runtime_artifact_selection_mode(package_mode: str) -> str:
     return package_mode
 
 
+def _runtime_artifact_selection_context_diagnostics(
+    *,
+    report: PackageCompatibilityReport,
+    requested_target: str,
+) -> tuple[CompatibilityDiagnostic, ...]:
+    if report.loader_target is None or report.loader_target == requested_target:
+        return ()
+    return (
+        CompatibilityDiagnostic(
+            code="package.target.selection_loader_mismatch",
+            message=(
+                "runtime artifact selection target "
+                f"{requested_target} does not match compatibility report "
+                f"loader target {report.loader_target}"
+            ),
+            document="compatibilityReport",
+            path="loaderTarget",
+            expected=requested_target,
+            actual=report.loader_target,
+        ),
+    )
+
+
 def _has_blocking_diagnostics(
     diagnostics: list[CompatibilityDiagnostic],
 ) -> bool:
@@ -5330,6 +5919,7 @@ def _runtime_artifact_selection_target_admission(
                 "package.metadata.invalid",
                 "package.metadata.too_large",
                 "package.target.loader_mismatch",
+                "package.target.selection_loader_mismatch",
                 "package.target.unsupported",
                 "package.artifact_requirements.target_unsupported",
             }
@@ -5348,7 +5938,13 @@ def _runtime_artifact_selection_target_admission(
         "package.metadata.invalid",
         "package.metadata.too_large",
     )
-    if _first_diagnostic(target_diagnostics, "package.target.loader_mismatch"):
+    if _first_diagnostic(
+        target_diagnostics,
+        "package.target.selection_loader_mismatch",
+    ):
+        category = "selection-context-mismatch"
+        decision = "rejected"
+    elif _first_diagnostic(target_diagnostics, "package.target.loader_mismatch"):
         category = "target-mismatch"
         decision = "skipped"
     elif target_unavailable is not None:
@@ -5381,6 +5977,7 @@ def _runtime_artifact_selection_target_admission(
         "decision": decision,
         "category": category,
         "requestedTarget": requested_target,
+        "reportLoaderTarget": report.loader_target,
         "packageTarget": report.target,
         "matched": report.target == requested_target,
         "diagnostics": [diagnostic.to_summary() for diagnostic in target_diagnostics],
@@ -5417,6 +6014,14 @@ def _runtime_artifact_selection_native_admission(
         ),
         None,
     )
+    native_blocking_reason = next(
+        (
+            diagnostic
+            for diagnostic in native_diagnostics
+            if diagnostic.severity in {"error", "skip"}
+        ),
+        None,
+    )
 
     if decision != "accepted":
         if blocking_reason is not None:
@@ -5436,6 +6041,8 @@ def _runtime_artifact_selection_native_admission(
             reason = "package.artifact.selection_file_missing"
         elif not native_usable:
             reason = "package.native_binary_status.not_ready"
+        elif native_blocking_reason is not None:
+            reason = native_blocking_reason.code
 
     return {
         "decision": decision,
@@ -5541,6 +6148,65 @@ def _native_runtime_artifact_is_usable(
     return True
 
 
+def _native_artifact_descriptor_required_for_runtime_artifact(
+    *,
+    target: str | None,
+    artifacts: tuple[Artifact, ...],
+    native_binary_status: Any,
+    contract: TargetArtifactContract | None,
+) -> bool:
+    native_artifact = _artifact_by_name(artifacts, "nativeBinary")
+    if contract is None or native_artifact is None:
+        return False
+    if native_binary_status == "planned":
+        return False
+    if _native_binary_status_is_ready(native_binary_status):
+        return True
+    return (
+        contract.requirements_source == "manifest" and contract.package_mode == "native"
+    )
+
+
+def _native_profile_required_for_runtime_artifact(
+    *,
+    target: str | None,
+    artifacts: tuple[Artifact, ...],
+    native_binary_status: Any,
+    contract: TargetArtifactContract | None,
+) -> bool:
+    return (
+        target == "vulkan"
+        and _native_artifact_descriptor_required_for_runtime_artifact(
+            target=target,
+            artifacts=artifacts,
+            native_binary_status=native_binary_status,
+            contract=contract,
+        )
+    )
+
+
+def _native_artifact_descriptor_required_for_runtime_selection(
+    report: PackageCompatibilityReport,
+) -> bool:
+    return _native_artifact_descriptor_required_for_runtime_artifact(
+        target=report.target,
+        artifacts=report.available_artifacts,
+        native_binary_status=report.native_binary_status,
+        contract=report.target_contract,
+    )
+
+
+def _native_profile_required_for_runtime_selection(
+    report: PackageCompatibilityReport,
+) -> bool:
+    return _native_profile_required_for_runtime_artifact(
+        target=report.target,
+        artifacts=report.available_artifacts,
+        native_binary_status=report.native_binary_status,
+        contract=report.target_contract,
+    )
+
+
 def _select_native_runtime_artifact(
     report: PackageCompatibilityReport,
 ) -> tuple[Artifact | None, tuple[CompatibilityDiagnostic, ...]]:
@@ -5582,7 +6248,6 @@ def _select_native_runtime_artifact(
                 actual=report.native_binary_status,
             )
         )
-
     if not artifact.exists:
         diagnostics.append(
             CompatibilityDiagnostic(
@@ -5595,6 +6260,46 @@ def _select_native_runtime_artifact(
                 artifact="nativeBinary",
                 path=artifact.package_path,
                 expected="regular file",
+                actual="missing",
+            )
+        )
+
+    if (
+        _native_artifact_descriptor_required_for_runtime_selection(report)
+        and _artifact_by_name(report.available_artifacts, "nativeArtifactDescriptor")
+        is None
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.native_artifact_descriptor.required_missing",
+                message=(
+                    f"{report.target} native-ready runtime selection requires "
+                    "manifest.artifacts.nativeArtifactDescriptor for native "
+                    "runtime selection"
+                ),
+                document="manifest",
+                artifact="nativeArtifactDescriptor",
+                path="artifacts.nativeArtifactDescriptor",
+                expected="declared native artifact descriptor metadata",
+                actual="missing",
+            )
+        )
+
+    if (
+        _native_profile_required_for_runtime_selection(report)
+        and _artifact_by_name(report.available_artifacts, "nativeProfile") is None
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.native_profile.required_missing",
+                message=(
+                    "vulkan native-ready runtime selection requires "
+                    "manifest.artifacts.nativeProfile metadata"
+                ),
+                document="manifest",
+                artifact="nativeProfile",
+                path="artifacts.nativeProfile",
+                expected="declared Vulkan native profile metadata",
                 actual="missing",
             )
         )
@@ -8124,15 +8829,204 @@ def _debug_metadata_availability_summary(
     }
 
 
-def _graphics_abi_record(document: dict[str, Any] | None) -> GraphicsAbiRecord | None:
+_GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS = (
+    "target",
+    "stage",
+    "entryPoint",
+    "name",
+    "kind",
+    "sourceType",
+    "addressSpace",
+    "abi",
+    "bindingClass",
+    "descriptorType",
+    "argumentIndex",
+    "set",
+    "binding",
+    "metalType",
+    "hlslType",
+    "storageClass",
+    "spirvType",
+    "arrayDimensions",
+    "arrayElementCount",
+    "storageImageFormat",
+    "storageImageAccess",
+)
+
+
+def _graphics_descriptor_binding_summary(
+    *,
+    target: str | None,
+    reflection: dict[str, Any],
+    graphics_abi: GraphicsAbiRecord | None,
+) -> dict[str, Any]:
+    reflection_bindings = _graphics_descriptor_bindings_from_reflection(
+        reflection,
+        target=target,
+    )
+    graphics_abi_bindings = (
+        graphics_abi.descriptor_bindings if graphics_abi is not None else ()
+    )
+    bindings = graphics_abi_bindings if graphics_abi_bindings else reflection_bindings
+    source = (
+        "graphicsAbi.abiRecords"
+        if graphics_abi_bindings
+        else "reflection.targetResourceBindings"
+    )
+    return {
+        "schemaVersion": 1,
+        "target": target,
+        "source": source,
+        "graphicsAbiDeclared": graphics_abi is not None,
+        "bindingCount": len(bindings),
+        "reflectionBindingCount": len(reflection_bindings),
+        "graphicsAbiBindingCount": len(graphics_abi_bindings),
+        "bindings": list(bindings),
+    }
+
+
+def _graphics_descriptor_bindings_from_graphics_abi(
+    document: dict[str, Any],
+    *,
+    target: str | None,
+) -> tuple[dict[str, Any], ...]:
+    records = _json_object_records(document.get("abiRecords"))
+    if not records:
+        records = _json_object_records(document.get("targetResourceBindings"))
+    return _graphics_descriptor_binding_records(records, target=target)
+
+
+def _graphics_descriptor_bindings_from_reflection(
+    reflection: dict[str, Any],
+    *,
+    target: str | None,
+) -> tuple[dict[str, Any], ...]:
+    return _graphics_descriptor_binding_records(
+        _json_object_records(reflection.get("targetResourceBindings")),
+        target=target,
+    )
+
+
+def _graphics_descriptor_binding_records(
+    records: tuple[dict[str, Any], ...],
+    *,
+    target: str | None,
+) -> tuple[dict[str, Any], ...]:
+    normalized: list[dict[str, Any]] = []
+    for record in records:
+        record_target = record.get("target")
+        if (
+            target is not None
+            and isinstance(record_target, str)
+            and record_target != target
+        ):
+            continue
+        normalized.append(_graphics_descriptor_binding_record(record, target=target))
+    return tuple(
+        sorted(
+            normalized,
+            key=lambda record: (
+                str(record.get("stage") or ""),
+                str(record.get("entryPoint") or ""),
+                str(record.get("name") or ""),
+                str(record.get("kind") or ""),
+                str(record.get("target") or ""),
+            ),
+        )
+    )
+
+
+def _graphics_descriptor_binding_record(
+    record: dict[str, Any],
+    *,
+    target: str | None,
+) -> dict[str, Any]:
+    summary = _summarize_reflection_like_record(
+        record,
+        _GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS,
+    )
+    if "target" not in summary and target is not None:
+        summary["target"] = target
+    abi = summary.get("abi")
+    if isinstance(abi, dict):
+        for field_name in (
+            "space",
+            "register",
+            "buffer",
+            "texture",
+            "sampler",
+            "program",
+            "set",
+            "binding",
+        ):
+            if field_name in abi and field_name not in summary:
+                summary[field_name] = abi[field_name]
+    elif isinstance(abi, str):
+        summary["abiKind"] = abi
+    return summary
+
+
+def _summarize_reflection_like_record(
+    record: dict[str, Any],
+    fields: tuple[str, ...],
+) -> dict[str, Any]:
+    return {
+        field_name: record[field_name] for field_name in fields if field_name in record
+    }
+
+
+def _graphics_abi_record(
+    document: dict[str, Any] | None,
+    *,
+    target: str | None,
+) -> GraphicsAbiRecord | None:
     if document is None:
         return None
+    abi_records = _json_object_records(document.get("abiRecords"))
+    descriptor_bindings = _graphics_descriptor_bindings_from_graphics_abi(
+        document,
+        target=target,
+    )
     stage_record_counts = _graphics_abi_stage_record_counts(document)
     resource_record_counts = _graphics_abi_resource_record_counts(document)
     return GraphicsAbiRecord(
         module=_optional_string(document.get("module")),
+        target=_optional_string(document.get("target")),
         schema_version=document.get("schemaVersion"),
         abi_version=document.get("abiVersion", document.get("version")),
+        entry_points=tuple(
+            _summarize_reflection_like_record(
+                record,
+                ("stage", "sourceName", "backendName"),
+            )
+            for record in _json_object_records(document.get("entryPoints"))
+        ),
+        resources=tuple(
+            _summarize_reflection_like_record(
+                record,
+                (
+                    "stage",
+                    "name",
+                    "kind",
+                    "type",
+                    "set",
+                    "binding",
+                    "arrayDimensions",
+                    "arrayElementCount",
+                    "storageImageFormat",
+                    "storageImageAccess",
+                ),
+            )
+            for record in _json_object_records(document.get("resources"))
+        ),
+        abi_records=tuple(
+            _summarize_reflection_like_record(
+                record,
+                _GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS,
+            )
+            for record in abi_records
+        ),
+        descriptor_bindings=descriptor_bindings,
         stage_count=len(stage_record_counts),
         stage_record_counts=stage_record_counts,
         resource_count=sum(resource_record_counts.values()),
@@ -8226,6 +9120,10 @@ def _contract_actual_value(value: Any) -> Any:
 
 def _native_binary_status_is_ready(value: Any) -> bool:
     return isinstance(value, str) and value in NATIVE_BINARY_READY_STATUSES
+
+
+def _is_crossgl_source_input_path(package_path: str) -> bool:
+    return PurePosixPath(package_path).suffix.lower() == ".cgl"
 
 
 def _json_type_name(value: Any) -> str:
@@ -8524,6 +9422,14 @@ def _target_contract_diagnostics(
             )
             continue
 
+        backend_target_diagnostic = _required_artifact_backend_target_diagnostic(
+            target=target,
+            artifact_name=artifact_name,
+            artifact=artifact,
+        )
+        if backend_target_diagnostic is not None:
+            diagnostics.append(backend_target_diagnostic)
+
         if artifact.exists:
             continue
         if (
@@ -8548,6 +9454,38 @@ def _target_contract_diagnostics(
         )
 
     return tuple(diagnostics)
+
+
+def _required_artifact_backend_target_diagnostic(
+    *,
+    target: str,
+    artifact_name: str,
+    artifact: Artifact,
+) -> CompatibilityDiagnostic | None:
+    backend_target = _backend_artifact_target(artifact.package_path)
+    if backend_target is None or backend_target == target:
+        return None
+    return CompatibilityDiagnostic(
+        code="package.artifact.backend_target_mismatch",
+        message=(
+            f"manifest.artifacts.{artifact_name} is declared under "
+            f"backend/{backend_target}/ but target {target} requires "
+            f"backend/{target}/ artifacts"
+        ),
+        document="manifest",
+        artifact=artifact_name,
+        path=artifact.package_path,
+        expected=f"backend/{target}/",
+        actual=f"backend/{backend_target}/",
+    )
+
+
+def _backend_artifact_target(package_path: str) -> str | None:
+    parts = PurePosixPath(package_path).parts
+    if len(parts) < 2 or parts[0] != "backend":
+        return None
+    backend_target = parts[1]
+    return backend_target if backend_target else None
 
 
 def _native_binary_status_diagnostics(

@@ -1,0 +1,10 @@
+shader BadDuplicateFunctionParameterShader {
+  compute {
+    float helper(float value, int value) {
+      return 0.0;
+    }
+    void main() {
+      return;
+    }
+  }
+}

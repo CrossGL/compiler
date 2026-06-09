@@ -1,0 +1,8 @@
+shader BadIntrinsicArgumentTypeShader {
+  compute {
+    void main() {
+      float bad = sin(true);
+      return;
+    }
+  }
+}

@@ -14,6 +14,7 @@ set(CROSSGL_OPTIMIZER_STORAGE_IMAGE_CONSTANTS_SHADER ${CMAKE_CURRENT_SOURCE_DIR}
 set(CROSSGL_OPTIMIZER_BOOLEAN_ALGEBRA_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/BooleanAlgebraOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_ZERO_ALGEBRA_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/ZeroAlgebraOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_INTEGER_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/IntegerIdentityOptimizerShader.cgl)
+set(CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/MinMaxIdentityOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_MODULO_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/ModuloIdentityOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_INTEGER_RELATIONAL_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/IntegerRelationalIdentityOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_FLOAT_UNARY_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/FloatUnaryIdentityOptimizerShader.cgl)
@@ -21,6 +22,8 @@ set(CROSSGL_OPTIMIZER_PROPAGATED_ALGEBRA_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/test
 set(CROSSGL_OPTIMIZER_PURE_INTRINSIC_CONSTANT_FOLDING_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/PureIntrinsicConstantFoldingShader.cgl)
 set(CROSSGL_OPTIMIZER_VECTOR_TRIG_INTRINSIC_FOLD_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/VectorTrigIntrinsicFoldOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_O2_TEMPORARY_INLINING_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2TemporaryInliningOptimizerShader.cgl)
+set(CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2PureExpressionCSEOptimizerShader.cgl)
+set(CROSSGL_OPTIMIZER_O2_DOMINATED_SCOPE_CSE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2DominatedScopeCSEOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_FOR_BOUNDARY_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForOptimizerBoundaryHIRShader.cgl)
 
 add_test(NAME cglc_optimizer_opt_level_check_o2_accepts
@@ -56,7 +59,7 @@ add_test(NAME cglc_optimizer_opt_level_default_trace_policy
 set_tests_properties(cglc_optimizer_opt_level_default_trace_policy
   PROPERTIES
     PASS_REGULAR_EXPRESSION "\"optimizationLevel\": \"O1\".*\"passSchedule\": \\{.*\"fingerprint\": \"fnv1a64:[0-9a-f].*\"fingerprintPolicy\": \"scheduled-pass-ids-v1\".*\"stability\": \"stable-opt-level-policy\".*\"scheduledPassCount\": 10.*\"passCount\": 10.*\"completed\": true.*\"stopReason\": \"none\""
-    FAIL_REGULAR_EXPRESSION "hir[.]optimize[.]o2[.](inline-scalar-temporaries|inline-literal-vector-temporaries)|hir[.]validate[.]backend-input")
+    FAIL_REGULAR_EXPRESSION "hir[.]optimize[.]o2[.](pure-expression-cse|inline-scalar-temporaries|inline-literal-vector-temporaries)|hir[.]validate[.]backend-input")
 
 add_test(NAME cglc_optimizer_hir_pass_trace_reports_change_status
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_WORKGROUP_BARRIER_SHADER} --stage hir-pass-trace)
@@ -84,7 +87,7 @@ add_test(NAME cglc_optimizer_opt_level_o2_trace_has_distinct_pass
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_WORKGROUP_BARRIER_SHADER} --stage hir-pass-trace --opt-level O2)
 set_tests_properties(cglc_optimizer_opt_level_o2_trace_has_distinct_pass
   PROPERTIES
-    PASS_REGULAR_EXPRESSION "\"optimizationLevel\": \"O2\".*\"scheduledPassCount\": 12.*\"passCount\": 12.*\"completed\": true.*\"stopReason\": \"none\".*hir[.]optimize[.]o2[.]inline-scalar-temporaries.*hir[.]optimize[.]o2[.]inline-literal-vector-temporaries"
+    PASS_REGULAR_EXPRESSION "\"optimizationLevel\": \"O2\".*\"scheduledPassCount\": 13.*\"passCount\": 13.*\"completed\": true.*\"stopReason\": \"none\".*hir[.]optimize[.]o2[.]pure-expression-cse.*hir[.]optimize[.]o2[.]inline-scalar-temporaries.*hir[.]optimize[.]o2[.]inline-literal-vector-temporaries"
     FAIL_REGULAR_EXPRESSION "hir[.]validate[.]backend-input")
 
 add_test(NAME cglc_optimizer_opt_level_o0_trace_is_validation_only
@@ -118,6 +121,44 @@ add_test(NAME cglc_optimizer_hir_o2_temp_inlining_trace_changed
 set_tests_properties(cglc_optimizer_hir_o2_temp_inlining_trace_changed
   PROPERTIES
     PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": true.*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": true]=])
+
+add_test(NAME cglc_optimizer_hir_o1_preserves_pure_expression_cse_candidates
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER} --stage hir --opt-level O1)
+set_tests_properties(cglc_optimizer_hir_o1_preserves_pure_expression_cse_candidates
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=[decl float first = \(left \+ right\) \* bias : float.*decl float second = \(left \+ right\) \* bias : float.*decl float third = max\(left \+ right, bias\) : float.*decl float fourth = max\(left \+ right, bias\) : float.*decl float before = left \+ right : float.*assign values\[index\] : float = before : float.*decl float after = left \+ right : float]=])
+
+add_test(NAME cglc_optimizer_hir_o2_pure_expression_cse
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER} --stage hir --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_o2_pure_expression_cse
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=[decl float first = \(left \+ right\) \* bias : float.*decl float third = max\(left \+ right, bias\) : float.*return first \+ first \+ third \+ third : float.*decl float before = left \+ right : float.*assign values\[index\] : float = before : float.*decl float after = left \+ right : float.*return before \+ after \+ after : float]=]
+    FAIL_REGULAR_EXPRESSION [=[decl float second|decl float fourth|decl float after = before]=])
+
+add_test(NAME cglc_optimizer_hir_o2_pure_expression_cse_trace_changed
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER} --stage hir-pass-trace --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_o2_pure_expression_cse_trace_changed
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]pure-expression-cse".*"changed": true]=])
+
+add_test(NAME cglc_optimizer_hir_o1_preserves_dominated_scope_cse_candidates
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_DOMINATED_SCOPE_CSE_SHADER} --stage hir --opt-level O1)
+set_tests_properties(cglc_optimizer_hir_o1_preserves_dominated_scope_cse_candidates
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=[decl float parent = \(left \+ right\) \* 2[.]0 : float.*decl float child = \(left \+ right\) \* 2[.]0 : float.*decl float childLocalFirst = \(left - right\) \* 4[.]0 : float.*decl float childLocalSecond = \(left - right\) \* 4[.]0 : float.*decl float before = max\(left \+ right, 1[.]0\) : float.*decl float thenReuse = max\(left \+ right, 1[.]0\) : float.*decl float elseReuse = max\(left \+ right, 1[.]0\) : float]=])
+
+add_test(NAME cglc_optimizer_hir_o2_dominated_scope_pure_expression_cse
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_DOMINATED_SCOPE_CSE_SHADER} --stage hir --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_o2_dominated_scope_pure_expression_cse
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=[decl float parent = \(left \+ right\) \* 2[.]0 : float.*assign total : float = total \+ parent \+ childLocalFirst \+ childLocalFirst : float.*decl float before = max\(left \+ right, 1[.]0\) : float.*assign selected : float = selected \+ before \+ thenLocalFirst \+ thenLocalFirst : float.*assign selected : float = selected \+ before \+ elseLocalFirst \+ elseLocalFirst : float.*decl float after = \(left \+ right\) \* 7[.]0 : float]=]
+    FAIL_REGULAR_EXPRESSION [=[decl float child =|decl float childLocalSecond|decl float thenReuse|decl float thenLocalSecond|decl float elseReuse|decl float elseLocalSecond|decl float after = thenScoped|decl float after = elseScoped]=])
+
+add_test(NAME cglc_optimizer_hir_o2_dominated_scope_cse_trace_changed
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_DOMINATED_SCOPE_CSE_SHADER} --stage hir-pass-trace --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_o2_dominated_scope_cse_trace_changed
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]pure-expression-cse".*"changed": true]=])
 
 add_test(NAME cglc_optimizer_workgroup_barrier_boundary_check
   COMMAND cglc check ${CROSSGL_OPTIMIZER_WORKGROUP_BARRIER_SHADER})
@@ -362,13 +403,13 @@ add_test(NAME cglc_optimizer_hir_o2_storage_image_atomic_trace_unchanged
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_STORAGE_IMAGE_ATOMIC_SHADER} --stage hir-pass-trace --opt-level O2)
 set_tests_properties(cglc_optimizer_hir_o2_storage_image_atomic_trace_unchanged
   PROPERTIES
-    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": false.*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": false]=])
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]pure-expression-cse".*"changed": false.*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": false.*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": false]=])
 
 add_test(NAME cglc_optimizer_hir_o2_storage_image_atomic_trace_cleanup_evidence
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_STORAGE_IMAGE_ATOMIC_SHADER} --stage hir-pass-trace --opt-level O2)
 set_tests_properties(cglc_optimizer_hir_o2_storage_image_atomic_trace_cleanup_evidence
   PROPERTIES
-    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"scheduledPassCount": 12.*"passCount": 12.*"changedPassCount": 3.*"diagnosticPassCount": 0.*"errorPassCount": 0.*"completed": true.*"name": "hir[.]optimize[.]fold-constant-intrinsics".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]propagate-local-scalars".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]cleanup-dead-local-declarations".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]cleanup-dead-local-stores".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": false.*"status": "completed".*"name": "hir[.]validate[.]storage-buffer-shapes".*"changed": false.*"status": "completed"]=])
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"scheduledPassCount": 13.*"passCount": 13.*"changedPassCount": 3.*"diagnosticPassCount": 0.*"errorPassCount": 0.*"completed": true.*"name": "hir[.]optimize[.]fold-constant-intrinsics".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]propagate-local-scalars".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]cleanup-dead-local-declarations".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]cleanup-dead-local-stores".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]pure-expression-cse".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": false.*"status": "completed".*"name": "hir[.]validate[.]storage-buffer-shapes".*"changed": false.*"status": "completed"]=])
 
 add_test(NAME cglc_optimizer_storage_image_constants_boundary_check
   COMMAND cglc check ${CROSSGL_OPTIMIZER_STORAGE_IMAGE_CONSTANTS_SHADER})
@@ -483,6 +524,39 @@ set_tests_properties(cglc_optimizer_hir_integer_identity_pass_trace_changed
   PROPERTIES
     PASS_REGULAR_EXPRESSION [=["name": "hir[.]optimize[.]simplify-algebraic".*"changed": true]=])
 
+add_test(NAME cglc_optimizer_minmax_identity_check
+  COMMAND cglc check ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER})
+
+set(CROSSGL_OPTIMIZER_MINMAX_IDENTITY_HIR_REGEX [=[decl int minSameInt = dynamicIndex : int.*decl int maxSameInt = \(dynamicIndex \+ 1\) : int.*decl uint minSameUint = unsignedIndex : uint.*decl uint maxSameUint = \(unsignedIndex \+ 1\) : uint.*decl int minSameUnknown = min\(unknownInt\(dynamicIndex\), unknownInt\(dynamicIndex\)\) : int.*decl float minSameFloat = min\(floatBase, floatBase\) : float.*decl float maxSameFloat = max\(floatBase, floatBase\) : float]=])
+set(CROSSGL_OPTIMIZER_MINMAX_IDENTITY_O2_HIR_REGEX [=[decl int minSameUnknown = min\(unknownInt\(dynamicIndex\), unknownInt\(dynamicIndex\)\) : int.*decl float minSameFloat = min\(floatBase, floatBase\) : float.*decl float maxSameFloat = max\(floatBase, floatBase\) : float.*assign values\[1\] : int = dynamicIndex \+ \(dynamicIndex \+ 1\) : int.*assign unsignedValues\[1\] : uint = unsignedIndex \+ \(unsignedIndex \+ 1\) : uint]=])
+set(CROSSGL_OPTIMIZER_MINMAX_IDENTITY_FAIL_REGEX [=[minSameInt = min\(dynamicIndex, dynamicIndex\)|maxSameInt = max\(dynamicIndex \+ 1, dynamicIndex \+ 1\)|minSameUint = min\(unsignedIndex, unsignedIndex\)|maxSameUint = max\(unsignedIndex \+ 1, unsignedIndex \+ 1\)|minSameUnknown = unknownInt\(dynamicIndex\) : int|minSameFloat = floatBase : float|maxSameFloat = floatBase : float]=])
+
+add_test(NAME cglc_optimizer_hir_minmax_identity_simplify_o1
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER} --stage hir --opt-level O1)
+set_tests_properties(cglc_optimizer_hir_minmax_identity_simplify_o1
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_HIR_REGEX}
+    FAIL_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_FAIL_REGEX})
+
+add_test(NAME cglc_optimizer_hir_minmax_identity_simplify_o2
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER} --stage hir --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_minmax_identity_simplify_o2
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_O2_HIR_REGEX}
+    FAIL_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_FAIL_REGEX})
+
+add_test(NAME cglc_optimizer_hir_minmax_identity_pass_trace_changed_o1
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER} --stage hir-pass-trace --opt-level O1)
+set_tests_properties(cglc_optimizer_hir_minmax_identity_pass_trace_changed_o1
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O1".*"name": "hir[.]optimize[.]simplify-algebraic".*"changed": true.*"status": "completed"]=])
+
+add_test(NAME cglc_optimizer_hir_minmax_identity_pass_trace_changed_o2
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER} --stage hir-pass-trace --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_minmax_identity_pass_trace_changed_o2
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]simplify-algebraic".*"changed": true.*"status": "completed"]=])
+
 add_test(NAME cglc_optimizer_modulo_identity_check
   COMMAND cglc check ${CROSSGL_OPTIMIZER_MODULO_IDENTITY_SHADER})
 
@@ -542,8 +616,8 @@ add_test(NAME cglc_optimizer_hir_pure_intrinsic_constant_folding
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_PURE_INTRINSIC_CONSTANT_FOLDING_SHADER} --stage hir)
 set_tests_properties(cglc_optimizer_hir_pure_intrinsic_constant_folding
   PROPERTIES
-    PASS_REGULAR_EXPRESSION "decl float foldedDistance = 5 : float.*decl float foldedScalarNormalize = -1 : float.*decl float foldedScalarReflect = -2 : float.*assign results\\[0\\] : float = -1 : float.*assign results\\[1\\] : float = 0\\.5 : float.*assign results\\[2\\] : float = 3 : float.*assign results\\[3\\] : float = -1 : float.*assign results\\[4\\] : float = 0\\.5 : float.*assign results\\[5\\] : float = 1 : float.*assign results\\[6\\] : float = 1 : float.*assign results\\[7\\] : float = -2 : float.*assign results\\[8\\] : float = 3 : float.*assign results\\[9\\] : float = 2 : float.*assign results\\[10\\] : float = -1 : float.*assign results\\[11\\] : float = 3 : float.*assign results\\[12\\] : float = -3 : float.*assign results\\[13\\] : float = 6 : float.*assign results\\[14\\] : float = -3 : float.*assign results\\[15\\] : float = foldedDistance : float.*assign results\\[16\\] : float = foldedScalarNormalize : float.*assign results\\[17\\] : float = 0 : float.*assign results\\[18\\] : float = -1 : float.*assign results\\[19\\] : float = 0 : float.*assign results\\[20\\] : float = foldedScalarReflect : float.*assign results\\[21\\] : float = 1 : float.*assign results\\[22\\] : float = 1 : float.*assign results\\[23\\] : float = 0 : float"
-    FAIL_REGULAR_EXPRESSION "clamp\\(|floor\\(|ceil\\(|cross\\(|distance\\(|normalize\\(|reflect\\(")
+    PASS_REGULAR_EXPRESSION "decl float foldedDistance = 5 : float.*decl float foldedScalarNormalize = -1 : float.*decl float foldedScalarReflect = -2 : float.*decl float foldedSmoothStep = 0\\.5 : float.*decl float unfurledReversedSmoothStep = smoothstep\\(1\\.0, 0\\.0, 0\\.25\\) : float.*assign results\\[0\\] : float = -1 : float.*assign results\\[1\\] : float = 0\\.5 : float.*assign results\\[2\\] : float = 3 : float.*assign results\\[3\\] : float = -1 : float.*assign results\\[4\\] : float = 0\\.5 : float.*assign results\\[5\\] : float = 1 : float.*assign results\\[6\\] : float = 1 : float.*assign results\\[7\\] : float = -2 : float.*assign results\\[8\\] : float = 3 : float.*assign results\\[9\\] : float = 2 : float.*assign results\\[10\\] : float = -1 : float.*assign results\\[11\\] : float = 3 : float.*assign results\\[12\\] : float = -3 : float.*assign results\\[13\\] : float = 6 : float.*assign results\\[14\\] : float = -3 : float.*assign results\\[15\\] : float = foldedDistance : float.*assign results\\[16\\] : float = foldedScalarNormalize : float.*assign results\\[17\\] : float = 0 : float.*assign results\\[18\\] : float = -1 : float.*assign results\\[19\\] : float = 0 : float.*assign results\\[20\\] : float = foldedScalarReflect : float.*assign results\\[21\\] : float = 1 : float.*assign results\\[22\\] : float = 1 : float.*assign results\\[23\\] : float = 0 : float.*assign results\\[24\\] : float = foldedSmoothStep : float.*assign results\\[25\\] : float = 0 : float.*assign results\\[26\\] : float = 0\\.5 : float.*assign results\\[27\\] : float = 1 : float.*assign results\\[28\\] : float = unfurledReversedSmoothStep : float"
+    FAIL_REGULAR_EXPRESSION "clamp\\(|floor\\(|ceil\\(|cross\\(|distance\\(|normalize\\(|reflect\\(|foldedSmoothStep = smoothstep|foldedVectorSmoothStep = smoothstep")
 
 add_test(NAME cglc_optimizer_vector_trig_intrinsic_fold_check
   COMMAND cglc check ${CROSSGL_OPTIMIZER_VECTOR_TRIG_INTRINSIC_FOLD_SHADER})

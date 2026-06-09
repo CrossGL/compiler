@@ -3,6 +3,7 @@
 #include "crossgl/Backend/BackendExpressions.h"
 #include "crossgl/Backend/BackendPlan.h"
 #include "crossgl/Backend/TextureCompare.h"
+#include "crossgl/Basic/Diagnostic.h"
 #include "crossgl/Basic/Json.h"
 #include "crossgl/Driver/StorageLayout.h"
 #include "crossgl/HIR/TypeSemantics.h"
@@ -347,6 +348,10 @@ void applyCommonTargetResourceBinding(
   binding.kind = resource.kindName;
   binding.sourceType = resource.sourceType;
   binding.storageImageFormat = resource.storageImageFormat;
+  if (resource.kindName == "storage_image") {
+    binding.storageImageAccess =
+        storageImageAccessName(resource.storageImageAccess);
+  }
   binding.arraySize = resource.arraySize;
   binding.arrayDimensions = reflectionArrayDimensions(resource.type, constants);
   if (resource.hasArray) {
@@ -393,9 +398,14 @@ std::string optionalStringForDiagnostic(
   return "'" + *value + "'";
 }
 
+class ReflectionResourceBindingProjectionError : public std::runtime_error {
+public:
+  using std::runtime_error::runtime_error;
+};
+
 [[noreturn]] void throwReflectionResourceBindingProjectionError(
     std::string detail) {
-  throw std::runtime_error(
+  throw ReflectionResourceBindingProjectionError(
       "reflection target resource binding projection failed: " +
       std::move(detail));
 }
@@ -453,6 +463,17 @@ void requireLegalizationResourceBindingMatchesResource(
         identity + " storageImageFormat mismatch: expected " +
         optionalStringForDiagnostic(resource.storageImageFormat) + ", got " +
         optionalStringForDiagnostic(record.storageImageFormat));
+  }
+  const std::optional<std::string> expectedStorageImageAccess =
+      resource.kindName == "storage_image"
+          ? std::optional<std::string>(
+                storageImageAccessName(resource.storageImageAccess))
+          : std::nullopt;
+  if (record.storageImageAccess != expectedStorageImageAccess) {
+    throwReflectionResourceBindingProjectionError(
+        identity + " storageImageAccess mismatch: expected " +
+        optionalStringForDiagnostic(expectedStorageImageAccess) + ", got " +
+        optionalStringForDiagnostic(record.storageImageAccess));
   }
   if (resource.hasInterfaceBinding) {
     if (record.set != std::optional<std::size_t>{resource.set}) {
@@ -633,6 +654,10 @@ void writeReflectionJson(std::ostringstream &out,
       out << ",\"storageImageFormat\":\""
           << escapeJson(*resource.storageImageFormat) << "\"";
     }
+    if (resource.storageImageAccess.has_value()) {
+      out << ",\"storageImageAccess\":\""
+          << escapeJson(*resource.storageImageAccess) << "\"";
+    }
     writeArrayDimensionsJson(out, resource.arrayDimensions);
     if (resource.set.has_value()) {
       out << ",\"set\":" << *resource.set;
@@ -684,6 +709,10 @@ void writeReflectionJson(std::ostringstream &out,
     if (binding.storageImageFormat.has_value()) {
       out << ",\"storageImageFormat\":\""
           << escapeJson(*binding.storageImageFormat) << "\"";
+    }
+    if (binding.storageImageAccess.has_value()) {
+      out << ",\"storageImageAccess\":\""
+          << escapeJson(*binding.storageImageAccess) << "\"";
     }
     if (!binding.usageRoles.empty()) {
       out << ",\"usageRoles\":[";
@@ -894,6 +923,7 @@ ReflectionTargetResourceBinding reflectionTargetResourceBindingFromLegalization(
   binding.storageClass = record.storageClass;
   binding.spirvType = record.spirvType;
   binding.storageImageFormat = record.storageImageFormat;
+  binding.storageImageAccess = record.storageImageAccess;
   binding.argumentIndex = record.argumentIndex;
   binding.set = record.set;
   binding.binding = record.binding;
@@ -987,6 +1017,10 @@ buildReflectionDocument(const HIRModule &module,
       reflected.kind = plannedResource.kindName;
       reflected.type = plannedResource.sourceType;
       reflected.storageImageFormat = plannedResource.storageImageFormat;
+      if (resource.kind == HIRResourceKind::StorageImage) {
+        reflected.storageImageAccess =
+            storageImageAccessName(resource.storageImageAccess);
+      }
       reflected.arrayDimensions =
           reflectionArrayDimensions(plannedResource.type, module.constants);
       if (!plannedResource.hasInterfaceBinding) {
@@ -1085,6 +1119,33 @@ buildReflectionDocument(const HIRModule &module,
   }
 
   return document;
+}
+
+std::optional<ReflectionDocument>
+buildReflectionDocument(const HIRModule &module, TargetKind target,
+                        const std::filesystem::path &nativeBinaryPath,
+                        DiagnosticEngine &diagnostics) {
+  try {
+    return buildReflectionDocument(module, target, nativeBinaryPath);
+  } catch (const ReflectionResourceBindingProjectionError &error) {
+    diagnostics.error("artifact.reflection-target-resource-binding-projection",
+                      error.what());
+    return std::nullopt;
+  }
+}
+
+std::optional<ReflectionDocument>
+buildReflectionDocument(const HIRModule &module,
+                        const TargetLegalizationContract &contract,
+                        const std::filesystem::path &nativeBinaryPath,
+                        DiagnosticEngine &diagnostics) {
+  try {
+    return buildReflectionDocument(module, contract, nativeBinaryPath);
+  } catch (const ReflectionResourceBindingProjectionError &error) {
+    diagnostics.error("artifact.reflection-target-resource-binding-projection",
+                      error.what());
+    return std::nullopt;
+  }
 }
 
 std::string reflectionJson(const HIRModule &module, TargetKind target,

@@ -1,1 +1,1 @@
-legacy tool requirement kind 'nativeTool' must serialize as 'native-tool'
+expected string to match pattern

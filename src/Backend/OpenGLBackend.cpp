@@ -19,6 +19,8 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -34,6 +36,9 @@ namespace {
 constexpr std::string_view kRawStatementBackendInputDiagnostic =
     "opt.hir-raw-statement-backend-input";
 constexpr std::string_view kOpenGLGLSLVersion = "450";
+constexpr HIRResourceKind kOpenGLStorageBufferRuntimeDescriptorArrayKinds[] = {
+    HIRResourceKind::Buffer,
+};
 
 bool containsRawStatement(const std::vector<HIRStatement> &statements) {
   for (const HIRStatement &statement : statements) {
@@ -76,13 +81,17 @@ bool diagnoseRawStatementBackendInput(const HIRModule &module,
   return true;
 }
 
+std::string glslTextureType(const HIRType &type);
+
 std::string glslTypeName(std::string_view name) {
   if (name == "float" || name == "int" || name == "uint" || name == "bool" ||
       name == "void" || name == "vec2" || name == "vec3" ||
       name == "vec4" || name == "ivec2" || name == "ivec3" ||
       name == "ivec4" || name == "uvec2" || name == "uvec3" ||
       name == "uvec4" || name == "bvec2" || name == "bvec3" ||
-      name == "bvec4") {
+      name == "bvec4" || name == "mat2" || name == "mat3" ||
+      name == "mat4" || name == "mat2x2" || name == "mat3x3" ||
+      name == "mat4x4") {
     return std::string(name);
   }
   return "";
@@ -129,7 +138,8 @@ bool isSupportedFixedSizeLocalArrayValueType(const HIRType &type) {
          baseName == "vec2" || baseName == "vec3" || baseName == "vec4" ||
          baseName == "ivec2" || baseName == "ivec3" ||
          baseName == "ivec4" || baseName == "uvec2" ||
-         baseName == "uvec3" || baseName == "uvec4";
+         baseName == "uvec3" || baseName == "uvec4" ||
+         isMatrixType(baseName);
 }
 
 bool isSupportedLocalDeclarationType(const HIRType &type) {
@@ -163,8 +173,42 @@ std::string glslValueType(const HIRModule &module, const HIRType &type) {
   return structure != nullptr ? structure->name : "";
 }
 
+std::string glslFunctionParameterValueType(const HIRModule &module,
+                                           const HIRType &type) {
+  const std::string valueType = glslValueType(module, type);
+  if (!valueType.empty()) {
+    return valueType;
+  }
+  if (type.name.empty() || type.name.back() == '*') {
+    return "";
+  }
+  const std::string textureType = glslTextureType(type);
+  if (!textureType.empty()) {
+    return textureType;
+  }
+  if (type.name == "sampler" || type.name == "comparison_sampler") {
+    return "sampler";
+  }
+  return "";
+}
+
 std::string glslArraySuffix(const HIRType &type) {
   return type.arraySize.has_value() ? "[" + *type.arraySize + "]" : "";
+}
+
+std::vector<std::string_view> openGLArrayDimensions(std::string_view arraySize) {
+  std::vector<std::string_view> dimensions;
+  std::size_t begin = 0;
+  while (begin <= arraySize.size()) {
+    const std::size_t separator = arraySize.find("][", begin);
+    if (separator == std::string_view::npos) {
+      dimensions.push_back(arraySize.substr(begin));
+      break;
+    }
+    dimensions.push_back(arraySize.substr(begin, separator - begin));
+    begin = separator + 2;
+  }
+  return dimensions;
 }
 
 bool isSupportedFunctionValueType(const HIRModule &module,
@@ -173,6 +217,17 @@ bool isSupportedFunctionValueType(const HIRModule &module,
     return false;
   }
   if (glslValueType(module, type).empty()) {
+    return false;
+  }
+  return !type.arraySize.has_value() || !type.arraySize->empty();
+}
+
+bool isSupportedFunctionParameterType(const HIRModule &module,
+                                      const HIRType &type) {
+  if (type.name == "void" || (!type.name.empty() && type.name.back() == '*')) {
+    return false;
+  }
+  if (glslFunctionParameterValueType(module, type).empty()) {
     return false;
   }
   return !type.arraySize.has_value() || !type.arraySize->empty();
@@ -200,6 +255,13 @@ std::string glslDeclarator(const HIRModule &module, const HIRType &type,
          glslArraySuffix(type);
 }
 
+std::string glslFunctionParameterDeclarator(const HIRModule &module,
+                                            const HIRType &type,
+                                            std::string_view name) {
+  return glslFunctionParameterValueType(module, type) + " " +
+         std::string(name) + glslArraySuffix(type);
+}
+
 std::string glslStructFieldType(const HIRModule &module, const HIRType &type) {
   const std::string baseName = stripPointer(type.name);
   const std::string valueType = glslTypeName(baseName);
@@ -211,7 +273,8 @@ std::string glslStructFieldType(const HIRModule &module, const HIRType &type) {
 }
 
 bool glslStorageBufferScalarTypeSupported(std::string_view name) {
-  return !glslTypeName(name).empty();
+  return name == "float" || name == "int" || name == "uint" ||
+         name == "bool" || isVectorType(name) || isMatrixType(name);
 }
 
 bool openglStructStorageBufferElementSupported(const HIRModule &module,
@@ -508,6 +571,81 @@ bool moduleUsesShadowCompareExplicitLod(const HIRModule &module) {
 }
 
 std::optional<std::string>
+resourceReferenceBaseName(const HIRExpression &expression);
+
+bool openGLRuntimeTextureSamplerDescriptorArrayKindSupported(
+    const HIRResource &resource) {
+  if (!isRuntimeDescriptorArray(resource)) {
+    return false;
+  }
+  if (resource.kind == HIRResourceKind::Texture) {
+    return !glslTextureType(resource.type).empty();
+  }
+  if (resource.kind == HIRResourceKind::Sampler) {
+    return resource.type.name == "sampler" ||
+           resource.type.name == "comparison_sampler";
+  }
+  return false;
+}
+
+bool openGLRuntimeTextureSamplerDescriptorArrayHasSameClassConflict(
+    const HIRStage &stage, const HIRResource &resource) {
+  const std::optional<std::size_t> resourceBindingIndex =
+      backendPlanOpenGLBindingIndex(resource);
+  if (!resourceBindingIndex.has_value()) {
+    return true;
+  }
+
+  for (const HIRResource &candidate : stage.resources) {
+    if (&candidate == &resource || candidate.kind != resource.kind) {
+      continue;
+    }
+    if (isRuntimeDescriptorArray(candidate)) {
+      return true;
+    }
+    const std::optional<std::size_t> candidateBindingIndex =
+        backendPlanOpenGLBindingIndex(candidate);
+    if (candidateBindingIndex.has_value() &&
+        *candidateBindingIndex > *resourceBindingIndex) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool openGLRuntimeTextureSamplerDescriptorArrayReferenced(
+    const HIRModule &module, const HIRStage &stage,
+    const HIRResource &resource) {
+  bool referenced = false;
+  auto visitor = [&](const HIRExpression &expression) {
+    if (referenced) {
+      return;
+    }
+    const std::optional<std::string> baseName =
+        resourceReferenceBaseName(expression);
+    referenced = baseName.has_value() && *baseName == resource.name;
+  };
+  for (const HIRFunction &function : stage.functions) {
+    visitFunctionExpressions(function, visitor);
+  }
+  for (const HIRFunction &function : module.functions) {
+    visitFunctionExpressions(function, visitor);
+  }
+  return referenced;
+}
+
+bool openGLRuntimeTextureSamplerDescriptorArraySupported(
+    const HIRModule &module, const HIRStage &stage,
+    const HIRResource &resource) {
+  return stage.stage == "compute" &&
+         openGLRuntimeTextureSamplerDescriptorArrayKindSupported(resource) &&
+         !openGLRuntimeTextureSamplerDescriptorArrayHasSameClassConflict(
+             stage, resource) &&
+         !openGLRuntimeTextureSamplerDescriptorArrayReferenced(module, stage,
+                                                               resource);
+}
+
+std::optional<std::string>
 resourceReferenceBaseName(const HIRExpression &expression) {
   if (expression.kind == HIRExpressionKind::Identifier) {
     if (expression.value.empty()) {
@@ -602,7 +740,12 @@ const HIRField *findField(const HIRStruct &structure, std::string_view name) {
 }
 
 bool isOpenGLGraphicsScalarFieldType(const HIRType &type) {
-  return !type.arraySize.has_value() && !glslType(type).empty();
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string baseName = baseTypeName(type);
+  return baseName == "float" || baseName == "int" || baseName == "uint" ||
+         baseName == "bool" || isVectorType(baseName);
 }
 
 bool openGLGraphicsStructSupported(const HIRStruct &structure) {
@@ -726,16 +869,33 @@ void appendOpenGLFunctionParameterArrayCallFeature(
 HIRFunctionParameterArrayCallFeatureSupport
 openGLFunctionParameterArrayCallFeatureSupport(
     HIRFunctionParameterArrayCallFeature feature) {
-  if (feature == HIRFunctionParameterArrayCallFeature::StructElements) {
+  if (feature == HIRFunctionParameterArrayCallFeature::StructElements ||
+      feature ==
+          HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments) {
     return HIRFunctionParameterArrayCallFeatureSupport::Supported;
   }
   return functionParameterArrayCallFeatureSupport(feature);
 }
 
+bool openGLSampledTextureOrSamplerArrayParameterSupported(
+    const HIRModule &module, const HIRType &type) {
+  return functionParameterArrayShape(module, type) ==
+             HIRFunctionParameterArrayShape::FixedSize &&
+         !glslFunctionParameterValueType(module, type).empty() &&
+         (isTextureResourceType(type.name) || isSamplerResourceType(type.name));
+}
+
 HIRFunctionParameterArrayCallFeatureSupport
 openGLFunctionParameterArrayCallFeaturesSupport(
+    const HIRModule &module, const HIRType &parameterType,
     const std::vector<HIRFunctionParameterArrayCallFeature> &features) {
   for (HIRFunctionParameterArrayCallFeature feature : features) {
+    if (feature ==
+            HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments &&
+        !openGLSampledTextureOrSamplerArrayParameterSupported(module,
+                                                              parameterType)) {
+      return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+    }
     if (openGLFunctionParameterArrayCallFeatureSupport(feature) ==
         HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
       return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
@@ -785,7 +945,8 @@ bool openGLFunctionParameterArrayCallFeaturesSupported(
       appendOpenGLFunctionParameterArrayCallFeature(features, feature);
     }
 
-    if (openGLFunctionParameterArrayCallFeaturesSupport(features) ==
+    if (openGLFunctionParameterArrayCallFeaturesSupport(module, parameter.type,
+                                                        features) ==
         HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
       supported = false;
       if (unsupportedLabels != nullptr) {
@@ -939,6 +1100,8 @@ unsupportedOpenGLRuntimeTailBlockIndexLabels(const HIRModule &module) {
 
 struct OpenGLEmitContext {
   const HIRModule *module = nullptr;
+  const HIRStage *hirStage = nullptr;
+  const HIRFunction *function = nullptr;
   const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr;
   std::string stage;
   std::string backendEntryPoint;
@@ -949,10 +1112,22 @@ struct OpenGLEmitContext {
   std::set<std::string> combinedShadowCompareLodSamplers;
   std::unordered_map<std::string, std::string> identifierRemaps;
   std::set<std::string> localIdentifiers;
+  std::shared_ptr<std::size_t> nextTemporaryIndex;
 };
 
 std::string emitExpression(const HIRExpression &expression,
                            const OpenGLEmitContext &context);
+std::set<std::string>
+writtenOpenGLFunctionParameterArrayNames(const HIRModule &module,
+                                         const HIRFunction &function);
+bool openGLLocalArrayCopyArgument(const HIRModule &module,
+                                  const HIRFunction &caller,
+                                  const HIRExpression &argument,
+                                  const HIRStage *stage);
+bool openGLStorageBufferFieldArrayCopyArgument(const HIRModule &module,
+                                               const HIRFunction &caller,
+                                               const HIRExpression &argument,
+                                               const HIRStage *stage);
 
 bool isOpenGLWorkgroupBarrierCallName(std::string_view name) {
   return name == "workgroupBarrier" || name == "barrier";
@@ -1181,6 +1356,7 @@ void collectOpenGLIdentifierRemaps(const HIRStatement &statement,
 OpenGLEmitContext makeOpenGLFunctionEmitContext(
     const OpenGLEmitContext &baseContext, const HIRFunction &function) {
   OpenGLEmitContext context = baseContext;
+  context.function = &function;
   context.localIdentifiers = openGLFunctionLocalIdentifiers(function);
   for (const HIRParameter &parameter : function.parameters) {
     registerOpenGLIdentifierRemap(context, parameter.name);
@@ -1203,8 +1379,33 @@ std::string emitFieldName(std::string_view name,
   return emitIdentifierName(name, context);
 }
 
-std::string emitCall(const HIRExpression &expression,
-                     const OpenGLEmitContext &context) {
+const HIRFunction *findOpenGLEmitFunction(const OpenGLEmitContext &context,
+                                          std::string_view name) {
+  if (context.hirStage == nullptr) {
+    return nullptr;
+  }
+  for (const HIRFunction &function : context.hirStage->functions) {
+    if (function.name == name) {
+      return &function;
+    }
+  }
+  return nullptr;
+}
+
+std::optional<std::string> openGLCallArgumentOverride(
+    std::size_t index,
+    const std::vector<std::pair<std::size_t, std::string>> &overrides) {
+  for (const auto &[overrideIndex, value] : overrides) {
+    if (overrideIndex == index) {
+      return value;
+    }
+  }
+  return std::nullopt;
+}
+
+std::string emitCallWithArgumentOverrides(
+    const HIRExpression &expression, const OpenGLEmitContext &context,
+    const std::vector<std::pair<std::size_t, std::string>> &overrides) {
   if (isOpenGLWorkgroupBarrierCall(expression)) {
     return "barrier()";
   }
@@ -1221,7 +1422,12 @@ std::string emitCall(const HIRExpression &expression,
       if (index != 0) {
         out << ", ";
       }
-      out << emitExpression(expression.children[index], context);
+      if (const std::optional<std::string> override =
+              openGLCallArgumentOverride(index, overrides)) {
+        out << *override;
+      } else {
+        out << emitExpression(expression.children[index], context);
+      }
     }
     out << ")";
     return out.str();
@@ -1232,10 +1438,20 @@ std::string emitCall(const HIRExpression &expression,
     if (index != 0) {
       out << ", ";
     }
-    out << emitExpression(expression.children[index], context);
+    if (const std::optional<std::string> override =
+            openGLCallArgumentOverride(index, overrides)) {
+      out << *override;
+    } else {
+      out << emitExpression(expression.children[index], context);
+    }
   }
   out << ")";
   return out.str();
+}
+
+std::string emitCall(const HIRExpression &expression,
+                     const OpenGLEmitContext &context) {
+  return emitCallWithArgumentOverrides(expression, context, {});
 }
 
 struct OpenGLTextureSampleOperands {
@@ -1613,10 +1829,698 @@ std::string emitForUpdate(const HIRStatement &statement,
                                                         context);
 }
 
+struct OpenGLArrayWriteBackArgument {
+  std::size_t argumentIndex = 0;
+  HIRType type;
+  const HIRExpression *argument = nullptr;
+  std::string temporaryName;
+};
+
+struct OpenGLArrayWriteBackRewrite {
+  const HIRExpression *call = nullptr;
+  std::vector<OpenGLArrayWriteBackArgument> arguments;
+  std::vector<std::pair<std::size_t, std::string>> argumentOverrides;
+  bool materializeNestedCallResult = false;
+};
+
+std::string openGLInternalIdentifierFragment(std::string_view value) {
+  std::string fragment;
+  fragment.reserve(value.size());
+  for (const char character : value) {
+    const bool alnum =
+        (character >= 'a' && character <= 'z') ||
+        (character >= 'A' && character <= 'Z') ||
+        (character >= '0' && character <= '9');
+    fragment.push_back(alnum ? character : '_');
+  }
+  return fragment.empty() ? "value" : fragment;
+}
+
+std::size_t nextOpenGLTemporaryIndex(const OpenGLEmitContext &context) {
+  if (context.nextTemporaryIndex == nullptr) {
+    return 0;
+  }
+  const std::size_t index = *context.nextTemporaryIndex;
+  ++(*context.nextTemporaryIndex);
+  return index;
+}
+
+std::string openGLArrayWriteBackTemporaryName(
+    const HIRExpression &call, const HIRParameter &parameter,
+    const OpenGLEmitContext &context) {
+  return "crossgl_param_array_writeback_" +
+         std::to_string(nextOpenGLTemporaryIndex(context)) + "_" +
+         openGLInternalIdentifierFragment(call.value) + "_" +
+         openGLInternalIdentifierFragment(parameter.name);
+}
+
+const HIRExpression *openGLStatementDirectCallValue(
+    const HIRStatement &statement) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+  case HIRStatementKind::Assignment:
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+    return statement.value.kind == HIRExpressionKind::Call ? &statement.value
+                                                           : nullptr;
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    return nullptr;
+  }
+  return nullptr;
+}
+
+const HIRExpression *rootIdentifierExpression(const HIRExpression &expression);
+
+const HIRExpression *openGLTransparentExpression(
+    const HIRExpression &expression) {
+  const HIRExpression *current = &expression;
+  while (current->kind == HIRExpressionKind::Group &&
+         current->children.size() == 1) {
+    current = &current->children.front();
+  }
+  return current;
+}
+
+bool openGLExpressionContainsNode(const HIRExpression &expression,
+                                  const HIRExpression &node) {
+  if (&expression == &node) {
+    return true;
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (openGLExpressionContainsNode(child, node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool openGLExpressionContainsCallLikeEvaluation(
+    const HIRExpression &expression) {
+  switch (expression.kind) {
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+  case HIRExpressionKind::TextureSample:
+    return true;
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::Group:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Binary:
+  case HIRExpressionKind::Select:
+    break;
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (openGLExpressionContainsCallLikeEvaluation(child)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const HIRExpression *openGLNestedArrayWriteBackBinaryOperandCall(
+    const HIRExpression &candidateExpression,
+    const HIRExpression &otherExpression) {
+  if (openGLExpressionContainsCallLikeEvaluation(otherExpression)) {
+    return nullptr;
+  }
+
+  const HIRExpression *candidate =
+      openGLTransparentExpression(candidateExpression);
+  if (candidate->kind != HIRExpressionKind::Call ||
+      candidate->type.name == "void" || candidate->type.arraySize.has_value()) {
+    return nullptr;
+  }
+  return candidate;
+}
+
+const HIRExpression *openGLNestedArrayWriteBackStatementCall(
+    const HIRStatement &statement) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+  case HIRStatementKind::Assignment:
+    break;
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    return nullptr;
+  }
+
+  const HIRExpression *value = openGLTransparentExpression(statement.value);
+  if (value->kind != HIRExpressionKind::Binary ||
+      value->children.size() != 2) {
+    return nullptr;
+  }
+  if (statement.kind == HIRStatementKind::Assignment &&
+      openGLExpressionContainsCallLikeEvaluation(statement.target)) {
+    return nullptr;
+  }
+
+  if (const HIRExpression *left =
+          openGLNestedArrayWriteBackBinaryOperandCall(value->children[0],
+                                                     value->children[1])) {
+    return left;
+  }
+  if (value->value == "&&" || value->value == "||") {
+    return nullptr;
+  }
+  return openGLNestedArrayWriteBackBinaryOperandCall(value->children[1],
+                                                    value->children[0]);
+}
+
+const HIRExpression *openGLNestedArrayWriteBackRhsSibling(
+    const HIRStatement &statement, const HIRExpression &call) {
+  const HIRExpression *value = openGLTransparentExpression(statement.value);
+  if (value->kind != HIRExpressionKind::Binary ||
+      value->children.size() != 2) {
+    return nullptr;
+  }
+
+  const HIRExpression *right = openGLTransparentExpression(value->children[1]);
+  return right == &call ? &value->children[0] : nullptr;
+}
+
+bool openGLExpressionCanReevaluateAfterWriteBack(
+    const HIRExpression &expression) {
+  const HIRExpression *transparent = openGLTransparentExpression(expression);
+  return transparent->kind == HIRExpressionKind::Literal;
+}
+
+bool openGLForwardedFunctionParameterArrayCopyArgument(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRExpression &argument, const HIRStage *stage) {
+  if (argument.kind != HIRExpressionKind::Identifier ||
+      functionParameterArrayShape(module, argument.type) !=
+          HIRFunctionParameterArrayShape::FixedSize ||
+      !argument.type.arraySize.has_value()) {
+    return false;
+  }
+
+  const HIRParameter *parameter = nullptr;
+  for (const HIRParameter &candidate : caller.parameters) {
+    if (candidate.name == argument.value) {
+      parameter = &candidate;
+      break;
+    }
+  }
+  if (parameter == nullptr || !parameter->type.arraySize.has_value()) {
+    return false;
+  }
+
+  const std::vector<HIRFunctionParameterArrayCallFeature> features =
+      functionParameterArrayCallArgumentFeatures(module, caller, argument,
+                                                 stage);
+  if (openGLFunctionParameterArrayCallFeaturesSupport(module, argument.type,
+                                                      features) !=
+      HIRFunctionParameterArrayCallFeatureSupport::Supported) {
+    return false;
+  }
+  auto hasFeature = [&](HIRFunctionParameterArrayCallFeature feature) {
+    return std::find(features.begin(), features.end(), feature) !=
+           features.end();
+  };
+  return hasFeature(
+             HIRFunctionParameterArrayCallFeature::
+                 FunctionParameterArguments) &&
+         !hasFeature(
+             HIRFunctionParameterArrayCallFeature::LocalArrayArguments) &&
+         !hasFeature(HIRFunctionParameterArrayCallFeature::
+                         StorageBufferFieldArguments) &&
+         !hasFeature(HIRFunctionParameterArrayCallFeature::
+                         NestedStructFieldArguments) &&
+         !hasFeature(HIRFunctionParameterArrayCallFeature::
+                         DirectResourceArrayArguments);
+}
+
+std::optional<std::string> openGLAliasedArrayCopyArgumentKey(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRExpression &argument, const HIRStage *stage) {
+  if (argument.kind != HIRExpressionKind::Identifier ||
+      !(openGLLocalArrayCopyArgument(module, caller, argument, stage) ||
+        openGLForwardedFunctionParameterArrayCopyArgument(module, caller,
+                                                          argument, stage))) {
+    return std::nullopt;
+  }
+  return argument.value;
+}
+
+bool openGLCallArgumentHasAliasedFixedArrayParameter(
+    const HIRModule &module, const HIRFunction &callee,
+    const HIRExpression &call, std::size_t parameterIndex) {
+  if (call.children.size() <= parameterIndex) {
+    return false;
+  }
+  const HIRExpression *writtenRoot =
+      rootIdentifierExpression(call.children[parameterIndex]);
+  if (writtenRoot == nullptr) {
+    return false;
+  }
+
+  for (std::size_t index = 0; index < callee.parameters.size(); ++index) {
+    if (index == parameterIndex || call.children.size() <= index ||
+        functionParameterArrayShape(module, callee.parameters[index].type) !=
+            HIRFunctionParameterArrayShape::FixedSize) {
+      continue;
+    }
+    const HIRExpression *otherRoot = rootIdentifierExpression(
+        call.children[index]);
+    if (otherRoot != nullptr && otherRoot->value == writtenRoot->value) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewriteForCall(
+    const HIRExpression &call, const OpenGLEmitContext &context) {
+  if (context.module == nullptr || context.hirStage == nullptr ||
+      context.function == nullptr) {
+    return std::nullopt;
+  }
+  const HIRFunction *callee = findOpenGLEmitFunction(context, call.value);
+  if (callee == nullptr || call.children.size() != callee->parameters.size()) {
+    return std::nullopt;
+  }
+
+  OpenGLArrayWriteBackRewrite rewrite;
+  rewrite.call = &call;
+  const std::set<std::string> writtenParameters =
+      writtenOpenGLFunctionParameterArrayNames(*context.module, *callee);
+  if (writtenParameters.empty()) {
+    return std::nullopt;
+  }
+
+  std::map<std::string, std::size_t> aliasTemporaryByKey;
+  for (std::size_t index = 0; index < callee->parameters.size(); ++index) {
+    const HIRParameter &parameter = callee->parameters[index];
+    if (writtenParameters.count(parameter.name) == 0 ||
+        index >= call.children.size()) {
+      continue;
+    }
+
+    if (openGLCallArgumentHasAliasedFixedArrayParameter(*context.module,
+                                                        *callee, call,
+                                                        index)) {
+      const std::optional<std::string> aliasKey =
+          openGLAliasedArrayCopyArgumentKey(
+              *context.module, *context.function, call.children[index],
+              context.hirStage);
+      if (!aliasKey.has_value()) {
+        continue;
+      }
+
+      std::size_t temporaryIndex = 0;
+      const auto existingTemporary = aliasTemporaryByKey.find(*aliasKey);
+      if (existingTemporary == aliasTemporaryByKey.end()) {
+        OpenGLArrayWriteBackArgument argument;
+        argument.argumentIndex = index;
+        argument.type = parameter.type;
+        argument.argument = &call.children[index];
+        argument.temporaryName =
+            openGLArrayWriteBackTemporaryName(call, parameter, context);
+        temporaryIndex = rewrite.arguments.size();
+        aliasTemporaryByKey.emplace(*aliasKey, temporaryIndex);
+        rewrite.arguments.push_back(std::move(argument));
+      } else {
+        temporaryIndex = existingTemporary->second;
+      }
+
+      const std::string &temporaryName =
+          rewrite.arguments[temporaryIndex].temporaryName;
+      for (std::size_t aliasIndex = 0; aliasIndex < callee->parameters.size();
+           ++aliasIndex) {
+        if (aliasIndex >= call.children.size() ||
+            functionParameterArrayShape(
+                *context.module, callee->parameters[aliasIndex].type) !=
+                HIRFunctionParameterArrayShape::FixedSize) {
+          continue;
+        }
+        const std::optional<std::string> otherAliasKey =
+            openGLAliasedArrayCopyArgumentKey(
+                *context.module, *context.function, call.children[aliasIndex],
+                context.hirStage);
+        if (otherAliasKey.has_value() && *otherAliasKey == *aliasKey) {
+          rewrite.argumentOverrides.emplace_back(aliasIndex, temporaryName);
+        }
+      }
+      continue;
+    }
+
+    if (!(openGLStorageBufferFieldArrayCopyArgument(
+              *context.module, *context.function, call.children[index],
+              context.hirStage) ||
+          openGLForwardedFunctionParameterArrayCopyArgument(
+              *context.module, *context.function, call.children[index],
+              context.hirStage))) {
+      continue;
+    }
+    OpenGLArrayWriteBackArgument argument;
+    argument.argumentIndex = index;
+    argument.type = parameter.type;
+    argument.argument = &call.children[index];
+    argument.temporaryName =
+        openGLArrayWriteBackTemporaryName(call, parameter, context);
+    rewrite.argumentOverrides.emplace_back(argument.argumentIndex,
+                                           argument.temporaryName);
+    rewrite.arguments.push_back(std::move(argument));
+  }
+
+  if (rewrite.arguments.empty()) {
+    return std::nullopt;
+  }
+  return rewrite;
+}
+
+std::optional<OpenGLArrayWriteBackRewrite> openGLArrayWriteBackRewrite(
+    const HIRStatement &statement, const OpenGLEmitContext &context) {
+  if (const HIRExpression *call = openGLStatementDirectCallValue(statement)) {
+    return openGLArrayWriteBackRewriteForCall(*call, context);
+  }
+
+  const HIRExpression *nestedCall =
+      openGLNestedArrayWriteBackStatementCall(statement);
+  if (nestedCall == nullptr) {
+    return std::nullopt;
+  }
+  std::optional<OpenGLArrayWriteBackRewrite> rewrite =
+      openGLArrayWriteBackRewriteForCall(*nestedCall, context);
+  if (rewrite.has_value()) {
+    rewrite->materializeNestedCallResult = true;
+  }
+  return rewrite;
+}
+
+std::vector<std::pair<std::size_t, std::string>>
+openGLArrayWriteBackArgumentOverrides(
+    const OpenGLArrayWriteBackRewrite &rewrite) {
+  std::vector<std::pair<std::size_t, std::string>> overrides =
+      rewrite.argumentOverrides;
+  std::sort(overrides.begin(), overrides.end(),
+            [](const auto &left, const auto &right) {
+              return left.first < right.first ||
+                     (left.first == right.first && left.second < right.second);
+            });
+  overrides.erase(std::unique(overrides.begin(), overrides.end()),
+                  overrides.end());
+  return overrides;
+}
+
+void emitOpenGLArrayElementCopyLoop(std::ostringstream &out,
+                                    std::string_view destination,
+                                    std::string_view source,
+                                    const HIRType &type,
+                                    std::size_t indentation,
+                                    std::string_view indexName) {
+  if (!type.arraySize.has_value()) {
+    return;
+  }
+  const std::vector<std::string_view> dimensions =
+      openGLArrayDimensions(*type.arraySize);
+  if (dimensions.empty()) {
+    return;
+  }
+  std::vector<std::string> indices;
+  indices.reserve(dimensions.size());
+  auto emitLoop = [&](auto &self, std::size_t depth,
+                      std::size_t currentIndentation) -> void {
+    const std::string loopIndex =
+        dimensions.size() == 1
+            ? std::string(indexName)
+            : std::string(indexName) + std::to_string(depth);
+    const std::string spaces(currentIndentation, ' ');
+    out << spaces << "for (int " << loopIndex << " = 0; " << loopIndex
+        << " < " << dimensions[depth] << "; ++" << loopIndex << ") {\n";
+    indices.push_back(loopIndex);
+    if (depth + 1 == dimensions.size()) {
+      const std::string innerSpaces(currentIndentation + 2, ' ');
+      out << innerSpaces << destination;
+      for (const std::string &index : indices) {
+        out << "[" << index << "]";
+      }
+      out << " = " << source;
+      for (const std::string &index : indices) {
+        out << "[" << index << "]";
+      }
+      out << ";\n";
+    } else {
+      self(self, depth + 1, currentIndentation + 2);
+    }
+    indices.pop_back();
+    out << spaces << "}\n";
+  };
+  emitLoop(emitLoop, 0, indentation);
+}
+
+void emitOpenGLArrayWriteBackCopiesBefore(
+    std::ostringstream &out, const OpenGLArrayWriteBackRewrite &rewrite,
+    std::size_t indentation, const OpenGLEmitContext &context) {
+  const std::string spaces(indentation, ' ');
+  for (const OpenGLArrayWriteBackArgument &argument : rewrite.arguments) {
+    out << spaces << glslDeclarator(*context.module, argument.type,
+                                    argument.temporaryName)
+        << ";\n";
+    const std::string source = emitExpression(*argument.argument, context);
+    emitOpenGLArrayElementCopyLoop(out, argument.temporaryName, source,
+                                   argument.type, indentation,
+                                   argument.temporaryName + "_i");
+  }
+}
+
+void emitOpenGLArrayWriteBackCopiesAfter(
+    std::ostringstream &out, const OpenGLArrayWriteBackRewrite &rewrite,
+    std::size_t indentation, const OpenGLEmitContext &context) {
+  for (const OpenGLArrayWriteBackArgument &argument : rewrite.arguments) {
+    const std::string destination = emitExpression(*argument.argument, context);
+    emitOpenGLArrayElementCopyLoop(out, destination, argument.temporaryName,
+                                   argument.type, indentation,
+                                   argument.temporaryName + "_i");
+  }
+}
+
+std::string emitOpenGLExpressionWithReplacements(
+    const HIRExpression &expression,
+    const std::vector<std::pair<const HIRExpression *, std::string>>
+        &replacements,
+    const OpenGLEmitContext &context) {
+  for (const auto &[node, replacement] : replacements) {
+    if (&expression == node) {
+      return replacement;
+    }
+  }
+  bool containsReplacement = false;
+  for (const auto &[node, replacement] : replacements) {
+    (void)replacement;
+    if (openGLExpressionContainsNode(expression, *node)) {
+      containsReplacement = true;
+      break;
+    }
+  }
+  if (!containsReplacement) {
+    return emitExpression(expression, context);
+  }
+
+  switch (expression.kind) {
+  case HIRExpressionKind::Group:
+    return expression.children.empty()
+               ? "()"
+               : "(" + emitOpenGLExpressionWithReplacements(
+                           expression.children.front(), replacements, context) +
+                     ")";
+  case HIRExpressionKind::Binary:
+    if (expression.children.size() != 2) {
+      return "/* unsupported */";
+    }
+    return emitOpenGLExpressionWithReplacements(
+               expression.children[0], replacements, context) +
+           " " + expression.value + " " +
+           emitOpenGLExpressionWithReplacements(
+               expression.children[1], replacements, context);
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::Select:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+  case HIRExpressionKind::TextureSample:
+    break;
+  }
+  return "/* unsupported */";
+}
+
+void emitOpenGLNestedExpressionWithArrayWriteBack(
+    std::ostringstream &out, const HIRStatement &statement,
+    std::size_t indentation, const OpenGLEmitContext &context,
+    const OpenGLArrayWriteBackRewrite &rewrite) {
+  const std::string spaces(indentation, ' ');
+  const std::vector<std::pair<std::size_t, std::string>> overrides =
+      openGLArrayWriteBackArgumentOverrides(rewrite);
+  const HIRExpression *rhsSibling =
+      openGLNestedArrayWriteBackRhsSibling(statement, *rewrite.call);
+  if (rhsSibling != nullptr &&
+      openGLExpressionCanReevaluateAfterWriteBack(*rhsSibling)) {
+    rhsSibling = nullptr;
+  }
+  std::string rhsSiblingName;
+  if (rhsSibling != nullptr) {
+    rhsSiblingName = "crossgl_param_array_writeback_" +
+                     std::to_string(nextOpenGLTemporaryIndex(context)) +
+                     "_lhs";
+    out << spaces << glslDeclarator(*context.module, rhsSibling->type,
+                                    rhsSiblingName)
+        << " = " << emitExpression(*rhsSibling, context) << ";\n";
+  }
+  const std::string resultName =
+      "crossgl_param_array_writeback_" +
+      std::to_string(nextOpenGLTemporaryIndex(context)) + "_result";
+
+  emitOpenGLArrayWriteBackCopiesBefore(out, rewrite, indentation, context);
+  out << spaces << glslDeclarator(*context.module, rewrite.call->type,
+                                  resultName)
+      << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                overrides)
+      << ";\n";
+  emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+
+  std::vector<std::pair<const HIRExpression *, std::string>> replacements = {
+      {rewrite.call, resultName}};
+  if (rhsSibling != nullptr) {
+    replacements.emplace_back(rhsSibling, rhsSiblingName);
+  }
+  const std::string value =
+      emitOpenGLExpressionWithReplacements(statement.value, replacements,
+                                           context);
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    out << spaces << glslDeclarator(*context.module, statement.declaredType,
+                                    emitIdentifierName(statement.name, context))
+        << " = " << value << ";\n";
+    return;
+  case HIRStatementKind::Assignment:
+    out << spaces << emitExpression(statement.target, context) << " = "
+        << value << ";\n";
+    return;
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    break;
+  }
+}
+
+void emitOpenGLStatementWithArrayWriteBack(
+    std::ostringstream &out, const HIRStatement &statement,
+    std::size_t indentation, const OpenGLEmitContext &context,
+    const OpenGLArrayWriteBackRewrite &rewrite) {
+  if (rewrite.materializeNestedCallResult) {
+    emitOpenGLNestedExpressionWithArrayWriteBack(out, statement, indentation,
+                                                context, rewrite);
+    return;
+  }
+
+  const std::string spaces(indentation, ' ');
+  const std::vector<std::pair<std::size_t, std::string>> overrides =
+      openGLArrayWriteBackArgumentOverrides(rewrite);
+  emitOpenGLArrayWriteBackCopiesBefore(out, rewrite, indentation, context);
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    out << spaces << glslDeclarator(*context.module, statement.declaredType,
+                                    emitIdentifierName(statement.name, context))
+        << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                  overrides)
+        << ";\n";
+    break;
+  case HIRStatementKind::Assignment:
+  {
+    const std::string resultName =
+        "crossgl_param_array_writeback_" +
+        std::to_string(nextOpenGLTemporaryIndex(context)) + "_result";
+    out << spaces << glslDeclarator(*context.module, statement.value.type,
+                                    resultName)
+        << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                  overrides)
+        << ";\n";
+    emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+    out << spaces << emitExpression(statement.target, context) << " = "
+        << resultName << ";\n";
+    return;
+  }
+  case HIRStatementKind::Expression:
+    out << spaces << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                   overrides)
+        << ";\n";
+    break;
+  case HIRStatementKind::Return: {
+    if (statement.value.type.name == "void" &&
+        !statement.value.type.arraySize.has_value()) {
+      out << spaces << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                     overrides)
+          << ";\n";
+      emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+      out << spaces << "return;\n";
+      return;
+    }
+    const std::string resultName =
+        "crossgl_param_array_writeback_" +
+        std::to_string(nextOpenGLTemporaryIndex(context)) + "_return";
+    out << spaces << glslDeclarator(*context.module, statement.value.type,
+                                    resultName)
+        << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                  overrides)
+        << ";\n";
+    emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+    out << spaces << "return " << resultName << ";\n";
+    return;
+  }
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    break;
+  }
+  emitOpenGLArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+}
+
 void emitStatement(std::ostringstream &out, const HIRStatement &statement,
                    std::size_t indentation,
                    const OpenGLEmitContext &context) {
   const std::string spaces(indentation, ' ');
+  if (const std::optional<OpenGLArrayWriteBackRewrite> rewrite =
+          openGLArrayWriteBackRewrite(statement, context)) {
+    emitOpenGLStatementWithArrayWriteBack(out, statement, indentation, context,
+                                          *rewrite);
+    return;
+  }
   switch (statement.kind) {
   case HIRStatementKind::Declaration:
     out << spaces << glslDeclarator(*context.module, statement.declaredType,
@@ -1692,6 +2596,59 @@ bool constantsSupported(const HIRModule &module) {
 bool isSupportedUniformBufferResource(const HIRModule &module,
                                       const HIRResource &resource);
 
+bool openGLRuntimeStorageBufferDescriptorArraySupported(
+    const HIRModule &module, const HIRResource &resource) {
+  return isRuntimeDescriptorArray(resource) &&
+         runtimeDescriptorArraySupportedByPolicy(
+             module, resource,
+             RuntimeDescriptorArrayPolicy::AllowSingleUnboundedDescriptorArray,
+             kOpenGLStorageBufferRuntimeDescriptorArrayKinds);
+}
+
+bool isSupportedStorageBufferResource(const HIRModule &module,
+                                      const HIRResource &resource) {
+  return resource.kind == HIRResourceKind::Buffer &&
+         (supportedResourceArraySize(resource.type) ||
+          openGLRuntimeStorageBufferDescriptorArraySupported(module,
+                                                            resource)) &&
+         isSupportedStorageBufferElementType(module,
+                                             bufferElementType(resource.type));
+}
+
+std::set<std::string>
+unsupportedOpenGLStorageBufferArrayNames(const HIRModule &module) {
+  std::set<std::string> bufferArrays;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &resource : stage.resources) {
+      if (resource.kind == HIRResourceKind::Buffer &&
+          isRuntimeDescriptorArray(resource) &&
+          !openGLRuntimeStorageBufferDescriptorArraySupported(module,
+                                                              resource)) {
+        bufferArrays.insert(resource.name);
+      }
+    }
+  }
+  return bufferArrays;
+}
+
+std::set<std::string>
+unsupportedOpenGLRuntimeResourceArrayLabels(const HIRModule &module) {
+  std::set<std::string> resourceArrays;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &resource : stage.resources) {
+      if (resource.kind == HIRResourceKind::Buffer ||
+          !isRuntimeDescriptorArray(resource)) {
+        continue;
+      }
+      if (!openGLRuntimeTextureSamplerDescriptorArraySupported(module, stage,
+                                                               resource)) {
+        resourceArrays.insert(resourceArrayLabel(resource));
+      }
+    }
+  }
+  return resourceArrays;
+}
+
 bool resourcesSupported(const HIRModule &module, const HIRStage &stage) {
   for (const HIRResource &resource : stage.resources) {
     if (resource.kind == HIRResourceKind::Shared) {
@@ -1706,10 +2663,22 @@ bool resourcesSupported(const HIRModule &module, const HIRStage &stage) {
     if (isSupportedUniformBufferResource(module, resource)) {
       continue;
     }
+    if (isSupportedStorageBufferResource(module, resource)) {
+      continue;
+    }
+    auto textureSupported = [&](const HIRResource &candidate) {
+      return isSupportedTextureResource(candidate) ||
+             openGLRuntimeTextureSamplerDescriptorArraySupported(
+                 module, stage, candidate);
+    };
+    auto samplerSupported = [&](const HIRResource &candidate) {
+      return isSupportedSamplerResource(candidate) ||
+             openGLRuntimeTextureSamplerDescriptorArraySupported(
+                 module, stage, candidate);
+    };
     if (!resourceSupportedByPolicy(module, resource,
                                    isSupportedStorageBufferElementType,
-                                   isSupportedTextureResource,
-                                   isSupportedSamplerResource)) {
+                                   textureSupported, samplerSupported)) {
       return false;
     }
   }
@@ -2054,8 +3023,7 @@ openGLStorageBufferStructDeclarations(const HIRModule &module,
   std::set<std::string> emitted;
   std::set<std::string> visiting;
   for (const HIRResource &resource : stage.resources) {
-    if (resource.kind != HIRResourceKind::Buffer ||
-        !supportedResourceArraySize(resource.type)) {
+    if (!isSupportedStorageBufferResource(module, resource)) {
       continue;
     }
     const HIRType elementType = bufferElementType(resource.type);
@@ -2376,7 +3344,7 @@ bool userFunctionCallSupported(const HIRExpression &expression,
   for (std::size_t index = 0; index < function->parameters.size(); ++index) {
     const HIRParameter &parameter = function->parameters[index];
     const HIRExpression &argument = expression.children[index];
-    if (!isSupportedFunctionValueType(*context.module, parameter.type) ||
+    if (!isSupportedFunctionParameterType(*context.module, parameter.type) ||
         !argumentTypeMatchesParameter(argument.type, parameter.type) ||
         !expressionSupported(argument, context)) {
       return false;
@@ -2410,7 +3378,7 @@ bool expressionSupported(const HIRExpression &expression,
     return selectExpressionSupported(expression, context);
   }
   return expressionSupportedByPolicy(
-      expression, isSupportedValueType,
+      expression,
       [&](const HIRExpression &child) {
         return expressionSupported(child, context);
       },
@@ -2419,6 +3387,12 @@ bool expressionSupported(const HIRExpression &expression,
       },
       [&](const HIRExpression &compare) {
         return textureCompareSupported(compare, context);
+      },
+      [&](const HIRExpression &constructor) {
+        return backendConstructorShapeSupported(
+            constructor, isSupportedValueType, [&](const HIRExpression &child) {
+              return expressionSupported(child, context);
+            });
       });
 }
 
@@ -2534,7 +3508,8 @@ bool openGLLocalArrayCopyArgument(const HIRModule &module,
   const std::vector<HIRFunctionParameterArrayCallFeature> features =
       functionParameterArrayCallArgumentFeatures(module, caller, argument,
                                                  stage);
-  if (openGLFunctionParameterArrayCallFeaturesSupport(features) !=
+  if (openGLFunctionParameterArrayCallFeaturesSupport(module, argument.type,
+                                                      features) !=
       HIRFunctionParameterArrayCallFeatureSupport::Supported) {
     return false;
   }
@@ -2555,31 +3530,199 @@ bool openGLLocalArrayCopyArgument(const HIRModule &module,
                            DirectResourceArrayArguments);
 }
 
-bool openGLFunctionParameterArrayWriteArgumentAliases(
-    const HIRModule &module, const HIRFunction &function,
-    const HIRExpression &call, std::size_t parameterIndex) {
-  if (call.children.size() <= parameterIndex) {
-    return false;
-  }
-  const HIRExpression *writtenRoot =
-      rootIdentifierExpression(call.children[parameterIndex]);
-  if (writtenRoot == nullptr) {
+bool openGLStorageBufferFieldArrayCopyArgument(const HIRModule &module,
+                                               const HIRFunction &caller,
+                                               const HIRExpression &argument,
+                                               const HIRStage *stage) {
+  if (functionParameterArrayShape(module, argument.type) !=
+          HIRFunctionParameterArrayShape::FixedSize ||
+      !argument.type.arraySize.has_value()) {
     return false;
   }
 
-  for (std::size_t index = 0; index < function.parameters.size(); ++index) {
+  const std::vector<HIRFunctionParameterArrayCallFeature> features =
+      functionParameterArrayCallArgumentFeatures(module, caller, argument,
+                                                 stage);
+  if (openGLFunctionParameterArrayCallFeaturesSupport(module, argument.type,
+                                                      features) !=
+      HIRFunctionParameterArrayCallFeatureSupport::Supported) {
+    return false;
+  }
+  return openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           StorageBufferFieldArguments) &&
+         !openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           LocalArrayArguments) &&
+         !openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           FunctionParameterArguments) &&
+         !openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           NestedStructFieldArguments) &&
+         !openGLFunctionParameterArrayHasCallFeature(
+             features, HIRFunctionParameterArrayCallFeature::
+                           DirectResourceArrayArguments);
+}
+
+bool openGLFunctionParameterArrayWriteArgumentAliases(
+    const HIRModule &module, const HIRFunction &function,
+    const HIRExpression &call, std::size_t parameterIndex) {
+  return openGLCallArgumentHasAliasedFixedArrayParameter(
+      module, function, call, parameterIndex);
+}
+
+bool openGLFunctionParameterArrayWriteAliasCallSupportedInContext(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRExpression &call,
+    std::size_t parameterIndex, const HIRStage *stage) {
+  const std::optional<std::string> writtenAliasKey =
+      openGLAliasedArrayCopyArgumentKey(module, caller,
+                                        call.children[parameterIndex], stage);
+  if (!writtenAliasKey.has_value()) {
+    return false;
+  }
+
+  bool foundAlias = false;
+  for (std::size_t index = 0; index < callee.parameters.size(); ++index) {
     if (index == parameterIndex || call.children.size() <= index ||
-        functionParameterArrayShape(module, function.parameters[index].type) !=
+        functionParameterArrayShape(module, callee.parameters[index].type) !=
             HIRFunctionParameterArrayShape::FixedSize) {
       continue;
     }
+    const std::optional<std::string> otherAliasKey =
+        openGLAliasedArrayCopyArgumentKey(module, caller, call.children[index],
+                                          stage);
+    if (otherAliasKey.has_value() && *otherAliasKey == *writtenAliasKey) {
+      foundAlias = true;
+      continue;
+    }
+
+    const HIRExpression *writtenRoot =
+        rootIdentifierExpression(call.children[parameterIndex]);
     const HIRExpression *otherRoot = rootIdentifierExpression(
         call.children[index]);
-    if (otherRoot != nullptr && otherRoot->value == writtenRoot->value) {
-      return true;
+    if (writtenRoot != nullptr && otherRoot != nullptr &&
+        otherRoot->value == writtenRoot->value) {
+      return false;
     }
   }
-  return false;
+  return foundAlias;
+}
+
+bool openGLFunctionParameterArrayWriteCallSupportedInContext(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRExpression &call,
+    std::size_t parameterIndex, const HIRStage *stage,
+    bool allowStorageBufferFieldWriteBack) {
+  if (call.children.size() <= parameterIndex) {
+    return false;
+  }
+  if (openGLFunctionParameterArrayWriteArgumentAliases(
+          module, callee, call, parameterIndex)) {
+    return allowStorageBufferFieldWriteBack &&
+           openGLFunctionParameterArrayWriteAliasCallSupportedInContext(
+               module, caller, callee, call, parameterIndex, stage);
+  }
+  if (openGLLocalArrayCopyArgument(module, caller,
+                                   call.children[parameterIndex], stage)) {
+    return true;
+  }
+  if (!allowStorageBufferFieldWriteBack) {
+    return false;
+  }
+  return openGLStorageBufferFieldArrayCopyArgument(
+             module, caller, call.children[parameterIndex], stage) ||
+         openGLForwardedFunctionParameterArrayCopyArgument(
+             module, caller, call.children[parameterIndex], stage);
+}
+
+bool openGLStatementValueDirectlyCalls(const HIRStatement &statement,
+                                       const HIRFunction &function) {
+  const HIRExpression *call = openGLStatementDirectCallValue(statement);
+  return call != nullptr && call->value == function.name;
+}
+
+bool openGLExpressionTreeSupportsFunctionArrayWriteCalls(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRExpression &expression,
+    const HIRExpression *directCall,
+    std::size_t parameterIndex, const HIRStage *stage) {
+  bool supported = true;
+  auto visitor = [&](const HIRExpression &candidate) {
+    if (&candidate != directCall &&
+        candidate.kind == HIRExpressionKind::Call &&
+        candidate.value == callee.name &&
+        !openGLFunctionParameterArrayWriteCallSupportedInContext(
+            module, caller, callee, candidate, parameterIndex, stage, false)) {
+      supported = false;
+    }
+  };
+  visitExpressionTree(expression, visitor);
+  return supported;
+}
+
+bool openGLFunctionParameterArrayWriteStatementSupported(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRStatement &statement,
+    std::size_t parameterIndex, const HIRStage *stage,
+    bool allowDirectStatementWriteBack) {
+  const HIRExpression *supportedWriteBackCall =
+      openGLStatementValueDirectlyCalls(statement, callee)
+          ? openGLStatementDirectCallValue(statement)
+          : nullptr;
+  if (supportedWriteBackCall != nullptr) {
+    if (!openGLFunctionParameterArrayWriteCallSupportedInContext(
+            module, caller, callee, *supportedWriteBackCall, parameterIndex, stage,
+            allowDirectStatementWriteBack)) {
+      return false;
+    }
+  } else if (allowDirectStatementWriteBack) {
+    const HIRExpression *nestedCall =
+        openGLNestedArrayWriteBackStatementCall(statement);
+    if (nestedCall != nullptr && nestedCall->value == callee.name) {
+      if (!openGLFunctionParameterArrayWriteCallSupportedInContext(
+              module, caller, callee, *nestedCall, parameterIndex, stage,
+              true)) {
+        return false;
+      }
+      supportedWriteBackCall = nestedCall;
+    }
+  }
+  if (!openGLExpressionTreeSupportsFunctionArrayWriteCalls(
+          module, caller, callee, statement.target, supportedWriteBackCall,
+          parameterIndex, stage) ||
+      !openGLExpressionTreeSupportsFunctionArrayWriteCalls(
+          module, caller, callee, statement.value, supportedWriteBackCall,
+          parameterIndex, stage)) {
+    return false;
+  }
+
+  for (const HIRStatement &initializer : statement.initializer) {
+    if (!openGLFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, initializer, parameterIndex, stage, false)) {
+      return false;
+    }
+  }
+  for (const HIRStatement &update : statement.update) {
+    if (!openGLFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, update, parameterIndex, stage, false)) {
+      return false;
+    }
+  }
+  for (const HIRStatement &child : statement.body) {
+    if (!openGLFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, child, parameterIndex, stage, true)) {
+      return false;
+    }
+  }
+  for (const HIRStatement &child : statement.elseBody) {
+    if (!openGLFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, child, parameterIndex, stage, true)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool openGLFunctionParameterArrayWriteUsesOnlyLocalCopyArguments(
@@ -2588,21 +3731,16 @@ bool openGLFunctionParameterArrayWriteUsesOnlyLocalCopyArguments(
   bool supported = true;
   for (const HIRStage &stage : module.stages) {
     for (const HIRFunction &caller : stage.functions) {
-      auto visitor = [&](const HIRExpression &expression) {
-        if (!supported || expression.kind != HIRExpressionKind::Call ||
-            expression.value != function.name) {
-          return;
+      for (const HIRStatement &statement : caller.body) {
+        if (!supported) {
+          break;
         }
-        if (expression.children.size() <= parameterIndex ||
-            !openGLLocalArrayCopyArgument(module, caller,
-                                          expression.children[parameterIndex],
-                                          &stage) ||
-            openGLFunctionParameterArrayWriteArgumentAliases(
-                module, function, expression, parameterIndex)) {
+        if (!openGLFunctionParameterArrayWriteStatementSupported(
+                module, caller, function, statement, parameterIndex, &stage,
+                true)) {
           supported = false;
         }
-      };
-      visitFunctionExpressions(caller, visitor);
+      }
     }
   }
   return supported;
@@ -2986,7 +4124,7 @@ bool functionSupported(const HIRModule &module, const HIRStage &stage,
     }
   }
   for (const HIRParameter &parameter : function.parameters) {
-    if (!isSupportedFunctionValueType(module, parameter.type)) {
+    if (!isSupportedFunctionParameterType(module, parameter.type)) {
       return false;
     }
   }
@@ -3050,8 +4188,8 @@ void emitFunctionSignature(std::ostringstream &out, const HIRModule &module,
       out << ", ";
     }
     const HIRParameter &parameter = function.parameters[index];
-    out << glslDeclarator(module, parameter.type,
-                          emitIdentifierName(parameter.name, context));
+    out << glslFunctionParameterDeclarator(
+        module, parameter.type, emitIdentifierName(parameter.name, context));
   }
   out << ")";
 }
@@ -3106,10 +4244,12 @@ OpenGLEmitContext makeOpenGLEmitContext(
     const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr) {
   OpenGLEmitContext context;
   context.module = &module;
+  context.hirStage = &stage;
   context.resourceBindings = resourceBindings;
   context.stage = stage.stage;
   context.backendEntryPoint = stage.stage + "_" + stage.entryPointName;
   context.useCombinedSamplerResources = useCombinedSamplerResources;
+  context.nextTemporaryIndex = std::make_shared<std::size_t>(0);
   const OpenGLSupportContext supportContext{&module, &stage, nullptr};
   std::set<std::string> combinedSamplerCandidates;
   std::set<std::string> nonCombinedSamplerUses;
@@ -3197,8 +4337,7 @@ OpenGLEmitContext makeOpenGLEmitContext(
       continue;
     }
     if (resource.kind == HIRResourceKind::Buffer &&
-        resource.type.arraySize.has_value() &&
-        !resource.type.arraySize->empty()) {
+        resource.type.arraySize.has_value()) {
       context.storageBufferArrays.insert(resource.name);
     }
   }
@@ -3221,17 +4360,23 @@ void diagnoseOpenGLSourceUnsupported(DiagnosticEngine &diagnostics) {
       "comparison sampling, explicit-lod 2D/2D-array/cube/cube-array "
       "shadow texture comparison sampling, scalar constants, fixed-size "
       "uniform-buffer descriptor arrays, simple struct storage-buffer "
-      "elements, fixed-size storage-buffer descriptor arrays, direct final "
-      "runtime-array storage-buffer tails on singleton blocks, fixed-size "
+      "elements, fixed-size and single unbounded storage-buffer descriptor "
+      "arrays, direct final runtime-array storage-buffer tails on singleton "
+      "blocks, fixed-size "
       "numeric workgroup shared-memory declarations, "
       "scalar integer storage-buffer and workgroup shared-memory atomic "
       "expression statements and declaration/assignment captures, compute "
       "workgroup barrier expression statements, "
-      "fixed-size function parameter arrays, fixed-size numeric local arrays "
+      "fixed-size function parameter arrays, fixed-size numeric and matrix "
+      "local arrays "
       "(including fixed nested arrays with literal/folded or dynamic helper "
       "read indices) passed to helper array parameters with callee-local "
-      "parameter writes, fixed-size struct-element helper arrays, same-stage "
-      "helper functions, and void entry functions with no parameters, or one "
+      "parameter writes, fixed-size struct-element helper arrays, fixed-size "
+      "sampled texture/sampler resource arrays passed to read-only helper "
+      "parameters, at most one unreferenced unsized texture descriptor array "
+      "and one unreferenced unsized sampler descriptor array in compute "
+      "packages with no later same-class resource, same-stage helper "
+      "functions, and void entry functions with no parameters, or one "
       "vertex stage plus one "
       "fragment stage with struct input/output signatures, scalar/vector stage "
       "IO fields, non-array struct uniform buffers, and fixed-size sampled "
@@ -3270,25 +4415,49 @@ bool diagnoseOpenGLUnsupportedShadowCompareExplicitLodShape(
 }
 
 bool openglHasUnsupportedStorageBufferArray(const HIRModule &module) {
-  return hasUnsupportedStorageBufferArray(module);
+  return !unsupportedOpenGLStorageBufferArrayNames(module).empty();
 }
 
 bool openglHasUnsupportedRuntimeResourceArray(const HIRModule &module) {
-  return hasUnsupportedRuntimeResourceArray(module);
+  return !unsupportedOpenGLRuntimeResourceArrayLabels(module).empty();
 }
 
 bool diagnoseOpenGLUnsupportedRuntimeResourceArray(
     const HIRModule &module, DiagnosticEngine &diagnostics) {
-  return diagnoseUnsupportedRuntimeResourceArray(
-      module, diagnostics, "opengl.unsupported-runtime-resource-array",
-      "OpenGL");
+  const std::set<std::string> resourceArrays =
+      unsupportedOpenGLRuntimeResourceArrayLabels(module);
+  if (resourceArrays.empty()) {
+    return false;
+  }
+  diagnostics.error(
+      "opengl.unsupported-runtime-resource-array",
+      "OpenGL source package supports unreferenced unsized texture/sampler "
+      "descriptor arrays in compute packages when each descriptor class has "
+      "at most one runtime array and no later same-class resource; unsupported "
+      "unsized/runtime resource array(s): " +
+          joinNames(resourceArrays) +
+          "; use a fixed descriptor array size, remove runtime descriptor "
+          "references, or keep runtime descriptor arrays limited to one "
+          "unreferenced texture array and one unreferenced sampler array with "
+          "no later resource in the same class");
+  return true;
 }
 
 bool diagnoseOpenGLUnsupportedStorageBufferArray(
     const HIRModule &module, DiagnosticEngine &diagnostics) {
-  return diagnoseUnsupportedStorageBufferArray(
-      module, diagnostics, "opengl.unsupported-storage-buffer-array",
-      "OpenGL");
+  const std::set<std::string> bufferArrays =
+      unsupportedOpenGLStorageBufferArrayNames(module);
+  if (bufferArrays.empty()) {
+    return false;
+  }
+  diagnostics.error(
+      "opengl.unsupported-storage-buffer-array",
+      "OpenGL source package supports at most one unsized storage-buffer "
+      "descriptor array; unsupported unsized array(s): " +
+          joinNames(bufferArrays) +
+          "; use fixed descriptor array sizes or keep a single unbounded "
+          "storage-buffer descriptor array");
+  return true;
 }
 
 bool openglHasUnsupportedStorageBufferElementType(const HIRModule &module) {
@@ -3307,8 +4476,8 @@ bool diagnoseOpenGLUnsupportedStorageBufferElementType(
       "OpenGL source package does not yet support storage-buffer element "
       "type(s): " +
           joinNames(elementTypes) +
-          "; supported storage-buffer elements are scalar/vector types, "
-          "structs with scalar/vector leaf fields, and direct final "
+          "; supported storage-buffer elements are scalar/vector/matrix types, "
+          "structs with scalar/vector/matrix leaf fields, and direct final "
           "runtime-array tail fields on singleton storage-buffer blocks");
   return true;
 }
@@ -3720,6 +4889,114 @@ std::string generateOpenGLGraphicsSource(
   return out.str();
 }
 
+std::string generateOpenGLGraphicsStageSource(
+    const HIRModule &module, std::string_view stageName,
+    const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr) {
+  std::ostringstream out;
+  if (!openGLGraphicsTextualBackendSupported(module)) {
+    return out.str();
+  }
+
+  const HIRStage *vertexStage = nullptr;
+  const HIRStage *fragmentStage = nullptr;
+  (void)openGLGraphicsStagePair(module, vertexStage, fragmentStage);
+  const HIRFunction &vertexEntry = *entryFunction(*vertexStage);
+  const HIRFunction &fragmentEntry = *entryFunction(*fragmentStage);
+  const HIRStruct &vertexInput =
+      *openGLStructType(module, vertexEntry.parameters.front().type);
+  const HIRStruct &vertexOutput =
+      *openGLStructType(module, vertexEntry.returnType);
+  const HIRStruct &fragmentInput =
+      *openGLStructType(module, fragmentEntry.parameters.front().type);
+  const HIRStruct &fragmentOutput =
+      *openGLStructType(module, fragmentEntry.returnType);
+  const HIRField &position = *openGLGraphicsPositionField(vertexOutput);
+
+  const HIRStage &stage = stageName == "vertex" ? *vertexStage : *fragmentStage;
+  const OpenGLEmitContext context =
+      makeOpenGLEmitContext(module, stage, true, resourceBindings);
+
+  emitOpenGLSourcePreamble(out, module, context);
+  emitOpenGLStructDeclarations(
+      out, module,
+      openGLGraphicsStructDeclarations(module, vertexEntry, fragmentEntry),
+      context);
+
+  if (stageName == "vertex") {
+    for (const HIRResource &resource : vertexStage->resources) {
+      emitResourceDeclaration(out, module, resource, context);
+    }
+    if (moduleUsesManualTextureCompare(module)) {
+      emitManualCompareHelper(out);
+    }
+    for (std::size_t index = 0; index < vertexInput.fields.size(); ++index) {
+      const HIRField &field = vertexInput.fields[index];
+      out << "layout(location = " << index << ") in " << glslType(field.type)
+          << " " << openGLVertexAttributeName(field.name) << ";\n";
+    }
+    for (std::size_t index = 0; index < fragmentInput.fields.size(); ++index) {
+      const HIRField &field = fragmentInput.fields[index];
+      out << "layout(location = " << index << ") out " << glslType(field.type)
+          << " " << openGLVaryingName(field.name) << ";\n";
+    }
+    out << "\n";
+    emitStageFunctionDefinitions(out, module, *vertexStage, vertexEntry,
+                                 context, "vertex_main");
+    out << "void main() {\n";
+    out << "  " << vertexInput.name << " crossgl_vertex_input;\n";
+    for (const HIRField &field : vertexInput.fields) {
+      out << "  crossgl_vertex_input." << emitFieldName(field.name, context)
+          << " = " << openGLVertexAttributeName(field.name) << ";\n";
+    }
+    out << "  " << vertexOutput.name
+        << " crossgl_vertex_output = vertex_main(crossgl_vertex_input);\n";
+    for (const HIRField &field : fragmentInput.fields) {
+      out << "  " << openGLVaryingName(field.name)
+          << " = crossgl_vertex_output." << emitFieldName(field.name, context)
+          << ";\n";
+    }
+    out << "  gl_Position = crossgl_vertex_output."
+        << emitFieldName(position.name, context) << ";\n";
+    out << "}\n";
+    return out.str();
+  }
+
+  for (const HIRResource &resource : fragmentStage->resources) {
+    emitResourceDeclaration(out, module, resource, context);
+  }
+  if (moduleUsesManualTextureCompare(module)) {
+    emitManualCompareHelper(out);
+  }
+  for (std::size_t index = 0; index < fragmentInput.fields.size(); ++index) {
+    const HIRField &field = fragmentInput.fields[index];
+    out << "layout(location = " << index << ") in " << glslType(field.type)
+        << " " << openGLVaryingName(field.name) << ";\n";
+  }
+  for (std::size_t index = 0; index < fragmentOutput.fields.size(); ++index) {
+    const HIRField &field = fragmentOutput.fields[index];
+    out << "layout(location = " << index << ") out " << glslType(field.type)
+        << " " << openGLFragmentOutputName(field.name) << ";\n";
+  }
+  out << "\n";
+  emitStageFunctionDefinitions(out, module, *fragmentStage, fragmentEntry,
+                               context, "fragment_main");
+  out << "void main() {\n";
+  out << "  " << fragmentInput.name << " crossgl_fragment_input;\n";
+  for (const HIRField &field : fragmentInput.fields) {
+    out << "  crossgl_fragment_input." << emitFieldName(field.name, context)
+        << " = " << openGLVaryingName(field.name) << ";\n";
+  }
+  out << "  " << fragmentOutput.name
+      << " crossgl_fragment_output = fragment_main(crossgl_fragment_input);\n";
+  for (const HIRField &field : fragmentOutput.fields) {
+    out << "  " << openGLFragmentOutputName(field.name)
+        << " = crossgl_fragment_output." << emitFieldName(field.name, context)
+        << ";\n";
+  }
+  out << "}\n";
+  return out.str();
+}
+
 std::string generateOpenGLSource(
     const HIRModule &module,
     const TargetLegalizationResourceBindingFacts *resourceBindings) {
@@ -3963,6 +5240,49 @@ bool diagnoseOpenGLLegalizedResourceDeclarationMismatches(
   return failed;
 }
 
+std::string openGLPackageRelativePath(
+    const std::filesystem::path &packageDir,
+    const std::filesystem::path &artifactPath) {
+  const auto relative = artifactPath.lexically_relative(packageDir);
+  const auto normalized = relative.lexically_normal();
+  if (!normalized.empty() && !normalized.is_absolute()) {
+    const auto first = normalized.begin();
+    if (first == normalized.end() || first->string() != "..") {
+      return normalized.generic_string();
+    }
+  }
+  return artifactPath.generic_string();
+}
+
+bool writeOpenGLTextFile(const std::filesystem::path &path,
+                         std::string_view text,
+                         DiagnosticEngine &diagnostics,
+                         std::string_view code) {
+  std::ofstream output(path, std::ios::binary);
+  if (!output) {
+    diagnostics.error(std::string(code),
+                      "failed to write '" + path.string() + "'");
+    return false;
+  }
+  output << text;
+  return true;
+}
+
+std::string openGLGraphicsStageInventory(
+    const HIRModule &module, const std::filesystem::path &packageDir,
+    const std::filesystem::path &vertexPath,
+    const std::filesystem::path &fragmentPath, std::string_view status) {
+  std::ostringstream out;
+  out << "// CrossGL OpenGL graphics stage inventory\n";
+  out << "// module: " << module.name << "\n";
+  out << "// status: " << status << "\n";
+  out << "// stage vertex: "
+      << openGLPackageRelativePath(packageDir, vertexPath) << "\n";
+  out << "// stage fragment: "
+      << openGLPackageRelativePath(packageDir, fragmentPath) << "\n";
+  return out.str();
+}
+
 std::string generateOpenGLBackendIR(const HIRModule &module) {
   std::ostringstream out;
   out << "// backend lowering for opengl: textual GLSL compute/graphics "
@@ -3987,17 +5307,20 @@ std::string generateOpenGLBackendIR(const HIRModule &module) {
           << joinNames(unsupportedShadowCompareLod) << "\n";
     }
     const std::set<std::string> bufferArrays =
-        unsupportedStorageBufferArrayNames(module);
+        unsupportedOpenGLStorageBufferArrayNames(module);
     if (!bufferArrays.empty()) {
       out << "// opengl textual scaffold does not yet support storage-buffer "
              "descriptor arrays with unsized descriptor counts: "
           << joinNames(bufferArrays) << "\n";
     }
     const std::set<std::string> resourceArrays =
-        unsupportedRuntimeResourceArrayLabels(module);
+        unsupportedOpenGLRuntimeResourceArrayLabels(module);
     if (!resourceArrays.empty()) {
-      out << "// opengl textual scaffold does not yet support descriptor arrays "
-             "with unsized/runtime descriptor counts: "
+      out << "// opengl textual scaffold supports unreferenced texture/sampler "
+             "descriptor arrays with unsized descriptor counts only in compute "
+             "packages when each descriptor class has at most one runtime "
+             "array and no later same-class resource; unsupported runtime "
+             "descriptor array(s): "
           << joinNames(resourceArrays) << "\n";
     }
     const std::set<std::string> runtimeTailBlockIndexes =
@@ -4065,8 +5388,12 @@ std::string generateOpenGLBackendIR(const HIRModule &module) {
            "(including fixed nested arrays with literal/folded or dynamic "
            "helper read indices) passed to helper array parameters with "
            "callee-local parameter writes, fixed-size struct-element helper "
-           "arrays, same-stage helper functions, and void entry functions "
-           "with no parameters, or one "
+           "arrays, fixed-size sampled texture/sampler resource arrays passed "
+           "to read-only helper parameters, at most one unreferenced unsized "
+           "texture descriptor array and one unreferenced unsized sampler "
+           "descriptor array in compute packages with no later same-class "
+           "resource, same-stage helper functions, and "
+           "void entry functions with no parameters, or one "
            "vertex stage plus one fragment stage with struct input/output "
            "signatures, scalar/vector stage IO fields, non-array struct "
            "uniform buffers, and fixed-size sampled texture/comparison texture "
@@ -4112,18 +5439,40 @@ buildOpenGLSourcePackage(const HIRModule &module,
   const std::string sourceKind = graphicsSource ? "graphics" : "compute";
   result.sourcePath = openglDir / (module.name + sourceSuffix);
   result.nativeBinaryPath = openglDir / (module.name + ".glsl");
+  const std::filesystem::path vertexSourcePath =
+      openglDir / (module.name + ".vert.glsl");
+  const std::filesystem::path fragmentSourcePath =
+      openglDir / (module.name + ".frag.glsl");
+  const std::filesystem::path validatedVertexPath =
+      openglDir / (module.name + ".validated.vert.glsl");
+  const std::filesystem::path validatedFragmentPath =
+      openglDir / (module.name + ".validated.frag.glsl");
   std::filesystem::remove(result.nativeBinaryPath, error);
+  std::filesystem::remove(validatedVertexPath, error);
+  std::filesystem::remove(validatedFragmentPath, error);
 
   const std::string sourceText = generateOpenGLSource(module, resourceBindings);
   const std::string glslEvidence = openGLGLSLEvidenceSummary(module);
-  std::ofstream source(result.sourcePath, std::ios::binary);
-  if (!source) {
-    diagnostics.error("opengl.write-source",
-                      "failed to write '" + result.sourcePath.string() + "'");
+  if (graphicsSource) {
+    const std::string vertexSourceText =
+        generateOpenGLGraphicsStageSource(module, "vertex", resourceBindings);
+    const std::string fragmentSourceText =
+        generateOpenGLGraphicsStageSource(module, "fragment", resourceBindings);
+    const std::string sourceInventory =
+        openGLGraphicsStageInventory(module, packageDir, vertexSourcePath,
+                                     fragmentSourcePath, "source");
+    if (!writeOpenGLTextFile(vertexSourcePath, vertexSourceText, diagnostics,
+                             "opengl.write-source") ||
+        !writeOpenGLTextFile(fragmentSourcePath, fragmentSourceText, diagnostics,
+                             "opengl.write-source") ||
+        !writeOpenGLTextFile(result.sourcePath, sourceInventory, diagnostics,
+                             "opengl.write-source")) {
+      return result;
+    }
+  } else if (!writeOpenGLTextFile(result.sourcePath, sourceText, diagnostics,
+                                  "opengl.write-source")) {
     return result;
   }
-  source << sourceText;
-  source.close();
 
   const std::optional<std::string> glslang = findExecutable("glslangValidator");
   if (!glslang.has_value()) {
@@ -4139,24 +5488,39 @@ buildOpenGLSourcePackage(const HIRModule &module,
   int status = 0;
   if (graphicsSource) {
     const int vertexStatus =
-        runProcess({*glslang, "-l", "-S", "vert",
-                    "-DCROSSGL_STAGE_VERTEX=1", result.sourcePath.string()});
+        runProcess({*glslang, "-S", "vert", vertexSourcePath.string()});
     const int fragmentStatus =
-        runProcess({*glslang, "-l", "-S", "frag",
-                    "-DCROSSGL_STAGE_FRAGMENT=1", result.sourcePath.string()});
+        runProcess({*glslang, "-S", "frag", fragmentSourcePath.string()});
     status = vertexStatus == 0 && fragmentStatus == 0 ? 0 : 1;
   } else {
     status = runProcess({*glslang, "-S", "comp", result.sourcePath.string()});
   }
   if (status == 0) {
-    std::ofstream validated(result.nativeBinaryPath, std::ios::binary);
-    if (!validated) {
-      diagnostics.error(
-          "opengl.write-validated-source",
-          "failed to write '" + result.nativeBinaryPath.string() + "'");
-      return result;
+    if (graphicsSource) {
+      const std::string vertexSourceText =
+          generateOpenGLGraphicsStageSource(module, "vertex", resourceBindings);
+      const std::string fragmentSourceText =
+          generateOpenGLGraphicsStageSource(module, "fragment", resourceBindings);
+      const std::string validatedInventory =
+          openGLGraphicsStageInventory(module, packageDir, validatedVertexPath,
+                                       validatedFragmentPath, "validated");
+      if (!writeOpenGLTextFile(validatedVertexPath, vertexSourceText,
+                               diagnostics,
+                               "opengl.write-validated-source") ||
+          !writeOpenGLTextFile(validatedFragmentPath, fragmentSourceText,
+                               diagnostics,
+                               "opengl.write-validated-source") ||
+          !writeOpenGLTextFile(result.nativeBinaryPath, validatedInventory,
+                               diagnostics,
+                               "opengl.write-validated-source")) {
+        return result;
+      }
+    } else {
+      if (!writeOpenGLTextFile(result.nativeBinaryPath, sourceText, diagnostics,
+                               "opengl.write-validated-source")) {
+        return result;
+      }
     }
-    validated << sourceText;
 
     diagnostics.note("opengl.glsl-validated",
                      "validated generated GLSL " + sourceKind +
@@ -4170,6 +5534,8 @@ buildOpenGLSourcePackage(const HIRModule &module,
   }
 
   std::filesystem::remove(result.nativeBinaryPath, error);
+  std::filesystem::remove(validatedVertexPath, error);
+  std::filesystem::remove(validatedFragmentPath, error);
   result.validatorStatus = "failed";
   Diagnostic diagnostic;
   diagnostic.severity = DiagnosticSeverity::Warning;
@@ -4180,6 +5546,7 @@ buildOpenGLSourcePackage(const HIRModule &module,
   diagnostic.target = "opengl";
   diagnostic.missingCapabilities = {"opengl.backend.native-glsl-package",
                                     "opengl.validation.glsl-program-validation"};
+  result.validationDiagnostics.push_back(diagnostic);
   diagnostics.report(std::move(diagnostic));
   diagnostics.warning("opengl.source-package-only",
                       "kept GLSL source package; native OpenGL validation "

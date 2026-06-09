@@ -4,6 +4,7 @@
 #include "crossgl/Backend/BackendHIR.h"
 #include "crossgl/Backend/BackendIntrinsics.h"
 #include "crossgl/Backend/BackendPlan.h"
+#include "crossgl/Backend/ResourceArrays.h"
 #include "crossgl/Backend/TargetLegalization.h"
 #include "crossgl/Backend/TextureCompare.h"
 #include "crossgl/Basic/Json.h"
@@ -14,6 +15,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -28,6 +30,9 @@ namespace {
 
 constexpr std::string_view kRawStatementBackendInputDiagnostic =
     "opt.hir-raw-statement-backend-input";
+constexpr std::string_view kMetalRuntimeResourceDescriptorArrayTableTypePrefix =
+    "CrossGLMetalRuntimeResourceDescriptorArrayTable_";
+constexpr std::size_t kMetalRuntimeResourceDescriptorArrayTableCapacity = 1024;
 
 bool containsRawStatement(const std::vector<HIRStatement> &statements) {
   for (const HIRStatement &statement : statements) {
@@ -284,8 +289,11 @@ std::string mapMetalType(const HIRType &type) {
       {"bvec3", "bool3"},
       {"bvec4", "bool4"},
       {"mat2", "float2x2"},
+      {"mat2x2", "float2x2"},
       {"mat3", "float3x3"},
+      {"mat3x3", "float3x3"},
       {"mat4", "float4x4"},
+      {"mat4x4", "float4x4"},
       {"sampler", "sampler"},
       {"comparison_sampler", "sampler"},
       {"sampler2D", "texture2d<float>"},
@@ -368,7 +376,64 @@ bool isMetalCubeArrayTexture(std::string_view name) {
          name == "samplerCubeArrayShadow";
 }
 
+bool isMetalRuntimeResourceDescriptorArray(const HIRResource &resource) {
+  return (resource.kind == HIRResourceKind::Texture ||
+          resource.kind == HIRResourceKind::Sampler) &&
+         isRuntimeArrayType(resource.type);
+}
+
+std::string metalRuntimeResourceDescriptorArrayElementType(
+    const HIRResource &resource) {
+  HIRType elementType = pointerlessType(resource.type);
+  elementType.arraySize.reset();
+  return mapMetalType(elementType);
+}
+
+std::string metalIdentifierSuffix(std::string_view text) {
+  std::string suffix;
+  bool previousWasUnderscore = false;
+  for (const char character : text) {
+    const bool alnum = (character >= 'a' && character <= 'z') ||
+                       (character >= 'A' && character <= 'Z') ||
+                       (character >= '0' && character <= '9');
+    if (alnum) {
+      suffix.push_back(character);
+      previousWasUnderscore = false;
+    } else if (!previousWasUnderscore) {
+      suffix.push_back('_');
+      previousWasUnderscore = true;
+    }
+  }
+  while (!suffix.empty() && suffix.back() == '_') {
+    suffix.pop_back();
+  }
+  if (suffix.empty()) {
+    return "resource";
+  }
+  if (suffix.front() >= '0' && suffix.front() <= '9') {
+    suffix.insert(suffix.begin(), '_');
+  }
+  return suffix;
+}
+
+std::string metalRuntimeResourceDescriptorArrayTableTypeName(
+    const HIRResource &resource) {
+  return std::string(kMetalRuntimeResourceDescriptorArrayTableTypePrefix) +
+         metalIdentifierSuffix(
+             metalRuntimeResourceDescriptorArrayElementType(resource));
+}
+
+std::string metalRuntimeResourceDescriptorArrayTableParameterType(
+    const HIRResource &resource) {
+  return "constant " +
+         metalRuntimeResourceDescriptorArrayTableTypeName(resource) + "&";
+}
+
 std::string mapMetalResourceType(const HIRResource &resource) {
+  if (isMetalRuntimeResourceDescriptorArray(resource)) {
+    return metalRuntimeResourceDescriptorArrayTableParameterType(resource);
+  }
+
   switch (resource.kind) {
   case HIRResourceKind::Uniform:
     return "constant " + mapMetalType(pointerlessType(resource.type)) + "&";
@@ -411,20 +476,32 @@ std::string metalResourceAttributeName(HIRResourceKind kind) {
   return "buffer";
 }
 
+std::string metalResourceAttributeName(const HIRResource &resource) {
+  if (isMetalRuntimeResourceDescriptorArray(resource)) {
+    return "buffer";
+  }
+  return metalResourceAttributeName(resource.kind);
+}
+
 std::optional<std::string>
-metalResourceAttributeNamespace(HIRResourceKind kind) {
-  if (!isMetalParameterResource(kind)) {
+metalResourceAttributeNamespace(const HIRResource &resource) {
+  if (!isMetalParameterResource(resource.kind)) {
     return std::nullopt;
   }
-  return metalResourceAttributeName(kind);
+  return metalResourceAttributeName(resource);
 }
+
+using MetalFunctionResourceParameterMap =
+    std::map<std::string, std::vector<const HIRResource *>>;
 
 struct MetalRenderContext {
   const std::vector<HIRStruct> *structs = nullptr;
   const std::vector<HIRConstant> *constants = nullptr;
   const std::vector<HIRResource> *resources = nullptr;
+  const MetalFunctionResourceParameterMap *functionResourceParameters = nullptr;
   std::string_view stageName;
   std::set<std::string> localIdentifiers;
+  std::set<std::string> localZeroIndexIdentifiers;
 };
 
 const HIRResource *findMetalResource(const MetalRenderContext &context,
@@ -481,6 +558,30 @@ metalArrayElementCount(const HIRType &type,
   return parsePositiveStorageSize(*type.arraySize);
 }
 
+std::string metalStorageBufferArrayElementName(std::string_view name,
+                                               std::size_t index);
+
+std::vector<std::string>
+metalResourceParameterNames(const HIRResource &resource,
+                            const std::vector<HIRConstant> *constants) {
+  const std::optional<std::size_t> bufferArrayCount =
+      resource.kind == HIRResourceKind::Buffer
+          ? metalArrayElementCount(resource.type, constants)
+          : std::nullopt;
+  if (!bufferArrayCount.has_value()) {
+    return {resource.name};
+  }
+
+  std::vector<std::string> names;
+  names.reserve(*bufferArrayCount);
+  for (std::size_t arrayIndex = 0; arrayIndex < *bufferArrayCount;
+       ++arrayIndex) {
+    names.push_back(metalStorageBufferArrayElementName(resource.name,
+                                                       arrayIndex));
+  }
+  return names;
+}
+
 std::size_t
 metalResourceArgumentSlotCount(const HIRResource &resource,
                                const std::vector<HIRConstant> *constants) {
@@ -528,7 +629,7 @@ std::map<std::string, std::size_t> assignMetalSetZeroArgumentSlots(
   std::set<std::size_t> usedIndices;
   for (const HIRResource &resource : stage.resources) {
     if (resource.set != 0 ||
-        metalResourceAttributeNamespace(resource.kind) != attributeNamespace) {
+        metalResourceAttributeNamespace(resource) != attributeNamespace) {
       continue;
     }
 
@@ -559,6 +660,9 @@ std::string mapMetalIdentifier(std::string_view text) {
       {"uvec2", "uint2"},   {"uvec3", "uint3"},   {"uvec4", "uint4"},
       {"bvec2", "bool2"},   {"bvec3", "bool3"},   {"bvec4", "bool4"},
       {"mat2", "float2x2"}, {"mat3", "float3x3"}, {"mat4", "float4x4"},
+      {"mat2x2", "float2x2"},
+      {"mat3x3", "float3x3"},
+      {"mat4x4", "float4x4"},
   };
   auto it = names.find(text);
   return it == names.end() ? std::string(text) : it->second;
@@ -777,6 +881,88 @@ bool metalFunctionUsesIdentifier(const HIRFunction &function,
     }
   }
   return false;
+}
+
+bool metalResourceParameterListContains(
+    const std::vector<const HIRResource *> &resources,
+    const HIRResource &resource) {
+  for (const HIRResource *candidate : resources) {
+    if (candidate == &resource || candidate->name == resource.name) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool appendMetalResourceParameter(std::vector<const HIRResource *> &resources,
+                                  const HIRResource &resource) {
+  if (metalResourceParameterListContains(resources, resource)) {
+    return false;
+  }
+  resources.push_back(&resource);
+  return true;
+}
+
+std::set<std::string> metalFunctionCallNames(const HIRFunction &function) {
+  std::set<std::string> names;
+  auto visitor = [&](const HIRExpression &expression) {
+    if (expression.kind == HIRExpressionKind::Call) {
+      names.insert(expression.value);
+    }
+  };
+  visitFunctionExpressions(function, visitor);
+  return names;
+}
+
+MetalFunctionResourceParameterMap
+metalStageFunctionResourceParameters(const HIRStage &stage) {
+  MetalFunctionResourceParameterMap parameters;
+  std::map<std::string, std::set<std::string>> callsByFunction;
+
+  for (const HIRFunction &function : stage.functions) {
+    if (function.name == stage.entryPointName) {
+      continue;
+    }
+
+    std::vector<const HIRResource *> &functionParameters =
+        parameters[function.name];
+    for (const HIRResource &resource : stage.resources) {
+      if (isMetalParameterResource(resource.kind) &&
+          metalFunctionUsesIdentifier(function, resource.name)) {
+        appendMetalResourceParameter(functionParameters, resource);
+      }
+    }
+    callsByFunction.emplace(function.name, metalFunctionCallNames(function));
+  }
+
+  bool changed = true;
+  while (changed) {
+    changed = false;
+    for (const HIRFunction &function : stage.functions) {
+      if (function.name == stage.entryPointName) {
+        continue;
+      }
+
+      std::vector<const HIRResource *> &functionParameters =
+          parameters[function.name];
+      const auto callsIt = callsByFunction.find(function.name);
+      if (callsIt == callsByFunction.end()) {
+        continue;
+      }
+      for (const std::string &calleeName : callsIt->second) {
+        const auto calleeIt = parameters.find(calleeName);
+        if (calleeIt == parameters.end()) {
+          continue;
+        }
+        for (const HIRResource *resource : calleeIt->second) {
+          changed |= appendMetalResourceParameter(functionParameters,
+                                                  *resource);
+        }
+      }
+    }
+  }
+
+  return parameters;
 }
 
 bool metalComputeEntryUsesBuiltin(const HIRStage *stage,
@@ -1401,9 +1587,109 @@ std::optional<std::size_t> parseMetalNonNegativeIndex(std::string_view text) {
   return value;
 }
 
+std::optional<std::int64_t> parseMetalSignedIndex(std::string_view text) {
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  if (text.back() == 'u' || text.back() == 'U') {
+    text.remove_suffix(1);
+  }
+  if (text.empty()) {
+    return std::nullopt;
+  }
+
+  bool negative = false;
+  if (text.front() == '+' || text.front() == '-') {
+    negative = text.front() == '-';
+    text.remove_prefix(1);
+  }
+  if (text.empty()) {
+    return std::nullopt;
+  }
+
+  std::uint64_t magnitude = 0;
+  const std::uint64_t maxMagnitude =
+      negative
+          ? static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) +
+                1u
+          : static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max());
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return std::nullopt;
+    }
+    const std::uint64_t digit =
+        static_cast<std::uint64_t>(character - '0');
+    if (magnitude > (maxMagnitude - digit) / 10u) {
+      return std::nullopt;
+    }
+    magnitude = magnitude * 10u + digit;
+  }
+  if (negative) {
+    if (magnitude == maxMagnitude) {
+      return std::numeric_limits<std::int64_t>::min();
+    }
+    return -static_cast<std::int64_t>(magnitude);
+  }
+  return static_cast<std::int64_t>(magnitude);
+}
+
+std::optional<std::int64_t>
+metalDescriptorArraySignedIndexValue(const HIRExpression &expression,
+                                     const MetalRenderContext &context) {
+  if ((expression.kind == HIRExpressionKind::Group ||
+       expression.kind == HIRExpressionKind::NonUniform) &&
+      expression.children.size() == 1) {
+    return metalDescriptorArraySignedIndexValue(expression.children.front(),
+                                               context);
+  }
+  if (expression.kind == HIRExpressionKind::Unary &&
+      expression.children.size() == 1 &&
+      (expression.value == "+" || expression.value == "-")) {
+    const std::optional<std::int64_t> childIndex =
+        metalDescriptorArraySignedIndexValue(expression.children.front(),
+                                            context);
+    if (!childIndex.has_value()) {
+      return std::nullopt;
+    }
+    if (expression.value == "+") {
+      return childIndex;
+    }
+    if (*childIndex == std::numeric_limits<std::int64_t>::min()) {
+      return std::nullopt;
+    }
+    return -*childIndex;
+  }
+  if (expression.kind == HIRExpressionKind::Literal) {
+    return parseMetalSignedIndex(expression.value);
+  }
+  if (expression.kind == HIRExpressionKind::Identifier &&
+      context.constants != nullptr) {
+    if (context.localIdentifiers.count(expression.value) != 0) {
+      return std::nullopt;
+    }
+    for (const HIRConstant &constant : *context.constants) {
+      if (constant.name == expression.value &&
+          constant.foldedValue.has_value()) {
+        return parseMetalSignedIndex(*constant.foldedValue);
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 std::optional<std::size_t>
 metalDescriptorArrayIndexValue(const HIRExpression &expression,
                                const MetalRenderContext &context) {
+  const std::optional<std::int64_t> signedIndex =
+      metalDescriptorArraySignedIndexValue(expression, context);
+  if (signedIndex.has_value() && *signedIndex >= 0) {
+    return static_cast<std::size_t>(*signedIndex);
+  }
+  if (signedIndex.has_value()) {
+    return std::nullopt;
+  }
   if ((expression.kind == HIRExpressionKind::Group ||
        expression.kind == HIRExpressionKind::NonUniform) &&
       expression.children.size() == 1) {
@@ -1425,6 +1711,42 @@ metalDescriptorArrayIndexValue(const HIRExpression &expression,
     }
   }
   return std::nullopt;
+}
+
+bool isMetalStaticZeroIndexExpression(
+    const HIRExpression &expression,
+    const std::vector<HIRConstant> *constants) {
+  if ((expression.kind == HIRExpressionKind::Group ||
+       expression.kind == HIRExpressionKind::NonUniform) &&
+      expression.children.size() == 1) {
+    return isMetalStaticZeroIndexExpression(expression.children.front(),
+                                           constants);
+  }
+  if (expression.kind == HIRExpressionKind::Unary && expression.value == "+" &&
+      expression.children.size() == 1) {
+    return isMetalStaticZeroIndexExpression(expression.children.front(),
+                                           constants);
+  }
+  if (expression.kind == HIRExpressionKind::Literal) {
+    const std::optional<std::size_t> index =
+        parseMetalNonNegativeIndex(expression.value);
+    return index.has_value() && *index == 0;
+  }
+  if (expression.kind != HIRExpressionKind::Identifier ||
+      constants == nullptr) {
+    return false;
+  }
+  for (const HIRConstant &constant : *constants) {
+    if (constant.name != expression.value || !constant.foldedValue.has_value() ||
+        constant.type.arraySize.has_value() ||
+        (constant.type.name != "int" && constant.type.name != "uint")) {
+      continue;
+    }
+    const std::optional<std::size_t> index =
+        parseMetalNonNegativeIndex(*constant.foldedValue);
+    return index.has_value() && *index == 0;
+  }
+  return false;
 }
 
 const HIRResource *
@@ -1478,8 +1800,47 @@ std::optional<std::string> renderMetalStorageBufferDescriptorArrayIndexAccess(
   return out.str();
 }
 
+std::optional<std::string> renderMetalRuntimeResourceDescriptorArrayIndexAccess(
+    const HIRExpression &expression, const MetalRenderContext &context) {
+  if (expression.kind != HIRExpressionKind::IndexAccess ||
+      expression.children.size() < 2) {
+    return std::nullopt;
+  }
+
+  const HIRExpression *base = &expression.children[0];
+  while ((base->kind == HIRExpressionKind::Group ||
+          base->kind == HIRExpressionKind::NonUniform) &&
+         base->children.size() == 1) {
+    base = &base->children.front();
+  }
+  if (base->kind != HIRExpressionKind::Identifier) {
+    return std::nullopt;
+  }
+  const HIRResource *resource = findMetalResource(context, base->value);
+  if (resource == nullptr ||
+      !isMetalRuntimeResourceDescriptorArray(*resource)) {
+    return std::nullopt;
+  }
+
+  return mapMetalIdentifier(resource->name) + ".descriptors[" +
+         renderMetalExpression(expression.children[1], context) + "]";
+}
+
 bool isMetalZeroIndexExpression(const HIRExpression &expression,
                                 const MetalRenderContext &context) {
+  if ((expression.kind == HIRExpressionKind::Group ||
+       expression.kind == HIRExpressionKind::NonUniform) &&
+      expression.children.size() == 1) {
+    return isMetalZeroIndexExpression(expression.children.front(), context);
+  }
+  if (expression.kind == HIRExpressionKind::Unary && expression.value == "+" &&
+      expression.children.size() == 1) {
+    return isMetalZeroIndexExpression(expression.children.front(), context);
+  }
+  if (expression.kind == HIRExpressionKind::Identifier &&
+      context.localZeroIndexIdentifiers.count(expression.value) != 0) {
+    return true;
+  }
   const std::optional<std::size_t> index =
       metalDescriptorArrayIndexValue(expression, context);
   return index.has_value() && *index == 0;
@@ -1633,6 +1994,31 @@ renderMetalResourceMemberAccess(const HIRExpression &expression,
   return mapMetalIdentifier(base.value) + "->" + expression.value;
 }
 
+void appendMetalHelperResourceArguments(std::ostringstream &out,
+                                        const HIRExpression &expression,
+                                        const MetalRenderContext &context,
+                                        bool &firstArgument) {
+  if (context.functionResourceParameters == nullptr) {
+    return;
+  }
+  const auto helperIt =
+      context.functionResourceParameters->find(expression.value);
+  if (helperIt == context.functionResourceParameters->end()) {
+    return;
+  }
+
+  for (const HIRResource *resource : helperIt->second) {
+    for (const std::string &name :
+         metalResourceParameterNames(*resource, context.constants)) {
+      if (!firstArgument) {
+        out << ", ";
+      }
+      firstArgument = false;
+      out << name;
+    }
+  }
+}
+
 std::string renderMetalExpression(const HIRExpression &expression,
                                   const MetalRenderContext &context) {
   switch (expression.kind) {
@@ -1667,6 +2053,11 @@ std::string renderMetalExpression(const HIRExpression &expression,
                                                                context)) {
       return *descriptorElement;
     }
+    if (const std::optional<std::string> descriptorElement =
+            renderMetalRuntimeResourceDescriptorArrayIndexAccess(expression,
+                                                                 context)) {
+      return *descriptorElement;
+    }
     if (const std::optional<std::string> tailIndex =
             renderMetalRuntimeTailIndexAccess(expression, context)) {
       return *tailIndex;
@@ -1678,6 +2069,10 @@ std::string renderMetalExpression(const HIRExpression &expression,
                ? ""
                : renderMetalExpression(expression.children.front(), context);
   case HIRExpressionKind::Call: {
+    if (const std::optional<std::string> atomicCall =
+            renderMetalAtomicReadModifyWriteCall(expression, context)) {
+      return *atomicCall;
+    }
     if (isMetalWorkgroupBarrierCall(expression, context)) {
       return "threadgroup_barrier(mem_flags::mem_threadgroup)";
     }
@@ -1700,11 +2095,17 @@ std::string renderMetalExpression(const HIRExpression &expression,
 
     std::ostringstream out;
     out << intrinsicName.value_or(mapMetalIdentifier(expression.value)) << "(";
+    bool firstArgument = true;
     for (std::size_t i = 0; i < expression.children.size(); ++i) {
-      if (i != 0) {
+      if (!firstArgument) {
         out << ", ";
       }
+      firstArgument = false;
       out << renderMetalExpression(expression.children[i], context);
+    }
+    if (!intrinsicName.has_value()) {
+      appendMetalHelperResourceArguments(out, expression, context,
+                                         firstArgument);
     }
     out << ")";
     return out.str();
@@ -1756,21 +2157,11 @@ std::string renderMetalStatementInline(const HIRStatement &statement,
     std::ostringstream out;
     out << mapMetalType(statement.declaredType) << " " << statement.name;
     if (statement.value.kind != HIRExpressionKind::Empty) {
-      if (const std::optional<std::string> atomicCall =
-              renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-        out << " = " << *atomicCall;
-      } else {
-        out << " = " << renderMetalExpression(statement.value, context);
-      }
+      out << " = " << renderMetalExpression(statement.value, context);
     }
     return out.str();
   }
   case HIRStatementKind::Assignment:
-    if (const std::optional<std::string> atomicCall =
-            renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-      return renderMetalExpression(statement.target, context) + " = " +
-             *atomicCall;
-    }
     return renderMetalExpression(statement.target, context) + " = " +
            renderMetalExpression(statement.value, context);
   case HIRStatementKind::Expression:
@@ -1811,23 +2202,13 @@ std::string renderMetalStatement(const HIRStatement &statement,
     out << spaces << mapMetalType(statement.declaredType) << " "
         << statement.name;
     if (statement.value.kind != HIRExpressionKind::Empty) {
-      if (const std::optional<std::string> atomicCall =
-              renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-        out << " = " << *atomicCall;
-      } else {
-        out << " = " << renderMetalExpression(statement.value, context);
-      }
+      out << " = " << renderMetalExpression(statement.value, context);
     }
     out << ";";
     break;
   case HIRStatementKind::Assignment:
     out << spaces << renderMetalExpression(statement.target, context) << " = ";
-    if (const std::optional<std::string> atomicCall =
-            renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-      out << *atomicCall;
-    } else {
-      out << renderMetalExpression(statement.value, context);
-    }
+    out << renderMetalExpression(statement.value, context);
     out << ";";
     break;
   case HIRStatementKind::Return:
@@ -1838,12 +2219,7 @@ std::string renderMetalStatement(const HIRStatement &statement,
     out << ";";
     break;
   case HIRStatementKind::Expression:
-    if (const std::optional<std::string> atomicCall =
-            renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-      out << spaces << *atomicCall << ";";
-    } else {
-      out << spaces << renderMetalExpression(statement.value, context) << ";";
-    }
+    out << spaces << renderMetalExpression(statement.value, context) << ";";
     break;
   case HIRStatementKind::Break:
     out << spaces << "break;";
@@ -2027,22 +2403,80 @@ bool metalEntryParameterUsesStageIn(const HIRStage &stage,
   return false;
 }
 
-void collectMetalLocalIdentifiers(const HIRStatement &statement,
-                                  std::set<std::string> &identifiers) {
-  if (statement.kind == HIRStatementKind::Declaration) {
-    identifiers.insert(statement.name);
+void appendMetalHelperResourceParameters(
+    std::ostringstream &out,
+    const std::vector<const HIRResource *> &resourceParameters,
+    const std::vector<HIRConstant> *constants, bool &firstParameter) {
+  for (const HIRResource *resource : resourceParameters) {
+    for (const std::string &name :
+         metalResourceParameterNames(*resource, constants)) {
+      if (!firstParameter) {
+        out << ", ";
+      }
+      firstParameter = false;
+      out << mapMetalResourceType(*resource) << " " << name;
+    }
   }
+}
+
+bool isMetalIntegerIndexType(const HIRType &type) {
+  return !type.arraySize.has_value() &&
+         (type.name == "int" || type.name == "uint");
+}
+
+void collectMetalTokenIdentifierNames(const std::vector<Token> &tokens,
+                                      std::set<std::string> &names) {
+  for (const Token &token : tokens) {
+    if (token.kind == TokenKind::Identifier) {
+      names.insert(std::string(token.text));
+    }
+  }
+}
+
+void collectMetalAssignedLocalIdentifiers(const HIRExpression &target,
+                                          std::set<std::string> &identifiers) {
+  if (target.kind == HIRExpressionKind::Identifier) {
+    identifiers.insert(target.value);
+  }
+}
+
+void collectMetalLocalZeroIndexMetadata(
+    const HIRStatement &statement, const std::vector<HIRConstant> *constants,
+    std::set<std::string> &localIdentifiers,
+    std::set<std::string> &zeroCandidates,
+    std::set<std::string> &invalidatedIdentifiers) {
+  if (statement.kind == HIRStatementKind::Declaration) {
+    if (localIdentifiers.count(statement.name) != 0) {
+      invalidatedIdentifiers.insert(statement.name);
+    }
+    localIdentifiers.insert(statement.name);
+    if (isMetalIntegerIndexType(statement.declaredType) &&
+        isMetalStaticZeroIndexExpression(statement.value, constants)) {
+      zeroCandidates.insert(statement.name);
+    }
+  } else if (statement.kind == HIRStatementKind::Assignment) {
+    collectMetalAssignedLocalIdentifiers(statement.target, invalidatedIdentifiers);
+  } else if (statement.kind == HIRStatementKind::Raw) {
+    collectMetalTokenIdentifierNames(statement.rawTokens, invalidatedIdentifiers);
+  }
+
+  collectMetalTokenIdentifierNames(statement.updateTokens,
+                                   invalidatedIdentifiers);
   for (const HIRStatement &initializer : statement.initializer) {
-    collectMetalLocalIdentifiers(initializer, identifiers);
+    collectMetalLocalZeroIndexMetadata(initializer, constants, localIdentifiers,
+                                       zeroCandidates, invalidatedIdentifiers);
   }
   for (const HIRStatement &update : statement.update) {
-    collectMetalLocalIdentifiers(update, identifiers);
+    collectMetalLocalZeroIndexMetadata(update, constants, localIdentifiers,
+                                       zeroCandidates, invalidatedIdentifiers);
   }
   for (const HIRStatement &child : statement.body) {
-    collectMetalLocalIdentifiers(child, identifiers);
+    collectMetalLocalZeroIndexMetadata(child, constants, localIdentifiers,
+                                       zeroCandidates, invalidatedIdentifiers);
   }
   for (const HIRStatement &child : statement.elseBody) {
-    collectMetalLocalIdentifiers(child, identifiers);
+    collectMetalLocalZeroIndexMetadata(child, constants, localIdentifiers,
+                                       zeroCandidates, invalidatedIdentifiers);
   }
 }
 
@@ -2052,8 +2486,18 @@ MetalRenderContext metalFunctionRenderContext(
   for (const HIRParameter &parameter : function.parameters) {
     context.localIdentifiers.insert(parameter.name);
   }
+
+  std::set<std::string> zeroCandidates;
+  std::set<std::string> invalidatedIdentifiers;
   for (const HIRStatement &statement : function.body) {
-    collectMetalLocalIdentifiers(statement, context.localIdentifiers);
+    collectMetalLocalZeroIndexMetadata(
+        statement, context.constants, context.localIdentifiers, zeroCandidates,
+        invalidatedIdentifiers);
+  }
+  for (const std::string &candidate : zeroCandidates) {
+    if (invalidatedIdentifiers.count(candidate) == 0) {
+      context.localZeroIndexIdentifiers.insert(candidate);
+    }
   }
   return context;
 }
@@ -2061,13 +2505,15 @@ MetalRenderContext metalFunctionRenderContext(
 std::string renderFunction(const HIRStage *stage, const HIRFunction &function,
                            const HIRModule &module,
                            const MetalGraphicsIORoles &graphicsIORoles,
-                           bool entryPoint) {
+                           bool entryPoint,
+                           const MetalFunctionResourceParameterMap
+                               *functionResourceParameters = nullptr) {
   const std::vector<HIRResource> *resources =
       stage == nullptr ? nullptr : &stage->resources;
   const MetalRenderContext context{
-      &module.structs, &module.constants, resources,
+      &module.structs, &module.constants, resources, functionResourceParameters,
       stage == nullptr ? std::string_view{} : std::string_view{stage->stage},
-      {}};
+      {}, {}};
   const MetalRenderContext functionContext =
       metalFunctionRenderContext(context, function);
   std::ostringstream out;
@@ -2125,7 +2571,7 @@ std::string renderFunction(const HIRStage *stage, const HIRFunction &function,
           firstParameter = false;
           out << mapMetalResourceType(resource) << " "
               << metalStorageBufferArrayElementName(resource.name, arrayIndex)
-              << " [[" << metalResourceAttributeName(resource.kind) << "("
+              << " [[" << metalResourceAttributeName(resource) << "("
               << (argumentIndex + arrayIndex) << ")]]";
         }
         continue;
@@ -2135,8 +2581,15 @@ std::string renderFunction(const HIRStage *stage, const HIRFunction &function,
       }
       firstParameter = false;
       out << mapMetalResourceType(resource) << " " << resource.name << " [["
-          << metalResourceAttributeName(resource.kind) << "(" << argumentIndex
+          << metalResourceAttributeName(resource) << "(" << argumentIndex
           << ")]]";
+    }
+  } else if (stage != nullptr && functionResourceParameters != nullptr) {
+    const auto resourceParametersIt =
+        functionResourceParameters->find(function.name);
+    if (resourceParametersIt != functionResourceParameters->end()) {
+      appendMetalHelperResourceParameters(out, resourceParametersIt->second,
+                                          &module.constants, firstParameter);
     }
   }
   out << ") {\n"
@@ -2164,6 +2617,11 @@ void renderMetalStorageBufferDescriptorSelector(
         << metalStorageBufferArrayElementName(resource.name, arrayIndex);
   }
   out << ") {\n";
+  out << "  if (descriptorIndex < 0 || descriptorIndex >= "
+      << *descriptorCount << ") {\n";
+  out << "    return " << metalStorageBufferArrayElementName(resource.name, 0)
+      << ";\n";
+  out << "  }\n";
   out << "  switch (descriptorIndex) {\n";
   for (std::size_t arrayIndex = 0; arrayIndex < *descriptorCount;
        ++arrayIndex) {
@@ -2177,6 +2635,21 @@ void renderMetalStorageBufferDescriptorSelector(
       << ";\n";
   out << "  }\n";
   out << "}\n\n";
+}
+
+std::map<std::string, std::string>
+metalRuntimeResourceDescriptorArrayTableDefinitions(const HIRModule &module) {
+  std::map<std::string, std::string> definitions;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &resource : stage.resources) {
+      if (isMetalRuntimeResourceDescriptorArray(resource)) {
+        definitions.emplace(
+            metalRuntimeResourceDescriptorArrayTableTypeName(resource),
+            metalRuntimeResourceDescriptorArrayElementType(resource));
+      }
+    }
+  }
+  return definitions;
 }
 
 } // namespace
@@ -2240,6 +2713,15 @@ std::string generateMetalSource(const HIRModule &module) {
       deriveMetalGraphicsIORoles(module);
   out << "#include <metal_stdlib>\n";
   out << "using namespace metal;\n\n";
+  const std::map<std::string, std::string> descriptorTableDefinitions =
+      metalRuntimeResourceDescriptorArrayTableDefinitions(module);
+  for (const auto &[tableType, elementType] : descriptorTableDefinitions) {
+    out << "struct " << tableType << " {\n"
+        << "  array<" << elementType << ", "
+        << kMetalRuntimeResourceDescriptorArrayTableCapacity
+        << "> descriptors [[id(0)]];\n"
+        << "};\n\n";
+  }
   if (moduleUsesImplicitSampler(module)) {
     out << "constexpr sampler crossgl_default_sampler(coord::normalized, "
            "address::clamp_to_edge, filter::linear);\n\n";
@@ -2249,7 +2731,7 @@ std::string generateMetalSource(const HIRModule &module) {
   }
 
   const MetalRenderContext moduleContext{
-      &module.structs, &module.constants, nullptr, {}, {}};
+      &module.structs, &module.constants, nullptr, nullptr, {}, {}, {}};
   for (const HIRConstant &constant : module.constants) {
     out << "constant " << mapMetalType(constant.type) << " " << constant.name
         << " = " << renderMetalExpression(constant.value, moduleContext)
@@ -2287,14 +2769,18 @@ std::string generateMetalSource(const HIRModule &module) {
   }
 
   for (const HIRStage &stage : module.stages) {
+    const MetalFunctionResourceParameterMap functionResourceParameters =
+        metalStageFunctionResourceParameters(stage);
     for (const HIRFunction &function : stage.functions) {
       if (function.name != stage.entryPointName) {
-        out << renderFunction(&stage, function, module, graphicsIORoles, false);
+        out << renderFunction(&stage, function, module, graphicsIORoles, false,
+                              &functionResourceParameters);
       }
     }
     const HIRFunction *entry = entryFunction(stage);
     if (entry != nullptr) {
-      out << renderFunction(&stage, *entry, module, graphicsIORoles, true);
+      out << renderFunction(&stage, *entry, module, graphicsIORoles, true,
+                            &functionResourceParameters);
     }
   }
 
@@ -2302,10 +2788,16 @@ std::string generateMetalSource(const HIRModule &module) {
 }
 
 std::string metalResourceABIType(const HIRResource &resource) {
+  if (isMetalRuntimeResourceDescriptorArray(resource)) {
+    return metalRuntimeResourceDescriptorArrayTableParameterType(resource);
+  }
   return mapMetalResourceType(resource);
 }
 
 std::string metalResourceAddressSpace(const HIRResource &resource) {
+  if (isMetalRuntimeResourceDescriptorArray(resource)) {
+    return "constant";
+  }
   switch (resource.kind) {
   case HIRResourceKind::Uniform:
     return "constant";
@@ -2329,6 +2821,10 @@ std::string metalResourceBindingClass(HIRResourceKind kind) {
   return metalResourceAttributeName(kind);
 }
 
+std::string metalResourceBindingClass(const HIRResource &resource) {
+  return metalResourceAttributeName(resource);
+}
+
 bool metalResourceIsKernelParameter(HIRResourceKind kind) {
   return isMetalParameterResource(kind);
 }
@@ -2348,7 +2844,7 @@ metalResourceArgumentIndex(const HIRStage &stage, std::string_view resourceName,
   }
 
   const std::optional<std::string> targetAttribute =
-      metalResourceAttributeNamespace(target->kind);
+      metalResourceAttributeNamespace(*target);
   if (!targetAttribute.has_value()) {
     return std::nullopt;
   }
@@ -2358,7 +2854,7 @@ metalResourceArgumentIndex(const HIRStage &stage, std::string_view resourceName,
   std::set<std::size_t> usedIndices;
   for (const HIRResource &resource : stage.resources) {
     if (resource.set != 0 ||
-        metalResourceAttributeNamespace(resource.kind) != targetAttribute) {
+        metalResourceAttributeNamespace(resource) != targetAttribute) {
       continue;
     }
     const auto assigned = setZeroArgumentIndices.find(resource.name);
@@ -2380,7 +2876,7 @@ metalResourceArgumentIndex(const HIRStage &stage, std::string_view resourceName,
   };
 
   for (const HIRResource &resource : stage.resources) {
-    if (metalResourceAttributeNamespace(resource.kind) != targetAttribute) {
+    if (metalResourceAttributeNamespace(resource) != targetAttribute) {
       continue;
     }
     const std::size_t slotCount =
@@ -2524,7 +3020,7 @@ std::vector<std::string> metalDeclarationRecordMismatches(
         mismatches, "addressSpace", expectedAddressSpace, record.addressSpace);
   }
   const std::string expectedBindingClass =
-      kernelArgument ? metalResourceBindingClass(source.kind) : "threadgroup";
+      kernelArgument ? metalResourceBindingClass(source) : "threadgroup";
   if (record.bindingClass != expectedBindingClass) {
     appendMetalDeclarationRecordMismatch(mismatches, "bindingClass",
                                          expectedBindingClass,
@@ -2709,7 +3205,8 @@ bool validateMetalRuntimeTailBlockIndexes(const HIRModule &module,
       continue;
     }
     const MetalRenderContext context{&module.structs, &module.constants,
-                                     &stage.resources, stage.stage, {}};
+                                     &stage.resources, nullptr, stage.stage,
+                                     {}, {}};
     for (const HIRFunction &function : stage.functions) {
       const MetalRenderContext functionContext =
           metalFunctionRenderContext(context, function);
@@ -2734,6 +3231,8 @@ bool validateMetalStorageBufferArrayIndexExpression(
         metalArrayElementCount(resource->type, context.constants);
     const std::optional<std::size_t> descriptorIndex =
         metalDescriptorArrayIndexValue(expression.children[1], context);
+    const std::optional<std::int64_t> signedDescriptorIndex =
+        metalDescriptorArraySignedIndexValue(expression.children[1], context);
     if (expression.children[1].kind == HIRExpressionKind::NonUniform) {
       // Target-specific nonuniform policy is reported separately.
     } else if (!descriptorCount.has_value()) {
@@ -2748,6 +3247,14 @@ bool validateMetalStorageBufferArrayIndexExpression(
                         "Metal expanded storage-buffer descriptor array '" +
                             resource->name + "' index " +
                             std::to_string(*descriptorIndex) +
+                            " is outside the fixed descriptor count");
+      return false;
+    } else if (signedDescriptorIndex.has_value() &&
+               *signedDescriptorIndex < 0) {
+      diagnostics.error("metal.unsupported-storage-buffer-array-index",
+                        "Metal expanded storage-buffer descriptor array '" +
+                            resource->name + "' index " +
+                            std::to_string(*signedDescriptorIndex) +
                             " is outside the fixed descriptor count");
       return false;
     }
@@ -2773,7 +3280,8 @@ bool validateMetalStorageBufferArrayIndexes(const HIRModule &module,
   bool valid = true;
   for (const HIRStage &stage : module.stages) {
     const MetalRenderContext context{&module.structs, &module.constants,
-                                     &stage.resources, stage.stage, {}};
+                                     &stage.resources, nullptr, stage.stage,
+                                     {}, {}};
     for (const HIRFunction &function : stage.functions) {
       const MetalRenderContext functionContext =
           metalFunctionRenderContext(context, function);
@@ -2807,7 +3315,7 @@ bool validateMetalArgumentSlots(const HIRModule &module,
         continue;
       }
 
-      const std::string bindingClass = metalResourceBindingClass(resource.kind);
+      const std::string bindingClass = metalResourceBindingClass(resource);
       const std::size_t slotCount =
           metalResourceArgumentSlotCount(resource, &module.constants);
       for (std::size_t offset = 0; offset < slotCount; ++offset) {
@@ -2875,21 +3383,32 @@ bool metalTypeHasNestedArray(const HIRType &type) {
          splitMetalArrayDimensions(*type.arraySize).size() > 1;
 }
 
-bool metalSupportsDynamicNestedHelperArrayRead(const HIRType &type) {
+bool metalSupportsDynamicNestedHelperArrayRead(const HIRModule &module,
+                                               const HIRType &type) {
   const std::string baseName = baseTypeName(type);
   return baseName == "bool" || isNumericScalarTypeName(baseName) ||
-         isVectorType(baseName);
+         isVectorType(baseName) || isMatrixType(baseName) ||
+         findStructByName(module.structs, baseName) != nullptr;
+}
+
+bool metalSupportsDynamicNestedHelperArrayWrite(const HIRModule &module,
+                                                const HIRType &type) {
+  const std::string baseName = baseTypeName(type);
+  return baseName == "bool" || isNumericScalarTypeName(baseName) ||
+         isVectorType(baseName) || isMatrixType(baseName) ||
+         findStructByName(module.structs, baseName) != nullptr;
 }
 
 std::set<std::string>
-metalUnsupportedDynamicNestedArrayParameterNames(const HIRModule &module,
-                                                 const HIRFunction &function) {
+metalUnsupportedDynamicNestedArrayParameterNames(
+    const HIRModule &module, const HIRFunction &function,
+    bool (*isSupported)(const HIRModule &, const HIRType &)) {
   std::set<std::string> names;
   for (const HIRParameter &parameter : function.parameters) {
     if (functionParameterArrayShape(module, parameter.type) ==
             HIRFunctionParameterArrayShape::FixedSize &&
         metalTypeHasNestedArray(parameter.type) &&
-        !metalSupportsDynamicNestedHelperArrayRead(parameter.type)) {
+        !isSupported(module, parameter.type)) {
       names.insert(parameter.name);
     }
   }
@@ -2920,7 +3439,8 @@ std::string joinMetalLabels(const std::set<std::string> &labels) {
 
 bool metalIsStaticArrayIndexExpression(const HIRModule &module,
                                        const HIRExpression &expression) {
-  const MetalRenderContext context{nullptr, &module.constants, nullptr, {}, {}};
+  const MetalRenderContext context{nullptr, &module.constants, nullptr, nullptr,
+                                   {}, {}, {}};
   return metalDescriptorArrayIndexValue(expression, context).has_value();
 }
 
@@ -3023,7 +3543,8 @@ void collectMetalDynamicNestedFunctionParameterArrayReads(
     const HIRModule &module, const HIRFunction &function,
     std::set<std::string> &labels) {
   const std::set<std::string> parameterArrays =
-      metalUnsupportedDynamicNestedArrayParameterNames(module, function);
+      metalUnsupportedDynamicNestedArrayParameterNames(
+          module, function, metalSupportsDynamicNestedHelperArrayRead);
   if (parameterArrays.empty()) {
     return;
   }
@@ -3037,7 +3558,8 @@ void collectMetalDynamicNestedFunctionParameterArrayWrites(
     const HIRModule &module, const HIRFunction &function,
     std::set<std::string> &labels) {
   const std::set<std::string> parameterArrays =
-      metalUnsupportedDynamicNestedArrayParameterNames(module, function);
+      metalUnsupportedDynamicNestedArrayParameterNames(
+          module, function, metalSupportsDynamicNestedHelperArrayWrite);
   if (parameterArrays.empty()) {
     return;
   }
@@ -3067,8 +3589,8 @@ bool validateMetalDynamicNestedFunctionParameterArrayReads(
   diagnostics.error(
       "metal.unsupported-dynamic-nested-helper-array-read",
       "Metal backend supports dynamic nested helper-array reads only for "
-      "fixed-size scalar/vector helper array parameter(s); unsupported "
-      "parameter(s): " +
+      "fixed-size scalar/vector/matrix/struct helper array parameter(s); "
+      "unsupported parameter(s): " +
           joinMetalLabels(labels) +
           "; use literal or folded constant indices for other nested helper "
           "array element types in Metal source packages");
@@ -3095,8 +3617,8 @@ bool validateMetalDynamicNestedFunctionParameterArrayWrites(
   diagnostics.error(
       "metal.unsupported-dynamic-nested-helper-array-write",
       "Metal backend supports dynamic nested helper-array writes only for "
-      "fixed-size scalar/vector helper array parameter(s); unsupported "
-      "parameter(s): " +
+      "fixed-size scalar/vector/matrix/struct helper array parameter(s); "
+      "unsupported parameter(s): " +
           joinMetalLabels(labels) +
           "; use literal or folded constant indices for other nested helper "
           "array element types in Metal source packages");
@@ -3121,11 +3643,58 @@ const HIRFunction *findMetalCallableFunction(const HIRModule &module,
   return nullptr;
 }
 
+HIRFunctionParameterArrayCallFeatureSupport
+metalFunctionParameterArrayCallFeatureSupport(
+    HIRFunctionParameterArrayCallFeature feature) {
+  if (feature ==
+          HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments ||
+      feature == HIRFunctionParameterArrayCallFeature::StructElements) {
+    return HIRFunctionParameterArrayCallFeatureSupport::Supported;
+  }
+  return functionParameterArrayCallFeatureSupport(feature);
+}
+
+bool metalSampledTextureOrSamplerArrayParameterSupported(const HIRModule &module,
+                                                         const HIRType &type) {
+  return functionParameterArrayShape(module, type) ==
+             HIRFunctionParameterArrayShape::FixedSize &&
+         (isTextureResourceType(type.name) || isSamplerResourceType(type.name));
+}
+
+HIRFunctionParameterArrayCallFeatureSupport
+metalFunctionParameterArrayCallFeatureSupport(
+    const HIRModule &module, const HIRType &parameterType,
+    HIRFunctionParameterArrayCallFeature feature) {
+  if (feature ==
+          HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments &&
+      !metalSampledTextureOrSamplerArrayParameterSupported(module,
+                                                           parameterType)) {
+    return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+  }
+  return metalFunctionParameterArrayCallFeatureSupport(feature);
+}
+
+HIRFunctionParameterArrayCallFeatureSupport
+metalFunctionParameterArrayCallFeaturesSupport(
+    const HIRModule &module, const HIRType &parameterType,
+    std::span<const HIRFunctionParameterArrayCallFeature> features) {
+  for (HIRFunctionParameterArrayCallFeature feature : features) {
+    if (metalFunctionParameterArrayCallFeatureSupport(module, parameterType,
+                                                      feature) ==
+        HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
+      return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+    }
+  }
+  return HIRFunctionParameterArrayCallFeatureSupport::Supported;
+}
+
 std::string unsupportedMetalFunctionParameterArrayCallFeatures(
+    const HIRModule &module, const HIRType &parameterType,
     const std::vector<HIRFunctionParameterArrayCallFeature> &features) {
   std::string result;
   for (const HIRFunctionParameterArrayCallFeature feature : features) {
-    if (functionParameterArrayCallFeatureSupport(feature) !=
+    if (metalFunctionParameterArrayCallFeatureSupport(module, parameterType,
+                                                      feature) !=
         HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
       continue;
     }
@@ -3176,7 +3745,8 @@ bool validateMetalFunctionParameterArrayCallExpression(
     const std::vector<HIRFunctionParameterArrayCallFeature> features =
         functionParameterArrayCallArgumentFeatures(
             module, caller, expression.children[argumentIndex], stage);
-    if (functionParameterArrayCallFeaturesSupport(
+    if (metalFunctionParameterArrayCallFeaturesSupport(
+            module, parameter.type,
             std::span<const HIRFunctionParameterArrayCallFeature>{
                 features.data(), features.size()}) ==
         HIRFunctionParameterArrayCallFeatureSupport::Supported) {
@@ -3189,7 +3759,8 @@ bool validateMetalFunctionParameterArrayCallExpression(
             std::to_string(argumentIndex) + " passed to helper function '" +
             callee->name + "' from function '" + caller.name +
             "' because function-parameter array feature(s) " +
-            unsupportedMetalFunctionParameterArrayCallFeatures(features) +
+            unsupportedMetalFunctionParameterArrayCallFeatures(
+                module, parameter.type, features) +
             " are unsupported for Metal's value-copy helper-array "
             "ABI");
     valid = false;
@@ -3458,7 +4029,7 @@ bool validateMetalNonUniformDescriptorIndexes(const HIRModule &module,
   bool valid = true;
   bool reported = false;
   const MetalRenderContext moduleContext{
-      &module.structs, &module.constants, nullptr, {}, {}};
+      &module.structs, &module.constants, nullptr, nullptr, {}, {}, {}};
   for (const HIRConstant &constant : module.constants) {
     valid = validateMetalNonUniformDescriptorIndexExpression(
                 constant.value, moduleContext, diagnostics, reported, false,
@@ -3472,13 +4043,69 @@ bool validateMetalNonUniformDescriptorIndexes(const HIRModule &module,
   }
   for (const HIRStage &stage : module.stages) {
     const MetalRenderContext stageContext{&module.structs, &module.constants,
-                                          &stage.resources, stage.stage, {}};
+                                          &stage.resources, nullptr,
+                                          stage.stage, {}, {}};
     for (const HIRFunction &function : stage.functions) {
       valid = validateMetalNonUniformDescriptorIndexFunction(
                   function, stageContext, diagnostics, reported) &&
               valid;
     }
   }
+  return valid;
+}
+
+bool isMetalConstructorTypeSupported(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string baseName = baseTypeName(type);
+  return baseName == "bool" || isNumericScalarTypeName(baseName) ||
+         isVectorType(baseName) || isMatrixType(baseName);
+}
+
+bool validateMetalConstructorExpressions(const HIRModule &module,
+                                         DiagnosticEngine &diagnostics) {
+  bool valid = true;
+  auto visitor = [&](const HIRExpression &expression) {
+    if (expression.kind != HIRExpressionKind::Constructor ||
+        backendConstructorShapeSupported(
+            expression, isMetalConstructorTypeSupported,
+            [](const HIRExpression &) { return true; })) {
+      return;
+    }
+    diagnostics.error(
+        "metal.unsupported-constructor",
+        "Metal backend cannot emit constructor '" + expression.value +
+            "' with result type '" + formatType(expression.type) +
+            "' and " + std::to_string(expression.children.size()) +
+            " operand(s)");
+    valid = false;
+  };
+  visitModuleExpressions(module, visitor, true);
+  return valid;
+}
+
+bool validateMetalRuntimeResourceDescriptorArrayPolicy(
+    const HIRModule &module, DiagnosticEngine &diagnostics) {
+  bool valid = true;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &resource : stage.resources) {
+      if (!isMetalRuntimeResourceDescriptorArray(resource)) {
+        continue;
+      }
+      const std::string elementType =
+          metalRuntimeResourceDescriptorArrayElementType(resource);
+      if (elementType.empty()) {
+        diagnostics.error(
+            "metal.unsupported-runtime-resource-array",
+            "Metal backend cannot derive a typed argument-buffer descriptor "
+            "table for runtime texture/sampler descriptor array '" +
+                resource.name + "'");
+        valid = false;
+      }
+    }
+  }
+
   return valid;
 }
 
@@ -3538,6 +4165,9 @@ bool validateMetalResources(const HIRModule &module,
         continue;
       }
       if (isRuntimeArrayType(resource.type)) {
+        if (isMetalRuntimeResourceDescriptorArray(resource)) {
+          continue;
+        }
         diagnostics.error(
             "metal.unsupported-runtime-resource-array",
             "Metal backend does not yet support unsized/runtime resource array "
@@ -3561,8 +4191,12 @@ bool validateMetalResources(const HIRModule &module,
       validateMetalFunctionParameterArrayCalls(module, diagnostics) && valid;
   valid =
       validateMetalNonUniformDescriptorIndexes(module, diagnostics) && valid;
+  valid = validateMetalConstructorExpressions(module, diagnostics) && valid;
   valid = validateMetalStorageBufferArrayIndexes(module, diagnostics) && valid;
   valid = validateMetalRuntimeTailBlockIndexes(module, diagnostics) && valid;
+  valid = validateMetalRuntimeResourceDescriptorArrayPolicy(module,
+                                                           diagnostics) &&
+          valid;
   if (!valid) {
     return false;
   }
@@ -3644,8 +4278,12 @@ buildMetalBinary(const HIRModule &module,
     metadata << metalCompileOptionsJson(module, compileOptions);
   }
 
-  int status = runProcess(
-      metalCompileCommand(compileOptions, result.sourcePath, result.airPath));
+  const std::vector<std::string> metalCommand =
+      metalCompileCommand(compileOptions, result.sourcePath, result.airPath);
+  result.metalCompilerProvenance = captureToolInvocationProvenance(
+      "xcrun metal", metalCommand, result.airPath.string(), {}, "metal");
+  int status = runProcess(metalCommand);
+  completeToolInvocationProvenance(*result.metalCompilerProvenance, status);
   if (status != 0) {
     diagnostics.error("metal.compile-failed",
                       "Apple metal compiler failed for generated source");
@@ -3656,8 +4294,13 @@ buildMetalBinary(const HIRModule &module,
     return result;
   }
 
-  status = runProcess(
-      metalLibraryCommand(compileOptions, result.airPath, result.metallibPath));
+  const std::vector<std::string> metallibCommand =
+      metalLibraryCommand(compileOptions, result.airPath, result.metallibPath);
+  result.metallibProvenance = captureToolInvocationProvenance(
+      "xcrun metallib", metallibCommand, result.metallibPath.string(), {},
+      "metallib");
+  status = runProcess(metallibCommand);
+  completeToolInvocationProvenance(*result.metallibProvenance, status);
   if (status != 0) {
     diagnostics.error("metal.library-failed",
                       "metallib failed for generated AIR");

@@ -1,0 +1,41 @@
+shader DirectXGraphicsStorageBufferDescriptorArrayConflictShader {
+    const int DEBUG_VALUE_COUNT = 2;
+
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            output.uv = input.texCoord;
+            output.position = vec4(input.position, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        layout(set = 0, binding = 2) buffer vec4* debugValues[DEBUG_VALUE_COUNT];
+        layout(set = 0, binding = 3) buffer vec4* overlapValues;
+
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            output.color = debugValues[1][0] + overlapValues[0];
+            return output;
+        }
+    }
+}

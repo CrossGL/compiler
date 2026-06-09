@@ -14,7 +14,7 @@ namespace crossgl {
 namespace {
 
 // Same-name signatures must stay contiguous for overload-set lookup.
-constexpr std::array<HIRIntrinsicSignature, 31> kHIRIntrinsics = {{
+constexpr std::array<HIRIntrinsicSignature, 34> kHIRIntrinsics = {{
     {"abs", HIRIntrinsicResultRule::FirstArgument, 1, std::size_t{1},
      HIRIntrinsicArgumentDomain::NumericScalarOrVector},
     {"atomicAdd",
@@ -123,6 +123,8 @@ constexpr std::array<HIRIntrinsicSignature, 31> kHIRIntrinsics = {{
      HIRIntrinsicArgumentDomain::FloatScalarOrVector},
     {"fract", HIRIntrinsicResultRule::FirstArgument, 1, std::size_t{1},
      HIRIntrinsicArgumentDomain::FloatScalarOrVector},
+    {"inverse", HIRIntrinsicResultRule::FirstArgument, 1, std::size_t{1},
+     HIRIntrinsicArgumentDomain::FloatMatrix},
     {"length", HIRIntrinsicResultRule::FixedFloat, 1, std::size_t{1},
      HIRIntrinsicArgumentDomain::FloatScalar},
     {"length", HIRIntrinsicResultRule::FixedFloat, 1, std::size_t{1},
@@ -151,10 +153,16 @@ constexpr std::array<HIRIntrinsicSignature, 31> kHIRIntrinsics = {{
      HIRIntrinsicArgumentCompatibilityRule::SameTypeAsFirst},
     {"sin", HIRIntrinsicResultRule::FirstArgument, 1, std::size_t{1},
      HIRIntrinsicArgumentDomain::FloatScalarOrVector},
+    {"smoothstep", HIRIntrinsicResultRule::FirstArgument, 3, std::size_t{3},
+     HIRIntrinsicArgumentDomain::FloatScalarOrVector,
+     HIRIntrinsicArgumentCompatibilityRule::
+         SameTypeOrScalarComponentWithFirst},
     {"sqrt", HIRIntrinsicResultRule::FirstArgument, 1, std::size_t{1},
      HIRIntrinsicArgumentDomain::FloatScalarOrVector},
     {"tan", HIRIntrinsicResultRule::FirstArgument, 1, std::size_t{1},
      HIRIntrinsicArgumentDomain::FloatScalarOrVector},
+    {"transpose", HIRIntrinsicResultRule::FirstArgument, 1, std::size_t{1},
+     HIRIntrinsicArgumentDomain::FloatMatrix},
     {"workgroupBarrier", HIRIntrinsicResultRule::Void, 0, std::size_t{0},
      HIRIntrinsicArgumentDomain::Any,
      HIRIntrinsicArgumentCompatibilityRule::None, {}, 0,
@@ -216,6 +224,13 @@ bool isFloatScalarType(const HIRType &type) {
   return isFloatLike(baseTypeName(type));
 }
 
+bool isFloatMatrixType(const HIRType &type) {
+  if (type.name.empty() || type.arraySize.has_value()) {
+    return false;
+  }
+  return isMatrixType(baseTypeName(type));
+}
+
 bool isFloatScalarOrVectorType(const HIRType &type) {
   if (type.name.empty() || type.arraySize.has_value()) {
     return false;
@@ -256,6 +271,8 @@ bool acceptsArgumentDomain(HIRIntrinsicArgumentDomain domain,
     return isFloatValueType(type);
   case HIRIntrinsicArgumentDomain::FloatScalar:
     return isFloatScalarType(type);
+  case HIRIntrinsicArgumentDomain::FloatMatrix:
+    return isFloatMatrixType(type);
   case HIRIntrinsicArgumentDomain::NumericScalarOrVector:
     return isNumericScalarOrVectorType(type);
   case HIRIntrinsicArgumentDomain::FloatScalarOrVector:
@@ -713,6 +730,8 @@ std::string formatHIRIntrinsicArgumentDomainExpectation(
     return "a floating-point scalar, vector, or matrix type";
   case HIRIntrinsicArgumentDomain::FloatScalar:
     return "a floating-point scalar type";
+  case HIRIntrinsicArgumentDomain::FloatMatrix:
+    return "a floating-point matrix type";
   case HIRIntrinsicArgumentDomain::NumericScalarOrVector:
     return "a numeric scalar or vector type";
   case HIRIntrinsicArgumentDomain::FloatScalarOrVector:

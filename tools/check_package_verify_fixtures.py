@@ -21,6 +21,7 @@ from check_package_integrity_fixtures import (
     package_path,
     rewrite_debug_metadata_locations,
     rewrite_manifest,
+    STORAGE_IMAGE_ARRAY_ELEMENT_COUNT,
     write_nonuniform_diagnostics,
     write_nonuniform_reflection,
     write_storage_image_reflection,
@@ -46,6 +47,10 @@ VERIFY_DIAGNOSTIC_CODE_PREFIX = "package.verify."
 LEGACY_REQUIREMENTS_FALLBACK_CODE = (
     "package.verify.legacy-artifact-requirements-fallback"
 )
+SYNTHETIC_STORAGE_IMAGE_ARRAY_SOURCE_COORDINATES = {
+    "maskAtlases": {"stage": "compute", "set": 0, "binding": 1},
+    "unsignedAtlases": {"stage": "compute", "set": 0, "binding": 1},
+}
 
 
 def package_artifact_requirement_evidence_ids(requirements):
@@ -73,6 +78,22 @@ def package_artifact_requirement_evidence_ids(requirements):
             "package-artifact.planned-native-source-evidence.allowed"
         )
     return evidence_ids
+
+
+def manifest_with_required_path_artifacts(manifest, required_path_artifacts):
+    updated = copy.deepcopy(manifest)
+    requirements = updated["packageArtifactRequirements"]
+    requirements["requiredPathArtifacts"] = list(required_path_artifacts)
+    requirements["evidenceIds"] = package_artifact_requirement_evidence_ids(
+        requirements
+    )
+    return updated
+
+
+def manifest_with_requirement_evidence_ids(manifest, evidence_ids):
+    updated = copy.deepcopy(manifest)
+    updated["packageArtifactRequirements"]["evidenceIds"] = list(evidence_ids)
+    return updated
 
 
 def run_verify(cglc, package, json_output=False, source=None):
@@ -274,7 +295,9 @@ def reflection_target_binding_coordinate(target, record):
     raise ValueError(f"unsupported storage-image parity target {target!r}")
 
 
-def expected_storage_image_array_target_coordinate(target):
+def expected_storage_image_array_target_coordinate(target, resource):
+    source_set = resource.get("set")
+    source_binding = resource.get("binding")
     if target == "directx":
         return {
             "target": "directx",
@@ -284,9 +307,9 @@ def expected_storage_image_array_target_coordinate(target):
             "addressSpace": "unordered-access",
             "registerClass": "uav",
             "descriptorType": "UAV",
-            "registerSpace": 0,
-            "register": 1,
-            "argumentIndex": 1,
+            "registerSpace": source_set,
+            "register": source_binding,
+            "argumentIndex": source_binding,
         }
     if target == "opengl":
         return {
@@ -296,9 +319,9 @@ def expected_storage_image_array_target_coordinate(target):
             "abi": "programResourceBinding",
             "addressSpace": "image",
             "bindingClass": "image",
-            "programResourceBinding": 1,
-            "sourceSet": 0,
-            "sourceBinding": 1,
+            "programResourceBinding": source_binding,
+            "sourceSet": source_set,
+            "sourceBinding": source_binding,
         }
     if target == "metal":
         return {
@@ -308,9 +331,9 @@ def expected_storage_image_array_target_coordinate(target):
             "abi": "kernelArgument",
             "addressSpace": "texture",
             "bindingClass": "texture",
-            "argumentIndex": 1,
-            "sourceSet": 0,
-            "sourceBinding": 1,
+            "argumentIndex": source_binding,
+            "sourceSet": source_set,
+            "sourceBinding": source_binding,
         }
     if target == "vulkan":
         return {
@@ -322,10 +345,31 @@ def expected_storage_image_array_target_coordinate(target):
             "bindingClass": "storageImage",
             "descriptorType": "VK_DESCRIPTOR_TYPE_STORAGE_IMAGE",
             "storageClass": "UniformConstant",
-            "descriptorSet": 0,
-            "descriptorBinding": 1,
+            "descriptorSet": source_set,
+            "descriptorBinding": source_binding,
         }
     raise ValueError(f"unsupported storage-image parity target {target!r}")
+
+
+def expected_synthetic_storage_image_array_source_coordinate(array_name):
+    return dict(SYNTHETIC_STORAGE_IMAGE_ARRAY_SOURCE_COORDINATES[array_name])
+
+
+def expected_array_element_count(resource):
+    if resource.get("arrayElementCount") is not None:
+        return resource.get("arrayElementCount")
+    dimensions = resource.get("arrayDimensions")
+    if not isinstance(dimensions, list) or not dimensions:
+        return None
+    element_count = 1
+    for dimension in dimensions:
+        if not isinstance(dimension, dict):
+            return None
+        dimension_count = dimension.get("elementCount")
+        if dimension_count is None:
+            return None
+        element_count *= dimension_count
+    return element_count
 
 
 def expected_target_legalization_health(evidence):
@@ -782,6 +826,7 @@ def expect_storage_image_binding_parity(
     manifest,
     payload,
     atomic=False,
+    expected_source_coordinate=None,
 ):
     errors = []
 
@@ -800,11 +845,11 @@ def expect_storage_image_binding_parity(
         )
         return errors
 
-    source_coordinate = {
-        "stage": "compute",
-        "set": 0,
-        "binding": 1,
-    }
+    source_coordinate = (
+        expected_source_coordinate
+        if expected_source_coordinate is not None
+        else reflection_source_coordinate(resource)
+    )
     expect_equal(
         errors,
         case_name,
@@ -824,7 +869,7 @@ def expect_storage_image_binding_parity(
         case_name,
         f"reflection.targetResourceBindings.{array_name}.targetCoordinate",
         reflection_target_binding_coordinate(target, binding),
-        expected_storage_image_array_target_coordinate(target),
+        expected_storage_image_array_target_coordinate(target, resource),
     )
     expect_equal(
         errors,
@@ -838,7 +883,7 @@ def expect_storage_image_binding_parity(
         case_name,
         f"reflection.targetResourceBindings.{array_name}.arrayElementCount",
         binding.get("arrayElementCount"),
-        2,
+        expected_array_element_count(resource),
     )
 
     if target not in {"directx", "opengl"}:
@@ -1609,6 +1654,210 @@ def run_cases(root, cglc):
         )
 
         package, source, manifest = make_package(
+            tmp_dir, "manifest-requirement-evidence-missing-id"
+        )
+        expected_evidence_ids = package_artifact_requirement_evidence_ids(
+            manifest["packageArtifactRequirements"]
+        )
+        missing_requirement_evidence_id = manifest_with_requirement_evidence_ids(
+            manifest,
+            expected_evidence_ids[:-1],
+        )
+        rewrite_manifest(package, missing_requirement_evidence_id)
+        expected = (
+            "package manifest packageArtifactRequirements.evidenceIds must "
+            "match recorded packageArtifactRequirements"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "manifest-requirement-evidence-missing-id",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "manifest-requirement-evidence-missing-id-json",
+                package,
+                expected,
+                source=source,
+                manifest=missing_requirement_evidence_id,
+                expected_code=(
+                    "package.verify.target-legalization-package-artifact-"
+                    "requirement-evidence-mismatch"
+                ),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "manifest-requirement-evidence-extra-id"
+        )
+        expected_evidence_ids = package_artifact_requirement_evidence_ids(
+            manifest["packageArtifactRequirements"]
+        )
+        extra_requirement_evidence_id = manifest_with_requirement_evidence_ids(
+            manifest,
+            expected_evidence_ids
+            + ["target-legalization.v1.directx.package-artifact.fixture.extra"],
+        )
+        rewrite_manifest(package, extra_requirement_evidence_id)
+        expected = (
+            "package manifest packageArtifactRequirements.evidenceIds must "
+            "match recorded packageArtifactRequirements"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "manifest-requirement-evidence-extra-id",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "manifest-requirement-evidence-extra-id-json",
+                package,
+                expected,
+                source=source,
+                manifest=extra_requirement_evidence_id,
+                expected_code=(
+                    "package.verify.target-legalization-package-artifact-"
+                    "requirement-evidence-mismatch"
+                ),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "manifest-requirement-artifact-contract-drift"
+        )
+        artifact_contract_drift = manifest_with_required_path_artifacts(
+            manifest, ["backendSource"]
+        )
+        rewrite_manifest(package, artifact_contract_drift)
+        expected = (
+            "package manifest "
+            "packageArtifactRequirements.requiredPathArtifacts must match "
+            "manifest target contract"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "manifest-requirement-artifact-contract-drift",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "manifest-requirement-artifact-contract-drift-json",
+                package,
+                expected,
+                source=source,
+                manifest=artifact_contract_drift,
+                expected_code="package.verify.invalid-manifest",
+            )
+        )
+
+        artifact_contract_drift_cases = (
+            (
+                "manifest-requirement-artifact-contract-reordered",
+                ["nativeBinary", "backendSource"],
+            ),
+            (
+                "manifest-requirement-artifact-contract-extra",
+                ["backendSource", "nativeBinary", "intermediate"],
+            ),
+        )
+        for case_name, required_path_artifacts in artifact_contract_drift_cases:
+            package, source, manifest = make_package(tmp_dir, case_name)
+            artifact_contract_drift = manifest_with_required_path_artifacts(
+                manifest,
+                required_path_artifacts,
+            )
+            rewrite_manifest(package, artifact_contract_drift)
+            errors.extend(
+                expect_failure(
+                    cglc,
+                    case_name,
+                    package,
+                    expected,
+                    source=source,
+                )
+            )
+            errors.extend(
+                expect_json_failure(
+                    root,
+                    cglc,
+                    tmp_dir,
+                    f"{case_name}-json",
+                    package,
+                    expected,
+                    source=source,
+                    manifest=artifact_contract_drift,
+                    expected_code="package.verify.invalid-manifest",
+                )
+            )
+
+        package, source, manifest = make_package(
+            tmp_dir, "manifest-requirement-native-policy-contract-drift"
+        )
+        native_policy_drift = copy.deepcopy(manifest)
+        native_policy_drift["packageArtifactRequirements"][
+            "requiresNativeBinaryStatus"
+        ] = False
+        native_policy_drift["packageArtifactRequirements"][
+            "allowsPlannedNativeBinary"
+        ] = False
+        native_policy_drift["packageArtifactRequirements"][
+            "allowsPlannedNativeSourceEvidence"
+        ] = False
+        native_policy_drift["packageArtifactRequirements"]["evidenceIds"] = (
+            package_artifact_requirement_evidence_ids(
+                native_policy_drift["packageArtifactRequirements"]
+            )
+        )
+        rewrite_manifest(package, native_policy_drift)
+        expected = (
+            "package manifest packageArtifactRequirements native binary policy "
+            "must match manifest target contract"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "manifest-requirement-native-policy-contract-drift",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "manifest-requirement-native-policy-contract-drift-json",
+                package,
+                expected,
+                source=source,
+                manifest=native_policy_drift,
+                expected_code="package.verify.invalid-manifest",
+            )
+        )
+
+        package, source, manifest = make_package(
             tmp_dir, "debug-metadata-incomplete-legalization-projection"
         )
         debug_metadata = read_artifact_json(package, manifest, "debugMetadata")
@@ -2303,6 +2552,11 @@ def run_cases(root, cglc):
                             manifest,
                             payload,
                             atomic=atomic,
+                            expected_source_coordinate=(
+                                expected_synthetic_storage_image_array_source_coordinate(
+                                    "unsignedAtlases" if atomic else "maskAtlases"
+                                )
+                            ),
                         )
                     ),
                 )
@@ -2492,6 +2746,26 @@ def run_cases(root, cglc):
                 break
         write_json(target_explanation_path, target_explanation)
 
+        def expect_recorded_native_requirements(payload):
+            case_errors = []
+            summary = payload.get("summary", {})
+            expect_equal(
+                case_errors,
+                "recorded-requirements-no-native-status-json",
+                "summary.nativeBinaryStatus",
+                summary.get("nativeBinaryStatus"),
+                None,
+            )
+            evidence = summary.get("targetLegalizationEvidence", {})
+            expect_equal(
+                case_errors,
+                "recorded-requirements-no-native-status-json",
+                "summary.targetLegalizationEvidence.packageMode",
+                evidence.get("packageMode"),
+                "native",
+            )
+            return case_errors
+
         errors.extend(
             expect_success(
                 cglc,
@@ -2510,6 +2784,7 @@ def run_cases(root, cglc):
                 package,
                 recorded_requirements,
                 source=source,
+                extra_check=expect_recorded_native_requirements,
             )
         )
 
@@ -2534,8 +2809,8 @@ def run_cases(root, cglc):
         rewrite_manifest(package, planned_status_disallowed)
         add_native_artifact_descriptor(package, planned_status_disallowed)
         expected = (
-            "package manifest packageArtifactRequirements does not allow "
-            "nativeBinaryStatus planned"
+            "package manifest packageArtifactRequirements native binary policy "
+            "must match manifest target contract"
         )
         errors.extend(
             expect_failure(
@@ -2556,7 +2831,7 @@ def run_cases(root, cglc):
                 expected,
                 source=source,
                 manifest=planned_status_disallowed,
-                expected_code="package.verify.planned-native-status-disallowed",
+                expected_code="package.verify.invalid-manifest",
             )
         )
 
@@ -3004,6 +3279,42 @@ def run_cases(root, cglc):
             )
         )
 
+        package, source, manifest = make_package(
+            tmp_dir, "planned-status-produced-native"
+        )
+        write_json(
+            package_path(package, manifest["artifacts"]["nativeBinary"]),
+            {"fixture": "planned native binary should not be produced"},
+        )
+        expected = (
+            "nativeBinaryStatus planned requires the nativeBinary artifact path "
+            "to be declared but not produced"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "planned-status-produced-native",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "planned-status-produced-native-json",
+                package,
+                expected,
+                source=source,
+                manifest=manifest,
+                expected_code=(
+                    "package.verify.planned-native-status-with-produced-native"
+                ),
+            )
+        )
+
         package, _source, manifest = make_package(tmp_dir, "reflection-mismatch")
         reflection_mismatch = base_reflection(manifest)
         reflection_mismatch["nativeBinary"] = "backend/directx/other.dxil"
@@ -3152,6 +3463,30 @@ def run_cases(root, cglc):
                 manifest,
                 "sourceType must match reflected resource",
                 "package.verify.reflection-target-resource-identity-mismatch",
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-binding-array-dimensions-mismatch"
+        )
+        reflection_array_dimensions_mismatch = write_storage_image_reflection(
+            package, manifest
+        )
+        reflection_array_dimensions_mismatch["targetResourceBindings"][1][
+            "arrayDimensions"
+        ][0]["elementCount"] = STORAGE_IMAGE_ARRAY_ELEMENT_COUNT + 1
+        write_json(package / "reflection.json", reflection_array_dimensions_mismatch)
+        errors.extend(
+            expect_reflection_binding_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-binding-array-dimensions-mismatch",
+                package,
+                source,
+                manifest,
+                "arrayDimensions must match reflected resource array metadata",
+                "package.verify.reflection-target-resource-binding-array-mismatch",
             )
         )
 

@@ -75,6 +75,9 @@
     "sizeBytes": {
       "$ref": "#/$defs/sizeBytes"
     },
+    "spirvDependencies": {
+      "$ref": "#/$defs/spirvDependencies"
+    },
     "sourcePath": {
       "$ref": "#/$defs/normalizedPath"
     },
@@ -282,6 +285,47 @@
         }
       }
     },
+    "spirvResultId": {
+      "type": "string",
+      "minLength": 2,
+      "pattern": "^%\\S+$"
+    },
+    "spirvInstructionSet": {
+      "type": "string",
+      "minLength": 1
+    },
+    "spirvExtendedInstructionSetImport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resultId",
+        "instructionSet"
+      ],
+      "properties": {
+        "resultId": {
+          "$ref": "#/$defs/spirvResultId"
+        },
+        "instructionSet": {
+          "$ref": "#/$defs/spirvInstructionSet"
+        }
+      }
+    },
+    "spirvDependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extendedInstructionSets"
+      ],
+      "properties": {
+        "extendedInstructionSets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/spirvExtendedInstructionSetImport"
+          }
+        }
+      }
+    },
     "validationStatus": {
       "type": "string",
       "enum": [
@@ -363,6 +407,37 @@
         },
         "argumentsSha256": {
           "$ref": "#/$defs/sha256"
+        },
+        "commandShape": {
+          "type": "string",
+          "minLength": 1
+        },
+        "responseFilePath": {
+          "$ref": "#/$defs/normalizedPath"
+        },
+        "outputPath": {
+          "$ref": "#/$defs/normalizedPath"
+        },
+        "outputSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "outputSizeBytes": {
+          "$ref": "#/$defs/sizeBytes"
+        },
+        "provenanceStatus": {
+          "type": "string",
+          "enum": [
+            "captured",
+            "succeeded",
+            "failed",
+            "missing-tool",
+            "not-started",
+            "incomplete"
+          ]
+        },
+        "provenanceDetail": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },

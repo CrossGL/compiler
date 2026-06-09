@@ -1,0 +1,14 @@
+shader OpenGLMatrixStorageBufferShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer mat4* transforms;
+    layout(set = 0, binding = 1) buffer float* values;
+
+    void main() {
+      mat4 transform = transforms[0];
+      transforms[1] = transform;
+      values[0] = 1.0;
+      return;
+    }
+  }
+}

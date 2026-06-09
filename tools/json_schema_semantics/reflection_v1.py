@@ -496,6 +496,18 @@ def source_resource_coordinate(resource):
     return (resource["stage"], resource["set"], resource["binding"])
 
 
+def fixed_array_dimension_product(dimensions):
+    if not dimensions:
+        return None
+
+    product = 1
+    for dimension in dimensions:
+        if dimension["kind"] != "fixed" or "elementCount" not in dimension:
+            return None
+        product *= dimension["elementCount"]
+    return product
+
+
 def validate_reflection_resource_links(errors, instance, entry_points):
     target = instance["target"]
     resource_map = {}
@@ -569,6 +581,14 @@ def validate_reflection_resource_links(errors, instance, entry_points):
                 resource.get("arrayDimensions", []),
                 "source resource arrayDimensions",
             )
+            source_fixed_product = fixed_array_dimension_product(
+                resource.get("arrayDimensions", [])
+            )
+            if source_fixed_product is not None and "arrayElementCount" not in binding:
+                errors.append(
+                    f"{binding_path}.arrayElementCount: required for fixed "
+                    "source resource arrayDimensions"
+                )
             for field in ["set", "binding"]:
                 if field in resource or field in binding:
                     add_equal_error(

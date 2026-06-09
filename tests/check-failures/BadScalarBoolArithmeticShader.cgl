@@ -1,0 +1,8 @@
+shader BadScalarBoolArithmeticShader {
+  compute {
+    void main() {
+      int bad = 1 + true;
+      return;
+    }
+  }
+}

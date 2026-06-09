@@ -29,12 +29,26 @@ def validate_source_span(errors, path, span):
         errors.append(f"{path}.endColumn: expected > column for same-line span")
 
 
+def span_identity(span):
+    return (
+        span["file"],
+        span["line"],
+        span["column"],
+        span["offset"],
+        span["length"],
+        span["endLine"],
+        span["endColumn"],
+        span["endOffset"],
+    )
+
+
 def validate_semantics(instance):
     errors = []
     generated_file = instance["generatedFile"]
     if not is_stable_relative_path(generated_file):
         errors.append("$.generatedFile: expected stable relative POSIX source path")
 
+    seen_mappings = set()
     for index, mapping in enumerate(instance["mappings"]):
         mapping_path = f"$.mappings[{index}]"
         generated = mapping["generated"]
@@ -45,4 +59,8 @@ def validate_semantics(instance):
             errors.append(
                 f"{mapping_path}.generated.file: expected to match $.generatedFile"
             )
+        mapping_identity = (span_identity(generated), span_identity(original))
+        if mapping_identity in seen_mappings:
+            errors.append(f"{mapping_path}: duplicate generated/original span pair")
+        seen_mappings.add(mapping_identity)
     return errors

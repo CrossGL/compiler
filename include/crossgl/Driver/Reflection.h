@@ -11,6 +11,8 @@
 
 namespace crossgl {
 
+class DiagnosticEngine;
+
 struct ReflectionParameter {
   std::string name;
   std::string type;
@@ -51,6 +53,7 @@ struct ReflectionResource {
   std::optional<std::size_t> binding;
   std::optional<std::string> addressSpace;
   std::optional<std::string> storageImageFormat;
+  std::optional<std::string> storageImageAccess;
 };
 
 struct ReflectionStorageBufferFieldLayout {
@@ -91,6 +94,7 @@ struct ReflectionTargetResourceBinding {
   std::optional<std::string> storageClass;
   std::optional<std::string> spirvType;
   std::optional<std::string> storageImageFormat;
+  std::optional<std::string> storageImageAccess;
   std::optional<std::size_t> argumentIndex;
   std::optional<std::size_t> set;
   std::optional<std::size_t> binding;
@@ -195,6 +199,14 @@ ReflectionDocument buildReflectionDocument(
 ReflectionDocument buildReflectionDocument(
     const HIRModule &module, const TargetLegalizationContract &contract,
     const std::filesystem::path &nativeBinaryPath);
+std::optional<ReflectionDocument> buildReflectionDocument(
+    const HIRModule &module, TargetKind target,
+    const std::filesystem::path &nativeBinaryPath,
+    DiagnosticEngine &diagnostics);
+std::optional<ReflectionDocument> buildReflectionDocument(
+    const HIRModule &module, const TargetLegalizationContract &contract,
+    const std::filesystem::path &nativeBinaryPath,
+    DiagnosticEngine &diagnostics);
 
 std::string reflectionJson(const HIRModule &module, TargetKind target,
                            const std::filesystem::path &nativeBinaryPath);

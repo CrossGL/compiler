@@ -23,6 +23,16 @@
       "vulkan.package.native-artifact"
     ],
     "missingCapabilities": [],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.vulkan.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
     "diagnostics": [],
     "rewrites": [
       {
@@ -58,9 +68,13 @@
     "evidenceIds": [
       "target-legalization.v1.vulkan.abi.entry-point",
       "target-legalization.v1.vulkan.decision",
+      "target-legalization.v1.vulkan.package-mode.native",
       "target-legalization.v1.vulkan.package-provenance.native-package-available",
       "target-legalization.v1.vulkan.resource-bindings.empty",
-      "target-legalization.v1.vulkan.rewrite.not-required"
+      "target-legalization.v1.vulkan.rewrite.not-required",
+      "target-legalization.v1.vulkan.state.legalized",
+      "target-legalization.v1.vulkan.support.native",
+      "target-legalization.v1.vulkan.tool-requirements.empty"
     ]
   }
 }

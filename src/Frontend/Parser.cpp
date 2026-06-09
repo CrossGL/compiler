@@ -59,6 +59,10 @@ bool isVarToken(const Token &token) {
          (token.kind == TokenKind::Identifier && token.text == "var");
 }
 
+bool isFnToken(const Token &token) {
+  return token.kind == TokenKind::Identifier && token.text == "fn";
+}
+
 bool isVarResourceStart(const Token &token, const Token &next) {
   return isVarToken(token) && isOperatorToken(next, "<");
 }
@@ -210,9 +214,6 @@ std::optional<std::string> unsupportedShaderItemForm(const Token &token) {
   if (isUnsupportedExtendedStageName(text)) {
     return "stage '" + text + "'";
   }
-  if (text == "fn") {
-    return "fn-style function declarations";
-  }
   if (isUnsupportedImportName(text)) {
     return "source import declarations";
   }
@@ -233,12 +234,6 @@ std::optional<std::string> unsupportedStructItemForm(const Token &token) {
 std::string unsupportedPatternControlForm(std::string_view text) {
   if (text == "match") {
     return "match/pattern control statements";
-  }
-  if (text == "switch" || text == "case" || text == "default") {
-    return "switch/case/default statements";
-  }
-  if (text == "do") {
-    return "do while statements";
   }
   return std::string(text) + " statements";
 }
@@ -264,16 +259,12 @@ bool isForInStatement(const std::vector<Token> &tokens, std::size_t index) {
   return false;
 }
 
-bool isLetMutDeclaration(const std::vector<Token> &tokens, std::size_t index) {
-  return isIdentifierText(tokens[index], "let") && index + 1 < tokens.size() &&
-         isIdentifierText(tokens[index + 1], "mut");
-}
-
 bool hasMalformedControlHeader(const std::vector<Token> &tokens,
                                std::size_t index) {
-  if (!isIdentifierText(tokens[index], "if") &&
-      !isIdentifierText(tokens[index], "while") &&
-      !isIdentifierText(tokens[index], "for")) {
+  const bool isIf = isIdentifierText(tokens[index], "if");
+  const bool isWhile = isIdentifierText(tokens[index], "while");
+  const bool isFor = isIdentifierText(tokens[index], "for");
+  if (!isIf && !isWhile && !isFor) {
     return false;
   }
 
@@ -282,7 +273,23 @@ bool hasMalformedControlHeader(const std::vector<Token> &tokens,
   }
 
   const std::size_t openIndex = index + 1;
-  if (openIndex >= tokens.size() || tokens[openIndex].kind != TokenKind::LParen) {
+  if (openIndex >= tokens.size()) {
+    return true;
+  }
+
+  if (tokens[openIndex].kind != TokenKind::LParen) {
+    if (isFor) {
+      return true;
+    }
+    for (std::size_t cursor = openIndex; cursor < tokens.size(); ++cursor) {
+      const TokenKind kind = tokens[cursor].kind;
+      if (kind == TokenKind::LBrace) {
+        return cursor == openIndex;
+      }
+      if (kind == TokenKind::Semicolon || kind == TokenKind::RBrace) {
+        return true;
+      }
+    }
     return true;
   }
 
@@ -674,6 +681,10 @@ std::optional<ConstantDecl> Parser::parseConstant() {
 }
 
 std::optional<FunctionDecl> Parser::parseFunction() {
+  if (isFnToken(current())) {
+    return parseFnStyleFunction();
+  }
+
   auto returnType = parseType();
   if (!returnType || !check(TokenKind::Identifier)) {
     synchronize();
@@ -704,6 +715,59 @@ std::optional<FunctionDecl> Parser::parseFunction() {
       function.returnType = std::move(*trailingReturn);
     }
   }
+  if (match(TokenKind::Semicolon)) {
+    return function;
+  }
+  function.bodyTokens = parseBalancedBody();
+  diagnoseUnsupportedFunctionBodyForms(function.bodyTokens);
+  return function;
+}
+
+std::optional<FunctionDecl> Parser::parseFnStyleFunction() {
+  expect(TokenKind::Identifier, "expected 'fn'");
+
+  if (!check(TokenKind::Identifier)) {
+    diagnostics_.error("parse.expected-function-name",
+                       "expected function name after 'fn'",
+                       current().location);
+    synchronize();
+    return std::nullopt;
+  }
+
+  FunctionDecl function;
+  function.name = current().text;
+  function.location = current().location;
+  advance();
+
+  if (check(TokenKind::Operator) && current().text == "<") {
+    diagnoseUnsupportedNativeV0("generic function declarations",
+                                current().location);
+    skipDeclarationOrBlock();
+    return std::nullopt;
+  }
+
+  expect(TokenKind::LParen, "expected '(' after function name");
+  function.parameters = parseParameters(/*allowColonStyle=*/true);
+  expect(TokenKind::RParen, "expected ')' after parameters");
+
+  if (!(check(TokenKind::Operator) && current().text == "-" &&
+        peek().kind == TokenKind::Operator && peek().text == ">")) {
+    diagnostics_.error("parse.expected-token",
+                       "expected '->' after fn-style parameters",
+                       current().location);
+    skipDeclarationOrBlock();
+    return std::nullopt;
+  }
+
+  advance();
+  advance();
+  auto returnType = parseType();
+  if (!returnType) {
+    synchronize();
+    return std::nullopt;
+  }
+  function.returnType = std::move(*returnType);
+
   if (match(TokenKind::Semicolon)) {
     return function;
   }
@@ -955,15 +1019,17 @@ std::optional<ResourceLayoutDecl> Parser::parseResourceLayout() {
 
     const std::string value = joinTokenText(valueTokens);
     const std::optional<std::size_t> parsedValue = parseSizeLiteral(value);
-    if (key == "set" || key == "group") {
+    if (key == "set" || key == "group" || key == "location") {
       if (parsedValue.has_value()) {
         layout.set = *parsedValue;
         if (!valueTokens.empty()) {
           layout.setSpan = sourceSpan(keyLocation, valueTokens.back().location);
         }
       } else {
+        const std::string label = key == "location" ? "location" : "set";
         diagnostics_.error("parse.invalid-resource-set",
-                           "resource layout set must be a non-negative integer",
+                           "resource layout " + label +
+                               " must be a non-negative integer",
                            keyLocation);
       }
     } else if (key == "binding" || key == "register") {
@@ -1085,7 +1151,7 @@ std::optional<WorkgroupSizeDecl> Parser::parseStageLayout() {
   return layout;
 }
 
-std::vector<Parameter> Parser::parseParameters() {
+std::vector<Parameter> Parser::parseParameters(bool allowColonStyle) {
   std::vector<Parameter> parameters;
   auto rejectInvalidVoidParameter = [&](SourceLocation location) {
     diagnostics_.error("parse.invalid-void-parameter",
@@ -1107,6 +1173,32 @@ std::vector<Parameter> Parser::parseParameters() {
         rejectInvalidVoidParameter(voidLocation);
         return parameters;
       }
+    }
+
+    if (allowColonStyle && isNameToken(current().kind) &&
+        peek().kind == TokenKind::Colon) {
+      Parameter parameter;
+      parameter.name = current().text;
+      parameter.location = current().location;
+      advance();
+      expect(TokenKind::Colon, "expected ':' after parameter name");
+      auto type = parseType();
+      if (!type) {
+        synchronize();
+        break;
+      }
+      if (type->name == "void") {
+        rejectInvalidVoidParameter(type->location);
+        return parameters;
+      }
+      parameter.type = std::move(*type);
+      parseArrayDeclaratorSuffix(parameter.type,
+                                 "expected ']' after parameter array size");
+      parameters.push_back(std::move(parameter));
+      if (!match(TokenKind::Comma)) {
+        break;
+      }
+      continue;
     }
 
     auto type = parseType();
@@ -1238,6 +1330,10 @@ std::optional<StageDecl> Parser::parseStage() {
 }
 
 bool Parser::looksLikeFunction() const {
+  if (isFnToken(current()) && peek().kind == TokenKind::Identifier &&
+      peek(2).kind == TokenKind::LParen) {
+    return true;
+  }
   return (current().kind == TokenKind::Identifier ||
           current().kind == TokenKind::KeywordUniform ||
           current().kind == TokenKind::KeywordBuffer ||
@@ -1390,19 +1486,13 @@ void Parser::diagnoseUnsupportedFunctionBodyForms(
       continue;
     }
 
-    if (token.text == "match" || token.text == "switch" ||
-        token.text == "case" || token.text == "default" ||
-        token.text == "loop" || token.text == "do") {
+    if (token.text == "match") {
       diagnoseUnsupportedNativeV0(unsupportedPatternControlForm(token.text),
                                   token.location);
       return;
     }
     if (isForInStatement(tokens, index)) {
       diagnoseUnsupportedNativeV0("for-in loop statements", token.location);
-      return;
-    }
-    if (isLetMutDeclaration(tokens, index)) {
-      diagnoseUnsupportedNativeV0("let mut declarations", token.location);
       return;
     }
     if (hasMalformedControlHeader(tokens, index)) {

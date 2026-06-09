@@ -590,9 +590,14 @@ def validate_manifest(root: Path, payload: Any) -> list[str]:
     corpus_names: set[str] = set()
     default_categories: set[str] = set()
     default_cases: set[str] = set()
+    default_fixture_order: list[str] = []
     default_source_hashes: dict[str, str] = {}
     default_targets_by_category: dict[str, set[str]] = {}
     default_categories_by_target: dict[str, set[str]] = {}
+    expected_default_targets_by_fixture = {
+        fixture_name: tuple(targets)
+        for fixture_name, _, _, targets in EXPECTED_MILESTONE6_FIXTURES
+    }
 
     for corpus_index, corpus_value in enumerate(corpora):
         corpus_path = f"$.corpora[{corpus_index}]"
@@ -649,6 +654,21 @@ def validate_manifest(root: Path, payload: Any) -> list[str]:
                         f"{fixture_path}.name: duplicate fixture name {fixture_name!r}"
                     )
                 fixture_names.add(fixture_name)
+
+                if corpus_name == default_corpus:
+                    default_fixture_order.append(fixture_name)
+                    expected_targets = expected_default_targets_by_fixture.get(
+                        fixture_name
+                    )
+                    if (
+                        expected_targets is not None
+                        and set(targets) == set(expected_targets)
+                        and targets != expected_targets
+                    ):
+                        errors.append(
+                            f"{fixture_path}.targets: expected canonical target "
+                            f"order {list(expected_targets)!r}, got {list(targets)!r}"
+                        )
 
                 for target in targets:
                     case_id = f"{fixture_name}::{target}"
@@ -725,6 +745,18 @@ def validate_manifest(root: Path, payload: Any) -> list[str]:
         expected_cases = set(EXPECTED_MILESTONE6_CASES)
         missing_cases = sorted(expected_cases - default_cases)
         extra_cases = sorted(default_cases - expected_cases)
+        expected_fixture_order = [
+            fixture_name for fixture_name, _, _, _ in EXPECTED_MILESTONE6_FIXTURES
+        ]
+        if (
+            set(default_fixture_order) == set(expected_fixture_order)
+            and default_fixture_order != expected_fixture_order
+        ):
+            errors.append(
+                f"$.corpora[{default_corpus}].fixtures: expected canonical "
+                f"fixture order {expected_fixture_order!r}, got "
+                f"{default_fixture_order!r}"
+            )
         for case_id in missing_cases:
             errors.append(
                 f"$.corpora[{default_corpus}].fixtures: missing Milestone 6 "
@@ -947,6 +979,28 @@ def run_self_test() -> None:
             stale_native_summary_fields,
             "stale-native-summary-fields",
             "expected canonical coverage values",
+        )
+
+        unordered_default_fixtures = clone_manifest(manifest)
+        unordered_default_fixtures["corpora"][0]["fixtures"] = list(
+            reversed(unordered_default_fixtures["corpora"][0]["fixtures"])
+        )
+        expect_invalid(
+            root,
+            unordered_default_fixtures,
+            "unordered-default-fixtures",
+            "expected canonical fixture order",
+        )
+
+        unordered_default_targets = clone_manifest(manifest)
+        unordered_default_targets["corpora"][0]["fixtures"][0]["targets"] = list(
+            reversed(unordered_default_targets["corpora"][0]["fixtures"][0]["targets"])
+        )
+        expect_invalid(
+            root,
+            unordered_default_targets,
+            "unordered-default-targets",
+            "expected canonical target order",
         )
 
         stale_hash = clone_manifest(manifest)

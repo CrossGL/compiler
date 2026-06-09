@@ -71,5 +71,6 @@ bool shouldDiagnoseTypeMismatch(const HIRType &expected, const HIRType &actual);
 
 HIRType scalarTypeForVector(std::string_view vectorType);
 std::optional<std::size_t> vectorWidthFromName(std::string_view name);
+std::optional<std::size_t> matrixElementCountFromName(std::string_view name);
 
 } // namespace crossgl

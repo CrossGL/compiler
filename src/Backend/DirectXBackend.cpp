@@ -12,6 +12,7 @@
 #include "crossgl/Backend/TextureSample.h"
 #include "crossgl/Backend/TextureTypes.h"
 #include "crossgl/Backend/Toolchain.h"
+#include "crossgl/Basic/SHA256.h"
 #include "crossgl/Frontend/TokenText.h"
 #include "crossgl/HIR/TypeSemantics.h"
 
@@ -198,6 +199,69 @@ bool isNumericScalarVectorOrMatrixType(std::string_view name) {
   return isNumericScalarOrVectorType(name) || isMatrixType(name);
 }
 
+std::optional<std::size_t> matrixDimensionFromName(std::string_view name) {
+  if (name == "mat2" || name == "mat2x2") {
+    return std::size_t{2};
+  }
+  if (name == "mat3" || name == "mat3x3") {
+    return std::size_t{3};
+  }
+  if (name == "mat4" || name == "mat4x4") {
+    return std::size_t{4};
+  }
+  return std::nullopt;
+}
+
+bool isDirectXFloatVectorType(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string baseName = baseTypeName(type);
+  return vectorWidthFromName(baseName).has_value() &&
+         baseTypeName(scalarTypeForVector(baseName)) == "float";
+}
+
+bool isDirectXMatrixVectorMultiplyOperandPair(const HIRType &matrixType,
+                                              const HIRType &vectorType,
+                                              const HIRType &resultType) {
+  const std::optional<std::size_t> matrixDimension =
+      matrixDimensionFromName(baseTypeName(matrixType));
+  const std::optional<std::size_t> vectorWidth =
+      vectorWidthFromName(baseTypeName(vectorType));
+  return matrixDimension.has_value() && vectorWidth.has_value() &&
+         *matrixDimension == *vectorWidth &&
+         isDirectXFloatVectorType(vectorType) &&
+         baseTypeName(vectorType) == baseTypeName(resultType) &&
+         !resultType.arraySize.has_value();
+}
+
+bool isDirectXMatrixProductExpression(const HIRExpression &expression) {
+  if (expression.kind != HIRExpressionKind::Binary || expression.value != "*" ||
+      expression.children.size() != 2) {
+    return false;
+  }
+
+  const HIRType &leftType = expression.children[0].type;
+  const HIRType &rightType = expression.children[1].type;
+  if (isDirectXMatrixVectorMultiplyOperandPair(leftType, rightType,
+                                               expression.type) ||
+      isDirectXMatrixVectorMultiplyOperandPair(rightType, leftType,
+                                               expression.type)) {
+    return true;
+  }
+
+  const std::optional<std::size_t> leftDimension =
+      matrixDimensionFromName(baseTypeName(leftType));
+  const std::optional<std::size_t> rightDimension =
+      matrixDimensionFromName(baseTypeName(rightType));
+  const std::optional<std::size_t> resultDimension =
+      matrixDimensionFromName(baseTypeName(expression.type));
+  return leftDimension.has_value() && rightDimension.has_value() &&
+         resultDimension.has_value() && *leftDimension == *rightDimension &&
+         *leftDimension == *resultDimension && !leftType.arraySize.has_value() &&
+         !rightType.arraySize.has_value() && !expression.type.arraySize.has_value();
+}
+
 bool isSupportedLocalArrayType(const HIRModule &module, const HIRType &type) {
   if (!type.arraySize.has_value() ||
       functionParameterArrayShape(module, type) !=
@@ -223,9 +287,14 @@ std::string hlslValueType(const HIRModule *module, const HIRType &type) {
 
 std::string hlslDeclarator(const HIRModule *module, const HIRType &type,
                            std::string_view name) {
-  const std::string baseType = type.arraySize.has_value()
-                                   ? hlslTypeName(stripPointer(type.name))
-                                   : hlslValueType(module, type);
+  std::string baseType = type.arraySize.has_value()
+                             ? hlslTypeName(stripPointer(type.name))
+                             : hlslValueType(module, type);
+  if (baseType.empty() && module != nullptr && type.arraySize.has_value()) {
+    if (const HIRStruct *structure = findStruct(*module, stripPointer(type.name))) {
+      baseType = structure->name;
+    }
+  }
   if (baseType.empty()) {
     return "";
   }
@@ -236,19 +305,20 @@ std::string hlslDeclarator(const HIRModule *module, const HIRType &type,
   return declarator;
 }
 
-bool isSupportedFunctionParameterType(const HIRType &type) {
-  if (!type.arraySize.has_value()) {
-    return isSupportedValueType(type);
+std::vector<std::string_view>
+directxArrayDimensions(std::string_view arraySize) {
+  std::vector<std::string_view> dimensions;
+  std::size_t begin = 0;
+  while (begin <= arraySize.size()) {
+    const std::size_t separator = arraySize.find("][", begin);
+    if (separator == std::string_view::npos) {
+      dimensions.push_back(arraySize.substr(begin));
+      break;
+    }
+    dimensions.push_back(arraySize.substr(begin, separator - begin));
+    begin = separator + 2;
   }
-  return !type.arraySize->empty() &&
-         !hlslTypeName(stripPointer(type.name)).empty();
-}
-
-bool isSupportedFunctionReturnType(const HIRType &type) {
-  if (type.name == "void" && !type.arraySize.has_value()) {
-    return true;
-  }
-  return isSupportedValueType(type);
+  return dimensions;
 }
 
 std::string hlslStructFieldType(const HIRModule &module, const HIRType &type) {
@@ -262,7 +332,7 @@ std::string hlslStructFieldType(const HIRModule &module, const HIRType &type) {
 }
 
 bool hlslStorageBufferScalarTypeSupported(std::string_view name) {
-  return isNumericScalarOrVectorType(name) && !hlslTypeName(name).empty();
+  return isNumericScalarVectorOrMatrixType(name) && !hlslTypeName(name).empty();
 }
 
 bool hlslUniformBufferScalarTypeSupported(std::string_view name) {
@@ -296,6 +366,24 @@ bool isDirectXDescriptorResourceKind(HIRResourceKind kind) {
          kind == HIRResourceKind::Sampler;
 }
 
+std::string directxResourceRegisterClass(const HIRResource &resource) {
+  switch (resource.kind) {
+  case HIRResourceKind::Uniform:
+    return "b";
+  case HIRResourceKind::Buffer:
+  case HIRResourceKind::StorageImage:
+    return "u";
+  case HIRResourceKind::Texture:
+    return "t";
+  case HIRResourceKind::Sampler:
+    return "s";
+  case HIRResourceKind::Shared:
+  case HIRResourceKind::Value:
+    break;
+  }
+  return "";
+}
+
 std::span<const HIRResourceKind>
 directxRuntimeDescriptorRegisterClassKinds(HIRResourceKind kind) {
   static constexpr std::array<HIRResourceKind, 1> uniformKinds = {
@@ -324,15 +412,173 @@ directxRuntimeDescriptorRegisterClassKinds(HIRResourceKind kind) {
   return {};
 }
 
-bool directxResourceArrayShapeSupported(const HIRModule &module,
-                                        const HIRResource &resource) {
-  if (!isDirectXDescriptorResourceKind(resource.kind)) {
+bool directxSameResourceDeclaration(const HIRResource &lhs,
+                                    const HIRResource &rhs) {
+  return lhs.kind == rhs.kind && lhs.type.name == rhs.type.name &&
+         lhs.type.arraySize == rhs.type.arraySize && lhs.name == rhs.name &&
+         lhs.set == rhs.set && lhs.binding == rhs.binding &&
+         lhs.storageImageAccess == rhs.storageImageAccess &&
+         lhs.storageImageFormat == rhs.storageImageFormat;
+}
+
+bool directxResourcesShareRegisterSpace(const HIRResource &lhs,
+                                        const HIRResource &rhs) {
+  const std::string lhsRegisterClass = directxResourceRegisterClass(lhs);
+  return !lhsRegisterClass.empty() &&
+         lhsRegisterClass == directxResourceRegisterClass(rhs) &&
+         lhs.set == rhs.set;
+}
+
+std::optional<std::size_t>
+directxParseLiteralDescriptorCount(std::string_view text) {
+  if (!text.empty() && (text.back() == 'u' || text.back() == 'U')) {
+    text.remove_suffix(1);
+  }
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  std::size_t value = 0;
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return std::nullopt;
+    }
+    value = value * 10 + static_cast<std::size_t>(character - '0');
+  }
+  return value;
+}
+
+std::optional<std::size_t>
+directxResolveDescriptorCountDimension(const HIRModule &module,
+                                       std::string_view text) {
+  const std::optional<std::size_t> literal =
+      directxParseLiteralDescriptorCount(text);
+  if (literal.has_value()) {
+    return literal;
+  }
+  for (const HIRConstant &constant : module.constants) {
+    if (constant.name == text && constant.foldedValue.has_value() &&
+        !constant.type.arraySize.has_value() &&
+        (constant.type.name == "int" || constant.type.name == "uint")) {
+      return directxParseLiteralDescriptorCount(*constant.foldedValue);
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t>
+directxFixedDescriptorCount(const HIRModule &module,
+                            const HIRResource &resource) {
+  if (!resource.type.arraySize.has_value()) {
+    return 1;
+  }
+  if (resource.type.arraySize->empty()) {
+    return std::nullopt;
+  }
+  std::size_t descriptorCount = 1;
+  for (const std::string_view dimension :
+       directxArrayDimensions(*resource.type.arraySize)) {
+    const std::optional<std::size_t> dimensionCount =
+        directxResolveDescriptorCountDimension(module, dimension);
+    if (!dimensionCount.has_value()) {
+      return std::nullopt;
+    }
+    descriptorCount *= *dimensionCount;
+  }
+  return descriptorCount;
+}
+
+bool directxRuntimeDescriptorArrayOverlapsResource(
+    const HIRModule &module, const HIRResource &runtimeArray,
+    const HIRResource &resource) {
+  if (!isRuntimeDescriptorArray(runtimeArray) ||
+      directxSameResourceDeclaration(runtimeArray, resource) ||
+      !directxResourcesShareRegisterSpace(runtimeArray, resource)) {
     return false;
+  }
+  if (resource.binding >= runtimeArray.binding) {
+    return true;
+  }
+  const std::optional<std::size_t> descriptorCount =
+      directxFixedDescriptorCount(module, resource);
+  return !descriptorCount.has_value() ||
+         *descriptorCount > runtimeArray.binding - resource.binding;
+}
+
+std::string directxResourceRegisterLabel(const HIRResource &resource) {
+  return "register(" + directxResourceRegisterClass(resource) +
+         std::to_string(resource.binding) + ", space" +
+         std::to_string(resource.set) + ")";
+}
+
+std::string directxRuntimeDescriptorArrayConflictLabel(
+    const HIRResource &runtimeArray, const HIRResource &resource) {
+  const HIRResource *rangeStart = &runtimeArray;
+  const HIRResource *overlapped = &resource;
+  if (isRuntimeDescriptorArray(resource) &&
+      (resource.binding < runtimeArray.binding ||
+       (resource.binding == runtimeArray.binding &&
+        resource.name < runtimeArray.name))) {
+    rangeStart = &resource;
+    overlapped = &runtimeArray;
+  }
+  return "runtime descriptor array '" + rangeStart->name + "' (" +
+         resourceKindLabel(rangeStart->kind) + ") at " +
+         directxResourceRegisterLabel(*rangeStart) + " overlaps resource '" +
+         overlapped->name + "' (" + resourceKindLabel(overlapped->kind) +
+         ") at " + directxResourceRegisterLabel(*overlapped);
+}
+
+std::optional<std::string> directxDescriptorRangeConflictLabel(
+    const HIRModule &module, const HIRResource &lhs, const HIRResource &rhs) {
+  if (directxRuntimeDescriptorArrayOverlapsResource(module, lhs, rhs)) {
+    return directxRuntimeDescriptorArrayConflictLabel(lhs, rhs);
+  }
+  if (directxRuntimeDescriptorArrayOverlapsResource(module, rhs, lhs)) {
+    return directxRuntimeDescriptorArrayConflictLabel(rhs, lhs);
+  }
+  return std::nullopt;
+}
+
+std::set<std::string>
+directxDescriptorRangeConflictLabels(const HIRModule &module,
+                                     const HIRResource &resource) {
+  std::set<std::string> conflicts;
+  for (const HIRStage &stage : module.stages) {
+    for (const HIRResource &candidate : stage.resources) {
+      if (!isDirectXDescriptorResourceKind(candidate.kind)) {
+        continue;
+      }
+      const std::optional<std::string> conflict =
+          directxDescriptorRangeConflictLabel(module, resource, candidate);
+      if (conflict.has_value()) {
+        conflicts.insert(*conflict);
+      }
+    }
+  }
+  return conflicts;
+}
+
+bool directxRuntimeDescriptorArrayPolicySupported(const HIRModule &module,
+                                                  const HIRResource &resource) {
+  if (!isRuntimeDescriptorArray(resource)) {
+    return true;
+  }
+  if (resource.kind == HIRResourceKind::Texture) {
+    return true;
   }
   return runtimeDescriptorArraySupportedByPolicy(
       module, resource,
       RuntimeDescriptorArrayPolicy::AllowSingleUnboundedDescriptorArray,
       directxRuntimeDescriptorRegisterClassKinds(resource.kind));
+}
+
+bool directxResourceArrayShapeSupported(const HIRModule &module,
+                                        const HIRResource &resource) {
+  if (!isDirectXDescriptorResourceKind(resource.kind)) {
+    return false;
+  }
+  return directxRuntimeDescriptorArrayPolicySupported(module, resource) &&
+         directxDescriptorRangeConflictLabels(module, resource).empty();
 }
 
 std::string hlslStorageBufferElementType(const HIRModule &module,
@@ -342,7 +588,8 @@ std::string hlslStorageBufferElementType(const HIRModule &module,
     return atomicType;
   }
   const std::string baseName = baseTypeName(type);
-  if (!type.arraySize.has_value() && isNumericScalarOrVectorType(baseName)) {
+  if (!type.arraySize.has_value() &&
+      isNumericScalarVectorOrMatrixType(baseName)) {
     const std::string valueType = hlslType(type);
     if (!valueType.empty()) {
       return valueType;
@@ -480,6 +727,38 @@ std::string hlslStorageImageType(const HIRType &type,
   return "";
 }
 
+std::string hlslFunctionParameterResourceType(const HIRModule &module,
+                                              const HIRType &type) {
+  if (functionParameterArrayShape(module, type) !=
+      HIRFunctionParameterArrayShape::FixedSize) {
+    return "";
+  }
+  if (isSupportedTextureTypeName(type.name)) {
+    return hlslTextureType(type);
+  }
+  if (type.name == "sampler") {
+    return "SamplerState";
+  }
+  if (type.name == "comparison_sampler") {
+    return "SamplerComparisonState";
+  }
+  return "";
+}
+
+std::string hlslFunctionParameterDeclarator(const HIRModule *module,
+                                            const HIRType &type,
+                                            std::string_view name) {
+  if (module != nullptr) {
+    const std::string resourceType =
+        hlslFunctionParameterResourceType(*module, type);
+    if (!resourceType.empty()) {
+      return resourceType + " " + std::string(name) + "[" + *type.arraySize +
+             "]";
+    }
+  }
+  return hlslDeclarator(module, type, name);
+}
+
 bool isSupportedTextureResource(const HIRResource &resource) {
   return resource.kind == HIRResourceKind::Texture &&
          !hlslTextureType(resource.type).empty();
@@ -509,6 +788,9 @@ struct DirectXEmitContext {
   const HIRModule *module = nullptr;
   std::set<std::string> mixedSamplerStateResources;
   bool rewriteComputeInvocationBuiltins = false;
+  const HIRStage *stage = nullptr;
+  const HIRFunction *function = nullptr;
+  std::size_t *nextTemporaryIndex = nullptr;
 };
 
 struct DirectXComputeInvocationBuiltin {
@@ -574,7 +856,12 @@ const HIRStruct *directxStructType(const HIRModule &module,
 }
 
 bool isDirectXGraphicsScalarFieldType(const HIRType &type) {
-  return !type.arraySize.has_value() && !hlslType(type).empty();
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string baseName = baseTypeName(type);
+  return baseName == "float" || baseName == "int" || baseName == "uint" ||
+         baseName == "bool" || isVectorType(baseName);
 }
 
 bool directxGraphicsStructSupported(const HIRStruct &structure) {
@@ -922,7 +1209,7 @@ bool expressionSupported(const HIRExpression &expression,
     return selectExpressionSupported(expression, context);
   }
   return expressionSupportedByPolicy(
-      expression, isSupportedValueType,
+      expression,
       [&](const HIRExpression &child) {
         return expressionSupported(child, context);
       },
@@ -931,6 +1218,12 @@ bool expressionSupported(const HIRExpression &expression,
       },
       [&](const HIRExpression &compare) {
         return textureCompareSupported(compare, context);
+      },
+      [&](const HIRExpression &constructor) {
+        return backendConstructorShapeSupported(
+            constructor, isSupportedValueType, [&](const HIRExpression &child) {
+              return expressionSupported(child, context);
+            });
       });
 }
 
@@ -1451,8 +1744,20 @@ std::string emitStorageImageStore(const HIRExpression &expression,
          "] = " + valueExpression;
 }
 
-std::string emitCall(const HIRExpression &expression,
-                     const DirectXEmitContext &context) {
+std::optional<std::string> directxCallArgumentOverride(
+    std::size_t index,
+    const std::vector<std::pair<std::size_t, std::string>> &overrides) {
+  for (const auto &[overrideIndex, value] : overrides) {
+    if (overrideIndex == index) {
+      return value;
+    }
+  }
+  return std::nullopt;
+}
+
+std::string emitCallWithArgumentOverrides(
+    const HIRExpression &expression, const DirectXEmitContext &context,
+    const std::vector<std::pair<std::size_t, std::string>> &overrides) {
   if (isDirectXWorkgroupBarrierCall(expression)) {
     return "GroupMemoryBarrierWithGroupSync()";
   }
@@ -1474,10 +1779,20 @@ std::string emitCall(const HIRExpression &expression,
     if (index != 0) {
       out << ", ";
     }
-    out << emitExpression(expression.children[index], context);
+    if (const std::optional<std::string> override =
+            directxCallArgumentOverride(index, overrides)) {
+      out << *override;
+    } else {
+      out << emitExpression(expression.children[index], context);
+    }
   }
   out << ")";
   return out.str();
+}
+
+std::string emitCall(const HIRExpression &expression,
+                     const DirectXEmitContext &context) {
+  return emitCallWithArgumentOverrides(expression, context, {});
 }
 
 std::string emitInterlockedAtomicStatement(const HIRExpression &expression,
@@ -1642,6 +1957,167 @@ std::string emitTextureCompare(const HIRExpression &expression,
          emitExpression(*operands->depth, context) + ")";
 }
 
+std::string emitDirectXFloatMatrixScalar(std::string expression,
+                                         const HIRType &type) {
+  const std::string baseName = baseTypeName(type);
+  if (baseName == "int" || baseName == "uint") {
+    return "float(" + expression + ")";
+  }
+  return expression;
+}
+
+std::string hlslSubscriptBase(std::string expression) {
+  if (expression.find_first_of(" \t+-*/?:,()") == std::string::npos) {
+    return expression;
+  }
+  return "(" + expression + ")";
+}
+
+bool appendDirectXMatrixConstructorScalars(
+    const HIRExpression &expression, const DirectXEmitContext &context,
+    std::vector<std::string> &scalars) {
+  const std::string baseName = baseTypeName(expression.type);
+  if (isNumericScalarTypeName(baseName)) {
+    scalars.push_back(emitDirectXFloatMatrixScalar(
+        emitExpression(expression, context), expression.type));
+    return true;
+  }
+
+  const std::optional<std::size_t> width = vectorWidthFromName(baseName);
+  if (!width.has_value()) {
+    return false;
+  }
+  const HIRType componentType = scalarTypeForVector(baseName);
+  if (!isNumericScalarTypeName(baseTypeName(componentType))) {
+    return false;
+  }
+
+  const std::string vectorExpression =
+      hlslSubscriptBase(emitExpression(expression, context));
+  for (std::size_t index = 0; index < *width; ++index) {
+    scalars.push_back(emitDirectXFloatMatrixScalar(
+        vectorExpression + "[" + std::to_string(index) + "]", componentType));
+  }
+  return true;
+}
+
+std::string emitDirectXMatrixFromColumnMajorScalars(
+    const HIRType &matrixType, const std::vector<std::string> &scalars) {
+  const std::optional<std::size_t> dimension =
+      matrixDimensionFromName(baseTypeName(matrixType));
+  if (!dimension.has_value() || scalars.size() != (*dimension * *dimension)) {
+    return hlslType(matrixType) + "(/* unsupported */)";
+  }
+
+  std::ostringstream out;
+  out << hlslType(matrixType) << "(";
+  bool first = true;
+  for (std::size_t row = 0; row < *dimension; ++row) {
+    for (std::size_t column = 0; column < *dimension; ++column) {
+      if (!first) {
+        out << ", ";
+      }
+      first = false;
+      out << scalars[column * *dimension + row];
+    }
+  }
+  out << ")";
+  return out.str();
+}
+
+std::string emitDirectXMatrixFromScalar(const HIRExpression &expression,
+                                        const DirectXEmitContext &context) {
+  const std::optional<std::size_t> dimension =
+      matrixDimensionFromName(baseTypeName(expression.type));
+  if (!dimension.has_value() || expression.children.empty()) {
+    return hlslType(expression.type) + "(/* unsupported */)";
+  }
+
+  const std::string diagonal = emitDirectXFloatMatrixScalar(
+      emitExpression(expression.children.front(), context),
+      expression.children.front().type);
+  std::vector<std::string> scalars;
+  scalars.reserve(*dimension * *dimension);
+  for (std::size_t column = 0; column < *dimension; ++column) {
+    for (std::size_t row = 0; row < *dimension; ++row) {
+      scalars.push_back(column == row ? diagonal : "0.0");
+    }
+  }
+  return emitDirectXMatrixFromColumnMajorScalars(expression.type, scalars);
+}
+
+std::string emitDirectXMatrixFromMatrix(const HIRExpression &expression,
+                                        const DirectXEmitContext &context) {
+  if (expression.children.empty()) {
+    return hlslType(expression.type) + "(/* unsupported */)";
+  }
+  const HIRExpression &source = expression.children.front();
+  if (sameType(expression.type, source.type)) {
+    return emitExpression(source, context);
+  }
+
+  const std::optional<std::size_t> targetDimension =
+      matrixDimensionFromName(baseTypeName(expression.type));
+  const std::optional<std::size_t> sourceDimension =
+      matrixDimensionFromName(baseTypeName(source.type));
+  if (!targetDimension.has_value() || !sourceDimension.has_value()) {
+    return hlslType(expression.type) + "(/* unsupported */)";
+  }
+
+  const std::string sourceExpression =
+      hlslSubscriptBase(emitExpression(source, context));
+  std::vector<std::string> scalars;
+  scalars.reserve(*targetDimension * *targetDimension);
+  for (std::size_t column = 0; column < *targetDimension; ++column) {
+    for (std::size_t row = 0; row < *targetDimension; ++row) {
+      if (column < *sourceDimension && row < *sourceDimension) {
+        scalars.push_back(sourceExpression + "[" + std::to_string(row) + "][" +
+                          std::to_string(column) + "]");
+      } else {
+        scalars.push_back(column == row ? "1.0" : "0.0");
+      }
+    }
+  }
+  return emitDirectXMatrixFromColumnMajorScalars(expression.type, scalars);
+}
+
+std::string emitDirectXMatrixConstructor(const HIRExpression &expression,
+                                         const DirectXEmitContext &context) {
+  if (expression.children.size() == 1) {
+    const std::string sourceBaseName =
+        baseTypeName(expression.children.front().type);
+    if (isNumericScalarTypeName(sourceBaseName)) {
+      return emitDirectXMatrixFromScalar(expression, context);
+    }
+    if (isMatrixType(sourceBaseName)) {
+      return emitDirectXMatrixFromMatrix(expression, context);
+    }
+  }
+
+  std::vector<std::string> scalars;
+  const std::optional<std::size_t> dimension =
+      matrixDimensionFromName(baseTypeName(expression.type));
+  if (dimension.has_value()) {
+    scalars.reserve(*dimension * *dimension);
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (!appendDirectXMatrixConstructorScalars(child, context, scalars)) {
+      return hlslType(expression.type) + "(/* unsupported */)";
+    }
+  }
+  return emitDirectXMatrixFromColumnMajorScalars(expression.type, scalars);
+}
+
+std::string emitDirectXBinaryExpression(const HIRExpression &expression,
+                                        const DirectXEmitContext &context) {
+  if (isDirectXMatrixProductExpression(expression)) {
+    return "mul(" + emitExpression(expression.children[0], context) + ", " +
+           emitExpression(expression.children[1], context) + ")";
+  }
+  return emitExpression(expression.children[0], context) + " " +
+         expression.value + " " + emitExpression(expression.children[1], context);
+}
+
 std::string emitExpression(const HIRExpression &expression,
                            const DirectXEmitContext &context) {
   switch (expression.kind) {
@@ -1677,6 +2153,9 @@ std::string emitExpression(const HIRExpression &expression,
                : "NonUniformResourceIndex(" +
                      emitExpression(expression.children.front(), context) + ")";
   case HIRExpressionKind::Constructor: {
+    if (isMatrixType(baseTypeName(expression.type))) {
+      return emitDirectXMatrixConstructor(expression, context);
+    }
     std::ostringstream out;
     out << hlslType(expression.type) << "(";
     for (std::size_t index = 0; index < expression.children.size(); ++index) {
@@ -1692,9 +2171,7 @@ std::string emitExpression(const HIRExpression &expression,
     return expression.value +
            emitExpression(expression.children.front(), context);
   case HIRExpressionKind::Binary:
-    return emitExpression(expression.children[0], context) + " " +
-           expression.value + " " +
-           emitExpression(expression.children[1], context);
+    return emitDirectXBinaryExpression(expression, context);
   case HIRExpressionKind::Call:
     return emitCall(expression, context);
   case HIRExpressionKind::Select:
@@ -1772,10 +2249,571 @@ std::string emitForUpdate(const HIRStatement &statement,
              : emitStatementInline(statement.update.front(), context);
 }
 
+const HIRExpression *directxStatementDirectCallValue(
+    const HIRStatement &statement);
+
+bool directxStorageBufferFieldArrayWriteBackArgument(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRExpression &argument, const HIRStage *stage);
+
+bool directxFunctionParameterArrayWriteArgumentAliases(
+    const HIRModule &module, const HIRFunction &callee,
+    const HIRExpression &call, std::size_t parameterIndex);
+
+std::set<std::string>
+writtenFunctionParameterArrayNames(const HIRModule &module,
+                                   const HIRFunction &function);
+
+struct DirectXArrayWriteBackArgument {
+  std::size_t argumentIndex = 0;
+  HIRType type;
+  const HIRExpression *argument = nullptr;
+  std::string temporaryName;
+};
+
+struct DirectXArrayWriteBackRewrite {
+  const HIRExpression *call = nullptr;
+  std::vector<DirectXArrayWriteBackArgument> arguments;
+  std::vector<std::pair<std::size_t, std::string>> argumentOverrides;
+  bool materializeNestedCallResult = false;
+};
+
+std::string directxInternalIdentifierFragment(std::string_view value) {
+  std::string fragment;
+  fragment.reserve(value.size());
+  for (const char character : value) {
+    const bool alnum =
+        (character >= 'a' && character <= 'z') ||
+        (character >= 'A' && character <= 'Z') ||
+        (character >= '0' && character <= '9');
+    fragment.push_back(alnum ? character : '_');
+  }
+  return fragment.empty() ? "value" : fragment;
+}
+
+std::size_t nextDirectXTemporaryIndex(const DirectXEmitContext &context) {
+  if (context.nextTemporaryIndex == nullptr) {
+    return 0;
+  }
+  const std::size_t index = *context.nextTemporaryIndex;
+  ++(*context.nextTemporaryIndex);
+  return index;
+}
+
+std::string directxArrayWriteBackTemporaryName(
+    const HIRExpression &call, const HIRParameter &parameter,
+    const DirectXEmitContext &context) {
+  return "crossgl_param_array_writeback_" +
+         std::to_string(nextDirectXTemporaryIndex(context)) + "_" +
+         directxInternalIdentifierFragment(call.value) + "_" +
+         directxInternalIdentifierFragment(parameter.name);
+}
+
+const HIRFunction *findDirectXEmitFunction(const DirectXEmitContext &context,
+                                           std::string_view name) {
+  if (context.module == nullptr || context.stage == nullptr) {
+    return nullptr;
+  }
+  for (const HIRFunction &function : context.module->functions) {
+    if (function.name == name) {
+      return &function;
+    }
+  }
+  for (const HIRFunction &function : context.stage->functions) {
+    if (function.name == name) {
+      return &function;
+    }
+  }
+  return nullptr;
+}
+
+const HIRExpression *directxTransparentExpression(
+    const HIRExpression &expression) {
+  const HIRExpression *current = &expression;
+  while (current->kind == HIRExpressionKind::Group &&
+         current->children.size() == 1) {
+    current = &current->children.front();
+  }
+  return current;
+}
+
+bool directxExpressionContainsNode(const HIRExpression &expression,
+                                   const HIRExpression &node) {
+  if (&expression == &node) {
+    return true;
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (directxExpressionContainsNode(child, node)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool directxExpressionContainsCallLikeEvaluation(
+    const HIRExpression &expression) {
+  switch (expression.kind) {
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+  case HIRExpressionKind::TextureSample:
+    return true;
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::Group:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Binary:
+  case HIRExpressionKind::Select:
+    break;
+  }
+  for (const HIRExpression &child : expression.children) {
+    if (directxExpressionContainsCallLikeEvaluation(child)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const HIRExpression *directxNestedArrayWriteBackBinaryOperandCall(
+    const HIRExpression &candidateExpression,
+    const HIRExpression &otherExpression) {
+  if (directxExpressionContainsCallLikeEvaluation(otherExpression)) {
+    return nullptr;
+  }
+
+  const HIRExpression *candidate =
+      directxTransparentExpression(candidateExpression);
+  if (candidate->kind != HIRExpressionKind::Call ||
+      candidate->type.name == "void" || candidate->type.arraySize.has_value()) {
+    return nullptr;
+  }
+  return candidate;
+}
+
+const HIRExpression *directxNestedArrayWriteBackStatementCall(
+    const HIRStatement &statement) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+  case HIRStatementKind::Assignment:
+    break;
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    return nullptr;
+  }
+
+  const HIRExpression *value = directxTransparentExpression(statement.value);
+  if (value->kind != HIRExpressionKind::Binary ||
+      value->children.size() != 2) {
+    return nullptr;
+  }
+  if (statement.kind == HIRStatementKind::Assignment &&
+      directxExpressionContainsCallLikeEvaluation(statement.target)) {
+    return nullptr;
+  }
+
+  if (const HIRExpression *left =
+          directxNestedArrayWriteBackBinaryOperandCall(value->children[0],
+                                                      value->children[1])) {
+    return left;
+  }
+  if (value->value == "&&" || value->value == "||") {
+    return nullptr;
+  }
+  return directxNestedArrayWriteBackBinaryOperandCall(value->children[1],
+                                                     value->children[0]);
+}
+
+const HIRExpression *directxNestedArrayWriteBackRhsSibling(
+    const HIRStatement &statement, const HIRExpression &call) {
+  const HIRExpression *value = directxTransparentExpression(statement.value);
+  if (value->kind != HIRExpressionKind::Binary ||
+      value->children.size() != 2) {
+    return nullptr;
+  }
+
+  const HIRExpression *right = directxTransparentExpression(value->children[1]);
+  return right == &call ? &value->children[0] : nullptr;
+}
+
+bool directxExpressionCanReevaluateAfterWriteBack(
+    const HIRExpression &expression) {
+  const HIRExpression *transparent = directxTransparentExpression(expression);
+  return transparent->kind == HIRExpressionKind::Literal;
+}
+
+std::optional<DirectXArrayWriteBackRewrite> directxArrayWriteBackRewriteForCall(
+    const HIRExpression &call, const DirectXEmitContext &context) {
+  if (context.module == nullptr || context.stage == nullptr ||
+      context.function == nullptr) {
+    return std::nullopt;
+  }
+  const HIRFunction *callee = findDirectXEmitFunction(context, call.value);
+  if (callee == nullptr || call.children.size() != callee->parameters.size()) {
+    return std::nullopt;
+  }
+
+  const std::set<std::string> writtenParameters =
+      writtenFunctionParameterArrayNames(*context.module, *callee);
+  if (writtenParameters.empty()) {
+    return std::nullopt;
+  }
+
+  DirectXArrayWriteBackRewrite rewrite;
+  rewrite.call = &call;
+  for (std::size_t index = 0; index < callee->parameters.size(); ++index) {
+    const HIRParameter &parameter = callee->parameters[index];
+    if (writtenParameters.count(parameter.name) == 0 ||
+        index >= call.children.size() ||
+        directxFunctionParameterArrayWriteArgumentAliases(
+            *context.module, *callee, call, index) ||
+        !directxStorageBufferFieldArrayWriteBackArgument(
+            *context.module, *context.function, call.children[index],
+            context.stage)) {
+      continue;
+    }
+
+    DirectXArrayWriteBackArgument argument;
+    argument.argumentIndex = index;
+    argument.type = parameter.type;
+    argument.argument = &call.children[index];
+    argument.temporaryName =
+        directxArrayWriteBackTemporaryName(call, parameter, context);
+    rewrite.argumentOverrides.emplace_back(argument.argumentIndex,
+                                           argument.temporaryName);
+    rewrite.arguments.push_back(std::move(argument));
+  }
+
+  if (rewrite.arguments.empty()) {
+    return std::nullopt;
+  }
+  return rewrite;
+}
+
+std::optional<DirectXArrayWriteBackRewrite> directxArrayWriteBackRewrite(
+    const HIRStatement &statement, const DirectXEmitContext &context) {
+  if (const HIRExpression *call = directxStatementDirectCallValue(statement)) {
+    return directxArrayWriteBackRewriteForCall(*call, context);
+  }
+
+  const HIRExpression *nestedCall =
+      directxNestedArrayWriteBackStatementCall(statement);
+  if (nestedCall == nullptr) {
+    return std::nullopt;
+  }
+  std::optional<DirectXArrayWriteBackRewrite> rewrite =
+      directxArrayWriteBackRewriteForCall(*nestedCall, context);
+  if (rewrite.has_value()) {
+    rewrite->materializeNestedCallResult = true;
+  }
+  return rewrite;
+}
+
+std::vector<std::pair<std::size_t, std::string>>
+directxArrayWriteBackArgumentOverrides(
+    const DirectXArrayWriteBackRewrite &rewrite) {
+  std::vector<std::pair<std::size_t, std::string>> overrides =
+      rewrite.argumentOverrides;
+  std::sort(overrides.begin(), overrides.end(),
+            [](const auto &left, const auto &right) {
+              return left.first < right.first ||
+                     (left.first == right.first && left.second < right.second);
+            });
+  overrides.erase(std::unique(overrides.begin(), overrides.end()),
+                  overrides.end());
+  return overrides;
+}
+
+void emitDirectXArrayElementCopyLoop(std::ostringstream &out,
+                                     std::string_view destination,
+                                     std::string_view source,
+                                     const HIRType &type,
+                                     std::size_t indentation,
+                                     std::string_view indexName) {
+  if (!type.arraySize.has_value()) {
+    return;
+  }
+  const std::vector<std::string_view> dimensions =
+      directxArrayDimensions(*type.arraySize);
+  if (dimensions.empty()) {
+    return;
+  }
+  std::vector<std::string> indices;
+  indices.reserve(dimensions.size());
+  auto emitLoop = [&](auto &self, std::size_t depth,
+                      std::size_t currentIndentation) -> void {
+    const std::string loopIndex =
+        dimensions.size() == 1
+            ? std::string(indexName)
+            : std::string(indexName) + std::to_string(depth);
+    const std::string spaces(currentIndentation, ' ');
+    out << spaces << "for (int " << loopIndex << " = 0; " << loopIndex
+        << " < " << dimensions[depth] << "; ++" << loopIndex << ") {\n";
+    indices.push_back(loopIndex);
+    if (depth + 1 == dimensions.size()) {
+      const std::string innerSpaces(currentIndentation + 2, ' ');
+      out << innerSpaces << destination;
+      for (const std::string &index : indices) {
+        out << "[" << index << "]";
+      }
+      out << " = " << source;
+      for (const std::string &index : indices) {
+        out << "[" << index << "]";
+      }
+      out << ";\n";
+    } else {
+      self(self, depth + 1, currentIndentation + 2);
+    }
+    indices.pop_back();
+    out << spaces << "}\n";
+  };
+  emitLoop(emitLoop, 0, indentation);
+}
+
+void emitDirectXArrayWriteBackCopiesBefore(
+    std::ostringstream &out, const DirectXArrayWriteBackRewrite &rewrite,
+    std::size_t indentation, const DirectXEmitContext &context) {
+  const std::string spaces(indentation, ' ');
+  for (const DirectXArrayWriteBackArgument &argument : rewrite.arguments) {
+    out << spaces << hlslDeclarator(context.module, argument.type,
+                                    argument.temporaryName)
+        << ";\n";
+    const std::string source = emitExpression(*argument.argument, context);
+    emitDirectXArrayElementCopyLoop(out, argument.temporaryName, source,
+                                    argument.type, indentation,
+                                    argument.temporaryName + "_i");
+  }
+}
+
+void emitDirectXArrayWriteBackCopiesAfter(
+    std::ostringstream &out, const DirectXArrayWriteBackRewrite &rewrite,
+    std::size_t indentation, const DirectXEmitContext &context) {
+  for (const DirectXArrayWriteBackArgument &argument : rewrite.arguments) {
+    const std::string destination = emitExpression(*argument.argument, context);
+    emitDirectXArrayElementCopyLoop(out, destination, argument.temporaryName,
+                                    argument.type, indentation,
+                                    argument.temporaryName + "_i");
+  }
+}
+
+std::string emitDirectXExpressionWithReplacements(
+    const HIRExpression &expression,
+    const std::vector<std::pair<const HIRExpression *, std::string>>
+        &replacements,
+    const DirectXEmitContext &context) {
+  for (const auto &[node, replacement] : replacements) {
+    if (&expression == node) {
+      return replacement;
+    }
+  }
+  bool containsReplacement = false;
+  for (const auto &[node, replacement] : replacements) {
+    (void)replacement;
+    if (directxExpressionContainsNode(expression, *node)) {
+      containsReplacement = true;
+      break;
+    }
+  }
+  if (!containsReplacement) {
+    return emitExpression(expression, context);
+  }
+
+  switch (expression.kind) {
+  case HIRExpressionKind::Group:
+    return expression.children.empty()
+               ? "()"
+               : "(" + emitDirectXExpressionWithReplacements(
+                           expression.children.front(), replacements, context) +
+                     ")";
+  case HIRExpressionKind::Binary:
+    if (expression.children.size() != 2) {
+      return "/* unsupported */";
+    }
+    return emitDirectXExpressionWithReplacements(
+               expression.children[0], replacements, context) +
+           " " + expression.value + " " +
+           emitDirectXExpressionWithReplacements(
+               expression.children[1], replacements, context);
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::Select:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+  case HIRExpressionKind::TextureSample:
+    break;
+  }
+  return "/* unsupported */";
+}
+
+void emitDirectXNestedExpressionWithArrayWriteBack(
+    std::ostringstream &out, const HIRStatement &statement,
+    std::size_t indentation, const DirectXEmitContext &context,
+    const DirectXArrayWriteBackRewrite &rewrite) {
+  const std::string spaces(indentation, ' ');
+  const std::vector<std::pair<std::size_t, std::string>> overrides =
+      directxArrayWriteBackArgumentOverrides(rewrite);
+  const HIRExpression *rhsSibling =
+      directxNestedArrayWriteBackRhsSibling(statement, *rewrite.call);
+  if (rhsSibling != nullptr &&
+      directxExpressionCanReevaluateAfterWriteBack(*rhsSibling)) {
+    rhsSibling = nullptr;
+  }
+  std::string rhsSiblingName;
+  if (rhsSibling != nullptr) {
+    rhsSiblingName = "crossgl_param_array_writeback_" +
+                     std::to_string(nextDirectXTemporaryIndex(context)) +
+                     "_lhs";
+    out << spaces << hlslDeclarator(context.module, rhsSibling->type,
+                                    rhsSiblingName)
+        << " = " << emitExpression(*rhsSibling, context) << ";\n";
+  }
+  const std::string resultName =
+      "crossgl_param_array_writeback_" +
+      std::to_string(nextDirectXTemporaryIndex(context)) + "_result";
+
+  emitDirectXArrayWriteBackCopiesBefore(out, rewrite, indentation, context);
+  out << spaces << hlslDeclarator(context.module, rewrite.call->type,
+                                  resultName)
+      << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                overrides)
+      << ";\n";
+  emitDirectXArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+
+  std::vector<std::pair<const HIRExpression *, std::string>> replacements = {
+      {rewrite.call, resultName}};
+  if (rhsSibling != nullptr) {
+    replacements.emplace_back(rhsSibling, rhsSiblingName);
+  }
+  const std::string value =
+      emitDirectXExpressionWithReplacements(statement.value, replacements,
+                                            context);
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    out << spaces << hlslDeclarator(context.module, statement.declaredType,
+                                    statement.name)
+        << " = " << value << ";\n";
+    return;
+  case HIRStatementKind::Assignment:
+    out << spaces << emitExpression(statement.target, context) << " = "
+        << value << ";\n";
+    return;
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    break;
+  }
+}
+
+void emitDirectXStatementWithArrayWriteBack(
+    std::ostringstream &out, const HIRStatement &statement,
+    std::size_t indentation, const DirectXEmitContext &context,
+    const DirectXArrayWriteBackRewrite &rewrite) {
+  if (rewrite.materializeNestedCallResult) {
+    emitDirectXNestedExpressionWithArrayWriteBack(out, statement, indentation,
+                                                 context, rewrite);
+    return;
+  }
+
+  const std::string spaces(indentation, ' ');
+  const std::vector<std::pair<std::size_t, std::string>> overrides =
+      directxArrayWriteBackArgumentOverrides(rewrite);
+  emitDirectXArrayWriteBackCopiesBefore(out, rewrite, indentation, context);
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    out << spaces
+        << hlslDeclarator(context.module, statement.declaredType,
+                          statement.name)
+        << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                  overrides)
+        << ";\n";
+    break;
+  case HIRStatementKind::Assignment: {
+    const std::string resultName =
+        "crossgl_param_array_writeback_" +
+        std::to_string(nextDirectXTemporaryIndex(context)) + "_result";
+    out << spaces << hlslDeclarator(context.module, statement.value.type,
+                                    resultName)
+        << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                  overrides)
+        << ";\n";
+    emitDirectXArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+    out << spaces << emitExpression(statement.target, context) << " = "
+        << resultName << ";\n";
+    return;
+  }
+  case HIRStatementKind::Expression:
+    out << spaces << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                   overrides)
+        << ";\n";
+    break;
+  case HIRStatementKind::Return: {
+    if (statement.value.type.name == "void" &&
+        !statement.value.type.arraySize.has_value()) {
+      out << spaces << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                     overrides)
+          << ";\n";
+      emitDirectXArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+      out << spaces << "return;\n";
+      return;
+    }
+    const std::string resultName =
+        "crossgl_param_array_writeback_" +
+        std::to_string(nextDirectXTemporaryIndex(context)) + "_return";
+    out << spaces << hlslDeclarator(context.module, statement.value.type,
+                                    resultName)
+        << " = " << emitCallWithArgumentOverrides(*rewrite.call, context,
+                                                  overrides)
+        << ";\n";
+    emitDirectXArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+    out << spaces << "return " << resultName << ";\n";
+    return;
+  }
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    break;
+  }
+  emitDirectXArrayWriteBackCopiesAfter(out, rewrite, indentation, context);
+}
+
 void emitStatement(std::ostringstream &out, const HIRStatement &statement,
                    std::size_t indentation,
                    const DirectXEmitContext &context = {}) {
   const std::string spaces(indentation, ' ');
+  if (const std::optional<DirectXArrayWriteBackRewrite> rewrite =
+          directxArrayWriteBackRewrite(statement, context)) {
+    emitDirectXStatementWithArrayWriteBack(out, statement, indentation, context,
+                                           *rewrite);
+    return;
+  }
   switch (statement.kind) {
   case HIRStatementKind::Declaration:
     out << spaces
@@ -2119,31 +3157,14 @@ bool resourcesSupported(const HIRModule &module, const HIRStage &stage) {
   return true;
 }
 
-std::string directxResourceRegisterClass(const HIRResource &resource) {
-  switch (resource.kind) {
-  case HIRResourceKind::Uniform:
-    return "b";
-  case HIRResourceKind::Buffer:
-  case HIRResourceKind::StorageImage:
-    return "u";
-  case HIRResourceKind::Texture:
-    return "t";
-  case HIRResourceKind::Sampler:
-    return "s";
-  case HIRResourceKind::Shared:
-  case HIRResourceKind::Value:
-    break;
-  }
-  return "";
-}
-
 bool directxGraphicsResourceSupported(const HIRModule &module,
                                       const HIRResource &resource) {
   if (resource.kind == HIRResourceKind::Uniform) {
     return isSupportedUniformBufferResource(module, resource);
   }
   if (resource.kind == HIRResourceKind::Buffer) {
-    return !resource.type.arraySize.has_value() &&
+    return supportedResourceArraySize(resource.type) &&
+           directxResourceArrayShapeSupported(module, resource) &&
            isSupportedStorageBufferElementType(
                module, bufferElementType(resource.type));
   }
@@ -2193,8 +3214,9 @@ directxGraphicsUnsupportedResourceReason(const HIRModule &module,
         return "runtime storage-buffer descriptor arrays are not supported in "
                "DirectX graphics source packages";
       }
-      return "storage-buffer descriptor arrays are not supported in DirectX "
-             "graphics source packages";
+      if (!directxResourceArrayShapeSupported(module, resource)) {
+        return "unsupported storage-buffer descriptor array shape";
+      }
     }
     const HIRType elementType = bufferElementType(resource.type);
     if (!isSupportedStorageBufferElementType(module, elementType)) {
@@ -2258,6 +3280,58 @@ bool directxSameGraphicsResource(const HIRResource &lhs,
          lhs.storageImageFormat == rhs.storageImageFormat;
 }
 
+bool directxGraphicsResourceRegistersOverlap(const HIRModule &module,
+                                             const HIRResource &lhs,
+                                             const HIRResource &rhs) {
+  const std::string lhsRegisterClass = directxResourceRegisterClass(lhs);
+  if (lhsRegisterClass.empty() ||
+      lhsRegisterClass != directxResourceRegisterClass(rhs) ||
+      lhs.set != rhs.set) {
+    return false;
+  }
+
+  const std::optional<std::size_t> lhsCount =
+      directxFixedDescriptorCount(module, lhs);
+  const std::optional<std::size_t> rhsCount =
+      directxFixedDescriptorCount(module, rhs);
+  if (!lhsCount.has_value() || !rhsCount.has_value()) {
+    return lhs.binding == rhs.binding;
+  }
+  return lhs.binding < rhs.binding + *rhsCount &&
+         rhs.binding < lhs.binding + *lhsCount;
+}
+
+std::string directxGraphicsResourceRegisterRangeLabel(
+    const HIRModule &module,
+    const HIRResource &resource) {
+  const std::string registerClass = directxResourceRegisterClass(resource);
+  std::string label = directxResourceRegisterLabel(resource);
+  const std::optional<std::size_t> descriptorCount =
+      directxFixedDescriptorCount(module, resource);
+  if (descriptorCount.has_value() && *descriptorCount > 1) {
+    label += "..register(" + registerClass +
+             std::to_string(resource.binding + *descriptorCount - 1) +
+             ", space" + std::to_string(resource.set) + ")";
+  }
+  return label;
+}
+
+std::optional<std::string> directxGraphicsRegisterConflictLabel(
+    const HIRModule &module, const DirectXGraphicsResourceRef &lhsRef,
+    const DirectXGraphicsResourceRef &rhsRef) {
+  const HIRResource &lhs = *lhsRef.resource;
+  const HIRResource &rhs = *rhsRef.resource;
+  if (directxSameGraphicsResource(lhs, rhs) ||
+      !directxGraphicsResourceRegistersOverlap(module, lhs, rhs)) {
+    return std::nullopt;
+  }
+  return "register conflict for " +
+         directxGraphicsResourceRegisterRangeLabel(module, lhs) + " vs " +
+         directxGraphicsResourceRegisterRangeLabel(module, rhs) + ": " +
+         directxGraphicsResourceDiagnosticLabel(lhsRef.stage, lhs) + " vs " +
+         directxGraphicsResourceDiagnosticLabel(rhsRef.stage, rhs);
+}
+
 std::vector<const HIRResource *>
 directxGraphicsStageResources(const HIRStage &vertex,
                               const HIRStage &fragment) {
@@ -2270,10 +3344,11 @@ directxGraphicsStageResources(const HIRStage &vertex,
 }
 
 std::set<std::string>
-directxGraphicsResourceConflictLabels(const HIRStage &vertex,
+directxGraphicsResourceConflictLabels(const HIRModule &module,
+                                      const HIRStage &vertex,
                                       const HIRStage &fragment) {
   std::map<std::string, DirectXGraphicsResourceRef> resourcesByName;
-  std::map<std::string, DirectXGraphicsResourceRef> resourcesByRegister;
+  std::vector<DirectXGraphicsResourceRef> resourcesWithRegisters;
   std::set<std::string> conflicts;
   for (const DirectXGraphicsResourceRef &resourceRef :
        directxGraphicsStageResourceRefs(vertex, fragment)) {
@@ -2290,33 +3365,26 @@ directxGraphicsResourceConflictLabels(const HIRStage &vertex,
           directxGraphicsResourceDiagnosticLabel(resourceRef.stage, *resource));
     }
 
-    const std::string registerClass = directxResourceRegisterClass(*resource);
-    if (registerClass.empty()) {
+    if (directxResourceRegisterClass(*resource).empty()) {
       continue;
     }
-    const std::string registerKey = registerClass + ":" +
-                                    std::to_string(resource->set) + ":" +
-                                    std::to_string(resource->binding);
-    auto [registerIt, insertedRegister] =
-        resourcesByRegister.emplace(registerKey, resourceRef);
-    if (!insertedRegister &&
-        !directxSameGraphicsResource(*registerIt->second.resource, *resource)) {
-      conflicts.insert(
-          "register conflict for register(" + registerClass +
-          std::to_string(resource->binding) + ", space" +
-          std::to_string(resource->set) + "): " +
-          directxGraphicsResourceDiagnosticLabel(registerIt->second.stage,
-                                                *registerIt->second.resource) +
-          " vs " +
-          directxGraphicsResourceDiagnosticLabel(resourceRef.stage, *resource));
+    for (const DirectXGraphicsResourceRef &registered :
+         resourcesWithRegisters) {
+      const std::optional<std::string> conflict =
+          directxGraphicsRegisterConflictLabel(module, registered, resourceRef);
+      if (conflict.has_value()) {
+        conflicts.insert(*conflict);
+      }
     }
+    resourcesWithRegisters.push_back(resourceRef);
   }
   return conflicts;
 }
 
-bool directxGraphicsResourcesCompatible(const HIRStage &vertex,
+bool directxGraphicsResourcesCompatible(const HIRModule &module,
+                                        const HIRStage &vertex,
                                         const HIRStage &fragment) {
-  if (!directxGraphicsResourceConflictLabels(vertex, fragment).empty()) {
+  if (!directxGraphicsResourceConflictLabels(module, vertex, fragment).empty()) {
     return false;
   }
   for (const DirectXGraphicsResourceRef &resourceRef :
@@ -2357,13 +3425,13 @@ directxGraphicsResourceConflictLabels(const HIRModule &module) {
   if (!directxGraphicsStagePair(module, vertex, fragment)) {
     return {};
   }
-  return directxGraphicsResourceConflictLabels(*vertex, *fragment);
+  return directxGraphicsResourceConflictLabels(module, *vertex, *fragment);
 }
 
 bool directxGraphicsResourcesSupported(const HIRModule &module,
                                        const HIRStage &vertex,
                                        const HIRStage &fragment) {
-  if (!directxGraphicsResourcesCompatible(vertex, fragment)) {
+  if (!directxGraphicsResourcesCompatible(module, vertex, fragment)) {
     return false;
   }
   for (const HIRResource *resource :
@@ -2869,13 +3937,36 @@ findCallableFunction(const std::vector<const HIRFunction *> &functions,
   return nullptr;
 }
 
+HIRFunctionParameterArrayCallFeatureSupport
+directxFunctionParameterArrayCallFeatureSupport(
+    HIRFunctionParameterArrayCallFeature feature) {
+  if (feature ==
+          HIRFunctionParameterArrayCallFeature::DirectResourceArrayArguments ||
+      feature == HIRFunctionParameterArrayCallFeature::StructElements) {
+    return HIRFunctionParameterArrayCallFeatureSupport::Supported;
+  }
+  return functionParameterArrayCallFeatureSupport(feature);
+}
+
+HIRFunctionParameterArrayCallFeatureSupport
+directxFunctionParameterArrayCallFeaturesSupport(
+    std::span<const HIRFunctionParameterArrayCallFeature> features) {
+  for (HIRFunctionParameterArrayCallFeature feature : features) {
+    if (directxFunctionParameterArrayCallFeatureSupport(feature) ==
+        HIRFunctionParameterArrayCallFeatureSupport::Unsupported) {
+      return HIRFunctionParameterArrayCallFeatureSupport::Unsupported;
+    }
+  }
+  return HIRFunctionParameterArrayCallFeatureSupport::Supported;
+}
+
 void appendUnsupportedFunctionParameterArrayCallFeatures(
     std::set<std::string> &labels, std::string_view caller,
     std::string_view callee, std::string_view parameter,
     std::span<const HIRFunctionParameterArrayCallFeature> features) {
   for (HIRFunctionParameterArrayCallFeature feature : features) {
     const HIRFunctionParameterArrayCallFeatureSupport support =
-        functionParameterArrayCallFeatureSupport(feature);
+        directxFunctionParameterArrayCallFeatureSupport(feature);
     if (support == HIRFunctionParameterArrayCallFeatureSupport::Supported) {
       continue;
     }
@@ -2919,6 +4010,25 @@ void collectUnsupportedFunctionParameterArrayCallFeatures(
       appendUnsupportedFunctionParameterArrayCallFeatures(
           labels, function.name, callee->name, parameter.name,
           argumentFeatures);
+
+      const auto hasFeature =
+          [](std::span<const HIRFunctionParameterArrayCallFeature> features,
+             HIRFunctionParameterArrayCallFeature feature) {
+            return std::find(features.begin(), features.end(), feature) !=
+                   features.end();
+          };
+      const std::span<const HIRFunctionParameterArrayCallFeature> typeSpan{
+          typeFeatures.data(), typeFeatures.size()};
+      const std::span<const HIRFunctionParameterArrayCallFeature> argumentSpan{
+          argumentFeatures.data(), argumentFeatures.size()};
+      if (hasFeature(typeSpan,
+                     HIRFunctionParameterArrayCallFeature::StructElements) &&
+          hasFeature(argumentSpan, HIRFunctionParameterArrayCallFeature::
+                                       FunctionParameterArguments)) {
+        labels.insert("caller '" + function.name + "' -> callee '" +
+                      callee->name + "' parameter '" + parameter.name +
+                      "': struct-array-forwarding=unsupported");
+      }
     }
   };
   visitFunctionExpressions(function, visitor);
@@ -3023,13 +4133,16 @@ bool directxLocalArrayCopyArgument(const HIRModule &module,
                                                  stage);
   const std::span<const HIRFunctionParameterArrayCallFeature> featureSpan{
       features.data(), features.size()};
-  if (functionParameterArrayCallFeaturesSupport(featureSpan) !=
+  if (directxFunctionParameterArrayCallFeaturesSupport(featureSpan) !=
       HIRFunctionParameterArrayCallFeatureSupport::Supported) {
     return false;
   }
   return hasFunctionParameterArrayCallFeature(
              featureSpan,
              HIRFunctionParameterArrayCallFeature::LocalArrayArguments) &&
+         !hasFunctionParameterArrayCallFeature(
+             featureSpan,
+             HIRFunctionParameterArrayCallFeature::StructElements) &&
          !hasFunctionParameterArrayCallFeature(
              featureSpan, HIRFunctionParameterArrayCallFeature::
                               FunctionParameterArguments) &&
@@ -3044,30 +4157,220 @@ bool directxLocalArrayCopyArgument(const HIRModule &module,
                               DirectResourceArrayArguments);
 }
 
-bool functionParameterArrayWriteUsesOnlyLocalCopyArguments(
+bool directxStorageBufferFieldArrayWriteBackArgument(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRExpression &argument, const HIRStage *stage) {
+  if (functionParameterArrayShape(module, argument.type) !=
+          HIRFunctionParameterArrayShape::FixedSize ||
+      !argument.type.arraySize.has_value() ||
+      directxArrayDimensions(*argument.type.arraySize).size() != 1) {
+    return false;
+  }
+
+  const std::vector<HIRFunctionParameterArrayCallFeature> features =
+      functionParameterArrayCallArgumentFeatures(module, caller, argument,
+                                                 stage);
+  const std::span<const HIRFunctionParameterArrayCallFeature> featureSpan{
+      features.data(), features.size()};
+  if (directxFunctionParameterArrayCallFeaturesSupport(featureSpan) !=
+      HIRFunctionParameterArrayCallFeatureSupport::Supported) {
+    return false;
+  }
+  return hasFunctionParameterArrayCallFeature(
+             featureSpan,
+             HIRFunctionParameterArrayCallFeature::
+                 StorageBufferFieldArguments) &&
+         !hasFunctionParameterArrayCallFeature(
+             featureSpan,
+             HIRFunctionParameterArrayCallFeature::StructElements) &&
+         !hasFunctionParameterArrayCallFeature(
+             featureSpan,
+             HIRFunctionParameterArrayCallFeature::FixedNestedArrays) &&
+         !hasFunctionParameterArrayCallFeature(
+             featureSpan,
+             HIRFunctionParameterArrayCallFeature::LocalArrayArguments) &&
+         !hasFunctionParameterArrayCallFeature(
+             featureSpan, HIRFunctionParameterArrayCallFeature::
+                              FunctionParameterArguments) &&
+         !hasFunctionParameterArrayCallFeature(
+             featureSpan, HIRFunctionParameterArrayCallFeature::
+                              NestedStructFieldArguments) &&
+         !hasFunctionParameterArrayCallFeature(
+             featureSpan, HIRFunctionParameterArrayCallFeature::
+                              DirectResourceArrayArguments);
+}
+
+bool directxFunctionParameterArrayWriteArgumentAliases(
+    const HIRModule &module, const HIRFunction &callee,
+    const HIRExpression &call, std::size_t parameterIndex) {
+  if (call.children.size() <= parameterIndex) {
+    return false;
+  }
+  const HIRExpression *writtenRoot =
+      rootIdentifierExpression(call.children[parameterIndex]);
+  if (writtenRoot == nullptr) {
+    return false;
+  }
+
+  for (std::size_t index = 0; index < callee.parameters.size(); ++index) {
+    if (index == parameterIndex || call.children.size() <= index ||
+        functionParameterArrayShape(module, callee.parameters[index].type) !=
+            HIRFunctionParameterArrayShape::FixedSize) {
+      continue;
+    }
+    const HIRExpression *otherRoot =
+        rootIdentifierExpression(call.children[index]);
+    if (otherRoot != nullptr && otherRoot->value == writtenRoot->value) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const HIRExpression *directxStatementDirectCallValue(
+    const HIRStatement &statement) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+  case HIRStatementKind::Assignment:
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Return:
+    return statement.value.kind == HIRExpressionKind::Call ? &statement.value
+                                                           : nullptr;
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+  case HIRStatementKind::Raw:
+    return nullptr;
+  }
+  return nullptr;
+}
+
+bool directxFunctionParameterArrayWriteCallSupportedInContext(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRExpression &call,
+    std::size_t parameterIndex, const HIRStage *stage,
+    bool allowDirectStatementWriteBack) {
+  if (call.children.size() <= parameterIndex ||
+      directxFunctionParameterArrayWriteArgumentAliases(module, callee, call,
+                                                       parameterIndex)) {
+    return false;
+  }
+  if (directxLocalArrayCopyArgument(module, caller,
+                                    call.children[parameterIndex], stage)) {
+    return true;
+  }
+  return allowDirectStatementWriteBack &&
+         directxStorageBufferFieldArrayWriteBackArgument(
+             module, caller, call.children[parameterIndex], stage);
+}
+
+bool directxExpressionTreeSupportsFunctionArrayWriteCalls(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRExpression &expression,
+    const HIRExpression *directCall, std::size_t parameterIndex,
+    const HIRStage *stage) {
+  bool supported = true;
+  auto visitor = [&](const HIRExpression &candidate) {
+    if (&candidate != directCall && candidate.kind == HIRExpressionKind::Call &&
+        candidate.value == callee.name &&
+        !directxFunctionParameterArrayWriteCallSupportedInContext(
+            module, caller, callee, candidate, parameterIndex, stage, false)) {
+      supported = false;
+    }
+  };
+  visitExpressionTree(expression, visitor);
+  return supported;
+}
+
+bool directxFunctionParameterArrayWriteStatementSupported(
+    const HIRModule &module, const HIRFunction &caller,
+    const HIRFunction &callee, const HIRStatement &statement,
+    std::size_t parameterIndex, const HIRStage *stage,
+    bool allowDirectStatementWriteBack) {
+  const HIRExpression *supportedWriteBackCall =
+      directxStatementDirectCallValue(statement);
+  if (supportedWriteBackCall != nullptr &&
+      supportedWriteBackCall->value != callee.name) {
+    supportedWriteBackCall = nullptr;
+  }
+  if (supportedWriteBackCall != nullptr) {
+    if (!directxFunctionParameterArrayWriteCallSupportedInContext(
+            module, caller, callee, *supportedWriteBackCall, parameterIndex,
+            stage, allowDirectStatementWriteBack)) {
+      return false;
+    }
+  } else if (allowDirectStatementWriteBack) {
+    const HIRExpression *nestedCall =
+        directxNestedArrayWriteBackStatementCall(statement);
+    if (nestedCall != nullptr && nestedCall->value == callee.name) {
+      if (!directxFunctionParameterArrayWriteCallSupportedInContext(
+              module, caller, callee, *nestedCall, parameterIndex, stage,
+              true)) {
+        return false;
+      }
+      supportedWriteBackCall = nestedCall;
+    }
+  }
+  if (!directxExpressionTreeSupportsFunctionArrayWriteCalls(
+          module, caller, callee, statement.target, supportedWriteBackCall,
+          parameterIndex, stage) ||
+      !directxExpressionTreeSupportsFunctionArrayWriteCalls(
+          module, caller, callee, statement.value, supportedWriteBackCall,
+          parameterIndex, stage)) {
+    return false;
+  }
+
+  for (const HIRStatement &child : statement.initializer) {
+    if (!directxFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, child, parameterIndex, stage, false)) {
+      return false;
+    }
+  }
+  for (const HIRStatement &child : statement.update) {
+    if (!directxFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, child, parameterIndex, stage, false)) {
+      return false;
+    }
+  }
+  for (const HIRStatement &child : statement.body) {
+    if (!directxFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, child, parameterIndex, stage, true)) {
+      return false;
+    }
+  }
+  for (const HIRStatement &child : statement.elseBody) {
+    if (!directxFunctionParameterArrayWriteStatementSupported(
+            module, caller, callee, child, parameterIndex, stage, true)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool functionParameterArrayWriteUsesSupportedArguments(
     const HIRModule &module, const HIRFunction &function,
     std::size_t parameterIndex) {
   const HIRStage *stage = singleComputeStage(module);
   bool supported = true;
   const auto inspectCaller = [&](const HIRFunction &caller,
                                  const HIRStage *callerStage) {
-    auto visitor = [&](const HIRExpression &expression) {
-      if (!supported || expression.kind != HIRExpressionKind::Call ||
-          expression.value != function.name) {
-        return;
+    for (const HIRStatement &statement : caller.body) {
+      if (!supported) {
+        break;
       }
-      if (expression.children.size() <= parameterIndex ||
-          !directxLocalArrayCopyArgument(module, caller,
-                                         expression.children[parameterIndex],
-                                         callerStage)) {
+      if (!directxFunctionParameterArrayWriteStatementSupported(
+              module, caller, function, statement, parameterIndex, callerStage,
+              true)) {
         supported = false;
       }
-    };
-    visitFunctionExpressions(caller, visitor);
+    }
   };
 
   for (const HIRFunction &caller : module.functions) {
-    inspectCaller(caller, nullptr);
+    inspectCaller(caller, stage);
   }
   if (stage != nullptr) {
     for (const HIRFunction &caller : stage->functions) {
@@ -3085,8 +4388,8 @@ void collectUnsupportedFunctionParameterArrayWrites(
     const std::optional<std::size_t> parameterIndex =
         fixedArrayParameterIndex(module, function, parameterName);
     if (!parameterIndex.has_value() ||
-        !functionParameterArrayWriteUsesOnlyLocalCopyArguments(
-            module, function, *parameterIndex)) {
+        !functionParameterArrayWriteUsesSupportedArguments(module, function,
+                                                           *parameterIndex)) {
       labels.insert("function '" + function.name + "' parameter '" +
                     parameterName + "'");
     }
@@ -3107,17 +4410,11 @@ unsupportedFunctionParameterArrayWriteLabels(const HIRModule &module) {
   return labels;
 }
 
-bool functionParametersSupported(const HIRFunction &function) {
-  for (const HIRParameter &parameter : function.parameters) {
-    if (!isSupportedFunctionParameterType(parameter.type)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 bool isSupportedFunctionValueType(const HIRModule &module,
                                   const HIRType &type) {
+  if (!hlslFunctionParameterResourceType(module, type).empty()) {
+    return true;
+  }
   if (type.name == "void" || (!type.name.empty() && type.name.back() == '*')) {
     return false;
   }
@@ -3125,7 +4422,9 @@ bool isSupportedFunctionValueType(const HIRModule &module,
     return isSupportedValueType(type) ||
            directxStructType(module, type) != nullptr;
   }
-  return !hlslTypeName(stripPointer(type.name)).empty();
+  return !type.arraySize->empty() &&
+         (!hlslTypeName(stripPointer(type.name)).empty() ||
+          findStruct(module, stripPointer(type.name)) != nullptr);
 }
 
 bool isSupportedFunctionReturnType(const HIRModule &module,
@@ -3152,8 +4451,9 @@ bool entryFunctionSupported(const HIRFunction &function,
 
 bool helperFunctionSupported(const HIRFunction &function,
                              const DirectXTextualSupportContext &context) {
-  if (!isSupportedFunctionReturnType(function.returnType) ||
-      !functionParametersSupported(function)) {
+  if (context.module == nullptr ||
+      !isSupportedFunctionReturnType(*context.module, function.returnType) ||
+      !functionParametersSupported(*context.module, function)) {
     return false;
   }
   return functionBodySupportedByPolicy(
@@ -3226,7 +4526,7 @@ bool functionsSupported(const HIRModule &module, const HIRStage &stage,
       }
       continue;
     }
-    if (!helperFunctionSupported(function, context)) {
+    if (!stageFunctionSupported(module, stage, function, false, context)) {
       return false;
     }
   }
@@ -3257,9 +4557,15 @@ directxUnsupportedRuntimeResourceArrayLabels(const HIRModule &module) {
   std::set<std::string> resourceArrays;
   for (const HIRStage &stage : module.stages) {
     for (const HIRResource &resource : stage.resources) {
-      if (resource.kind != HIRResourceKind::Buffer &&
-          isRuntimeDescriptorArray(resource) &&
-          !directxResourceArrayShapeSupported(module, resource)) {
+      if (resource.kind == HIRResourceKind::Buffer ||
+          !isDirectXDescriptorResourceKind(resource.kind)) {
+        continue;
+      }
+      const std::set<std::string> conflicts =
+          directxDescriptorRangeConflictLabels(module, resource);
+      resourceArrays.insert(conflicts.begin(), conflicts.end());
+      if (isRuntimeDescriptorArray(resource) &&
+          !directxRuntimeDescriptorArrayPolicySupported(module, resource)) {
         resourceArrays.insert(resourceArrayLabel(resource));
       }
     }
@@ -3385,7 +4691,8 @@ bool diagnoseDirectXUnsupportedGraphicsResources(const HIRModule &module,
   diagnostics.error(
       "directx.unsupported-graphics-resource",
       "DirectX graphics source package supports only fixed-size uniform "
-      "buffers, non-array storage buffers, and texture/sampler resources, and "
+      "buffers, non-array or fixed-size storage-buffer descriptor arrays, and "
+      "texture/sampler resources, and "
       "vertex/fragment resources must have compatible names and HLSL register "
       "class/set/binding pairs; " +
           details +
@@ -3405,12 +4712,14 @@ bool diagnoseDirectXUnsupportedRuntimeResourceArray(
   diagnostics.error(
       "directx.unsupported-runtime-resource-array",
       "DirectX source package requires fixed-size descriptor arrays when "
-      "multiple unbounded descriptor arrays share an HLSL register class or "
-      "the descriptor shape is ambiguous; "
+      "multiple unbounded descriptor arrays share an HLSL register class, an "
+      "unbounded descriptor array overlaps another resource in the same HLSL "
+      "register class/space, or the descriptor shape is ambiguous; "
       "unsupported unsized/runtime resource array(s): " +
           joinNames(resourceArrays) +
           "; use a fixed descriptor array size or keep only one unbounded "
-          "descriptor array per register class");
+          "descriptor array per register class/space without later descriptors "
+          "in that class/space");
   return true;
 }
 
@@ -3449,10 +4758,10 @@ bool diagnoseDirectXUnsupportedStorageBufferElementType(
       "DirectX source package does not yet support storage-buffer element "
       "type(s): " +
           joinNames(elementTypes) +
-          "; supported storage-buffer elements are scalar/vector types, "
-          "top-level atomic<int>/atomic<uint> scalar elements, and structs "
-          "with scalar/vector leaf fields, including nested structs and "
-          "fixed-size scalar/vector or nested-struct array fields");
+          "; supported storage-buffer elements are scalar/vector/matrix "
+          "types, top-level atomic<int>/atomic<uint> scalar elements, and "
+          "structs with supported leaf fields, including nested structs and "
+          "fixed-size supported leaf or nested-struct array fields");
   return true;
 }
 
@@ -3513,7 +4822,11 @@ bool diagnoseDirectXUnsupportedFunctionParameterArrayWrite(
           "; the shared function-parameter array call ABI is " +
           functionParameterArrayCallSemanticsName(
               functionParameterArrayCallSemantics()) +
-          ", so helper array parameters are treated as read-only values");
+          "; DirectX currently lowers callee-local helper array writes for "
+          "fixed-size local array copies and direct non-aliased "
+          "storage-buffer field array arguments used as a statement's direct "
+          "helper-call value or as either binary expression operand when the "
+          "other operand has no call-like evaluation");
   return true;
 }
 
@@ -3569,8 +4882,10 @@ bool directxSourcePackageSupported(const HIRModule &module,
       "sampling, SM 6.7 explicit-lod shadow texture comparison sampling, "
       "manual explicit-lod shadow compare fallback sampling, scalar constants, "
       "fixed-size descriptor arrays, one unbounded descriptor array per HLSL "
-      "register class when binding metadata remains unambiguous, helper "
-      "functions with fixed-size scalar/vector/matrix array parameters, "
+      "register class/space when no later descriptor in that class/space "
+      "overlaps it, helper "
+      "functions with fixed-size scalar/vector/matrix array parameters and "
+      "read-only fixed-size direct texture/sampler resource-array parameters, "
       "fixed-size numeric "
       "scalar/vector/matrix local arrays, including fixed nested local "
       "arrays, workgroup/shared memory declarations, statement-form and "
@@ -3579,11 +4894,14 @@ bool directxSourcePackageSupported(const HIRModule &module,
       "storage-buffer and groupshared atomic "
       "storage, dynamic nested "
       "helper-array reads, callee-local writes to helper array copies from "
-      "local array arguments, and void entry functions, or one vertex stage "
+      "local array arguments, direct non-aliased storage-buffer field array "
+      "arguments with statement-form copy-in/write-back, and void entry "
+      "functions, or one vertex stage "
       "plus one fragment stage with struct input/output signatures, "
       "scalar/vector stage IO fields, matched non-position varyings, no global "
-      "helper functions, fixed-size uniform buffers, non-array storage "
-      "buffers, and explicit-lod texture/sampler graphics resources");
+      "helper functions, fixed-size uniform buffers, non-array or fixed-size "
+      "storage-buffer descriptor arrays, and explicit-lod texture/sampler "
+      "graphics resources");
   return false;
 }
 
@@ -3767,7 +5085,8 @@ void emitFunction(std::ostringstream &out, const HIRFunction &function,
       out << ", ";
     }
     const HIRParameter &parameter = function.parameters[index];
-    out << hlslDeclarator(context.module, parameter.type, parameter.name);
+    out << hlslFunctionParameterDeclarator(context.module, parameter.type,
+                                           parameter.name);
   }
   out << ") {\n";
   for (const HIRStatement &statement : function.body) {
@@ -3847,7 +5166,10 @@ std::string generateDirectXComputeSource(
   const HIRFunction &entry = *entryFunction(stage);
   const std::set<std::string> mixedSamplers =
       mixedSamplerStateUsageNames(module);
-  const DirectXEmitContext emitContext{&module, mixedSamplers};
+  std::size_t nextTemporaryIndex = 0;
+  DirectXEmitContext emitContext{&module, mixedSamplers};
+  emitContext.stage = &stage;
+  emitContext.nextTemporaryIndex = &nextTemporaryIndex;
   for (const HIRConstant &constant : module.constants) {
     out << "static const " << hlslType(constant.type) << " " << constant.name
         << " = " << emitConstantValue(constant) << ";\n";
@@ -3892,14 +5214,18 @@ std::string generateDirectXComputeSource(
   }
 
   for (const HIRFunction &function : module.functions) {
-    emitFunction(out, function, function.name, emitContext);
+    DirectXEmitContext functionContext = emitContext;
+    functionContext.function = &function;
+    emitFunction(out, function, function.name, functionContext);
     out << "\n";
   }
   for (const HIRFunction &function : stage.functions) {
     if (function.name == stage.entryPointName) {
       continue;
     }
-    emitFunction(out, function, function.name, emitContext);
+    DirectXEmitContext functionContext = emitContext;
+    functionContext.function = &function;
+    emitFunction(out, function, function.name, functionContext);
     out << "\n";
   }
 
@@ -3921,6 +5247,7 @@ std::string generateDirectXComputeSource(
   out << ") {\n";
   DirectXEmitContext entryEmitContext = emitContext;
   entryEmitContext.rewriteComputeInvocationBuiltins = true;
+  entryEmitContext.function = &entry;
   for (const HIRStatement &statement : entry.body) {
     emitStatement(out, statement, 2, entryEmitContext);
   }
@@ -4048,10 +5375,14 @@ void emitDirectXStageFunctionDefinitions(std::ostringstream &out,
     if (&function == &entry) {
       continue;
     }
-    emitFunction(out, function, function.name, context);
+    DirectXEmitContext functionContext = context;
+    functionContext.function = &function;
+    emitFunction(out, function, function.name, functionContext);
     out << "\n";
   }
-  emitFunction(out, entry, directxUserEntryPointName(stage), context);
+  DirectXEmitContext entryContext = context;
+  entryContext.function = &entry;
+  emitFunction(out, entry, directxUserEntryPointName(stage), entryContext);
   out << "\n";
 }
 
@@ -4125,8 +5456,13 @@ std::string generateDirectXGraphicsSource(
                                    nullptr, nullptr, false, true);
   out << "\n";
 
-  const DirectXEmitContext vertexContext{&module, mixedSamplers, false};
-  const DirectXEmitContext fragmentContext{&module, mixedSamplers, false};
+  std::size_t nextTemporaryIndex = 0;
+  DirectXEmitContext vertexContext{&module, mixedSamplers, false};
+  vertexContext.stage = vertexStage;
+  vertexContext.nextTemporaryIndex = &nextTemporaryIndex;
+  DirectXEmitContext fragmentContext{&module, mixedSamplers, false};
+  fragmentContext.stage = fragmentStage;
+  fragmentContext.nextTemporaryIndex = &nextTemporaryIndex;
   emitDirectXStageFunctionDefinitions(out, *vertexStage, vertexEntry,
                                       vertexContext);
   emitDirectXStageFunctionDefinitions(out, *fragmentStage, fragmentEntry,
@@ -4234,10 +5570,12 @@ std::string generateDirectXBackendIR(
         directxUnsupportedRuntimeResourceArrayLabels(module);
     if (!resourceArrays.empty()) {
       out << "// directx textual scaffold does not yet support ambiguous "
-             "descriptor arrays with unsized/runtime descriptor counts ("
+             "or overlapping descriptor arrays with unsized/runtime "
+             "descriptor counts ("
           << joinNames(resourceArrays)
           << "); use a fixed descriptor array size or keep only one unbounded "
-             "descriptor array per register class\n";
+             "descriptor array per register class/space without later "
+             "descriptors in that class/space\n";
     }
     const std::set<std::string> bufferElementTypes =
         directxUnsupportedStorageBufferElementTypeLabels(module);
@@ -4245,10 +5583,10 @@ std::string generateDirectXBackendIR(
       out << "// directx textual scaffold does not yet support storage-buffer "
              "element types ("
           << joinNames(bufferElementTypes)
-          << "); scalar/vector storage-buffer elements, top-level "
+          << "); scalar/vector/matrix storage-buffer elements, top-level "
              "atomic<int>/atomic<uint> scalar elements, and structs with "
-             "scalar/vector leaf fields, including fixed-size array fields, "
-             "are supported\n";
+             "supported leaf fields, including fixed-size array fields, are "
+             "supported\n";
     }
     const std::set<std::string> unsupportedMixedSamplers =
         unsupportedMixedSamplerStateUsageLabels(module);
@@ -4294,8 +5632,9 @@ std::string generateDirectXBackendIR(
            "texture comparison sampling, SM 6.7 explicit-lod shadow texture "
            "comparison sampling, manual explicit-lod shadow compare fallback "
            "sampling, scalar constants, fixed-size descriptor arrays, one "
-           "unbounded descriptor array per HLSL register class when binding "
-           "metadata remains unambiguous, helper functions with fixed-size "
+           "unbounded descriptor array per HLSL register class/space when no "
+           "later descriptor in that class/space overlaps it, helper functions "
+           "with fixed-size "
            "scalar/vector/matrix array parameters, fixed-size numeric "
            "scalar/vector/matrix local arrays, including fixed nested local "
            "arrays, workgroup/shared memory declarations, statement-form and "
@@ -4303,12 +5642,15 @@ std::string generateDirectXBackendIR(
            "atomicExchange/atomicAnd/atomicMin/atomicMax/atomicOr/atomicXor "
            "over scalar integer storage-buffer and groupshared "
            "atomic storage, dynamic nested helper-array reads, callee-local "
-           "writes to helper array copies from local array arguments, and "
-           "void entry functions, or one vertex stage plus one fragment stage "
+           "writes to helper array copies from local array arguments, direct "
+           "non-aliased storage-buffer field array arguments with "
+           "statement-form copy-in/write-back, and void entry functions, or "
+           "one vertex stage plus one fragment stage "
            "with struct input/output signatures, scalar/vector stage IO "
            "fields, matched non-position varyings, no global helper functions, "
-           "fixed-size uniform buffers, non-array storage buffers, and "
-           "explicit-lod texture/sampler graphics resources\n\n";
+           "fixed-size uniform buffers, non-array or fixed-size storage-buffer "
+           "descriptor arrays, and explicit-lod texture/sampler graphics "
+           "resources\n\n";
     out << "// source CrossGL IR follows\n";
     return out.str();
   }
@@ -4414,6 +5756,28 @@ directxDxcCommandProfile(std::string_view targetProfile,
       << packageRelativeOutput.generic_string() << " "
       << packageRelativeSource.generic_string();
   return out.str();
+}
+
+ToolInvocationProvenance combineDirectXGraphicsDxcProvenance(
+    ToolInvocationProvenance vertex, const ToolInvocationProvenance &fragment,
+    const std::filesystem::path &bundleOutputPath) {
+  const std::string vertexStatus = vertex.provenanceStatus;
+  const std::string fragmentStatus = fragment.provenanceStatus;
+  vertex.argumentsSha256 =
+      sha256(vertex.argumentsSha256 + "\n" + fragment.argumentsSha256 + "\n");
+  vertex.commandShape =
+      "vertex: " + vertex.commandShape + "; fragment: " + fragment.commandShape;
+  vertex.outputPath = bundleOutputPath.string();
+  if (vertex.provenanceStatus == "succeeded" &&
+      fragment.provenanceStatus == "succeeded") {
+    vertex.provenanceStatus = "succeeded";
+    vertex.provenanceDetail.clear();
+  } else {
+    vertex.provenanceStatus = "failed";
+    vertex.provenanceDetail = "vertex dxc " + vertexStatus +
+                              "; fragment dxc " + fragmentStatus;
+  }
+  return vertex;
 }
 
 std::filesystem::path
@@ -4546,6 +5910,7 @@ buildDirectXSourcePackage(const HIRModule &module,
   source.close();
 
   const std::string profileSummary = directxShaderProfileSummary(module);
+  result.shaderProfileSummary = profileSummary;
   const std::string optimizationEvidence =
       directxDxcOptimizationEvidence(optimizationLevel);
   diagnostics.note("directx.source-package-emitted",
@@ -4600,9 +5965,20 @@ buildDirectXSourcePackage(const HIRModule &module,
     const std::string fragmentCommandProfile = directxDxcCommandProfile(
         fragmentProfile, fragmentEntryPoint, packageRelativeFragmentDxil,
         packageRelativeSource, optimizationLevel);
+    ToolInvocationProvenance vertexProvenance =
+        captureToolInvocationProvenance("dxc", vertexCommand,
+                                        vertexDxil.string());
+    ToolInvocationProvenance fragmentProvenance =
+        captureToolInvocationProvenance("dxc", fragmentCommand,
+                                        fragmentDxil.string());
     const ProcessCaptureResult vertexResult = runProcessCapture(vertexCommand);
     const ProcessCaptureResult fragmentResult =
         runProcessCapture(fragmentCommand);
+    completeToolInvocationProvenance(vertexProvenance, vertexResult);
+    completeToolInvocationProvenance(fragmentProvenance, fragmentResult);
+    result.dxcProvenance = combineDirectXGraphicsDxcProvenance(
+        std::move(vertexProvenance), fragmentProvenance,
+        result.nativeBinaryPath);
     if (vertexResult.started && vertexResult.exitCode == 0 &&
         fragmentResult.started && fragmentResult.exitCode == 0 &&
         std::filesystem::exists(vertexDxil) &&
@@ -4664,7 +6040,10 @@ buildDirectXSourcePackage(const HIRModule &module,
   const std::string commandProfile = directxDxcCommandProfile(
       profile, entryPoint, packageRelativeNativeBinary, packageRelativeSource,
       optimizationLevel);
+  result.dxcProvenance = captureToolInvocationProvenance(
+      "dxc", command, result.nativeBinaryPath.string());
   const ProcessCaptureResult dxcResult = runProcessCapture(command);
+  completeToolInvocationProvenance(*result.dxcProvenance, dxcResult);
   if (dxcResult.started && dxcResult.exitCode == 0 &&
       std::filesystem::exists(result.nativeBinaryPath)) {
     diagnostics.note("directx.dxil-emitted",

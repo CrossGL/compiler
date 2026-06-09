@@ -1,0 +1,9 @@
+shader BadIndexTypeShader {
+  compute {
+    void main() {
+      float weights[4];
+      float bad = weights[0.5];
+      return;
+    }
+  }
+}

@@ -307,7 +307,7 @@ def _entry_point_summary(record: dict[str, Any] | None) -> dict[str, Any] | None
 def _target_binding_summary(record: dict[str, Any] | None) -> dict[str, Any] | None:
     if record is None:
         return None
-    return {
+    summary = {
         "stage": record.get("stage"),
         "entryPoint": record.get("entryPoint"),
         "name": record.get("name"),
@@ -316,6 +316,15 @@ def _target_binding_summary(record: dict[str, Any] | None) -> dict[str, Any] | N
         "descriptorType": record.get("descriptorType"),
         "abi": record.get("abi"),
     }
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
+        if field_name in record:
+            summary[field_name] = record.get(field_name)
+    return summary
 
 
 def _parse_args(argv: list[str]) -> argparse.Namespace:

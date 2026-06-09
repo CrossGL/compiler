@@ -138,7 +138,16 @@ HIRType pointerlessType(HIRType type) {
 }
 
 HIRType arrayElementType(HIRType type) {
-  type.arraySize.reset();
+  if (!type.arraySize.has_value()) {
+    return type;
+  }
+
+  const std::size_t separator = type.arraySize->find("][");
+  if (separator == std::string::npos) {
+    type.arraySize.reset();
+  } else {
+    type.arraySize = type.arraySize->substr(separator + 2);
+  }
   return type;
 }
 
@@ -491,6 +500,19 @@ std::optional<std::size_t> vectorWidthFromName(std::string_view name) {
     if (width >= '2' && width <= '4') {
       return static_cast<std::size_t>(width - '0');
     }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t> matrixElementCountFromName(std::string_view name) {
+  if (name == "mat2" || name == "mat2x2") {
+    return std::size_t{4};
+  }
+  if (name == "mat3" || name == "mat3x3") {
+    return std::size_t{9};
+  }
+  if (name == "mat4" || name == "mat4x4") {
+    return std::size_t{16};
   }
   return std::nullopt;
 }

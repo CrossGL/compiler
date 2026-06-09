@@ -22,6 +22,7 @@
 #include <initializer_list>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -46,6 +47,14 @@ struct NativeArtifactToolProvenance {
   std::string executableSource;
   std::string versionProbeStatus;
   std::string versionDetail;
+  std::string argumentsSha256;
+  std::string commandShape;
+  std::string responseFilePath;
+  std::string outputPath;
+  std::string outputSha256;
+  std::optional<std::uintmax_t> outputSizeBytes;
+  std::string provenanceStatus;
+  std::string provenanceDetail;
 };
 
 struct NativeArtifactDescriptorSpec {
@@ -57,6 +66,8 @@ struct NativeArtifactDescriptorSpec {
   std::string optimizationLevel;
   std::optional<std::string> optimizationEvidenceJson;
   std::vector<NativeArtifactToolProvenance> tools;
+  std::vector<Diagnostic> validationDiagnostics;
+  std::vector<VulkanSPIRVImport> spirvExtendedInstructionImports;
 };
 
 struct NativeOptimizationEvidenceSpec {
@@ -130,9 +141,9 @@ std::string packageRelativePath(const std::filesystem::path &packageDir,
   return artifactPath.generic_string();
 }
 
-std::optional<std::string>
-readFileForHash(const std::filesystem::path &path, DiagnosticEngine &diagnostics,
-                std::string_view code) {
+std::optional<std::string> readFileForHash(const std::filesystem::path &path,
+                                           DiagnosticEngine &diagnostics,
+                                           std::string_view code) {
   std::ifstream input(path, std::ios::binary);
   if (!input) {
     diagnostics.error(std::string(code),
@@ -149,9 +160,9 @@ readFileForHash(const std::filesystem::path &path, DiagnosticEngine &diagnostics
   return buffer.str();
 }
 
-std::optional<std::string>
-artifactSha256(const std::filesystem::path &path, DiagnosticEngine &diagnostics,
-               std::string_view code) {
+std::optional<std::string> artifactSha256(const std::filesystem::path &path,
+                                          DiagnosticEngine &diagnostics,
+                                          std::string_view code) {
   const std::optional<std::string> contents =
       readFileForHash(path, diagnostics, code);
   if (!contents) {
@@ -160,9 +171,9 @@ artifactSha256(const std::filesystem::path &path, DiagnosticEngine &diagnostics,
   return sha256(*contents);
 }
 
-std::optional<std::uintmax_t>
-artifactSize(const std::filesystem::path &path, DiagnosticEngine &diagnostics,
-             std::string_view code) {
+std::optional<std::uintmax_t> artifactSize(const std::filesystem::path &path,
+                                           DiagnosticEngine &diagnostics,
+                                           std::string_view code) {
   std::error_code error;
   if (!std::filesystem::is_regular_file(path, error) || error) {
     diagnostics.error(std::string(code),
@@ -329,8 +340,8 @@ manifestArtifactValue(const ManifestArtifactValues &values,
   return nullptr;
 }
 
-std::optional<std::string> *manifestArtifactValue(ManifestArtifactValues &values,
-                                                  std::string_view name) {
+std::optional<std::string> *
+manifestArtifactValue(ManifestArtifactValues &values, std::string_view name) {
   if (name == "backendAssembly") {
     return &values.backendAssembly;
   }
@@ -367,9 +378,9 @@ void setManifestArtifactValue(ManifestArtifactValues &values,
 }
 
 template <typename Policy>
-std::string_view packagePolicyArtifactKey(
-    const Policy *policy, const std::string Policy::*member,
-    std::string_view fallback) {
+std::string_view packagePolicyArtifactKey(const Policy *policy,
+                                          const std::string Policy::*member,
+                                          std::string_view fallback) {
   if (policy != nullptr && !(policy->*member).empty()) {
     return std::string_view(policy->*member);
   }
@@ -470,9 +481,9 @@ nativeArtifactDescriptorPath(const HIRModule &module, TargetKind target,
          (module.name + ".native-artifact.json");
 }
 
-std::filesystem::path
-graphicsAbiPath(const HIRModule &module, TargetKind target,
-                const std::filesystem::path &packageDir) {
+std::filesystem::path graphicsAbiPath(const HIRModule &module,
+                                      TargetKind target,
+                                      const std::filesystem::path &packageDir) {
   return packageDir / "backend" / targetName(target) /
          (module.name + ".graphics-abi.json");
 }
@@ -495,8 +506,8 @@ bool shouldEmitGraphicsAbi(const HIRModule &module) {
 }
 
 bool hasSourceLocationEvidence(const SourceLocation &location) {
-  return !location.file.empty() || location.offset != 0 || location.length != 0 ||
-         location.endOffset != 0;
+  return !location.file.empty() || location.offset != 0 ||
+         location.length != 0 || location.endOffset != 0;
 }
 
 const SourceLocation &sourceLocationOrFallback(const SourceLocation &preferred,
@@ -504,7 +515,8 @@ const SourceLocation &sourceLocationOrFallback(const SourceLocation &preferred,
   return hasSourceLocationEvidence(preferred) ? preferred : fallback;
 }
 
-const SourceLocation &resourceBindingSourceLocation(const HIRResource &resource) {
+const SourceLocation &
+resourceBindingSourceLocation(const HIRResource &resource) {
   if (hasSourceLocationEvidence(resource.bindingSpan)) {
     return resource.bindingSpan;
   }
@@ -543,7 +555,8 @@ void writeSourceMapRefJson(std::ostringstream &out,
       << indent << "}";
 }
 
-const HIRStage *findHIRStage(const HIRModule &module, std::string_view stageName) {
+const HIRStage *findHIRStage(const HIRModule &module,
+                             std::string_view stageName) {
   for (const HIRStage &stage : module.stages) {
     if (stage.stage == stageName) {
       return &stage;
@@ -580,8 +593,7 @@ const HIRFunction *findStageEntryFunction(const HIRModule &module,
   return nullptr;
 }
 
-const HIRStruct *findHIRStruct(const HIRModule &module,
-                               std::string_view name) {
+const HIRStruct *findHIRStruct(const HIRModule &module, std::string_view name) {
   for (const HIRStruct &structure : module.structs) {
     if (structure.name == name) {
       return &structure;
@@ -638,8 +650,8 @@ void writeGraphicsAbiArrayDimensions(
       out << ", ";
     }
     const ReflectionArrayDimension &dimension = dimensions[index];
-    out << "{\"source\":\"" << escapeJson(dimension.source)
-        << "\",\"kind\":\"" << escapeJson(dimension.kind) << "\"";
+    out << "{\"source\":\"" << escapeJson(dimension.source) << "\",\"kind\":\""
+        << escapeJson(dimension.kind) << "\"";
     if (dimension.elementCount.has_value()) {
       out << ",\"elementCount\":" << *dimension.elementCount;
     }
@@ -774,15 +786,15 @@ std::string graphicsAbiBackendEntryPoint(const ReflectionDocument &reflection,
   return std::string(stageName);
 }
 
-void writeGraphicsAbiEntryPoint(std::ostringstream &out, const HIRModule &module,
+void writeGraphicsAbiEntryPoint(std::ostringstream &out,
+                                const HIRModule &module,
                                 const ReflectionEntryPoint &entry,
                                 std::string_view indent) {
   const HIRFunction *function = findStageEntryFunction(module, entry);
   const SourceLocation sourceMapRef =
-      function == nullptr
-          ? SourceLocation{}
-          : sourceLocationOrFallback(function->nameSpan,
-                                     function->declarationSpan);
+      function == nullptr ? SourceLocation{}
+                          : sourceLocationOrFallback(function->nameSpan,
+                                                     function->declarationSpan);
   out << indent << "{\n"
       << indent << "  \"stage\": \"" << escapeJson(entry.stage) << "\",\n"
       << indent << "  \"sourceName\": \"" << escapeJson(entry.sourceName)
@@ -812,8 +824,7 @@ void writeGraphicsAbiVertexInput(std::ostringstream &out,
 
 void writeGraphicsAbiFragmentOutput(std::ostringstream &out,
                                     std::string_view entryPoint,
-                                    const HIRField &field,
-                                    std::size_t location,
+                                    const HIRField &field, std::size_t location,
                                     std::string_view indent) {
   const std::string type = formatType(field.type);
   out << indent << "{\n"
@@ -827,13 +838,10 @@ void writeGraphicsAbiFragmentOutput(std::ostringstream &out,
       << indent << "}";
 }
 
-void writeGraphicsAbiVaryingEndpoint(std::ostringstream &out,
-                                      std::string_view stage,
-                                      std::string_view entryPoint,
-                                      const HIRField &field,
-                                      std::size_t location,
-                                      std::string_view direction,
-                                      std::string_view indent) {
+void writeGraphicsAbiVaryingEndpoint(
+    std::ostringstream &out, std::string_view stage,
+    std::string_view entryPoint, const HIRField &field, std::size_t location,
+    std::string_view direction, std::string_view indent) {
   out << indent << "{\n"
       << indent << "  \"stage\": \"" << escapeJson(stage) << "\",\n"
       << indent << "  \"entryPoint\": \"" << escapeJson(entryPoint) << "\",\n"
@@ -850,8 +858,7 @@ void writeGraphicsAbiVarying(std::ostringstream &out,
                              const HIRField &vertexField,
                              std::string_view fragmentEntryPoint,
                              const HIRField &fragmentField,
-                             std::size_t location,
-                             std::string_view indent) {
+                             std::size_t location, std::string_view indent) {
   out << indent << "{\n"
       << indent << "  \"interpolation\": \"smooth\",\n"
       << indent << "  \"producer\":\n";
@@ -865,10 +872,8 @@ void writeGraphicsAbiVarying(std::ostringstream &out,
   out << "\n" << indent << "}";
 }
 
-void writeGraphicsAbiBuiltin(std::ostringstream &out,
-                             std::string_view stage,
-                             std::string_view entryPoint,
-                             const HIRField &field,
+void writeGraphicsAbiBuiltin(std::ostringstream &out, std::string_view stage,
+                             std::string_view entryPoint, const HIRField &field,
                              std::string_view builtin,
                              std::string_view direction,
                              std::string_view indent) {
@@ -919,6 +924,11 @@ void writeGraphicsAbiResource(std::ostringstream &out, const HIRModule &module,
         << indent << "  \"storageImageFormat\": \""
         << escapeJson(*resource.storageImageFormat) << "\"";
   }
+  if (resource.storageImageAccess.has_value()) {
+    out << ",\n"
+        << indent << "  \"storageImageAccess\": \""
+        << escapeJson(*resource.storageImageAccess) << "\"";
+  }
   out << ",\n" << indent << "  \"sourceMapRef\":\n";
   writeSourceMapRefJson(out, sourceMapRef, std::string(indent) + "  ");
   out << "\n" << indent << "}";
@@ -930,7 +940,8 @@ void writeGraphicsAbiRecord(std::ostringstream &out, const HIRModule &module,
   const HIRResource *resource =
       findStageResource(module, record.stage, record.name, record.kind);
   const SourceLocation sourceMapRef =
-      resource == nullptr ? SourceLocation{} : resourceBindingSourceLocation(*resource);
+      resource == nullptr ? SourceLocation{}
+                          : resourceBindingSourceLocation(*resource);
   out << indent << "{\n"
       << indent << "  \"target\": \"" << escapeJson(record.target) << "\",\n"
       << indent << "  \"stage\": \"" << escapeJson(record.stage) << "\",\n"
@@ -964,6 +975,10 @@ void writeGraphicsAbiRecord(std::ostringstream &out, const HIRModule &module,
     out << indent << "  \"storageImageFormat\": \""
         << escapeJson(*record.storageImageFormat) << "\",\n";
   }
+  if (record.storageImageAccess.has_value()) {
+    out << indent << "  \"storageImageAccess\": \""
+        << escapeJson(*record.storageImageAccess) << "\",\n";
+  }
   out << indent << "  \"addressSpace\": \"" << escapeJson(record.addressSpace)
       << "\",\n"
       << indent << "  \"abi\": \"" << escapeJson(record.abi) << "\",\n"
@@ -985,8 +1000,7 @@ void writeGraphicsAbiRecord(std::ostringstream &out, const HIRModule &module,
   }
   if (record.arrayElementCount.has_value()) {
     out << ",\n"
-        << indent << "  \"arrayElementCount\": "
-        << *record.arrayElementCount;
+        << indent << "  \"arrayElementCount\": " << *record.arrayElementCount;
   }
   if (!record.arrayDimensions.empty()) {
     out << ",\n";
@@ -1182,11 +1196,49 @@ void writeNativeArtifactTool(std::ostringstream &out,
   }
   if (!tool.versionDetail.empty()) {
     out << ",\n"
-        << indent << "  \"versionDetail\": \""
-        << escapeJson(tool.versionDetail) << "\"";
+        << indent << "  \"versionDetail\": \"" << escapeJson(tool.versionDetail)
+        << "\"";
   }
-  out << "\n"
-      << indent << "}";
+  if (!tool.argumentsSha256.empty()) {
+    out << ",\n"
+        << indent << "  \"argumentsSha256\": \""
+        << escapeJson(tool.argumentsSha256) << "\"";
+  }
+  if (!tool.commandShape.empty()) {
+    out << ",\n"
+        << indent << "  \"commandShape\": \""
+        << escapeJson(tool.commandShape) << "\"";
+  }
+  if (!tool.responseFilePath.empty()) {
+    out << ",\n"
+        << indent << "  \"responseFilePath\": \""
+        << escapeJson(tool.responseFilePath) << "\"";
+  }
+  if (!tool.outputPath.empty()) {
+    out << ",\n"
+        << indent << "  \"outputPath\": \"" << escapeJson(tool.outputPath)
+        << "\"";
+  }
+  if (!tool.outputSha256.empty()) {
+    out << ",\n"
+        << indent << "  \"outputSha256\": \""
+        << escapeJson(tool.outputSha256) << "\"";
+  }
+  if (tool.outputSizeBytes) {
+    out << ",\n"
+        << indent << "  \"outputSizeBytes\": " << *tool.outputSizeBytes;
+  }
+  if (!tool.provenanceStatus.empty()) {
+    out << ",\n"
+        << indent << "  \"provenanceStatus\": \""
+        << escapeJson(tool.provenanceStatus) << "\"";
+  }
+  if (!tool.provenanceDetail.empty()) {
+    out << ",\n"
+        << indent << "  \"provenanceDetail\": \""
+        << escapeJson(tool.provenanceDetail) << "\"";
+  }
+  out << "\n" << indent << "}";
 }
 
 void writeJsonStringArray(std::ostringstream &out,
@@ -1201,6 +1253,16 @@ void writeJsonStringArray(std::ostringstream &out,
   out << "]";
 }
 
+void writeNativeArtifactValidationDiagnostic(std::ostringstream &out,
+                                             const Diagnostic &diagnostic,
+                                             std::string_view indent) {
+  out << indent << "{\n"
+      << indent << "  \"code\": \"" << escapeJson(diagnostic.code) << "\",\n"
+      << indent << "  \"message\": \"" << escapeJson(diagnostic.message)
+      << "\"\n"
+      << indent << "}";
+}
+
 void appendTargetLegalizationToolRequirementsJson(
     std::ostringstream &out,
     const TargetLegalizationContractProjection &projection) {
@@ -1210,10 +1272,8 @@ void appendTargetLegalizationToolRequirementsJson(
       << "\",\n"
       << "    \"packageMode\": \"" << escapeJson(projection.packageModeName)
       << "\",\n"
-      << "    \"requiredToolCount\": " << projection.requiredToolCount
-      << ",\n"
-      << "    \"missingToolCount\": " << projection.missingToolCount
-      << ",\n"
+      << "    \"requiredToolCount\": " << projection.requiredToolCount << ",\n"
+      << "    \"missingToolCount\": " << projection.missingToolCount << ",\n"
       << "    \"requiredToolIds\": ";
   writeJsonStringArray(out, projection.requiredToolIds);
   out << ",\n"
@@ -1246,14 +1306,14 @@ std::string nativeOptimizationEffectiveLevelFromFlag(std::string_view flag) {
   return "unknown";
 }
 
-std::string nativeOptimizationEvidenceJson(
-    const NativeOptimizationEvidenceSpec &evidence) {
+std::string
+nativeOptimizationEvidenceJson(const NativeOptimizationEvidenceSpec &evidence) {
   std::ostringstream out;
   out << "{\n"
-      << "    \"requestedLevel\": \""
-      << escapeJson(evidence.requestedLevel) << "\",\n"
-      << "    \"effectiveLevel\": \""
-      << escapeJson(evidence.effectiveLevel) << "\",\n"
+      << "    \"requestedLevel\": \"" << escapeJson(evidence.requestedLevel)
+      << "\",\n"
+      << "    \"effectiveLevel\": \"" << escapeJson(evidence.effectiveLevel)
+      << "\",\n"
       << "    \"policy\": \"" << escapeJson(evidence.policy) << "\",\n"
       << "    \"status\": \"" << escapeJson(evidence.status) << "\"";
   if (evidence.tool) {
@@ -1295,8 +1355,30 @@ std::string nativeOptimizationEvidenceJson(
   return out.str();
 }
 
-std::string vulkanNativeOptimizationEffectiveLevel(
-    const VulkanBuildResult &vulkanResult) {
+std::string spirvDependenciesJson(
+    const std::vector<VulkanSPIRVImport> &extendedInstructionImports) {
+  std::ostringstream out;
+  out << "{\n"
+      << "    \"extendedInstructionSets\": [";
+  for (std::size_t index = 0; index < extendedInstructionImports.size();
+       ++index) {
+    const VulkanSPIRVImport &import = extendedInstructionImports[index];
+    out << (index == 0 ? "\n" : ",\n") << "      {\n"
+        << "        \"resultId\": \"" << escapeJson(import.resultId) << "\",\n"
+        << "        \"instructionSet\": \"" << escapeJson(import.instructionSet)
+        << "\"\n"
+        << "      }";
+  }
+  if (!extendedInstructionImports.empty()) {
+    out << "\n    ";
+  }
+  out << "]\n"
+      << "  }";
+  return out.str();
+}
+
+std::string
+vulkanNativeOptimizationEffectiveLevel(const VulkanBuildResult &vulkanResult) {
   if (vulkanResult.optimizationStatus == "applied") {
     return nativeOptimizationEffectiveLevelFromFlag(
         vulkanResult.optimizationLevel);
@@ -1324,17 +1406,23 @@ std::string directxNativeOptimizationStatus(
 NativeOptimizationEvidenceSpec directxNativeOptimizationEvidence(
     const DirectXSourcePackageResult &directxResult) {
   NativeOptimizationEvidenceSpec evidence;
+  evidence.requestedLevel = directxResult.optimizationRequestedLevel;
+  evidence.effectiveLevel = "unknown";
   evidence.policy = directxResult.optimizationPolicy;
   evidence.status = directxNativeOptimizationStatus(directxResult);
   if (evidence.status == "applied") {
-    evidence.requestedLevel = directxResult.optimizationRequestedLevel;
-    evidence.effectiveLevel =
-        nativeOptimizationEffectiveLevelFromFlag(directxResult.optimizationLevel);
+    evidence.effectiveLevel = nativeOptimizationEffectiveLevelFromFlag(
+        directxResult.optimizationLevel);
+  }
+  if (evidence.requestedLevel.empty()) {
+    evidence.requestedLevel = "unknown";
+  }
+  if (!directxResult.optimizationLevel.empty()) {
     evidence.tool = "dxc";
     evidence.toolFlag = directxResult.optimizationLevel;
-  } else {
-    evidence.requestedLevel = "unknown";
-    evidence.effectiveLevel = "unknown";
+  }
+  if (!directxResult.shaderProfileSummary.empty()) {
+    evidence.profile = directxResult.shaderProfileSummary;
   }
   return evidence;
 }
@@ -1364,12 +1452,21 @@ std::string nativeArtifactDescriptorJson(
     const NativeArtifactDescriptorSpec &spec, std::string_view sourceHash,
     const std::optional<std::string> &artifactHash,
     const std::optional<std::uintmax_t> &artifactSizeBytes) {
-  const std::string sourcePath = packageRelativePath(packageDir, spec.sourcePath);
+  const std::string sourcePath =
+      packageRelativePath(packageDir, spec.sourcePath);
   const std::optional<std::string> artifactPath =
-      spec.artifactPath
-          ? std::optional<std::string>(
-                packageRelativePath(packageDir, *spec.artifactPath))
-          : std::nullopt;
+      spec.artifactPath ? std::optional<std::string>(packageRelativePath(
+                              packageDir, *spec.artifactPath))
+                        : std::nullopt;
+  std::vector<NativeArtifactToolProvenance> descriptorTools = spec.tools;
+  if (artifactPath && artifactHash && artifactSizeBytes) {
+    for (NativeArtifactToolProvenance &tool : descriptorTools) {
+      if (tool.outputPath == *artifactPath) {
+        tool.outputSha256 = *artifactHash;
+        tool.outputSizeBytes = *artifactSizeBytes;
+      }
+    }
+  }
   const std::string invocationFingerprint =
       std::string(targetName(target)) + "\n" + module.name + "\n" +
       spec.binaryKind + "\n" + sourcePath + "\n" +
@@ -1378,6 +1475,37 @@ std::string nativeArtifactDescriptorJson(
       (spec.optimizationEvidenceJson ? *spec.optimizationEvidenceJson
                                      : std::string()) +
       "\n";
+  const std::vector<VulkanSPIRVImport> spirvExtendedInstructionImports =
+      canonicalizeVulkanSPIRVImports(spec.spirvExtendedInstructionImports);
+  std::string spirvDependencyFingerprint;
+  for (const VulkanSPIRVImport &import : spirvExtendedInstructionImports) {
+    spirvDependencyFingerprint += import.resultId;
+    spirvDependencyFingerprint += "\n";
+    spirvDependencyFingerprint += import.instructionSet;
+    spirvDependencyFingerprint += "\n";
+  }
+  std::string validationDiagnosticFingerprint;
+  for (const Diagnostic &diagnostic : spec.validationDiagnostics) {
+    validationDiagnosticFingerprint += diagnostic.code;
+    validationDiagnosticFingerprint += "\n";
+    validationDiagnosticFingerprint += diagnostic.message;
+    validationDiagnosticFingerprint += "\n";
+  }
+  std::string toolInvocationFingerprint;
+  for (const NativeArtifactToolProvenance &tool : descriptorTools) {
+    toolInvocationFingerprint += tool.name;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.role;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.argumentsSha256;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.commandShape;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.outputPath;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.provenanceStatus;
+    toolInvocationFingerprint += "\n";
+  }
 
   std::ostringstream out;
   out << "{\n"
@@ -1400,21 +1528,29 @@ std::string nativeArtifactDescriptorJson(
         << "  },\n"
         << "  \"sizeBytes\": " << *artifactSizeBytes;
   }
+  if (!spirvExtendedInstructionImports.empty()) {
+    out << ",\n"
+        << "  \"spirvDependencies\": "
+        << spirvDependenciesJson(spirvExtendedInstructionImports);
+  }
   out << ",\n"
       << "  \"toolchainProvenance\": {\n"
       << "    \"producer\": \"CrossGL-Compiler\",\n"
       << "    \"tools\": [";
-  for (std::size_t index = 0; index < spec.tools.size(); ++index) {
+  for (std::size_t index = 0; index < descriptorTools.size(); ++index) {
     out << (index == 0 ? "\n" : ",\n");
-    writeNativeArtifactTool(out, spec.tools[index], "      ");
+    writeNativeArtifactTool(out, descriptorTools[index], "      ");
   }
-  if (!spec.tools.empty()) {
+  if (!descriptorTools.empty()) {
     out << "\n    ";
   }
   out << "],\n"
       << "    \"invocation\": {\n"
       << "      \"commandLineSha256\": \""
-      << escapeJson(sha256(invocationFingerprint)) << "\",\n"
+      << escapeJson(sha256(invocationFingerprint + spirvDependencyFingerprint +
+                           validationDiagnosticFingerprint +
+                           toolInvocationFingerprint))
+      << "\",\n"
       << "      \"environmentSha256\": \"" << escapeJson(sha256("")) << "\"\n"
       << "    }\n"
       << "  },\n"
@@ -1422,8 +1558,7 @@ std::string nativeArtifactDescriptorJson(
       << "\"";
   if (spec.optimizationEvidenceJson) {
     out << ",\n"
-        << "  \"optimizationEvidence\": "
-        << *spec.optimizationEvidenceJson;
+        << "  \"optimizationEvidence\": " << *spec.optimizationEvidenceJson;
   }
   out << ",\n"
       << "  \"validationStatus\": \"" << escapeJson(spec.validationStatus)
@@ -1434,15 +1569,26 @@ std::string nativeArtifactDescriptorJson(
         << escapeJson(*spec.nativeBinaryStatus) << "\"";
   }
   out << ",\n"
-      << "  \"validationDiagnostics\": []\n"
+      << "  \"validationDiagnostics\": [";
+  for (std::size_t index = 0; index < spec.validationDiagnostics.size();
+       ++index) {
+    out << (index == 0 ? "\n" : ",\n");
+    writeNativeArtifactValidationDiagnostic(
+        out, spec.validationDiagnostics[index], "    ");
+  }
+  if (!spec.validationDiagnostics.empty()) {
+    out << "\n  ";
+  }
+  out << "]\n"
       << "}\n";
   return out.str();
 }
 
-std::optional<std::filesystem::path> writeNativeArtifactDescriptor(
-    const HIRModule &module, TargetKind target,
-    const std::filesystem::path &packageDir,
-    const NativeArtifactDescriptorSpec &spec, DiagnosticEngine &diagnostics) {
+std::optional<std::filesystem::path>
+writeNativeArtifactDescriptor(const HIRModule &module, TargetKind target,
+                              const std::filesystem::path &packageDir,
+                              const NativeArtifactDescriptorSpec &spec,
+                              DiagnosticEngine &diagnostics) {
   const std::optional<std::string> sourceHash = artifactSha256(
       spec.sourcePath, diagnostics, "artifact.native-descriptor-source-hash");
   if (!sourceHash) {
@@ -1463,11 +1609,17 @@ std::optional<std::filesystem::path> writeNativeArtifactDescriptor(
 
   const std::filesystem::path descriptorPath =
       nativeArtifactDescriptorPath(module, target, packageDir);
-  if (!writeText(descriptorPath,
-                 nativeArtifactDescriptorJson(module, target, packageDir, spec,
-                                              *sourceHash, nativeHash,
-                                              nativeSize),
-                 diagnostics, "artifact.write-native-artifact-descriptor")) {
+  std::string descriptorJson;
+  try {
+    descriptorJson = nativeArtifactDescriptorJson(
+        module, target, packageDir, spec, *sourceHash, nativeHash, nativeSize);
+  } catch (const std::logic_error &error) {
+    diagnostics.error("artifact.native-descriptor-spirv-dependencies",
+                      error.what());
+    return std::nullopt;
+  }
+  if (!writeText(descriptorPath, descriptorJson, diagnostics,
+                 "artifact.write-native-artifact-descriptor")) {
     return std::nullopt;
   }
   return descriptorPath;
@@ -1490,7 +1642,59 @@ nativeArtifactTool(std::string name, std::string role, std::string executable,
   tool.executableSource = status.source;
   tool.versionProbeStatus = status.probeStatus;
   tool.versionDetail = status.versionDetail;
+  if (status.source == "not-found") {
+    tool.provenanceStatus = "missing-tool";
+    tool.provenanceDetail =
+        "tool '" + tool.name + "' was not found; command was not invoked";
+  }
   return tool;
+}
+
+std::string descriptorRelativePath(const std::filesystem::path &packageDir,
+                                   std::string_view path) {
+  if (path.empty()) {
+    return {};
+  }
+  const std::filesystem::path parsed(path);
+  if (parsed.is_absolute()) {
+    return packageRelativePath(packageDir, parsed);
+  }
+  return parsed.generic_string();
+}
+
+void applyInvocationProvenance(
+    NativeArtifactToolProvenance &tool,
+    const ToolInvocationProvenance &invocation,
+    const std::filesystem::path &packageDir) {
+  if (!invocation.version.empty()) {
+    tool.version = invocation.version;
+  }
+  if (!invocation.executable.empty()) {
+    tool.executable = invocation.executable;
+  }
+  tool.resolvedExecutable = invocation.resolvedExecutable;
+  tool.executableSource = invocation.executableSource;
+  tool.versionProbeStatus = invocation.versionProbeStatus;
+  tool.versionDetail = invocation.versionDetail;
+  tool.argumentsSha256 = invocation.argumentsSha256;
+  tool.commandShape = invocation.commandShape;
+  tool.responseFilePath =
+      descriptorRelativePath(packageDir, invocation.responseFilePath);
+  tool.outputPath = descriptorRelativePath(packageDir, invocation.outputPath);
+  tool.provenanceStatus = invocation.provenanceStatus;
+  tool.provenanceDetail = invocation.provenanceDetail;
+}
+
+void applyInvocationProvenance(
+    std::vector<NativeArtifactToolProvenance> &tools, std::string_view name,
+    std::string_view role, const ToolInvocationProvenance &invocation,
+    const std::filesystem::path &packageDir) {
+  for (NativeArtifactToolProvenance &tool : tools) {
+    if (tool.name == name && tool.role == role) {
+      applyInvocationProvenance(tool, invocation, packageDir);
+      return;
+    }
+  }
 }
 
 NativeArtifactToolProvenance crossglGeneratorTool() {
@@ -1544,9 +1748,8 @@ std::vector<NativeArtifactToolProvenance> nativeDescriptorTools(
   std::vector<NativeArtifactToolProvenance> backendTools;
   backendTools.reserve(backendToolPolicies.size());
   for (const TargetNativePackageToolPolicy &policy : backendToolPolicies) {
-    backendTools.push_back(nativeArtifactTool(policy.name, policy.role,
-                                              policy.executable,
-                                              policy.probeName));
+    backendTools.push_back(nativeArtifactTool(
+        policy.name, policy.role, policy.executable, policy.probeName));
   }
 
   std::vector<NativeArtifactToolProvenance> tools;
@@ -1591,19 +1794,17 @@ std::vector<NativeArtifactToolProvenance> sourcePackageDescriptorTools(
   case TargetSourcePackageDescriptorToolProvenanceMode::NativeCompiler:
     if (!policy.nativeToolName.empty() && !policy.nativeToolRole.empty() &&
         !policy.nativeToolExecutable.empty()) {
-      return nativeDescriptorTools(
-          {nativeArtifactTool(policy.nativeToolName, policy.nativeToolRole,
-                              policy.nativeToolExecutable,
-                              policy.nativeToolProbeName)});
+      return nativeDescriptorTools({nativeArtifactTool(
+          policy.nativeToolName, policy.nativeToolRole,
+          policy.nativeToolExecutable, policy.nativeToolProbeName)});
     }
     break;
   case TargetSourcePackageDescriptorToolProvenanceMode::NativeValidator:
     if (!policy.nativeToolName.empty() && !policy.nativeToolRole.empty() &&
         !policy.nativeToolExecutable.empty()) {
-      return nativeDescriptorTools(
-          {nativeArtifactTool(policy.nativeToolName, policy.nativeToolRole,
-                              policy.nativeToolExecutable,
-                              policy.nativeToolProbeName)});
+      return nativeDescriptorTools({nativeArtifactTool(
+          policy.nativeToolName, policy.nativeToolRole,
+          policy.nativeToolExecutable, policy.nativeToolProbeName)});
     }
     break;
   }
@@ -1625,18 +1826,17 @@ bool requireSourcePackageArtifactRequirements(
       requirements.targetName.empty()
           ? std::string(targetName(projection.targetProfile.resolvedTarget))
           : requirements.targetName;
-  diagnostics.error(
-      "target.package-artifacts.native-binary-status",
-      "source package nativeBinaryStatus '" + artifact.nativeBinaryStatus +
-          "' is not admitted by target legalization projection "
-          "packageArtifactRequirements "
-          "for " +
-          target);
+  diagnostics.error("target.package-artifacts.native-binary-status",
+                    "source package nativeBinaryStatus '" +
+                        artifact.nativeBinaryStatus +
+                        "' is not admitted by target legalization projection "
+                        "packageArtifactRequirements "
+                        "for " +
+                        target);
   return false;
 }
 
-std::optional<std::filesystem::path>
-sourcePackageNativeArtifactPath(
+std::optional<std::filesystem::path> sourcePackageNativeArtifactPath(
     const SourcePackageArtifact &artifact,
     const TargetSourcePackageDescriptorPolicy &policy) {
   if (!policy.requiresProducedNativeArtifact) {
@@ -1645,14 +1845,15 @@ sourcePackageNativeArtifactPath(
   return artifact.nativeBinary;
 }
 
-NativeArtifactDescriptorSpec sourcePackageDescriptorSpec(
-    const SourcePackageArtifact &artifact,
-    const TargetSourcePackageDescriptorPolicy &policy,
-    OptimizationLevel requestedLevel) {
+NativeArtifactDescriptorSpec
+sourcePackageDescriptorSpec(const SourcePackageArtifact &artifact,
+                            const TargetSourcePackageDescriptorPolicy &policy,
+                            OptimizationLevel requestedLevel) {
   NativeArtifactDescriptorSpec descriptorSpec;
   descriptorSpec.binaryKind = policy.binaryKind;
   descriptorSpec.sourcePath = artifact.backendSource;
-  descriptorSpec.artifactPath = sourcePackageNativeArtifactPath(artifact, policy);
+  descriptorSpec.artifactPath =
+      sourcePackageNativeArtifactPath(artifact, policy);
   if (policy.includesNativeBinaryStatus) {
     descriptorSpec.nativeBinaryStatus = artifact.nativeBinaryStatus;
   }
@@ -1663,26 +1864,327 @@ NativeArtifactDescriptorSpec sourcePackageDescriptorSpec(
   return descriptorSpec;
 }
 
+NativeArtifactDescriptorSpec
+directxNativeDescriptorSpec(const DirectXSourcePackageResult &directxResult,
+                            const TargetNativePackageDescriptorPolicy &policy,
+                            const std::filesystem::path &packageDir) {
+  NativeArtifactDescriptorSpec descriptorSpec;
+  descriptorSpec.binaryKind = policy.binaryKind;
+  descriptorSpec.sourcePath = directxResult.sourcePath;
+  descriptorSpec.artifactPath = directxResult.nativeBinaryPath;
+  descriptorSpec.validationStatus = policy.validationStatus;
+  descriptorSpec.optimizationLevel =
+      directxResult.optimizationRequestedLevel.empty()
+          ? "unknown"
+          : directxResult.optimizationRequestedLevel;
+  descriptorSpec.optimizationEvidenceJson = nativeOptimizationEvidenceJson(
+      directxNativeOptimizationEvidence(directxResult));
+  descriptorSpec.tools = nativeDescriptorTools(policy.requiredTools);
+  if (directxResult.dxcProvenance) {
+    applyInvocationProvenance(descriptorSpec.tools, "dxc", "compiler",
+                              *directxResult.dxcProvenance, packageDir);
+  }
+  return descriptorSpec;
+}
+
+std::string projectionResolvedTargetName(
+    const TargetLegalizationContractProjection &projection) {
+  if (!projection.targetProfile.resolvedTargetName.empty()) {
+    return projection.targetProfile.resolvedTargetName;
+  }
+  if (projection.targetProfile.resolvedTarget != TargetKind::Auto) {
+    return std::string(targetName(projection.targetProfile.resolvedTarget));
+  }
+  return projection.packageArtifactRequirements.targetName.empty()
+             ? std::string(
+                   targetName(projection.packageArtifactRequirements.target))
+             : projection.packageArtifactRequirements.targetName;
+}
+
+bool projectionSupportsPackage(
+    const TargetLegalizationContractProjection &projection) {
+  return targetLegalizationProjectionSupportsPackage(projection);
+}
+
+DebugMetadataTargetCapabilitySummary debugSummaryFromProjection(
+    const TargetLegalizationContractProjection &projection) {
+  DebugMetadataTargetCapabilitySummary summary;
+  summary.target = projectionResolvedTargetName(projection);
+  summary.nativeImplemented = projection.nativeImplemented;
+  summary.sourcePackageSupported = projection.sourcePackageSupported;
+  summary.packageBuildSupported = projectionSupportsPackage(projection);
+  summary.packageMode = projection.packageModeName;
+  summary.packageDecisionReason = projection.reason;
+  summary.decisionReasonCodes = projection.consumerDecisionReasonCodes;
+  summary.packageRankScore = projection.packageRankScore;
+  summary.requiredCapabilityCount = projection.requiredCapabilityCount;
+  summary.missingCapabilityCount = projection.missingCapabilityCount;
+  summary.requiredToolCount = projection.requiredToolCount;
+  summary.missingToolCount = projection.missingToolCount;
+  summary.requiredCapabilities = projection.requiredCapabilityIds;
+  summary.missingCapabilities = projection.missingCapabilityIds;
+  summary.legalizationCoreEvidenceIds = projection.coreEvidenceIds;
+  summary.requiredToolIds = projection.requiredToolIds;
+  summary.missingToolIds = projection.missingToolIds;
+  summary.optionalNativeToolMissing = projection.optionalNativeToolMissing;
+  summary.optionalNativeToolStatus = projection.optionalNativeToolStatusName;
+  summary.toolRequirementEvidenceIds = projection.toolRequirementEvidenceIds;
+  return summary;
+}
+
+void applyDebugMetadataProjection(
+    DebugMetadataDocument &document,
+    const TargetLegalizationContractProjection &projection,
+    TargetKind requestedTarget, bool singleTargetProjection) {
+  const std::string resolvedTargetName =
+      projectionResolvedTargetName(projection);
+  const DebugMetadataTargetCapabilitySummary summary =
+      debugSummaryFromProjection(projection);
+  if (singleTargetProjection) {
+    document.targetCapabilities.defaultTarget = resolvedTargetName;
+    document.targetCapabilities.summaries = {summary};
+  } else {
+    bool replacedSummary = false;
+    for (DebugMetadataTargetCapabilitySummary &existing :
+         document.targetCapabilities.summaries) {
+      if (existing.target == resolvedTargetName) {
+        existing = summary;
+        replacedSummary = true;
+        break;
+      }
+    }
+    if (!replacedSummary) {
+      document.targetCapabilities.summaries.push_back(summary);
+    }
+  }
+
+  document.targetDecision.requestedTarget =
+      std::string(targetName(requestedTarget));
+  document.targetDecision.selectedTarget = resolvedTargetName;
+  document.targetDecision.selectedTargetNativeImplemented =
+      projection.nativeImplemented;
+  document.targetDecision.selectedTargetSourcePackageSupported =
+      projection.sourcePackageSupported;
+  document.targetDecision.selectedTargetPackageBuildSupported =
+      projectionSupportsPackage(projection);
+  document.targetDecision.selectedTargetPackageMode =
+      projection.packageModeName;
+  document.targetDecision.selectedTargetMissingCapabilityCount =
+      projection.missingCapabilityCount;
+  document.targetDecision.selectedTargetRequiredToolCount =
+      projection.requiredToolCount;
+  document.targetDecision.selectedTargetMissingToolCount =
+      projection.missingToolCount;
+  document.targetDecision.selectedTargetMissingCapabilities =
+      projection.missingCapabilityIds;
+  document.targetDecision.selectedTargetLegalizationCoreEvidenceIds =
+      projection.coreEvidenceIds;
+  document.targetDecision.selectedTargetRequiredToolIds =
+      projection.requiredToolIds;
+  document.targetDecision.selectedTargetMissingToolIds =
+      projection.missingToolIds;
+  document.targetDecision.selectedTargetOptionalNativeToolMissing =
+      projection.optionalNativeToolMissing;
+  document.targetDecision.selectedTargetOptionalNativeToolStatus =
+      projection.optionalNativeToolStatusName;
+  document.targetDecision.selectedTargetToolRequirementEvidenceIds =
+      projection.toolRequirementEvidenceIds;
+  document.targetDecision.selectedTargetDiagnosticCount = 0;
+  document.targetDecision.diagnostics.clear();
+}
+
 std::string
-manifestJson(const HIRModule &module, TargetKind target,
-             std::string_view sourceHash,
-             const std::filesystem::path &packageDir,
-             const TargetPackageArtifactRequirements &requirements,
-             const TargetLegalizationContractProjection &projection,
-             const MetalBuildResult *metalResult = nullptr,
-             const VulkanBuildResult *vulkanResult = nullptr,
-             const std::filesystem::path *vulkanProfilePath = nullptr,
-             const SourcePackageArtifact *sourceArtifact = nullptr,
-             const TargetSourcePackageDescriptorPolicy *sourcePackagePolicy =
-                 nullptr,
-             const std::filesystem::path *nativeArtifactDescriptorPath = nullptr,
-             const std::filesystem::path *debugMetadataPath = nullptr,
-             const std::filesystem::path *hirSourceMapPath = nullptr,
-             const std::filesystem::path *sourceRemapProvenancePath = nullptr,
-             const std::filesystem::path *targetExplanationPath = nullptr,
-             const std::filesystem::path *graphicsAbiPath = nullptr,
-             const TargetNativePackageDescriptorPolicy *nativePackagePolicy =
-                 nullptr) {
+remediationFromProjection(const TargetLegalizationContractProjection &projection) {
+  if (projection.packageModeName == "native") {
+    return "No remediation required; native package output is available.";
+  }
+  if (projection.packageModeName == "source-package") {
+    if (!projection.missingCapabilityIds.empty()) {
+      std::ostringstream out;
+      out << "Source package output is available; native artifact remediation "
+             "requires satisfying: ";
+      for (std::size_t index = 0; index < projection.missingCapabilityIds.size();
+           ++index) {
+        if (index != 0) {
+          out << ", ";
+        }
+        out << projection.missingCapabilityIds[index];
+      }
+      out << ".";
+      return out.str();
+    }
+    return "No remediation required; source package output is available.";
+  }
+  if (!projection.missingCapabilityIds.empty()) {
+    std::ostringstream out;
+    out << "Select a buildable target or satisfy missing target capabilities: ";
+    for (std::size_t index = 0; index < projection.missingCapabilityIds.size();
+         ++index) {
+      if (index != 0) {
+        out << ", ";
+      }
+      out << projection.missingCapabilityIds[index];
+    }
+    out << ".";
+    return out.str();
+  }
+  return "Select a buildable target.";
+}
+
+TargetExplanationTargetRecord targetExplanationRecordFromProjection(
+    const TargetLegalizationContractProjection &projection) {
+  const std::string resolvedTargetName =
+      projectionResolvedTargetName(projection);
+  TargetExplanationTargetRecord record;
+  record.target = resolvedTargetName;
+  record.nativeImplemented = projection.nativeImplemented;
+  record.sourcePackageSupported = projection.sourcePackageSupported;
+  record.packageBuildSupported = projectionSupportsPackage(projection);
+  record.supportStatus = projection.supportStatusName;
+  record.legalizationState = projection.stateName;
+  record.packageMode = projection.packageModeName;
+  record.packageDecisionProvenance = projection.packageDecisionProvenanceName;
+  record.packageDecisionReason = projection.reason;
+  record.decisionReasonCodes = projection.consumerDecisionReasonCodes;
+  record.packageRankScore = projection.packageRankScore;
+  record.targetBackend = resolvedTargetName;
+  record.artifactLinks = {"ir/target-explanation.json#targets/" +
+                          resolvedTargetName};
+  record.reportLinks = {"target-explanation-v1#targets/" + resolvedTargetName};
+  record.remediation = remediationFromProjection(projection);
+  record.requiredCapabilityCount = projection.requiredCapabilityCount;
+  record.missingCapabilityCount = projection.missingCapabilityCount;
+  record.requiredCapabilities = projection.requiredCapabilityIds;
+  record.missingCapabilities = projection.missingCapabilityIds;
+  record.legalizationCoreEvidenceIds = projection.coreEvidenceIds;
+  record.diagnosticEvidenceIds = projection.diagnosticEvidenceIds;
+  record.requiredToolCount = projection.requiredToolCount;
+  record.missingToolCount = projection.missingToolCount;
+  record.requiredToolIds = projection.requiredToolIds;
+  record.missingToolIds = projection.missingToolIds;
+  record.optionalNativeToolMissing = projection.optionalNativeToolMissing;
+  record.optionalNativeToolStatus = projection.optionalNativeToolStatusName;
+  record.toolRequirementEvidenceIds = projection.toolRequirementEvidenceIds;
+  return record;
+}
+
+bool isBuildableTargetExplanationRecord(
+    const TargetExplanationTargetRecord &record) {
+  return record.packageBuildSupported && !record.legalizationCoreEvidenceIds.empty();
+}
+
+void refreshTargetExplanationRecommendation(TargetExplanationDocument &document) {
+  document.buildableTargetCount = 0;
+  document.recommendedTarget.reset();
+  document.recommendedPackageMode.reset();
+  const TargetExplanationTargetRecord *recommended = nullptr;
+  for (const TargetExplanationTargetRecord &record : document.targets) {
+    if (!isBuildableTargetExplanationRecord(record)) {
+      continue;
+    }
+    ++document.buildableTargetCount;
+    if (recommended == nullptr ||
+        record.packageRankScore < recommended->packageRankScore ||
+        (record.packageRankScore == recommended->packageRankScore &&
+         record.target == document.defaultTarget &&
+         recommended->target != document.defaultTarget)) {
+      recommended = &record;
+    }
+  }
+  if (recommended != nullptr) {
+    document.recommendedTarget = recommended->target;
+    document.recommendedPackageMode = recommended->packageMode;
+  }
+}
+
+void applyTargetExplanationProjection(
+    TargetExplanationDocument &document,
+    const TargetLegalizationContractProjection &projection,
+    bool singleTargetProjection) {
+  TargetExplanationTargetRecord record =
+      targetExplanationRecordFromProjection(projection);
+  if (singleTargetProjection) {
+    document.targets = {std::move(record)};
+    document.defaultTarget = document.targets.front().target;
+  } else {
+    bool replacedRecord = false;
+    for (TargetExplanationTargetRecord &existing : document.targets) {
+      if (existing.target == record.target) {
+        existing = std::move(record);
+        replacedRecord = true;
+        break;
+      }
+    }
+    if (!replacedRecord) {
+      document.targets.push_back(std::move(record));
+    }
+  }
+  refreshTargetExplanationRecommendation(document);
+}
+
+TargetExplanationDocument targetExplanationDocumentFromProjection(
+    const HIRModule &module,
+    const TargetLegalizationContractProjection &projection) {
+  TargetExplanationDocument document;
+  document.module = module.name;
+  document.targets.push_back(targetExplanationRecordFromProjection(projection));
+  document.defaultTarget = document.targets.front().target;
+  refreshTargetExplanationRecommendation(document);
+  return document;
+}
+
+bool rewriteDirectXTargetLegalizationSidecars(
+    const HIRModule &module, TargetKind requestedTarget,
+    const TargetLegalizationContractProjection &projection,
+    const DebugMetadataOptions &debugMetadataOptions,
+    const std::optional<std::filesystem::path> &debugMetadataPath,
+    const std::optional<std::filesystem::path> &targetExplanationPath,
+    DiagnosticEngine &diagnostics, bool singleTargetProjection) {
+  if (debugMetadataPath) {
+    DebugMetadataDocument document = buildDebugMetadataDocument(
+        module, requestedTarget, std::nullopt, debugMetadataOptions);
+    applyDebugMetadataProjection(document, projection, requestedTarget,
+                                 singleTargetProjection);
+    if (!writeText(*debugMetadataPath, debugMetadataJson(document), diagnostics,
+                   "artifact.write-debug-metadata")) {
+      return false;
+    }
+  }
+  if (targetExplanationPath) {
+    TargetExplanationDocument document =
+        singleTargetProjection
+            ? targetExplanationDocumentFromProjection(module, projection)
+            : buildTargetExplanationDocument(module);
+    if (!singleTargetProjection) {
+      applyTargetExplanationProjection(document, projection,
+                                       singleTargetProjection);
+    }
+    if (!writeText(*targetExplanationPath, targetExplanationJson(document),
+                   diagnostics, "artifact.write-target-explanation")) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::string manifestJson(
+    const HIRModule &module, TargetKind target, std::string_view sourceHash,
+    const std::filesystem::path &packageDir,
+    const TargetPackageArtifactRequirements &requirements,
+    const TargetLegalizationContractProjection &projection,
+    const MetalBuildResult *metalResult = nullptr,
+    const VulkanBuildResult *vulkanResult = nullptr,
+    const std::filesystem::path *vulkanProfilePath = nullptr,
+    const SourcePackageArtifact *sourceArtifact = nullptr,
+    const TargetSourcePackageDescriptorPolicy *sourcePackagePolicy = nullptr,
+    const std::filesystem::path *nativeArtifactDescriptorPath = nullptr,
+    const std::filesystem::path *debugMetadataPath = nullptr,
+    const std::filesystem::path *hirSourceMapPath = nullptr,
+    const std::filesystem::path *sourceRemapProvenancePath = nullptr,
+    const std::filesystem::path *targetExplanationPath = nullptr,
+    const std::filesystem::path *graphicsAbiPath = nullptr,
+    const TargetNativePackageDescriptorPolicy *nativePackagePolicy = nullptr,
+    const DirectXSourcePackageResult *directxResult = nullptr) {
   ManifestArtifactValues artifactValues;
   std::vector<ManifestArtifact> artifacts;
   if (metalResult) {
@@ -1694,8 +2196,9 @@ manifestJson(const HIRModule &module, TargetKind target,
         nativePackagePolicy,
         &TargetNativePackageDescriptorPolicy::nativeBinaryArtifactKey,
         "nativeBinary");
-    setManifestArtifactValue(artifactValues, sourceArtifactKey,
-                             packageRelativePath(packageDir, metalResult->sourcePath));
+    setManifestArtifactValue(
+        artifactValues, sourceArtifactKey,
+        packageRelativePath(packageDir, metalResult->sourcePath));
     artifactValues.intermediate =
         packageRelativePath(packageDir, metalResult->airPath);
     setManifestArtifactValue(
@@ -1713,16 +2216,33 @@ manifestJson(const HIRModule &module, TargetKind target,
     setManifestArtifactValue(
         artifactValues, sourceArtifactKey,
         packageRelativePath(packageDir, vulkanResult->assemblyPath));
-    setManifestArtifactValue(artifactValues, nativeBinaryArtifactKey,
-                             packageRelativePath(packageDir, vulkanResult->spvPath));
+    setManifestArtifactValue(
+        artifactValues, nativeBinaryArtifactKey,
+        packageRelativePath(packageDir, vulkanResult->spvPath));
     if (vulkanProfilePath != nullptr) {
       const std::string_view profileArtifactKey = packagePolicyArtifactKey(
           nativePackagePolicy,
           &TargetNativePackageDescriptorPolicy::profileArtifactKey,
           "nativeProfile");
-      setManifestArtifactValue(artifactValues, profileArtifactKey,
-                               packageRelativePath(packageDir, *vulkanProfilePath));
+      setManifestArtifactValue(
+          artifactValues, profileArtifactKey,
+          packageRelativePath(packageDir, *vulkanProfilePath));
     }
+  } else if (directxResult) {
+    const std::string_view sourceArtifactKey = packagePolicyArtifactKey(
+        nativePackagePolicy,
+        &TargetNativePackageDescriptorPolicy::sourceArtifactKey,
+        "backendSource");
+    const std::string_view nativeBinaryArtifactKey = packagePolicyArtifactKey(
+        nativePackagePolicy,
+        &TargetNativePackageDescriptorPolicy::nativeBinaryArtifactKey,
+        "nativeBinary");
+    setManifestArtifactValue(
+        artifactValues, sourceArtifactKey,
+        packageRelativePath(packageDir, directxResult->sourcePath));
+    setManifestArtifactValue(
+        artifactValues, nativeBinaryArtifactKey,
+        packageRelativePath(packageDir, directxResult->nativeBinaryPath));
   } else if (sourceArtifact) {
     const std::string_view sourceArtifactKey = packagePolicyArtifactKey(
         sourcePackagePolicy,
@@ -1764,16 +2284,16 @@ manifestJson(const HIRModule &module, TargetKind target,
         {"hirSourceMap", packageRelativePath(packageDir, *hirSourceMapPath)});
   }
   if (sourceRemapProvenancePath != nullptr) {
-    artifacts.push_back({"sourceRemap", packageRelativePath(
-                                            packageDir,
-                                            *sourceRemapProvenancePath)});
+    artifacts.push_back(
+        {"sourceRemap",
+         packageRelativePath(packageDir, *sourceRemapProvenancePath)});
   }
   appendManifestArtifact(artifacts, artifactValues,
                          nativeArtifactDescriptorArtifactKey);
   if (targetExplanationPath != nullptr) {
-    artifacts.push_back({"targetExplanation",
-                         packageRelativePath(packageDir,
-                                             *targetExplanationPath)});
+    artifacts.push_back(
+        {"targetExplanation",
+         packageRelativePath(packageDir, *targetExplanationPath)});
   }
   if (graphicsAbiPath != nullptr) {
     artifacts.push_back(
@@ -1818,17 +2338,16 @@ std::string sourceRemapProvenanceJson(const SourceRemap &remap,
       << "  \"kind\": \"crossgl.sourceRemapProvenance\",\n"
       << "  \"contractVersion\": \"source-remap-provenance-v1\",\n"
       << "  \"target\": \"" << escapeJson(targetName(target)) << "\",\n"
-      << "  \"generatedFile\": \"" << escapeJson(remap.generatedFile)
-      << "\",\n"
+      << "  \"generatedFile\": \"" << escapeJson(remap.generatedFile) << "\",\n"
       << "  \"mappingGranularity\": \"source-span\",\n"
       << "  \"mappingCount\": " << remap.mappings.size() << ",\n"
       << "  \"sourceRemap\": {\n"
-      << "    \"path\": \""
-      << escapeJson(remap.documentPath.value_or("")) << "\",\n"
+      << "    \"path\": \"" << escapeJson(remap.documentPath.value_or(""))
+      << "\",\n"
       << "    \"sha256\": {\n"
       << "      \"algorithm\": \"sha256\",\n"
-      << "      \"value\": \""
-      << escapeJson(remap.documentSha256.value_or("")) << "\"\n"
+      << "      \"value\": \"" << escapeJson(remap.documentSha256.value_or(""))
+      << "\"\n"
       << "    },\n"
       << "    \"sizeBytes\": "
       << remap.documentSizeBytes.value_or(static_cast<std::uintmax_t>(0))
@@ -1838,11 +2357,11 @@ std::string sourceRemapProvenanceJson(const SourceRemap &remap,
   return out.str();
 }
 
-std::string vulkanNativeProfileJson(const HIRModule &module,
-                                    const std::filesystem::path &packageDir,
-                                    const VulkanBuildResult &vulkanResult,
-                                    const TargetNativePackageDescriptorPolicy
-                                        &policy) {
+std::string
+vulkanNativeProfileJson(const HIRModule &module,
+                        const std::filesystem::path &packageDir,
+                        const VulkanBuildResult &vulkanResult,
+                        const TargetNativePackageDescriptorPolicy &policy) {
   std::ostringstream out;
   out << "{\n"
       << "  \"schemaVersion\": 1,\n"
@@ -1885,13 +2404,13 @@ std::string vulkanNativeProfileJson(const HIRModule &module,
       << "      \"targetEnv\": \""
       << escapeJson(vulkanResult.optimizationTargetEnv) << "\",\n"
       << "      \"toolStatus\": \""
-      << escapeJson(vulkanResult.optimizationToolStatus)
-      << "\"\n"
+      << escapeJson(vulkanResult.optimizationToolStatus) << "\"\n"
       << "    },\n"
       << "    \"disassembly\": {\n"
       << "      \"tool\": \"" << escapeJson(policy.disassemblyToolName)
       << "\",\n"
-      << "      \"policy\": \"" << escapeJson(policy.disassemblyPolicy) << "\",\n"
+      << "      \"policy\": \"" << escapeJson(policy.disassemblyPolicy)
+      << "\",\n"
       << "      \"status\": \"" << escapeJson(vulkanResult.disassemblyStatus)
       << "\",\n"
       << "      \"path\": ";
@@ -1947,14 +2466,14 @@ bool finalizeSourcePackageBuild(
     const TargetLegalizationContractProjection &projection,
     const SourcePackageArtifact &artifact, OptimizationLevel optimizationLevel,
     const DirectXSourcePackageResult *directxResult,
-    std::string_view nativeToolName,
-    const TargetLegalizationContract &contract,
+    std::string_view nativeToolName, const TargetLegalizationContract &contract,
     const std::optional<std::filesystem::path> &debugMetadataPath,
     const std::optional<std::filesystem::path> &hirSourceMapPath,
     const std::optional<std::filesystem::path> &sourceRemapProvenancePath,
     const std::optional<std::filesystem::path> &targetExplanationPath,
-    const std::filesystem::path &inputPath, StagedPackageDirectory &stagedPackage,
-    DiagnosticEngine &diagnostics) {
+    const std::filesystem::path &inputPath,
+    StagedPackageDirectory &stagedPackage, DiagnosticEngine &diagnostics,
+    const std::vector<Diagnostic> *sourceValidationDiagnostics = nullptr) {
   if (!requireSourcePackageArtifactRequirements(artifact, projection,
                                                 diagnostics)) {
     return false;
@@ -1968,8 +2487,8 @@ bool finalizeSourcePackageBuild(
   }
 
   const TargetSourcePackageDescriptorPolicy descriptorPolicy =
-      targetSourcePackageDescriptorPolicy(projection, artifact.nativeBinaryStatus,
-                                          nativeToolName);
+      targetSourcePackageDescriptorPolicy(
+          projection, artifact.nativeBinaryStatus, nativeToolName);
   if (!descriptorPolicy.supported) {
     diagnostics.error("target.source-package-descriptor-policy",
                       "target legalization projection did not admit source "
@@ -1977,12 +2496,26 @@ bool finalizeSourcePackageBuild(
                           artifact.nativeBinaryStatus + "'");
     return false;
   }
-  NativeArtifactDescriptorSpec descriptorSpec =
-      sourcePackageDescriptorSpec(artifact, descriptorPolicy, optimizationLevel);
+  NativeArtifactDescriptorSpec descriptorSpec = sourcePackageDescriptorSpec(
+      artifact, descriptorPolicy, optimizationLevel);
   if (directxResult != nullptr) {
     descriptorSpec.optimizationEvidenceJson =
         sourcePackageDescriptorOptimizationEvidenceJson(descriptorPolicy,
                                                         *directxResult);
+    if (directxResult->dxcProvenance) {
+      applyInvocationProvenance(descriptorSpec.tools, "dxc", "compiler",
+                                *directxResult->dxcProvenance, packageDir);
+    }
+  }
+  if (target == TargetKind::OpenGL && sourceValidationDiagnostics != nullptr &&
+      !sourceValidationDiagnostics->empty()) {
+    const std::string validatorTool = nativeToolName.empty()
+                                          ? "glslangValidator"
+                                          : std::string(nativeToolName);
+    descriptorSpec.validationStatus = "failed";
+    descriptorSpec.tools = nativeDescriptorTools({nativeArtifactTool(
+        validatorTool, "validator", validatorTool, validatorTool)});
+    descriptorSpec.validationDiagnostics = *sourceValidationDiagnostics;
   }
 
   const std::optional<std::filesystem::path> descriptorPath =
@@ -1994,10 +2527,14 @@ bool finalizeSourcePackageBuild(
 
   const std::filesystem::path nativeBinaryPackagePath =
       packageRelativePath(packageDir, artifact.nativeBinary);
-  const ReflectionDocument reflectionDocument =
-      buildReflectionDocument(module, contract, nativeBinaryPackagePath);
+  const std::optional<ReflectionDocument> reflectionDocument =
+      buildReflectionDocument(module, contract, nativeBinaryPackagePath,
+                              diagnostics);
+  if (!reflectionDocument) {
+    return false;
+  }
   const std::optional<std::filesystem::path> graphicsAbiSidecarPath =
-      writeGraphicsAbiSidecar(module, target, packageDir, reflectionDocument,
+      writeGraphicsAbiSidecar(module, target, packageDir, *reflectionDocument,
                               diagnostics);
   if (shouldEmitGraphicsAbi(module) && !graphicsAbiSidecarPath) {
     return false;
@@ -2012,7 +2549,81 @@ bool finalizeSourcePackageBuild(
       sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
       targetExplanationPath ? &*targetExplanationPath : nullptr,
       graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr);
-  const std::string reflection = reflectionJson(reflectionDocument);
+  const std::string reflection = reflectionJson(*reflectionDocument);
+  return finalizePackageBuild(packageDir, manifest, reflection, inputPath,
+                              diagnostics) &&
+         stagedPackage.promote(diagnostics);
+}
+
+bool finalizeDirectXNativePackageBuild(
+    const HIRModule &module, TargetKind target, std::string_view sourceHash,
+    const std::filesystem::path &packageDir,
+    const TargetLegalizationContractProjection &projection,
+    const DirectXSourcePackageResult &directxResult,
+    const TargetLegalizationContract &contract,
+    const std::optional<std::filesystem::path> &debugMetadataPath,
+    const std::optional<std::filesystem::path> &hirSourceMapPath,
+    const std::optional<std::filesystem::path> &sourceRemapProvenancePath,
+    const std::optional<std::filesystem::path> &targetExplanationPath,
+    const std::filesystem::path &inputPath,
+    StagedPackageDirectory &stagedPackage, DiagnosticEngine &diagnostics) {
+  std::error_code artifactError;
+  if (!directxResult.nativeBinaryProduced ||
+      !std::filesystem::is_regular_file(directxResult.nativeBinaryPath,
+                                        artifactError) ||
+      artifactError) {
+    diagnostics.error(
+        "directx.native-artifact-missing",
+        "DirectX native package emission requires a produced DXIL "
+        "artifact");
+    return false;
+  }
+
+  const TargetNativePackageDescriptorPolicy nativePackagePolicy =
+      targetNativePackageDescriptorPolicy(projection);
+  if (!nativePackagePolicy.supported) {
+    diagnostics.error("target.native-package-descriptor-policy",
+                      "target legalization projection did not admit native "
+                      "package descriptor policy for directx");
+    return false;
+  }
+
+  const std::optional<std::filesystem::path> descriptorPath =
+      writeNativeArtifactDescriptor(
+          module, target, packageDir,
+          directxNativeDescriptorSpec(directxResult, nativePackagePolicy,
+                                      packageDir),
+          diagnostics);
+  if (!descriptorPath) {
+    return false;
+  }
+
+  const std::filesystem::path nativeBinaryPackagePath =
+      packageRelativePath(packageDir, directxResult.nativeBinaryPath);
+  const std::optional<ReflectionDocument> reflectionDocument =
+      buildReflectionDocument(module, contract, nativeBinaryPackagePath,
+                              diagnostics);
+  if (!reflectionDocument) {
+    return false;
+  }
+  const std::optional<std::filesystem::path> graphicsAbiSidecarPath =
+      writeGraphicsAbiSidecar(module, target, packageDir, *reflectionDocument,
+                              diagnostics);
+  if (shouldEmitGraphicsAbi(module) && !graphicsAbiSidecarPath) {
+    return false;
+  }
+
+  const std::string manifest = manifestJson(
+      module, target, sourceHash, packageDir,
+      projection.packageArtifactRequirements, projection, nullptr, nullptr,
+      nullptr, nullptr, nullptr, &*descriptorPath,
+      debugMetadataPath ? &*debugMetadataPath : nullptr,
+      hirSourceMapPath ? &*hirSourceMapPath : nullptr,
+      sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
+      targetExplanationPath ? &*targetExplanationPath : nullptr,
+      graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
+      &nativePackagePolicy, &directxResult);
+  const std::string reflection = reflectionJson(*reflectionDocument);
   return finalizePackageBuild(packageDir, manifest, reflection, inputPath,
                               diagnostics) &&
          stagedPackage.promote(diagnostics);
@@ -2046,8 +2657,7 @@ std::string formatStringList(const std::vector<std::string> &values,
   return out.str();
 }
 
-std::vector<std::string>
-legalizationTraceEvidenceIds(
+std::vector<std::string> legalizationTraceEvidenceIds(
     const TargetLegalizationAdmissionDecision &decision) {
   const TargetLegalizationContractProjection &projection = decision.projection;
   std::vector<std::string> evidenceIds = projection.coreEvidenceIds;
@@ -2060,16 +2670,14 @@ legalizationTraceEvidenceIds(
   return evidenceIds;
 }
 
-std::string
-targetLegalizationTraceMessage(
+std::string targetLegalizationTraceMessage(
     const TargetLegalizationAdmissionDecision &decision) {
   const TargetLegalizationContractProjection &projection = decision.projection;
   std::string message =
-      "; TargetLegalizationResult: state=" +
-      projection.stateName + ", support=" + projection.supportStatusName +
+      "; TargetLegalizationResult: state=" + projection.stateName +
+      ", support=" + projection.supportStatusName +
       ", packageMode=" + projection.packageModeName +
-      ", provenance=" +
-      projection.packageDecisionProvenanceName;
+      ", provenance=" + projection.packageDecisionProvenanceName;
   if (!projection.reason.empty()) {
     message += ", reason=" + projection.reason;
   }
@@ -2094,10 +2702,9 @@ void fillLegalizationDiagnosticFields(
   }
 }
 
-std::vector<Diagnostic>
-diagnosticsWithLegalizationTrace(const std::vector<Diagnostic> &diagnostics,
-                                 const TargetLegalizationAdmissionDecision
-                                     &decision) {
+std::vector<Diagnostic> diagnosticsWithLegalizationTrace(
+    const std::vector<Diagnostic> &diagnostics,
+    const TargetLegalizationAdmissionDecision &decision) {
   std::vector<Diagnostic> tracedDiagnostics = diagnostics;
   const std::string trace = targetLegalizationTraceMessage(decision);
   for (Diagnostic &diagnostic : tracedDiagnostics) {
@@ -2121,17 +2728,17 @@ requireNativeBackendInput(const CompilerModule &module,
     return input;
   }
 
-  diagnostics.error(
-      "target.backend-input-contract",
-      "native backend HIR input must satisfy " +
-          std::string(kHIRBackendInputContractId) + "/" +
-          std::string(kHIRBackendInputContractVersion) + " via " +
-          std::string(kHIRBackendInputValidationPassId) +
-          "; pipeline mode is '" + input.descriptor.backendInputMode +
-          "' and validation state is '" +
-          std::string(hirBackendInputValidationStateName(
-              input.descriptor.validationState)) +
-          "'");
+  diagnostics.error("target.backend-input-contract",
+                    "native backend HIR input must satisfy " +
+                        std::string(kHIRBackendInputContractId) + "/" +
+                        std::string(kHIRBackendInputContractVersion) + " via " +
+                        std::string(kHIRBackendInputValidationPassId) +
+                        "; pipeline mode is '" +
+                        input.descriptor.backendInputMode +
+                        "' and validation state is '" +
+                        std::string(hirBackendInputValidationStateName(
+                            input.descriptor.validationState)) +
+                        "'");
   return std::nullopt;
 }
 
@@ -2171,8 +2778,7 @@ bool requireSourcePackageAdmission(const BackendAdmission &admission,
       projection.targetProfile.resolvedTarget == target &&
       projection.supportStatus ==
           TargetLegalizationSupportStatus::SourcePackage &&
-      projection.packageMode ==
-          TargetLegalizationPackageMode::SourcePackage) {
+      projection.packageMode == TargetLegalizationPackageMode::SourcePackage) {
     return true;
   }
 
@@ -2344,12 +2950,12 @@ dumpIR(const std::filesystem::path &inputPath, DumpStage stage,
                                   sourceMapOptions);
 }
 
-std::optional<std::string> dumpIR(
-    const SourceInput &input, DumpStage stage, TargetKind target,
-    OptimizationLevel optimizationLevel, DiagnosticEngine &diagnostics,
-    const DebugMetadataHIRSourceMapFilter &sourceMapFilter,
-    const DebugMetadataHIRSourceMapPagination &sourceMapPagination,
-    const DebugMetadataHIRSourceMapOptions &sourceMapOptions) {
+std::optional<std::string>
+dumpIR(const SourceInput &input, DumpStage stage, TargetKind target,
+       OptimizationLevel optimizationLevel, DiagnosticEngine &diagnostics,
+       const DebugMetadataHIRSourceMapFilter &sourceMapFilter,
+       const DebugMetadataHIRSourceMapPagination &sourceMapPagination,
+       const DebugMetadataHIRSourceMapOptions &sourceMapOptions) {
   CompilerModuleOptions options;
   options.optimizationLevel = optimizationLevel;
   options.validateBackendInput =
@@ -2426,8 +3032,8 @@ CompileResult compile(const CompileRequest &request) {
   const std::filesystem::path compilerInputPath =
       request.logicalInputPath.value_or(request.inputPath);
   if (request.sourceRemap &&
-      !validateSourceRemapGeneratedFile(*request.sourceRemap,
-                                        compilerInputPath, diagnostics)) {
+      !validateSourceRemapGeneratedFile(*request.sourceRemap, compilerInputPath,
+                                        diagnostics)) {
     assignDiagnostics();
     return result;
   }
@@ -2447,7 +3053,7 @@ CompileResult compile(const CompileRequest &request) {
   result.resolvedTarget = target;
   const HIRModule &backendHIR = *admission->input.module;
 
-  if ((target == TargetKind::DirectX || target == TargetKind::OpenGL) &&
+  if (target == TargetKind::OpenGL &&
       !requireSourcePackageAdmission(*admission, target, diagnostics)) {
     assignDiagnostics();
     return result;
@@ -2507,25 +3113,23 @@ CompileResult compile(const CompileRequest &request) {
     writeText(*debugMetadataPath,
               debugMetadataJson(parsed->hir, request.target, std::nullopt,
                                 debugMetadataOptions),
-              diagnostics,
-              "artifact.write-debug-metadata");
+              diagnostics, "artifact.write-debug-metadata");
     hirSourceMapPath = irDir / "hir-source-map.json";
     writeText(*hirSourceMapPath,
               hirSourceMapJson(parsed->hir, DebugMetadataHIRSourceMapFilter{},
                                DebugMetadataHIRSourceMapPagination{},
                                sourceMapOptions),
-              diagnostics,
-              "artifact.write-hir-source-map");
+              diagnostics, "artifact.write-hir-source-map");
     targetExplanationPath = irDir / "target-explanation.json";
-    writeText(*targetExplanationPath,
-              targetExplanationJson(buildTargetExplanationDocument(parsed->hir)),
-              diagnostics, "artifact.write-target-explanation");
+    writeText(
+        *targetExplanationPath,
+        targetExplanationJson(buildTargetExplanationDocument(parsed->hir)),
+        diagnostics, "artifact.write-target-explanation");
     HIRPassTraceJsonOptions packageTraceOptions;
     packageTraceOptions.includeElapsedTimeMicroseconds = false;
     writeText(irDir / "hir-pass-trace.json",
               hirPassTraceJson(parsed->optimization, packageTraceOptions),
-              diagnostics,
-              "artifact.write-hir-pass-trace");
+              diagnostics, "artifact.write-hir-pass-trace");
     if (request.sourceRemap && request.sourceRemap->documentPath &&
         request.sourceRemap->documentSha256 &&
         request.sourceRemap->documentSizeBytes) {
@@ -2563,6 +3167,16 @@ CompileResult compile(const CompileRequest &request) {
           metalNativeOptimizationEvidence(metal, nativePackagePolicy));
       descriptorSpec.tools =
           nativeDescriptorTools(nativePackagePolicy.requiredTools);
+      if (metal.metalCompilerProvenance) {
+        applyInvocationProvenance(descriptorSpec.tools, "xcrun metal",
+                                  "compiler",
+                                  *metal.metalCompilerProvenance, packageDir);
+      }
+      if (metal.metallibProvenance) {
+        applyInvocationProvenance(descriptorSpec.tools, "xcrun metallib",
+                                  "linker", *metal.metallibProvenance,
+                                  packageDir);
+      }
       const std::optional<std::filesystem::path> descriptorPath =
           writeNativeArtifactDescriptor(backendHIR, target, packageDir,
                                         descriptorSpec, diagnostics);
@@ -2572,11 +3186,16 @@ CompileResult compile(const CompileRequest &request) {
       }
       const std::filesystem::path nativeBinaryPackagePath =
           packageRelativePath(packageDir, metal.metallibPath);
-      const ReflectionDocument reflectionDocument = buildReflectionDocument(
-          backendHIR, admission->decision.contract, nativeBinaryPackagePath);
+      const std::optional<ReflectionDocument> reflectionDocument =
+          buildReflectionDocument(backendHIR, admission->decision.contract,
+                                  nativeBinaryPackagePath, diagnostics);
+      if (!reflectionDocument) {
+        assignDiagnostics();
+        return result;
+      }
       const std::optional<std::filesystem::path> graphicsAbiSidecarPath =
           writeGraphicsAbiSidecar(backendHIR, target, packageDir,
-                                  reflectionDocument, diagnostics);
+                                  *reflectionDocument, diagnostics);
       if (shouldEmitGraphicsAbi(backendHIR) && !graphicsAbiSidecarPath) {
         assignDiagnostics();
         return result;
@@ -2591,7 +3210,7 @@ CompileResult compile(const CompileRequest &request) {
           targetExplanationPath ? &*targetExplanationPath : nullptr,
           graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
           &nativePackagePolicy);
-      const std::string reflection = reflectionJson(reflectionDocument);
+      const std::string reflection = reflectionJson(*reflectionDocument);
       if (finalizePackageBuild(packageDir, manifest, reflection,
                                request.inputPath, diagnostics) &&
           stagedPackage.promote(diagnostics)) {
@@ -2649,6 +3268,18 @@ CompileResult compile(const CompileRequest &request) {
           nativeOptimizationEvidenceJson(optimizationEvidence);
       descriptorSpec.tools =
           nativeDescriptorTools(nativePackagePolicy.requiredTools);
+      if (vulkan.assemblerProvenance) {
+        applyInvocationProvenance(descriptorSpec.tools, "spirv-as",
+                                  "assembler",
+                                  *vulkan.assemblerProvenance, packageDir);
+      }
+      if (vulkan.validatorProvenance) {
+        applyInvocationProvenance(descriptorSpec.tools, "spirv-val",
+                                  "validator",
+                                  *vulkan.validatorProvenance, packageDir);
+      }
+      descriptorSpec.spirvExtendedInstructionImports =
+          vulkan.extendedInstructionImports;
       const std::optional<std::filesystem::path> descriptorPath =
           writeNativeArtifactDescriptor(backendHIR, target, packageDir,
                                         descriptorSpec, diagnostics);
@@ -2658,28 +3289,31 @@ CompileResult compile(const CompileRequest &request) {
       }
       const std::filesystem::path nativeBinaryPackagePath =
           packageRelativePath(packageDir, vulkan.spvPath);
-      const ReflectionDocument reflectionDocument = buildReflectionDocument(
-          backendHIR, admission->decision.contract, nativeBinaryPackagePath);
+      const std::optional<ReflectionDocument> reflectionDocument =
+          buildReflectionDocument(backendHIR, admission->decision.contract,
+                                  nativeBinaryPackagePath, diagnostics);
+      if (!reflectionDocument) {
+        assignDiagnostics();
+        return result;
+      }
       const std::optional<std::filesystem::path> graphicsAbiSidecarPath =
           writeGraphicsAbiSidecar(backendHIR, target, packageDir,
-                                  reflectionDocument, diagnostics);
+                                  *reflectionDocument, diagnostics);
       if (shouldEmitGraphicsAbi(backendHIR) && !graphicsAbiSidecarPath) {
         assignDiagnostics();
         return result;
       }
-      const std::string manifest =
-          manifestJson(backendHIR, target, sourceHash, packageDir,
-                       projection.packageArtifactRequirements, projection,
-                       nullptr, &vulkan, &vulkanProfilePath, nullptr, nullptr,
-                       &*descriptorPath,
-                       debugMetadataPath ? &*debugMetadataPath : nullptr,
-                       hirSourceMapPath ? &*hirSourceMapPath : nullptr,
-                       sourceRemapProvenancePath ? &*sourceRemapProvenancePath
-                                                 : nullptr,
-                       targetExplanationPath ? &*targetExplanationPath : nullptr,
-                       graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
-                       &nativePackagePolicy);
-      const std::string reflection = reflectionJson(reflectionDocument);
+      const std::string manifest = manifestJson(
+          backendHIR, target, sourceHash, packageDir,
+          projection.packageArtifactRequirements, projection, nullptr, &vulkan,
+          &vulkanProfilePath, nullptr, nullptr, &*descriptorPath,
+          debugMetadataPath ? &*debugMetadataPath : nullptr,
+          hirSourceMapPath ? &*hirSourceMapPath : nullptr,
+          sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
+          targetExplanationPath ? &*targetExplanationPath : nullptr,
+          graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
+          &nativePackagePolicy);
+      const std::string reflection = reflectionJson(*reflectionDocument);
       if (finalizePackageBuild(packageDir, manifest, reflection,
                                request.inputPath, diagnostics) &&
           stagedPackage.promote(diagnostics)) {
@@ -2694,16 +3328,43 @@ CompileResult compile(const CompileRequest &request) {
         backendHIR, packageDir, diagnostics, legalization.resourceBindings,
         request.optimizationLevel);
     if (directx.success) {
-      const SourcePackageArtifact artifact{directx.sourcePath,
-                                           directx.nativeBinaryPath,
-                                           directx.nativeBinaryStatus};
-      if (finalizeSourcePackageBuild(
-              backendHIR, target, sourceHash, packageDir,
-              admission->decision.projection, artifact,
-              request.optimizationLevel, &directx, "",
-              admission->decision.contract, debugMetadataPath, hirSourceMapPath,
-              sourceRemapProvenancePath, targetExplanationPath,
-              request.inputPath, stagedPackage, diagnostics)) {
+      const TargetLegalizationContractProjection directxProjection =
+          directx.nativeBinaryProduced
+              ? admission->decision.projection
+              : targetLegalizationSourcePackageFallbackProjection(backendHIR,
+                                                                  target);
+      const bool shouldRewriteDirectXSidecars =
+          directx.nativeBinaryProduced ||
+          admission->decision.projection.packageModeName == "native";
+      if (shouldRewriteDirectXSidecars &&
+          !rewriteDirectXTargetLegalizationSidecars(
+              backendHIR, request.target, directxProjection, debugMetadataOptions,
+              debugMetadataPath, targetExplanationPath, diagnostics,
+              directx.nativeBinaryProduced)) {
+        assignDiagnostics();
+        return result;
+      }
+
+      const bool finalized =
+          directx.nativeBinaryProduced
+              ? finalizeDirectXNativePackageBuild(
+                    backendHIR, target, sourceHash, packageDir,
+                    directxProjection, directx, admission->decision.contract,
+                    debugMetadataPath, hirSourceMapPath,
+                    sourceRemapProvenancePath, targetExplanationPath,
+                    request.inputPath, stagedPackage, diagnostics)
+              : finalizeSourcePackageBuild(
+                    backendHIR, target, sourceHash, packageDir,
+                    directxProjection,
+                    SourcePackageArtifact{directx.sourcePath,
+                                          directx.nativeBinaryPath,
+                                          directx.nativeBinaryStatus},
+                    request.optimizationLevel, &directx, "",
+                    admission->decision.contract, debugMetadataPath,
+                    hirSourceMapPath, sourceRemapProvenancePath,
+                    targetExplanationPath, request.inputPath, stagedPackage,
+                    diagnostics);
+      if (finalized) {
         result.artifactPath = request.outputPath;
         result.success = true;
       } else {
@@ -2726,9 +3387,9 @@ CompileResult compile(const CompileRequest &request) {
       }
       if (hirSourceMapPath) {
         writeText(*hirSourceMapPath,
-                  hirSourceMapJson(backendHIR, DebugMetadataHIRSourceMapFilter{},
-                                   DebugMetadataHIRSourceMapPagination{},
-                                   sourceMapOptions),
+                  hirSourceMapJson(
+                      backendHIR, DebugMetadataHIRSourceMapFilter{},
+                      DebugMetadataHIRSourceMapPagination{}, sourceMapOptions),
                   diagnostics, "artifact.write-hir-source-map");
       }
       const SourcePackageArtifact artifact{opengl.sourcePath,
@@ -2740,7 +3401,8 @@ CompileResult compile(const CompileRequest &request) {
               request.optimizationLevel, nullptr, opengl.validatorTool,
               admission->decision.contract, debugMetadataPath, hirSourceMapPath,
               sourceRemapProvenancePath, targetExplanationPath,
-              request.inputPath, stagedPackage, diagnostics)) {
+              request.inputPath, stagedPackage, diagnostics,
+              &opengl.validationDiagnostics)) {
         result.artifactPath = request.outputPath;
         result.success = true;
       } else {

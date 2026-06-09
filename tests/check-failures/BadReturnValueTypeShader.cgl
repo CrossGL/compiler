@@ -1,0 +1,11 @@
+shader BadReturnValueTypeShader {
+  compute {
+    float helper() {
+      return true;
+    }
+
+    void main() {
+      return;
+    }
+  }
+}

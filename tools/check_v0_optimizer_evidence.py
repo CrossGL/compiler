@@ -37,6 +37,11 @@ O1_PASS_IDS = [
 ]
 
 O2_ONLY_PASS_IDS = [
+    "hir.optimize.o2.pure-expression-cse",
+    "hir.optimize.o2.inline-scalar-temporaries",
+    "hir.optimize.o2.inline-literal-vector-temporaries",
+]
+O2_INLINE_CHANGE_PASS_IDS = [
     "hir.optimize.o2.inline-scalar-temporaries",
     "hir.optimize.o2.inline-literal-vector-temporaries",
 ]
@@ -65,9 +70,9 @@ EXPECTED_POLICIES = {
         "passes": O1_PASS_IDS,
     },
     "O2": {
-        "id": "hir-o2-conservative-inline",
-        "name": "O2 conservative inline",
-        "description_fragment": "conservative temporary inlining",
+        "id": "hir-o2-conservative-local-values",
+        "name": "O2 conservative local values",
+        "description_fragment": "conservative local value reuse",
         "passes": O2_PASS_IDS,
     },
 }
@@ -364,12 +369,13 @@ def validate_o2_distinct_trace(trace: dict[str, Any]) -> None:
         ids != O1_PASS_IDS,
         "O2 pass trace must be distinct from the O1 pass trace",
     )
-    inline_index = ids.index(O2_ONLY_PASS_IDS[0])
-    vector_index = ids.index(O2_ONLY_PASS_IDS[1])
+    cse_index = ids.index("hir.optimize.o2.pure-expression-cse")
+    inline_index = ids.index("hir.optimize.o2.inline-scalar-temporaries")
+    vector_index = ids.index("hir.optimize.o2.inline-literal-vector-temporaries")
     validation_index = ids.index("hir.validate.storage-buffer-shapes")
     require(
-        inline_index < vector_index < validation_index,
-        "O2 inline passes must run before final target-independent validation",
+        cse_index < inline_index < vector_index < validation_index,
+        "O2 local value passes must run before final target-independent validation",
     )
     for pass_id in O2_ONLY_PASS_IDS:
         pass_record = pass_by_id(trace, pass_id)
@@ -381,7 +387,7 @@ def validate_o2_distinct_trace(trace: dict[str, Any]) -> None:
 
 def validate_o2_inline_fixture_trace(trace: dict[str, Any]) -> None:
     validate_o2_distinct_trace(trace)
-    for pass_id in O2_ONLY_PASS_IDS:
+    for pass_id in O2_INLINE_CHANGE_PASS_IDS:
         pass_record = pass_by_id(trace, pass_id)
         require(
             pass_record.get("changed") is True,
@@ -498,7 +504,9 @@ def run_self_test() -> list[str]:
     try:
         validate_o0_validation_only(make_trace("O0"))
         validate_o1_baseline(make_trace("O1", {"hir.optimize.simplify-algebraic"}))
-        validate_o2_inline_fixture_trace(make_trace("O2", set(O2_ONLY_PASS_IDS)))
+        validate_o2_inline_fixture_trace(
+            make_trace("O2", set(O2_INLINE_CHANGE_PASS_IDS))
+        )
     except CheckError as error:
         errors.append(f"valid synthetic trace failed: {error}")
 

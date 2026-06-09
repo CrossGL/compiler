@@ -26,6 +26,16 @@
     "missingCapabilities": [
       "directx.backend.dxil-validator"
     ],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.directx.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
     "diagnostics": [
       {
         "code": "target.unsupported-informational",
@@ -40,7 +50,17 @@
         ]
       }
     ],
-    "rewrites": [],
+    "rewrites": [
+      {
+        "id": "no-target-rewrite",
+        "order": 0,
+        "status": "not-required",
+        "description": "No target-aware rewrite is required for this fixture.",
+        "evidenceIds": [
+          "target-legalization.v1.directx.rewrite.not-required"
+        ]
+      }
+    ],
     "abiFacts": {
       "state": "unsupported",
       "facts": [],
@@ -48,11 +68,17 @@
         "target-legalization.v1.directx.abi.unsupported"
       ]
     },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.directx.resource-bindings.empty"
+    ],
     "evidenceIds": [
       "target-legalization.v1.directx.abi.unsupported",
       "target-legalization.v1.directx.decision",
       "target-legalization.v1.directx.diagnostic.unsupported-info",
-      "target-legalization.v1.directx.package-provenance.unsupported-source-form"
+      "target-legalization.v1.directx.package-provenance.unsupported-source-form",
+      "target-legalization.v1.directx.resource-bindings.empty",
+      "target-legalization.v1.directx.rewrite.not-required",
+      "target-legalization.v1.directx.tool-requirements.empty"
     ]
   }
 }

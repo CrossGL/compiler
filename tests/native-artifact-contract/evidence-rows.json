@@ -191,6 +191,18 @@
       "fixture": "tests/schema-failures/native-artifact-v0/metal-optimization-tool-missing-provenance.json"
     },
     {
+      "rule": "SPIR-V dependency metadata declares extended instruction imports",
+      "fixture": "tests/schema-failures/native-artifact-v0/spirv-dependencies-missing-imports.json"
+    },
+    {
+      "rule": "SPIR-V dependency metadata is Vulkan-only",
+      "fixture": "tests/schema-failures/native-artifact-v0/spirv-dependencies-non-vulkan.json"
+    },
+    {
+      "rule": "SPIR-V extended instruction imports are unique",
+      "fixture": "tests/schema-failures/native-artifact-v0/spirv-dependencies-duplicate-instruction-set.json"
+    },
+    {
       "rule": "tool resolvedExecutable is non-empty host evidence",
       "fixture": "tests/schema-failures/native-artifact-v0/tool-resolved-executable-empty.json"
     },
