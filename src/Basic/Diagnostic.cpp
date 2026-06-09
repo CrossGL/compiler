@@ -89,6 +89,10 @@ std::string deterministicDiagnosticPath(std::string_view path) {
 void DiagnosticEngine::report(Diagnostic diagnostic) {
   diagnostic.location.file =
       deterministicDiagnosticPath(diagnostic.location.file);
+  if (diagnostic.originalLocation) {
+    diagnostic.originalLocation->file =
+        deterministicDiagnosticPath(diagnostic.originalLocation->file);
+  }
   diagnostics_.push_back(std::move(diagnostic));
 }
 

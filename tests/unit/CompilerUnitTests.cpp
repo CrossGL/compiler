@@ -569,6 +569,24 @@ void testDiagnosticCodeContract() {
     expect(!crossgl::isValidDiagnosticCode(code),
            "diagnostic code inventory rejects invalid code shape");
   }
+
+  crossgl::Diagnostic diagnostic;
+  diagnostic.severity = crossgl::DiagnosticSeverity::Error;
+  diagnostic.code = "sema.path-normalization";
+  diagnostic.message = "path normalization fixture";
+  diagnostic.location.file =
+      "/tmp/crossgl/generated/path-normalization-fixture.cgl";
+  diagnostic.originalLocation =
+      crossgl::SourceLocation{"/tmp/crossgl/shaders/original-fixture.crossgl"};
+  crossgl::DiagnosticEngine diagnostics;
+  diagnostics.report(std::move(diagnostic));
+  expect(diagnostics.diagnostics().size() == 1 &&
+             diagnostics.diagnostics()[0].location.file ==
+                 "path-normalization-fixture.cgl" &&
+             diagnostics.diagnostics()[0].originalLocation.has_value() &&
+             diagnostics.diagnostics()[0].originalLocation->file ==
+                 "original-fixture.crossgl",
+         "diagnostic reporting normalizes generated and original paths");
 }
 
 void testToolchainOptimizationPolicyMetadata() {

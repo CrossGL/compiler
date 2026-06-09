@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "directx.compile-failed",
+      "message": "fixture diagnostic",
+      "location": {
+        "file": "fixture.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 3,
+        "endLine": 1,
+        "endColumn": 4,
+        "endOffset": 3
+      }
+    }
+  ]
+}
