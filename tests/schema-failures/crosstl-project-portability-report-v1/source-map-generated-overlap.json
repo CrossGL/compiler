@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "summary": {
+    "artifactCount": 1,
+    "sourceMapCount": 1,
+    "fineGrainedSourceMapCount": 1,
+    "sourceRemapCount": 0,
+    "sourceRemapMappingCount": 0
+  },
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "target": "metal",
+      "path": "out/metal/simple.metal",
+      "status": "translated",
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      },
+      "sourceMap": {
+        "schemaVersion": 1,
+        "kind": "crosstl-artifact-source-map",
+        "mappingGranularity": "line",
+        "target": "metal",
+        "source": {
+          "file": "simple.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 20,
+          "endLine": 1,
+          "endColumn": 21,
+          "endOffset": 20
+        },
+        "generated": {
+          "file": "out/metal/simple.metal",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 20,
+          "endLine": 1,
+          "endColumn": 21,
+          "endOffset": 20
+        },
+        "mappings": [
+          {
+            "source": {
+              "file": "simple.cgl",
+              "line": 1,
+              "column": 1,
+              "offset": 0,
+              "length": 10,
+              "endLine": 1,
+              "endColumn": 11,
+              "endOffset": 10
+            },
+            "generated": {
+              "file": "out/metal/simple.metal",
+              "line": 1,
+              "column": 1,
+              "offset": 0,
+              "length": 10,
+              "endLine": 1,
+              "endColumn": 11,
+              "endOffset": 10
+            }
+          },
+          {
+            "source": {
+              "file": "simple.cgl",
+              "line": 1,
+              "column": 11,
+              "offset": 10,
+              "length": 10,
+              "endLine": 1,
+              "endColumn": 21,
+              "endOffset": 20
+            },
+            "generated": {
+              "file": "out/metal/simple.metal",
+              "line": 1,
+              "column": 6,
+              "offset": 5,
+              "length": 10,
+              "endLine": 1,
+              "endColumn": 16,
+              "endOffset": 15
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

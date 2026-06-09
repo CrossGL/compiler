@@ -1,6 +1,6 @@
 """Semantic checks for crosstl-project-portability-report-v1.schema.json."""
 
-from .common import add_equal_error
+from .common import add_equal_error, validate_source_location_span
 
 
 CROSSGL_TARGETS = frozenset(("cgl", "crossgl"))
@@ -67,6 +67,107 @@ def _diagnostic_counts_by_missing_capability(diagnostics):
         for capability in diagnostic.get("missingCapabilities", []):
             _increment(counts, capability)
     return dict(sorted(counts.items()))
+
+
+def _span_identity(span):
+    return (
+        span["file"],
+        span["line"],
+        span["column"],
+        span["offset"],
+        span["length"],
+        span["endLine"],
+        span["endColumn"],
+        span["endOffset"],
+    )
+
+
+def _spans_overlap(left, right):
+    if left["file"] != right["file"]:
+        return False
+    return left["offset"] < right["endOffset"] and right["offset"] < left["endOffset"]
+
+
+def _validate_source_map_span(errors, path, span):
+    validate_source_location_span(errors, path, span)
+    if span["length"] <= 0:
+        errors.append(f"{path}.length: expected > 0")
+    if (
+        span["length"] > 0
+        and span["endLine"] == span["line"]
+        and span["endColumn"] <= span["column"]
+    ):
+        errors.append(f"{path}.endColumn: expected > column for same-line span")
+
+
+def _validate_span_within_envelope(errors, path, span, envelope, label):
+    if span["file"] != envelope["file"]:
+        errors.append(f"{path}.file: expected to match {label}.file")
+    if span["offset"] < envelope["offset"]:
+        errors.append(f"{path}.offset: expected >= {label}.offset")
+    if span["endOffset"] > envelope["endOffset"]:
+        errors.append(f"{path}.endOffset: expected <= {label}.endOffset")
+
+
+def _validate_source_map_semantics(
+    errors, artifact_path, target, source_map_granularity, source_map
+):
+    if target not in CROSSGL_TARGETS and source_map_granularity in (
+        "statement",
+        "token",
+    ):
+        errors.append(
+            f"{artifact_path}.sourceMap.mappingGranularity: expected file or line "
+            "for backend-generated artifacts until compiler backend-lowering "
+            "source maps are available"
+        )
+
+    source_span = source_map["source"]
+    generated_span = source_map["generated"]
+    _validate_source_map_span(errors, f"{artifact_path}.sourceMap.source", source_span)
+    _validate_source_map_span(
+        errors, f"{artifact_path}.sourceMap.generated", generated_span
+    )
+
+    generated_spans = []
+    seen_mappings = set()
+    for mapping_index, mapping in enumerate(source_map["mappings"]):
+        mapping_path = f"{artifact_path}.sourceMap.mappings[{mapping_index}]"
+        mapping_source = mapping["source"]
+        mapping_generated = mapping["generated"]
+        _validate_source_map_span(errors, f"{mapping_path}.source", mapping_source)
+        _validate_source_map_span(
+            errors, f"{mapping_path}.generated", mapping_generated
+        )
+        _validate_span_within_envelope(
+            errors,
+            f"{mapping_path}.source",
+            mapping_source,
+            source_span,
+            f"{artifact_path}.sourceMap.source",
+        )
+        _validate_span_within_envelope(
+            errors,
+            f"{mapping_path}.generated",
+            mapping_generated,
+            generated_span,
+            f"{artifact_path}.sourceMap.generated",
+        )
+        for prior_index, prior_generated in generated_spans:
+            if _spans_overlap(prior_generated, mapping_generated):
+                errors.append(
+                    f"{mapping_path}.generated: overlaps "
+                    f"{artifact_path}.sourceMap.mappings[{prior_index}].generated"
+                )
+                break
+        generated_spans.append((mapping_index, mapping_generated))
+        mapping_identity = (
+            _span_identity(mapping_source),
+            _span_identity(mapping_generated),
+        )
+        if mapping_identity in seen_mappings:
+            errors.append(f"{mapping_path}: duplicate source/generated span pair")
+        seen_mappings.add(mapping_identity)
 
 
 def validate_semantics(instance):
@@ -176,6 +277,9 @@ def validate_semantics(instance):
                     f"{artifact_path}.sourceMap.generated.file: expected to match "
                     f"artifact path {generated_path!r}"
                 )
+            _validate_source_map_semantics(
+                errors, artifact_path, target, source_map_granularity, source_map
+            )
 
         if target == "cgl" and status == "translated" and source_remap is None:
             errors.append(
