@@ -34,6 +34,7 @@ if(BUILD_TESTING)
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLCheckTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLOptimizerTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLDumpTests.cmake")
+  include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLHIRSourceMapTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLTargetExplanationTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLBackendDumpTests.cmake")
 
