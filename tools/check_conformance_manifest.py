@@ -188,6 +188,7 @@ AUXILIARY_EVIDENCE_KIND_PATTERNS = {
     "package-inspection": re.compile(r"^cglc_package_verify_"),
     "target-explanation": re.compile(r"^cglc_(?:doctor_json|explain_targets)_"),
 }
+AUXILIARY_EVIDENCE_KINDS = set(AUXILIARY_EVIDENCE_KIND_PATTERNS)
 
 # Expected diagnostics are concrete compiler codes for the fixture, not just the
 # compatibility bucket attached to the unsupported native-v0 entry.
@@ -608,6 +609,20 @@ def target_feature_evidence_kind_counts(
     return counts
 
 
+def auxiliary_evidence_kind_counts(entries: list[dict[str, Any]]) -> dict[str, int]:
+    counts = {kind: 0 for kind in sorted(AUXILIARY_EVIDENCE_KINDS)}
+    for entry in entries:
+        evidence_tests = entry.get("auxiliary_evidence_tests")
+        if not isinstance(evidence_tests, list):
+            continue
+        for test_name in evidence_tests:
+            if isinstance(test_name, str):
+                kind = auxiliary_evidence_kind(test_name)
+                if kind is not None:
+                    counts[kind] += 1
+    return counts
+
+
 def cmake_test_sources(root: Path) -> list[Path]:
     sources = [root / "CMakeLists.txt"]
     sources.extend(sorted((root / "cmake").glob("*.cmake")))
@@ -987,6 +1002,12 @@ def target_feature_evidence_summary(entries: list[dict[str, Any]]) -> dict[str, 
     return summary
 
 
+def auxiliary_evidence_summary(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    summary = evidence_field_summary(entries, "auxiliary_evidence_tests")
+    summary["byEvidenceKind"] = auxiliary_evidence_kind_counts(entries)
+    return summary
+
+
 def build_report(
     root: Path, manifest_path: Path, payload: dict[str, Any]
 ) -> dict[str, Any]:
@@ -1029,6 +1050,7 @@ def build_report(
             "byFeatureGroup": sorted_count_map(entries, "feature_group"),
             "byLanguageCategory": sorted_count_map(entries, "language_category"),
             "byCommandProfile": sorted_count_map(entries, "command_profile"),
+            "auxiliaryEvidence": auxiliary_evidence_summary(entries),
             "targetFeatureEvidence": target_feature_evidence_summary(entries),
         },
         "entries": report_entries,
@@ -1516,6 +1538,22 @@ def write_json_report(path: Path, report: dict[str, Any]) -> None:
     )
 
 
+def format_evidence_summary(label: str, summary: dict[str, Any]) -> str:
+    feature_groups = ", ".join(
+        f"{name}={count}" for name, count in summary["byFeatureGroup"].items()
+    )
+    evidence_kinds = ", ".join(
+        f"{name}={count}" for name, count in summary["byEvidenceKind"].items()
+    )
+    return (
+        f"{label}: "
+        f"entries={summary['entryCount']}, "
+        f"tests={summary['testCount']}, "
+        f"featureGroups={feature_groups or 'none'}, "
+        f"kinds={evidence_kinds or 'none'}"
+    )
+
+
 def write_text_report(path: Path, report: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     summary = report["summary"]
@@ -1530,28 +1568,9 @@ def write_text_report(path: Path, report: dict[str, Any]) -> None:
         + ", ".join(
             f"{name}={count}" for name, count in summary["byCommandProfile"].items()
         ),
-        "targetFeatureEvidence: "
-        f"entries={summary['targetFeatureEvidence']['entryCount']}, "
-        f"tests={summary['targetFeatureEvidence']['testCount']}, "
-        "featureGroups="
-        + (
-            ", ".join(
-                f"{name}={count}"
-                for name, count in summary["targetFeatureEvidence"][
-                    "byFeatureGroup"
-                ].items()
-            )
-            or "none"
-        )
-        + ", kinds="
-        + (
-            ", ".join(
-                f"{name}={count}"
-                for name, count in summary["targetFeatureEvidence"][
-                    "byEvidenceKind"
-                ].items()
-            )
-            or "none"
+        format_evidence_summary("auxiliaryEvidence", summary["auxiliaryEvidence"]),
+        format_evidence_summary(
+            "targetFeatureEvidence", summary["targetFeatureEvidence"]
         ),
         "",
     ]
@@ -2000,6 +2019,40 @@ def run_self_test() -> int:
         }:
             raise AssertionError(
                 f"unexpected target feature evidence summary: {report!r}"
+            )
+        if report["summary"]["auxiliaryEvidence"] != {
+            "entryCount": 1,
+            "testCount": 2,
+            "byFeatureGroup": {
+                "resources": 1,
+            },
+            "byEvidenceKind": {
+                "backend-dump": 1,
+                "debug-dump": 0,
+                "package-inspection": 1,
+                "target-explanation": 0,
+            },
+        }:
+            raise AssertionError(f"unexpected auxiliary evidence summary: {report!r}")
+        text_report_path = root / "self-test-report.txt"
+        write_text_report(text_report_path, report)
+        text_report = text_report_path.read_text(encoding="utf-8")
+        expected_auxiliary_summary = (
+            "auxiliaryEvidence: entries=1, tests=2, featureGroups=resources=1, "
+            "kinds=backend-dump=1, debug-dump=0, package-inspection=1, "
+            "target-explanation=0"
+        )
+        if expected_auxiliary_summary not in text_report:
+            raise AssertionError(
+                f"missing auxiliary evidence text summary: {text_report!r}"
+            )
+        expected_auxiliary_entry_line = (
+            "resources.self-test-source-package status=accepted "
+            "profile=source-package-build target=opengl auxiliaryEvidence=2"
+        )
+        if expected_auxiliary_entry_line not in text_report:
+            raise AssertionError(
+                f"missing auxiliary evidence text entry line: {text_report!r}"
             )
 
         native_entry = self_test_entry(payload, "graphics-stages.self-test-native")
@@ -2557,6 +2610,17 @@ def main(argv: list[str]) -> int:
     print(
         f"validated {summary['total']} v0 conformance manifest entries "
         f"({status_counts}; {profile_counts})"
+    )
+    auxiliary_evidence = summary["auxiliaryEvidence"]
+    print(
+        "auxiliary evidence "
+        f"entries={auxiliary_evidence['entryCount']}, "
+        f"tests={auxiliary_evidence['testCount']}, "
+        "kinds="
+        + ", ".join(
+            f"{name}={count}"
+            for name, count in auxiliary_evidence["byEvidenceKind"].items()
+        )
     )
     target_feature_evidence = summary["targetFeatureEvidence"]
     print(
