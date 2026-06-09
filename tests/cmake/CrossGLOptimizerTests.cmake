@@ -23,6 +23,7 @@ set(CROSSGL_OPTIMIZER_PURE_INTRINSIC_CONSTANT_FOLDING_SHADER ${CMAKE_CURRENT_SOU
 set(CROSSGL_OPTIMIZER_VECTOR_TRIG_INTRINSIC_FOLD_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/VectorTrigIntrinsicFoldOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_O2_TEMPORARY_INLINING_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2TemporaryInliningOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2PureExpressionCSEOptimizerShader.cgl)
+set(CROSSGL_OPTIMIZER_O2_DOMINATED_SCOPE_CSE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2DominatedScopeCSEOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_FOR_BOUNDARY_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForOptimizerBoundaryHIRShader.cgl)
 
 add_test(NAME cglc_optimizer_opt_level_check_o2_accepts
@@ -137,6 +138,25 @@ set_tests_properties(cglc_optimizer_hir_o2_pure_expression_cse
 add_test(NAME cglc_optimizer_hir_o2_pure_expression_cse_trace_changed
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER} --stage hir-pass-trace --opt-level O2)
 set_tests_properties(cglc_optimizer_hir_o2_pure_expression_cse_trace_changed
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]pure-expression-cse".*"changed": true]=])
+
+add_test(NAME cglc_optimizer_hir_o1_preserves_dominated_scope_cse_candidates
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_DOMINATED_SCOPE_CSE_SHADER} --stage hir --opt-level O1)
+set_tests_properties(cglc_optimizer_hir_o1_preserves_dominated_scope_cse_candidates
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=[decl float parent = \(left \+ right\) \* 2[.]0 : float.*decl float child = \(left \+ right\) \* 2[.]0 : float.*decl float childLocalFirst = \(left - right\) \* 4[.]0 : float.*decl float childLocalSecond = \(left - right\) \* 4[.]0 : float.*decl float before = max\(left \+ right, 1[.]0\) : float.*decl float thenReuse = max\(left \+ right, 1[.]0\) : float.*decl float elseReuse = max\(left \+ right, 1[.]0\) : float]=])
+
+add_test(NAME cglc_optimizer_hir_o2_dominated_scope_pure_expression_cse
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_DOMINATED_SCOPE_CSE_SHADER} --stage hir --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_o2_dominated_scope_pure_expression_cse
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=[decl float parent = \(left \+ right\) \* 2[.]0 : float.*assign total : float = total \+ parent \+ childLocalFirst \+ childLocalFirst : float.*decl float before = max\(left \+ right, 1[.]0\) : float.*assign selected : float = selected \+ before \+ thenLocalFirst \+ thenLocalFirst : float.*assign selected : float = selected \+ before \+ elseLocalFirst \+ elseLocalFirst : float.*decl float after = \(left \+ right\) \* 7[.]0 : float]=]
+    FAIL_REGULAR_EXPRESSION [=[decl float child =|decl float childLocalSecond|decl float thenReuse|decl float thenLocalSecond|decl float elseReuse|decl float elseLocalSecond|decl float after = thenScoped|decl float after = elseScoped]=])
+
+add_test(NAME cglc_optimizer_hir_o2_dominated_scope_cse_trace_changed
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_DOMINATED_SCOPE_CSE_SHADER} --stage hir-pass-trace --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_o2_dominated_scope_cse_trace_changed
   PROPERTIES
     PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]pure-expression-cse".*"changed": true]=])
 

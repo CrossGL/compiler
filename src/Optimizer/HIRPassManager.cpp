@@ -5391,6 +5391,9 @@ bool replaceO2CSEExpression(HIRExpression &expression,
 }
 
 bool applyO2PureExpressionCSEInBlock(std::vector<HIRStatement> &statements);
+bool applyO2PureExpressionCSEInBlockWithAvailable(
+    std::vector<HIRStatement> &statements,
+    const O2CSEAvailableExpressionMap &initialAvailable);
 
 bool applyO2PureExpressionCSEInStatement(HIRStatement &statement,
                                          O2CSEAvailableExpressionMap &available) {
@@ -5429,12 +5432,18 @@ bool applyO2PureExpressionCSEInStatement(HIRStatement &statement,
     return changed;
   }
   case HIRStatementKind::Block:
-    changed = applyO2PureExpressionCSEInBlock(statement.body) || changed;
+    changed = applyO2PureExpressionCSEInBlockWithAvailable(statement.body,
+                                                           available) ||
+              changed;
     available.clear();
     return changed;
   case HIRStatementKind::If:
-    changed = applyO2PureExpressionCSEInBlock(statement.body) || changed;
-    changed = applyO2PureExpressionCSEInBlock(statement.elseBody) || changed;
+    changed = applyO2PureExpressionCSEInBlockWithAvailable(statement.body,
+                                                           available) ||
+              changed;
+    changed = applyO2PureExpressionCSEInBlockWithAvailable(statement.elseBody,
+                                                           available) ||
+              changed;
     available.clear();
     return changed;
   case HIRStatementKind::For:
@@ -5458,14 +5467,21 @@ bool applyO2PureExpressionCSEInStatement(HIRStatement &statement,
   return changed;
 }
 
-bool applyO2PureExpressionCSEInBlock(std::vector<HIRStatement> &statements) {
+bool applyO2PureExpressionCSEInBlockWithAvailable(
+    std::vector<HIRStatement> &statements,
+    const O2CSEAvailableExpressionMap &initialAvailable) {
   bool changed = false;
-  O2CSEAvailableExpressionMap available;
+  O2CSEAvailableExpressionMap available = initialAvailable;
   for (HIRStatement &statement : statements) {
     changed =
         applyO2PureExpressionCSEInStatement(statement, available) || changed;
   }
   return changed;
+}
+
+bool applyO2PureExpressionCSEInBlock(std::vector<HIRStatement> &statements) {
+  return applyO2PureExpressionCSEInBlockWithAvailable(
+      statements, O2CSEAvailableExpressionMap{});
 }
 
 bool applyO2PureExpressionCSE(HIRModule &module, DiagnosticEngine &) {
