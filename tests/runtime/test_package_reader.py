@@ -7633,7 +7633,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
             ):
                 read_package(package_dir)
 
-    def test_compatibility_report_rejects_normalized_duplicate_manifest_artifact_paths(
+    def test_compatibility_report_rejects_non_normalized_manifest_artifact_paths(
         self,
     ) -> None:
         for package_format in ("directory", "zip"):
@@ -7675,28 +7675,28 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     summary = report.to_summary()
 
                     self.assertFalse(report.compatible)
-                    self.assertEqual(report.status, "incompatible")
+                    self.assertEqual(report.status, "missing-artifact")
                     self.assertFalse(report.source_parsing_required)
                     self.assertEqual(
                         [diagnostic.code for diagnostic in report.reject_reasons],
                         [
-                            "package.artifact.path_duplicate",
+                            "package.artifact.path_invalid",
                             "package.artifacts.contract_invalid",
+                            "package.artifact.required_missing",
                         ],
                     )
                     self.assertEqual(
                         summary["rejectReasons"][0]["message"],
                         (
-                            "manifest.artifacts.intermediate reuses path declared by "
-                            "backendSource: "
-                            "backend/metal/./RuntimeReaderFixture.metal"
+                            "manifest.artifacts.intermediate must be a normalized "
+                            "package-relative path"
                         ),
                     )
                     with self.assertRaisesRegex(
                         PackageReadError,
                         (
-                            "manifest.artifacts.intermediate reuses path declared by "
-                            "backendSource"
+                            "manifest.artifacts.intermediate must be a normalized "
+                            "package-relative path"
                         ),
                     ):
                         read_package(package_path)

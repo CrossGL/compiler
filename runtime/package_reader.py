@@ -7017,9 +7017,25 @@ def _resolve_package_relative_member(value: str, label: str) -> str:
         raise PackageReadError(f"{label} must be package-relative")
     if not path.parts:
         raise PackageReadError(f"{label} must be a non-empty package-relative path")
-    if any(part == ".." for part in path.parts):
-        raise PackageReadError(f"{label} escapes the package archive")
+    _validate_package_relative_path_segments(
+        value,
+        label,
+        escape_container="archive",
+    )
     return path.as_posix()
+
+
+def _validate_package_relative_path_segments(
+    value: str,
+    label: str,
+    *,
+    escape_container: str,
+) -> None:
+    parts = value.split("/")
+    if any(part == ".." for part in parts):
+        raise PackageReadError(f"{label} escapes the package {escape_container}")
+    if any(part in ("", ".") for part in parts):
+        raise PackageReadError(f"{label} must be a normalized package-relative path")
 
 
 def _read_source_json_object(
@@ -9519,6 +9535,11 @@ def _resolve_package_relative_path(root: Path, value: str, label: str) -> Path:
     artifact_path = Path(value)
     if artifact_path.is_absolute():
         raise PackageReadError(f"{label} must be package-relative")
+    _validate_package_relative_path_segments(
+        value,
+        label,
+        escape_container="directory",
+    )
 
     root_resolved = root.resolve()
     resolved = (root / artifact_path).resolve()

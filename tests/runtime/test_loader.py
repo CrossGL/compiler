@@ -3362,6 +3362,84 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 [package_dir / "source" / "invalid.cgl"],
             )
 
+    def test_loader_plan_rejects_non_normalized_artifact_paths(
+        self,
+    ) -> None:
+        cases = (
+            ("directory", "backend/metal/./RuntimeLoaderFixture.metal"),
+            ("zip", "backend/metal//RuntimeLoaderFixture.metal"),
+        )
+        for package_format, artifact_path in cases:
+            with self.subTest(
+                package_format=package_format, artifact_path=artifact_path
+            ):
+                with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+                    package_dir = Path(temp_dir) / "package"
+                    package_dir.mkdir()
+                    self._write_valid_package(package_dir)
+                    manifest_path = package_dir / "manifest.json"
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    manifest["artifacts"]["backendSource"] = artifact_path
+                    self._write_json(manifest_path, manifest)
+                    source_path = package_dir / "source" / "invalid.cgl"
+                    source_path.parent.mkdir()
+                    source_path.write_text(
+                        "loader must reject malformed artifact paths from metadata\n",
+                        encoding="utf-8",
+                    )
+
+                    if package_format == "zip":
+                        zip_path = Path(temp_dir) / "package.cglb"
+                        self._write_zip_package(
+                            package_dir,
+                            zip_path,
+                            prefix=zip_path.name,
+                        )
+                        with self._guard_crossgl_source_archive_reads():
+                            plan = read_loader_plan(zip_path, "metal")
+                    else:
+                        with self._guard_crossgl_source_path_reads():
+                            plan = read_loader_plan(package_dir, "metal")
+
+                    summary = plan.to_summary()
+                    reject_codes = [
+                        diagnostic.code for diagnostic in plan.reject_reasons
+                    ]
+
+                    self.assertFalse(plan.loadable)
+                    self.assertEqual(plan.selected_artifacts, ())
+                    self.assertIsNone(plan.runtime_artifact)
+                    self.assertFalse(plan.source_parsing_required)
+                    self.assertIn("package.artifact.path_invalid", reject_codes)
+                    self.assertIn("package.artifacts.contract_invalid", reject_codes)
+                    self.assertIsNone(summary["runtimeArtifactSelection"]["artifact"])
+                    path_reject = next(
+                        diagnostic
+                        for diagnostic in summary["compatibilityReport"][
+                            "rejectReasons"
+                        ]
+                        if diagnostic["code"] == "package.artifact.path_invalid"
+                    )
+                    self.assertEqual(path_reject["path"], "artifacts.backendSource")
+                    self.assertEqual(path_reject["actual"], artifact_path)
+                    self.assertIn(
+                        "must be a normalized package-relative path",
+                        path_reject["message"],
+                    )
+                    contract_reject = next(
+                        diagnostic
+                        for diagnostic in summary["rejectReasons"]
+                        if diagnostic["code"] == "package.artifacts.contract_invalid"
+                    )
+                    self.assertEqual(
+                        [
+                            diagnostic["code"]
+                            for diagnostic in contract_reject["actual"]
+                        ],
+                        ["package.artifact.path_invalid"],
+                    )
+                    self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_runtime_artifact_selection_respects_source_package_and_native_modes(
         self,
     ) -> None:
