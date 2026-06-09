@@ -140,19 +140,35 @@ void noteLegacyArtifactRequirementsFallback(const PackageMetadata &metadata,
 
 std::string_view
 expectedPackageArtifactRequirementMode(const PackageTargetContract &contract) {
-  return contract.requiresNativeBinaryStatus ? "source-package" : "native";
+  return contract.allowsPlannedNativeBinary ? "source-package" : "native";
 }
 
-bool requirementContainsArtifact(
-    const PackageArtifactRequirementsRecord &requirements,
-    std::string_view artifactName) {
-  return std::find_if(
-             requirements.requiredPathArtifacts.begin(),
-             requirements.requiredPathArtifacts.end(),
-             [artifactName](
-                 const PackageRequiredPathArtifactRecord &artifactRequirement) {
-               return artifactRequirement.name == artifactName;
-             }) != requirements.requiredPathArtifacts.end();
+std::string formatRequiredPathArtifacts(
+    const PackageArtifactRequirementsRecord &requirements) {
+  std::ostringstream out;
+  out << "[";
+  for (std::size_t index = 0;
+       index < requirements.requiredPathArtifacts.size(); ++index) {
+    if (index != 0) {
+      out << ", ";
+    }
+    out << requirements.requiredPathArtifacts[index].name;
+  }
+  out << "]";
+  return out.str();
+}
+
+std::string formatRequiredPathArtifacts(const PackageTargetContract &contract) {
+  std::ostringstream out;
+  out << "[";
+  for (std::size_t index = 0; index < contract.requiredArtifactCount; ++index) {
+    if (index != 0) {
+      out << ", ";
+    }
+    out << contract.requiredArtifacts[index];
+  }
+  out << "]";
+  return out.str();
 }
 
 bool requiredPathArtifactsMatchTargetContract(
@@ -164,8 +180,8 @@ bool requiredPathArtifactsMatchTargetContract(
   }
 
   for (std::size_t index = 0; index < contract.requiredArtifactCount; ++index) {
-    if (!requirementContainsArtifact(requirements,
-                                     contract.requiredArtifacts[index])) {
+    if (std::string_view(requirements.requiredPathArtifacts[index].name) !=
+        contract.requiredArtifacts[index]) {
       return false;
     }
   }
@@ -218,6 +234,56 @@ bool verifyArtifactRequirementsForVerification(
     valid = false;
   }
 
+  const PackageTargetContract *contract =
+      packageTargetContractFor(metadata.target);
+  if (contract != nullptr) {
+    const std::string_view expectedPackageMode =
+        expectedPackageArtifactRequirementMode(*contract);
+    if (requirements.packageMode != expectedPackageMode) {
+      diagnostics.error(
+          diagnosticCode("invalid-manifest"),
+          "package manifest packageArtifactRequirements.packageMode must match "
+          "manifest target contract: expected '" +
+              std::string(expectedPackageMode) + "', got '" +
+              requirements.packageMode + "'",
+          requirements.packageModeLocation.value_or(requirements.location));
+      valid = false;
+    }
+
+    if (!requiredPathArtifactsMatchTargetContract(requirements, *contract)) {
+      diagnostics.error(
+          diagnosticCode("invalid-manifest"),
+          "package manifest "
+          "packageArtifactRequirements.requiredPathArtifacts must match manifest "
+          "target contract: expected " +
+              formatRequiredPathArtifacts(*contract) + ", got " +
+              formatRequiredPathArtifacts(requirements),
+          requirements.requiredPathArtifactsLocation.value_or(
+              requirements.location));
+      valid = false;
+    }
+
+    const bool expectedRequiresNativeBinaryStatus =
+        contract->requiresNativeBinaryStatus;
+    const bool expectedAllowsPlannedNativeBinary =
+        contract->allowsPlannedNativeBinary;
+    const bool expectedAllowsPlannedNativeSourceEvidence =
+        contract->allowsPlannedNativeSourceEvidence;
+    if (requirements.requiresNativeBinaryStatus !=
+            expectedRequiresNativeBinaryStatus ||
+        requirements.allowsPlannedNativeBinary !=
+            expectedAllowsPlannedNativeBinary ||
+        requirements.allowsPlannedNativeSourceEvidence !=
+            expectedAllowsPlannedNativeSourceEvidence) {
+      diagnostics.error(
+          diagnosticCode("invalid-manifest"),
+          "package manifest packageArtifactRequirements native binary policy "
+          "must match manifest target contract",
+          requirements.location);
+      valid = false;
+    }
+  }
+
   if (metadata.artifactRequirements) {
     const std::vector<std::string> expectedEvidenceIds =
         expectedPackageArtifactRequirementEvidenceIds(requirements);
@@ -241,54 +307,6 @@ bool verifyArtifactRequirementsForVerification(
       valid = false;
     }
     return valid;
-  }
-
-  const PackageTargetContract *contract =
-      packageTargetContractFor(metadata.target);
-  if (contract == nullptr) {
-    return valid;
-  }
-
-  const std::string_view expectedPackageMode =
-      expectedPackageArtifactRequirementMode(*contract);
-  if (requirements.packageMode != expectedPackageMode) {
-    diagnostics.error(
-        diagnosticCode("invalid-manifest"),
-        "package manifest packageArtifactRequirements.packageMode must match "
-        "manifest target contract",
-        requirements.packageModeLocation.value_or(requirements.location));
-    valid = false;
-  }
-
-  if (!requiredPathArtifactsMatchTargetContract(requirements, *contract)) {
-    diagnostics.error(
-        diagnosticCode("invalid-manifest"),
-        "package manifest "
-        "packageArtifactRequirements.requiredPathArtifacts must match manifest "
-        "target contract",
-        requirements.requiredPathArtifactsLocation.value_or(
-            requirements.location));
-    valid = false;
-  }
-
-  const bool expectedRequiresNativeBinaryStatus =
-      contract->requiresNativeBinaryStatus;
-  const bool expectedAllowsPlannedNativeBinary =
-      contract->allowsPlannedNativeBinary;
-  const bool expectedAllowsPlannedNativeSourceEvidence =
-      contract->allowsPlannedNativeSourceEvidence;
-  if (requirements.requiresNativeBinaryStatus !=
-          expectedRequiresNativeBinaryStatus ||
-      requirements.allowsPlannedNativeBinary !=
-          expectedAllowsPlannedNativeBinary ||
-      requirements.allowsPlannedNativeSourceEvidence !=
-          expectedAllowsPlannedNativeSourceEvidence) {
-    diagnostics.error(
-        diagnosticCode("invalid-manifest"),
-        "package manifest packageArtifactRequirements native binary policy "
-        "must match manifest target contract",
-        requirements.location);
-    valid = false;
   }
 
   return valid;
@@ -1004,11 +1022,22 @@ void verifyNativeBinaryStatus(
                    artifactsLocation(metadata)));
   }
 
-  if (!findArtifact(metadata, "nativeBinary")) {
+  const PackageArtifactRecord *nativeBinary =
+      findArtifact(metadata, "nativeBinary");
+  if (!nativeBinary) {
     diagnostics.error(diagnosticCode("native-status-without-native"),
                       "nativeBinaryStatus requires nativeBinary",
                       locationOr(metadata.nativeBinaryStatusLocation,
                                  artifactsLocation(metadata)));
+    return;
+  }
+
+  if (*metadata.nativeBinaryStatus == "planned" && nativeBinary->exists) {
+    diagnostics.error(
+        diagnosticCode("planned-native-status-with-produced-native"),
+        "nativeBinaryStatus planned requires the nativeBinary artifact path to "
+        "be declared but not produced",
+        artifactLocation(metadata, *nativeBinary));
   }
 }
 

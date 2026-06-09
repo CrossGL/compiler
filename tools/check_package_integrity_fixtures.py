@@ -266,6 +266,33 @@ def package_artifact_requirements(target):
     }
 
 
+def package_artifact_requirement_evidence_ids(requirements):
+    target = requirements.get("target")
+    package_mode = requirements.get("packageMode")
+    required_artifacts = requirements.get("requiredPathArtifacts", [])
+    evidence_ids = [f"target-legalization.v1.{target}.package-artifacts.{package_mode}"]
+    evidence_ids.extend(
+        f"target-legalization.v1.{target}.package-artifact.required.{name}"
+        for name in required_artifacts
+    )
+    if requirements.get("requiresNativeBinaryStatus"):
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.native-binary-status.required"
+        )
+    if requirements.get("allowsPlannedNativeBinary"):
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-binary.allowed"
+        )
+    if requirements.get("allowsPlannedNativeSourceEvidence"):
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-source-evidence.allowed"
+        )
+    return evidence_ids
+
+
 def native_artifact_binary_kind(manifest):
     target = manifest["target"]
     if target == "metal":
@@ -1449,6 +1476,48 @@ def run_native_delegation_cases(root, cglc, tmp_dir):
             source,
             cglc,
             "reflection nativeBinary path must be package-relative",
+        )
+    )
+
+    package, source, manifest = make_package(
+        tmp_dir, "native-delegated-artifact-contract-drift"
+    )
+    artifact_contract_drift = copy.deepcopy(manifest)
+    artifact_contract_drift["packageArtifactRequirements"][
+        "requiredPathArtifacts"
+    ] = ["backendSource"]
+    artifact_contract_drift["packageArtifactRequirements"]["evidenceIds"] = (
+        package_artifact_requirement_evidence_ids(
+            artifact_contract_drift["packageArtifactRequirements"]
+        )
+    )
+    rewrite_manifest(package, artifact_contract_drift)
+    errors.extend(
+        expect_native_failure(
+            root,
+            package,
+            source,
+            cglc,
+            "packageArtifactRequirements.requiredPathArtifacts must match "
+            "manifest target contract",
+        )
+    )
+
+    package, source, manifest = make_package(
+        tmp_dir, "native-delegated-planned-status-produced-native"
+    )
+    write_json(
+        package_path(package, manifest["artifacts"]["nativeBinary"]),
+        {"fixture": "planned native binary should not be produced"},
+    )
+    errors.extend(
+        expect_native_failure(
+            root,
+            package,
+            source,
+            cglc,
+            "nativeBinaryStatus planned requires the nativeBinary artifact path "
+            "to be declared but not produced",
         )
     )
 

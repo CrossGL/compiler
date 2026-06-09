@@ -341,13 +341,12 @@ def write_package_mode_override(
     write_json(destination_path, payload)
 
 
-def check_recorded_requirements_not_target_contract_bound(
+def check_recorded_requirements_reject_target_contract_drift(
     root: Path, cglc: Path, paths: dict, work_dir: Path
 ) -> None:
-    # Release bundle/plan readers validate recorded requirement propagation and
-    # artifact evidence only. Package build/verification admits compiler-written
-    # manifest requirements before promotion, and promotion copies that metadata
-    # through packageReleaseArtifactRequirementsRecord.
+    # Release bundle/plan readers reject requirement metadata that drifts from
+    # the target contract, even when the release document was produced from a
+    # previously valid package.
     paths["bundle_recorded_mode_override"] = (
         work_dir / "package-release-bundle-recorded-mode-override.json"
     )
@@ -357,7 +356,7 @@ def check_recorded_requirements_not_target_contract_bound(
     write_package_mode_override(
         paths["bundle"], paths["bundle_recorded_mode_override"], "native"
     )
-    run_checked(
+    run_expect_failure(
         "verify-bundle-recorded-mode-override",
         [
             cglc,
@@ -368,11 +367,10 @@ def check_recorded_requirements_not_target_contract_bound(
             "--json",
         ],
         cwd=root,
-        stdout_path=paths["bundle_recorded_mode_override_verification"],
-    )
-    expect_success(
-        "verify-bundle-recorded-mode-override",
-        paths["bundle_recorded_mode_override_verification"],
+        expected=(
+            "packageArtifactRequirements.packageMode must match target "
+            "contract"
+        ),
     )
 
     paths["plan_recorded_mode_override"] = (
@@ -387,7 +385,7 @@ def check_recorded_requirements_not_target_contract_bound(
     write_package_mode_override(
         paths["plan"], paths["plan_recorded_mode_override"], "native"
     )
-    run_checked(
+    run_expect_failure(
         "stage-publish-recorded-mode-override",
         [
             cglc,
@@ -400,11 +398,10 @@ def check_recorded_requirements_not_target_contract_bound(
             "--json",
         ],
         cwd=root,
-        stdout_path=paths["stage_recorded_mode_override"],
-    )
-    expect_success(
-        "stage-publish-recorded-mode-override",
-        paths["stage_recorded_mode_override"],
+        expected=(
+            "packageArtifactRequirements.packageMode must match target "
+            "contract"
+        ),
     )
 
 
@@ -490,7 +487,9 @@ def check_positive_release(
     check_descriptor_propagates(
         load_json(paths["plan"]), "publish-plan-positive", package_path
     )
-    check_recorded_requirements_not_target_contract_bound(root, cglc, paths, work_dir)
+    check_recorded_requirements_reject_target_contract_drift(
+        root, cglc, paths, work_dir
+    )
 
 
 def remove_descriptor_manifest_evidence(package_path: Path) -> None:

@@ -1638,6 +1638,93 @@ def run_cases(root, cglc):
         )
 
         package, source, manifest = make_package(
+            tmp_dir, "manifest-requirement-artifact-contract-drift"
+        )
+        artifact_contract_drift = copy.deepcopy(manifest)
+        artifact_contract_drift["packageArtifactRequirements"][
+            "requiredPathArtifacts"
+        ] = ["backendSource"]
+        artifact_contract_drift["packageArtifactRequirements"]["evidenceIds"] = (
+            package_artifact_requirement_evidence_ids(
+                artifact_contract_drift["packageArtifactRequirements"]
+            )
+        )
+        rewrite_manifest(package, artifact_contract_drift)
+        expected = (
+            "package manifest "
+            "packageArtifactRequirements.requiredPathArtifacts must match "
+            "manifest target contract"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "manifest-requirement-artifact-contract-drift",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "manifest-requirement-artifact-contract-drift-json",
+                package,
+                expected,
+                source=source,
+                manifest=artifact_contract_drift,
+                expected_code="package.verify.invalid-manifest",
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "manifest-requirement-native-policy-contract-drift"
+        )
+        native_policy_drift = copy.deepcopy(manifest)
+        native_policy_drift["packageArtifactRequirements"][
+            "requiresNativeBinaryStatus"
+        ] = False
+        native_policy_drift["packageArtifactRequirements"][
+            "allowsPlannedNativeBinary"
+        ] = False
+        native_policy_drift["packageArtifactRequirements"][
+            "allowsPlannedNativeSourceEvidence"
+        ] = False
+        native_policy_drift["packageArtifactRequirements"]["evidenceIds"] = (
+            package_artifact_requirement_evidence_ids(
+                native_policy_drift["packageArtifactRequirements"]
+            )
+        )
+        rewrite_manifest(package, native_policy_drift)
+        expected = (
+            "package manifest packageArtifactRequirements native binary policy "
+            "must match manifest target contract"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "manifest-requirement-native-policy-contract-drift",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "manifest-requirement-native-policy-contract-drift-json",
+                package,
+                expected,
+                source=source,
+                manifest=native_policy_drift,
+                expected_code="package.verify.invalid-manifest",
+            )
+        )
+
+        package, source, manifest = make_package(
             tmp_dir, "debug-metadata-incomplete-legalization-projection"
         )
         debug_metadata = read_artifact_json(package, manifest, "debugMetadata")
@@ -2526,24 +2613,30 @@ def run_cases(root, cglc):
                 break
         write_json(target_explanation_path, target_explanation)
 
+        expected = (
+            "package manifest packageArtifactRequirements.packageMode must match "
+            "manifest target contract"
+        )
         errors.extend(
-            expect_success(
+            expect_failure(
                 cglc,
                 "recorded-requirements-no-native-status",
                 package,
-                "StorageBufferComputeShader for directx",
+                expected,
                 source=source,
             )
         )
         errors.extend(
-            expect_json_success(
+            expect_json_failure(
                 root,
                 cglc,
                 tmp_dir,
                 "recorded-requirements-no-native-status-json",
                 package,
-                recorded_requirements,
+                expected,
                 source=source,
+                manifest=recorded_requirements,
+                expected_code="package.verify.invalid-manifest",
             )
         )
 
@@ -2568,8 +2661,8 @@ def run_cases(root, cglc):
         rewrite_manifest(package, planned_status_disallowed)
         add_native_artifact_descriptor(package, planned_status_disallowed)
         expected = (
-            "package manifest packageArtifactRequirements does not allow "
-            "nativeBinaryStatus planned"
+            "package manifest packageArtifactRequirements native binary policy "
+            "must match manifest target contract"
         )
         errors.extend(
             expect_failure(
@@ -2590,7 +2683,7 @@ def run_cases(root, cglc):
                 expected,
                 source=source,
                 manifest=planned_status_disallowed,
-                expected_code="package.verify.planned-native-status-disallowed",
+                expected_code="package.verify.invalid-manifest",
             )
         )
 
@@ -3035,6 +3128,42 @@ def run_cases(root, cglc):
                 "status-without-native",
                 package,
                 "nativeBinaryStatus requires nativeBinary",
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "planned-status-produced-native"
+        )
+        write_json(
+            package_path(package, manifest["artifacts"]["nativeBinary"]),
+            {"fixture": "planned native binary should not be produced"},
+        )
+        expected = (
+            "nativeBinaryStatus planned requires the nativeBinary artifact path "
+            "to be declared but not produced"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "planned-status-produced-native",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "planned-status-produced-native-json",
+                package,
+                expected,
+                source=source,
+                manifest=manifest,
+                expected_code=(
+                    "package.verify.planned-native-status-with-produced-native"
+                ),
             )
         )
 

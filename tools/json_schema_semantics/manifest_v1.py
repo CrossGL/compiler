@@ -123,7 +123,7 @@ def validate_package_artifact_requirements(errors, target, manifest):
     contract = package_target_contract(target)
     if contract is not None:
         expected_mode = (
-            "source-package" if contract.requires_native_binary_status else "native"
+            "source-package" if contract.allows_planned_native_binary else "native"
         )
         if requirements["packageMode"] != expected_mode:
             errors.append(

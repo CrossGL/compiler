@@ -158,7 +158,7 @@ def validate_package_artifact_requirements(
     )
     if contract is not None:
         expected_mode = (
-            "source-package" if contract.requires_native_binary_status else "native"
+            "source-package" if contract.allows_planned_native_binary else "native"
         )
         if requirements["packageMode"] != expected_mode:
             errors.append(
@@ -173,6 +173,12 @@ def validate_package_artifact_requirements(
             != contract.allows_planned_native_source_evidence
         ):
             errors.append(f"{path}: native binary policy must match target contract")
+        expected_artifacts = list(contract.required_path_artifacts)
+        if requirements["requiredPathArtifacts"] != expected_artifacts:
+            errors.append(
+                f"{path}.requiredPathArtifacts: expected target contract "
+                f"artifacts {expected_artifacts!r}"
+            )
     if (
         requirements["allowsPlannedNativeSourceEvidence"]
         and not requirements["allowsPlannedNativeBinary"]

@@ -5,6 +5,7 @@
 #include "crossgl/Basic/SHA256.h"
 #include "crossgl/Driver/PackageIntegrity.h"
 #include "crossgl/Driver/PackageMetadata.h"
+#include "crossgl/Driver/PackageTargetContracts.h"
 
 #include <algorithm>
 #include <cctype>
@@ -2613,6 +2614,53 @@ bool validateReleasePackageArtifactRequirements(
                           "evidence requires planned native binary support",
                       pathLocation(documentPath));
     valid = false;
+  }
+  const PackageTargetContract *contract =
+      packageTargetContractFor(packageTarget);
+  if (contract != nullptr) {
+    const std::string_view expectedMode =
+        contract->allowsPlannedNativeBinary ? "source-package" : "native";
+    if (requirements.packageMode != expectedMode) {
+      diagnostics.error(
+          std::string(invalidCode),
+          std::string(label) +
+              " packageArtifactRequirements.packageMode must match target "
+              "contract",
+          pathLocation(documentPath));
+      valid = false;
+    }
+    bool artifactContractMatches =
+        requirements.requiredPathArtifacts.size() ==
+        contract->requiredArtifactCount;
+    for (std::size_t index = 0;
+         artifactContractMatches && index < contract->requiredArtifactCount;
+         ++index) {
+      artifactContractMatches =
+          std::string_view(requirements.requiredPathArtifacts[index]) ==
+          contract->requiredArtifacts[index];
+    }
+    if (!artifactContractMatches) {
+      diagnostics.error(
+          std::string(invalidCode),
+          std::string(label) +
+              " packageArtifactRequirements.requiredPathArtifacts must match "
+              "target contract",
+          pathLocation(documentPath));
+      valid = false;
+    }
+    if (requirements.requiresNativeBinaryStatus !=
+            contract->requiresNativeBinaryStatus ||
+        requirements.allowsPlannedNativeBinary !=
+            contract->allowsPlannedNativeBinary ||
+        requirements.allowsPlannedNativeSourceEvidence !=
+            contract->allowsPlannedNativeSourceEvidence) {
+      diagnostics.error(std::string(invalidCode),
+                        std::string(label) +
+                            " packageArtifactRequirements native binary "
+                            "policy must match target contract",
+                        pathLocation(documentPath));
+      valid = false;
+    }
   }
   return valid;
 }

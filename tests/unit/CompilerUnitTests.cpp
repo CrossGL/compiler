@@ -286,11 +286,18 @@ void testPackageMetadataHelpers() {
            "native-status policy without generated-contract fallback");
     const crossgl::PackageIntegrityResult recordedVerify =
         crossgl::verifyPackage(recordedPackageDir);
-    expect(recordedVerify.success && recordedVerify.diagnostics.empty(),
-           "package verify honors recorded DirectX native requirements over "
-           "generated native-status defaults");
+    expect(!recordedVerify.success && !recordedVerify.diagnostics.empty(),
+           "package verify rejects recorded DirectX native requirements that "
+           "drift from the target contract");
     const std::string recordedVerifyJson =
         crossgl::packageVerifyJson(recordedVerify, recordedPackageDir);
+    expect(recordedVerifyJson.find("package.verify.invalid-manifest") !=
+                   std::string::npos &&
+               recordedVerifyJson.find(
+                   "packageArtifactRequirements.packageMode must match "
+                   "manifest target contract") != std::string::npos,
+           "package verify JSON reports recorded DirectX native package-mode "
+           "contract drift");
     expect(recordedVerifyJson.find("\"nativeBinaryStatus\": null") !=
                std::string::npos,
            "package verify JSON summary preserves recorded native status "
@@ -359,10 +366,18 @@ void testPackageMetadataHelpers() {
            "package metadata preserves recorded required path artifacts");
     const crossgl::PackageIntegrityResult recordedSourceOnlyVerify =
         crossgl::verifyPackage(recordedSourceOnlyPackageDir);
-    expect(recordedSourceOnlyVerify.success &&
-               recordedSourceOnlyVerify.diagnostics.empty(),
-           "package verify honors recorded DirectX required artifacts over "
-           "generated native-binary defaults");
+    expect(!recordedSourceOnlyVerify.success &&
+               !recordedSourceOnlyVerify.diagnostics.empty(),
+           "package verify rejects recorded DirectX required artifacts that "
+           "drift from the target contract");
+    const std::string recordedSourceOnlyVerifyJson =
+        crossgl::packageVerifyJson(recordedSourceOnlyVerify,
+                                   recordedSourceOnlyPackageDir);
+    expect(recordedSourceOnlyVerifyJson.find(
+               "packageArtifactRequirements.requiredPathArtifacts must match "
+               "manifest target contract") != std::string::npos,
+           "package verify JSON reports recorded DirectX required artifact "
+           "contract drift");
   }
 
   const std::filesystem::path incompletePackageDir =
@@ -25872,6 +25887,8 @@ void testPackageReleaseReportArtifactInventory() {
   const std::filesystem::path packagePath = root / "InventoryShader.cglb";
   const std::uintmax_t backendBytes = 15;
   const std::uintmax_t intermediateBytes = 9;
+  const std::uintmax_t nativeBytes = 21;
+  const std::uintmax_t descriptorBytes = 13;
 
   std::error_code error;
   std::filesystem::remove_all(root, error);
@@ -25880,7 +25897,8 @@ void testPackageReleaseReportArtifactInventory() {
   crossgl::PackageReleasePackageArtifactRequirements requirements;
   requirements.target = "metal";
   requirements.packageMode = "native";
-  requirements.requiredPathArtifacts = {"backendSource", "intermediate"};
+  requirements.requiredPathArtifacts = {"backendSource", "intermediate",
+                                        "nativeBinary"};
 
   crossgl::PackageReleasePublishPlanArtifact backendArtifact;
   backendArtifact.name = "backendSource";
@@ -25888,11 +25906,11 @@ void testPackageReleaseReportArtifactInventory() {
   backendArtifact.module = "InventoryShader";
   backendArtifact.target = "metal";
   backendArtifact.packageArtifactPath =
-      "backend/metal/InventoryShader.metallib";
+      "backend/metal/InventoryShader.metal";
   backendArtifact.sourcePath =
-      packagePath / "backend" / "metal" / "InventoryShader.metallib";
+      packagePath / "backend" / "metal" / "InventoryShader.metal";
   backendArtifact.destinationPath =
-      "packages/metal/InventoryShader.backend";
+      "packages/metal/InventoryShader.source";
   backendArtifact.sizeBytes = backendBytes;
   backendArtifact.sha256 = crossgl::sha256("inventory backend");
 
@@ -25901,13 +25919,40 @@ void testPackageReleaseReportArtifactInventory() {
   intermediateArtifact.packagePath = packagePath;
   intermediateArtifact.module = "InventoryShader";
   intermediateArtifact.target = "metal";
-  intermediateArtifact.packageArtifactPath = "ir/InventoryShader.hir.json";
+  intermediateArtifact.packageArtifactPath =
+      "backend/metal/InventoryShader.air";
   intermediateArtifact.sourcePath =
-      packagePath / "ir" / "InventoryShader.hir.json";
+      packagePath / "backend" / "metal" / "InventoryShader.air";
   intermediateArtifact.destinationPath =
       "packages/metal/InventoryShader.intermediate";
   intermediateArtifact.sizeBytes = intermediateBytes;
   intermediateArtifact.sha256 = crossgl::sha256("inventory intermediate");
+
+  crossgl::PackageReleasePublishPlanArtifact nativeArtifact;
+  nativeArtifact.name = "nativeBinary";
+  nativeArtifact.packagePath = packagePath;
+  nativeArtifact.module = "InventoryShader";
+  nativeArtifact.target = "metal";
+  nativeArtifact.packageArtifactPath =
+      "backend/metal/InventoryShader.metallib";
+  nativeArtifact.sourcePath =
+      packagePath / "backend" / "metal" / "InventoryShader.metallib";
+  nativeArtifact.destinationPath = "packages/metal/InventoryShader.native";
+  nativeArtifact.sizeBytes = nativeBytes;
+  nativeArtifact.sha256 = crossgl::sha256("inventory native");
+
+  crossgl::PackageReleasePublishPlanArtifact descriptorArtifact;
+  descriptorArtifact.name = "nativeArtifactDescriptor";
+  descriptorArtifact.packagePath = packagePath;
+  descriptorArtifact.module = "InventoryShader";
+  descriptorArtifact.target = "metal";
+  descriptorArtifact.packageArtifactPath = "metadata/native-artifact.json";
+  descriptorArtifact.sourcePath =
+      packagePath / "metadata" / "native-artifact.json";
+  descriptorArtifact.destinationPath =
+      "packages/metal/InventoryShader.descriptor";
+  descriptorArtifact.sizeBytes = descriptorBytes;
+  descriptorArtifact.sha256 = crossgl::sha256("inventory descriptor");
 
   crossgl::PackageReleasePublishPlanPackage package;
   package.packagePath = packagePath;
@@ -25917,17 +25962,21 @@ void testPackageReleaseReportArtifactInventory() {
       crossgl::PackageReleasePromotionSourceHash{"sha256",
                                                  crossgl::sha256("source")};
   package.artifactRequirements = requirements;
-  package.totalArtifactBytes = backendBytes + intermediateBytes;
-  package.artifacts = {backendArtifact, intermediateArtifact};
+  package.totalArtifactBytes =
+      backendBytes + intermediateBytes + nativeBytes + descriptorBytes;
+  package.artifacts = {descriptorArtifact, intermediateArtifact, nativeArtifact,
+                       backendArtifact};
 
   crossgl::PackageReleasePublishPlanResult plan;
   plan.success = true;
   plan.releaseEligible = true;
   plan.bundlePath = root / "package-release-bundle.json";
   plan.planPath = planPath;
-  plan.totalArtifactBytes = backendBytes + intermediateBytes;
+  plan.totalArtifactBytes =
+      backendBytes + intermediateBytes + nativeBytes + descriptorBytes;
   plan.packages.push_back(package);
-  plan.artifacts = {backendArtifact, intermediateArtifact};
+  plan.artifacts = {descriptorArtifact, intermediateArtifact, nativeArtifact,
+                    backendArtifact};
 
   {
     std::ofstream output(planPath, std::ios::binary);
@@ -25939,10 +25988,12 @@ void testPackageReleaseReportArtifactInventory() {
   stage.planPath = planPath;
   stage.stagePath = stagePath;
   stage.packageCount = 1;
-  stage.artifactCount = 2;
-  stage.totalArtifactBytes = backendBytes + intermediateBytes;
-  stage.stagedArtifactCount = 2;
-  stage.stagedArtifactBytes = backendBytes + intermediateBytes;
+  stage.artifactCount = 4;
+  stage.totalArtifactBytes =
+      backendBytes + intermediateBytes + nativeBytes + descriptorBytes;
+  stage.stagedArtifactCount = 4;
+  stage.stagedArtifactBytes =
+      backendBytes + intermediateBytes + nativeBytes + descriptorBytes;
   for (const crossgl::PackageReleasePublishPlanArtifact &artifact :
        plan.artifacts) {
     crossgl::PackageReleasePublishStageArtifact staged;
@@ -25964,46 +26015,56 @@ void testPackageReleaseReportArtifactInventory() {
   const crossgl::PackageReleaseReportArtifactInventoryResult inventory =
       crossgl::loadPackageReleaseReportArtifactInventory(options);
 
+  std::ostringstream inventoryDiagnosticSummary;
+  for (const crossgl::Diagnostic &diagnostic : inventory.diagnostics) {
+    inventoryDiagnosticSummary << diagnostic.code << ": "
+                               << diagnostic.message << "; ";
+  }
   expect(inventory.success,
-         "release report artifact inventory loads plan and stage records");
+         "release report artifact inventory loads plan and stage records; "
+         "diagnostics=" +
+             inventoryDiagnosticSummary.str());
   expect(inventory.diagnostics.empty(),
          "release report artifact inventory has no diagnostics for valid "
-         "plan and stage records");
-  expect(inventory.artifactRecordCount == 4,
+         "plan and stage records; diagnostics=" +
+             inventoryDiagnosticSummary.str());
+  expect(inventory.artifactRecordCount == 8,
          "release report artifact inventory counts every source record");
-  expect(inventory.publishPlanArtifactRecordCount == 2,
+  expect(inventory.publishPlanArtifactRecordCount == 4,
          "release report artifact inventory counts plan records");
-  expect(inventory.publishStageArtifactRecordCount == 2,
+  expect(inventory.publishStageArtifactRecordCount == 4,
          "release report artifact inventory counts stage records");
-  expect(inventory.stagedArtifactRecordCount == 2,
+  expect(inventory.stagedArtifactRecordCount == 4,
          "release report artifact inventory counts staged records");
   expect(inventory.totalArtifactRecordBytes ==
-             2 * (backendBytes + intermediateBytes),
+             2 * (backendBytes + intermediateBytes + nativeBytes +
+                  descriptorBytes),
          "release report artifact inventory sums record byte sizes");
-  expect(inventory.records.size() == 4,
+  expect(inventory.records.size() == 8,
          "release report artifact inventory exposes sorted records");
-  if (inventory.records.size() == 4) {
+  if (inventory.records.size() == 8) {
     expect(inventory.records[0].sourceRecordKind == "publish-plan" &&
                inventory.records[0].packagePath.lexically_normal() ==
                    packagePath.lexically_normal() &&
                inventory.records[0].packageArtifactPath ==
-                   "backend/metal/InventoryShader.metallib" &&
+                   "backend/metal/InventoryShader.air" &&
                !inventory.records[0].stagedPath &&
                inventory.records[0].destinationPath ==
-                   "packages/metal/InventoryShader.backend" &&
-               inventory.records[0].sizeBytes == backendBytes &&
-               inventory.records[0].sha256 == backendArtifact.sha256,
+                   "packages/metal/InventoryShader.intermediate" &&
+               inventory.records[0].sizeBytes == intermediateBytes &&
+               inventory.records[0].sha256 == intermediateArtifact.sha256,
            "release report artifact inventory records plan artifact fields");
     expect(inventory.records[1].sourceRecordKind == "publish-stage" &&
                inventory.records[1].stagedPath &&
                inventory.records[1].stagedPath->lexically_normal() ==
-                   (stagePath / "packages/metal/InventoryShader.backend")
+                   (stagePath /
+                    "packages/metal/InventoryShader.intermediate")
                        .lexically_normal() &&
                inventory.records[1].destinationPath ==
-                   "packages/metal/InventoryShader.backend",
+                   "packages/metal/InventoryShader.intermediate",
            "release report artifact inventory records staged artifact fields");
     expect(inventory.records[2].packageArtifactPath ==
-               "ir/InventoryShader.hir.json",
+               "backend/metal/InventoryShader.metal",
            "release report artifact inventory ordering is deterministic");
   }
 
