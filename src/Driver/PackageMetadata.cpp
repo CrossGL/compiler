@@ -1491,6 +1491,42 @@ bool openglPlannedValidationFailureToolsMatch(
                      });
 }
 
+bool directxPlannedDxcToolsMatch(
+    const std::vector<NativeArtifactToolRecord> &tools) {
+  if (tools.size() != 2 || countToolRole(tools, "generator") != 1 ||
+      countToolRole(tools, "compiler") != 1) {
+    return false;
+  }
+  return std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "generator" &&
+                              tool.name == "CrossGL-Compiler";
+                     }) &&
+         std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "compiler" &&
+                              tool.name == "dxc";
+                     });
+}
+
+bool directxPlannedOptimizationEvidenceMatches(std::string_view descriptorText) {
+  const std::optional<std::string_view> evidence =
+      findObjectMemberValue(descriptorText, "optimizationEvidence");
+  if (!evidence) {
+    return false;
+  }
+  const std::optional<std::string> policy =
+      objectStringMember(*evidence, "policy");
+  const std::optional<std::string> tool = objectStringMember(*evidence, "tool");
+  const std::optional<std::string> toolFlag =
+      objectStringMember(*evidence, "toolFlag");
+  const std::optional<std::string> profile =
+      objectStringMember(*evidence, "profile");
+  return policy && *policy == "crossgl-to-dxc-optimization-map" && tool &&
+         *tool == "dxc" && toolFlag && !toolFlag->empty() && profile &&
+         !profile->empty();
+}
+
 bool hasDuplicateToolRoleRecord(
     const std::vector<NativeArtifactToolRecord> &tools) {
   for (std::size_t index = 0; index < tools.size(); ++index) {
@@ -1781,12 +1817,23 @@ bool nativeArtifactDescriptorMatchesContract(
       return false;
     }
     if (*health.nativeBinaryStatus == "planned") {
-      if (hasArtifactPath || *health.optimizationLevel != "unknown") {
+      const bool directxPlannedDxcEvidence =
+          *health.target == "directx" && *health.binaryKind == "directx.dxil" &&
+          hasToolRole(tools, "compiler");
+      if (hasArtifactPath ||
+          (!directxPlannedDxcEvidence &&
+           *health.optimizationLevel != "unknown")) {
         return false;
       }
       if (*health.validationStatus == "unavailable") {
-        if (hasUnexpectedToolRole(tools, "generator") ||
-            !plannedSourcePackageGeneratorMatches(*health.target, tools)) {
+        if (directxPlannedDxcEvidence) {
+          if (!directxPlannedDxcToolsMatch(tools) ||
+              !directxPlannedOptimizationEvidenceMatches(descriptorText)) {
+            return false;
+          }
+        } else if (hasUnexpectedToolRole(tools, "generator") ||
+                   !plannedSourcePackageGeneratorMatches(*health.target,
+                                                         tools)) {
           return false;
         }
       } else if (*health.validationStatus == "failed" &&

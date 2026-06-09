@@ -5806,6 +5806,7 @@ buildDirectXSourcePackage(const HIRModule &module,
   source.close();
 
   const std::string profileSummary = directxShaderProfileSummary(module);
+  result.shaderProfileSummary = profileSummary;
   const std::string optimizationEvidence =
       directxDxcOptimizationEvidence(optimizationLevel);
   diagnostics.note("directx.source-package-emitted",

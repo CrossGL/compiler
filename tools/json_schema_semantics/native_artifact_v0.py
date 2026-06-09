@@ -100,6 +100,45 @@ def opengl_planned_validation_failure_tools_match(instance):
     )
 
 
+def is_directx_planned_dxc_evidence(instance):
+    return (
+        instance["target"] == "directx"
+        and instance["binaryKind"] == "directx.dxil"
+        and instance.get("nativeBinaryStatus") == "planned"
+        and len(tools_with_role(instance, "compiler")) > 0
+    )
+
+
+def directx_planned_dxc_tools_match(instance):
+    tools = [
+        tool
+        for tool in instance["toolchainProvenance"]["tools"]
+        if isinstance(tool, dict)
+    ]
+    generators = tools_with_role(instance, "generator")
+    compilers = tools_with_role(instance, "compiler")
+    return (
+        len(tools) == 2
+        and len(generators) == 1
+        and generators[0].get("name") == "CrossGL-Compiler"
+        and len(compilers) == 1
+        and compilers[0].get("name") == "dxc"
+    )
+
+
+def directx_planned_optimization_evidence_matches(instance):
+    evidence = instance.get("optimizationEvidence")
+    return (
+        isinstance(evidence, dict)
+        and evidence.get("policy") == "crossgl-to-dxc-optimization-map"
+        and evidence.get("tool") == "dxc"
+        and isinstance(evidence.get("toolFlag"), str)
+        and len(evidence["toolFlag"]) > 0
+        and isinstance(evidence.get("profile"), str)
+        and len(evidence["profile"]) > 0
+    )
+
+
 def validate_target_contract_alignment(errors):
     matrix_targets = set(TARGET_BINARY_KINDS)
     if matrix_targets != PACKAGE_TARGET_NAMES:
@@ -184,6 +223,22 @@ def validate_toolchain_roles(errors, instance):
                     "source-package descriptors require exactly one generator "
                     "named 'CrossGL-Compiler' and one validator named "
                     "'glslangValidator'"
+                )
+            return
+        if is_directx_planned_dxc_evidence(instance):
+            if not directx_planned_dxc_tools_match(instance):
+                errors.append(
+                    "$.toolchainProvenance.tools: planned DirectX DXIL "
+                    "source-package descriptors with dxc evidence require "
+                    "exactly one generator named 'CrossGL-Compiler' and one "
+                    "compiler named 'dxc'"
+                )
+            if not directx_planned_optimization_evidence_matches(instance):
+                errors.append(
+                    "$.optimizationEvidence: planned DirectX DXIL "
+                    "source-package descriptors with dxc evidence require "
+                    "crossgl-to-dxc optimization policy, dxc tool, toolFlag, "
+                    "and shader profile evidence"
                 )
             return
         unexpected_roles = sorted(roles - PLANNED_SOURCE_PACKAGE_ROLES)
@@ -278,7 +333,10 @@ def validate_native_binary_status(errors, instance):
                 "validationStatus 'unavailable'"
             )
         optimization_level = instance.get("optimizationLevel")
-        if optimization_level != PLANNED_SOURCE_PACKAGE_OPTIMIZATION_LEVEL:
+        if (
+            optimization_level != PLANNED_SOURCE_PACKAGE_OPTIMIZATION_LEVEL
+            and not is_directx_planned_dxc_evidence(instance)
+        ):
             errors.append(
                 "$.optimizationLevel: planned source-package descriptors must "
                 f"use {PLANNED_SOURCE_PACKAGE_OPTIMIZATION_LEVEL!r}, got "

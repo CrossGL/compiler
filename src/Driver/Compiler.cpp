@@ -1369,17 +1369,23 @@ std::string directxNativeOptimizationStatus(
 NativeOptimizationEvidenceSpec directxNativeOptimizationEvidence(
     const DirectXSourcePackageResult &directxResult) {
   NativeOptimizationEvidenceSpec evidence;
+  evidence.requestedLevel = directxResult.optimizationRequestedLevel;
+  evidence.effectiveLevel = "unknown";
   evidence.policy = directxResult.optimizationPolicy;
   evidence.status = directxNativeOptimizationStatus(directxResult);
   if (evidence.status == "applied") {
-    evidence.requestedLevel = directxResult.optimizationRequestedLevel;
     evidence.effectiveLevel =
         nativeOptimizationEffectiveLevelFromFlag(directxResult.optimizationLevel);
+  }
+  if (evidence.requestedLevel.empty()) {
+    evidence.requestedLevel = "unknown";
+  }
+  if (!directxResult.optimizationLevel.empty()) {
     evidence.tool = "dxc";
     evidence.toolFlag = directxResult.optimizationLevel;
-  } else {
-    evidence.requestedLevel = "unknown";
-    evidence.effectiveLevel = "unknown";
+  }
+  if (!directxResult.shaderProfileSummary.empty()) {
+    evidence.profile = directxResult.shaderProfileSummary;
   }
   return evidence;
 }

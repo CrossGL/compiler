@@ -2499,16 +2499,17 @@ TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
     policy.binaryKind = "directx.dxil";
     policy.optimizationEvidenceMode =
         TargetSourcePackageDescriptorOptimizationEvidenceMode::DirectXDxc;
+    policy.optimizationLevelMode =
+        TargetSourcePackageDescriptorOptimizationLevelMode::RequestedLevel;
+    policy.toolProvenanceMode =
+        TargetSourcePackageDescriptorToolProvenanceMode::NativeCompiler;
+    policy.nativeToolName =
+        nativeToolName.empty() ? "dxc" : std::string(nativeToolName);
+    policy.nativeToolRole = "compiler";
+    policy.nativeToolExecutable = policy.nativeToolName;
+    policy.nativeToolProbeName = policy.nativeToolName;
     if (nativeBinaryStatus != "planned") {
       policy.validationStatus = "not-run";
-      policy.optimizationLevelMode =
-          TargetSourcePackageDescriptorOptimizationLevelMode::RequestedLevel;
-      policy.toolProvenanceMode =
-          TargetSourcePackageDescriptorToolProvenanceMode::NativeCompiler;
-      policy.nativeToolName = "dxc";
-      policy.nativeToolRole = "compiler";
-      policy.nativeToolExecutable = "dxc";
-      policy.nativeToolProbeName = "dxc";
     }
     break;
   case TargetKind::OpenGL:

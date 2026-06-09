@@ -14539,7 +14539,9 @@ void expectSourcePackageProjectionFields(
     const crossgl::TargetLegalizationContractProjection &projection,
     crossgl::TargetKind target, std::string_view nativeCapabilityId,
     std::string_view toolCapabilityId, std::string_view validationCapabilityId,
-    std::string_view context) {
+    std::string_view context,
+    std::string_view expectedOptimizationLevelMode = "unknown",
+    std::string_view expectedToolProvenanceMode = "planned") {
   const std::string targetLabel = crossgl::targetName(target);
   const std::string evidencePrefix = "target-legalization.v1." + targetLabel;
   const std::string expectedDescriptorBinaryKind =
@@ -14676,13 +14678,19 @@ void expectSourcePackageProjectionFields(
                   .requiresProducedNativeArtifact &&
              projection.sourcePackageDescriptorPolicy.validationStatus ==
                  "unavailable" &&
+             std::string_view(
+                 crossgl::
+                     targetSourcePackageDescriptorOptimizationLevelModeName(
+                         projection.sourcePackageDescriptorPolicy
+                             .optimizationLevelMode)) ==
+                 expectedOptimizationLevelMode &&
              projection.sourcePackageDescriptorPolicy.fixedOptimizationLevel ==
                  "unknown" &&
              projection.sourcePackageDescriptorPolicy
                      .optimizationEvidenceModeName ==
                  expectedOptimizationEvidenceMode &&
              projection.sourcePackageDescriptorPolicy.toolProvenanceModeName ==
-                 "planned",
+                 expectedToolProvenanceMode,
          std::string(context) +
              " records the baseline source-package descriptor policy");
 
@@ -14756,13 +14764,13 @@ void expectSourcePackageProjectionFields(
              jsonHasStringField(projectionJson, "validationStatus",
                                 "unavailable") &&
              jsonHasStringField(projectionJson, "optimizationLevelMode",
-                                "unknown") &&
+                                expectedOptimizationLevelMode) &&
              jsonHasStringField(projectionJson, "fixedOptimizationLevel",
                                 "unknown") &&
              jsonHasStringField(projectionJson, "optimizationEvidenceMode",
                                 expectedOptimizationEvidenceMode) &&
              jsonHasStringField(projectionJson, "toolProvenanceMode",
-                                "planned") &&
+                                expectedToolProvenanceMode) &&
              jsonHasSizeField(projectionJson, "missingToolCount",
                               projection.missingToolCount) &&
              jsonHasStringValue(projectionJson, toolCapabilityId) &&
@@ -20207,7 +20215,7 @@ shader TargetLegalizationShader {
              directxPlannedPolicy.validationStatus == "unavailable" &&
              directxPlannedPolicy.optimizationLevelMode ==
                  crossgl::TargetSourcePackageDescriptorOptimizationLevelMode::
-                     Unknown &&
+                     RequestedLevel &&
              directxPlannedPolicy.fixedOptimizationLevel == "unknown" &&
              directxPlannedPolicy.optimizationEvidenceMode ==
                  crossgl::
@@ -20217,14 +20225,22 @@ shader TargetLegalizationShader {
                  "directx-dxc" &&
              directxPlannedPolicy.toolProvenanceMode ==
                  crossgl::TargetSourcePackageDescriptorToolProvenanceMode::
-                     Planned &&
-             directxPlannedPolicy.toolProvenanceModeName == "planned" &&
-             directxPlannedPolicy.nativeToolName.empty() &&
+                     NativeCompiler &&
+             directxPlannedPolicy.toolProvenanceModeName ==
+                 "native-compiler" &&
+             directxPlannedPolicy.nativeToolName == "dxc" &&
+             directxPlannedPolicy.nativeToolRole == "compiler" &&
+             directxPlannedPolicy.nativeToolExecutable == "dxc" &&
+             directxPlannedPolicy.nativeToolProbeName == "dxc" &&
              std::string_view(
                  crossgl::
                      targetSourcePackageDescriptorOptimizationLevelModeName(
                          directxPlannedPolicy.optimizationLevelMode)) ==
-                 "unknown" &&
+                 "requested-level" &&
+             std::string_view(
+                 crossgl::targetSourcePackageDescriptorToolProvenanceModeName(
+                     directxPlannedPolicy.toolProvenanceMode)) ==
+                 "native-compiler" &&
              directxEmittedPolicy.target == crossgl::TargetKind::DirectX &&
              directxEmittedPolicy.supported &&
              directxEmittedPolicy.binaryKind == "directx.dxil" &&
@@ -20594,7 +20610,8 @@ shader TargetLegalizationShader {
       directxProjection, crossgl::TargetKind::DirectX,
       "directx.backend.native-dxil-package", "directx.toolchain.dxc",
       "directx.validation.dxil-validator",
-      "DirectX source-package legalization projection");
+      "DirectX source-package legalization projection", "requested-level",
+      "native-compiler");
   expect(directxProjection.targetProfile.resolvedTarget ==
                  crossgl::TargetKind::DirectX &&
              directxProjection.targetProfile.preferredTarget ==
@@ -20714,7 +20731,7 @@ shader TargetLegalizationShader {
              jsonHasStringField(directxProjectionJson, "validationStatus",
                                 "unavailable") &&
              jsonHasStringField(directxProjectionJson, "toolProvenanceMode",
-                                "planned") &&
+                                "native-compiler") &&
              jsonHasStringValue(
                  directxProjectionJson,
                  "target-legalization.v1.directx.package-artifact.required."

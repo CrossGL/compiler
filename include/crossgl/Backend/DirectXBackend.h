@@ -24,6 +24,7 @@ struct DirectXSourcePackageResult {
   std::string optimizationPolicy = "crossgl-to-dxc-optimization-map";
   std::string optimizationLevel = "-O3";
   std::string optimizationStatus = "unavailable";
+  std::string shaderProfileSummary;
 };
 
 struct DirectXDxcOptimizationProfile {

@@ -331,9 +331,9 @@ crossgl_add_package_verify_json_schema_test(
   EXPECTED_MANIFEST_JSON_FIELDS
     "schemaVersion=1|target=directx|module=StorageBufferComputeShader|artifacts.backendSource=backend/directx/StorageBufferComputeShader.hlsl|artifacts.nativeBinary=backend/directx/StorageBufferComputeShader.dxil|artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 set(CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json")
@@ -361,9 +361,9 @@ crossgl_add_package_verify_json_schema_test(
   EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS
     "schemaVersion=1|kind=crossgl.sourceRemapProvenance|contractVersion=source-remap-provenance-v1|target=directx|generatedFile=generated/from-translator.cgl|mappingCount=1|sourceRemap.sha256.value=${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SHA256}|sourceRemap.sizeBytes=${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable"
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 function(crossgl_add_directx_descriptor_array_package_verify_schema_test)
   set(one_value_args NAME INPUT OUTPUT MODULE)
@@ -406,9 +406,9 @@ function(crossgl_add_directx_descriptor_array_package_verify_schema_test)
     EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS
       "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6"
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-      "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+      "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-      "toolchainProvenance.tools=1|validationDiagnostics=0")
+      "toolchainProvenance.tools=2|validationDiagnostics=0")
 endfunction()
 
 crossgl_add_directx_descriptor_array_package_verify_schema_test(
@@ -462,9 +462,9 @@ crossgl_add_package_verify_json_schema_test(
   EXPECTED_JSON_ARRAY_LENGTHS
     "diagnostics=1"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 function(crossgl_add_directx_compute_fake_dxc_package_verify_test)
   set(options TOOLCHAIN_DISABLE_FALLBACK)
@@ -489,17 +489,23 @@ function(crossgl_add_directx_compute_fake_dxc_package_verify_test)
       "crossgl_add_directx_compute_fake_dxc_package_verify_test requires EXPECTED_NATIVE_BINARY_STATUS")
   endif()
 
-  set(directx_fake_dxc_verify_native_descriptor_paths "")
+  set(directx_fake_dxc_verify_native_descriptor_paths
+    "sourceHash.value")
   set(directx_fake_dxc_verify_native_descriptor_fields
-    "|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator|validationStatus=unavailable")
+    "|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable|validationStatus=unavailable")
   set(directx_fake_dxc_verify_native_descriptor_array_lengths
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
+  if(CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
+     "planned" AND CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_TOOL_LOG)
+    set(directx_fake_dxc_verify_native_descriptor_fields
+      "|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=not-run|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed|validationStatus=unavailable")
+  endif()
   if(CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
      "emitted")
     set(directx_fake_dxc_verify_native_descriptor_paths
       "sourceHash.value|artifactHash.value|sizeBytes|toolchainProvenance.tools.1.resolvedExecutable|toolchainProvenance.tools.1.versionDetail")
     set(directx_fake_dxc_verify_native_descriptor_fields
-      "|sourceHash.algorithm=sha256|artifactPath=backend/directx/StorageBufferComputeShader.dxil|artifactHash.algorithm=sha256|validationStatus=not-run|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed")
+      "|sourceHash.algorithm=sha256|artifactPath=backend/directx/StorageBufferComputeShader.dxil|artifactHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O3|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=applied|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=not-run|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed")
     set(directx_fake_dxc_verify_native_descriptor_array_lengths
       "toolchainProvenance.tools=2|validationDiagnostics=0")
   endif()
@@ -707,9 +713,9 @@ crossgl_add_package_verify_json_schema_test(
   EXPECTED_MANIFEST_JSON_FIELDS
     "schemaVersion=1|target=directx|module=DirectXGraphicsResourceShader|artifacts.backendSource=backend/directx/DirectXGraphicsResourceShader.graphics.hlsl|artifacts.nativeBinary=backend/directx/DirectXGraphicsResourceShader.dxil|artifacts.nativeBinaryStatus=${CROSSGL_DIRECTX_GRAPHICS_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/DirectXGraphicsResourceShader.native-artifact.json|artifacts.graphicsAbi=backend/directx/DirectXGraphicsResourceShader.graphics-abi.json"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=vertex=vs_6_0, fragment=ps_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 crossgl_add_package_verify_json_schema_test(
   NAME cglc_package_verify_json_schema_directx_graphics_storage_buffer_resources_source_package
@@ -721,9 +727,9 @@ crossgl_add_package_verify_json_schema_test(
   EXPECTED_MANIFEST_JSON_FIELDS
     "schemaVersion=1|target=directx|module=DirectXGraphicsStorageBufferResourceShader|artifacts.backendSource=backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics.hlsl|artifacts.nativeBinary=backend/directx/DirectXGraphicsStorageBufferResourceShader.dxil|artifacts.nativeBinaryStatus=${CROSSGL_DIRECTX_GRAPHICS_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/DirectXGraphicsStorageBufferResourceShader.native-artifact.json|artifacts.graphicsAbi=backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics-abi.json"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL DirectX backend|toolchainProvenance.tools.0.role=generator"
+    "target=directx|binaryKind=directx.dxil|nativeBinaryStatus=planned|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=unavailable|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=vertex=vs_6_0, fragment=ps_6_0|validationStatus=unavailable|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=not-found|toolchainProvenance.tools.1.versionProbeStatus=unavailable"
   EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-    "toolchainProvenance.tools=1|validationDiagnostics=0")
+    "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 crossgl_add_package_verify_json_schema_test(
   NAME cglc_package_verify_json_schema_opengl_source_package
