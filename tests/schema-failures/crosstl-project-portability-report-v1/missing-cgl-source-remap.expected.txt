@@ -1,0 +1,1 @@
+$.artifacts[0].sourceRemap: expected translated cgl artifact to record sourceRemap metadata

@@ -1,0 +1,1 @@
+$.artifacts[0].sourceRemap.path: expected sidecar path, not generated artifact path

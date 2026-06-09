@@ -1,0 +1,1 @@
+$.artifacts[0].sourceRemap: expected only for cgl target artifacts

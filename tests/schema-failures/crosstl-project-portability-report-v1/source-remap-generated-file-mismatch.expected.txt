@@ -1,0 +1,1 @@
+$.artifacts[0].sourceRemap.generatedFile: expected to match artifact path 'out/cgl/simple.cgl'
