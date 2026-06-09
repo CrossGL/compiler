@@ -2839,6 +2839,40 @@ def valid_self_test_inventory() -> dict[str, Any]:
             ],
             "resourceFacts": storage_resource_facts,
         },
+        {
+            "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+            "stage": GRAPHICS_STAGE,
+            "entryPoint": "main",
+            "allowedHirFamilies": [
+                "module_stages_and_entry_points",
+                "graphics_stage_io",
+            ],
+            "sourceLocationFacts": [
+                "source_file",
+                "shader_module",
+                "vertex_stage",
+                "fragment_stage",
+                "vertex_entry_point",
+                "fragment_entry_point",
+                "vertex_stage_input",
+                "vertex_stage_output",
+                "fragment_stage_input",
+                "fragment_stage_output",
+                "return_statement",
+            ],
+            "typeFacts": [
+                "vertex_entry_point_io_structs",
+                "fragment_entry_point_io_structs",
+            ],
+            "resourceFacts": {
+                "descriptors": [],
+                "storageBuffers": [],
+                "storageImages": [],
+                "textures": [],
+                "samplers": [],
+                "targetIndependentResourceMetadata": [],
+            },
+        },
     ]
     for fixture in fixtures:
         fixture[PARITY_REQUIREMENT_KEY] = build_parity_requirements(fixture)
@@ -2941,7 +2975,9 @@ def write_self_test_repo(root: Path, inventory: dict[str, Any]) -> None:
     (root / INVENTORY_PATH.parent).mkdir(parents=True, exist_ok=True)
     (root / "tests/fixtures").mkdir(parents=True, exist_ok=True)
     for fixture in inventory["fixtures"]:
-        (root / fixture["path"]).write_text("shader main() {}\n", encoding="utf-8")
+        fixture_path = root / fixture["path"]
+        fixture_path.parent.mkdir(parents=True, exist_ok=True)
+        fixture_path.write_text("shader main() {}\n", encoding="utf-8")
     (root / INVENTORY_PATH).write_text(
         json.dumps(inventory, indent=2) + "\n", encoding="utf-8"
     )
@@ -2969,7 +3005,7 @@ def run_self_test() -> list[str]:
         valid_errors, summary = check_inventory(root)
         if valid_errors:
             errors.append(f"self-test valid inventory failed: {valid_errors!r}")
-        if summary["fixtures"] != 2 or summary["control_flow_slices"] != 1:
+        if summary["fixtures"] != 3 or summary["control_flow_slices"] != 1:
             errors.append(f"self-test summary mismatch: {summary!r}")
 
         missing_section = copy.deepcopy(inventory)
@@ -3181,6 +3217,65 @@ def run_self_test() -> list[str]:
                 duplicate_source_fact,
                 "duplicate-source-location-fact",
                 "sourceLocationFacts must not contain duplicate entries: source_file",
+            )
+        )
+
+        graphics_fixture_index = 2
+        missing_graphics_stage_evidence = copy.deepcopy(inventory)
+        missing_graphics_stage_evidence["fixtures"][graphics_fixture_index][
+            "sourceLocationFacts"
+        ].remove("fragment_entry_point")
+        missing_graphics_stage_evidence["fixtures"][graphics_fixture_index][
+            PARITY_REQUIREMENT_KEY
+        ] = build_parity_requirements(
+            missing_graphics_stage_evidence["fixtures"][graphics_fixture_index]
+        )
+        missing_graphics_stage_evidence["fixtures"][graphics_fixture_index][
+            REPORT_FIELD_KEY
+        ] = build_report_fields(
+            missing_graphics_stage_evidence["fixtures"][graphics_fixture_index]
+        )
+        missing_graphics_stage_evidence["fixtures"][graphics_fixture_index][
+            LOWERING_EVIDENCE_KEY
+        ] = build_lowering_evidence(
+            missing_graphics_stage_evidence["fixtures"][graphics_fixture_index]
+        )
+        errors.extend(
+            expect_self_test_failure(
+                root,
+                missing_graphics_stage_evidence,
+                "missing-graphics-fragment-entry-evidence",
+                "sourceLocationFacts must include 'fragment_entry_point' "
+                "for entry-point identity parity",
+            )
+        )
+
+        missing_graphics_type_fact = copy.deepcopy(inventory)
+        missing_graphics_type_fact["fixtures"][graphics_fixture_index][
+            "typeFacts"
+        ].remove("fragment_entry_point_io_structs")
+        missing_graphics_type_fact["fixtures"][graphics_fixture_index][
+            PARITY_REQUIREMENT_KEY
+        ] = build_parity_requirements(
+            missing_graphics_type_fact["fixtures"][graphics_fixture_index]
+        )
+        missing_graphics_type_fact["fixtures"][graphics_fixture_index][
+            REPORT_FIELD_KEY
+        ] = build_report_fields(
+            missing_graphics_type_fact["fixtures"][graphics_fixture_index]
+        )
+        missing_graphics_type_fact["fixtures"][graphics_fixture_index][
+            LOWERING_EVIDENCE_KEY
+        ] = build_lowering_evidence(
+            missing_graphics_type_fact["fixtures"][graphics_fixture_index]
+        )
+        errors.extend(
+            expect_self_test_failure(
+                root,
+                missing_graphics_type_fact,
+                "missing-graphics-fragment-type-fact",
+                "typeFacts must include 'fragment_entry_point_io_structs' "
+                "for entry-point identity parity",
             )
         )
     return errors

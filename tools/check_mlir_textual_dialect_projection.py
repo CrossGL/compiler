@@ -1139,14 +1139,133 @@ def run_self_test() -> list[str]:
                     "allowedHirFamilies": ["module_stages_and_entry_points"],
                     "fixtures": ["tests/fixtures/Test.cgl"],
                     "requiredFixtureFacts": ["source_file", "shader_module"],
-                }
+                },
+                {
+                    "operation": "hir.vertex_stage",
+                    "role": "graphics vertex stage",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": ["vertex_stage", "vertex_entry_point"],
+                },
+                {
+                    "operation": "hir.fragment_stage",
+                    "role": "graphics fragment stage",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "fragment_stage",
+                        "fragment_entry_point",
+                    ],
+                },
+                {
+                    "operation": "hir.entry_point",
+                    "role": "graphics entry point",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "vertex_entry_point",
+                        "fragment_entry_point",
+                    ],
+                },
+                {
+                    "operation": "hir.stage_input",
+                    "role": "graphics stage input",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "vertex_stage_input",
+                        "fragment_stage_input",
+                        "vertex_entry_point_io_structs",
+                    ],
+                },
+                {
+                    "operation": "hir.stage_output",
+                    "role": "graphics stage output",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "vertex_stage_output",
+                        "fragment_stage_output",
+                        "fragment_entry_point_io_structs",
+                    ],
+                },
+                {
+                    "operation": "hir.stage_varying",
+                    "role": "graphics stage varying",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "vertex_stage_output",
+                        "fragment_stage_input",
+                    ],
+                },
+                {
+                    "operation": "hir.fragment_output",
+                    "role": "graphics fragment output",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": ["fragment_stage_output"],
+                },
+                {
+                    "operation": "hir.return",
+                    "role": "graphics return",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": ["return_statement"],
+                },
+                {
+                    "operation": "hir.source_location_anchor",
+                    "role": "graphics source location anchor",
+                    "allowedHirFamilies": ["graphics_stage_io"],
+                    "fixtures": [
+                        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+                    ],
+                    "requiredFixtureFacts": [
+                        "source_file",
+                        "shader_module",
+                        "vertex_stage",
+                        "fragment_stage",
+                    ],
+                },
             ],
             "fixtureBoundary": [
                 {
                     "path": "tests/fixtures/Test.cgl",
                     "expectedOperations": ["hir.module"],
                     "resourceFactMode": "empty-resource-facts",
-                }
+                },
+                {
+                    "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+                    "expectedOperations": [
+                        "hir.module",
+                        "hir.vertex_stage",
+                        "hir.fragment_stage",
+                        "hir.entry_point",
+                        "hir.stage_input",
+                        "hir.stage_output",
+                        "hir.stage_varying",
+                        "hir.fragment_output",
+                        "hir.return",
+                        "hir.source_location_anchor",
+                    ],
+                    "resourceFactMode": "empty-resource-facts",
+                },
             ],
         }
         fixture = {
@@ -1157,7 +1276,13 @@ def run_self_test() -> list[str]:
                     "stage": "compute",
                     "entryPoint": "main",
                     "resourceFacts": {"localSize": [1, 1, 1]},
-                }
+                },
+                {
+                    "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+                    "stage": GRAPHICS_STAGE,
+                    "entryPoint": "main",
+                    "resourceFacts": {},
+                },
             ],
         }
         manifest = {
@@ -1202,7 +1327,56 @@ def run_self_test() -> list[str]:
                             "ir/hir-source-map.json",
                         ],
                     },
-                }
+                },
+                {
+                    "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+                    "experimentSlice": "graphics-test",
+                    "loweringStatus": "eligible-report-only",
+                    "boundaryFactCoverage": {
+                        "sourceLocationFacts": [
+                            "source_file",
+                            "shader_module",
+                            "vertex_stage",
+                            "fragment_stage",
+                            "vertex_entry_point",
+                            "fragment_entry_point",
+                            "vertex_stage_input",
+                            "vertex_stage_output",
+                            "fragment_stage_input",
+                            "fragment_stage_output",
+                            "return_statement",
+                        ],
+                        "entryPointFacts": [
+                            "stage",
+                            "entryPoint",
+                            "sourceLocationFacts.shader_module",
+                            "sourceLocationFacts.vertex_stage",
+                            "sourceLocationFacts.fragment_stage",
+                            "sourceLocationFacts.vertex_entry_point",
+                            "sourceLocationFacts.fragment_entry_point",
+                            "typeFacts.vertex_entry_point_io_structs",
+                            "typeFacts.fragment_entry_point_io_structs",
+                        ],
+                        "targetIndependentTypeFacts": [
+                            "vertex_entry_point_io_structs",
+                            "fragment_entry_point_io_structs",
+                        ],
+                        "resourceFactFields": [
+                            "resourceFacts.descriptors",
+                            "resourceFacts.storageBuffers",
+                            "resourceFacts.storageImages",
+                            "resourceFacts.textures",
+                            "resourceFacts.samplers",
+                        ],
+                        "targetIndependentResourceMetadataFields": [
+                            "resourceFacts.targetIndependentResourceMetadata"
+                        ],
+                        "sourceMapDebugFacts": [
+                            "ir/debug-metadata.json",
+                            "ir/hir-source-map.json",
+                        ],
+                    },
+                },
             ],
         }
         write_json(root / BOUNDARY_PATH, boundary)
@@ -1228,6 +1402,34 @@ def run_self_test() -> list[str]:
             "missingRequiredFacts must be empty" in error for error in missing_errors
         ):
             errors.append("self-test failed to catch missing fixture facts")
+
+        graphics_missing_fact = copy.deepcopy(generated)
+        graphics_missing_fact["operations"][1]["fixtureCoverage"][0][
+            "missingRequiredFacts"
+        ] = ["fragment_stage_input"]
+        graphics_missing_errors: list[str] = []
+        check_catalog_shape(graphics_missing_fact, graphics_missing_errors)
+        if not any(
+            "missingRequiredFacts must be empty" in error
+            for error in graphics_missing_errors
+        ):
+            errors.append("self-test failed to catch missing graphics stage facts")
+
+        graphics_missing_operation = copy.deepcopy(generated)
+        graphics_missing_operation["fixtures"][1]["textualModuleSkeleton"] = [
+            line
+            for line in graphics_missing_operation["fixtures"][1][
+                "textualModuleSkeleton"
+            ]
+            if "hir.stage_input" not in line
+        ]
+        graphics_operation_errors: list[str] = []
+        check_catalog_shape(graphics_missing_operation, graphics_operation_errors)
+        if not any(
+            "textualModuleSkeleton missing hir.stage_input" in error
+            for error in graphics_operation_errors
+        ):
+            errors.append("self-test failed to catch missing graphics stage op")
 
         stale_naming = copy.deepcopy(generated)
         stale_naming["coverageSummary"]["operationNamingBoundary"][
