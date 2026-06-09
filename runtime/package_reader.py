@@ -1506,13 +1506,13 @@ class RuntimePackage:
             raise PackageReadError(
                 f"runtime artifact mode must be one of auto, native, source: {mode}"
             )
-        self._require_runtime_artifact_contract()
+        contract = self._require_runtime_artifact_contract()
         if mode == "source":
             return self.require_existing_artifact("backendSource")
         if mode == "native":
-            return self._require_native_runtime_artifact()
+            return self._require_native_runtime_artifact(contract)
         if self.package_mode == "native":
-            return self._require_native_runtime_artifact()
+            return self._require_native_runtime_artifact(contract)
         return self.require_existing_artifact("backendSource")
 
     def entry_point(self, stage: str, name: str) -> dict[str, Any] | None:
@@ -1733,7 +1733,10 @@ class RuntimePackage:
             )
         return contract
 
-    def _require_native_runtime_artifact(self) -> Artifact:
+    def _require_native_runtime_artifact(
+        self,
+        contract: TargetArtifactContract,
+    ) -> Artifact:
         if self.native_binary_status == "planned":
             raise PackageReadError(
                 f"native runtime artifact is only planned for target {self.target}: "
@@ -1743,6 +1746,15 @@ class RuntimePackage:
             raise PackageReadError(
                 f"native runtime artifact is not available for target {self.target}: "
                 f"nativeBinaryStatus={self.native_binary_status!r}"
+            )
+        if (
+            contract.native_binary_status_required
+            and self.native_binary_status == "validated"
+            and self.artifact("nativeArtifactDescriptor") is None
+        ):
+            raise PackageReadError(
+                "validated native runtime artifact requires "
+                "manifest.artifacts.nativeArtifactDescriptor"
             )
         return self.require_existing_artifact("nativeBinary")
 
@@ -5804,6 +5816,28 @@ def _select_native_runtime_artifact(
                 artifact="nativeBinaryStatus",
                 expected=sorted(NATIVE_BINARY_READY_STATUSES),
                 actual=report.native_binary_status,
+            )
+        )
+    if (
+        contract is not None
+        and contract.native_binary_status_required
+        and report.native_binary_status == "validated"
+        and _artifact_by_name(report.available_artifacts, "nativeArtifactDescriptor")
+        is None
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.native_artifact_descriptor.required_missing",
+                message=(
+                    f"{report.target} validated nativeBinaryStatus requires "
+                    "manifest.artifacts.nativeArtifactDescriptor for native "
+                    "runtime selection"
+                ),
+                document="manifest",
+                artifact="nativeArtifactDescriptor",
+                path="artifacts.nativeArtifactDescriptor",
+                expected="declared native artifact descriptor metadata",
+                actual="missing",
             )
         )
 

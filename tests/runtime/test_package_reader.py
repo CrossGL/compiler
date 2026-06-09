@@ -1004,6 +1004,72 @@ class RuntimePackageReaderTests(unittest.TestCase):
             ):
                 package.runtime_artifact()
 
+    def test_validated_status_requires_native_artifact_descriptor_without_source_parse(
+        self,
+    ) -> None:
+        expected_code = "package.native_artifact_descriptor.required_missing"
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(
+                package_dir,
+                target="opengl",
+                native_status="validated",
+            )
+            native_path = "backend/opengl/RuntimeReaderFixture.validated.glsl"
+            (package_dir / native_path).write_text(
+                "// validated OpenGL native source\n",
+                encoding="utf-8",
+            )
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["nativeBinary"] = native_path
+            self._write_json(manifest_path, manifest)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            reflection["nativeBinary"] = native_path
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source to trust validated native bytes\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="opengl",
+                )
+                selection = select_runtime_artifact(report, target="opengl")
+
+            summary = report.to_summary()
+            selection_summary = selection.to_summary()
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertEqual(report.status, "compatible")
+            self.assertFalse(report.source_parsing_required)
+            self.assertFalse(selection.selected)
+            self.assertFalse(selection.source_parsing_required)
+            self.assertIn(
+                expected_code,
+                [diagnostic.code for diagnostic in selection.reject_reasons],
+            )
+            diagnostic = selection_summary["rejectReasons"][0]
+            self.assertEqual(diagnostic["document"], "manifest")
+            self.assertEqual(diagnostic["artifact"], "nativeArtifactDescriptor")
+            self.assertEqual(diagnostic["path"], "artifacts.nativeArtifactDescriptor")
+            self.assertEqual(
+                selection_summary["admission"]["native"]["reason"],
+                expected_code,
+            )
+            with self.assertRaisesRegex(
+                PackageReadError,
+                "nativeArtifactDescriptor",
+            ):
+                package.runtime_artifact("native")
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_compatibility_report_exposes_runtime_contract(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
