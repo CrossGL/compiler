@@ -1524,13 +1524,10 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
             targets=(
                 TargetExpectation(
                     target="metal",
-                    package_build_supported=False,
+                    package_build_supported=True,
                     source_package_supported=False,
-                    package_mode="unsupported",
-                    missing_capabilities=(
-                        "metal.backend.native-metal-package",
-                        "metal.diagnostic.metal.unsupported-runtime-resource-array",
-                    ),
+                    package_mode="native",
+                    missing_capabilities=(),
                     required_capabilities=required_runtime_capabilities(
                         "metal", runtime_texture_sampler_capabilities
                     ),
@@ -1571,7 +1568,7 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
                     ),
                 ),
             ),
-            recommended_target="vulkan",
+            recommended_target="metal",
             recommended_package_mode="native",
         ),
         AlignmentCase(
