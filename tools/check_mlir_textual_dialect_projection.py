@@ -863,6 +863,8 @@ def check_operation_projection(
         errors.append(f"{CATALOG_PATH}: operations[{index}].textualForm blocked")
     if record.get("emissionStatus") != "not-emitted-report-only":
         errors.append(f"{CATALOG_PATH}: operations[{index}].emissionStatus invalid")
+    operation_fixtures = string_list(record.get("fixtures"))
+    coverage_paths: list[str] = []
     for coverage_index, coverage in enumerate(
         require_list(
             record.get("fixtureCoverage"),
@@ -885,6 +887,7 @@ def check_operation_projection(
                 f"{CATALOG_PATH}: operations[{index}].fixtureCoverage[{coverage_index}].path invalid"
             )
             continue
+        coverage_paths.append(fixture_path)
         present = operation in expected_operations_by_fixture.get(fixture_path, [])
         if coverage_record.get("presentInBoundaryFixture") is not present:
             errors.append(
@@ -896,6 +899,12 @@ def check_operation_projection(
                 f"{CATALOG_PATH}: operations[{index}].fixtureCoverage[{coverage_index}] "
                 "missingRequiredFacts must be empty"
             )
+    compare_fields(
+        operation_fixtures,
+        coverage_paths,
+        f"operations[{index}].fixtures",
+        errors,
+    )
     return operation
 
 
@@ -1402,6 +1411,15 @@ def run_self_test() -> list[str]:
             "missingRequiredFacts must be empty" in error for error in missing_errors
         ):
             errors.append("self-test failed to catch missing fixture facts")
+
+        stale_coverage = copy.deepcopy(generated)
+        stale_coverage["operations"][0]["fixtureCoverage"] = []
+        stale_coverage_errors: list[str] = []
+        check_catalog_shape(stale_coverage, stale_coverage_errors)
+        if not any(
+            "operations[0].fixtures must be" in error for error in stale_coverage_errors
+        ):
+            errors.append("self-test failed to catch stale fixture coverage")
 
         graphics_missing_fact = copy.deepcopy(generated)
         graphics_missing_fact["operations"][1]["fixtureCoverage"][0][
