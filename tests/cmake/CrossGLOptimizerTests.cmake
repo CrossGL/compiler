@@ -14,6 +14,7 @@ set(CROSSGL_OPTIMIZER_STORAGE_IMAGE_CONSTANTS_SHADER ${CMAKE_CURRENT_SOURCE_DIR}
 set(CROSSGL_OPTIMIZER_BOOLEAN_ALGEBRA_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/BooleanAlgebraOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_ZERO_ALGEBRA_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/ZeroAlgebraOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_INTEGER_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/IntegerIdentityOptimizerShader.cgl)
+set(CROSSGL_OPTIMIZER_INTEGER_VECTOR_CONSTANT_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/IntegerVectorConstantIdentityOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/MinMaxIdentityOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_MODULO_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/ModuloIdentityOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_INTEGER_RELATIONAL_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/IntegerRelationalIdentityOptimizerShader.cgl)
@@ -521,6 +522,25 @@ set_tests_properties(cglc_optimizer_hir_integer_identity_simplify
 add_test(NAME cglc_optimizer_hir_integer_identity_pass_trace_changed
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_INTEGER_IDENTITY_SHADER} --stage hir-pass-trace)
 set_tests_properties(cglc_optimizer_hir_integer_identity_pass_trace_changed
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["name": "hir[.]optimize[.]simplify-algebraic".*"changed": true]=])
+
+add_test(NAME cglc_optimizer_integer_vector_constant_identity_check
+  COMMAND cglc check ${CROSSGL_OPTIMIZER_INTEGER_VECTOR_CONSTANT_IDENTITY_SHADER})
+
+set(CROSSGL_OPTIMIZER_INTEGER_VECTOR_CONSTANT_IDENTITY_HIR_REGEX [=[decl ivec2 addRightZero = signedBase : ivec2.*decl ivec2 addLeftZero = signedBase : ivec2.*decl ivec2 subtractRightZero = signedBase : ivec2.*decl ivec2 multiplyRightOne = signedBase : ivec2.*decl ivec2 multiplyLeftOne = signedBase : ivec2.*decl ivec2 divideRightOne = signedBase : ivec2.*decl ivec2 moduloRightOne = ivec2\(0, 0\) : ivec2.*decl ivec2 multiplyRightZero = ivec2\(0, 0\) : ivec2.*decl ivec2 multiplyLeftZero = ivec2\(0, 0\) : ivec2.*decl ivec2 subtractSelf = ivec2\(0, 0\) : ivec2.*decl uvec2 unsignedAddRightZero = unsignedBase : uvec2.*decl uvec2 unsignedAddLeftZero = unsignedBase : uvec2.*decl uvec2 unsignedSubtractRightZero = unsignedBase : uvec2.*decl uvec2 unsignedMultiplyRightOne = unsignedBase : uvec2.*decl uvec2 unsignedMultiplyLeftOne = unsignedBase : uvec2.*decl uvec2 unsignedDivideRightOne = unsignedBase : uvec2.*decl uvec2 unsignedModuloRightOne = uvec2\(0, 0\) : uvec2.*decl uvec2 unsignedMultiplyRightZero = uvec2\(0, 0\) : uvec2.*decl uvec2 unsignedMultiplyLeftZero = uvec2\(0, 0\) : uvec2.*decl uvec2 unsignedSubtractSelf = uvec2\(0, 0\) : uvec2]=])
+set(CROSSGL_OPTIMIZER_INTEGER_VECTOR_CONSTANT_IDENTITY_FAIL_REGEX [=[addRightZero = signedBase \+ ivec2\(0, 0\)|addLeftZero = ivec2\(0, 0\) \+ signedBase|subtractRightZero = signedBase - ivec2\(0, 0\)|multiplyRightOne = signedBase \* ivec2\(1, 1\)|multiplyLeftOne = ivec2\(1, 1\) \* signedBase|divideRightOne = signedBase / ivec2\(1, 1\)|moduloRightOne = signedBase % ivec2\(1, 1\)|multiplyRightZero = signedBase \* ivec2\(0, 0\)|multiplyLeftZero = ivec2\(0\) \* signedBase|subtractSelf = signedBase - signedBase|unsignedAddRightZero = unsignedBase \+ uvec2\(0u, 0u\)|unsignedAddLeftZero = uvec2\(0u, 0u\) \+ unsignedBase|unsignedSubtractRightZero = unsignedBase - uvec2\(0u, 0u\)|unsignedMultiplyRightOne = unsignedBase \* uvec2\(1u, 1u\)|unsignedMultiplyLeftOne = uvec2\(1u, 1u\) \* unsignedBase|unsignedDivideRightOne = unsignedBase / uvec2\(1u, 1u\)|unsignedModuloRightOne = unsignedBase % uvec2\(1u, 1u\)|unsignedMultiplyRightZero = unsignedBase \* uvec2\(0u, 0u\)|unsignedMultiplyLeftZero = uvec2\(0u\) \* unsignedBase|unsignedSubtractSelf = unsignedBase - unsignedBase]=])
+
+add_test(NAME cglc_optimizer_hir_integer_vector_constant_identity_simplify
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_INTEGER_VECTOR_CONSTANT_IDENTITY_SHADER} --stage hir)
+set_tests_properties(cglc_optimizer_hir_integer_vector_constant_identity_simplify
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_INTEGER_VECTOR_CONSTANT_IDENTITY_HIR_REGEX}
+    FAIL_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_INTEGER_VECTOR_CONSTANT_IDENTITY_FAIL_REGEX})
+
+add_test(NAME cglc_optimizer_hir_integer_vector_constant_identity_pass_trace_changed
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_INTEGER_VECTOR_CONSTANT_IDENTITY_SHADER} --stage hir-pass-trace)
+set_tests_properties(cglc_optimizer_hir_integer_vector_constant_identity_pass_trace_changed
   PROPERTIES
     PASS_REGULAR_EXPRESSION [=["name": "hir[.]optimize[.]simplify-algebraic".*"changed": true]=])
 

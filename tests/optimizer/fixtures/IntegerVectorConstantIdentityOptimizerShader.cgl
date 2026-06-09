@@ -1,0 +1,47 @@
+shader IntegerVectorConstantIdentityOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer uint* unsignedValues;
+
+    void main() {
+      ivec2 signedBase = ivec2(values[0], values[1]);
+      uvec2 unsignedBase = uvec2(unsignedValues[0], unsignedValues[1]);
+
+      ivec2 addRightZero = signedBase + ivec2(0, 0);
+      ivec2 addLeftZero = ivec2(0, 0) + signedBase;
+      ivec2 subtractRightZero = signedBase - ivec2(0, 0);
+      ivec2 multiplyRightOne = signedBase * ivec2(1, 1);
+      ivec2 multiplyLeftOne = ivec2(1, 1) * signedBase;
+      ivec2 divideRightOne = signedBase / ivec2(1, 1);
+      ivec2 moduloRightOne = signedBase % ivec2(1, 1);
+      ivec2 multiplyRightZero = signedBase * ivec2(0, 0);
+      ivec2 multiplyLeftZero = ivec2(0) * signedBase;
+      ivec2 subtractSelf = signedBase - signedBase;
+
+      uvec2 unsignedAddRightZero = unsignedBase + uvec2(0u, 0u);
+      uvec2 unsignedAddLeftZero = uvec2(0u, 0u) + unsignedBase;
+      uvec2 unsignedSubtractRightZero = unsignedBase - uvec2(0u, 0u);
+      uvec2 unsignedMultiplyRightOne = unsignedBase * uvec2(1u, 1u);
+      uvec2 unsignedMultiplyLeftOne = uvec2(1u, 1u) * unsignedBase;
+      uvec2 unsignedDivideRightOne = unsignedBase / uvec2(1u, 1u);
+      uvec2 unsignedModuloRightOne = unsignedBase % uvec2(1u, 1u);
+      uvec2 unsignedMultiplyRightZero = unsignedBase * uvec2(0u, 0u);
+      uvec2 unsignedMultiplyLeftZero = uvec2(0u) * unsignedBase;
+      uvec2 unsignedSubtractSelf = unsignedBase - unsignedBase;
+
+      values[2] = addRightZero.x + addLeftZero.y + subtractRightZero.x +
+                  multiplyRightOne.y + multiplyLeftOne.x + divideRightOne.y;
+      values[3] = moduloRightOne.x + multiplyRightZero.y +
+                  multiplyLeftZero.x + subtractSelf.y;
+      unsignedValues[2] =
+          unsignedAddRightZero.x + unsignedAddLeftZero.y +
+          unsignedSubtractRightZero.x + unsignedMultiplyRightOne.y +
+          unsignedMultiplyLeftOne.x + unsignedDivideRightOne.y;
+      unsignedValues[3] =
+          unsignedModuloRightOne.x + unsignedMultiplyRightZero.y +
+          unsignedMultiplyLeftZero.x + unsignedSubtractSelf.y;
+      return;
+    }
+  }
+}

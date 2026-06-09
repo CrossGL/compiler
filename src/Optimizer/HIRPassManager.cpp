@@ -6196,24 +6196,6 @@ const HIRExpression *unwrapHIRAlgebraicGroup(const HIRExpression &expression) {
   return &expression;
 }
 
-bool isHIRNumericIdentityLiteral(const HIRExpression &expression,
-                                 double expected) {
-  const HIRExpression *literal =
-      unwrapHIRAlgebraicIdentityLiteral(expression);
-  if (literal == nullptr || literal->kind != HIRExpressionKind::Literal ||
-      !literal->children.empty() ||
-      (hasHIRTypeShape(literal->type) &&
-       (!isNumericScalarTypeName(baseTypeName(literal->type)) ||
-        literal->type.arraySize.has_value()))) {
-    return false;
-  }
-
-  const std::optional<FoldedHIRScalar> folded =
-      parseFoldedHIRScalar(literal->value);
-  return folded.has_value() && !folded->isBool &&
-         std::fabs(folded->number - expected) < 0.000000001;
-}
-
 bool isHIRIntegerIdentityLiteral(const HIRExpression &expression,
                                  double expected) {
   const HIRExpression *literal =
@@ -6276,12 +6258,34 @@ bool isHIRFloatIdentityLiteral(const HIRExpression &expression,
 std::optional<HIRExpression>
 makeHIRAlgebraicIntegerZeroReplacement(const HIRExpression &expression) {
   if (!hasHIRTypeShape(expression.type) ||
-      expression.type.arraySize.has_value() ||
-      !isIntegerScalarTypeName(baseTypeName(expression.type))) {
+      expression.type.arraySize.has_value()) {
     return std::nullopt;
   }
 
   const FoldedHIRScalar zero{0.0, false, false, true};
+  const std::string baseName = baseTypeName(expression.type);
+  if (isVectorType(baseName) &&
+      isIntegerScalarTypeName(baseTypeName(scalarTypeForVector(baseName)))) {
+    const std::optional<std::size_t> width = vectorWidthFromName(baseName);
+    if (!width.has_value()) {
+      return std::nullopt;
+    }
+    FoldedHIRValue value;
+    value.components.assign(*width, zero);
+    std::optional<HIRExpression> replacement =
+        foldedHIRValueToExpression(value, expression.type,
+                                   expression.location);
+    if (!replacement.has_value() ||
+        !hirExpressionTypeCanReplaceParent(expression, *replacement)) {
+      return std::nullopt;
+    }
+    return replacement;
+  }
+
+  if (!isIntegerScalarTypeName(baseName)) {
+    return std::nullopt;
+  }
+
   const std::optional<std::string> foldedText =
       formatFoldedHIRScalarForType(zero, expression.type);
   if (!foldedText.has_value()) {
@@ -6326,6 +6330,62 @@ bool isHIRNaNFreeScalarSelfComparisonType(const HIRType &type) {
   }
   const std::string baseName = baseTypeName(type);
   return baseName == "bool" || isIntegerScalarTypeName(baseName);
+}
+
+bool isHIRIntegerVectorIdentityConstructor(const HIRExpression &expression,
+                                           double expected) {
+  const HIRExpression *constructor =
+      unwrapHIRAlgebraicIdentityLiteral(expression);
+  if (constructor == nullptr ||
+      constructor->kind != HIRExpressionKind::Constructor ||
+      constructor->children.empty() ||
+      !isIntegerVectorType(constructor->type) ||
+      constructor->type.arraySize.has_value() ||
+      !isKnownPureHIRExpression(*constructor)) {
+    return false;
+  }
+
+  const std::string baseName = baseTypeName(constructor->type);
+  const std::optional<std::size_t> width = vectorWidthFromName(baseName);
+  if (!width.has_value()) {
+    return false;
+  }
+
+  if (constructor->children.size() != 1 &&
+      constructor->children.size() != *width) {
+    return false;
+  }
+
+  const HIRScalarConstantMap scalarConstants;
+  const HIRValueConstantMap valueConstants;
+  HIRScalarFoldOptions options;
+  options.foldIntrinsicCalls = true;
+  const std::optional<FoldedHIRValue> foldedValue = foldHIRValueExpression(
+      *constructor, scalarConstants, options, &valueConstants);
+  if (foldedValue.has_value() && foldedValue->components.size() == *width) {
+    return std::all_of(foldedValue->components.begin(),
+                       foldedValue->components.end(),
+                       [&](const FoldedHIRScalar &component) {
+                         return !component.isBool && component.isInteger &&
+                                std::fabs(component.number - expected) <
+                                    0.000000001;
+                       });
+  }
+
+  if (constructor->children.size() != 1) {
+    return false;
+  }
+
+  const std::optional<FoldedHIRScalar> splat = foldHIRScalarExpression(
+      constructor->children.front(), scalarConstants, options, &valueConstants);
+  return splat.has_value() && !splat->isBool && splat->isInteger &&
+         std::fabs(splat->number - expected) < 0.000000001;
+}
+
+bool isHIRIntegerIdentityValue(const HIRExpression &expression,
+                               double expected) {
+  return isHIRIntegerIdentityLiteral(expression, expected) ||
+         isHIRIntegerVectorIdentityConstructor(expression, expected);
 }
 
 bool isHIRPureLogicalComplementPair(const HIRExpression &plainExpression,
@@ -6450,11 +6510,11 @@ algebraicHIRBinaryReplacementExpression(const HIRExpression &expression) {
   const HIRExpression &left = expression.children[0];
   const HIRExpression &right = expression.children[1];
   if (expression.value == "*") {
-    if (isHIRNumericIdentityLiteral(right, 0.0) &&
+    if (isHIRIntegerIdentityValue(right, 0.0) &&
         isKnownPureHIRExpression(left)) {
       return makeHIRAlgebraicIntegerZeroReplacement(expression);
     }
-    if (isHIRNumericIdentityLiteral(left, 0.0) &&
+    if (isHIRIntegerIdentityValue(left, 0.0) &&
         isKnownPureHIRExpression(right)) {
       return makeHIRAlgebraicIntegerZeroReplacement(expression);
     }
@@ -6465,7 +6525,7 @@ algebraicHIRBinaryReplacementExpression(const HIRExpression &expression) {
     return makeHIRAlgebraicIntegerZeroReplacement(expression);
   }
 
-  if (expression.value == "%" && isHIRIntegerIdentityLiteral(right, 1.0) &&
+  if (expression.value == "%" && isHIRIntegerIdentityValue(right, 1.0) &&
       isKnownPureHIRExpression(left) && isKnownPureHIRExpression(right)) {
     return makeHIRAlgebraicIntegerZeroReplacement(expression);
   }
@@ -6996,23 +7056,23 @@ algebraicHIRBinaryReplacementChild(const HIRExpression &expression) {
   const HIRExpression &right = expression.children[1];
   if (isIntegerScalarOrVectorType(expression.type)) {
     if ((expression.value == "+" || expression.value == "-") &&
-        isHIRIntegerIdentityLiteral(right, 0.0) &&
+        isHIRIntegerIdentityValue(right, 0.0) &&
         isKnownPureHIRExpression(right) &&
         hirExpressionTypeCanReplaceParent(expression, left)) {
       return 0;
     }
-    if (expression.value == "+" && isHIRIntegerIdentityLiteral(left, 0.0) &&
+    if (expression.value == "+" && isHIRIntegerIdentityValue(left, 0.0) &&
         isKnownPureHIRExpression(left) &&
         hirExpressionTypeCanReplaceParent(expression, right)) {
       return 1;
     }
     if ((expression.value == "*" || expression.value == "/") &&
-        isHIRIntegerIdentityLiteral(right, 1.0) &&
+        isHIRIntegerIdentityValue(right, 1.0) &&
         isKnownPureHIRExpression(right) &&
         hirExpressionTypeCanReplaceParent(expression, left)) {
       return 0;
     }
-    if (expression.value == "*" && isHIRIntegerIdentityLiteral(left, 1.0) &&
+    if (expression.value == "*" && isHIRIntegerIdentityValue(left, 1.0) &&
         isKnownPureHIRExpression(left) &&
         hirExpressionTypeCanReplaceParent(expression, right)) {
       return 1;
