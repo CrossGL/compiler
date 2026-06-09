@@ -21,6 +21,16 @@
 #include <utility>
 
 namespace crossgl {
+
+void appendDiagnostics(std::vector<Diagnostic> &target,
+                       const std::vector<Diagnostic> &source);
+Diagnostic releasePromotionError(std::string_view suffix, std::string message,
+                                 const std::filesystem::path &path);
+Diagnostic releaseBundleError(std::string_view suffix, std::string message,
+                              const std::filesystem::path &path);
+Diagnostic releasePublishError(std::string_view suffix, std::string message,
+                               const std::filesystem::path &path);
+
 namespace {
 
 struct SidecarMarker {
@@ -3149,6 +3159,474 @@ void validateReleasePackageArtifactsAgainstRequirements(
                                                  label);
 }
 
+bool releasePackageDeclaresNativeMode(
+    const std::optional<PackageReleasePackageArtifactRequirements>
+        &requirements) {
+  return requirements && requirements->packageMode == "native";
+}
+
+bool releaseArtifactHasBinaryEvidence(
+    const PackageReleasePromotionArtifact *artifact) {
+  return artifact != nullptr && artifact->exists && artifact->sizeBytes &&
+         *artifact->sizeBytes > 0 && artifact->sha256 &&
+         isSha256Digest(*artifact->sha256);
+}
+
+bool releaseArtifactHasBinaryEvidence(
+    const PackageReleasePublishPlanArtifact *artifact) {
+  return artifact != nullptr && artifact->sizeBytes > 0 &&
+         isSha256Digest(artifact->sha256);
+}
+
+bool releaseNativeDescriptorHealthIsPublishable(
+    const PackageNativeArtifactDescriptorHealth &health) {
+  return health.descriptorExists && health.health == "ok" &&
+         health.artifactPath && health.artifactHash && health.sizeBytes &&
+         *health.sizeBytes > 0 && health.optimizationEvidence &&
+         health.checks.sourcePathMatchesManifest &&
+         *health.checks.sourcePathMatchesManifest &&
+         health.checks.sourceHashMatchesFile &&
+         *health.checks.sourceHashMatchesFile &&
+         health.checks.artifactPathMatchesManifest &&
+         *health.checks.artifactPathMatchesManifest &&
+         health.checks.artifactHashMatchesFile &&
+         *health.checks.artifactHashMatchesFile &&
+         health.checks.sizeBytesMatchesFile &&
+         *health.checks.sizeBytesMatchesFile;
+}
+
+const PackageArtifactRecord *
+findPackageMetadataArtifact(const PackageMetadata &metadata,
+                            std::string_view name) {
+  for (const PackageArtifactRecord &artifact : metadata.artifacts) {
+    if (artifact.name == name) {
+      return &artifact;
+    }
+  }
+  return nullptr;
+}
+
+bool releaseArtifactPathMatchesMetadata(
+    const PackageMetadata &metadata, std::string_view name,
+    std::string_view artifactPath) {
+  const PackageArtifactRecord *metadataArtifact =
+      findPackageMetadataArtifact(metadata, name);
+  return metadataArtifact != nullptr && metadataArtifact->path == artifactPath;
+}
+
+void validateReleasePromotionNativePackageEvidence(
+    const PackageMetadata &metadata,
+    const PackageReleasePromotionPackage &package,
+    std::vector<Diagnostic> &diagnostics) {
+  if (!releasePackageDeclaresNativeMode(package.artifactRequirements)) {
+    return;
+  }
+
+  const std::filesystem::path manifestPath = metadata.packagePath / "manifest.json";
+  if (package.nativeBinaryStatus && *package.nativeBinaryStatus == "planned") {
+    diagnostics.push_back(releasePromotionError(
+        "planned-native-binary",
+        "package release promotion native package requires an emitted or "
+        "validated native binary, not planned nativeBinaryStatus",
+        manifestPath));
+  }
+
+  const PackageReleasePromotionArtifact *nativeBinary =
+      findReleasePromotionArtifact(package, "nativeBinary");
+  if (!releaseArtifactHasBinaryEvidence(nativeBinary)) {
+    diagnostics.push_back(releasePromotionError(
+        "native-binary-evidence-missing",
+        "package release promotion native package requires existing "
+        "nativeBinary artifact evidence with sizeBytes and sha256",
+        manifestPath));
+  }
+
+  const PackageReleasePromotionArtifact *descriptor =
+      findReleasePromotionArtifact(package, "nativeArtifactDescriptor");
+  if (!releaseArtifactHasBinaryEvidence(descriptor)) {
+    diagnostics.push_back(releasePromotionError(
+        "native-artifact-descriptor-evidence-missing",
+        "package release promotion native package requires "
+        "nativeArtifactDescriptor evidence with sizeBytes and sha256",
+        manifestPath));
+  }
+
+  if (metadata.nativeProfileArtifactPresent) {
+    const PackageReleasePromotionArtifact *profile =
+        findReleasePromotionArtifact(package, "nativeProfile");
+    if (!releaseArtifactHasBinaryEvidence(profile)) {
+      diagnostics.push_back(releasePromotionError(
+          "native-profile-evidence-missing",
+          "package release promotion native package requires declared "
+          "nativeProfile evidence with sizeBytes and sha256",
+          manifestPath));
+    }
+  }
+
+  const PackageNativeArtifactDescriptorHealth health =
+      collectPackageNativeArtifactDescriptorHealth(metadata);
+  if (!releaseNativeDescriptorHealthIsPublishable(health)) {
+    diagnostics.push_back(releasePromotionError(
+        "invalid-native-artifact-descriptor",
+        "package release promotion native package requires "
+        "nativeArtifactDescriptor health ok with artifact hash, size, "
+        "descriptor, and optimization/profile evidence; got " +
+            health.health,
+        metadata.packagePath / health.path.value_or("manifest.json")));
+  }
+}
+
+void validateReleaseBundleNativePackageEvidence(
+    const PackageReleasePromotionPackage &package,
+    PackageReleaseBundleVerificationResult &result) {
+  if (!releasePackageDeclaresNativeMode(package.artifactRequirements)) {
+    return;
+  }
+
+  const std::filesystem::path manifestPath = package.packagePath / "manifest.json";
+  if (package.nativeBinaryStatus && *package.nativeBinaryStatus == "planned") {
+    result.diagnostics.push_back(releaseBundleError(
+        "planned-native-binary",
+        "package release bundle native package requires an emitted or "
+        "validated native binary, not planned nativeBinaryStatus",
+        manifestPath));
+  }
+
+  const PackageReleasePromotionArtifact *nativeBinary =
+      findReleasePromotionArtifact(package, "nativeBinary");
+  if (!releaseArtifactHasBinaryEvidence(nativeBinary)) {
+    result.diagnostics.push_back(releaseBundleError(
+        "native-binary-evidence-missing",
+        "package release bundle native package requires existing nativeBinary "
+        "artifact evidence with sizeBytes and sha256",
+        manifestPath));
+  }
+
+  const PackageReleasePromotionArtifact *descriptor =
+      findReleasePromotionArtifact(package, "nativeArtifactDescriptor");
+  if (!releaseArtifactHasBinaryEvidence(descriptor)) {
+    result.diagnostics.push_back(releaseBundleError(
+        "native-artifact-descriptor-evidence-missing",
+        "package release bundle native package requires "
+        "nativeArtifactDescriptor evidence with sizeBytes and sha256",
+        manifestPath));
+  }
+
+  DiagnosticEngine metadataDiagnostics;
+  PackageMetadataLoadOptions metadataOptions;
+  metadataOptions.diagnosticCodePrefix =
+      "package.release.bundle.native-artifact";
+  metadataOptions.commandName = "package release bundle verification";
+  std::optional<PackageMetadata> metadata =
+      loadPackageMetadata(package.packagePath, metadataDiagnostics,
+                          metadataOptions);
+  appendDiagnostics(result.diagnostics, metadataDiagnostics.diagnostics());
+  if (!metadata) {
+    return;
+  }
+
+  if (nativeBinary != nullptr &&
+      !releaseArtifactPathMatchesMetadata(*metadata, "nativeBinary",
+                                          nativeBinary->path)) {
+    result.diagnostics.push_back(releaseBundleError(
+        "native-binary-evidence-mismatch",
+        "package release bundle native package nativeBinary artifact path "
+        "must match the package manifest",
+        manifestPath));
+  }
+  if (descriptor != nullptr &&
+      !releaseArtifactPathMatchesMetadata(*metadata, "nativeArtifactDescriptor",
+                                          descriptor->path)) {
+    result.diagnostics.push_back(releaseBundleError(
+        "native-artifact-descriptor-evidence-mismatch",
+        "package release bundle native package nativeArtifactDescriptor "
+        "artifact path must match the package manifest",
+        manifestPath));
+  }
+
+  if (metadata->nativeProfileArtifactPresent) {
+    const PackageReleasePromotionArtifact *profile =
+        findReleasePromotionArtifact(package, "nativeProfile");
+    if (!releaseArtifactHasBinaryEvidence(profile)) {
+      result.diagnostics.push_back(releaseBundleError(
+          "native-profile-evidence-missing",
+          "package release bundle native package requires declared "
+          "nativeProfile evidence with sizeBytes and sha256",
+          manifestPath));
+    } else if (!releaseArtifactPathMatchesMetadata(*metadata, "nativeProfile",
+                                                   profile->path)) {
+      result.diagnostics.push_back(releaseBundleError(
+          "native-profile-evidence-mismatch",
+          "package release bundle native package nativeProfile artifact path "
+          "must match the package manifest",
+          manifestPath));
+    }
+  }
+
+  const PackageNativeArtifactDescriptorHealth health =
+      collectPackageNativeArtifactDescriptorHealth(*metadata);
+  if (!releaseNativeDescriptorHealthIsPublishable(health)) {
+    result.diagnostics.push_back(releaseBundleError(
+        "invalid-native-artifact-descriptor",
+        "package release bundle native package requires "
+        "nativeArtifactDescriptor health ok with artifact hash, size, "
+        "descriptor, and optimization/profile evidence; got " +
+            health.health,
+        package.packagePath / health.path.value_or("manifest.json")));
+  }
+}
+
+std::optional<PackageMetadata> loadReleasePublishPackageMetadata(
+    const std::filesystem::path &packagePath,
+    std::vector<Diagnostic> &diagnostics) {
+  DiagnosticEngine metadataDiagnostics;
+  PackageMetadataLoadOptions metadataOptions;
+  metadataOptions.diagnosticCodePrefix =
+      "package.release.publish.native-artifact";
+  metadataOptions.commandName = "package release publish";
+  std::optional<PackageMetadata> metadata =
+      loadPackageMetadata(packagePath, metadataDiagnostics, metadataOptions);
+  appendDiagnostics(diagnostics, metadataDiagnostics.diagnostics());
+  return metadata;
+}
+
+void validateReleasePublishNativeDescriptorHealth(
+    const PackageMetadata &metadata, const std::filesystem::path &diagnosticPath,
+    std::vector<Diagnostic> &diagnostics) {
+  const PackageNativeArtifactDescriptorHealth health =
+      collectPackageNativeArtifactDescriptorHealth(metadata);
+  if (!releaseNativeDescriptorHealthIsPublishable(health)) {
+    diagnostics.push_back(releasePublishError(
+        "invalid-native-artifact-descriptor",
+        "package release publish native package requires "
+        "nativeArtifactDescriptor health ok with artifact hash, size, "
+        "descriptor, and optimization/profile evidence; got " +
+            health.health,
+        diagnosticPath.empty()
+            ? metadata.packagePath / health.path.value_or("manifest.json")
+            : diagnosticPath));
+  }
+}
+
+void validateReleasePublishPlanNativePackageEvidence(
+    const PackageReleasePublishPlanPackage &package,
+    std::vector<Diagnostic> &diagnostics) {
+  if (!releasePackageDeclaresNativeMode(package.artifactRequirements)) {
+    return;
+  }
+
+  const std::filesystem::path manifestPath = package.packagePath / "manifest.json";
+  if (package.nativeBinaryStatus && *package.nativeBinaryStatus == "planned") {
+    diagnostics.push_back(releasePublishError(
+        "planned-native-binary",
+        "package release publish native package requires an emitted or "
+        "validated native binary, not planned nativeBinaryStatus",
+        manifestPath));
+  }
+
+  const PackageReleasePublishPlanArtifact *nativeBinary =
+      findReleasePublishPlanArtifact(package, "nativeBinary");
+  if (!releaseArtifactHasBinaryEvidence(nativeBinary)) {
+    diagnostics.push_back(releasePublishError(
+        "native-binary-evidence-missing",
+        "package release publish native package requires nativeBinary artifact "
+        "evidence with sizeBytes and sha256",
+        manifestPath));
+  }
+
+  const PackageReleasePublishPlanArtifact *descriptor =
+      findReleasePublishPlanArtifact(package, "nativeArtifactDescriptor");
+  if (!releaseArtifactHasBinaryEvidence(descriptor)) {
+    diagnostics.push_back(releasePublishError(
+        "native-artifact-descriptor-evidence-missing",
+        "package release publish native package requires "
+        "nativeArtifactDescriptor evidence with sizeBytes and sha256",
+        manifestPath));
+  }
+
+  std::optional<PackageMetadata> metadata =
+      loadReleasePublishPackageMetadata(package.packagePath, diagnostics);
+  if (!metadata) {
+    return;
+  }
+
+  if (nativeBinary != nullptr &&
+      !releaseArtifactPathMatchesMetadata(*metadata, "nativeBinary",
+                                          nativeBinary->packageArtifactPath)) {
+    diagnostics.push_back(releasePublishError(
+        "native-binary-evidence-mismatch",
+        "package release publish native package nativeBinary artifact path "
+        "must match the package manifest",
+        manifestPath));
+  }
+  if (descriptor != nullptr &&
+      !releaseArtifactPathMatchesMetadata(
+          *metadata, "nativeArtifactDescriptor",
+          descriptor->packageArtifactPath)) {
+    diagnostics.push_back(releasePublishError(
+        "native-artifact-descriptor-evidence-mismatch",
+        "package release publish native package nativeArtifactDescriptor "
+        "artifact path must match the package manifest",
+        manifestPath));
+  }
+
+  if (metadata->nativeProfileArtifactPresent) {
+    const PackageReleasePublishPlanArtifact *profile =
+        findReleasePublishPlanArtifact(package, "nativeProfile");
+    if (!releaseArtifactHasBinaryEvidence(profile)) {
+      diagnostics.push_back(releasePublishError(
+          "native-profile-evidence-missing",
+          "package release publish native package requires declared "
+          "nativeProfile evidence with sizeBytes and sha256",
+          manifestPath));
+    } else if (!releaseArtifactPathMatchesMetadata(
+                   *metadata, "nativeProfile", profile->packageArtifactPath)) {
+      diagnostics.push_back(releasePublishError(
+          "native-profile-evidence-mismatch",
+          "package release publish native package nativeProfile artifact path "
+          "must match the package manifest",
+          manifestPath));
+    }
+  }
+
+  validateReleasePublishNativeDescriptorHealth(*metadata, {}, diagnostics);
+}
+
+const PackageReleasePublishStageArtifact *findReleasePublishStageArtifact(
+    const std::vector<const PackageReleasePublishStageArtifact *> &artifacts,
+    std::string_view name) {
+  for (const PackageReleasePublishStageArtifact *artifact : artifacts) {
+    if (artifact->artifact.name == name) {
+      return artifact;
+    }
+  }
+  return nullptr;
+}
+
+bool releaseArtifactHasBinaryEvidence(
+    const PackageReleasePublishStageArtifact *artifact) {
+  return artifact != nullptr && artifact->staged &&
+         artifact->artifact.sizeBytes > 0 &&
+         isSha256Digest(artifact->artifact.sha256);
+}
+
+void validateReleasePublishStageNativePackageEvidence(
+    const PackageReleasePublishStageParsedDocument &document,
+    std::vector<Diagnostic> &diagnostics) {
+  std::map<std::string, std::vector<const PackageReleasePublishStageArtifact *>>
+      artifactsByPackage;
+  for (const PackageReleasePublishStageArtifact &artifact : document.artifacts) {
+    artifactsByPackage[artifact.artifact.packagePath.lexically_normal()
+                           .generic_string()]
+        .push_back(&artifact);
+  }
+
+  for (const auto &[packagePathText, artifacts] : artifactsByPackage) {
+    const std::filesystem::path packagePath{packagePathText};
+    const bool publishesNativeBinary =
+        findReleasePublishStageArtifact(artifacts, "nativeBinary") != nullptr;
+    const bool publishesNativeDescriptor =
+        findReleasePublishStageArtifact(artifacts,
+                                        "nativeArtifactDescriptor") != nullptr;
+    const bool publishesNativeProfile =
+        findReleasePublishStageArtifact(artifacts, "nativeProfile") != nullptr;
+    if (!publishesNativeBinary && !publishesNativeDescriptor &&
+        !publishesNativeProfile) {
+      continue;
+    }
+
+    std::vector<Diagnostic> metadataDiagnostics;
+    std::optional<PackageMetadata> metadata =
+        loadReleasePublishPackageMetadata(packagePath, metadataDiagnostics);
+    if (!metadata) {
+      if (publishesNativeBinary) {
+        appendDiagnostics(diagnostics, metadataDiagnostics);
+        diagnostics.push_back(releasePublishError(
+            "native-package-metadata-missing",
+            "package release publish requires package metadata to classify "
+            "native artifact evidence before publishing nativeBinary records",
+            packagePath));
+      }
+      continue;
+    }
+    appendDiagnostics(diagnostics, metadataDiagnostics);
+
+    if (!metadata->artifactRequirements ||
+        metadata->artifactRequirements->packageMode != "native") {
+      continue;
+    }
+
+    const std::filesystem::path manifestPath =
+        metadata->packagePath / "manifest.json";
+    if (metadata->nativeBinaryStatus &&
+        *metadata->nativeBinaryStatus == "planned") {
+      diagnostics.push_back(releasePublishError(
+          "planned-native-binary",
+          "package release publish native package requires an emitted or "
+          "validated native binary, not planned nativeBinaryStatus",
+          manifestPath));
+    }
+
+    const PackageReleasePublishStageArtifact *nativeBinary =
+        findReleasePublishStageArtifact(artifacts, "nativeBinary");
+    if (!releaseArtifactHasBinaryEvidence(nativeBinary)) {
+      diagnostics.push_back(releasePublishError(
+          "native-binary-evidence-missing",
+          "package release publish native package requires staged "
+          "nativeBinary artifact evidence with sizeBytes and sha256",
+          manifestPath));
+    } else if (!releaseArtifactPathMatchesMetadata(
+                   *metadata, "nativeBinary",
+                   nativeBinary->artifact.packageArtifactPath)) {
+      diagnostics.push_back(releasePublishError(
+          "native-binary-evidence-mismatch",
+          "package release publish native package nativeBinary artifact path "
+          "must match the package manifest",
+          manifestPath));
+    }
+
+    const PackageReleasePublishStageArtifact *descriptor =
+        findReleasePublishStageArtifact(artifacts, "nativeArtifactDescriptor");
+    if (!releaseArtifactHasBinaryEvidence(descriptor)) {
+      diagnostics.push_back(releasePublishError(
+          "native-artifact-descriptor-evidence-missing",
+          "package release publish native package requires staged "
+          "nativeArtifactDescriptor evidence with sizeBytes and sha256",
+          manifestPath));
+    } else if (!releaseArtifactPathMatchesMetadata(
+                   *metadata, "nativeArtifactDescriptor",
+                   descriptor->artifact.packageArtifactPath)) {
+      diagnostics.push_back(releasePublishError(
+          "native-artifact-descriptor-evidence-mismatch",
+          "package release publish native package nativeArtifactDescriptor "
+          "artifact path must match the package manifest",
+          manifestPath));
+    }
+
+    if (metadata->nativeProfileArtifactPresent) {
+      const PackageReleasePublishStageArtifact *profile =
+          findReleasePublishStageArtifact(artifacts, "nativeProfile");
+      if (!releaseArtifactHasBinaryEvidence(profile)) {
+        diagnostics.push_back(releasePublishError(
+            "native-profile-evidence-missing",
+            "package release publish native package requires staged declared "
+            "nativeProfile evidence with sizeBytes and sha256",
+            manifestPath));
+      } else if (!releaseArtifactPathMatchesMetadata(
+                     *metadata, "nativeProfile",
+                     profile->artifact.packageArtifactPath)) {
+        diagnostics.push_back(releasePublishError(
+            "native-profile-evidence-mismatch",
+            "package release publish native package nativeProfile artifact "
+            "path must match the package manifest",
+            manifestPath));
+      }
+    }
+
+    validateReleasePublishNativeDescriptorHealth(*metadata, {}, diagnostics);
+  }
+}
+
 void validateReleasePackageArtifactsAgainstRequirements(
     const PackageReleasePublishPlanPackage &package,
     const std::filesystem::path &documentPath, DiagnosticEngine &diagnostics,
@@ -5480,6 +5958,7 @@ packageReleasePromotionPackageRecord(const std::filesystem::path &packagePath,
   appendDiagnostics(diagnostics, requirementDiagnostics.diagnostics());
   validateReleasePromotionNativeArtifactDescriptorHealth(metadata, record,
                                                         diagnostics);
+  validateReleasePromotionNativePackageEvidence(metadata, record, diagnostics);
   return record;
 }
 
@@ -5779,6 +6258,7 @@ void verifyReleaseBundleArtifacts(
     }
 
     verifyReleaseBundleNativeArtifactDescriptor(package, result);
+    validateReleaseBundleNativePackageEvidence(package, result);
 
     for (const PackageReleasePromotionArtifact &artifact : package.artifacts) {
       const std::filesystem::path artifactPath =
@@ -6324,6 +6804,13 @@ stagePackageReleasePublishPlan(const std::filesystem::path &planPath,
       parseReleasePublishPlanDocument(*text, planPath, diagnostics);
   result.diagnostics = diagnostics.diagnostics();
   if (!document) {
+    return result;
+  }
+  for (const PackageReleasePublishPlanPackage &package : document->packages) {
+    validateReleasePublishPlanNativePackageEvidence(package,
+                                                    result.diagnostics);
+  }
+  if (countDiagnostics(result.diagnostics, DiagnosticSeverity::Error) != 0) {
     return result;
   }
 
@@ -7345,6 +7832,11 @@ publishPackageReleaseStage(const std::filesystem::path &stageReportPath,
       parseReleasePublishStageDocument(*text, stageReportPath, diagnostics);
   appendDiagnostics(result.diagnostics, diagnostics.diagnostics());
   if (!document) {
+    return result;
+  }
+  validateReleasePublishStageNativePackageEvidence(*document,
+                                                   result.diagnostics);
+  if (countDiagnostics(result.diagnostics, DiagnosticSeverity::Error) != 0) {
     return result;
   }
 

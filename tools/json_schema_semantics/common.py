@@ -9,6 +9,8 @@ from package_target_contracts import (
 )
 
 NATIVE_ARTIFACT_DESCRIPTOR = "nativeArtifactDescriptor"
+NATIVE_BINARY = "nativeBinary"
+NATIVE_PROFILE = "nativeProfile"
 
 PACKAGE_TARGET_NATIVE_SUMMARY_STATUS = {
     "metal": "emitted",
@@ -278,6 +280,68 @@ def validate_release_package_artifacts_against_requirements(
         errors.append(
             f"{path}.artifacts.{NATIVE_ARTIFACT_DESCRIPTOR}: "
             "descriptor artifact must exist when native readiness is recorded"
+        )
+
+    validate_native_package_publish_evidence(
+        errors,
+        path,
+        package,
+        artifacts,
+        require_existing=require_existing,
+    )
+
+
+def artifact_has_hash_size_evidence(artifact, *, require_existing):
+    if artifact is None:
+        return False
+    if require_existing and artifact.get("exists") is not True:
+        return False
+    return (
+        isinstance(artifact.get("sizeBytes"), int)
+        and not isinstance(artifact.get("sizeBytes"), bool)
+        and artifact["sizeBytes"] > 0
+        and isinstance(artifact.get("sha256"), str)
+        and len(artifact["sha256"]) == 64
+    )
+
+
+def validate_native_package_publish_evidence(
+    errors,
+    path,
+    package,
+    artifacts,
+    *,
+    require_existing,
+):
+    requirements = package["packageArtifactRequirements"]
+    if requirements["packageMode"] != "native":
+        return
+
+    if package["nativeBinaryStatus"] == "planned":
+        errors.append(
+            f"{path}.nativeBinaryStatus: native package publish requires "
+            "emitted or validated native binary evidence, not planned"
+        )
+
+    for name, label in (
+        (NATIVE_BINARY, "nativeBinary artifact"),
+        (NATIVE_ARTIFACT_DESCRIPTOR, "nativeArtifactDescriptor evidence"),
+    ):
+        if not artifact_has_hash_size_evidence(
+            artifacts.get(name), require_existing=require_existing
+        ):
+            errors.append(
+                f"{path}.artifacts.{name}: native package publish requires "
+                f"{label} with sizeBytes and sha256"
+            )
+
+    native_profile = artifacts.get(NATIVE_PROFILE)
+    if native_profile is not None and not artifact_has_hash_size_evidence(
+        native_profile, require_existing=require_existing
+    ):
+        errors.append(
+            f"{path}.artifacts.{NATIVE_PROFILE}: native package publish "
+            "requires declared nativeProfile evidence with sizeBytes and sha256"
         )
 
 
