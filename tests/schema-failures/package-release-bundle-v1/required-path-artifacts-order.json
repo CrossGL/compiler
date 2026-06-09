@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "promotionManifestPath": "release/package-release-promotion-manifest.json",
+  "summaryPath": "release/package-maintenance-set-verification-batch-summary.json",
+  "batchPath": "release/package-maintenance-set-verification-batch.json",
+  "status": "eligible",
+  "releaseEligible": true,
+  "blockerCount": 0,
+  "blockers": [],
+  "packageCount": 1,
+  "artifactCount": 2,
+  "existingArtifactCount": 2,
+  "missingArtifactCount": 0,
+  "totalArtifactBytes": 8,
+  "packages": [
+    {
+      "packagePath": "packages/basic-directx",
+      "module": "BasicDirectX",
+      "target": "directx",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "nativeBinaryStatus": "planned",
+      "packageArtifactRequirements": {
+        "target": "directx",
+        "packageMode": "source-package",
+        "requiredPathArtifacts": [
+          "nativeBinary",
+          "backendSource"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": true,
+        "allowsPlannedNativeSourceEvidence": true
+      },
+      "artifactCount": 2,
+      "existingArtifactCount": 2,
+      "missingArtifactCount": 0,
+      "totalArtifactBytes": 8,
+      "artifacts": [
+        {
+          "name": "backendSource",
+          "path": "artifacts/basic.hlsl",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "name": "nativeArtifactDescriptor",
+          "path": "metadata/native-artifact.json",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "compiler": {
+    "name": "CrossGL-Compiler",
+    "version": "0.1.0",
+    "llvmVersion": "unknown"
+  },
+  "module": "SemanticFixture",
+  "target": "directx",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "c0b5df7fb74ceef746570777efdfdfa48f1bc21077c21d6fea75c09c0b3268e0"
+  },
+  "packageArtifactRequirements": {
+    "target": "directx",
+    "packageMode": "source-package",
+    "requiredPathArtifacts": [
+      "backendSource",
+      "nativeBinary"
+    ],
+    "requiresNativeBinaryStatus": true,
+    "allowsPlannedNativeBinary": true,
+    "allowsPlannedNativeSourceEvidence": true,
+    "evidenceIds": [
+      "target-legalization.v1.directx.package-artifacts.source-package",
+      "target-legalization.v1.directx.package-artifact.required.backendSource",
+      "target-legalization.v1.directx.package-artifact.required.nativeBinary",
+      "target-legalization.v1.directx.package-artifact.native-binary-status.required",
+      "target-legalization.v1.directx.package-artifact.planned-native-binary.allowed",
+      "target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed",
+      "target-legalization.v1.directx.package-artifact.fixture.extra"
+    ]
+  },
+  "artifacts": {
+    "backendSource": "out/backend/directx/SemanticFixture.hlsl",
+    "nativeBinary": "out/backend/directx/SemanticFixture.dxil",
+    "nativeBinaryStatus": "planned"
+  }
+}

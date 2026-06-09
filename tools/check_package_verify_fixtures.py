@@ -80,6 +80,22 @@ def package_artifact_requirement_evidence_ids(requirements):
     return evidence_ids
 
 
+def manifest_with_required_path_artifacts(manifest, required_path_artifacts):
+    updated = copy.deepcopy(manifest)
+    requirements = updated["packageArtifactRequirements"]
+    requirements["requiredPathArtifacts"] = list(required_path_artifacts)
+    requirements["evidenceIds"] = package_artifact_requirement_evidence_ids(
+        requirements
+    )
+    return updated
+
+
+def manifest_with_requirement_evidence_ids(manifest, evidence_ids):
+    updated = copy.deepcopy(manifest)
+    updated["packageArtifactRequirements"]["evidenceIds"] = list(evidence_ids)
+    return updated
+
+
 def run_verify(cglc, package, json_output=False, source=None):
     command = [str(cglc), "package", "verify", str(package)]
     if source is not None:
@@ -1638,16 +1654,93 @@ def run_cases(root, cglc):
         )
 
         package, source, manifest = make_package(
+            tmp_dir, "manifest-requirement-evidence-missing-id"
+        )
+        expected_evidence_ids = package_artifact_requirement_evidence_ids(
+            manifest["packageArtifactRequirements"]
+        )
+        missing_requirement_evidence_id = manifest_with_requirement_evidence_ids(
+            manifest,
+            expected_evidence_ids[:-1],
+        )
+        rewrite_manifest(package, missing_requirement_evidence_id)
+        expected = (
+            "package manifest packageArtifactRequirements.evidenceIds must "
+            "match recorded packageArtifactRequirements"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "manifest-requirement-evidence-missing-id",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "manifest-requirement-evidence-missing-id-json",
+                package,
+                expected,
+                source=source,
+                manifest=missing_requirement_evidence_id,
+                expected_code=(
+                    "package.verify.target-legalization-package-artifact-"
+                    "requirement-evidence-mismatch"
+                ),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "manifest-requirement-evidence-extra-id"
+        )
+        expected_evidence_ids = package_artifact_requirement_evidence_ids(
+            manifest["packageArtifactRequirements"]
+        )
+        extra_requirement_evidence_id = manifest_with_requirement_evidence_ids(
+            manifest,
+            expected_evidence_ids
+            + ["target-legalization.v1.directx.package-artifact.fixture.extra"],
+        )
+        rewrite_manifest(package, extra_requirement_evidence_id)
+        expected = (
+            "package manifest packageArtifactRequirements.evidenceIds must "
+            "match recorded packageArtifactRequirements"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "manifest-requirement-evidence-extra-id",
+                package,
+                expected,
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "manifest-requirement-evidence-extra-id-json",
+                package,
+                expected,
+                source=source,
+                manifest=extra_requirement_evidence_id,
+                expected_code=(
+                    "package.verify.target-legalization-package-artifact-"
+                    "requirement-evidence-mismatch"
+                ),
+            )
+        )
+
+        package, source, manifest = make_package(
             tmp_dir, "manifest-requirement-artifact-contract-drift"
         )
-        artifact_contract_drift = copy.deepcopy(manifest)
-        artifact_contract_drift["packageArtifactRequirements"][
-            "requiredPathArtifacts"
-        ] = ["backendSource"]
-        artifact_contract_drift["packageArtifactRequirements"]["evidenceIds"] = (
-            package_artifact_requirement_evidence_ids(
-                artifact_contract_drift["packageArtifactRequirements"]
-            )
+        artifact_contract_drift = manifest_with_required_path_artifacts(
+            manifest, ["backendSource"]
         )
         rewrite_manifest(package, artifact_contract_drift)
         expected = (
@@ -1677,6 +1770,46 @@ def run_cases(root, cglc):
                 expected_code="package.verify.invalid-manifest",
             )
         )
+
+        artifact_contract_drift_cases = (
+            (
+                "manifest-requirement-artifact-contract-reordered",
+                ["nativeBinary", "backendSource"],
+            ),
+            (
+                "manifest-requirement-artifact-contract-extra",
+                ["backendSource", "nativeBinary", "intermediate"],
+            ),
+        )
+        for case_name, required_path_artifacts in artifact_contract_drift_cases:
+            package, source, manifest = make_package(tmp_dir, case_name)
+            artifact_contract_drift = manifest_with_required_path_artifacts(
+                manifest,
+                required_path_artifacts,
+            )
+            rewrite_manifest(package, artifact_contract_drift)
+            errors.extend(
+                expect_failure(
+                    cglc,
+                    case_name,
+                    package,
+                    expected,
+                    source=source,
+                )
+            )
+            errors.extend(
+                expect_json_failure(
+                    root,
+                    cglc,
+                    tmp_dir,
+                    f"{case_name}-json",
+                    package,
+                    expected,
+                    source=source,
+                    manifest=artifact_contract_drift,
+                    expected_code="package.verify.invalid-manifest",
+                )
+            )
 
         package, source, manifest = make_package(
             tmp_dir, "manifest-requirement-native-policy-contract-drift"
