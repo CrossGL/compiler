@@ -93,9 +93,20 @@ elseif(NOT FAKE_TOOL_BEHAVIOR STREQUAL "success")
           "unknown fake spirv-dis behavior: ${FAKE_TOOL_BEHAVIOR}")
 endif()
 
-file(WRITE "${fake_output}"
-     "; CrossGL fake SPIR-V disassembly\nOpEntryPoint GLCompute %main \"main\"\n")
-]=])
+set(fake_assembly "${fake_source}")
+string(REGEX REPLACE "\\.spv$" ".spvasm" fake_assembly "${fake_assembly}")
+set(fake_disassembly "; CrossGL fake SPIR-V disassembly\n")
+if(EXISTS "${fake_assembly}")
+  file(STRINGS "${fake_assembly}" fake_entry_lines
+       REGEX "^(OpEntryPoint|OpExecutionMode) ")
+  foreach(fake_entry_line IN LISTS fake_entry_lines)
+    string(APPEND fake_disassembly "${fake_entry_line}\n")
+  endforeach()
+else()
+  string(APPEND fake_disassembly "OpEntryPoint GLCompute %main \"main\"\n")
+endif()
+file(WRITE "${fake_output}" "${fake_disassembly}")
+      ]=])
       if(WIN32)
         file(TO_NATIVE_PATH "${CMAKE_COMMAND}" native_cmake_command)
         file(TO_NATIVE_PATH "${disassembler_script}" native_disassembler_script)
@@ -256,6 +267,36 @@ add_test(NAME cglc_build_vulkan_native_fake_disassembly_success
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=StorageBufferComputeShader|artifacts.backendAssembly=backend/vulkan/StorageBufferComputeShader.spvasm|artifacts.nativeBinary=backend/vulkan/StorageBufferComputeShader.spv"
     "-DEXPECTED_NATIVE_PROFILE_JSON_FIELDS=debug.optimization.tool=spirv-opt|debug.optimization.policy=disabled-by-opt-level|debug.optimization.requestedLevel=O1|debug.optimization.level=none|debug.optimization.status=skipped-disabled|debug.optimization.targetEnv=vulkan1.2|debug.optimization.toolStatus=not-run|debug.disassembly.tool=spirv-dis|debug.disassembly.policy=use-when-available|debug.disassembly.status=emitted|debug.disassembly.path=backend/vulkan/StorageBufferComputeShader.disassembly.spvasm"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+    -DEXPECTED_VULKAN_DISASSEMBLY_EXISTS=TRUE
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-as.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=spirv-as success: --target-env vulkan1.2"
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-val.log
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=spirv-val success: --target-env vulkan1.2"
+    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-dis.log
+    "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=spirv-dis success:"
+    -DEXPECTED_ABSENT_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-opt.log
+    -DMODE=vulkan-build
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+
+add_test(NAME cglc_build_vulkan_native_fake_graphics_spirv_stage_closure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_VULKAN_GRAPHICS_SHADOW_COMPARE_SHADER}
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-fake-graphics-stage-closure.cglb
+    -DEXPECTED_MODULE=VulkanGraphicsShadowCompareShader
+    -DEXPECTED_DESCRIPTOR_TYPE=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
+    -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsShadowCompareShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsShadowCompareShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsShadowCompareShader.spv|artifacts.nativeProfile=backend/vulkan/VulkanGraphicsShadowCompareShader.profile.json|artifacts.nativeArtifactDescriptor=backend/vulkan/VulkanGraphicsShadowCompareShader.native-artifact.json|artifacts.graphicsAbi=backend/vulkan/VulkanGraphicsShadowCompareShader.graphics-abi.json"
+    "-DEXPECTED_NATIVE_PROFILE_JSON_FIELDS=debug.disassembly.tool=spirv-dis|debug.disassembly.policy=use-when-available|debug.disassembly.status=emitted|debug.disassembly.path=backend/vulkan/VulkanGraphicsShadowCompareShader.disassembly.spvasm"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=vulkan|binaryKind=vulkan.spirv-module|sourcePath=backend/vulkan/VulkanGraphicsShadowCompareShader.spvasm|artifactPath=backend/vulkan/VulkanGraphicsShadowCompareShader.spv|validationStatus=validated|optimizationEvidence.evidenceSource.kind=native-profile|optimizationEvidence.evidenceSource.path=backend/vulkan/VulkanGraphicsShadowCompareShader.profile.json"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsShadowCompareShader|nativeBinary=backend/vulkan/VulkanGraphicsShadowCompareShader.spv|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|resources.0.stage=fragment|resources.0.name=shadowMap|resources.1.stage=fragment|resources.1.name=shadowSampler|vertexLayouts.0.entryPoint=vertex_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=2|targetResourceBindings=2|vertexLayouts=1|workgroupSizes=0"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=shadowMap.stage=fragment|shadowMap.bindingClass=sampledImage|shadowMap.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE|shadowMap.storageClass=UniformConstant|shadowMap.set=0|shadowMap.binding=2|shadowSampler.stage=fragment|shadowSampler.bindingClass=sampler|shadowSampler.descriptorType=VK_DESCRIPTOR_TYPE_SAMPLER|shadowSampler.storageClass=UniformConstant|shadowSampler.set=0|shadowSampler.binding=3"
+    "-DEXPECTED_SPVASM_CONTAINS=OpEntryPoint Vertex|\"vertex_main\"|OpEntryPoint Fragment|\"fragment_main\"|OriginUpperLeft|OpDecorate %resource_fragment_shadowMap DescriptorSet 0|OpDecorate %resource_fragment_shadowMap Binding 2|OpDecorate %resource_fragment_shadowSampler Binding 3"
+    "-DEXPECTED_SPVASM_ORDERED_CONTAINS=OpCapability Shader|OpMemoryModel Logical GLSL450|OpEntryPoint Vertex|OpEntryPoint Fragment|OriginUpperLeft"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
     -DEXPECTED_VULKAN_DISASSEMBLY_EXISTS=TRUE
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_VULKAN_DISASSEMBLY_SUCCESS_DIR}/spirv-as.log
@@ -472,6 +513,8 @@ crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_disassembly_unavailable vulkan)
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_disassembly_tool_failure vulkan)
+crossgl_label_optional_native_policy_test(
+  cglc_build_vulkan_native_fake_graphics_spirv_stage_closure vulkan)
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_spirv_opt_planned_failure vulkan)
 crossgl_label_optional_native_policy_test(

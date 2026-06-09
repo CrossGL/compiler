@@ -318,6 +318,177 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             self.assertEqual(summary["rejectReasons"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_ready_plan_accepts_generated_native_profile_artifact_map(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_vulkan_package(
+                package_dir,
+                include_backend_source=True,
+                include_native_profile=True,
+            )
+            profile_path = (
+                package_dir
+                / "backend"
+                / "vulkan"
+                / "RuntimeVulkanLoaderFixture.profile.json"
+            )
+            profile = json.loads(profile_path.read_text(encoding="utf-8"))
+            backend_assembly = profile.pop("backendAssembly")
+            native_binary = profile.pop("nativeBinary")
+            profile["artifacts"] = {
+                "backendAssembly": backend_assembly,
+                "nativeBinary": native_binary,
+            }
+            self._write_json(profile_path, profile)
+            source_path = package_dir / "source" / "generated-profile.cgl"
+            source_path.parent.mkdir(exist_ok=True)
+            source_path.write_text(
+                "generated profile admission must stay metadata-only\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads(), self._guard_compiler_and_device_work():
+                plan = plan_vulkan_native_loader(package_dir)
+                summary = plan.to_summary()
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertEqual(summary["rejectReasons"], [])
+            self.assertEqual(
+                summary["vulkanNativeProfile"]["fields"]["artifacts"],
+                {
+                    "backendAssembly": (
+                        "backend/vulkan/RuntimeVulkanLoaderFixture.spvasm"
+                    ),
+                    "nativeBinary": ("backend/vulkan/RuntimeVulkanLoaderFixture.spv"),
+                },
+            )
+            profile_admission = summary["vulkanNativeAdmission"]["nativeProfile"]
+            self.assertEqual(
+                profile_admission["backendAssembly"],
+                "backend/vulkan/RuntimeVulkanLoaderFixture.spvasm",
+            )
+            self.assertEqual(
+                profile_admission["nativeBinary"],
+                "backend/vulkan/RuntimeVulkanLoaderFixture.spv",
+            )
+            self.assertTrue(profile_admission["backendAssemblyMatchesManifest"])
+            self.assertTrue(profile_admission["nativeBinaryMatchesNativeArtifact"])
+            self.assertTrue(
+                summary["vulkanNativeApiBoundary"]["nativeProfileCompatibility"][
+                    "nativeBinaryMatchesSpirv"
+                ]
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_graphics_stage_closure_reports_vertex_fragment_pair(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_vulkan_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            reflection["entryPoints"] = [
+                {
+                    "stage": "vertex",
+                    "sourceName": "main",
+                    "backendName": "vertex_main",
+                },
+                {
+                    "stage": "fragment",
+                    "sourceName": "main",
+                    "backendName": "fragment_main",
+                },
+            ]
+            reflection["resources"] = [
+                {
+                    "stage": "fragment",
+                    "name": "shadowMap",
+                    "kind": "texture",
+                    "type": "sampler2DShadow",
+                    "set": 0,
+                    "binding": 2,
+                },
+                {
+                    "stage": "fragment",
+                    "name": "shadowSampler",
+                    "kind": "sampler",
+                    "type": "comparison_sampler",
+                    "set": 0,
+                    "binding": 3,
+                },
+            ]
+            reflection["targetResourceBindings"] = [
+                {
+                    "target": "vulkan",
+                    "stage": "fragment",
+                    "entryPoint": "fragment_main",
+                    "name": "shadowMap",
+                    "kind": "texture",
+                    "sourceType": "sampler2DShadow",
+                    "addressSpace": "UniformConstant",
+                    "abi": {"set": 0, "binding": 2},
+                    "bindingClass": "sampledImage",
+                    "descriptorType": "VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE",
+                    "storageClass": "UniformConstant",
+                    "spirvType": "OpTypeImage<depth_compare, 2D, sampled=1>",
+                },
+                {
+                    "target": "vulkan",
+                    "stage": "fragment",
+                    "entryPoint": "fragment_main",
+                    "name": "shadowSampler",
+                    "kind": "sampler",
+                    "sourceType": "comparison_sampler",
+                    "addressSpace": "UniformConstant",
+                    "abi": {"set": 0, "binding": 3},
+                    "bindingClass": "sampler",
+                    "descriptorType": "VK_DESCRIPTOR_TYPE_SAMPLER",
+                    "storageClass": "UniformConstant",
+                    "spirvType": "OpTypeSampler",
+                },
+            ]
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "graphics closure must not trigger source parsing\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads(), self._guard_compiler_and_device_work():
+                plan = plan_vulkan_native_loader(package_dir)
+                summary = plan.to_summary()
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            closure = summary["vulkanNativeAdmission"]["reflection"][
+                "graphicsStageClosure"
+            ]
+            self.assertTrue(closure["graphicsPackage"])
+            self.assertEqual(closure["stageCounts"], {"vertex": 1, "fragment": 1})
+            self.assertTrue(closure["hasVertexFragmentPair"])
+            self.assertTrue(closure["hasOnlyGraphicsStages"])
+            self.assertEqual(closure["vertexEntryPoint"]["backendName"], "vertex_main")
+            self.assertEqual(
+                closure["fragmentEntryPoint"]["backendName"],
+                "fragment_main",
+            )
+            checks = {
+                check["name"]: check
+                for check in summary["vulkanNativeAdmission"]["checks"]
+            }
+            self.assertTrue(
+                checks["reflectionGraphicsVertexFragmentPairPresent"]["passed"]
+            )
+            self.assertTrue(
+                checks["reflectionGraphicsStagesOnlyVertexFragment"]["passed"]
+            )
+            api_reflection = summary["vulkanNativeApiBoundary"]["runtimeInputs"][
+                "reflection"
+            ]
+            self.assertTrue(
+                api_reflection["graphicsStageClosure"]["hasVertexFragmentPair"]
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_source_free_native_artifact_with_spirv_dependencies_remains_loadable(
         self,
     ) -> None:
