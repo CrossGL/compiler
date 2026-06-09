@@ -376,6 +376,38 @@ std::string canonicalMemberJsonOrDefault(std::string_view object,
   return canonicalJson(*value);
 }
 
+std::vector<std::string> stringArrayMemberValues(std::string_view object,
+                                                 std::string_view key) {
+  const std::optional<std::string_view> value =
+      findObjectMemberValue(object, key);
+  if (!value) {
+    return {};
+  }
+
+  const std::optional<std::vector<JsonRange>> elementRanges =
+      collectArrayElementRanges(*value);
+  if (!elementRanges) {
+    return {};
+  }
+
+  std::vector<std::string> values;
+  for (const JsonRange &elementRange : *elementRanges) {
+    const std::string_view element(
+        value->data() + elementRange.begin,
+        elementRange.end - elementRange.begin);
+    std::string parsed;
+    std::size_t position = 0;
+    if (!parseJsonString(element, position, parsed)) {
+      continue;
+    }
+    skipWhitespace(element, position);
+    if (position == element.size()) {
+      values.push_back(std::move(parsed));
+    }
+  }
+  return values;
+}
+
 void collectReflectionResources(
     const std::filesystem::path &reflectionPath, std::string_view reflection,
     std::vector<PackageReflectionResourceRecord> &resourcesOut) {
@@ -477,6 +509,42 @@ void collectReflectionTargetResourceBindings(
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(bindingObject, "arrayDimensions", "[]");
     bindingsOut.push_back(std::move(record));
+  }
+}
+
+void collectReflectionTargetFeatures(
+    const std::filesystem::path &reflectionPath, std::string_view reflection,
+    std::vector<PackageReflectionTargetFeatureRecord> &featuresOut) {
+  const std::optional<JsonRange> featuresRange =
+      findObjectMember(reflection, "targetFeatures");
+  if (!featuresRange) {
+    return;
+  }
+  const std::string_view featuresArray(
+      reflection.data() + featuresRange->begin,
+      featuresRange->end - featuresRange->begin);
+  const std::optional<std::vector<JsonRange>> elementRanges =
+      collectArrayElementRanges(featuresArray);
+  if (!elementRanges) {
+    return;
+  }
+
+  for (const JsonRange &elementRange : *elementRanges) {
+    const JsonRange absoluteRange{
+        featuresRange->begin + elementRange.begin,
+        featuresRange->begin + elementRange.end};
+    const std::string_view featureObject(
+        reflection.data() + absoluteRange.begin,
+        absoluteRange.end - absoluteRange.begin);
+
+    PackageReflectionTargetFeatureRecord record;
+    record.location =
+        sourceLocationForRange(reflectionPath, reflection, absoluteRange);
+    record.target = stringMemberValueOrEmpty(featureObject, "target");
+    record.kind = stringMemberValueOrEmpty(featureObject, "kind");
+    record.name = stringMemberValueOrEmpty(featureObject, "name");
+    record.evidenceIds = stringArrayMemberValues(featureObject, "evidenceIds");
+    featuresOut.push_back(std::move(record));
   }
 }
 
@@ -2586,6 +2654,8 @@ loadPackageMetadata(const std::filesystem::path &packagePath,
   collectReflectionTargetResourceBindings(
       reflectionPath, metadata.documents.reflection,
       metadata.reflectionTargetResourceBindings);
+  collectReflectionTargetFeatures(reflectionPath, metadata.documents.reflection,
+                                  metadata.reflectionTargetFeatures);
   return metadata;
 }
 

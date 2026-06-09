@@ -78,6 +78,26 @@ def jobs_from_environment(parser):
     return 1
 
 
+def ordered_unique_strings(values):
+    ordered = []
+    seen = set()
+    for value in values:
+        if not isinstance(value, str) or not value or value in seen:
+            continue
+        ordered.append(value)
+        seen.add(value)
+    return ordered
+
+
+def target_feature_evidence_ids(features):
+    evidence_ids = []
+    for feature in features:
+        values = feature.get("evidenceIds", [])
+        if isinstance(values, list):
+            evidence_ids.extend(values)
+    return ordered_unique_strings(evidence_ids)
+
+
 def package_artifact_requirement_evidence_ids(requirements):
     target = requirements.get("target")
     package_mode = requirements.get("packageMode")
@@ -1135,6 +1155,27 @@ def expect_reflection_summary(errors, case_name, summary, package, manifest):
         reflection_summary.get("selectedTargetResourceBindings"),
         expected_bindings,
     )
+    expected_target_features = [
+        feature
+        for feature in reflection.get("targetFeatures", [])
+        if isinstance(feature, dict) and feature.get("target") == selected_target
+    ]
+    if "targetFeatureCount" in reflection_summary:
+        expect_equal(
+            errors,
+            case_name,
+            "summary.reflection.targetFeatureCount",
+            reflection_summary.get("targetFeatureCount"),
+            len(expected_target_features),
+        )
+    if "targetFeatureEvidenceIds" in reflection_summary:
+        expect_equal(
+            errors,
+            case_name,
+            "summary.reflection.targetFeatureEvidenceIds",
+            reflection_summary.get("targetFeatureEvidenceIds"),
+            target_feature_evidence_ids(expected_target_features),
+        )
 
 
 def expect_native_artifact_descriptor_summary(

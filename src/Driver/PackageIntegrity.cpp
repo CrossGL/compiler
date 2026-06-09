@@ -2148,6 +2148,15 @@ void writeStringArray(std::ostream &out,
   out << "]";
 }
 
+void appendUniqueString(std::vector<std::string> &values,
+                        const std::string &value) {
+  if (value.empty() ||
+      std::find(values.begin(), values.end(), value) != values.end()) {
+    return;
+  }
+  values.push_back(value);
+}
+
 void writeNullableStringArray(
     std::ostream &out, const std::optional<std::vector<std::string>> &values) {
   if (values) {
@@ -2169,10 +2178,36 @@ std::size_t selectedTargetResourceBindingCount(const PackageMetadata &metadata) 
   return count;
 }
 
+std::vector<std::string>
+selectedTargetFeatureEvidenceIds(const PackageMetadata &metadata) {
+  std::vector<std::string> evidenceIds;
+  for (const PackageReflectionTargetFeatureRecord &feature :
+       metadata.reflectionTargetFeatures) {
+    if (feature.target != metadata.target) {
+      continue;
+    }
+    for (const std::string &evidenceId : feature.evidenceIds) {
+      appendUniqueString(evidenceIds, evidenceId);
+    }
+  }
+  return evidenceIds;
+}
+
+std::size_t selectedTargetFeatureCount(const PackageMetadata &metadata) {
+  return std::count_if(
+      metadata.reflectionTargetFeatures.begin(),
+      metadata.reflectionTargetFeatures.end(),
+      [&](const PackageReflectionTargetFeatureRecord &feature) {
+        return feature.target == metadata.target;
+      });
+}
+
 void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
                             std::string_view indent) {
   const std::size_t bindingCount =
       selectedTargetResourceBindingCount(metadata);
+  const std::vector<std::string> targetFeatureEvidenceIds =
+      selectedTargetFeatureEvidenceIds(metadata);
   out << "{\n"
       << indent << "  \"selectedTargetResourceBindingCount\": "
       << bindingCount << ",\n"
@@ -2204,7 +2239,12 @@ void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
   if (wroteBinding) {
     out << "\n" << indent << "  ";
   }
-  out << "]\n" << indent << "}";
+  out << "],\n"
+      << indent << "  \"targetFeatureCount\": "
+      << selectedTargetFeatureCount(metadata) << ",\n"
+      << indent << "  \"targetFeatureEvidenceIds\": ";
+  writeStringArray(out, targetFeatureEvidenceIds);
+  out << "\n" << indent << "}";
 }
 
 void writeNativeArtifactDescriptorSummary(

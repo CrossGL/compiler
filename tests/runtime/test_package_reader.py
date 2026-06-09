@@ -1040,6 +1040,83 @@ class RuntimePackageReaderTests(unittest.TestCase):
             )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_reflection_target_feature_evidence_is_exposed_for_runtime(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for target feature evidence\n",
+                encoding="utf-8",
+            )
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            evidence_ids = [
+                "target-legalization.v1.metal.capability.required.metal.package.fixture",
+                "target-legalization.v1.metal.capability.required.metal.texture.write",
+            ]
+            reflection["targetFeatures"][0]["evidenceIds"] = [evidence_ids[0]]
+            reflection["targetFeatures"].append(
+                {
+                    "target": "metal",
+                    "kind": "capability",
+                    "name": "texture-write",
+                    "evidenceIds": [evidence_ids[1]],
+                }
+            )
+            self._write_json(reflection_path, reflection)
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="metal")
+
+            summary = report.to_summary()
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertEqual(
+                summary["reflection"]["targetFeatureEvidenceIds"],
+                evidence_ids,
+            )
+            self.assertEqual(
+                summary["targetAvailability"]["targetFeatureEvidenceIds"],
+                evidence_ids,
+            )
+            self.assertEqual(
+                report.availability_summary["targets"]["targetFeatureEvidenceIds"],
+                evidence_ids,
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_reflection_target_feature_evidence_is_optional_for_runtime(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for legacy target features\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="metal")
+
+            summary = report.to_summary()
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertEqual(summary["reflection"]["targetFeatureEvidenceIds"], [])
+            self.assertEqual(
+                summary["targetAvailability"]["targetFeatureEvidenceIds"],
+                [],
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_graphics_abi_target_drift_rejects_package_without_source_parse(
         self,
     ) -> None:
@@ -1396,6 +1473,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "reflectionTarget": "metal",
                     "targetResourceBindingTargets": ["metal"],
                     "targetFeatureTargets": ["metal"],
+                    "targetFeatureEvidenceIds": [],
                     "availableTargets": ["metal"],
                 },
             )
@@ -5438,6 +5516,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "reflectionTarget": "directx",
                     "targetResourceBindingTargets": ["directx"],
                     "targetFeatureTargets": ["directx"],
+                    "targetFeatureEvidenceIds": [],
                     "availableTargets": ["directx"],
                 },
             )
@@ -7171,6 +7250,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "reflectionTarget": "directx",
                     "targetResourceBindingTargets": [],
                     "targetFeatureTargets": [],
+                    "targetFeatureEvidenceIds": [],
                     "availableTargets": ["directx"],
                 },
             )

@@ -92,6 +92,14 @@ TARGET_LEGALIZATION_TOOL_FIELDS = (
     "optionalNativeToolStatus",
     "toolRequirementEvidenceIds",
 )
+TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
+TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"(?:(?:capability\.(?:required|missing)\."
+    r"(?P<capability_target>metal|vulkan|directx|opengl)\.[A-Za-z0-9_.-]+)"
+    r"|(?:abi\.(?:required|missing)\.[A-Za-z0-9_.-]+))$"
+)
 
 REFLECTION_V1_REQUIRED_FIELDS = frozenset(
     {
@@ -403,6 +411,99 @@ def validate_manifest_summary(errors, summary, manifest, reflection):
             reflection["target"],
             summary["target"],
             "summary target",
+        )
+    validate_reflection_summary(errors, summary, reflection)
+
+
+def selected_target_features(reflection, target):
+    features = reflection.get("targetFeatures", [])
+    if not isinstance(features, list):
+        return []
+    return [
+        feature
+        for feature in features
+        if isinstance(feature, dict) and feature.get("target") == target
+    ]
+
+
+def ordered_unique_strings(values):
+    ordered = []
+    seen = set()
+    for value in values:
+        if not isinstance(value, str) or not value or value in seen:
+            continue
+        ordered.append(value)
+        seen.add(value)
+    return ordered
+
+
+def expected_target_feature_evidence_ids(reflection, target):
+    expected = []
+    for feature in selected_target_features(reflection, target):
+        evidence_ids = feature.get("evidenceIds", [])
+        if isinstance(evidence_ids, list):
+            expected.extend(evidence_ids)
+    return ordered_unique_strings(expected)
+
+
+def validate_summary_target_feature_evidence_ids(errors, summary_reflection, target):
+    evidence_ids = summary_reflection.get("targetFeatureEvidenceIds")
+    if evidence_ids is None:
+        return
+
+    seen_evidence_ids = set()
+    expected_prefix = f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{target}."
+    for index, evidence_id in enumerate(evidence_ids):
+        evidence_path = f"$.summary.reflection.targetFeatureEvidenceIds[{index}]"
+        if evidence_id in seen_evidence_ids:
+            errors.append(
+                f"{evidence_path}: duplicate target feature evidence id {evidence_id!r}"
+            )
+        seen_evidence_ids.add(evidence_id)
+
+        match = TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE.fullmatch(evidence_id)
+        if match is None:
+            continue
+        if not evidence_id.startswith(expected_prefix):
+            errors.append(
+                f"{evidence_path}: expected target feature evidence prefix "
+                f"{expected_prefix!r}, got {evidence_id!r}"
+            )
+            continue
+
+        capability_target = match.group("capability_target")
+        if capability_target is not None and capability_target != target:
+            errors.append(
+                f"{evidence_path}: expected target feature capability evidence "
+                f"target {target!r}, got {capability_target!r}"
+            )
+
+
+def validate_reflection_summary(errors, summary, reflection):
+    summary_reflection = summary.get("reflection")
+    if not isinstance(summary_reflection, dict):
+        return
+
+    target = summary["target"]
+    selected_features = selected_target_features(reflection, target)
+    validate_summary_target_feature_evidence_ids(errors, summary_reflection, target)
+
+    if "targetFeatureCount" in summary_reflection:
+        add_equal_error(
+            errors,
+            "$.summary.reflection.targetFeatureCount",
+            summary_reflection["targetFeatureCount"],
+            len(selected_features),
+            "$.reflection.targetFeatures selected target count",
+        )
+
+    if "targetFeatureEvidenceIds" in summary_reflection:
+        add_equal_error(
+            errors,
+            "$.summary.reflection.targetFeatureEvidenceIds",
+            summary_reflection["targetFeatureEvidenceIds"],
+            expected_target_feature_evidence_ids(reflection, target),
+            "$.reflection.targetFeatures[].evidenceIds for selected target",
         )
 
 

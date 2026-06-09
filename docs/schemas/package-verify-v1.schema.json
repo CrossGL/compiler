@@ -171,6 +171,10 @@
       ],
       "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.resource-binding\\.[A-Za-z0-9_.-]+$"
     },
+    "targetLegalizationTargetFeatureEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.(capability\\.(required|missing)\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+|abi\\.(required|missing)\\.[A-Za-z0-9_.-]+)$"
+    },
     "reflectionSelectedTargetResourceBinding": {
       "type": "object",
       "additionalProperties": false,
@@ -223,6 +227,17 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/reflectionSelectedTargetResourceBinding"
+          }
+        },
+        "targetFeatureCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "targetFeatureEvidenceIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/targetLegalizationTargetFeatureEvidenceId"
           }
         }
       }

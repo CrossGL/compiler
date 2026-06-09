@@ -89,6 +89,26 @@ def collect_case_errors(jobs, cases):
     return errors
 
 
+def ordered_unique_strings(values):
+    ordered = []
+    seen = set()
+    for value in values:
+        if not isinstance(value, str) or not value or value in seen:
+            continue
+        ordered.append(value)
+        seen.add(value)
+    return ordered
+
+
+def target_feature_evidence_ids(features):
+    evidence_ids = []
+    for feature in features:
+        values = feature.get("evidenceIds", [])
+        if isinstance(values, list):
+            evidence_ids.extend(values)
+    return ordered_unique_strings(evidence_ids)
+
+
 def case_tmp_dir(tmp_dir, case_name):
     return tmp_dir / case_name
 
@@ -546,6 +566,31 @@ def expect_reflection_summary_contract(errors, case_name, summary, reflection):
             "reflection.target",
             reflection["target"],
             summary.get("target"),
+        )
+    summary_reflection = summary.get("reflection")
+    if not isinstance(summary_reflection, dict):
+        return
+
+    expected_target_features = [
+        feature
+        for feature in reflection.get("targetFeatures", [])
+        if isinstance(feature, dict) and feature.get("target") == summary.get("target")
+    ]
+    if "targetFeatureCount" in summary_reflection:
+        expect_equal(
+            errors,
+            case_name,
+            "summary.reflection.targetFeatureCount",
+            summary_reflection.get("targetFeatureCount"),
+            len(expected_target_features),
+        )
+    if "targetFeatureEvidenceIds" in summary_reflection:
+        expect_equal(
+            errors,
+            case_name,
+            "summary.reflection.targetFeatureEvidenceIds",
+            summary_reflection.get("targetFeatureEvidenceIds"),
+            target_feature_evidence_ids(expected_target_features),
         )
 
 
@@ -2925,6 +2970,15 @@ def check_nonuniform_feature_metadata(case_name, manifest, expected_diagnostics)
             payload["reflection"].get("targetFeatures"),
             expected_features,
         )
+        summary_reflection = payload["summary"].get("reflection", {})
+        if "targetFeatureEvidenceIds" in summary_reflection:
+            expect_equal(
+                errors,
+                case_name,
+                "summary.reflection.targetFeatureEvidenceIds",
+                summary_reflection.get("targetFeatureEvidenceIds"),
+                target_feature_evidence_ids(expected_features),
+            )
         expect_equal(
             errors,
             case_name,
@@ -3180,6 +3234,15 @@ def check_storage_image_metadata(case_name, manifest, atomic=False):
             ),
             record_by_name(expected_features, "storage-image").get("evidenceIds"),
         )
+        summary_reflection = payload["summary"].get("reflection", {})
+        if "targetFeatureEvidenceIds" in summary_reflection:
+            expect_equal(
+                errors,
+                case_name,
+                "summary.reflection.targetFeatureEvidenceIds",
+                summary_reflection.get("targetFeatureEvidenceIds"),
+                target_feature_evidence_ids(expected_features),
+            )
         expect_equal(
             errors,
             case_name,

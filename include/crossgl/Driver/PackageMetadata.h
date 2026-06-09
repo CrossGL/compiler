@@ -177,6 +177,14 @@ struct PackageReflectionTargetResourceBindingRecord {
   std::string arrayDimensionsJson = "[]";
 };
 
+struct PackageReflectionTargetFeatureRecord {
+  SourceLocation location;
+  std::string target;
+  std::string kind;
+  std::string name;
+  std::vector<std::string> evidenceIds;
+};
+
 struct PackageMetadata {
   std::filesystem::path packagePath;
   PackageDocuments documents;
@@ -189,6 +197,7 @@ struct PackageMetadata {
   std::vector<PackageReflectionResourceRecord> reflectionResources;
   std::vector<PackageReflectionTargetResourceBindingRecord>
       reflectionTargetResourceBindings;
+  std::vector<PackageReflectionTargetFeatureRecord> reflectionTargetFeatures;
   std::optional<PackageArtifactRequirementsRecord> artifactRequirements;
   std::optional<PackageTargetLegalizationToolRequirementsRecord>
       targetLegalizationToolRequirements;

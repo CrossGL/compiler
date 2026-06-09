@@ -891,6 +891,30 @@
         },
         "debugArtifactsPresent": {
           "type": "boolean"
+        },
+        "reflection": {
+          "$ref": "#/$defs/reflectionSummary"
+        }
+      }
+    },
+    "targetLegalizationTargetFeatureEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.(capability\\.(required|missing)\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+|abi\\.(required|missing)\\.[A-Za-z0-9_.-]+)$"
+    },
+    "reflectionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targetFeatureCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "targetFeatureEvidenceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetLegalizationTargetFeatureEvidenceId"
+          },
+          "uniqueItems": true
         }
       }
     },

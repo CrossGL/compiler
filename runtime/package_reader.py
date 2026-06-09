@@ -6676,6 +6676,9 @@ def _reflection_availability_summary(reflection: dict[str, Any]) -> dict[str, An
         for record in target_resource_bindings
         if isinstance(evidence_id := record.get("evidenceId"), str) and evidence_id
     ]
+    target_feature_evidence_ids = _target_feature_evidence_ids(
+        reflection.get("targetFeatures")
+    )
     workgroup_sizes = _workgroup_size_records(reflection)
     schema_version = reflection.get("schemaVersion")
     return {
@@ -6686,6 +6689,7 @@ def _reflection_availability_summary(reflection: dict[str, Any]) -> dict[str, An
         "resourceBindingCount": len(resources),
         "targetResourceBindingCount": len(target_resource_bindings),
         "targetResourceBindingEvidenceIds": target_resource_binding_evidence_ids,
+        "targetFeatureEvidenceIds": list(target_feature_evidence_ids),
         "workgroupSizeCount": len(workgroup_sizes),
         "entryPointsAvailable": bool(entry_points),
         "resourceBindingsAvailable": bool(resources or target_resource_bindings),
@@ -6844,11 +6848,16 @@ def _target_availability_summary(
         "target",
         expected=manifest_target,
     )
+    target_feature_evidence_ids = _target_feature_evidence_ids(
+        reflection.get("targetFeatures"),
+        expected=manifest_target,
+    )
     return {
         "manifestTarget": manifest_target,
         "reflectionTarget": reflection_target,
         "targetResourceBindingTargets": list(target_resource_binding_targets),
         "targetFeatureTargets": list(target_feature_targets),
+        "targetFeatureEvidenceIds": list(target_feature_evidence_ids),
         "availableTargets": list(_available_targets(manifest_target, reflection)),
     }
 
@@ -6868,6 +6877,26 @@ def _matching_record_string_values(
             if record.get(key) == expected
         )
     )
+
+
+def _target_feature_evidence_ids(
+    value: Any,
+    *,
+    expected: str | None = None,
+) -> tuple[str, ...]:
+    if expected is not None and (not isinstance(expected, str) or not expected):
+        return ()
+    evidence_ids: list[str] = []
+    for record in _json_object_list(value):
+        if expected is not None and record.get("target") != expected:
+            continue
+        record_evidence_ids = record.get("evidenceIds")
+        if not isinstance(record_evidence_ids, list):
+            continue
+        evidence_ids.extend(
+            entry for entry in record_evidence_ids if isinstance(entry, str) and entry
+        )
+    return _ordered_unique_strings(evidence_ids)
 
 
 def _ordered_unique_strings(values: Any) -> tuple[str, ...]:

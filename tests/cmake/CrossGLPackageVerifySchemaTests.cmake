@@ -368,7 +368,13 @@ crossgl_add_package_verify_json_schema_test(
     "toolchainProvenance.tools=2|validationDiagnostics=0")
 
 function(crossgl_add_directx_descriptor_array_package_verify_schema_test)
-  set(one_value_args NAME INPUT OUTPUT MODULE)
+  set(one_value_args
+    NAME
+    INPUT
+    OUTPUT
+    MODULE
+    EXPECTED_TARGET_FEATURE_COUNT
+    EXPECTED_TARGET_FEATURE_EVIDENCE_COUNT)
   cmake_parse_arguments(CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA ""
     "${one_value_args}" "" ${ARGN})
   if(NOT CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_NAME)
@@ -390,17 +396,29 @@ function(crossgl_add_directx_descriptor_array_package_verify_schema_test)
 
   set(directx_descriptor_array_module
       "${CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_MODULE}")
+  set(directx_descriptor_array_target_feature_field "")
+  if(DEFINED
+      CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_EXPECTED_TARGET_FEATURE_COUNT)
+    set(directx_descriptor_array_target_feature_field
+        "|summary.reflection.targetFeatureCount=${CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_EXPECTED_TARGET_FEATURE_COUNT}")
+  endif()
+  set(directx_descriptor_array_target_feature_array_length "")
+  if(DEFINED
+      CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_EXPECTED_TARGET_FEATURE_EVIDENCE_COUNT)
+    set(directx_descriptor_array_target_feature_array_length
+        "|summary.reflection.targetFeatureEvidenceIds=${CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_EXPECTED_TARGET_FEATURE_EVIDENCE_COUNT}")
+  endif()
   crossgl_add_package_verify_json_schema_test(
     NAME ${CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_NAME}
     TARGET directx
     INPUT ${CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_INPUT}
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${CROSSGL_DIRECTX_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_OUTPUT}
     EXPECTED_JSON_FIELDS
-      "schemaVersion=1|success=true|summary.module=${directx_descriptor_array_module}|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.nativeArtifactDescriptor.path=backend/directx/${directx_descriptor_array_module}.native-artifact.json|summary.targetLegalizationEvidence.health=ok|summary.targetLegalizationEvidence.packageMode=source-package|summary.targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds.0=target-legalization.v1.directx.package-artifacts.source-package|summary.targetLegalizationEvidence.manifestToolRequirements.present=true|summary.targetLegalizationEvidence.manifestToolRequirements.target=directx|summary.targetLegalizationEvidence.manifestToolRequirements.packageMode=source-package|summary.targetLegalizationEvidence.manifestToolRequirements.requiredToolCount=2|summary.targetLegalizationEvidence.manifestToolRequirements.missingToolCount=2|summary.targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolMissing=true|summary.targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolStatus=missing|summary.targetLegalizationEvidence.checks.packageArtifactRequirementEvidenceIdsPresent=true|summary.targetLegalizationEvidence.checks.manifestToolRequirementsTargetMatchesPackage=true|summary.targetLegalizationEvidence.checks.manifestToolRequirementsPackageModeMatchesRequirements=true|summary.targetLegalizationEvidence.checks.manifestToolRequirementEvidenceIdsPresent=true|summary.targetLegalizationEvidence.checks.debugMetadataToolRequirementsMatchManifest=true|diagnosticCounts.error=0"
+      "schemaVersion=1|success=true|summary.module=${directx_descriptor_array_module}|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.nativeArtifactDescriptor.path=backend/directx/${directx_descriptor_array_module}.native-artifact.json${directx_descriptor_array_target_feature_field}|summary.targetLegalizationEvidence.health=ok|summary.targetLegalizationEvidence.packageMode=source-package|summary.targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds.0=target-legalization.v1.directx.package-artifacts.source-package|summary.targetLegalizationEvidence.manifestToolRequirements.present=true|summary.targetLegalizationEvidence.manifestToolRequirements.target=directx|summary.targetLegalizationEvidence.manifestToolRequirements.packageMode=source-package|summary.targetLegalizationEvidence.manifestToolRequirements.requiredToolCount=2|summary.targetLegalizationEvidence.manifestToolRequirements.missingToolCount=2|summary.targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolMissing=true|summary.targetLegalizationEvidence.manifestToolRequirements.optionalNativeToolStatus=missing|summary.targetLegalizationEvidence.checks.packageArtifactRequirementEvidenceIdsPresent=true|summary.targetLegalizationEvidence.checks.manifestToolRequirementsTargetMatchesPackage=true|summary.targetLegalizationEvidence.checks.manifestToolRequirementsPackageModeMatchesRequirements=true|summary.targetLegalizationEvidence.checks.manifestToolRequirementEvidenceIdsPresent=true|summary.targetLegalizationEvidence.checks.debugMetadataToolRequirementsMatchManifest=true|diagnosticCounts.error=0"
     EXPECTED_JSON_FIELD_ONE_OF
       "summary.targetLegalizationEvidence.checks.targetExplanationToolRequirementsMatchManifest=null,true"
     EXPECTED_JSON_ARRAY_LENGTHS
-      "diagnostics=0|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds=6|summary.targetLegalizationEvidence.missingEvidence=0|summary.targetLegalizationEvidence.manifestToolRequirements.requiredToolIds=2|summary.targetLegalizationEvidence.manifestToolRequirements.missingToolIds=2|summary.targetLegalizationEvidence.manifestToolRequirements.toolRequirementEvidenceIds=5"
+      "diagnostics=0${directx_descriptor_array_target_feature_array_length}|summary.targetLegalizationEvidence.packageArtifactRequirementEvidenceIds=6|summary.targetLegalizationEvidence.missingEvidence=0|summary.targetLegalizationEvidence.manifestToolRequirements.requiredToolIds=2|summary.targetLegalizationEvidence.manifestToolRequirements.missingToolIds=2|summary.targetLegalizationEvidence.manifestToolRequirements.toolRequirementEvidenceIds=5"
     EXPECTED_MANIFEST_JSON_FIELDS
       "schemaVersion=1|target=directx|module=${directx_descriptor_array_module}|targetLegalizationToolRequirements.target=directx|targetLegalizationToolRequirements.packageMode=source-package|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=2|targetLegalizationToolRequirements.optionalNativeToolMissing=true|targetLegalizationToolRequirements.optionalNativeToolStatus=missing|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|packageArtifactRequirements.requiresNativeBinaryStatus=true|packageArtifactRequirements.allowsPlannedNativeBinary=true|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=true|artifacts.backendSource=backend/directx/${directx_descriptor_array_module}.hlsl|artifacts.nativeBinary=backend/directx/${directx_descriptor_array_module}.dxil|artifacts.nativeBinaryStatus=planned|artifacts.debugMetadata=ir/debug-metadata.json|artifacts.hirSourceMap=ir/hir-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/${directx_descriptor_array_module}.native-artifact.json|artifacts.targetExplanation=ir/target-explanation.json"
     EXPECTED_MANIFEST_JSON_ARRAY_CONTAINS
@@ -421,7 +439,9 @@ crossgl_add_directx_descriptor_array_package_verify_schema_test(
   NAME cglc_package_verify_json_schema_directx_storage_image_descriptor_array_source_package
   INPUT ${CROSSGL_DIRECTX_STORAGE_IMAGE_DESCRIPTOR_ARRAY_SHADER}
   OUTPUT test-directx-storage-image-descriptor-array-package-verify-schema.cglb
-  MODULE DirectXStorageImageDescriptorArrayShader)
+  MODULE DirectXStorageImageDescriptorArrayShader
+  EXPECTED_TARGET_FEATURE_COUNT 22
+  EXPECTED_TARGET_FEATURE_EVIDENCE_COUNT 32)
 
 crossgl_add_directx_descriptor_array_package_verify_schema_test(
   NAME cglc_package_verify_json_schema_directx_storage_image_nonuniform_descriptor_array_source_package

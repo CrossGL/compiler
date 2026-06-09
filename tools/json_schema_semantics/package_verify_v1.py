@@ -35,6 +35,13 @@ TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE = re.compile(
     r"(?P<target>metal|vulkan|directx|opengl)\."
     r"resource-binding\.[A-Za-z0-9_.-]+$"
 )
+TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"(?:(?:capability\.(?:required|missing)\."
+    r"(?P<capability_target>metal|vulkan|directx|opengl)\.[A-Za-z0-9_.-]+)"
+    r"|(?:abi\.(?:required|missing)\.[A-Za-z0-9_.-]+))$"
+)
 
 
 def validate_diagnostic_counts(errors, diagnostic_counts, diagnostics):
@@ -134,6 +141,47 @@ def validate_reflection_summary(errors, summary):
             errors.append(
                 f"{binding_path}.evidenceId: expected target resource binding "
                 f"evidence prefix {expected_prefix!r}, got {evidence_id!r}"
+            )
+
+    target_feature_count = reflection.get("targetFeatureCount")
+    target_feature_evidence_ids = reflection.get("targetFeatureEvidenceIds")
+    if target_feature_count is not None and target_feature_count < 0:
+        errors.append(
+            "$.summary.reflection.targetFeatureCount: expected non-negative count"
+        )
+    if target_feature_evidence_ids is None:
+        return
+    if target_feature_count == 0 and target_feature_evidence_ids:
+        errors.append(
+            "$.summary.reflection.targetFeatureEvidenceIds: expected no evidence IDs "
+            "when targetFeatureCount is zero"
+        )
+
+    seen_feature_evidence_ids = set()
+    expected_feature_prefix = f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{target}."
+    for index, evidence_id in enumerate(target_feature_evidence_ids):
+        evidence_path = f"$.summary.reflection.targetFeatureEvidenceIds[{index}]"
+        if evidence_id in seen_feature_evidence_ids:
+            errors.append(
+                f"{evidence_path}: duplicate target feature evidence id {evidence_id!r}"
+            )
+        seen_feature_evidence_ids.add(evidence_id)
+
+        match = TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE.fullmatch(evidence_id)
+        if match is None:
+            continue
+        if not evidence_id.startswith(expected_feature_prefix):
+            errors.append(
+                f"{evidence_path}: expected target feature evidence prefix "
+                f"{expected_feature_prefix!r}, got {evidence_id!r}"
+            )
+            continue
+
+        capability_target = match.group("capability_target")
+        if capability_target is not None and capability_target != target:
+            errors.append(
+                f"{evidence_path}: expected target feature capability evidence "
+                f"target {target!r}, got {capability_target!r}"
             )
 
 
