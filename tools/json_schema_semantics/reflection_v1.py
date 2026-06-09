@@ -30,6 +30,11 @@ TARGET_LEGALIZATION_CORE_EVIDENCE_SUFFIX_RANK = {
     "optional-native-tool.missing": 5,
 }
 PACKAGE_REASON_EVIDENCE_SUFFIX_PREFIX = "package-reason."
+TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"resource-binding\.[A-Za-z0-9_.-]+$"
+)
 
 TARGET_RESOURCE_BINDING_FIELDS = {
     ("metal", "uniform"): {
@@ -490,6 +495,34 @@ def target_resource_binding_coordinate(binding):
     return None
 
 
+def validate_target_resource_binding_evidence_id(
+    errors, path, binding, seen_evidence_ids
+):
+    evidence_id = binding.get("evidenceId")
+    if evidence_id is None:
+        return
+
+    if evidence_id in seen_evidence_ids:
+        errors.append(
+            f"{path}.evidenceId: duplicate target resource binding evidence id "
+            f"{evidence_id!r}"
+        )
+    seen_evidence_ids.add(evidence_id)
+
+    match = TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE.fullmatch(evidence_id)
+    if match is None:
+        return
+
+    expected_prefix = (
+        f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{binding['target']}.resource-binding."
+    )
+    if not evidence_id.startswith(expected_prefix):
+        errors.append(
+            f"{path}.evidenceId: expected target resource binding evidence prefix "
+            f"{expected_prefix!r}, got {evidence_id!r}"
+        )
+
+
 def source_resource_coordinate(resource):
     if "set" not in resource or "binding" not in resource:
         return None
@@ -539,11 +572,15 @@ def validate_reflection_resource_links(errors, instance, entry_points):
 
     binding_keys = []
     binding_coordinates = {}
+    binding_evidence_ids = set()
     bound_resource_keys = set()
     for index, binding in enumerate(instance["targetResourceBindings"]):
         binding_path = f"$.targetResourceBindings[{index}]"
         add_equal_error(
             errors, f"{binding_path}.target", binding["target"], target, "$.target"
+        )
+        validate_target_resource_binding_evidence_id(
+            errors, binding_path, binding, binding_evidence_ids
         )
         validate_entry_point_stage(errors, binding_path, binding, entry_points)
 

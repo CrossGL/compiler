@@ -694,7 +694,8 @@ void writeReflectionJson(std::ostringstream &out,
     }
     out << "\"addressSpace\":\"" << escapeJson(binding.addressSpace) << "\","
         << "\"abi\":\"" << escapeJson(binding.abi) << "\","
-        << "\"bindingClass\":\"" << escapeJson(binding.bindingClass) << "\"";
+        << "\"bindingClass\":\"" << escapeJson(binding.bindingClass) << "\","
+        << "\"evidenceId\":\"" << escapeJson(binding.evidenceId) << "\"";
     if (binding.descriptorType.has_value()) {
       out << ",\"descriptorType\":\"" << escapeJson(*binding.descriptorType)
           << "\"";
@@ -917,6 +918,7 @@ ReflectionTargetResourceBinding reflectionTargetResourceBindingFromLegalization(
   binding.addressSpace = record.addressSpace;
   binding.abi = record.abi;
   binding.bindingClass = record.bindingClass;
+  binding.evidenceId = record.evidenceId;
   binding.metalType = record.metalType;
   binding.hlslType = record.hlslType;
   binding.descriptorType = record.descriptorType;

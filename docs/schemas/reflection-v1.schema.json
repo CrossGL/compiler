@@ -117,6 +117,10 @@
       "type": "string",
       "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.(decision|state\\.(legalized|rejected)|support\\.(native|source-package|unsupported)|package-mode\\.(native|source-package|unsupported)|package-provenance\\.(native-package-available|source-package-only|unsupported-source-form|unsupported-native-form|unsupported)|optional-native-tool\\.missing|package-reason\\.[a-z0-9][a-z0-9-]*)$"
     },
+    "targetLegalizationResourceBindingEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.resource-binding\\.[A-Za-z0-9_.-]+$"
+    },
     "parameter": {
       "type": "object",
       "additionalProperties": false,
@@ -447,6 +451,9 @@
         },
         "bindingClass": {
           "type": "string"
+        },
+        "evidenceId": {
+          "$ref": "#/$defs/targetLegalizationResourceBindingEvidenceId"
         },
         "argumentIndex": {
           "type": "integer",

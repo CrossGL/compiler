@@ -16122,6 +16122,7 @@ bool reflectionBindingMatchesLegalizationRecord(
          binding.storageClass == record.storageClass &&
          binding.spirvType == record.spirvType &&
          binding.storageImageFormat == record.storageImageFormat &&
+         binding.evidenceId == record.evidenceId &&
          binding.argumentIndex == record.argumentIndex &&
          binding.set == record.set && binding.binding == record.binding;
 }
