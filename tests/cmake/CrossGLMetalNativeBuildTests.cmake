@@ -1,6 +1,27 @@
 set(CROSSGL_FAKE_SHADER_TOOL_SCRIPT
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/toolchain/FakeShaderTool.cmake")
 
+function(crossgl_write_fake_metal_probe_tool tool_dir tool_name)
+  if(WIN32)
+    file(WRITE "${tool_dir}/${tool_name}.cmd"
+         "@echo off\n"
+         "if \"%1\"==\"--version\" echo fake ${tool_name} 1.0\n"
+         "exit /b 0\n")
+  else()
+    file(WRITE "${tool_dir}/${tool_name}"
+         "#!/bin/sh\n"
+         "if [ \"$1\" = \"--version\" ]; then\n"
+         "  printf 'fake ${tool_name} 1.0\\n'\n"
+         "fi\n"
+         "exit 0\n")
+    file(CHMOD "${tool_dir}/${tool_name}"
+         PERMISSIONS
+           OWNER_READ OWNER_WRITE OWNER_EXECUTE
+           GROUP_READ GROUP_EXECUTE
+           WORLD_READ WORLD_EXECUTE)
+  endif()
+endfunction()
+
 function(crossgl_configure_fake_metal_xcrun out_dir behavior)
   set(tool_instance "")
   if(ARGC GREATER 2)
@@ -11,6 +32,8 @@ function(crossgl_configure_fake_metal_xcrun out_dir behavior)
   file(MAKE_DIRECTORY "${tool_dir}")
   set(tool_log "${tool_dir}/xcrun.log")
   file(REMOVE "${tool_log}")
+  crossgl_write_fake_metal_probe_tool("${tool_dir}" metal)
+  crossgl_write_fake_metal_probe_tool("${tool_dir}" metallib)
 
   if(WIN32)
     file(TO_NATIVE_PATH "${CMAKE_COMMAND}" native_cmake_command)
@@ -23,6 +46,15 @@ function(crossgl_configure_fake_metal_xcrun out_dir behavior)
   else()
     file(WRITE "${tool_dir}/xcrun"
          "#!/bin/sh\n"
+         "if [ \"$1\" = \"-find\" ]; then\n"
+         "  case \"$2\" in\n"
+         "    metal|metallib)\n"
+         "      printf '%s/%s\\n' '${tool_dir}' \"$2\"\n"
+         "      exit 0\n"
+         "      ;;\n"
+         "  esac\n"
+         "  exit 1\n"
+         "fi\n"
          "exec \"${CMAKE_COMMAND}\" -DFAKE_TOOL_NAME=xcrun -DFAKE_TOOL_BEHAVIOR=${behavior} -DFAKE_TOOL_LOG=\"${tool_log}\" -P \"${CROSSGL_FAKE_SHADER_TOOL_SCRIPT}\" -- \"$@\"\n")
     file(CHMOD "${tool_dir}/xcrun"
          PERMISSIONS
@@ -51,6 +83,18 @@ set(CROSSGL_FAKE_METAL_UNAVAILABLE_DIR
     "${CMAKE_CURRENT_BINARY_DIR}/fake-toolchain/xcrun-unavailable")
 file(MAKE_DIRECTORY "${CROSSGL_FAKE_METAL_UNAVAILABLE_DIR}")
 
+if(APPLE)
+  set(CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_TOOL_SOURCE xcrun)
+else()
+  set(CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_TOOL_SOURCE PATH)
+endif()
+set(CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS
+  "sourceHash.value|artifactHash.value|sizeBytes|toolchainProvenance.tools.1.resolvedExecutable|toolchainProvenance.tools.2.resolvedExecutable|toolchainProvenance.invocation.commandLineSha256|toolchainProvenance.invocation.environmentSha256")
+set(CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS
+  "toolchainProvenance.producer=CrossGL-Compiler|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.0.executable=cglc|toolchainProvenance.tools.1.name=xcrun metal|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.version=fake metal 1.0|toolchainProvenance.tools.1.executable=xcrun|toolchainProvenance.tools.1.executableSource=${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_TOOL_SOURCE}|toolchainProvenance.tools.1.versionProbeStatus=succeeded|toolchainProvenance.tools.2.name=xcrun metallib|toolchainProvenance.tools.2.role=linker|toolchainProvenance.tools.2.version=fake metallib 1.0|toolchainProvenance.tools.2.executable=xcrun|toolchainProvenance.tools.2.executableSource=${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_TOOL_SOURCE}|toolchainProvenance.tools.2.versionProbeStatus=succeeded")
+set(CROSSGL_REAL_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS
+  "toolchainProvenance.producer=CrossGL-Compiler|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.0.executable=cglc|toolchainProvenance.tools.1.name=xcrun metal|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=xcrun|toolchainProvenance.tools.1.executableSource=xcrun|toolchainProvenance.tools.2.name=xcrun metallib|toolchainProvenance.tools.2.role=linker|toolchainProvenance.tools.2.executable=xcrun|toolchainProvenance.tools.2.executableSource=xcrun")
+
 add_test(NAME cglc_build_metal_native_fake_xcrun_success
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -68,7 +112,8 @@ add_test(NAME cglc_build_metal_native_fake_xcrun_success
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|targetLegalizationToolRequirements.target=metal|targetLegalizationToolRequirements.packageMode=native|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=0|targetLegalizationToolRequirements.optionalNativeToolMissing=false|targetLegalizationToolRequirements.optionalNativeToolStatus=not-required|artifacts.backendSource=backend/metal/SimpleShader.metal|artifacts.intermediate=backend/metal/SimpleShader.air|artifacts.nativeBinary=backend/metal/SimpleShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json"
     "-DEXPECTED_MANIFEST_JSON_ARRAY_CONTAINS=targetLegalizationToolRequirements.requiredToolIds=metal.toolchain.xcrun-metal|targetLegalizationToolRequirements.requiredToolIds=metal.toolchain.xcrun-metallib|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.metal.tool-requirements.present"
     "-DEXPECTED_MANIFEST_JSON_ARRAY_LENGTHS=targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=0|targetLegalizationToolRequirements.toolRequirementEvidenceIds=3"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run|${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|nativeBinary=backend/metal/SimpleShader.metallib"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
@@ -89,7 +134,8 @@ add_test(NAME cglc_build_metal_native_opt_level_o0_fake_xcrun
     -DEXPECTED_NATIVE_BINARY=backend/metal/SimpleShader.metallib
     "-DEXPECTED_METAL_COMPILE_OPTIONS_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|policy.name=metal-conservative-native-package-v1|policy.profile=debug|policy.requestedOptimizationLevel=O0|policy.optimizationLevel=-O0|policy.debugInfo=true|compile.tool=xcrun metal|compile.sdk=macosx|compile.flags.0=-O0|compile.flags.1=-gline-tables-only|library.tool=xcrun metallib"
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|artifacts.backendSource=backend/metal/SimpleShader.metal|artifacts.intermediate=backend/metal/SimpleShader.air|artifacts.nativeBinary=backend/metal/SimpleShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O0|optimizationEvidence.requestedLevel=O0|optimizationEvidence.effectiveLevel=O0|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O0|optimizationEvidence.debugInfo=true|optimizationEvidence.profile=debug|optimizationEvidence.flags.0=-O0|optimizationEvidence.flags.1=-gline-tables-only|validationStatus=not-run"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O0|optimizationEvidence.requestedLevel=O0|optimizationEvidence.effectiveLevel=O0|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O0|optimizationEvidence.debugInfo=true|optimizationEvidence.profile=debug|optimizationEvidence.flags.0=-O0|optimizationEvidence.flags.1=-gline-tables-only|validationStatus=not-run|${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_O0_SUCCESS_DIR}/xcrun.log
@@ -113,7 +159,8 @@ add_test(NAME cglc_build_metal_native_opt_level_o2_fake_xcrun
     "-DEXPECTED_NATIVE_BINARY_CONTAINS=fake metal metallib"
     "-DEXPECTED_METAL_COMPILE_OPTIONS_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|policy.name=metal-conservative-native-package-v1|policy.profile=release|policy.requestedOptimizationLevel=O2|policy.optimizationLevel=-O2|policy.debugInfo=false|compile.tool=xcrun metal|compile.sdk=macosx|compile.flags.0=-O2|library.tool=xcrun metallib"
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|artifacts.backendSource=backend/metal/SimpleShader.metal|artifacts.intermediate=backend/metal/SimpleShader.air|artifacts.nativeBinary=backend/metal/SimpleShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json"
-    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O2|optimizationEvidence.requestedLevel=O2|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O2|optimizationEvidence.requestedLevel=O2|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run|${CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_O2_SUCCESS_DIR}/xcrun.log
@@ -306,7 +353,9 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       -DEXPECTED_MODULE=SimpleShader
       "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|sourceHash.algorithm=sha256|packageArtifactRequirements.target=metal|packageArtifactRequirements.packageMode=native|packageArtifactRequirements.requiresNativeBinaryStatus=false|artifacts.backendSource=backend/metal/SimpleShader.metal|artifacts.intermediate=backend/metal/SimpleShader.air|artifacts.nativeBinary=backend/metal/SimpleShader.metallib|artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json"
       "-DEXPECTED_MANIFEST_JSON_ABSENT_PATHS=artifacts.nativeBinaryStatus"
-      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|validationStatus=not-run"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run|${CROSSGL_REAL_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
       -DMANIFEST_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/manifest-v1.schema.json
       -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
       -DPACKAGE_SCHEMA_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas
@@ -333,7 +382,9 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-package-inspect.cglb
       -DMODE=package-inspect-source-package
       "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=SimpleShader|summary.target=metal|summary.nativeBinaryStatus=null|summary.artifactCount=8|summary.debugArtifactsPresent=true|rootFiles.0.name=manifest|rootFiles.0.exists=true|rootFiles.1.name=reflection|rootFiles.1.exists=true|rootFiles.2.name=diagnostics|rootFiles.2.exists=true|artifacts.0.name=backendSource|artifacts.0.path=backend/metal/SimpleShader.metal|artifacts.0.exists=true|artifacts.1.name=intermediate|artifacts.1.path=backend/metal/SimpleShader.air|artifacts.1.exists=true|artifacts.2.name=nativeBinary|artifacts.2.path=backend/metal/SimpleShader.metallib|artifacts.2.exists=true|artifacts.3.name=debugMetadata|artifacts.3.exists=true|artifacts.4.name=hirSourceMap|artifacts.4.exists=true|artifacts.5.name=nativeArtifactDescriptor|artifacts.5.path=backend/metal/SimpleShader.native-artifact.json|artifacts.5.exists=true|artifacts.7.name=graphicsAbi|artifacts.7.path=backend/metal/SimpleShader.graphics-abi.json|artifacts.7.exists=true|manifest.target=metal|manifest.module=SimpleShader|manifest.artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json|manifest.artifacts.graphicsAbi=backend/metal/SimpleShader.graphics-abi.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=metal|nativeArtifactDescriptor.binaryKind=metal.metallib|nativeArtifactDescriptor.sourcePath=backend/metal/SimpleShader.metal|nativeArtifactDescriptor.artifactPath=backend/metal/SimpleShader.metallib|nativeArtifactDescriptor.validationStatus=not-run|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|reflection.target=metal|reflection.module=SimpleShader|reflection.nativeBinary=backend/metal/SimpleShader.metallib|diagnostics.schemaVersion=1"
-      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|validationStatus=not-run"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_METAL_NATIVE_DESCRIPTOR_REQUIRED_PATHS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run|${CROSSGL_REAL_METAL_NATIVE_DESCRIPTOR_PROVENANCE_FIELDS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
       -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
       -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
       -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
