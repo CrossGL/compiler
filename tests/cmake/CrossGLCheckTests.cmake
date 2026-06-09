@@ -1352,6 +1352,16 @@ add_test(NAME cglc_check_vector_buffer_compute_hir_vec4_load_store
     -DMODE=dump-stage
     "-DMUST_CONTAIN=decl vec4 lifted = color \\+ vec4\\(0\\.5, 0\\.5, 0\\.5, 0\\.0\\) : vec4[^\n]*\n      assign values\\[1\\] : vec4 = lifted : vec4"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_storage_buffer_pointer_helper_param
+  COMMAND cglc check ${CROSSGL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SHADER})
+add_test(NAME cglc_check_storage_buffer_pointer_helper_param_hir
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=resource buffer float\\* values set 0 binding 0[^\n]*\n    resource buffer vec4\\* vectors set 0 binding 1[^\n]*\n    fn writeScalar\\(float\\* dst, float value\\) -> void[^\n]*\n      assign dst\\[0\\] : float = value : float[^\n]*\n      return[^\n]*\n    fn writeVector\\(vec4\\* dst, vec4 value\\) -> void[^\n]*\n      assign dst\\[1\\] : vec4 = value : vec4[^\n]*\n      return[^\n]*\n    fn main\\(\\) -> void[^\n]*\n      decl float scalar = values\\[1\\] \\+ 2\\.0 : float[^\n]*\n      decl vec4 vector = vectors\\[0\\] \\+ vec4\\(0\\.25, 0\\.5, 0\\.75, 1\\.0\\) : vec4[^\n]*\n      expr writeScalar\\(values, scalar\\)[^\n]*\n      expr writeVector\\(vectors, vector\\)"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_vector3_buffer_compute
   COMMAND cglc check ${CROSSGL_VECTOR3_BUFFER_COMPUTE_SHADER})
 add_test(NAME cglc_check_vector3_buffer_compute_hir_vec3_load_store

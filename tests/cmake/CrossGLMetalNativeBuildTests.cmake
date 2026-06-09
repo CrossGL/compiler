@@ -2333,6 +2333,42 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -DMODE=metal-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  set(CROSSGL_METAL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SOURCE_SNIPPET [=[void writeScalar(device float* dst, float value) {
+  dst[0] = value;
+  return;
+}
+
+void writeVector(device float4* dst, float4 value) {
+  dst[1] = value;
+  return;
+}
+
+kernel void compute_main(device float* values [[buffer(0)]], device float4* vectors [[buffer(1)]]) {
+  float scalar = values[1] + 2.0;
+  float4 vector = vectors[0] + float4(0.25, 0.5, 0.75, 1.0);
+  writeScalar(values, scalar);
+  writeVector(vectors, vector);
+  return;
+}]=])
+  add_test(NAME cglc_build_metal_storage_buffer_pointer_helper_param_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-storage-buffer-pointer-helper-param.cglb
+      -DEXPECTED_MODULE=StorageBufferPointerHelperParamShader
+      -DMODE=metal-build
+      -DEXPECTED_METAL_BUFFER_TYPE=device\ float*
+      -DEXPECTED_METAL_BUFFER_NAME=values
+      "-DEXPECTED_METAL_SOURCE_SNIPPET=${CROSSGL_METAL_STORAGE_BUFFER_POINTER_HELPER_PARAM_SOURCE_SNIPPET}"
+      "-DEXPECTED_METAL_STORE_SNIPPET=writeVector(vectors, vector);"
+      -DEXPECTED_STORAGE_ELEMENT=float
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=StorageBufferPointerHelperParamShader|nativeBinary=backend/metal/StorageBufferPointerHelperParamShader.metallib|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=2|targetResourceBindings=2"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=float*|values.metalType=device float*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=float|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device|vectors.sourceType=vec4*|vectors.metalType=device float4*|vectors.bindingClass=buffer|vectors.argumentIndex=1|vectors.storageBufferLayout.elementType=vec4|vectors.storageBufferLayout.arrayStrideBytes=16|vectors.storageBufferLayout.layout=metal-device"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|storage-buffer.kind=resource|storage-buffer-read.kind=operation|index-access.kind=operation|vector-storage-buffer.kind=layout|vector-constructor.kind=operation|vector-arithmetic.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_metal_atan_intrinsic_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
