@@ -4044,6 +4044,11 @@ set(CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS
     -DEXPECTED_DIAGNOSTIC=target.unsupported
     "-DEXPECTED_DIAGNOSTICS_JSON_PATHS=diagnostics.0.missingCapabilities"
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS})
+set(CROSSGL_VULKAN_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_CONFLICT_DIAGNOSTIC_EXPECTATIONS
+    -DEXPECTED_DIAGNOSTIC=target.unsupported
+    "-DEXPECTED_DIAGNOSTICS_JSON_PATHS=diagnostics.0.missingCapabilities"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=5|location.column=52|location.length=4|location.endLine=5|location.endColumn=56")
 set(CROSSGL_DIRECTX_SOURCE_UNSUPPORTED_DIAGNOSTIC_EXPECTATIONS
     -DEXPECTED_DIAGNOSTIC=directx.source-unsupported
     ${CROSSGL_SINGLE_PLANNED_DIAGNOSTIC_EXPECTATIONS})
@@ -4699,7 +4704,7 @@ add_test(NAME cglc_build_vulkan_diagnostics_json_target_capability_planned_failu
     -DTARGET=vulkan
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-diagnostics-json-target-capability.cglb
     -DMODE=planned-build-failure
-    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
+    ${CROSSGL_VULKAN_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_CONFLICT_DIAGNOSTIC_EXPECTATIONS}
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=schemaVersion=1|diagnostics.0.target=vulkan"
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
@@ -6888,7 +6893,7 @@ add_test(NAME cglc_build_vulkan_runtime_texture_descriptor_array_conflict_source
     -DTARGET=vulkan
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-runtime-texture-descriptor-array-conflict-source.cglb
     -DMODE=planned-build-failure
-    ${CROSSGL_TARGET_NOT_IMPLEMENTED_DIAGNOSTIC_EXPECTATIONS}
+    ${CROSSGL_VULKAN_RUNTIME_TEXTURE_DESCRIPTOR_ARRAY_CONFLICT_DIAGNOSTIC_EXPECTATIONS}
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.target=vulkan"
     "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"

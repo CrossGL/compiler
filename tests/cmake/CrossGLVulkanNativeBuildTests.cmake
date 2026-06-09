@@ -696,7 +696,7 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       -DEXPECT_NO_OUTPUT_PACKAGE=ON
       -DEXPECTED_DIAGNOSTIC=target.unsupported
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
-      "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|target=vulkan|location.line=1|location.column=1"
+      "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|target=vulkan|location.line=5|location.column=52|location.length=4|location.endLine=5|location.endColumn=56"
       "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=vulkan.backend.vulkan-prototype-package|missingCapabilities=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
       "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'vulkan' cannot build a package for this module|message=runtime descriptor array 'maps' (texture) at set 0 binding 1 conflicts with runtime descriptor array 'detailMaps' (texture) at set 0 binding 2|message=Vulkan descriptor binding class 'sampledImage' (VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)|message=policy allow-single-unbounded-descriptor-array permits only one unbounded descriptor array per Vulkan descriptor binding class|message=vulkan.backend.vulkan-prototype-package|message=vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array|message=TargetLegalizationResult: state=rejected|message=provenance=unsupported-native-form|message=target-legalization.v1.vulkan.capability.missing.vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
       -DMODE=planned-build-failure
