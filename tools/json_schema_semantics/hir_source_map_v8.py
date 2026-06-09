@@ -45,6 +45,12 @@ def validate_source_map_record_kind_totals(errors, path, items, categories):
 def validate_resource_source_location_context(errors, path, record):
     if record["entryPoint"] and not record["stage"]:
         errors.append(f"{path}.stage: expected non-empty when entryPoint is non-empty")
+    if record["resourceRecordKind"] == "access":
+        if not record.get("accessKind"):
+            errors.append(
+                f"{path}.accessKind: access resource records must declare accessKind"
+            )
+        return
     if record["resourceRecordKind"] != "access":
         for field in (
             "accessKind",
