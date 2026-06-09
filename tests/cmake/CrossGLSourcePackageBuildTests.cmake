@@ -40,8 +40,15 @@ crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_O0_SUCCESS_DIR dxc
                                    success o0)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_O2_SUCCESS_DIR dxc
                                    success o2)
-crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR dxc
-                                   success graphics)
+crossgl_configure_fake_shader_tool(
+  CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR dxc success
+  graphics-resources)
+crossgl_configure_fake_shader_tool(
+  CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR dxc success
+  graphics-storage-buffer-resources)
+crossgl_configure_fake_shader_tool(
+  CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR dxc success
+  graphics-shadow-compare-lod)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_GRAPHICS_FAILURE_DIR dxc
                                    failure graphics)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_GLSLANG_SUCCESS_DIR
@@ -4814,7 +4821,7 @@ add_test(NAME cglc_build_directx_graphics_resources_fake_dxc_success
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-resources-fake-dxc-success.cglb
     -DMODE=source-package-build
-    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     -DEXPECTED_SOURCE=backend/directx/DirectXGraphicsResourceShader.graphics.hlsl
     "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_GRAPHICS_RESOURCE_SOURCE_SNIPPET}"
@@ -4825,11 +4832,11 @@ add_test(NAME cglc_build_directx_graphics_resources_fake_dxc_success
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=note|diagnostics.1.code=directx.dxil-emitted"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=vertex=vs_6_0|diagnostics.0.message=fragment=ps_6_0|diagnostics.1.message=vertex=vs_6_0|diagnostics.1.message=fragment=ps_6_0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T vs_6_0 -E vertex_main -Fo|backend/directx/DirectXGraphicsResourceShader.vertex.dxil|backend/directx/DirectXGraphicsResourceShader.graphics.hlsl"
-    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=-O3 -T ps_6_0 -E fragment_main -Fo|backend/directx/DirectXGraphicsResourceShader.fragment.dxil|backend/directx/DirectXGraphicsResourceShader.graphics.hlsl"
-    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/DirectXGraphicsResourceShader.fragment.dxil"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_storage_buffer_resources_fake_dxc_success
@@ -4839,7 +4846,7 @@ add_test(NAME cglc_build_directx_graphics_storage_buffer_resources_fake_dxc_succ
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-storage-buffer-resources-fake-dxc-success.cglb
     -DMODE=source-package-build
-    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     -DEXPECTED_SOURCE=backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics.hlsl
     "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RESOURCE_SOURCE_SNIPPET}"
@@ -4850,11 +4857,11 @@ add_test(NAME cglc_build_directx_graphics_storage_buffer_resources_fake_dxc_succ
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=note|diagnostics.1.code=directx.dxil-emitted"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=vertex=vs_6_0|diagnostics.0.message=fragment=ps_6_0|diagnostics.1.message=vertex=vs_6_0|diagnostics.1.message=fragment=ps_6_0"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T vs_6_0 -E vertex_main -Fo|backend/directx/DirectXGraphicsStorageBufferResourceShader.vertex.dxil|backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics.hlsl"
-    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=-O3 -T ps_6_0 -E fragment_main -Fo|backend/directx/DirectXGraphicsStorageBufferResourceShader.fragment.dxil|backend/directx/DirectXGraphicsStorageBufferResourceShader.graphics.hlsl"
-    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_STORAGE_BUFFER_RESOURCES_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/DirectXGraphicsStorageBufferResourceShader.fragment.dxil"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_shadow_compare_lod_fake_dxc_success
@@ -4864,7 +4871,7 @@ add_test(NAME cglc_build_directx_graphics_shadow_compare_lod_fake_dxc_success
     -DTARGET=directx
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-shadow-compare-lod-fake-dxc-success.cglb
     -DMODE=source-package-build
-    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     -DEXPECTED_SOURCE=backend/directx/DirectXGraphicsShadowCompareLodShader.graphics.hlsl
     "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_GRAPHICS_SHADOW_COMPARE_LOD_SOURCE_SNIPPET}"
@@ -4875,11 +4882,11 @@ add_test(NAME cglc_build_directx_graphics_shadow_compare_lod_fake_dxc_success
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=note|diagnostics.1.code=directx.dxil-emitted"
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=vertex=vs_6_7|diagnostics.0.message=fragment=ps_6_7|diagnostics.1.message=vertex=vs_6_7|diagnostics.1.message=fragment=ps_6_7"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2"
-    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T vs_6_7 -E vertex_main -Fo|backend/directx/DirectXGraphicsShadowCompareLodShader.vertex.dxil|backend/directx/DirectXGraphicsShadowCompareLodShader.graphics.hlsl"
-    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=-O3 -T ps_6_7 -E fragment_main -Fo|backend/directx/DirectXGraphicsShadowCompareLodShader.fragment.dxil|backend/directx/DirectXGraphicsShadowCompareLodShader.graphics.hlsl"
-    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SUCCESS_DIR}/dxc.log
+    -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_SHADOW_COMPARE_LOD_SUCCESS_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/DirectXGraphicsShadowCompareLodShader.fragment.dxil"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_resources_fake_dxc_tool_failure
