@@ -730,6 +730,15 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 summary["reflectionResources"]["targetResourceBindings"][0]["abi"],
                 {"buffer": 0},
             )
+            self.assertEqual(
+                summary["reflectionResources"]["targetResourceBindings"][0][
+                    "evidenceId"
+                ],
+                (
+                    "target-legalization.v1.metal.resource-binding.compute."
+                    "runtime_loader_main.OutputBuffer"
+                ),
+            )
             binding_metadata = summary["targetResourceBindingMetadata"]
             self.assertEqual(
                 binding_metadata,
@@ -755,6 +764,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                     "binding": None,
                     "argumentIndex": None,
                     "abi": {"buffer": 0},
+                    "evidenceId": (
+                        "target-legalization.v1.metal.resource-binding.compute."
+                        "runtime_loader_main.OutputBuffer"
+                    ),
                     "identity": {
                         "target": "metal",
                         "stage": "compute",
@@ -4499,6 +4512,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                         "bindingClass": "uav",
                         "descriptorType": "UAV",
                         "hlslType": "RWStructuredBuffer<float4>",
+                        "evidenceId": (
+                            f"target-legalization.v1.{target}.resource-binding."
+                            "compute.runtime_loader_main.OutputBuffer"
+                        ),
                     }
                 ],
                 "targetFeatures": [

@@ -502,6 +502,9 @@ def _summarize_directx_resource_binding(record: dict[str, Any]) -> dict[str, Any
         "register": abi_summary.get("register"),
         "space": abi_summary.get("space"),
     }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     _copy_descriptor_array_metadata(summary, record)
     return summary
 
@@ -520,6 +523,9 @@ def _summarize_directx_register_space_binding(
         "descriptorType": record.get("descriptorType"),
         "hlslType": record.get("hlslType"),
     }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     _copy_descriptor_array_metadata(summary, record)
     return summary
 

@@ -88,6 +88,13 @@ class MetalNativeLoaderPlanTests(unittest.TestCase):
                 summary["reflection"]["targetResourceBindings"][0]["abi"],
                 {"buffer": 0},
             )
+            self.assertEqual(
+                summary["reflection"]["targetResourceBindings"][0]["evidenceId"],
+                (
+                    "target-legalization.v1.metal.resource-binding.compute."
+                    "runtime_metal_loader_main.OutputBuffer"
+                ),
+            )
             runtime_summary = summary["runtimePlan"]
             self.assertEqual(runtime_summary["loaderTarget"], "metal")
             self.assertEqual(runtime_summary["sourceInputs"], [])
@@ -444,6 +451,15 @@ class MetalNativeLoaderPlanTests(unittest.TestCase):
                 ],
                 0,
             )
+            self.assertEqual(
+                metal_admission["reflection"]["targetResourceBindings"][0][
+                    "evidenceId"
+                ],
+                (
+                    "target-legalization.v1.metal.resource-binding.compute."
+                    "runtime_metal_loader_main.OutputBuffer"
+                ),
+            )
             checks = {check["name"]: check for check in metal_admission["checks"]}
             self.assertTrue(checks["manifestTargetMatchesLoader"]["passed"])
             self.assertTrue(checks["nativeBinaryPathSuffixMatchesMetallib"]["passed"])
@@ -505,6 +521,13 @@ class MetalNativeLoaderPlanTests(unittest.TestCase):
             self.assertEqual(
                 api_inputs["reflection"]["targetResourceBindings"][0]["bufferIndex"],
                 0,
+            )
+            self.assertEqual(
+                api_inputs["reflection"]["targetResourceBindings"][0]["evidenceId"],
+                (
+                    "target-legalization.v1.metal.resource-binding.compute."
+                    "runtime_metal_loader_main.OutputBuffer"
+                ),
             )
             self.assertEqual(
                 api_inputs["versionCompatibility"],
@@ -1886,6 +1909,10 @@ class MetalNativeLoaderPlanTests(unittest.TestCase):
                         "abi": {"buffer": 0},
                         "bindingClass": "buffer",
                         "descriptorType": "buffer",
+                        "evidenceId": (
+                            "target-legalization.v1.metal.resource-binding.compute."
+                            "runtime_metal_loader_main.OutputBuffer"
+                        ),
                     }
                 ],
                 "targetFeatures": [
@@ -1993,6 +2020,10 @@ class MetalNativeLoaderPlanTests(unittest.TestCase):
                         "abi": {"buffer": 0},
                         "bindingClass": "buffer",
                         "descriptorType": "buffer",
+                        "evidenceId": (
+                            "target-legalization.v1.metal.resource-binding.compute."
+                            "runtime_metal_loader_main.OutputBuffer"
+                        ),
                     }
                 ],
                 "targetFeatures": [

@@ -571,6 +571,9 @@ def _summarize_opengl_resource_binding(record: dict[str, Any]) -> dict[str, Any]
         "program": abi_summary.get("program"),
         "binding": abi_summary.get("binding"),
     }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     _copy_descriptor_array_metadata(summary, record)
     return summary
 

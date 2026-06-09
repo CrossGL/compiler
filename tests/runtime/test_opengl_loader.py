@@ -1095,6 +1095,15 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
                 summary["reflectionResources"]["targetResourceBindings"][0]["abi"],
                 {"program": 0, "binding": 0},
             )
+            self.assertEqual(
+                summary["reflectionResources"]["targetResourceBindings"][0][
+                    "evidenceId"
+                ],
+                (
+                    "target-legalization.v1.opengl.resource-binding.compute."
+                    "runtime_opengl_loader_main.OutputBuffer"
+                ),
+            )
             self.assertEqual(summary["reflectionResources"]["targetFeatureCount"], 1)
             self.assertEqual(summary["rejectReasons"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
@@ -1368,6 +1377,10 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
                 "abi": {"program": 0, "binding": 0},
                 "bindingClass": "storage-buffer",
                 "descriptorType": "shader-storage-buffer",
+                "evidenceId": (
+                    "target-legalization.v1.opengl.resource-binding.compute."
+                    "runtime_opengl_loader_main.OutputBuffer"
+                ),
             },
         )
 

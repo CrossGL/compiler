@@ -650,6 +650,7 @@ class RuntimeLoaderPlan:
                         "arrayDimensions",
                         "arrayElementCount",
                         "abi",
+                        "evidenceId",
                     ),
                 )
                 for record in selected_bindings
@@ -1303,6 +1304,9 @@ def _target_resource_binding_metadata_record(
             "kind": record.get("kind"),
         },
     }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     for field_name in (
         "arrayDimensions",
         "arrayElementCount",

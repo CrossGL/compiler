@@ -83,6 +83,13 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                 summary["reflection"]["targetResourceBindings"][0]["abi"],
                 {"space": 0, "register": "u0"},
             )
+            self.assertEqual(
+                summary["reflection"]["targetResourceBindings"][0]["evidenceId"],
+                (
+                    "target-legalization.v1.directx.resource-binding.compute."
+                    "runtime_directx_loader_main.OutputBuffer"
+                ),
+            )
             api_boundary = summary["directxNativeApiBoundary"]
             self.assertEqual(
                 api_boundary["boundary"],
@@ -140,6 +147,10 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                     "bindingClass": "uav",
                     "descriptorType": "UAV",
                     "hlslType": "RWStructuredBuffer<float4>",
+                    "evidenceId": (
+                        "target-legalization.v1.directx.resource-binding.compute."
+                        "runtime_directx_loader_main.OutputBuffer"
+                    ),
                 },
             )
             self.assertEqual(summary["rejectReasons"], [])
@@ -206,6 +217,9 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             self.assertEqual(resource["storageImageAccess"], "read_write")
             self.assertEqual(target_binding["storageImageFormat"], "rgba8")
             self.assertEqual(target_binding["storageImageAccess"], "read_write")
+            self.assertEqual(
+                register_binding["evidenceId"], target_binding["evidenceId"]
+            )
             self.assertEqual(register_binding["storageImageFormat"], "rgba8")
             self.assertEqual(register_binding["storageImageAccess"], "read_write")
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
@@ -2449,6 +2463,10 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                 "bindingClass": "uav",
                 "descriptorType": "UAV",
                 "hlslType": "RWStructuredBuffer<float4>",
+                "evidenceId": (
+                    "target-legalization.v1.directx.resource-binding.compute."
+                    "runtime_directx_loader_main.OutputBuffer"
+                ),
             },
         )
         if descriptor_path is not None:
