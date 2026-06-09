@@ -191,7 +191,7 @@ crossgl_add_package_verify_json_failure_schema_test(
   TOOLCHAIN_PATH ${CROSSGL_FAKE_DXC_SUCCESS_DIR}
   TOOLCHAIN_DISABLE_FALLBACK
   EXPECTED_JSON_FIELDS
-    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=null|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.missing-artifact"
+    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=emitted|summary.artifactCount=6|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.targetLegalizationEvidence.health=ok|summary.targetLegalizationEvidence.packageMode=source-package|summary.targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.missing-artifact"
   EXPECTED_JSON_ARRAY_LENGTHS
     "diagnostics=1")
 

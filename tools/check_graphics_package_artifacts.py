@@ -943,7 +943,7 @@ def probe_directx_graphics_fake_dxc(root, tmp_dir, cglc):
         case_name,
         "manifest.artifacts.nativeBinaryStatus",
         artifacts.get("nativeBinaryStatus"),
-        None,
+        "emitted",
     )
     expect_equal(
         errors,
