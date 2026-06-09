@@ -8504,18 +8504,26 @@ void testHIRSourceMapSchemaV8ResourceAccessRecords() {
     expect(record.resourceRecordKind == "access" &&
                record.resourceName == "values" &&
                record.resourceKind == "buffer" &&
+               record.function == "main" && record.ownerKind == "statement" &&
+               record.ownerName == "values" && record.accessKind == "write" &&
+               record.accessPath == "values" && record.operation == "index" &&
+               (record.indexExpression == "0" ||
+                record.indexExpression == "1") &&
+               record.memberName.empty() &&
                spanMatches(source, sourceLocation(record.location), "values"),
            "schema 8 HIR source-map access record points at resource "
-           "identifier token");
+           "identifier token with access context");
   }
   expect(accessSourceMap.records.items[0].recordKind == "resource" &&
              accessSourceMap.records.items[0]
                      .resource.resourceRecordKind == "access" &&
+             accessSourceMap.records.items[0].resource.accessKind == "write" &&
+             accessSourceMap.records.items[0].resource.function == "main" &&
              accessSourceMap.records.items[1].recordKind == "resource" &&
              accessSourceMap.records.items[1]
                      .resource.resourceRecordKind == "access",
-         "schema 8 HIR source-map combined records include resource access "
-         "records");
+         "schema 8 HIR source-map combined records include contextual "
+         "resource access records");
 
   crossgl::DebugMetadataHIRSourceMapPagination resourcePage;
   resourcePage.resourceLimit = 1;
@@ -8539,8 +8547,13 @@ void testHIRSourceMapSchemaV8ResourceAccessRecords() {
              accessJson.find("\"resourceName\":\"values\"") !=
                  std::string::npos &&
              accessJson.find("\"resourceKind\":\"buffer\"") !=
-                 std::string::npos,
-         "schema 8 HIR source-map JSON serializes resource access records");
+                 std::string::npos &&
+             accessJson.find("\"function\":\"main\"") != std::string::npos &&
+             accessJson.find("\"accessKind\":\"write\"") !=
+                 std::string::npos &&
+             accessJson.find("\"operation\":\"index\"") != std::string::npos,
+         "schema 8 HIR source-map JSON serializes contextual resource access "
+         "records");
 }
 
 std::vector<crossgl::Diagnostic> collectDiagnostics(std::string_view source) {
