@@ -1,0 +1,52 @@
+shader VulkanGraphicsFoldedScalarConstantsShader {
+    const int VERTEX_LANES = 1 + 1;
+    const float POSITION_BIAS = 0.25;
+    const int FRAGMENT_SLOT = VERTEX_LANES - 1;
+    const float COLOR_SCALE = 0.5 + 0.25;
+
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            int lanes = VERTEX_LANES;
+            float bias = lanes == VERTEX_LANES ? POSITION_BIAS : 0.0;
+            output.uv = input.texCoord;
+            output.position =
+                vec4(input.position.x + bias,
+                     input.position.y,
+                     input.position.z,
+                     1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            int slot = FRAGMENT_SLOT;
+            float scale = slot == FRAGMENT_SLOT ? COLOR_SCALE : 1.0;
+            output.color = vec4(input.uv.x * scale,
+                                input.uv.y,
+                                scale,
+                                1.0);
+            return output;
+        }
+    }
+}

@@ -11712,11 +11712,13 @@ bool vulkanGraphicsPrototypeSupported(const HIRModule &module,
                       "exactly one vertex stage and one fragment stage");
     return false;
   }
-  if (!module.constants.empty()) {
-    diagnostics.error("vulkan.prototype-unsupported-graphics-constant",
-                      "Vulkan graphics prototype emission does not yet "
-                      "support module constants");
-    return false;
+  for (const HIRConstant &constant : module.constants) {
+    if (!isPrototypeConstantSupported(constant)) {
+      diagnostics.error("vulkan.prototype-unsupported-graphics-constant",
+                        "Vulkan graphics prototype emission supports only "
+                        "folded scalar module constants");
+      return false;
+    }
   }
   if (!vulkanGraphicsStageResourcesSupported(module, *vertex, *fragment)) {
     diagnostics.error(
@@ -12510,6 +12512,41 @@ private:
     } else {
       types_ << id << " = OpConstant " << literalType << " "
              << expression.value << "\n";
+    }
+    return id;
+  }
+
+  const HIRConstant *moduleConstant(std::string_view name) const {
+    for (const HIRConstant &constant : module_.constants) {
+      if (constant.name == name) {
+        return &constant;
+      }
+    }
+    return nullptr;
+  }
+
+  std::string constantForModuleConstant(const HIRConstant &constant) {
+    std::string value = *constant.foldedValue;
+    if (constant.type.name == "float") {
+      value = prototypeNumericConstantLiteral(constant.type, std::move(value));
+    }
+
+    const std::string key = typeKey(constant.type) + "|" + value;
+    if (const auto found = literalConstants_.find(key);
+        found != literalConstants_.end()) {
+      return found->second;
+    }
+
+    const std::string id = freshId();
+    literalConstants_[key] = id;
+    const std::string constantType = typeId(constant.type);
+    if (constant.type.name == "bool") {
+      types_ << id << " = "
+             << (value == "true" ? "OpConstantTrue " : "OpConstantFalse ")
+             << constantType << "\n";
+    } else {
+      types_ << id << " = OpConstant " << constantType << " " << value
+             << "\n";
     }
     return id;
   }
@@ -13322,6 +13359,15 @@ private:
       if (const auto found = context.locals.find(expression.value);
           found != context.locals.end()) {
         return emitLoad(found->second);
+      }
+      if (const HIRConstant *constant = moduleConstant(expression.value)) {
+        if (!isPrototypeConstantSupported(*constant)) {
+          diagnostics_.error("vulkan.prototype-unsupported-graphics-constant",
+                             "Vulkan graphics prototype emission supports only "
+                             "folded scalar module constants");
+          return EmitValue{expression.type, intConstant(0)};
+        }
+        return EmitValue{constant->type, constantForModuleConstant(*constant)};
       }
       diagnostics_.error("vulkan.prototype-unsupported-graphics-body",
                          "unknown Vulkan graphics identifier '" +

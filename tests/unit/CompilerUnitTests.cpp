@@ -29592,6 +29592,162 @@ shader VulkanGraphicsFragmentDiscardShader {
          "Vulkan graphics fragment-discard prototype SPIR-V binary exists");
 }
 
+void testVulkanGraphicsFoldedScalarConstantsPrototypeAssembly() {
+  constexpr std::string_view source = R"(
+shader VulkanGraphicsFoldedScalarConstantsShader {
+  const int VERTEX_LANES = 1 + 1;
+  const float POSITION_BIAS = 0.25;
+  const int FRAGMENT_SLOT = VERTEX_LANES - 1;
+  const float COLOR_SCALE = 0.5 + 0.25;
+
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      int lanes = VERTEX_LANES;
+      float bias = lanes == VERTEX_LANES ? POSITION_BIAS : 0.0;
+      output.uv = input.texCoord;
+      output.position =
+          vec4(input.position.x + bias,
+               input.position.y,
+               input.position.z,
+               1.0);
+      return output;
+    }
+  }
+  fragment {
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      int slot = FRAGMENT_SLOT;
+      float scale = slot == FRAGMENT_SLOT ? COLOR_SCALE : 1.0;
+      output.color = vec4(input.uv.x * scale,
+                          input.uv.y,
+                          scale,
+                          1.0);
+      return output;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "Vulkan graphics folded scalar constants source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  crossgl::DiagnosticEngine supportDiagnostics;
+  expect(crossgl::vulkanPrototypeBinarySupported(*hir, supportDiagnostics) &&
+             !supportDiagnostics.hasErrors(),
+         "Vulkan graphics prototype support accepts folded scalar constants");
+  expect(!hasDiagnosticCode(supportDiagnostics.diagnostics(),
+                            "vulkan.prototype-unsupported-graphics-constant"),
+         "Vulkan graphics folded scalar constants avoid graphics constant "
+         "unsupported diagnostic");
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assembly.empty() && !assemblyDiagnostics.hasErrors(),
+         "Vulkan graphics folded scalar constants assembly has no diagnostics");
+  expect(!hasDiagnosticCode(assemblyDiagnostics.diagnostics(),
+                            "vulkan.prototype-unsupported-graphics-constant"),
+         "Vulkan graphics folded scalar constants assembly avoids graphics "
+         "constant unsupported diagnostic");
+
+  const auto hasConstantLine = [&](std::string_view value) {
+    std::size_t offset = 0;
+    while ((offset = assembly.find("OpConstant", offset)) !=
+           std::string::npos) {
+      const std::size_t lineEnd = assembly.find('\n', offset);
+      const std::string_view line(
+          assembly.data() + offset,
+          (lineEnd == std::string::npos ? assembly.size() : lineEnd) -
+              offset);
+      const std::string needle = " " + std::string(value);
+      if (line.ends_with(needle)) {
+        return true;
+      }
+      offset += std::string_view("OpConstant").size();
+    }
+    return false;
+  };
+  expect(hasConstantLine("2") && hasConstantLine("1") &&
+             hasConstantLine("0.25") && hasConstantLine("0.75"),
+         "Vulkan graphics folded scalar constants emit SPIR-V constants");
+  expect(assembly.find("OpIEqual") != std::string::npos &&
+             assembly.find("OpSelect") != std::string::npos,
+         "Vulkan graphics folded scalar constants are used in emitted "
+         "expressions");
+
+  constexpr std::string_view unsupportedSource = R"(
+shader VulkanGraphicsVectorConstantUnsupportedShader {
+  const vec3 AXIS = vec3(1.0, 0.0, 0.0);
+
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+  fragment {
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      output.color = vec4(input.uv, 0.0, 1.0);
+      return output;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> unsupportedHir =
+      parseHIR(unsupportedSource);
+  expect(unsupportedHir.has_value(),
+         "Vulkan graphics unsupported vector constant source builds HIR");
+  if (!unsupportedHir) {
+    return;
+  }
+  crossgl::DiagnosticEngine unsupportedDiagnostics;
+  expect(!crossgl::vulkanPrototypeBinarySupported(*unsupportedHir,
+                                                  unsupportedDiagnostics) &&
+             unsupportedDiagnostics.hasErrors() &&
+             hasDiagnosticCode(
+                 unsupportedDiagnostics.diagnostics(),
+                 "vulkan.prototype-unsupported-graphics-constant"),
+         "Vulkan graphics prototype support rejects non-scalar module "
+         "constants");
+}
+
 void testVulkanGraphicsUniformMemberSwizzlePrototypeAssembly() {
   constexpr std::string_view source = R"(
 shader VulkanGraphicsUniformMemberSwizzleShader {
@@ -53998,6 +54154,7 @@ int main() {
   testTextureCompareLodHIRAndNativeBackends();
   testGraphicsShadowCompareLodBackends();
   testVulkanGraphicsFragmentDiscardPrototypeAssembly();
+  testVulkanGraphicsFoldedScalarConstantsPrototypeAssembly();
   testVulkanGraphicsUniformMemberSwizzlePrototypeAssembly();
   testVulkanGraphicsSelectPrototypeAssembly();
   testVulkanGraphicsMathIntrinsicPrototypeAssembly();

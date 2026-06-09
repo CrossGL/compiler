@@ -4119,6 +4119,30 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_CONTAINS=OpDecorate %resource_vertex_vertexParams DescriptorSet 0|OpDecorate %resource_vertex_vertexParams Binding 0|OpDecorate %resource_fragment_fragmentParams DescriptorSet 0|OpDecorate %resource_fragment_fragmentParams Binding 1|%resource_vertex_vertexParams = OpVariable|%resource_fragment_fragmentParams = OpVariable|OpVectorShuffle"
       "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeImage|OpTypeSampler|OpTypeRuntimeArray"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_folded_scalar_constants_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_FOLDED_SCALAR_CONSTANTS_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-folded-scalar-constants.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsFoldedScalarConstantsShader
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsFoldedScalarConstantsShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsFoldedScalarConstantsShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsFoldedScalarConstantsShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsFoldedScalarConstantsShader|nativeBinary=backend/vulkan/VulkanGraphicsFoldedScalarConstantsShader.spv|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|vertexLayouts.0.entryPoint=vertex_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|vertexLayouts=1|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|local-declaration.kind=operation|vector-constructor.kind=operation"
+      "-DEXPECTED_SPVASM_SNIPPET=OpConstant"
+      -DEXPECTED_VULKAN_NO_DESCRIPTOR_METADATA=TRUE
+      -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_folded_scalar_constants_spvasm_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_FOLDED_SCALAR_CONSTANTS_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-folded-scalar-constants-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsFoldedScalarConstantsShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpConstant| 2| 0.25| 1| 0.75"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeImage|OpTypeSampler|OpTypeRuntimeArray|vulkan.prototype-unsupported-graphics-constant"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
   add_test(NAME cglc_build_vulkan_graphics_math_intrinsic_spvasm_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -4503,6 +4527,10 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
     cglc_build_vulkan_graphics_uniform_buffer_native vulkan)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_uniform_buffer_spvasm_native vulkan)
+  crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_folded_scalar_constants_native vulkan)
+  crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_folded_scalar_constants_spvasm_native vulkan)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_math_intrinsic_spvasm_native vulkan)
   crossgl_label_optional_native_test(
