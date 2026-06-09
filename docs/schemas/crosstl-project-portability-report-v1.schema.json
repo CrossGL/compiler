@@ -126,6 +126,21 @@
         "failedCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         },
+        "artifactProvenanceByPipeline": {
+          "$ref": "#/$defs/countMap"
+        },
+        "artifactProvenanceByIntermediate": {
+          "$ref": "#/$defs/countMap"
+        },
+        "artifactProvenanceIntermediateBySourceBackend": {
+          "$ref": "#/$defs/nestedCountMap"
+        },
+        "artifactProvenanceIntermediateByTarget": {
+          "$ref": "#/$defs/nestedCountMap"
+        },
+        "artifactProvenanceIntermediateByVariant": {
+          "$ref": "#/$defs/nestedCountMap"
+        },
         "sourceMapCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         },
@@ -170,6 +185,12 @@
         "$ref": "#/$defs/nonNegativeInteger"
       }
     },
+    "nestedCountMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/countMap"
+      }
+    },
     "artifact": {
       "type": "object",
       "additionalProperties": true,
@@ -192,11 +213,34 @@
         "status": {
           "$ref": "#/$defs/nonEmptyString"
         },
+        "provenance": {
+          "$ref": "#/$defs/artifactProvenance"
+        },
         "sourceMap": {
           "$ref": "#/$defs/sourceMapMetadata"
         },
         "sourceRemap": {
           "$ref": "#/$defs/sourceRemapMetadata"
+        }
+      }
+    },
+    "artifactProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pipeline",
+        "intermediate"
+      ],
+      "properties": {
+        "pipeline": {
+          "type": "string",
+          "const": "single-file-translate"
+        },
+        "intermediate": {
+          "enum": [
+            null,
+            "crossgl"
+          ]
         }
       }
     },

@@ -1,0 +1,1 @@
+$.summary.artifactProvenanceIntermediateByTarget: expected artifact provenance counts {'cgl': {'none': 1}}, got {'metal': {'crossgl': 1}}

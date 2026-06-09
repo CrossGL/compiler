@@ -25,6 +25,23 @@
     },
     "sourceMapCount": 1,
     "fineGrainedSourceMapCount": 1,
+    "artifactProvenanceByPipeline": {
+      "single-file-translate": 1
+    },
+    "artifactProvenanceByIntermediate": {
+      "none": 1
+    },
+    "artifactProvenanceIntermediateBySourceBackend": {
+      "cgl": {
+        "none": 1
+      }
+    },
+    "artifactProvenanceIntermediateByTarget": {
+      "cgl": {
+        "none": 1
+      }
+    },
+    "artifactProvenanceIntermediateByVariant": {},
     "sourceMapsByGranularity": {
       "line": 1
     },
@@ -62,6 +79,10 @@
         "value": "1111111111111111111111111111111111111111111111111111111111111111"
       },
       "sourceSizeBytes": 44,
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      },
       "generatedHash": {
         "algorithm": "sha256",
         "value": "2222222222222222222222222222222222222222222222222222222222222222"
