@@ -1390,6 +1390,24 @@ function(crossgl_apply_native_artifact_descriptor_json_expectations json)
     endforeach()
   endif()
 
+  if(DEFINED EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_ORDERED_CONTAINS)
+    string(REPLACE "|" ";" expected_ordered_snippets
+           "${EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_ORDERED_CONTAINS}")
+    set(previous_snippet_position -1)
+    foreach(snippet IN LISTS expected_ordered_snippets)
+      string(FIND "${json}" "${snippet}" snippet_position)
+      if(snippet_position EQUAL -1)
+        message(FATAL_ERROR
+                "expected native artifact descriptor to contain '${snippet}'")
+      endif()
+      if(snippet_position LESS previous_snippet_position)
+        message(FATAL_ERROR
+                "expected native artifact descriptor snippet '${snippet}' to appear after the previous ordered snippet")
+      endif()
+      set(previous_snippet_position "${snippet_position}")
+    endforeach()
+  endif()
+
   crossgl_validate_native_artifact_json_schema("${json}")
 endfunction()
 

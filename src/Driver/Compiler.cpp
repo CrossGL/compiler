@@ -22,6 +22,7 @@
 #include <initializer_list>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -1422,9 +1423,10 @@ std::string nativeArtifactDescriptorJson(
       (spec.optimizationEvidenceJson ? *spec.optimizationEvidenceJson
                                      : std::string()) +
       "\n";
+  const std::vector<VulkanSPIRVImport> spirvExtendedInstructionImports =
+      canonicalizeVulkanSPIRVImports(spec.spirvExtendedInstructionImports);
   std::string spirvDependencyFingerprint;
-  for (const VulkanSPIRVImport &import :
-       spec.spirvExtendedInstructionImports) {
+  for (const VulkanSPIRVImport &import : spirvExtendedInstructionImports) {
     spirvDependencyFingerprint += import.resultId;
     spirvDependencyFingerprint += "\n";
     spirvDependencyFingerprint += import.instructionSet;
@@ -1459,10 +1461,10 @@ std::string nativeArtifactDescriptorJson(
         << "  },\n"
         << "  \"sizeBytes\": " << *artifactSizeBytes;
   }
-  if (!spec.spirvExtendedInstructionImports.empty()) {
+  if (!spirvExtendedInstructionImports.empty()) {
     out << ",\n"
         << "  \"spirvDependencies\": "
-        << spirvDependenciesJson(spec.spirvExtendedInstructionImports);
+        << spirvDependenciesJson(spirvExtendedInstructionImports);
   }
   out << ",\n"
       << "  \"toolchainProvenance\": {\n"
@@ -1541,11 +1543,17 @@ std::optional<std::filesystem::path> writeNativeArtifactDescriptor(
 
   const std::filesystem::path descriptorPath =
       nativeArtifactDescriptorPath(module, target, packageDir);
-  if (!writeText(descriptorPath,
-                 nativeArtifactDescriptorJson(module, target, packageDir, spec,
-                                              *sourceHash, nativeHash,
-                                              nativeSize),
-                 diagnostics, "artifact.write-native-artifact-descriptor")) {
+  std::string descriptorJson;
+  try {
+    descriptorJson = nativeArtifactDescriptorJson(
+        module, target, packageDir, spec, *sourceHash, nativeHash, nativeSize);
+  } catch (const std::logic_error &error) {
+    diagnostics.error("artifact.native-descriptor-spirv-dependencies",
+                      error.what());
+    return std::nullopt;
+  }
+  if (!writeText(descriptorPath, descriptorJson, diagnostics,
+                 "artifact.write-native-artifact-descriptor")) {
     return std::nullopt;
   }
   return descriptorPath;

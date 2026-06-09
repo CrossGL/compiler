@@ -201,7 +201,9 @@ crossgl_add_python_expect_test(
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=vulkan|binaryKind=vulkan.spirv-module|sourcePath=backend/vulkan/IntrinsicComputeShader.spvasm|artifactPath=backend/vulkan/IntrinsicComputeShader.spv|spirvDependencies.extendedInstructionSets.0.resultId=%glsl_std_450|spirvDependencies.extendedInstructionSets.0.instructionSet=GLSL.std.450|validationStatus=validated"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=spirvDependencies.extendedInstructionSets=1|validationDiagnostics=0"
-    "-DEXPECTED_SPVASM_SNIPPET=%glsl_std_450 = OpExtInstImport \"GLSL.std.450\""
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_ORDERED_CONTAINS=\"schemaVersion\"|\"kind\"|\"contractVersion\"|\"target\"|\"binaryKind\"|\"sourcePath\"|\"sourceHash\"|\"artifactPath\"|\"artifactHash\"|\"sizeBytes\"|\"spirvDependencies\"|\"toolchainProvenance\"|\"optimizationLevel\"|\"optimizationEvidence\"|\"validationStatus\"|\"validationDiagnostics\""
+    "-DEXPECTED_SPVASM_CONTAINS=%glsl_std_450 = OpExtInstImport \"GLSL.std.450\"|OpExtInst %float %glsl_std_450 FAbs|OpExtInst %float %glsl_std_450 Sin|OpExtInst %float %glsl_std_450 Sqrt|OpExtInst %float %glsl_std_450 Pow|OpExtInst %vec4 %glsl_std_450 Normalize"
+    "-DEXPECTED_SPVASM_ORDERED_CONTAINS=OpCapability Shader|%glsl_std_450 = OpExtInstImport \"GLSL.std.450\"|OpMemoryModel Logical GLSL450|OpEntryPoint GLCompute %compute_main \"main\"|OpExecutionMode %compute_main LocalSize 1 1 1"
     -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     -DMODE=vulkan-build)

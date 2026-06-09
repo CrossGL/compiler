@@ -20,6 +20,7 @@
 #include <optional>
 #include <set>
 #include <sstream>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -39,19 +40,6 @@ const std::unordered_set<std::string> kEmptyStringSet;
 VulkanSPIRVImport
 vulkanSPIRVImport(const SPIRVExtInstImportDefinition &definition) {
   return VulkanSPIRVImport{definition.result.str(), definition.instructionSet};
-}
-
-std::vector<VulkanSPIRVImport>
-sortedVulkanSPIRVImports(std::vector<VulkanSPIRVImport> imports) {
-  std::sort(imports.begin(), imports.end(),
-            [](const VulkanSPIRVImport &lhs,
-               const VulkanSPIRVImport &rhs) {
-              if (lhs.instructionSet != rhs.instructionSet) {
-                return lhs.instructionSet < rhs.instructionSet;
-              }
-              return lhs.resultId < rhs.resultId;
-            });
-  return imports;
 }
 
 enum class VulkanStorageImageAccessDecoration {
@@ -5974,7 +5962,7 @@ public:
          module_.extInstImports()) {
       imports.push_back(vulkanSPIRVImport(definition));
     }
-    return sortedVulkanSPIRVImports(std::move(imports));
+    return canonicalizeVulkanSPIRVImports(std::move(imports));
   }
 
 private:
@@ -12085,7 +12073,7 @@ public:
   }
 
   std::vector<VulkanSPIRVImport> extendedInstructionImports() const {
-    return sortedVulkanSPIRVImports(extInstImports_);
+    return canonicalizeVulkanSPIRVImports(extInstImports_);
   }
 
 private:
@@ -14173,6 +14161,58 @@ bool writeTextFile(const std::filesystem::path &path, std::string_view text,
 }
 
 } // namespace
+
+std::vector<VulkanSPIRVImport>
+canonicalizeVulkanSPIRVImports(std::vector<VulkanSPIRVImport> imports) {
+  std::unordered_map<std::string, std::string> resultIdByInstructionSet;
+  std::unordered_map<std::string, std::string> instructionSetByResultId;
+  for (const VulkanSPIRVImport &import : imports) {
+    if (import.resultId.empty()) {
+      throw std::logic_error(
+          "Vulkan SPIR-V import metadata requires a result id");
+    }
+    if (import.instructionSet.empty()) {
+      throw std::logic_error(
+          "Vulkan SPIR-V import metadata requires an instruction set");
+    }
+
+    const auto [instructionSetEntry, insertedInstructionSet] =
+        resultIdByInstructionSet.emplace(import.instructionSet,
+                                         import.resultId);
+    if (!insertedInstructionSet &&
+        instructionSetEntry->second != import.resultId) {
+      throw std::logic_error(
+          "Vulkan SPIR-V import metadata instruction set '" +
+          import.instructionSet + "' has multiple result ids");
+    }
+
+    const auto [resultIdEntry, insertedResultId] =
+        instructionSetByResultId.emplace(import.resultId,
+                                         import.instructionSet);
+    if (!insertedResultId && resultIdEntry->second != import.instructionSet) {
+      throw std::logic_error("Vulkan SPIR-V import metadata result id '" +
+                             import.resultId +
+                             "' imports multiple instruction sets");
+    }
+  }
+
+  std::sort(imports.begin(), imports.end(),
+            [](const VulkanSPIRVImport &lhs,
+               const VulkanSPIRVImport &rhs) {
+              if (lhs.instructionSet != rhs.instructionSet) {
+                return lhs.instructionSet < rhs.instructionSet;
+              }
+              return lhs.resultId < rhs.resultId;
+            });
+  imports.erase(std::unique(imports.begin(), imports.end(),
+                            [](const VulkanSPIRVImport &lhs,
+                               const VulkanSPIRVImport &rhs) {
+                              return lhs.resultId == rhs.resultId &&
+                                     lhs.instructionSet == rhs.instructionSet;
+                            }),
+                imports.end());
+  return imports;
+}
 
 bool vulkanResourceUsesDescriptor(HIRResourceKind kind) {
   return kind == HIRResourceKind::Uniform || kind == HIRResourceKind::Buffer ||

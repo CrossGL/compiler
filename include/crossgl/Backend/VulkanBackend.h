@@ -41,6 +41,8 @@ struct VulkanBuildResult {
 };
 
 bool vulkanResourceUsesDescriptor(HIRResourceKind kind);
+std::vector<VulkanSPIRVImport>
+canonicalizeVulkanSPIRVImports(std::vector<VulkanSPIRVImport> imports);
 std::string vulkanDescriptorType(HIRResourceKind kind);
 std::string vulkanResourceStorageClass(HIRResourceKind kind);
 std::string vulkanResourceBindingClass(HIRResourceKind kind);

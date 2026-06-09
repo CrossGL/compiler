@@ -23667,6 +23667,53 @@ void testSPIRVModuleBuilder() {
          "caller-defined result ids");
 }
 
+void testVulkanSPIRVImportMetadataCanonicalization() {
+  const std::vector<crossgl::VulkanSPIRVImport> canonical =
+      crossgl::canonicalizeVulkanSPIRVImports({
+          {"%debug_printf", "NonSemantic.DebugPrintf"},
+          {"%glsl_std_450", "GLSL.std.450"},
+          {"%debug_printf", "NonSemantic.DebugPrintf"},
+          {"%shader_debug_info", "NonSemantic.Shader.DebugInfo.100"},
+          {"%glsl_std_450", "GLSL.std.450"},
+      });
+  expect(canonical.size() == 3,
+         "Vulkan SPIR-V import metadata canonicalization removes exact repeats");
+  if (canonical.size() == 3) {
+    expect(canonical[0].resultId == "%glsl_std_450" &&
+               canonical[0].instructionSet == "GLSL.std.450" &&
+               canonical[1].resultId == "%debug_printf" &&
+               canonical[1].instructionSet == "NonSemantic.DebugPrintf" &&
+               canonical[2].resultId == "%shader_debug_info" &&
+               canonical[2].instructionSet ==
+                   "NonSemantic.Shader.DebugInfo.100",
+           "Vulkan SPIR-V import metadata canonicalization sorts "
+           "dependencies deterministically");
+  }
+
+  auto rejectsImportMetadata =
+      [](std::vector<crossgl::VulkanSPIRVImport> imports) {
+        try {
+          static_cast<void>(
+              crossgl::canonicalizeVulkanSPIRVImports(std::move(imports)));
+        } catch (const std::logic_error &) {
+          return true;
+        }
+        return false;
+      };
+  expect(rejectsImportMetadata({{"%a", "GLSL.std.450"},
+                                {"%b", "GLSL.std.450"}}),
+         "Vulkan SPIR-V import metadata rejects repeated instruction sets "
+         "with different result ids");
+  expect(rejectsImportMetadata({{"%shared", "GLSL.std.450"},
+                                {"%shared", "NonSemantic.DebugPrintf"}}),
+         "Vulkan SPIR-V import metadata rejects result ids reused for "
+         "different instruction sets");
+  expect(rejectsImportMetadata({{"", "GLSL.std.450"}}),
+         "Vulkan SPIR-V import metadata rejects empty result ids");
+  expect(rejectsImportMetadata({{"%missing_set", ""}}),
+         "Vulkan SPIR-V import metadata rejects empty instruction sets");
+}
+
 void testBackendIRContracts() {
   const crossgl::HIRModule module = simpleModule();
   const std::string metal =
@@ -53824,6 +53871,7 @@ int main() {
   testRuntimeDescriptorArrayPolicyHelper();
   testNativeTargetPackageDecisionPredicates();
   testSPIRVModuleBuilder();
+  testVulkanSPIRVImportMetadataCanonicalization();
   testBackendIRContracts();
   testDirectXOpenGLComputeBackendScaffolds();
   testGraphicsABIIOContractTextBackends();
