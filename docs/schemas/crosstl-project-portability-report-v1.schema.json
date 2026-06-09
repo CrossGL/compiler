@@ -132,6 +132,18 @@
         "fineGrainedSourceMapCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         },
+        "sourceMapsByGranularity": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceMapsByTarget": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceMapsBySourceBackend": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceMapsByVariant": {
+          "$ref": "#/$defs/countMap"
+        },
         "sourceRemapCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         },
@@ -139,17 +151,23 @@
           "$ref": "#/$defs/nonNegativeInteger"
         },
         "sourceRemapsByGranularity": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/$defs/countMap"
         },
         "sourceRemapsByTarget": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/$defs/countMap"
         },
         "sourceRemapsBySourceBackend": {
-          "type": "object",
-          "additionalProperties": true
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceRemapsByVariant": {
+          "$ref": "#/$defs/countMap"
         }
+      }
+    },
+    "countMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/nonNegativeInteger"
       }
     },
     "artifact": {
@@ -168,11 +186,68 @@
         "path": {
           "$ref": "#/$defs/stableRelativePath"
         },
+        "variant": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
         "status": {
           "$ref": "#/$defs/nonEmptyString"
         },
+        "sourceMap": {
+          "$ref": "#/$defs/sourceMapMetadata"
+        },
         "sourceRemap": {
           "$ref": "#/$defs/sourceRemapMetadata"
+        }
+      }
+    },
+    "mappingGranularity": {
+      "type": "string",
+      "enum": [
+        "file",
+        "line",
+        "statement",
+        "token"
+      ]
+    },
+    "sourceMapMetadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "mappingGranularity",
+        "target",
+        "source",
+        "generated",
+        "mappings"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "kind": {
+          "type": "string",
+          "const": "crosstl-artifact-source-map"
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/mappingGranularity"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceMapSpan"
+        },
+        "generated": {
+          "$ref": "#/$defs/sourceMapSpan"
+        },
+        "mappings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceMapMapping"
+          }
         }
       }
     },
@@ -205,11 +280,7 @@
           "$ref": "#/$defs/stableRelativePath"
         },
         "mappingGranularity": {
-          "type": "string",
-          "enum": [
-            "file",
-            "line"
-          ]
+          "$ref": "#/$defs/mappingGranularity"
         },
         "mappingCount": {
           "$ref": "#/$defs/nonNegativeInteger"
@@ -219,6 +290,62 @@
         },
         "hash": {
           "$ref": "#/$defs/sha256Hash"
+        }
+      }
+    },
+    "sourceMapMapping": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "source",
+        "generated"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/sourceMapSpan"
+        },
+        "generated": {
+          "$ref": "#/$defs/sourceMapSpan"
+        }
+      }
+    },
+    "sourceMapSpan": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "line": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
         }
       }
     }

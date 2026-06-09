@@ -25,6 +25,16 @@
     },
     "sourceMapCount": 1,
     "fineGrainedSourceMapCount": 1,
+    "sourceMapsByGranularity": {
+      "line": 1
+    },
+    "sourceMapsByTarget": {
+      "cgl": 1
+    },
+    "sourceMapsBySourceBackend": {
+      "cgl": 1
+    },
+    "sourceMapsByVariant": {},
     "sourceRemapCount": 1,
     "sourceRemapMappingCount": 2,
     "sourceRemapsByGranularity": {
@@ -35,7 +45,8 @@
     },
     "sourceRemapsBySourceBackend": {
       "cgl": 1
-    }
+    },
+    "sourceRemapsByVariant": {}
   },
   "units": [],
   "skipped": [],
@@ -56,6 +67,78 @@
         "value": "2222222222222222222222222222222222222222222222222222222222222222"
       },
       "generatedSizeBytes": 44,
+      "sourceMap": {
+        "schemaVersion": 1,
+        "kind": "crosstl-artifact-source-map",
+        "mappingGranularity": "line",
+        "target": "cgl",
+        "source": {
+          "file": "simple.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 44,
+          "endLine": 2,
+          "endColumn": 14,
+          "endOffset": 44
+        },
+        "generated": {
+          "file": "out/cgl/simple.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 44,
+          "endLine": 2,
+          "endColumn": 14,
+          "endOffset": 44
+        },
+        "mappings": [
+          {
+            "source": {
+              "file": "simple.cgl",
+              "line": 1,
+              "column": 1,
+              "offset": 0,
+              "length": 31,
+              "endLine": 1,
+              "endColumn": 32,
+              "endOffset": 31
+            },
+            "generated": {
+              "file": "out/cgl/simple.cgl",
+              "line": 1,
+              "column": 1,
+              "offset": 0,
+              "length": 31,
+              "endLine": 1,
+              "endColumn": 32,
+              "endOffset": 31
+            }
+          },
+          {
+            "source": {
+              "file": "simple.cgl",
+              "line": 2,
+              "column": 1,
+              "offset": 31,
+              "length": 13,
+              "endLine": 2,
+              "endColumn": 14,
+              "endOffset": 44
+            },
+            "generated": {
+              "file": "out/cgl/simple.cgl",
+              "line": 2,
+              "column": 1,
+              "offset": 31,
+              "length": 13,
+              "endLine": 2,
+              "endColumn": 14,
+              "endOffset": 44
+            }
+          }
+        ]
+      },
       "sourceRemap": {
         "schemaVersion": 1,
         "path": "out/cgl/simple.source-remap.json",
