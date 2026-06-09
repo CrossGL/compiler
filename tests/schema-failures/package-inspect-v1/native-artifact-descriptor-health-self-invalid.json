@@ -118,6 +118,15 @@
     "artifactHash": null,
     "sizeBytes": null,
     "optimizationLevel": "O0",
+    "optimizationEvidence": {
+      "requestedLevel": "O0",
+      "effectiveLevel": "unknown",
+      "policy": "crossgl-to-dxc-optimization-map",
+      "status": "unavailable",
+      "tool": "dxc",
+      "toolFlag": "-Od",
+      "profile": "cs_6_0"
+    },
     "validationStatus": "unavailable",
     "nativeBinaryStatus": "planned",
     "checks": {

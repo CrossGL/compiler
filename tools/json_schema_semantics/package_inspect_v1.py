@@ -887,7 +887,13 @@ def validate_native_artifact_descriptor(
     ):
         expected_health = "invalid"
         expected_checks = None
-    elif all(value is True or value is None for value in check_values):
+    elif native_artifact_descriptor_health_self_invalid(descriptor, check_values):
+        expected_health = "ok"
+        expected_checks = None
+    elif descriptor["health"] == "invalid":
+        expected_health = "invalid"
+        expected_checks = None
+    elif native_artifact_descriptor_checks_report_ok(check_values):
         expected_health = "ok"
         expected_checks = None
     else:
@@ -985,6 +991,18 @@ def native_artifact_descriptor_has_produced_artifact(descriptor):
     return all(
         descriptor.get(field) is not None
         for field in ("artifactPath", "artifactHash", "sizeBytes")
+    )
+
+
+def native_artifact_descriptor_checks_report_ok(check_values):
+    return all(value is True or value is None for value in check_values)
+
+
+def native_artifact_descriptor_health_self_invalid(descriptor, check_values):
+    return (
+        descriptor["health"] == "invalid"
+        and native_artifact_descriptor_checks_report_ok(check_values)
+        and isinstance(descriptor.get("optimizationEvidence"), dict)
     )
 
 
