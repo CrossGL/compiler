@@ -2189,7 +2189,7 @@ kernel void compute_main(device float* values [[buffer(0)]]) {
       "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=metal|module=BooleanDeMorganBackendShader|nativeBinary=backend/metal/BooleanDeMorganBackendShader.metallib|workgroupSizes.0.entryPoint=compute_main"
       "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1"
       "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=int*|values.metalType=device int*|values.bindingClass=buffer|values.argumentIndex=0|values.storageBufferLayout.elementType=int|values.storageBufferLayout.arrayStrideBytes=4|values.storageBufferLayout.layout=metal-device"
-      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|compute-kernel.kind=stage|storage-buffer.kind=resource|scalar-comparison.kind=operation"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-metal-package.kind=backend|compute-kernel.kind=stage|storage-buffer.kind=resource|scalar-comparison.kind=operation|scalar-logical.kind=operation"
       "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   set(CROSSGL_METAL_SELECT_EXPRESSION_NATIVE_SOURCE_SNIPPET [=[int selectedInt = base ? dynamicIndex + 1 : dynamicIndex + 2;

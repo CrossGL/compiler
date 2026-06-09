@@ -23075,6 +23075,7 @@ void testScalarVectorFixtureTargetFeatureEvidence() {
     bool scalarConstructor = false;
     bool vectorConstructor = false;
     bool matrixConstructor = false;
+    bool scalarLogical = false;
   };
 
   const std::array<FixtureFeatureCase, 9> cases = {{
@@ -23137,12 +23138,18 @@ shader LogicalComputeShader {
       bool left = true;
       bool right = false;
       bool both = left && right;
-      bool either = both || left;
+      bool either = both || !right;
       return;
     }
   }
 }
 )",
+          false,
+          false,
+          false,
+          false,
+          true,
+          false,
           false,
           false,
           false,
@@ -23369,6 +23376,7 @@ shader MatrixConstructorComputeShader {
                        testCase.vectorArithmetic);
       expectCapability("operation", "scalar-comparison",
                        testCase.scalarComparison);
+      expectCapability("operation", "scalar-logical", testCase.scalarLogical);
       expectCapability("operation", "scalar-constructor",
                        testCase.scalarConstructor);
       expectCapability("operation", "vector-constructor",
@@ -23405,6 +23413,8 @@ shader MatrixConstructorComputeShader {
                               testCase.vectorArithmetic);
       expectReflectionFeature("operation", "scalar-comparison",
                               testCase.scalarComparison);
+      expectReflectionFeature("operation", "scalar-logical",
+                              testCase.scalarLogical);
       expectReflectionFeature("operation", "scalar-constructor",
                               testCase.scalarConstructor);
       expectReflectionFeature("operation", "vector-constructor",
@@ -23438,6 +23448,8 @@ shader MatrixConstructorComputeShader {
                               testCase.vectorArithmetic);
         expectSourceSatisfied("operation", "scalar-comparison",
                               testCase.scalarComparison);
+        expectSourceSatisfied("operation", "scalar-logical",
+                              testCase.scalarLogical);
         expectSourceSatisfied("operation", "scalar-constructor",
                               testCase.scalarConstructor);
         expectSourceSatisfied("operation", "vector-constructor",

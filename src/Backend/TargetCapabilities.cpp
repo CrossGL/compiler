@@ -228,6 +228,8 @@ bool isComparisonOperator(std::string_view op) {
          op == "!=";
 }
 
+bool isLogicalOperator(std::string_view op) { return op == "&&" || op == "||"; }
+
 bool containsNonUniformIndex(const HIRExpression &expression) {
   if (expression.kind == HIRExpressionKind::NonUniform) {
     return true;
@@ -541,6 +543,11 @@ void addExpressionCapabilities(
       collector.add("operation", "scalar-constructor");
     }
     break;
+  case HIRExpressionKind::Unary:
+    if (expression.value == "!") {
+      collector.add("operation", "scalar-logical");
+    }
+    break;
   case HIRExpressionKind::Binary:
     // Preserve the original binary-operation feature ABI: every binary
     // expression is classified as scalar/vector arithmetic by result type.
@@ -556,6 +563,8 @@ void addExpressionCapabilities(
            isVectorTypeName(expression.children[1].type.name));
       collector.add("operation",
                     vectorOperand ? "vector-comparison" : "scalar-comparison");
+    } else if (isLogicalOperator(expression.value)) {
+      collector.add("operation", "scalar-logical");
     }
     break;
   case HIRExpressionKind::Select:
@@ -775,6 +784,7 @@ bool capabilitySatisfiedByTextualScaffold(const HIRModule &module,
            capability.name == "vector-arithmetic" ||
            capability.name == "scalar-comparison" ||
            capability.name == "vector-comparison" ||
+           capability.name == "scalar-logical" ||
            capability.name == "select-expression" ||
            capability.name == "scalar-constructor" ||
            capability.name == "vector-constructor" ||

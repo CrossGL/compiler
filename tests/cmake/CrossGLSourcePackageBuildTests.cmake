@@ -1594,7 +1594,7 @@ add_test(NAME cglc_build_directx_boolean_de_morgan_source_package
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=directx|module=BooleanDeMorganBackendShader|nativeBinary=backend/directx/BooleanDeMorganBackendShader.dxil|workgroupSizes.0.entryPoint=compute_main"
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=int*|values.hlslType=RWStructuredBuffer<int>|values.bindingClass=uav|values.descriptorType=UAV|values.argumentIndex=0"
-    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|storage-buffer.kind=resource|scalar-comparison.kind=operation"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=hlsl-lowering.kind=backend|compute-kernel.kind=stage|storage-buffer.kind=resource|scalar-comparison.kind=operation|scalar-logical.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_DIRECTX_SELECT_EXPRESSION_SOURCE_SNIPPET [=[int selectedInt = (base ? dynamicIndex + 1 : dynamicIndex + 2);
   bool selectedBool = (base ? dynamicIndex > 3 : dynamicIndex > 4);
@@ -1985,7 +1985,7 @@ add_test(NAME cglc_build_opengl_boolean_de_morgan_source_package
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=BooleanDeMorganBackendShader|workgroupSizes.0.entryPoint=compute_main"
     "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1"
     "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=int*|values.bindingClass=storage-buffer|values.argumentIndex=0|values.storageBufferLayout.layout=std430|values.storageBufferLayout.elementType=int"
-    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|compute-kernel.kind=stage|storage-buffer.kind=resource|scalar-comparison.kind=operation"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|compute-kernel.kind=stage|storage-buffer.kind=resource|scalar-comparison.kind=operation|scalar-logical.kind=operation"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_OPENGL_SELECT_EXPRESSION_SOURCE_SNIPPET [=[int selectedInt = (base ? dynamicIndex + 1 : dynamicIndex + 2);
   bool selectedBool = (base ? dynamicIndex > 3 : dynamicIndex > 4);
@@ -4195,7 +4195,7 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsBooleanLogicShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsBooleanLogicShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsBooleanLogicShader.spv"
       "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsBooleanLogicShader|nativeBinary=backend/vulkan/VulkanGraphicsBooleanLogicShader.spv|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|vertexLayouts.0.entryPoint=vertex_main"
       "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=0|targetResourceBindings=0|vertexLayouts=1|workgroupSizes=0"
-      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|structured-selection.kind=controlFlow|scalar-comparison.kind=operation|vector-arithmetic.kind=operation|vector-constructor.kind=operation|local-declaration.kind=operation"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|structured-selection.kind=controlFlow|scalar-comparison.kind=operation|scalar-logical.kind=operation|vector-arithmetic.kind=operation|vector-constructor.kind=operation|local-declaration.kind=operation"
       "-DEXPECTED_SPVASM_SNIPPET=OpLogicalAnd"
       -DEXPECTED_VULKAN_NO_DESCRIPTOR_METADATA=TRUE
       -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
