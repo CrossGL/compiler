@@ -524,21 +524,39 @@ def base_reflection(manifest):
 
 
 def nonuniform_target_features(target):
-    return copy.deepcopy(NONUNIFORM_TARGET_FEATURES[target])
+    return with_target_feature_evidence_ids(
+        target,
+        copy.deepcopy(NONUNIFORM_TARGET_FEATURES[target]),
+    )
+
+
+def target_feature_evidence_id(target, kind, name):
+    return f"target-legalization.v1.{target}.capability.required.{target}.{kind}.{name}"
+
+
+def with_target_feature_evidence_ids(target, features):
+    for feature in features:
+        feature["evidenceIds"] = [
+            target_feature_evidence_id(target, feature["kind"], feature["name"])
+        ]
+    return features
 
 
 def storage_image_target_features(target, atomic=False):
     specs = (
         STORAGE_IMAGE_ATOMIC_FEATURES if atomic else STORAGE_IMAGE_READ_WRITE_FEATURES
     )
-    return [
-        {
-            "target": target,
-            "kind": kind,
-            "name": name,
-        }
-        for kind, name in specs
-    ]
+    return with_target_feature_evidence_ids(
+        target,
+        [
+            {
+                "target": target,
+                "kind": kind,
+                "name": name,
+            }
+            for kind, name in specs
+        ],
+    )
 
 
 def nonuniform_diagnostics(target):
