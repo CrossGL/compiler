@@ -26,9 +26,11 @@ def validate_diagnostic_code_counts(errors, path, entries, diagnostic_counts):
         errors.append(f"{path}: diagnostic codes must be sorted")
     if len(codes) != len(set(codes)):
         errors.append(f"{path}: duplicate diagnostic codes")
-    for index, code in enumerate(codes):
-        if code == "":
+    for index, entry in enumerate(entries):
+        if entry["code"] == "":
             errors.append(f"{path}[{index}].code: expected non-empty code")
+        if entry["count"] == 0:
+            errors.append(f"{path}[{index}].count: expected positive count")
     add_equal_error(
         errors,
         path,
