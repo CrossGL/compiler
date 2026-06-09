@@ -5,6 +5,7 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,8 @@ from package_target_contracts import (
 
 
 MODULE_NAME = "StorageBufferComputeShader"
+CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS = "CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS"
+CROSSGL_CI_JOBS = "CROSSGL_CI_JOBS"
 DEBUG_TARGET_SUMMARY_TARGETS = ("metal", "vulkan", "directx", "opengl")
 TARGET_EXPLANATION_SCHEMA_PATH = (
     Path(__file__).resolve().parents[1]
@@ -51,6 +54,29 @@ TARGET_ARTIFACT_PATHS = {
         "nativeBinary": "backend/opengl/StorageBufferComputeShader.glsl",
     },
 }
+
+
+def positive_jobs(value):
+    try:
+        jobs = int(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if jobs < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return jobs
+
+
+def jobs_from_environment(parser):
+    for name in (CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS, CROSSGL_CI_JOBS):
+        value = os.environ.get(name)
+        if value is None or not value.strip():
+            continue
+        try:
+            return positive_jobs(value)
+        except argparse.ArgumentTypeError:
+            parser.error(f"{name} must be a positive integer")
+    return 1
+
 
 SOURCE_PACKAGE_GENERATOR_NAMES = {
     "directx": "CrossGL DirectX backend",
@@ -1644,7 +1670,7 @@ def run_native_delegation_cases(root, cglc, tmp_dir):
     return errors
 
 
-def run_cases(root, cglc=None):
+def run_cases(root, cglc=None, jobs=1):
     errors = []
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
@@ -1702,6 +1728,7 @@ def run_cases(root, cglc=None):
             errors,
             valid_target_cases,
             check_valid_target_case,
+            jobs=jobs,
         )
 
         unexpected_native_status_cases = []
@@ -1732,6 +1759,7 @@ def run_cases(root, cglc=None):
             errors,
             unexpected_native_status_cases,
             check_unexpected_native_status_case,
+            jobs=jobs,
         )
 
         package, source, manifest = make_package(tmp_dir, "duplicate-artifact-key")
@@ -1778,6 +1806,7 @@ def run_cases(root, cglc=None):
             errors,
             missing_required_artifact_cases,
             check_missing_required_artifact_case,
+            jobs=jobs,
         )
 
         package, source, manifest = make_package(
@@ -2231,9 +2260,20 @@ def main():
         help="CrossGL-Compiler repository root",
     )
     parser.add_argument("--cglc", type=Path, help="Path to cglc executable")
+    parser.add_argument(
+        "--jobs",
+        type=positive_jobs,
+        help=(
+            "Run independent fixture cases in parallel; defaults to "
+            f"${CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS}, then ${CROSSGL_CI_JOBS}, "
+            "then 1."
+        ),
+    )
     args = parser.parse_args()
+    if args.jobs is None:
+        args.jobs = jobs_from_environment(parser)
 
-    errors = run_cases(Path(args.root).resolve(), args.cglc)
+    errors = run_cases(Path(args.root).resolve(), args.cglc, jobs=args.jobs)
     if errors:
         for error in errors:
             print(f"package integrity fixture check failed: {error}", file=sys.stderr)

@@ -4,6 +4,7 @@
 import argparse
 import copy
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -43,6 +44,8 @@ from package_target_contracts import TARGET_REQUIRED_ARTIFACTS
 
 
 SEVERITIES = ("note", "warning", "error")
+CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS = "CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS"
+CROSSGL_CI_JOBS = "CROSSGL_CI_JOBS"
 VERIFY_DIAGNOSTIC_CODE_PREFIX = "package.verify."
 LEGACY_REQUIREMENTS_FALLBACK_CODE = (
     "package.verify.legacy-artifact-requirements-fallback"
@@ -51,6 +54,28 @@ SYNTHETIC_STORAGE_IMAGE_ARRAY_SOURCE_COORDINATES = {
     "maskAtlases": {"stage": "compute", "set": 0, "binding": 1},
     "unsignedAtlases": {"stage": "compute", "set": 0, "binding": 1},
 }
+
+
+def positive_jobs(value):
+    try:
+        jobs = int(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if jobs < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return jobs
+
+
+def jobs_from_environment(parser):
+    for name in (CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS, CROSSGL_CI_JOBS):
+        value = os.environ.get(name)
+        if value is None or not value.strip():
+            continue
+        try:
+            return positive_jobs(value)
+        except argparse.ArgumentTypeError:
+            parser.error(f"{name} must be a positive integer")
+    return 1
 
 
 def package_artifact_requirement_evidence_ids(requirements):
@@ -1471,7 +1496,7 @@ def expect_args_failure(cglc, case_name, args, expected):
     return errors
 
 
-def run_cases(root, cglc):
+def run_cases(root, cglc, jobs=1):
     errors = []
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
@@ -2060,6 +2085,7 @@ def run_cases(root, cglc):
             errors,
             native_artifact_descriptor_cases,
             check_native_artifact_descriptor_case,
+            jobs=jobs,
         )
 
         package, source, manifest = make_package(
@@ -2466,6 +2492,7 @@ def run_cases(root, cglc):
             errors,
             valid_target_cases,
             check_valid_target_case,
+            jobs=jobs,
         )
 
         nonuniform_feature_cases = []
@@ -2500,6 +2527,7 @@ def run_cases(root, cglc):
             errors,
             nonuniform_feature_cases,
             check_nonuniform_feature_case,
+            jobs=jobs,
         )
 
         storage_image_cases = []
@@ -2567,6 +2595,7 @@ def run_cases(root, cglc):
             errors,
             storage_image_cases,
             check_storage_image_case,
+            jobs=jobs,
         )
 
         unexpected_native_status_cases = []
@@ -2614,6 +2643,7 @@ def run_cases(root, cglc):
             errors,
             unexpected_native_status_cases,
             check_unexpected_native_status_case,
+            jobs=jobs,
         )
 
         package, _source, manifest = make_package(tmp_dir, "duplicate-artifact-key")
@@ -2697,6 +2727,7 @@ def run_cases(root, cglc):
             errors,
             missing_required_artifact_cases,
             check_missing_required_artifact_case,
+            jobs=jobs,
         )
 
         package, source, manifest = make_package(
@@ -3696,13 +3727,24 @@ def main():
         help="CrossGL-Compiler repository root",
     )
     parser.add_argument("--cglc", required=True, help="Path to cglc executable")
+    parser.add_argument(
+        "--jobs",
+        type=positive_jobs,
+        help=(
+            "Run independent fixture cases in parallel; defaults to "
+            f"${CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS}, then ${CROSSGL_CI_JOBS}, "
+            "then 1."
+        ),
+    )
     args = parser.parse_args()
+    if args.jobs is None:
+        args.jobs = jobs_from_environment(parser)
 
     root = Path(args.root).resolve()
     if str(root / "tools") not in sys.path:
         sys.path.insert(0, str(root / "tools"))
 
-    errors = run_cases(root, Path(args.cglc))
+    errors = run_cases(root, Path(args.cglc), jobs=args.jobs)
     if errors:
         for error in errors:
             print(f"package verify fixture check failed: {error}", file=sys.stderr)
