@@ -257,6 +257,30 @@
         }
       }
     },
+    "targetLegalizationTargetFeatureEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.(capability\\.(required|missing)\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+|abi\\.(required|missing)\\.[A-Za-z0-9_.-]+)$"
+    },
+    "reflection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetFeatureCount",
+        "targetFeatureEvidenceIds"
+      ],
+      "properties": {
+        "targetFeatureCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "targetFeatureEvidenceIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/targetLegalizationTargetFeatureEvidenceId"
+          }
+        }
+      }
+    },
     "package": {
       "type": "object",
       "additionalProperties": false,
@@ -267,6 +291,7 @@
         "sourceHash",
         "nativeBinaryStatus",
         "packageArtifactRequirements",
+        "reflection",
         "artifactCount",
         "existingArtifactCount",
         "missingArtifactCount",
@@ -297,6 +322,9 @@
         },
         "packageArtifactRequirements": {
           "$ref": "#/$defs/packageArtifactRequirements"
+        },
+        "reflection": {
+          "$ref": "#/$defs/reflection"
         },
         "artifactCount": {
           "$ref": "#/$defs/nonNegativeInteger"

@@ -7,6 +7,7 @@ from .common import (
     add_length_count_error,
     validate_native_binary_state,
     validate_release_package_artifacts_against_requirements,
+    validate_target_feature_reflection_summary,
 )
 
 
@@ -128,6 +129,12 @@ def validate_semantics(instance):
             )
         validate_release_package_artifacts_against_requirements(
             errors, package_path, package
+        )
+        validate_target_feature_reflection_summary(
+            errors,
+            f"{package_path}.reflection",
+            package["target"],
+            package["reflection"],
         )
         validate_native_binary_state(errors, package_path, package)
 

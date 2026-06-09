@@ -1,5 +1,7 @@
 """Shared semantic validation helpers for CrossGL JSON schema fixtures."""
 
+import re
+
 from package_target_contracts import (
     PACKAGE_DEBUG_ARTIFACT_COUNT,
     PACKAGE_PATH_ARTIFACTS,
@@ -34,6 +36,15 @@ TARGET_EXPLANATION_PACKAGE_MODE_EVIDENCE = {
         "opengl": "opengl.backend.glsl-lowering",
     },
 }
+
+TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
+TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"(?:(?:capability\.(?:required|missing)\."
+    r"(?P<capability_target>metal|vulkan|directx|opengl)\.[A-Za-z0-9_.-]+)"
+    r"|(?:abi\.(?:required|missing)\.[A-Za-z0-9_.-]+))$"
+)
 
 
 SOURCE_MAP_RECORD_KIND_RANK = {
@@ -241,6 +252,39 @@ def validate_package_artifact_requirements(
             errors.append(
                 f"{path}.evidenceIds: expected package artifact evidence IDs "
                 f"{expected_evidence_ids!r}"
+            )
+
+
+def validate_target_feature_reflection_summary(errors, path, target, reflection):
+    target_feature_count = reflection["targetFeatureCount"]
+    if target_feature_count < 0:
+        errors.append(f"{path}.targetFeatureCount: expected non-negative count")
+
+    seen_evidence_ids = set()
+    expected_prefix = f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{target}."
+    for index, evidence_id in enumerate(reflection["targetFeatureEvidenceIds"]):
+        evidence_path = f"{path}.targetFeatureEvidenceIds[{index}]"
+        if evidence_id in seen_evidence_ids:
+            errors.append(
+                f"{evidence_path}: duplicate target feature evidence id {evidence_id!r}"
+            )
+        seen_evidence_ids.add(evidence_id)
+
+        match = TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE.fullmatch(evidence_id)
+        if match is None:
+            continue
+        if not evidence_id.startswith(expected_prefix):
+            errors.append(
+                f"{evidence_path}: expected target feature evidence prefix "
+                f"{expected_prefix!r}, got {evidence_id!r}"
+            )
+            continue
+
+        capability_target = match.group("capability_target")
+        if capability_target is not None and capability_target != target:
+            errors.append(
+                f"{evidence_path}: expected target feature capability evidence "
+                f"target {target!r}, got {capability_target!r}"
             )
 
 

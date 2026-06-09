@@ -201,6 +201,11 @@ struct PackageReleasePackageArtifactRequirements {
   bool allowsPlannedNativeSourceEvidence = false;
 };
 
+struct PackageReleaseReflectionSummary {
+  std::size_t targetFeatureCount = 0;
+  std::vector<std::string> targetFeatureEvidenceIds;
+};
+
 struct PackageReleasePromotionPackage {
   std::filesystem::path packagePath;
   std::string module;
@@ -209,6 +214,7 @@ struct PackageReleasePromotionPackage {
   std::optional<std::string> nativeBinaryStatus;
   std::optional<PackageReleasePackageArtifactRequirements>
       artifactRequirements;
+  PackageReleaseReflectionSummary reflection;
   std::vector<PackageReleasePromotionArtifact> artifacts;
 };
 
@@ -269,6 +275,7 @@ struct PackageReleasePublishPlanPackage {
   std::optional<std::string> nativeBinaryStatus;
   std::optional<PackageReleasePackageArtifactRequirements>
       artifactRequirements;
+  PackageReleaseReflectionSummary reflection;
   std::uintmax_t totalArtifactBytes = 0;
   std::vector<PackageReleasePublishPlanArtifact> artifacts;
 };

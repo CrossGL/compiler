@@ -50,7 +50,13 @@
           "sizeBytes": 4,
           "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         }
-      ]
+      ],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.metal.abi.required.package-release-fixture"
+        ]
+      }
     }
   ]
 }
