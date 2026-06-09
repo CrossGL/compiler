@@ -64,16 +64,19 @@ set(CROSSGL_DOCTOR_FAKE_PATH_TOOLS
 if(APPLE)
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|xcrun")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE xcrun)
+  set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET metal)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
 elseif(WIN32)
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|metal|metallib")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE PATH)
+  set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET metal)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
 else()
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|metal|metallib")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE PATH)
+  set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET vulkan)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
   set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
 endif()
@@ -208,7 +211,7 @@ add_test(NAME cglc_doctor_json_directx_graphics_storage_buffer_source_package_ev
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RESOURCE_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=DirectXGraphicsStorageBufferResourceShader|targetExplanation.buildableTargetCount=3|targetExplanation.recommendedTarget=metal|targetExplanation.recommendedPackageMode=native"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=DirectXGraphicsStorageBufferResourceShader|targetExplanation.buildableTargetCount=3|targetExplanation.recommendedTarget=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET}|targetExplanation.recommendedPackageMode=native"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
     "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.missingCapabilityCount=0|vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=true|vulkan.packageMode=native|vulkan.packageDecisionReason=native-package-available|vulkan.requiredCapabilityCount=15|vulkan.missingCapabilityCount=0|directx.nativeImplemented=true|directx.sourcePackageSupported=true|directx.packageBuildSupported=true|directx.packageMode=source-package|directx.packageDecisionReason=source-package-available|directx.requiredCapabilityCount=14|directx.missingCapabilityCount=3|opengl.nativeImplemented=false|opengl.sourcePackageSupported=false|opengl.packageBuildSupported=false|opengl.packageMode=unsupported|opengl.packageDecisionReason=unsupported|opengl.missingCapabilityCount=2"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=vulkan.requiredCapabilities=vulkan.resource.storage-buffer|vulkan.requiredCapabilities=vulkan.layout.vector-storage-buffer|vulkan.requiredCapabilities=vulkan.operation.storage-buffer-read|vulkan.requiredCapabilities=vulkan.operation.storage-buffer-write|directx.requiredCapabilities=directx.resource.storage-buffer|directx.requiredCapabilities=directx.layout.vector-storage-buffer|directx.requiredCapabilities=directx.operation.storage-buffer-read|directx.requiredCapabilities=directx.operation.storage-buffer-write|directx.missingCapabilities=directx.backend.native-dxil-package|directx.missingCapabilities=directx.toolchain.dxc|directx.missingCapabilities=directx.validation.dxil-validator|opengl.missingCapabilities=opengl.backend.glsl-lowering|opengl.missingCapabilities=opengl.diagnostic.opengl.source-unsupported"

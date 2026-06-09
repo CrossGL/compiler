@@ -4,6 +4,7 @@ if(APPLE)
   set(CROSSGL_GRAPHICS_AUTO_SELECTION_REASON auto-host-default)
   set(CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET vulkan)
   set(CROSSGL_NATIVE_UNSUPPORTED_DEFAULT_TARGET metal)
+  set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET metal)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_NATIVE_UNSUPPORTED_SOURCE_FALLBACK_SELECTION_REASON
@@ -14,6 +15,7 @@ elseif(WIN32)
   set(CROSSGL_GRAPHICS_AUTO_SELECTION_REASON auto-recommended-target)
   set(CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET vulkan)
   set(CROSSGL_NATIVE_UNSUPPORTED_DEFAULT_TARGET directx)
+  set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET metal)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_NATIVE_UNSUPPORTED_SOURCE_FALLBACK_SELECTION_REASON
@@ -24,6 +26,7 @@ else()
   set(CROSSGL_GRAPHICS_AUTO_SELECTION_REASON auto-host-default)
   set(CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET metal)
   set(CROSSGL_NATIVE_UNSUPPORTED_DEFAULT_TARGET vulkan)
+  set(CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET vulkan)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
   set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
   set(CROSSGL_NATIVE_UNSUPPORTED_SOURCE_FALLBACK_SELECTION_REASON
@@ -270,7 +273,7 @@ add_test(NAME cglc_explain_targets_directx_graphics_storage_buffer_source_packag
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RESOURCE_SHADER}
     -DMODE=explain-targets
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|module=DirectXGraphicsStorageBufferResourceShader|buildableTargetCount=3|recommendedTarget=metal|recommendedPackageMode=native"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|module=DirectXGraphicsStorageBufferResourceShader|buildableTargetCount=3|recommendedTarget=${CROSSGL_DIRECTX_GRAPHICS_STORAGE_BUFFER_RECOMMENDED_TARGET}|recommendedPackageMode=native"
     "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.missingCapabilityCount=0|vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=true|vulkan.packageMode=native|vulkan.packageDecisionReason=native-package-available|vulkan.requiredCapabilityCount=15|vulkan.missingCapabilityCount=0|directx.nativeImplemented=true|directx.sourcePackageSupported=true|directx.packageBuildSupported=true|directx.packageMode=source-package|directx.packageDecisionReason=source-package-available|directx.requiredCapabilityCount=14|directx.missingCapabilityCount=3|opengl.nativeImplemented=false|opengl.sourcePackageSupported=false|opengl.packageBuildSupported=false|opengl.packageMode=unsupported|opengl.packageDecisionReason=unsupported|opengl.missingCapabilityCount=2"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=vulkan.requiredCapabilities=vulkan.stage.vertex-shader|vulkan.requiredCapabilities=vulkan.stage.fragment-shader|vulkan.requiredCapabilities=vulkan.resource.storage-buffer|vulkan.requiredCapabilities=vulkan.layout.vector-storage-buffer|vulkan.requiredCapabilities=vulkan.operation.storage-buffer-read|vulkan.requiredCapabilities=vulkan.operation.storage-buffer-write|directx.requiredCapabilities=directx.stage.vertex-shader|directx.requiredCapabilities=directx.stage.fragment-shader|directx.requiredCapabilities=directx.resource.storage-buffer|directx.requiredCapabilities=directx.layout.vector-storage-buffer|directx.requiredCapabilities=directx.operation.storage-buffer-read|directx.requiredCapabilities=directx.operation.storage-buffer-write|directx.missingCapabilities=directx.backend.native-dxil-package|directx.missingCapabilities=directx.toolchain.dxc|directx.missingCapabilities=directx.validation.dxil-validator|opengl.missingCapabilities=opengl.backend.glsl-lowering|opengl.missingCapabilities=opengl.diagnostic.opengl.source-unsupported"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
