@@ -1483,9 +1483,9 @@ def run_native_delegation_cases(root, cglc, tmp_dir):
         tmp_dir, "native-delegated-artifact-contract-drift"
     )
     artifact_contract_drift = copy.deepcopy(manifest)
-    artifact_contract_drift["packageArtifactRequirements"][
-        "requiredPathArtifacts"
-    ] = ["backendSource"]
+    artifact_contract_drift["packageArtifactRequirements"]["requiredPathArtifacts"] = [
+        "backendSource"
+    ]
     artifact_contract_drift["packageArtifactRequirements"]["evidenceIds"] = (
         package_artifact_requirement_evidence_ids(
             artifact_contract_drift["packageArtifactRequirements"]

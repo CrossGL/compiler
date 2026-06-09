@@ -367,10 +367,7 @@ def check_recorded_requirements_reject_target_contract_drift(
             "--json",
         ],
         cwd=root,
-        expected=(
-            "packageArtifactRequirements.packageMode must match target "
-            "contract"
-        ),
+        expected=("packageArtifactRequirements.packageMode must match target contract"),
     )
 
     paths["plan_recorded_mode_override"] = (
@@ -398,10 +395,7 @@ def check_recorded_requirements_reject_target_contract_drift(
             "--json",
         ],
         cwd=root,
-        expected=(
-            "packageArtifactRequirements.packageMode must match target "
-            "contract"
-        ),
+        expected=("packageArtifactRequirements.packageMode must match target contract"),
     )
 
 
