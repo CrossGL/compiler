@@ -1763,6 +1763,12 @@ def _summarize_vulkan_resource(record: dict[str, Any]) -> dict[str, Any]:
 def _summarize_vulkan_resource_binding(record: dict[str, Any]) -> dict[str, Any]:
     abi = record.get("abi")
     abi_summary = dict(abi) if isinstance(abi, dict) else {}
+    set_value = record.get("set")
+    if set_value is None:
+        set_value = abi_summary.get("set")
+    binding_value = record.get("binding")
+    if binding_value is None:
+        binding_value = abi_summary.get("binding")
     summary = {
         "target": record.get("target"),
         "stage": record.get("stage"),
@@ -1773,12 +1779,17 @@ def _summarize_vulkan_resource_binding(record: dict[str, Any]) -> dict[str, Any]
         "addressSpace": record.get("addressSpace"),
         "bindingClass": record.get("bindingClass"),
         "descriptorType": record.get("descriptorType"),
-        "abi": abi_summary,
-        "set": abi_summary.get("set"),
-        "binding": abi_summary.get("binding"),
+        "abi": abi if isinstance(abi, str) else abi_summary,
+        "set": set_value,
+        "binding": binding_value,
         "storageClass": record.get("storageClass"),
         "spirvType": record.get("spirvType"),
     }
+    if isinstance(abi, str):
+        summary["abiKind"] = abi
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     _copy_descriptor_array_metadata(summary, record)
     return summary
 

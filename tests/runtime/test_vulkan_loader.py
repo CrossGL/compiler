@@ -162,6 +162,13 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                 {"set": 0, "binding": 0},
             )
             self.assertEqual(
+                summary["reflection"]["targetResourceBindings"][0]["evidenceId"],
+                (
+                    "target-legalization.v1.vulkan.resource-binding.compute."
+                    "runtime_vulkan_loader_main.OutputBuffer"
+                ),
+            )
+            self.assertEqual(
                 summary["reflection"]["targetResourceBindings"][0]["descriptorType"],
                 "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
             )
@@ -316,6 +323,54 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                 api_boundary["nativeProfileCompatibility"]["targetMatchesLoader"]
             )
             self.assertEqual(summary["rejectReasons"], [])
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_ready_plan_summarizes_flat_vulkan_binding_evidence_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_vulkan_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            evidence_id = (
+                "target-legalization.v1.vulkan.resource-binding.compute."
+                "runtime_vulkan_loader_main.OutputBuffer"
+            )
+            binding = reflection["targetResourceBindings"][0]
+            binding.update(
+                {
+                    "abi": "descriptor",
+                    "set": 0,
+                    "binding": 0,
+                    "evidenceId": evidence_id,
+                }
+            )
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse CrossGL source for flat ABI evidence\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads(), self._guard_compiler_and_device_work():
+                plan = plan_vulkan_native_loader(package_dir)
+                summary = plan.to_summary()
+
+            binding_summary = summary["reflection"]["targetResourceBindings"][0]
+            api_binding_summary = summary["vulkanNativeApiBoundary"]["runtimeInputs"][
+                "reflection"
+            ]["targetResourceBindings"][0]
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertFalse(plan.source_parsing_required)
+            self.assertEqual(binding_summary["abi"], "descriptor")
+            self.assertEqual(binding_summary["set"], 0)
+            self.assertEqual(binding_summary["binding"], 0)
+            self.assertEqual(binding_summary["evidenceId"], evidence_id)
+            self.assertEqual(api_binding_summary["abiKind"], "descriptor")
+            self.assertEqual(api_binding_summary["evidenceId"], evidence_id)
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_ready_plan_accepts_generated_native_profile_artifact_map(self) -> None:
@@ -2272,6 +2327,10 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                 "descriptorType": "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
                 "storageClass": "StorageBuffer",
                 "spirvType": "%_runtimearr_v4float",
+                "evidenceId": (
+                    "target-legalization.v1.vulkan.resource-binding.compute."
+                    "runtime_vulkan_loader_main.OutputBuffer"
+                ),
             },
         )
 
@@ -2400,6 +2459,10 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                         "descriptorType": "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
                         "storageClass": "StorageBuffer",
                         "spirvType": "%_runtimearr_v4float",
+                        "evidenceId": (
+                            "target-legalization.v1.vulkan.resource-binding.compute."
+                            "runtime_vulkan_loader_main.OutputBuffer"
+                        ),
                     }
                 ],
                 "targetFeatures": [

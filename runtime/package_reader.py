@@ -6671,6 +6671,11 @@ def _reflection_availability_summary(reflection: dict[str, Any]) -> dict[str, An
     target_resource_bindings = _json_object_list(
         reflection.get("targetResourceBindings")
     )
+    target_resource_binding_evidence_ids = [
+        evidence_id
+        for record in target_resource_bindings
+        if isinstance(evidence_id := record.get("evidenceId"), str) and evidence_id
+    ]
     workgroup_sizes = _workgroup_size_records(reflection)
     schema_version = reflection.get("schemaVersion")
     return {
@@ -6680,6 +6685,7 @@ def _reflection_availability_summary(reflection: dict[str, Any]) -> dict[str, An
         "entryPointCount": len(entry_points),
         "resourceBindingCount": len(resources),
         "targetResourceBindingCount": len(target_resource_bindings),
+        "targetResourceBindingEvidenceIds": target_resource_binding_evidence_ids,
         "workgroupSizeCount": len(workgroup_sizes),
         "entryPointsAvailable": bool(entry_points),
         "resourceBindingsAvailable": bool(resources or target_resource_bindings),
@@ -8854,6 +8860,7 @@ _GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS = (
     "sourceType",
     "addressSpace",
     "abi",
+    "evidenceId",
     "bindingClass",
     "descriptorType",
     "argumentIndex",

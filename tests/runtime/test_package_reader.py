@@ -559,6 +559,13 @@ class RuntimePackageReaderTests(unittest.TestCase):
             self.assertEqual(summary["reflection"]["entryPointCount"], 1)
             self.assertEqual(summary["reflection"]["resourceBindingCount"], 1)
             self.assertEqual(summary["reflection"]["targetResourceBindingCount"], 1)
+            self.assertEqual(
+                summary["reflection"]["targetResourceBindingEvidenceIds"],
+                [
+                    "target-legalization.v1.directx.resource-binding.compute."
+                    "runtime_reader_main.OutputBuffer"
+                ],
+            )
 
             backend_source = package.require_existing_artifact("backendSource")
             native_binary = package.require_artifact("nativeBinary")
@@ -597,6 +604,13 @@ class RuntimePackageReaderTests(unittest.TestCase):
             )
             self.assertEqual(target_resource["hlslType"], "RWStructuredBuffer<float4>")
             self.assertEqual(target_resource["bindingClass"], "uav")
+            self.assertEqual(
+                target_resource["evidenceId"],
+                (
+                    "target-legalization.v1.directx.resource-binding.compute."
+                    "runtime_reader_main.OutputBuffer"
+                ),
+            )
 
     def test_reads_descriptor_array_binding_metadata_without_source_parse(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
@@ -984,6 +998,46 @@ class RuntimePackageReaderTests(unittest.TestCase):
             self.assertEqual(binding["argumentIndex"], 0)
             self.assertEqual(binding["set"], 0)
             self.assertEqual(binding["binding"], 0)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_reflection_descriptor_binding_evidence_is_exposed_for_runtime(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for reflection binding evidence\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="metal")
+
+            package_bindings = package.graphics_descriptor_bindings
+            report_summary = report.to_summary()
+            report_bindings = report_summary["graphicsDescriptorBindings"]
+            binding = package_bindings["bindings"][0]
+            evidence_id = (
+                "target-legalization.v1.metal.resource-binding.compute."
+                "runtime_reader_main.OutputBuffer"
+            )
+
+            self.assertTrue(report.compatible, report_summary["diagnostics"])
+            self.assertEqual(
+                package_bindings["source"],
+                "reflection.targetResourceBindings",
+            )
+            self.assertEqual(package_bindings["bindingCount"], 1)
+            self.assertEqual(package_bindings, report_bindings)
+            self.assertEqual(binding["evidenceId"], evidence_id)
+            self.assertEqual(
+                report_summary["reflection"]["targetResourceBindingEvidenceIds"],
+                [evidence_id],
+            )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_graphics_abi_target_drift_rejects_package_without_source_parse(
@@ -8904,6 +8958,10 @@ class RuntimePackageReaderTests(unittest.TestCase):
                         "bindingClass": "uav",
                         "descriptorType": "UAV",
                         "hlslType": "RWStructuredBuffer<float4>",
+                        "evidenceId": (
+                            f"target-legalization.v1.{target}.resource-binding."
+                            "compute.runtime_reader_main.OutputBuffer"
+                        ),
                     }
                 ],
                 "targetFeatures": [
