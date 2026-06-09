@@ -44,10 +44,36 @@ def _expected_intermediate(source_backend, target):
     return None
 
 
+def _diagnostic_counts(diagnostics):
+    counts = {"note": 0, "warning": 0, "error": 0}
+    for diagnostic in diagnostics:
+        severity = diagnostic["severity"]
+        counts[severity] = counts.get(severity, 0) + 1
+    return counts
+
+
+def _diagnostic_counts_by_field(diagnostics, field_name):
+    counts = {}
+    for diagnostic in diagnostics:
+        value = diagnostic.get(field_name)
+        if value:
+            _increment(counts, value)
+    return dict(sorted(counts.items()))
+
+
+def _diagnostic_counts_by_missing_capability(diagnostics):
+    counts = {}
+    for diagnostic in diagnostics:
+        for capability in diagnostic.get("missingCapabilities", []):
+            _increment(counts, capability)
+    return dict(sorted(counts.items()))
+
+
 def validate_semantics(instance):
     errors = []
     artifacts = instance["artifacts"]
     summary = instance["summary"]
+    diagnostics = instance.get("diagnostics", [])
 
     artifact_provenance_by_pipeline = {}
     artifact_provenance_by_intermediate = {}
@@ -198,6 +224,75 @@ def validate_semantics(instance):
                 )
         if source_remap["mappingCount"] <= 0:
             errors.append(f"{artifact_path}.sourceRemap.mappingCount: expected > 0")
+
+    if "diagnostics" in instance:
+        diagnostic_counts = _diagnostic_counts(diagnostics)
+        diagnostics_by_code = _diagnostic_counts_by_field(diagnostics, "code")
+        diagnostics_by_target = _diagnostic_counts_by_field(diagnostics, "target")
+        diagnostics_by_source_backend = _diagnostic_counts_by_field(
+            diagnostics, "sourceBackend"
+        )
+        diagnostics_by_variant = _diagnostic_counts_by_field(diagnostics, "variant")
+        missing_capability_counts = _diagnostic_counts_by_missing_capability(
+            diagnostics
+        )
+
+        if "diagnosticCounts" in instance:
+            _validate_summary_count_map(
+                errors,
+                "$.diagnosticCounts",
+                instance["diagnosticCounts"],
+                diagnostic_counts,
+                "diagnostic",
+            )
+        if "diagnosticCounts" in summary:
+            _validate_summary_count_map(
+                errors,
+                "$.summary.diagnosticCounts",
+                summary["diagnosticCounts"],
+                diagnostic_counts,
+                "diagnostic",
+            )
+        if "diagnosticsByCode" in summary:
+            _validate_summary_count_map(
+                errors,
+                "$.summary.diagnosticsByCode",
+                summary["diagnosticsByCode"],
+                diagnostics_by_code,
+                "diagnostic",
+            )
+        if "diagnosticsByTarget" in summary:
+            _validate_summary_count_map(
+                errors,
+                "$.summary.diagnosticsByTarget",
+                summary["diagnosticsByTarget"],
+                diagnostics_by_target,
+                "diagnostic",
+            )
+        if "diagnosticsBySourceBackend" in summary:
+            _validate_summary_count_map(
+                errors,
+                "$.summary.diagnosticsBySourceBackend",
+                summary["diagnosticsBySourceBackend"],
+                diagnostics_by_source_backend,
+                "diagnostic",
+            )
+        if "diagnosticsByVariant" in summary:
+            _validate_summary_count_map(
+                errors,
+                "$.summary.diagnosticsByVariant",
+                summary["diagnosticsByVariant"],
+                diagnostics_by_variant,
+                "diagnostic",
+            )
+        if "missingCapabilityCounts" in summary:
+            _validate_summary_count_map(
+                errors,
+                "$.summary.missingCapabilityCounts",
+                summary["missingCapabilityCounts"],
+                missing_capability_counts,
+                "diagnostic",
+            )
 
     if "artifactProvenanceByPipeline" in summary:
         _validate_summary_count_map(

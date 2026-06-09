@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "summary": {
+    "artifactCount": 1,
+    "diagnosticCounts": {
+      "note": 0,
+      "warning": 1,
+      "error": 0
+    },
+    "diagnosticsByCode": {},
+    "sourceRemapCount": 0,
+    "sourceRemapMappingCount": 0
+  },
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "target": "metal",
+      "path": "out/metal/simple.metal",
+      "status": "translated",
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      }
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 1,
+    "error": 0
+  },
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "code": "project.config.include-pattern-outside-project",
+      "message": "Include pattern points outside the project.",
+      "location": {
+        "file": "crosstl.toml",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 0,
+        "endLine": 1,
+        "endColumn": 1,
+        "endOffset": 0
+      },
+      "target": "metal",
+      "sourceBackend": "cgl",
+      "missingCapabilities": [
+        "repo.scan"
+      ]
+    }
+  ]
+}

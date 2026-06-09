@@ -36,6 +36,15 @@
       "items": {
         "$ref": "#/$defs/artifact"
       }
+    },
+    "diagnosticCounts": {
+      "$ref": "#/$defs/diagnosticCounts"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/projectDiagnostic"
+      }
     }
   },
   "$defs": {
@@ -126,6 +135,24 @@
         "failedCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         },
+        "diagnosticCounts": {
+          "$ref": "#/$defs/diagnosticCounts"
+        },
+        "diagnosticsByCode": {
+          "$ref": "#/$defs/countMap"
+        },
+        "diagnosticsByTarget": {
+          "$ref": "#/$defs/countMap"
+        },
+        "diagnosticsBySourceBackend": {
+          "$ref": "#/$defs/countMap"
+        },
+        "diagnosticsByVariant": {
+          "$ref": "#/$defs/countMap"
+        },
+        "missingCapabilityCounts": {
+          "$ref": "#/$defs/countMap"
+        },
         "artifactProvenanceByPipeline": {
           "$ref": "#/$defs/countMap"
         },
@@ -191,6 +218,117 @@
         "$ref": "#/$defs/countMap"
       }
     },
+    "diagnosticCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "warning",
+        "error"
+      ],
+      "properties": {
+        "note": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "warning": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "error": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "projectDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$"
+        },
+        "message": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "location": {
+          "$ref": "#/$defs/diagnosticLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/diagnosticLocation"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "variant": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "missingCapabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "diagnosticLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "line": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
     "artifact": {
       "type": "object",
       "additionalProperties": true,
@@ -252,6 +390,10 @@
         "statement",
         "token"
       ]
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1
     },
     "sourceMapMetadata": {
       "type": "object",
