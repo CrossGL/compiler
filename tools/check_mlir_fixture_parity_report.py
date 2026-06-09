@@ -2014,9 +2014,12 @@ def check_hir_text_parity(
             ("vertex", entry_point, "VertexInput input", "VertexOutput"),
             ("fragment", entry_point, "FragmentInput input", "FragmentOutput"),
         )
-        for expected_stage, expected_entry, parameter_text, return_type in (
-            expected_stage_entries
-        ):
+        for (
+            expected_stage,
+            expected_entry,
+            parameter_text,
+            return_type,
+        ) in expected_stage_entries:
             if (expected_stage, expected_entry) not in facts["stages"]:
                 errors.append(
                     f"{field}: HIR text must include stage {expected_stage} "
@@ -2158,13 +2161,15 @@ def check_hir_text_parity(
             )
     if "return_statement" in source_facts and not facts["hasReturn"]:
         errors.append(f"{field}: HIR text must include return")
-    if "vertex_stage" in source_facts and ("vertex", entry_point) not in facts[
-        "stages"
-    ]:
+    if (
+        "vertex_stage" in source_facts
+        and ("vertex", entry_point) not in facts["stages"]
+    ):
         errors.append(f"{field}: HIR text must include a vertex stage entry")
-    if "fragment_stage" in source_facts and ("fragment", entry_point) not in facts[
-        "stages"
-    ]:
+    if (
+        "fragment_stage" in source_facts
+        and ("fragment", entry_point) not in facts["stages"]
+    ):
         errors.append(f"{field}: HIR text must include a fragment stage entry")
     if CONTROL_FLOW_FAMILY in allowed_families:
         if not facts["hasIfBool"]:

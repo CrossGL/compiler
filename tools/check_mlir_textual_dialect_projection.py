@@ -826,8 +826,7 @@ def check_fixture_projection(
         preservation.get("targetIndependentTypeFacts")
     ):
         errors.append(
-            f"{CATALOG_PATH}: fixtures[{index}] missing "
-            f"{required_type_fact} type fact"
+            f"{CATALOG_PATH}: fixtures[{index}] missing {required_type_fact} type fact"
         )
     if stage != GRAPHICS_STAGE and "resourceFacts.localSize" not in string_list(
         preservation.get("resourceFactFields")
