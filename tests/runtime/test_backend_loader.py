@@ -496,6 +496,90 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             self.assertFalse(requirement_summary["valid"])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_summary_rejects_malformed_descriptor_artifact_record_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_source_free_metal_package(package_dir)
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["nativeArtifactDescriptor"] = {
+                "path": "metadata/native-artifact.json",
+            }
+            self._write_json(manifest_path, manifest)
+            source_path = package_dir / "source" / "RuntimeBackendLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "malformed descriptor artifact record must not trigger source parsing\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads():
+                plan = plan_source_free_native_backend_loader(
+                    package_dir,
+                    "metal",
+                    loader_name="metal-native",
+                )
+                summary = plan.to_summary()
+
+            reject_codes = [diagnostic.code for diagnostic in plan.reject_reasons]
+            reject_diagnostics = {
+                diagnostic["code"]: diagnostic
+                for diagnostic in summary["rejectReasons"]
+            }
+            descriptor_admission = summary["nativeAdmission"][
+                "nativeArtifactDescriptor"
+            ]
+
+            self.assertFalse(plan.ready)
+            self.assertIsNone(plan.native_artifact)
+            self.assertEqual(summary["artifactInputs"], [])
+            self.assertEqual(summary["sourceInputs"], [])
+            self.assertFalse(summary["sourceParsingRequired"])
+            self.assertFalse(summary["deviceExecutionRequired"])
+            self.assertFalse(
+                summary["runtimePlan"]["runtimeArtifactSelection"]["selected"]
+            )
+            self.assertIsNone(
+                summary["runtimePlan"]["runtimeArtifactSelection"]["artifact"]
+            )
+            self.assertIn("package.artifact.path_invalid", reject_codes)
+            self.assertIn("package.artifacts.contract_invalid", reject_codes)
+            self.assertIn(
+                "metal_loader.native_artifact_descriptor_not_declared",
+                reject_codes,
+            )
+            self.assertEqual(
+                summary["nativeAdmission"]["reason"],
+                "package.artifact.path_invalid",
+            )
+            self.assertEqual(descriptor_admission["decision"], "missing")
+            self.assertEqual(
+                descriptor_admission["status"],
+                "descriptor-not-declared",
+            )
+            self.assertEqual(
+                reject_diagnostics["package.artifact.path_invalid"]["artifact"],
+                "nativeArtifactDescriptor",
+            )
+            self.assertEqual(
+                reject_diagnostics["package.artifact.path_invalid"]["path"],
+                "artifacts.nativeArtifactDescriptor",
+            )
+            self.assertEqual(
+                [
+                    diagnostic["code"]
+                    for diagnostic in reject_diagnostics[
+                        "package.artifacts.contract_invalid"
+                    ]["actual"]
+                ],
+                ["package.artifact.path_invalid"],
+            )
+            with self.assertRaisesRegex(PackageReadError, "nativeArtifactDescriptor"):
+                plan.require_ready()
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_summary_rejects_recorded_native_contract_without_descriptor_metadata(
         self,
     ) -> None:
