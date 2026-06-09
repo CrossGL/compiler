@@ -8,6 +8,7 @@ access without parsing CrossGL source or loading any graphics API.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterator
 from dataclasses import dataclass
 import hashlib
 import json
@@ -25,6 +26,9 @@ except ImportError:  # pragma: no cover - supports direct script execution.
 
 ROOT_METADATA_FILES = ("manifest.json", "reflection.json", "diagnostics.json")
 RUNTIME_METADATA_JSON_BYTE_LIMIT = 16 * 1024 * 1024
+RUNTIME_ARTIFACT_BYTE_LIMIT = 512 * 1024 * 1024
+RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
+_DEFAULT_ARTIFACT_BYTE_LIMIT = object()
 NATIVE_BINARY_READY_STATUSES = frozenset(("emitted", "validated"))
 RUNTIME_ARTIFACT_MODES = frozenset(("auto", "native", "source"))
 RUNTIME_ARTIFACT_SELECTION_MODES = frozenset(
@@ -159,6 +163,7 @@ NATIVE_BINARY_DESCRIPTOR_CONTRACT_DIAGNOSTIC_CODES = frozenset(
         "package.native_artifact_descriptor.artifact_path_mismatch",
         "package.native_artifact_descriptor.artifact_hash_invalid",
         "package.native_artifact_descriptor.artifact_hash_mismatch",
+        "package.native_artifact_descriptor.artifact_hash_too_large",
         "package.native_artifact_descriptor.size_bytes_invalid",
         "package.native_artifact_descriptor.size_bytes_mismatch",
     )
@@ -283,6 +288,19 @@ class _MetadataTooLargeError(PackageReadError):
         super().__init__(
             "package metadata exceeds runtime byte limit: "
             f"{root_file_name} is {size} bytes; limit is {limit} bytes"
+        )
+
+
+class _ArtifactTooLargeError(PackageReadError):
+    def __init__(self, artifact: "Artifact", size: int, limit: int) -> None:
+        self.artifact_name = artifact.name
+        self.package_path = artifact.package_path
+        self.size = size
+        self.limit = limit
+        super().__init__(
+            "package artifact exceeds runtime byte limit: "
+            f"{artifact.name} ({artifact.package_path}) is {size} bytes; "
+            f"limit is {limit} bytes"
         )
 
 
@@ -1140,6 +1158,8 @@ class PackageCompatibilityReport:
                     SUPPORTED_DEBUG_METADATA_SCHEMA_VERSION
                 ),
                 "metadataJsonByteLimit": RUNTIME_METADATA_JSON_BYTE_LIMIT,
+                "artifactByteLimit": RUNTIME_ARTIFACT_BYTE_LIMIT,
+                "artifactStreamChunkSize": RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
             },
             "compiler": {
                 "name": self.compiler_name,
@@ -1268,18 +1288,45 @@ class Artifact:
             )
         return self
 
-    def read_bytes(self) -> bytes:
+    def iter_bytes(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ) -> Iterator[bytes]:
         artifact = self.require_exists()
-        if artifact.archive_path is not None:
-            member = artifact.archive_member or artifact.package_path
-            with zipfile.ZipFile(artifact.archive_path) as archive:
-                return archive.read(member)
-        return artifact.path.read_bytes()
+        yield from _iter_artifact_bytes(
+            artifact,
+            chunk_size=chunk_size,
+            byte_limit=_resolve_artifact_byte_limit(byte_limit),
+        )
 
-    def read_text(self, *, encoding: str = "utf-8") -> str:
-        if self.archive_path is not None:
-            return self.read_bytes().decode(encoding)
+    def read_bytes(self, *, byte_limit: int | None = None) -> bytes:
+        return b"".join(self.iter_bytes(byte_limit=byte_limit))
+
+    def read_text(
+        self,
+        *,
+        encoding: str = "utf-8",
+        byte_limit: int | None = None,
+    ) -> str:
+        if self.archive_path is not None or byte_limit is not None:
+            return self.read_bytes(byte_limit=byte_limit).decode(encoding)
         return self.require_exists().path.read_text(encoding=encoding)
+
+    def sha256(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ) -> str:
+        digest = hashlib.sha256()
+        for chunk in self.iter_bytes(
+            chunk_size=chunk_size,
+            byte_limit=_resolve_artifact_byte_limit(byte_limit),
+        ):
+            digest.update(chunk)
+        return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -4743,7 +4790,27 @@ def _append_descriptor_hash_diagnostics(
     )
     if hash_value is None:
         return
-    actual_hash = _artifact_sha256(artifact)
+    try:
+        actual_hash = _artifact_sha256(artifact)
+    except _ArtifactTooLargeError as error:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=(
+                    "package.native_artifact_descriptor."
+                    f"{_snake_case(descriptor_field)}_too_large"
+                ),
+                message=(
+                    f"native artifact descriptor {descriptor_field} cannot be "
+                    f"validated: {error}"
+                ),
+                document="nativeArtifactDescriptor",
+                artifact="nativeArtifactDescriptor",
+                path=descriptor_field,
+                expected=f"<= {error.limit} bytes",
+                actual=error.size,
+            )
+        )
+        return
     if hash_value == actual_hash:
         return
     diagnostics.append(
@@ -4902,8 +4969,88 @@ def _read_declared_artifact_json_object_for_report(
         return None
 
 
+def _iter_artifact_bytes(
+    artifact: Artifact,
+    *,
+    chunk_size: int,
+    byte_limit: int | None,
+) -> Iterator[bytes]:
+    chunk_size = _require_positive_int(
+        chunk_size,
+        label="artifact chunk_size",
+    )
+    byte_limit = _normalize_optional_byte_limit(
+        byte_limit,
+        label="artifact byte_limit",
+    )
+    if (
+        byte_limit is not None
+        and artifact.size is not None
+        and artifact.size > byte_limit
+    ):
+        raise _ArtifactTooLargeError(artifact, artifact.size, byte_limit)
+
+    if artifact.archive_path is not None:
+        member = artifact.archive_member or artifact.package_path
+        with zipfile.ZipFile(artifact.archive_path) as archive:
+            with archive.open(member) as handle:
+                yield from _iter_limited_binary_chunks(
+                    handle,
+                    artifact=artifact,
+                    chunk_size=chunk_size,
+                    byte_limit=byte_limit,
+                )
+        return
+
+    with artifact.path.open("rb") as handle:
+        yield from _iter_limited_binary_chunks(
+            handle,
+            artifact=artifact,
+            chunk_size=chunk_size,
+            byte_limit=byte_limit,
+        )
+
+
+def _iter_limited_binary_chunks(
+    handle: Any,
+    *,
+    artifact: Artifact,
+    chunk_size: int,
+    byte_limit: int | None,
+) -> Iterator[bytes]:
+    total = 0
+    while True:
+        chunk = handle.read(chunk_size)
+        if not chunk:
+            return
+        total += len(chunk)
+        if byte_limit is not None and total > byte_limit:
+            raise _ArtifactTooLargeError(artifact, total, byte_limit)
+        yield chunk
+
+
+def _require_positive_int(value: Any, *, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise PackageReadError(f"{label} must be a positive integer")
+    return value
+
+
+def _normalize_optional_byte_limit(value: Any, *, label: str) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise PackageReadError(f"{label} must be a non-negative integer or None")
+    return value
+
+
+def _resolve_artifact_byte_limit(value: Any) -> int | None:
+    if value is _DEFAULT_ARTIFACT_BYTE_LIMIT:
+        return RUNTIME_ARTIFACT_BYTE_LIMIT
+    return _normalize_optional_byte_limit(value, label="artifact byte_limit")
+
+
 def _artifact_sha256(artifact: Artifact) -> str:
-    return hashlib.sha256(artifact.read_bytes()).hexdigest()
+    return artifact.sha256()
 
 
 def _is_lowercase_sha256(value: Any) -> bool:

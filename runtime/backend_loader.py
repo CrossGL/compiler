@@ -18,6 +18,7 @@ from .package_reader import (
     CompatibilityDiagnostic,
     NATIVE_ARTIFACT_BINARY_KINDS_BY_TARGET,
     PackageReadError,
+    RUNTIME_METADATA_JSON_BYTE_LIMIT,
 )
 
 
@@ -648,7 +649,9 @@ def _native_artifact_descriptor_plan(
     readable = False
     if artifact.exists:
         try:
-            descriptor = json.loads(artifact.read_text())
+            descriptor = json.loads(
+                artifact.read_text(byte_limit=RUNTIME_METADATA_JSON_BYTE_LIMIT)
+            )
             readable = isinstance(descriptor, dict)
         except (OSError, PackageReadError, UnicodeDecodeError, json.JSONDecodeError):
             descriptor = None

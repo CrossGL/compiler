@@ -59,6 +59,16 @@ def _runtime_metadata_byte_limit(limit: int):
         package_reader_module.RUNTIME_METADATA_JSON_BYTE_LIMIT = original_limit
 
 
+@contextmanager
+def _runtime_artifact_byte_limit(limit: int):
+    original_limit = package_reader_module.RUNTIME_ARTIFACT_BYTE_LIMIT
+    package_reader_module.RUNTIME_ARTIFACT_BYTE_LIMIT = limit
+    try:
+        yield
+    finally:
+        package_reader_module.RUNTIME_ARTIFACT_BYTE_LIMIT = original_limit
+
+
 class RuntimePackageReaderTests(unittest.TestCase):
     def test_generated_runtime_contract_data_matches_package_target_json(
         self,
@@ -1938,6 +1948,204 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 "metadata-only",
             )
             self.assertEqual(summary["rejectReasons"], [])
+
+    def test_descriptor_hash_validation_streams_directory_artifact(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            descriptor = self._write_native_artifact_descriptor(package_dir)
+            native_path = package_dir / descriptor["artifactPath"]
+            original_read_bytes = Path.read_bytes
+
+            def guarded_read_bytes(
+                path: Path,
+                *args: object,
+                **kwargs: object,
+            ) -> bytes:
+                if path.resolve() == native_path.resolve():
+                    raise AssertionError(f"runtime bulk-read native artifact: {path}")
+                return original_read_bytes(path, *args, **kwargs)
+
+            with mock.patch.object(Path, "read_bytes", guarded_read_bytes):
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="metal",
+                )
+                package = read_package(package_dir)
+
+            native_artifact = package.require_existing_artifact("nativeBinary")
+            self.assertTrue(report.compatible, report.to_summary()["diagnostics"])
+            self.assertEqual(
+                native_artifact.sha256(chunk_size=2),
+                descriptor["artifactHash"]["value"],
+            )
+            self.assertEqual(
+                list(native_artifact.iter_bytes(chunk_size=3, byte_limit=None)),
+                [b"met", b"all", b"ib"],
+            )
+
+    def test_descriptor_hash_validation_streams_zip_artifact_without_archive_read(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            package_dir = temp_root / "package-dir"
+            package_dir.mkdir()
+            self._write_valid_package(package_dir)
+            descriptor = self._write_native_artifact_descriptor(package_dir)
+            zip_path = temp_root / "RuntimeReaderFixture.cglb"
+            self._write_zip_package(
+                package_dir,
+                zip_path,
+                prefix=zip_path.name,
+            )
+            native_member = f"{zip_path.name}/{descriptor['artifactPath']}"
+            original_read = zipfile.ZipFile.read
+
+            def member_name(name: object) -> str:
+                if isinstance(name, zipfile.ZipInfo):
+                    return name.filename
+                return str(name)
+
+            def guarded_read(
+                archive: zipfile.ZipFile,
+                name: object,
+                *args: object,
+                **kwargs: object,
+            ) -> bytes:
+                if member_name(name) == native_member:
+                    raise AssertionError(
+                        f"runtime bulk-read native archive member: {native_member}"
+                    )
+                return original_read(archive, name, *args, **kwargs)
+
+            with mock.patch.object(zipfile.ZipFile, "read", guarded_read):
+                report = read_compatibility_report(zip_path, loader_target="metal")
+                package = read_package(zip_path)
+
+            native_artifact = package.require_existing_artifact("nativeBinary")
+            self.assertTrue(report.compatible, report.to_summary()["diagnostics"])
+            self.assertEqual(native_artifact.archive_member, native_member)
+            self.assertEqual(
+                native_artifact.sha256(chunk_size=2),
+                descriptor["artifactHash"]["value"],
+            )
+            self.assertEqual(
+                list(native_artifact.iter_bytes(chunk_size=4, byte_limit=None)),
+                [b"meta", b"llib"],
+            )
+
+    def test_bounded_artifact_reads_report_stable_size_error_for_directory_and_zip(
+        self,
+    ) -> None:
+        for package_format in ("directory", "zip"):
+            with self.subTest(package_format=package_format):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_root = Path(temp_dir)
+                    package_dir = temp_root / "package-dir"
+                    package_dir.mkdir()
+                    self._write_valid_package(package_dir)
+
+                    if package_format == "zip":
+                        package_path = temp_root / "RuntimeReaderFixture.cglb"
+                        self._write_zip_package(
+                            package_dir,
+                            package_path,
+                            prefix=package_path.name,
+                        )
+                    else:
+                        package_path = package_dir
+
+                    package = read_package(package_path)
+                    native_artifact = package.require_existing_artifact("nativeBinary")
+
+                    self.assertEqual(
+                        native_artifact.read_bytes(byte_limit=8),
+                        b"metallib",
+                    )
+                    with self.assertRaisesRegex(
+                        PackageReadError,
+                        (
+                            "package artifact exceeds runtime byte limit: "
+                            r"nativeBinary \(backend/metal/"
+                            r"RuntimeReaderFixture\.metallib\) is 8 bytes; "
+                            "limit is 4 bytes"
+                        ),
+                    ):
+                        native_artifact.read_bytes(byte_limit=4)
+
+    def test_descriptor_hash_validation_reports_oversized_artifact_for_directory_and_zip(
+        self,
+    ) -> None:
+        expected_code = "package.native_artifact_descriptor.artifact_hash_too_large"
+        for package_format in ("directory", "zip"):
+            with self.subTest(package_format=package_format):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_root = Path(temp_dir)
+                    package_dir = temp_root / "package-dir"
+                    package_dir.mkdir()
+                    self._write_valid_package(package_dir)
+                    self._write_native_artifact_descriptor(package_dir)
+
+                    if package_format == "zip":
+                        package_path = temp_root / "RuntimeReaderFixture.cglb"
+                        self._write_zip_package(
+                            package_dir,
+                            package_path,
+                            prefix=package_path.name,
+                        )
+                    else:
+                        package_path = package_dir
+
+                    with _runtime_artifact_byte_limit(4):
+                        report = read_compatibility_report(
+                            package_path,
+                            loader_target="metal",
+                        )
+                        summary = report.to_summary()
+
+                        self.assertFalse(report.compatible)
+                        self.assertEqual(summary["packageFormat"], package_format)
+                        self.assertEqual(summary["runtime"]["artifactByteLimit"], 4)
+                        self.assertIn(
+                            expected_code,
+                            [
+                                diagnostic.code
+                                for diagnostic in report.reject_reasons
+                            ],
+                        )
+                        diagnostic = next(
+                            diagnostic
+                            for diagnostic in summary["rejectReasons"]
+                            if diagnostic["code"] == expected_code
+                        )
+                        self.assertEqual(
+                            diagnostic["document"],
+                            "nativeArtifactDescriptor",
+                        )
+                        self.assertEqual(
+                            diagnostic["artifact"],
+                            "nativeArtifactDescriptor",
+                        )
+                        self.assertEqual(diagnostic["path"], "artifactHash")
+                        self.assertEqual(diagnostic["expected"], "<= 4 bytes")
+                        self.assertEqual(diagnostic["actual"], 8)
+                        artifact_record = next(
+                            artifact
+                            for artifact in summary["artifactCompatibility"][
+                                "artifacts"
+                            ]
+                            if artifact["name"] == "nativeBinary"
+                        )
+                        self.assertEqual(artifact_record["decision"], "rejected")
+                        self.assertEqual(artifact_record["reason"], expected_code)
+                        with self.assertRaisesRegex(
+                            PackageReadError,
+                            "artifactHash cannot be validated",
+                        ):
+                            read_package(package_path)
 
     def test_compatibility_report_accepts_native_descriptor_host_tool_evidence_without_probe(
         self,

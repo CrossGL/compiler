@@ -15,6 +15,7 @@ from .backend_loader import SourceFreeNativeBackendLoaderPlan
 from .backend_loader import plan_source_free_native_backend_loader
 from .loader import LoaderArtifactPlan
 from .package_reader import CompatibilityDiagnostic, PackageReadError
+from .package_reader import RUNTIME_METADATA_JSON_BYTE_LIMIT
 from .package_reader import NATIVE_ARTIFACT_DESCRIPTOR_CONTRACT_VERSION
 from .package_reader import SUPPORTED_NATIVE_ARTIFACT_DESCRIPTOR_SCHEMA_VERSION
 
@@ -1558,6 +1559,11 @@ def _descriptor_artifact_hash_matches(
         "package.native_artifact_descriptor.artifact_hash_mismatch",
     ):
         return False
+    if _has_diagnostic_code(
+        plan,
+        "package.native_artifact_descriptor.artifact_hash_too_large",
+    ):
+        return False
     return True
 
 
@@ -1668,7 +1674,9 @@ def _vulkan_native_profile_plan(
     readable = False
     if artifact.exists:
         try:
-            profile = json.loads(artifact.read_text())
+            profile = json.loads(
+                artifact.read_text(byte_limit=RUNTIME_METADATA_JSON_BYTE_LIMIT)
+            )
             readable = isinstance(profile, dict)
         except (OSError, PackageReadError, UnicodeDecodeError, json.JSONDecodeError):
             profile = None

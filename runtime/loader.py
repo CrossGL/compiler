@@ -11,19 +11,20 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
-import zipfile
 
 from .package_reader import (
     Artifact,
     CompatibilityDiagnostic,
     PackageCompatibilityReport,
     PackageReadError,
+    RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
     RuntimeArtifactSelection,
     SUPPORTED_COMPILER_NAME,
     SUPPORTED_DEBUG_METADATA_SCHEMA_VERSION,
     SUPPORTED_PACKAGE_SCHEMA_VERSION,
     read_compatibility_report,
     select_runtime_artifact,
+    _DEFAULT_ARTIFACT_BYTE_LIMIT,
 )
 
 
@@ -108,21 +109,57 @@ class LoaderArtifactPlan:
         if not self.path.is_file():
             raise PackageReadError(
                 f"loader artifact is missing on disk: {self.name} ({self.package_path})"
-            )
+        )
         return self
 
-    def read_bytes(self) -> bytes:
-        artifact = self.require_exists()
-        if artifact.archive_path is not None:
-            member = artifact.archive_member or artifact.package_path
-            with zipfile.ZipFile(artifact.archive_path) as archive:
-                return archive.read(member)
-        return artifact.path.read_bytes()
+    def _as_manifest_artifact(self) -> Artifact:
+        return Artifact(
+            name=self.name,
+            package_path=self.package_path,
+            path=self.path,
+            exists=self.exists,
+            size=self.size,
+            archive_path=self.archive_path,
+            archive_member=self.archive_member,
+        )
 
-    def read_text(self, *, encoding: str = "utf-8") -> str:
-        if self.archive_path is not None:
-            return self.read_bytes().decode(encoding)
+    def iter_bytes(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ):
+        self.require_exists()
+        yield from self._as_manifest_artifact().iter_bytes(
+            chunk_size=chunk_size,
+            byte_limit=byte_limit,
+        )
+
+    def read_bytes(self, *, byte_limit: int | None = None) -> bytes:
+        return b"".join(self.iter_bytes(byte_limit=byte_limit))
+
+    def read_text(
+        self,
+        *,
+        encoding: str = "utf-8",
+        byte_limit: int | None = None,
+    ) -> str:
+        if self.archive_path is not None or byte_limit is not None:
+            return self.read_bytes(byte_limit=byte_limit).decode(encoding)
         return self.require_exists().path.read_text(encoding=encoding)
+
+    def sha256(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ) -> str:
+        self.require_exists()
+        digest = self._as_manifest_artifact().sha256(
+            chunk_size=chunk_size,
+            byte_limit=byte_limit,
+        )
+        return digest
 
     def to_summary(self) -> dict[str, Any]:
         return {

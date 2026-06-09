@@ -941,6 +941,11 @@ def _descriptor_artifact_hash_matches(
         "package.native_artifact_descriptor.artifact_hash_mismatch",
     ):
         return False
+    if _has_diagnostic_code(
+        plan,
+        "package.native_artifact_descriptor.artifact_hash_too_large",
+    ):
+        return False
     return True
 
 
