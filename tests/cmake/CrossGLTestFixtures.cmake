@@ -149,6 +149,7 @@ set(CROSSGL_VULKAN_STORAGE_IMAGE_ATOMIC_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests
 set(CROSSGL_VULKAN_GRAPHICS_UNIFORM_BUFFER_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/vulkan/fixtures/VulkanGraphicsUniformBufferShader.cgl)
 set(CROSSGL_VULKAN_GRAPHICS_FOLDED_SCALAR_CONSTANTS_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/vulkan/fixtures/VulkanGraphicsFoldedScalarConstantsShader.cgl)
 set(CROSSGL_VULKAN_GRAPHICS_MATH_INTRINSIC_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/vulkan/fixtures/VulkanGraphicsMathIntrinsicShader.cgl)
+set(CROSSGL_VULKAN_GRAPHICS_BOOLEAN_LOGIC_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/vulkan/fixtures/VulkanGraphicsBooleanLogicShader.cgl)
 set(CROSSGL_VULKAN_GRAPHICS_LOOP_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/vulkan/fixtures/VulkanGraphicsLoopShader.cgl)
 set(CROSSGL_VULKAN_GRAPHICS_LOOP_CONTROL_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/vulkan/fixtures/VulkanGraphicsLoopControlShader.cgl)
 set(CROSSGL_VULKAN_GRAPHICS_HELPER_FUNCTION_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/vulkan/fixtures/VulkanGraphicsHelperFunctionShader.cgl)

@@ -11,6 +11,7 @@
 #include "crossgl/Driver/StorageCapabilities.h"
 #include "crossgl/Driver/StorageLayout.h"
 #include "crossgl/HIR/Intrinsics.h"
+#include "crossgl/HIR/SideEffects.h"
 #include "crossgl/HIR/TypeSemantics.h"
 
 #include <algorithm>
@@ -902,6 +903,18 @@ bool isPrototypeArithmeticOperator(std::string_view op) {
 bool isPrototypeComparisonOperator(std::string_view op) {
   return op == "<" || op == "<=" || op == ">" || op == ">=" ||
          op == "==" || op == "!=";
+}
+
+bool isPrototypeLogicalOperator(std::string_view op) {
+  return op == "&&" || op == "||";
+}
+
+bool isPrototypeBoolEqualityOperator(std::string_view op) {
+  return op == "==" || op == "!=";
+}
+
+bool isPrototypeScalarBoolType(const HIRType &type) {
+  return !type.arraySize.has_value() && type.name == "bool";
 }
 
 bool isPrototypeExplicitLodTextureSample(const HIRExpression &expression) {
@@ -11671,11 +11684,28 @@ bool vulkanGraphicsExpressionSupported(const HIRModule &module,
   case HIRExpressionKind::Literal:
     return true;
   case HIRExpressionKind::Group:
-  case HIRExpressionKind::Unary:
     return expression.children.size() == 1 &&
            vulkanGraphicsExpressionSupported(module, stage,
                                              expression.children.front(),
                                              allowStageHelpers);
+  case HIRExpressionKind::Unary:
+    if (expression.children.size() != 1 ||
+        !vulkanGraphicsExpressionSupported(module, stage,
+                                           expression.children.front(),
+                                           allowStageHelpers)) {
+      return false;
+    }
+    if (expression.value == "!" && isPrototypeScalarBoolType(expression.type) &&
+        isPrototypeScalarBoolType(expression.children.front().type)) {
+      return true;
+    }
+    if ((expression.value == "+" || expression.value == "-") &&
+        vulkanGraphicsTypeEquals(expression.type,
+                                 expression.children.front().type) &&
+        isPrototypeArithmeticType(expression.type)) {
+      return true;
+    }
+    return false;
   case HIRExpressionKind::MemberAccess:
     if (vulkanGraphicsStructStorageBufferMemberAccessSupported(
             module, stage, expression, allowStageHelpers)) {
@@ -11700,14 +11730,35 @@ bool vulkanGraphicsExpressionSupported(const HIRModule &module,
   case HIRExpressionKind::Constructor:
     return vulkanGraphicsConstructorSupported(module, stage, expression,
                                               allowStageHelpers);
-  case HIRExpressionKind::Binary:
-    return expression.children.size() == 2 &&
-           vulkanGraphicsExpressionSupported(module, stage,
-                                             expression.children[0],
-                                             allowStageHelpers) &&
-           vulkanGraphicsExpressionSupported(module, stage,
-                                             expression.children[1],
-                                             allowStageHelpers);
+  case HIRExpressionKind::Binary: {
+    if (expression.children.size() != 2 ||
+        !vulkanGraphicsExpressionSupported(module, stage,
+                                           expression.children[0],
+                                           allowStageHelpers) ||
+        !vulkanGraphicsExpressionSupported(module, stage,
+                                           expression.children[1],
+                                           allowStageHelpers)) {
+      return false;
+    }
+    const HIRType &leftType = expression.children[0].type;
+    const HIRType &rightType = expression.children[1].type;
+    if (isPrototypeLogicalOperator(expression.value)) {
+      return isPrototypeScalarBoolType(expression.type) &&
+             isPrototypeScalarBoolType(leftType) &&
+             isPrototypeScalarBoolType(rightType) &&
+             isKnownPureHIRExpression(expression.children[0]) &&
+             isKnownPureHIRExpression(expression.children[1]);
+    }
+    if (isPrototypeBoolEqualityOperator(expression.value) &&
+        isPrototypeScalarBoolType(expression.type) &&
+        isPrototypeScalarBoolType(leftType) &&
+        isPrototypeScalarBoolType(rightType)) {
+      return true;
+    }
+    return (isPrototypeArithmeticOperator(expression.value) ||
+            isPrototypeComparisonOperator(expression.value)) &&
+           vulkanGraphicsValueTypeSupported(module, expression.type);
+  }
   case HIRExpressionKind::Select:
     return expression.children.size() == 3 &&
            expression.children[0].type.name == "bool" &&
@@ -14061,6 +14112,12 @@ private:
       if (expression.value == "+") {
         return child;
       }
+      if (expression.value == "!") {
+        const std::string id = freshId();
+        functions_ << id << " = OpLogicalNot " << typeId(expression.type) << " "
+                   << child.id << "\n";
+        return EmitValue{expression.type, id};
+      }
       if (expression.value == "-") {
         const std::string id = freshId();
         const bool floatLike =
@@ -14423,7 +14480,17 @@ private:
     const std::string operandScalar =
         vulkanGraphicsScalarTypeName(lhs.type.name);
     if (resultScalar == "bool") {
-      if (operandScalar == "float") {
+      if (operandScalar == "bool") {
+        if (expression.value == "&&") {
+          opcode = "OpLogicalAnd";
+        } else if (expression.value == "||") {
+          opcode = "OpLogicalOr";
+        } else if (expression.value == "==") {
+          opcode = "OpLogicalEqual";
+        } else if (expression.value == "!=") {
+          opcode = "OpLogicalNotEqual";
+        }
+      } else if (operandScalar == "float") {
         if (expression.value == "<") {
           opcode = "OpFOrdLessThan";
         } else if (expression.value == "<=") {

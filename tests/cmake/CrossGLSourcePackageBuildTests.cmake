@@ -4177,6 +4177,30 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_boolean_logic_spvasm_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_BOOLEAN_LOGIC_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-boolean-logic-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsBooleanLogicShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpLogicalNot|OpLogicalOr|OpLogicalAnd|OpLogicalEqual|OpLogicalNotEqual|OpFOrdGreaterThan|OpFOrdLessThan|OpFOrdEqual"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeImage|OpTypeSampler|OpTypeRuntimeArray|NonUniformEXT|vulkan.prototype-unsupported-graphics-body"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
+  add_test(NAME cglc_build_vulkan_graphics_boolean_logic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_GRAPHICS_BOOLEAN_LOGIC_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-graphics-boolean-logic.cglb
+      -DEXPECTED_MODULE=VulkanGraphicsBooleanLogicShader
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsBooleanLogicShader|artifacts.backendAssembly=backend/vulkan/VulkanGraphicsBooleanLogicShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanGraphicsBooleanLogicShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanGraphicsBooleanLogicShader|nativeBinary=backend/vulkan/VulkanGraphicsBooleanLogicShader.spv|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|vertexLayouts.0.entryPoint=vertex_main"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|resources=0|targetResourceBindings=0|vertexLayouts=1|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|structured-selection.kind=controlFlow|scalar-comparison.kind=operation|vector-arithmetic.kind=operation|vector-constructor.kind=operation|local-declaration.kind=operation"
+      "-DEXPECTED_SPVASM_SNIPPET=OpLogicalAnd"
+      -DEXPECTED_VULKAN_NO_DESCRIPTOR_METADATA=TRUE
+      -DEXPECTED_STORAGE_BUFFER_METADATA=FALSE
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_graphics_loop_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>
@@ -4545,6 +4569,10 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
     cglc_build_vulkan_graphics_math_intrinsic_spvasm_native vulkan)
   crossgl_label_optional_native_test(
     cglc_build_vulkan_graphics_math_intrinsic_native vulkan)
+  crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_boolean_logic_spvasm_native vulkan)
+  crossgl_label_optional_native_test(
+    cglc_build_vulkan_graphics_boolean_logic_native vulkan)
   crossgl_label_optional_native_test(cglc_build_vulkan_graphics_loop_native
                                      vulkan)
   crossgl_label_optional_native_test(
