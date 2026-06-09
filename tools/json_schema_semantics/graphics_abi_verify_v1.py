@@ -1,5 +1,7 @@
 """Semantic checks for graphics-abi-verify-v1.schema.json."""
 
+import re
+
 from .common import add_equal_error
 from .common import validate_source_location_span
 
@@ -7,6 +9,12 @@ from .common import validate_source_location_span
 SEVERITIES = ("note", "warning", "error")
 TARGETS = ("metal", "vulkan", "directx", "opengl")
 SOURCE_MAP_OWNERS = ("entryPoint", "resource", "abiRecord")
+TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
+TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"resource-binding\.[A-Za-z0-9_.-]+$"
+)
 
 
 def validate_normalized_path(errors, path, value):
@@ -17,6 +25,32 @@ def validate_normalized_path(errors, path, value):
 def validate_report_source_location(errors, path, location):
     validate_source_location_span(errors, path, location)
     validate_normalized_path(errors, f"{path}.file", location["file"])
+
+
+def validate_resource_binding_evidence_id(errors, path, evidence, seen_evidence_ids):
+    evidence_id = evidence.get("evidenceId")
+    if evidence_id is None:
+        return
+
+    if evidence_id in seen_evidence_ids:
+        errors.append(
+            f"{path}.evidenceId: duplicate target resource binding evidence id "
+            f"{evidence_id!r}"
+        )
+    seen_evidence_ids.add(evidence_id)
+
+    match = TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE.fullmatch(evidence_id)
+    if match is None:
+        return
+
+    expected_prefix = (
+        f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{evidence['target']}.resource-binding."
+    )
+    if not evidence_id.startswith(expected_prefix):
+        errors.append(
+            f"{path}.evidenceId: expected target resource binding evidence prefix "
+            f"{expected_prefix!r}, got {evidence_id!r}"
+        )
 
 
 def validate_semantics(instance):
@@ -108,6 +142,7 @@ def validate_semantics(instance):
             errors, f"{evidence_path}.sourceMapRef", evidence["sourceMapRef"]
         )
 
+    seen_resource_binding_evidence_ids = set()
     for index, evidence in enumerate(instance["resourceBindingEvidence"]):
         evidence_path = f"$.resourceBindingEvidence[{index}]"
         add_equal_error(
@@ -117,6 +152,13 @@ def validate_semantics(instance):
             index,
             "ABI record evidence order",
         )
+        if instance["success"]:
+            validate_resource_binding_evidence_id(
+                errors,
+                evidence_path,
+                evidence,
+                seen_resource_binding_evidence_ids,
+            )
         if evidence["sourceMapRef"] is None:
             if instance["success"]:
                 errors.append(

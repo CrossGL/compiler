@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -13,6 +14,12 @@ from validate_json_schema import validate as validate_schema
 
 SEVERITIES = ("note", "warning", "error")
 DIAGNOSTIC_PREFIX = "graphics.abi."
+TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
+TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"resource-binding\.[A-Za-z0-9_.-]+$"
+)
 SUPPORTED_BUILTINS = {
     "position": ("vertex", "output", "vec4"),
     "front_facing": ("fragment", "input", "bool"),
@@ -94,6 +101,45 @@ def forbid_fields(diagnostics, path, record_path, record, fields, target):
     for field in fields:
         add_forbidden_field_diagnostic(
             diagnostics, path, record_path, record, field, target
+        )
+
+
+def validate_abi_record_evidence_id(
+    diagnostics, path, record_path, record, seen_evidence_ids
+):
+    evidence_id = record.get("evidenceId")
+    if evidence_id is None:
+        return
+
+    target = record["target"]
+    if evidence_id in seen_evidence_ids:
+        diagnostics.append(
+            make_diagnostic(
+                path,
+                "duplicate-evidence-id",
+                f"{record_path}.evidenceId: duplicate target resource binding "
+                f"evidence id {evidence_id!r}",
+                target,
+            )
+        )
+    seen_evidence_ids.add(evidence_id)
+
+    match = TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE.fullmatch(evidence_id)
+    if match is None:
+        return
+
+    expected_prefix = (
+        f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{target}.resource-binding."
+    )
+    if not evidence_id.startswith(expected_prefix):
+        diagnostics.append(
+            make_diagnostic(
+                path,
+                "evidence-target-mismatch",
+                f"{record_path}.evidenceId: expected target resource binding "
+                f"evidence prefix {expected_prefix!r}, got {evidence_id!r}",
+                target,
+            )
         )
 
 
@@ -1050,11 +1096,15 @@ def validate_semantics(path, instance):
     bound_resource_keys = set()
     record_identities = {}
     coordinates = {}
+    seen_evidence_ids = set()
     previous_resource_index = -1
 
     for index, record in enumerate(instance["abiRecords"]):
         record_path = f"$.abiRecords[{index}]"
         record_target = record["target"]
+        validate_abi_record_evidence_id(
+            diagnostics, path, record_path, record, seen_evidence_ids
+        )
         validate_record_target_abi(diagnostics, path, record_path, record, target)
 
         entry = entries_by_name.get(record["entryPoint"])
@@ -1240,6 +1290,13 @@ def make_resource_binding_evidence(instance):
                 ),
                 "abiSourceMapRef": record["sourceMapRef"],
             }
+            evidence_id = record.get("evidenceId")
+            if isinstance(
+                evidence_id, str
+            ) and TARGET_LEGALIZATION_RESOURCE_BINDING_EVIDENCE_RE.fullmatch(
+                evidence_id
+            ):
+                row["evidenceId"] = evidence_id
             for field in ("set", "binding", "argumentIndex"):
                 if field in record:
                     row[field] = record[field]

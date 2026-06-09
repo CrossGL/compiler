@@ -145,12 +145,85 @@ def check_success(root, tmp_dir):
         errors.append(
             f"valid-minimal: expected no diagnostics, got {report.get('diagnostics')!r}"
         )
+    expected_evidence_ids = [
+        "target-legalization.v1.vulkan.resource-binding.vertex.vertex_vs_main.Camera",
+        "target-legalization.v1.vulkan.resource-binding.fragment.fragment_fs_main.albedo",
+    ]
+    try:
+        fixture_document = json.loads(fixture.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"valid-minimal: failed to load fixture for evidence check: {exc}"]
+    abi_record_evidence_ids = [
+        record.get("evidenceId") for record in fixture_document.get("abiRecords", [])
+    ]
+    if abi_record_evidence_ids != expected_evidence_ids:
+        errors.append(
+            "valid-minimal: unexpected ABI record evidence IDs "
+            f"{abi_record_evidence_ids!r}"
+        )
     if len(report.get("entryPointEvidence", [])) != 2:
         errors.append("valid-minimal: expected 2 entry point evidence rows")
-    if len(report.get("resourceBindingEvidence", [])) != 2:
+    resource_binding_evidence = report.get("resourceBindingEvidence", [])
+    if len(resource_binding_evidence) != 2:
         errors.append("valid-minimal: expected 2 resource binding evidence rows")
+    report_evidence_ids = [row.get("evidenceId") for row in resource_binding_evidence]
+    if report_evidence_ids != expected_evidence_ids:
+        errors.append(
+            "valid-minimal: unexpected verifier resource binding evidence IDs "
+            f"{report_evidence_ids!r}"
+        )
     if len(report.get("sourceMapEvidence", [])) != 6:
         errors.append("valid-minimal: expected 6 source-map evidence rows")
+    return errors
+
+
+def check_evidence_target_mismatch(root, tmp_dir):
+    valid_fixture = root / "tests" / "graphics-abi" / "valid-minimal.json"
+    fixture = tmp_dir / "invalid-evidence-target-mismatch.json"
+    document = json.loads(valid_fixture.read_text(encoding="utf-8"))
+    document["module"] = "GraphicsAbiEvidenceTargetMismatch"
+    document["abiRecords"][0]["evidenceId"] = (
+        "target-legalization.v1.directx.resource-binding.vertex.vertex_vs_main.Camera"
+    )
+    fixture.write_text(json.dumps(document, indent=2), encoding="utf-8")
+
+    result = run_verifier(root, fixture)
+    errors = []
+    if result.returncode == 0:
+        errors.append("invalid-evidence-target-mismatch: expected verifier failure")
+    try:
+        report = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return [f"invalid-evidence-target-mismatch: verifier output is not JSON: {exc}"]
+
+    errors.extend(
+        validate_report_schema(
+            root, tmp_dir, "invalid-evidence-target-mismatch", result.stdout
+        )
+    )
+    expect_counts(errors, "invalid-evidence-target-mismatch", report)
+    codes = [diagnostic.get("code") for diagnostic in report.get("diagnostics", [])]
+    expected_codes = ["graphics.abi.evidence-target-mismatch"]
+    if codes != expected_codes:
+        errors.append(
+            "invalid-evidence-target-mismatch: expected diagnostic codes "
+            f"{expected_codes!r}, got {codes!r}"
+        )
+    if report.get("summary") != {
+        "module": "GraphicsAbiEvidenceTargetMismatch",
+        "target": "vulkan",
+        "entryPointCount": 2,
+        "vertexInputCount": 1,
+        "varyingCount": 1,
+        "fragmentOutputCount": 1,
+        "builtinCount": 2,
+        "resourceCount": 2,
+        "abiRecordCount": 2,
+    }:
+        errors.append(
+            "invalid-evidence-target-mismatch: unexpected summary "
+            f"{report.get('summary')!r}"
+        )
     return errors
 
 
@@ -865,6 +938,31 @@ def check_report_schema_semantics(root, tmp_dir):
             missing_source_map_evidence,
         )
     )
+    bad_resource_binding_evidence_target = copy.deepcopy(valid_report)
+    bad_resource_binding_evidence_target["resourceBindingEvidence"][0]["evidenceId"] = (
+        "target-legalization.v1.directx.resource-binding.vertex.vertex_vs_main.Camera"
+    )
+    errors.extend(
+        expect_report_schema_failure(
+            root,
+            tmp_dir,
+            "report-resource-binding-evidence-target-mismatch",
+            bad_resource_binding_evidence_target,
+        )
+    )
+
+    duplicate_resource_binding_evidence = copy.deepcopy(valid_report)
+    duplicate_resource_binding_evidence["resourceBindingEvidence"][1]["evidenceId"] = (
+        duplicate_resource_binding_evidence["resourceBindingEvidence"][0]["evidenceId"]
+    )
+    errors.extend(
+        expect_report_schema_failure(
+            root,
+            tmp_dir,
+            "report-duplicate-resource-binding-evidence",
+            duplicate_resource_binding_evidence,
+        )
+    )
     return errors
 
 
@@ -878,6 +976,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
         errors.extend(check_success(root, tmp_dir))
+        errors.extend(check_evidence_target_mismatch(root, tmp_dir))
         errors.extend(check_missing_source_map_ref(root, tmp_dir))
         errors.extend(check_entry_point_backend_name_mismatch(root, tmp_dir))
         errors.extend(check_failure(root, tmp_dir))
@@ -903,7 +1002,7 @@ def main():
             )
         return 1
 
-    print("validated 17 graphics ABI verifier fixtures and report semantics")
+    print("validated 18 graphics ABI verifier cases and report semantics")
     return 0
 
 

@@ -984,6 +984,11 @@ void writeGraphicsAbiRecord(std::ostringstream &out, const HIRModule &module,
       << indent << "  \"abi\": \"" << escapeJson(record.abi) << "\",\n"
       << indent << "  \"bindingClass\": \"" << escapeJson(record.bindingClass)
       << "\"";
+  if (!record.evidenceId.empty()) {
+    out << ",\n"
+        << indent << "  \"evidenceId\": \"" << escapeJson(record.evidenceId)
+        << "\"";
+  }
   if (record.argumentIndex.has_value()) {
     out << ",\n" << indent << "  \"argumentIndex\": " << *record.argumentIndex;
   }
