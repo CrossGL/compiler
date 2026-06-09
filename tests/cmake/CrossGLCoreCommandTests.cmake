@@ -210,7 +210,7 @@ add_test(NAME cglc_doctor_json_metal_graphics_descriptor_array_native_evidence
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=MetalGraphicsDescriptorArrayShader|targetExplanation.buildableTargetCount=1|targetExplanation.recommendedTarget=metal|targetExplanation.recommendedPackageMode=native"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=MetalGraphicsDescriptorArrayShader|targetExplanation.buildableTargetCount=2|targetExplanation.recommendedTarget=metal|targetExplanation.recommendedPackageMode=native"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
     "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.requiredCapabilityCount=21|metal.missingCapabilityCount=0"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.backend.native-metal-package|metal.requiredCapabilities=metal.resource.descriptor-array|metal.requiredCapabilities=metal.layout.fixed-array|metal.requiredCapabilities=metal.texture.depth-compare-format|metal.requiredCapabilities=metal.operation.texture-shadow-compare-explicit-lod"
@@ -221,7 +221,7 @@ add_test(NAME cglc_doctor_json_opengl_graphics_descriptor_array_source_package_e
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_OPENGL_GRAPHICS_DESCRIPTOR_ARRAY_RESOURCES_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=OpenGLGraphicsDescriptorArrayResourcesShader|targetExplanation.buildableTargetCount=3"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=OpenGLGraphicsDescriptorArrayResourcesShader|targetExplanation.buildableTargetCount=4"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
     "-DEXPECTED_TARGET_FIELDS=opengl.nativeImplemented=false|opengl.sourcePackageSupported=true|opengl.packageBuildSupported=true|opengl.packageMode=source-package|opengl.packageDecisionReason=source-package-available|opengl.requiredCapabilityCount=16|opengl.missingCapabilityCount=3"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=opengl.requiredCapabilities=opengl.resource.sampled-texture|opengl.requiredCapabilities=opengl.resource.sampler-state|opengl.requiredCapabilities=opengl.resource.descriptor-array|opengl.requiredCapabilities=opengl.layout.fixed-array|opengl.missingCapabilities=opengl.backend.native-glsl-package|opengl.missingCapabilities=opengl.toolchain.opengl-driver|opengl.missingCapabilities=opengl.validation.glsl-program-validation"
