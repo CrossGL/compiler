@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/backend-source-map-v1.schema.json",
+  "title": "CrossGL Backend Source Map Schema v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "target",
+    "module",
+    "backend",
+    "mappingCount",
+    "mappings"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "kind": {
+      "const": "crossgl.backendSourceMap"
+    },
+    "target": {
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "module": {
+      "type": "string",
+      "minLength": 1
+    },
+    "backend": {
+      "$ref": "#/$defs/backend"
+    },
+    "mappingCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "mappings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mapping"
+      }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "language",
+        "lineCount"
+      ],
+      "properties": {
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lineCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "backendSpan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "startLine",
+        "endLine"
+      ],
+      "properties": {
+        "startLine": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    },
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "statementKind",
+        "name",
+        "backend",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "statementKind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "backend": {
+          "$ref": "#/$defs/backendSpan"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    }
+  }
+}

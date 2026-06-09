@@ -337,6 +337,9 @@ DumpStage dumpStageFromString(std::string_view value) {
   if (value == "backend") {
     return DumpStage::Backend;
   }
+  if (value == "backend-source-map") {
+    return DumpStage::BackendSourceMap;
+  }
   if (value == "debug") {
     return DumpStage::Debug;
   }
@@ -348,7 +351,8 @@ DumpStage dumpStageFromString(std::string_view value) {
   }
   throw std::invalid_argument(
       "unknown dump stage; expected hir, crossgl, pseudo-mlir, backend, "
-      "debug, hir-source-map, or hir-pass-trace (legacy alias: mlir)");
+      "backend-source-map, debug, hir-source-map, or hir-pass-trace "
+      "(legacy alias: mlir)");
 }
 
 std::string dumpStageName(DumpStage stage) {
@@ -361,6 +365,8 @@ std::string dumpStageName(DumpStage stage) {
     return "pseudo-mlir";
   case DumpStage::Backend:
     return "backend";
+  case DumpStage::BackendSourceMap:
+    return "backend-source-map";
   case DumpStage::Debug:
     return "debug";
   case DumpStage::HIRSourceMap:

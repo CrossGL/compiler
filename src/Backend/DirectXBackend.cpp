@@ -12,7 +12,9 @@
 #include "crossgl/Backend/TextureSample.h"
 #include "crossgl/Backend/TextureTypes.h"
 #include "crossgl/Backend/Toolchain.h"
+#include "crossgl/Basic/Json.h"
 #include "crossgl/Basic/SHA256.h"
+#include "crossgl/Driver/SourceRemap.h"
 #include "crossgl/Frontend/TokenText.h"
 #include "crossgl/HIR/TypeSemantics.h"
 
@@ -784,6 +786,8 @@ struct DirectXTextualSupportContext {
   const HIRStage *stage = nullptr;
 };
 
+struct DirectXBackendSourceMapCollector;
+
 struct DirectXEmitContext {
   const HIRModule *module = nullptr;
   std::set<std::string> mixedSamplerStateResources;
@@ -791,6 +795,137 @@ struct DirectXEmitContext {
   const HIRStage *stage = nullptr;
   const HIRFunction *function = nullptr;
   std::size_t *nextTemporaryIndex = nullptr;
+  DirectXBackendSourceMapCollector *sourceMap = nullptr;
+};
+
+std::string emitExpression(const HIRExpression &expression,
+                           const DirectXEmitContext &context);
+
+struct DirectXBackendSourceMapRecord {
+  std::size_t index = 0;
+  std::size_t backendStartLine = 1;
+  std::size_t backendEndLine = 1;
+  std::string stage;
+  std::string entryPoint;
+  std::string function;
+  std::string statementKind;
+  std::string name;
+  SourceLocation location;
+  std::optional<SourceLocation> originalLocation;
+};
+
+std::size_t lineForOffset(std::string_view text, std::size_t offset) {
+  const std::size_t boundedOffset = std::min(offset, text.size());
+  return static_cast<std::size_t>(
+             std::count(text.begin(), text.begin() + boundedOffset, '\n')) +
+         1;
+}
+
+std::size_t emittedEndLine(std::string_view text, std::size_t beginOffset) {
+  if (beginOffset >= text.size()) {
+    return lineForOffset(text, beginOffset);
+  }
+  const std::string_view emitted = text.substr(beginOffset);
+  const std::size_t startLine = lineForOffset(text, beginOffset);
+  const std::size_t newlineCount = static_cast<std::size_t>(
+      std::count(emitted.begin(), emitted.end(), '\n'));
+  if (newlineCount == 0) {
+    return startLine;
+  }
+  return startLine + newlineCount - (emitted.back() == '\n' ? 1 : 0);
+}
+
+std::size_t backendSourceLineCount(std::string_view text) {
+  if (text.empty()) {
+    return 0;
+  }
+  const std::size_t newlineCount =
+      static_cast<std::size_t>(std::count(text.begin(), text.end(), '\n'));
+  return newlineCount + (text.back() == '\n' ? 0 : 1);
+}
+
+std::string directxSourceMapStatementName(const HIRStatement &statement,
+                                          const DirectXEmitContext &context) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    return statement.name;
+  case HIRStatementKind::Assignment:
+    return emitExpression(statement.target, context);
+  case HIRStatementKind::Return:
+    return "return";
+  case HIRStatementKind::Expression:
+    return emitExpression(statement.value, context);
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+    return emitExpression(statement.value, context);
+  case HIRStatementKind::Break:
+    return "break";
+  case HIRStatementKind::Continue:
+    return "continue";
+  case HIRStatementKind::Discard:
+    return "discard";
+  case HIRStatementKind::Block:
+    return "block";
+  case HIRStatementKind::Raw:
+    return "raw";
+  }
+  return "";
+}
+
+struct DirectXBackendSourceMapCollector {
+  const SourceRemap *sourceRemap = nullptr;
+  std::vector<DirectXBackendSourceMapRecord> records;
+
+  void recordStatement(const HIRStatement &statement,
+                       const DirectXEmitContext &context,
+                       std::size_t beginOffset, std::string_view sourceText) {
+    if (sourceText.size() <= beginOffset) {
+      return;
+    }
+
+    DirectXBackendSourceMapRecord record;
+    record.index = records.size();
+    record.backendStartLine = lineForOffset(sourceText, beginOffset);
+    record.backendEndLine = emittedEndLine(sourceText, beginOffset);
+    record.stage = context.stage == nullptr ? "" : context.stage->stage;
+    record.entryPoint =
+        context.stage == nullptr ? "" : context.stage->entryPointName;
+    record.function =
+        context.function == nullptr ? "" : context.function->name;
+    record.statementKind = statementKindName(statement.kind);
+    record.name = directxSourceMapStatementName(statement, context);
+    record.location = statement.location;
+    if (sourceRemap != nullptr) {
+      record.originalLocation =
+          remapSourceLocation(*sourceRemap, statement.location);
+    }
+    records.push_back(std::move(record));
+  }
+};
+
+struct DirectXStatementSourceMapScope {
+  std::ostringstream &out;
+  const HIRStatement &statement;
+  const DirectXEmitContext &context;
+  std::size_t beginOffset = 0;
+
+  DirectXStatementSourceMapScope(std::ostringstream &out,
+                                 const HIRStatement &statement,
+                                 const DirectXEmitContext &context)
+      : out(out), statement(statement), context(context) {
+    if (context.sourceMap != nullptr) {
+      beginOffset = out.str().size();
+    }
+  }
+
+  ~DirectXStatementSourceMapScope() {
+    if (context.sourceMap == nullptr) {
+      return;
+    }
+    const std::string sourceText = out.str();
+    context.sourceMap->recordStatement(statement, context, beginOffset,
+                                       sourceText);
+  }
 };
 
 struct DirectXComputeInvocationBuiltin {
@@ -2807,6 +2942,7 @@ void emitDirectXStatementWithArrayWriteBack(
 void emitStatement(std::ostringstream &out, const HIRStatement &statement,
                    std::size_t indentation,
                    const DirectXEmitContext &context = {}) {
+  const DirectXStatementSourceMapScope sourceMapScope(out, statement, context);
   const std::string spaces(indentation, ' ');
   if (const std::optional<DirectXArrayWriteBackRewrite> rewrite =
           directxArrayWriteBackRewrite(statement, context)) {
@@ -5155,7 +5291,8 @@ void emitComputeInvocationParameter(std::ostringstream &out,
 
 std::string generateDirectXComputeSource(
     const HIRModule &module,
-    const TargetLegalizationResourceBindingFacts *resourceBindings) {
+    const TargetLegalizationResourceBindingFacts *resourceBindings,
+    DirectXBackendSourceMapCollector *sourceMap = nullptr) {
   std::ostringstream out;
   const HIRStage *computeStage = singleComputeStage(module);
   if (computeStage == nullptr || !directxTextualBackendSupported(module)) {
@@ -5170,6 +5307,7 @@ std::string generateDirectXComputeSource(
   DirectXEmitContext emitContext{&module, mixedSamplers};
   emitContext.stage = &stage;
   emitContext.nextTemporaryIndex = &nextTemporaryIndex;
+  emitContext.sourceMap = sourceMap;
   for (const HIRConstant &constant : module.constants) {
     out << "static const " << hlslType(constant.type) << " " << constant.name
         << " = " << emitConstantValue(constant) << ";\n";
@@ -5388,7 +5526,8 @@ void emitDirectXStageFunctionDefinitions(std::ostringstream &out,
 
 std::string generateDirectXGraphicsSource(
     const HIRModule &module,
-    const TargetLegalizationResourceBindingFacts *resourceBindings) {
+    const TargetLegalizationResourceBindingFacts *resourceBindings,
+    DirectXBackendSourceMapCollector *sourceMap = nullptr) {
   std::ostringstream out;
   const HIRStage *vertexStage = nullptr;
   const HIRStage *fragmentStage = nullptr;
@@ -5460,9 +5599,11 @@ std::string generateDirectXGraphicsSource(
   DirectXEmitContext vertexContext{&module, mixedSamplers, false};
   vertexContext.stage = vertexStage;
   vertexContext.nextTemporaryIndex = &nextTemporaryIndex;
+  vertexContext.sourceMap = sourceMap;
   DirectXEmitContext fragmentContext{&module, mixedSamplers, false};
   fragmentContext.stage = fragmentStage;
   fragmentContext.nextTemporaryIndex = &nextTemporaryIndex;
+  fragmentContext.sourceMap = sourceMap;
   emitDirectXStageFunctionDefinitions(out, *vertexStage, vertexEntry,
                                       vertexContext);
   emitDirectXStageFunctionDefinitions(out, *fragmentStage, fragmentEntry,
@@ -5508,11 +5649,12 @@ std::string generateDirectXGraphicsSource(
 
 std::string generateDirectXSource(
     const HIRModule &module,
-    const TargetLegalizationResourceBindingFacts *resourceBindings) {
+    const TargetLegalizationResourceBindingFacts *resourceBindings,
+    DirectXBackendSourceMapCollector *sourceMap = nullptr) {
   if (singleComputeStage(module) != nullptr) {
-    return generateDirectXComputeSource(module, resourceBindings);
+    return generateDirectXComputeSource(module, resourceBindings, sourceMap);
   }
-  return generateDirectXGraphicsSource(module, resourceBindings);
+  return generateDirectXGraphicsSource(module, resourceBindings, sourceMap);
 }
 
 std::optional<TargetLegalizationResourceBindingFacts>
@@ -5538,6 +5680,101 @@ std::string generateDirectXSource(
     const HIRModule &module,
     const TargetLegalizationResourceBindingFacts &resourceBindings) {
   return generateDirectXSource(module, &resourceBindings);
+}
+
+void appendBackendSourceLocationJson(std::ostringstream &out,
+                                     const SourceLocation &location,
+                                     std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"file\": \"" << escapeJson(location.file) << "\",\n"
+      << indent << "  \"line\": " << location.line << ",\n"
+      << indent << "  \"column\": " << location.column << ",\n"
+      << indent << "  \"offset\": " << location.offset << ",\n"
+      << indent << "  \"length\": " << location.length << ",\n"
+      << indent << "  \"endLine\": " << location.endLine << ",\n"
+      << indent << "  \"endColumn\": " << location.endColumn << ",\n"
+      << indent << "  \"endOffset\": " << location.endOffset << "\n"
+      << indent << "}";
+}
+
+std::string directxBackendSourceMapJson(
+    const HIRModule &module, std::string_view sourceText,
+    const DirectXBackendSourceMapCollector &sourceMap) {
+  std::ostringstream out;
+  out << "{\n"
+      << "  \"schemaVersion\": 1,\n"
+      << "  \"kind\": \"crossgl.backendSourceMap\",\n"
+      << "  \"target\": \"directx\",\n"
+      << "  \"module\": \"" << escapeJson(module.name) << "\",\n"
+      << "  \"backend\": {\n"
+      << "    \"language\": \"hlsl\",\n"
+      << "    \"lineCount\": " << backendSourceLineCount(sourceText) << "\n"
+      << "  },\n"
+      << "  \"mappingCount\": " << sourceMap.records.size() << ",\n"
+      << "  \"mappings\": [";
+  for (std::size_t i = 0; i < sourceMap.records.size(); ++i) {
+    const DirectXBackendSourceMapRecord &record = sourceMap.records[i];
+    if (i != 0) {
+      out << ",";
+    }
+    out << "\n    {\n"
+        << "      \"index\": " << record.index << ",\n"
+        << "      \"stage\": \"" << escapeJson(record.stage) << "\",\n"
+        << "      \"entryPoint\": \"" << escapeJson(record.entryPoint)
+        << "\",\n"
+        << "      \"function\": \"" << escapeJson(record.function) << "\",\n"
+        << "      \"statementKind\": \"" << escapeJson(record.statementKind)
+        << "\",\n"
+        << "      \"name\": \"" << escapeJson(record.name) << "\",\n"
+        << "      \"backend\": {\n"
+        << "        \"startLine\": " << record.backendStartLine << ",\n"
+        << "        \"endLine\": " << record.backendEndLine << "\n"
+        << "      },\n"
+        << "      \"location\": ";
+    appendBackendSourceLocationJson(out, record.location, "      ");
+    if (record.originalLocation) {
+      out << ",\n"
+          << "      \"originalLocation\": ";
+      appendBackendSourceLocationJson(out, *record.originalLocation, "      ");
+    }
+    out << "\n"
+        << "    }";
+  }
+  if (!sourceMap.records.empty()) {
+    out << "\n  ";
+  }
+  out << "]\n"
+      << "}\n";
+  return out.str();
+}
+
+std::string generateDirectXBackendSourceMapJson(
+    const HIRModule &module,
+    const TargetLegalizationResourceBindingFacts *resourceBindings,
+    const SourceRemap *sourceRemap) {
+  DirectXBackendSourceMapCollector sourceMap;
+  sourceMap.sourceRemap = sourceRemap;
+  const std::string sourceText =
+      generateDirectXSource(module, resourceBindings, &sourceMap);
+  return directxBackendSourceMapJson(module, sourceText, sourceMap);
+}
+
+std::string
+generateDirectXBackendSourceMapJson(const HIRModule &module,
+                                    const SourceRemap *sourceRemap) {
+  const std::optional<TargetLegalizationResourceBindingFacts> resourceBindings =
+      directxLegalizedResourceBindingsForEmission(module);
+  return generateDirectXBackendSourceMapJson(
+      module, resourceBindings.has_value() ? &*resourceBindings : nullptr,
+      sourceRemap);
+}
+
+std::string generateDirectXBackendSourceMapJson(
+    const HIRModule &module,
+    const TargetLegalizationResourceBindingFacts &resourceBindings,
+    const SourceRemap *sourceRemap) {
+  return generateDirectXBackendSourceMapJson(module, &resourceBindings,
+                                            sourceRemap);
 }
 
 std::string generateDirectXBackendIR(

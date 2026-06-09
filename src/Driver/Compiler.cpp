@@ -2833,6 +2833,20 @@ std::optional<std::string> dumpIRFromCompilerModule(
                             admission->legalization.target);
     }
     return std::nullopt;
+  case DumpStage::BackendSourceMap:
+    if (target != TargetKind::DirectX) {
+      diagnostics.error("dump.backend-source-map.unsupported-target",
+                        "backend source maps currently support directx only");
+      return std::nullopt;
+    }
+    if (std::optional<BackendAdmission> admission =
+            requireAdmittedBackendInput(parsed, target, diagnostics)) {
+      return generateDirectXBackendSourceMapJson(
+          *admission->input.module, admission->legalization.resourceBindings,
+          sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
+                                       : nullptr);
+    }
+    return std::nullopt;
   case DumpStage::Debug: {
     DebugMetadataOptions debugMetadataOptions;
     debugMetadataOptions.sourceRemap = sourceMapOptions.sourceRemap;
@@ -2950,7 +2964,8 @@ dumpIR(const std::filesystem::path &inputPath, DumpStage stage,
   CompilerModuleOptions options;
   options.optimizationLevel = optimizationLevel;
   options.validateBackendInput =
-      stage == DumpStage::Backend || stage == DumpStage::Debug;
+      stage == DumpStage::Backend || stage == DumpStage::BackendSourceMap ||
+      stage == DumpStage::Debug;
   auto parsed = loadCompilerModule(inputPath, diagnostics, options);
   if (!parsed) {
     return std::nullopt;
@@ -2970,7 +2985,8 @@ dumpIR(const SourceInput &input, DumpStage stage, TargetKind target,
   CompilerModuleOptions options;
   options.optimizationLevel = optimizationLevel;
   options.validateBackendInput =
-      stage == DumpStage::Backend || stage == DumpStage::Debug;
+      stage == DumpStage::Backend || stage == DumpStage::BackendSourceMap ||
+      stage == DumpStage::Debug;
   auto parsed = loadCompilerModuleFromSource(input, diagnostics, options);
   if (!parsed) {
     return std::nullopt;

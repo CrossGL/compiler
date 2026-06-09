@@ -14,6 +14,7 @@ enum class DumpStage {
   PseudoMLIR,
   MLIR = PseudoMLIR,
   Backend,
+  BackendSourceMap,
   Debug,
   HIRSourceMap,
   HIRPassTrace,
