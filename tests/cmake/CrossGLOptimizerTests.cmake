@@ -21,6 +21,7 @@ set(CROSSGL_OPTIMIZER_PROPAGATED_ALGEBRA_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/test
 set(CROSSGL_OPTIMIZER_PURE_INTRINSIC_CONSTANT_FOLDING_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/PureIntrinsicConstantFoldingShader.cgl)
 set(CROSSGL_OPTIMIZER_VECTOR_TRIG_INTRINSIC_FOLD_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/VectorTrigIntrinsicFoldOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_O2_TEMPORARY_INLINING_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2TemporaryInliningOptimizerShader.cgl)
+set(CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2PureExpressionCSEOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_FOR_BOUNDARY_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForOptimizerBoundaryHIRShader.cgl)
 
 add_test(NAME cglc_optimizer_opt_level_check_o2_accepts
@@ -56,7 +57,7 @@ add_test(NAME cglc_optimizer_opt_level_default_trace_policy
 set_tests_properties(cglc_optimizer_opt_level_default_trace_policy
   PROPERTIES
     PASS_REGULAR_EXPRESSION "\"optimizationLevel\": \"O1\".*\"passSchedule\": \\{.*\"fingerprint\": \"fnv1a64:[0-9a-f].*\"fingerprintPolicy\": \"scheduled-pass-ids-v1\".*\"stability\": \"stable-opt-level-policy\".*\"scheduledPassCount\": 10.*\"passCount\": 10.*\"completed\": true.*\"stopReason\": \"none\""
-    FAIL_REGULAR_EXPRESSION "hir[.]optimize[.]o2[.](inline-scalar-temporaries|inline-literal-vector-temporaries)|hir[.]validate[.]backend-input")
+    FAIL_REGULAR_EXPRESSION "hir[.]optimize[.]o2[.](pure-expression-cse|inline-scalar-temporaries|inline-literal-vector-temporaries)|hir[.]validate[.]backend-input")
 
 add_test(NAME cglc_optimizer_hir_pass_trace_reports_change_status
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_WORKGROUP_BARRIER_SHADER} --stage hir-pass-trace)
@@ -84,7 +85,7 @@ add_test(NAME cglc_optimizer_opt_level_o2_trace_has_distinct_pass
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_WORKGROUP_BARRIER_SHADER} --stage hir-pass-trace --opt-level O2)
 set_tests_properties(cglc_optimizer_opt_level_o2_trace_has_distinct_pass
   PROPERTIES
-    PASS_REGULAR_EXPRESSION "\"optimizationLevel\": \"O2\".*\"scheduledPassCount\": 12.*\"passCount\": 12.*\"completed\": true.*\"stopReason\": \"none\".*hir[.]optimize[.]o2[.]inline-scalar-temporaries.*hir[.]optimize[.]o2[.]inline-literal-vector-temporaries"
+    PASS_REGULAR_EXPRESSION "\"optimizationLevel\": \"O2\".*\"scheduledPassCount\": 13.*\"passCount\": 13.*\"completed\": true.*\"stopReason\": \"none\".*hir[.]optimize[.]o2[.]pure-expression-cse.*hir[.]optimize[.]o2[.]inline-scalar-temporaries.*hir[.]optimize[.]o2[.]inline-literal-vector-temporaries"
     FAIL_REGULAR_EXPRESSION "hir[.]validate[.]backend-input")
 
 add_test(NAME cglc_optimizer_opt_level_o0_trace_is_validation_only
@@ -118,6 +119,25 @@ add_test(NAME cglc_optimizer_hir_o2_temp_inlining_trace_changed
 set_tests_properties(cglc_optimizer_hir_o2_temp_inlining_trace_changed
   PROPERTIES
     PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": true.*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": true]=])
+
+add_test(NAME cglc_optimizer_hir_o1_preserves_pure_expression_cse_candidates
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER} --stage hir --opt-level O1)
+set_tests_properties(cglc_optimizer_hir_o1_preserves_pure_expression_cse_candidates
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=[decl float first = \(left \+ right\) \* bias : float.*decl float second = \(left \+ right\) \* bias : float.*decl float third = max\(left \+ right, bias\) : float.*decl float fourth = max\(left \+ right, bias\) : float.*decl float before = left \+ right : float.*assign values\[index\] : float = before : float.*decl float after = left \+ right : float]=])
+
+add_test(NAME cglc_optimizer_hir_o2_pure_expression_cse
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER} --stage hir --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_o2_pure_expression_cse
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=[decl float first = \(left \+ right\) \* bias : float.*decl float third = max\(left \+ right, bias\) : float.*return first \+ first \+ third \+ third : float.*decl float before = left \+ right : float.*assign values\[index\] : float = before : float.*decl float after = left \+ right : float.*return before \+ after \+ after : float]=]
+    FAIL_REGULAR_EXPRESSION [=[decl float second|decl float fourth|decl float after = before]=])
+
+add_test(NAME cglc_optimizer_hir_o2_pure_expression_cse_trace_changed
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER} --stage hir-pass-trace --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_o2_pure_expression_cse_trace_changed
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]pure-expression-cse".*"changed": true]=])
 
 add_test(NAME cglc_optimizer_workgroup_barrier_boundary_check
   COMMAND cglc check ${CROSSGL_OPTIMIZER_WORKGROUP_BARRIER_SHADER})
@@ -362,13 +382,13 @@ add_test(NAME cglc_optimizer_hir_o2_storage_image_atomic_trace_unchanged
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_STORAGE_IMAGE_ATOMIC_SHADER} --stage hir-pass-trace --opt-level O2)
 set_tests_properties(cglc_optimizer_hir_o2_storage_image_atomic_trace_unchanged
   PROPERTIES
-    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": false.*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": false]=])
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]pure-expression-cse".*"changed": false.*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": false.*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": false]=])
 
 add_test(NAME cglc_optimizer_hir_o2_storage_image_atomic_trace_cleanup_evidence
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_STORAGE_IMAGE_ATOMIC_SHADER} --stage hir-pass-trace --opt-level O2)
 set_tests_properties(cglc_optimizer_hir_o2_storage_image_atomic_trace_cleanup_evidence
   PROPERTIES
-    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"scheduledPassCount": 12.*"passCount": 12.*"changedPassCount": 3.*"diagnosticPassCount": 0.*"errorPassCount": 0.*"completed": true.*"name": "hir[.]optimize[.]fold-constant-intrinsics".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]propagate-local-scalars".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]cleanup-dead-local-declarations".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]cleanup-dead-local-stores".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": false.*"status": "completed".*"name": "hir[.]validate[.]storage-buffer-shapes".*"changed": false.*"status": "completed"]=])
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"scheduledPassCount": 13.*"passCount": 13.*"changedPassCount": 3.*"diagnosticPassCount": 0.*"errorPassCount": 0.*"completed": true.*"name": "hir[.]optimize[.]fold-constant-intrinsics".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]propagate-local-scalars".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]cleanup-dead-local-declarations".*"changed": true.*"status": "completed".*"name": "hir[.]optimize[.]cleanup-dead-local-stores".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]pure-expression-cse".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": false.*"status": "completed".*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": false.*"status": "completed".*"name": "hir[.]validate[.]storage-buffer-shapes".*"changed": false.*"status": "completed"]=])
 
 add_test(NAME cglc_optimizer_storage_image_constants_boundary_check
   COMMAND cglc check ${CROSSGL_OPTIMIZER_STORAGE_IMAGE_CONSTANTS_SHADER})

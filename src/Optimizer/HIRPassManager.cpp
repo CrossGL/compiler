@@ -5170,6 +5170,326 @@ bool hasAnyHIRName(const std::set<std::string> &names,
   return false;
 }
 
+bool isO2CSEValueType(const HIRType &type) {
+  if (!hasHIRTypeShape(type) || type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string unqualified = stripTypeQualifier(type.name);
+  if (!unqualified.empty() && unqualified.back() == '*') {
+    return false;
+  }
+  if (resourceKindFromName(type.name) != HIRResourceKind::Value) {
+    return false;
+  }
+
+  const std::string base = baseTypeName(type);
+  return base == "bool" || isNumericScalarTypeName(base) ||
+         isVectorType(base) || isMatrixType(base);
+}
+
+bool isO2CSEValueExpression(const HIRExpression &expression) {
+  return isO2CSEValueType(expression.type);
+}
+
+bool isO2CSESupportedExpression(const HIRExpression &expression);
+
+bool areO2CSESupportedChildren(const HIRExpression &expression) {
+  return std::all_of(expression.children.begin(), expression.children.end(),
+                     isO2CSESupportedExpression);
+}
+
+bool isO2CSESupportedExpression(const HIRExpression &expression) {
+  if (!isKnownPureHIRExpression(expression)) {
+    return false;
+  }
+
+  switch (expression.kind) {
+  case HIRExpressionKind::Literal:
+    return expression.children.empty() && isO2CSEValueExpression(expression);
+  case HIRExpressionKind::Identifier:
+    return !expression.value.empty() && expression.children.empty() &&
+           !isHIRPseudoControlIdentifier(expression.value) &&
+           isO2CSEValueExpression(expression);
+  case HIRExpressionKind::Group:
+    return expression.children.size() == 1 &&
+           isO2CSESupportedExpression(expression.children.front());
+  case HIRExpressionKind::Unary:
+    return expression.children.size() == 1 &&
+           isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::Binary:
+    return expression.children.size() == 2 &&
+           isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::Select:
+    return expression.children.size() == 3 &&
+           isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::Constructor:
+    return isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::Call:
+    return isPureHIRCallExpression(expression) &&
+           isO2CSEValueExpression(expression) &&
+           areO2CSESupportedChildren(expression);
+  case HIRExpressionKind::MemberAccess:
+    if (expression.children.size() != 1 ||
+        !isO2CSEValueExpression(expression) ||
+        !isO2CSESupportedExpression(expression.children.front())) {
+      return false;
+    }
+    return isVectorType(baseTypeName(expression.children.front().type)) ||
+           isMatrixType(baseTypeName(expression.children.front().type));
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::TextureSample:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+    return false;
+  }
+  return false;
+}
+
+bool isO2CSECandidateExpression(const HIRExpression &expression) {
+  switch (expression.kind) {
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Binary:
+  case HIRExpressionKind::Select:
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::MemberAccess:
+    return isO2CSESupportedExpression(expression);
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::Group:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::TextureSample:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+    return false;
+  }
+  return false;
+}
+
+void appendO2CSEExpressionKey(std::ostream &out,
+                              const HIRExpression &expression) {
+  out << static_cast<int>(expression.kind) << '{' << expression.value.size()
+      << ':' << expression.value << '|' << expression.type.name.size() << ':'
+      << expression.type.name << '|';
+  if (expression.type.arraySize.has_value()) {
+    out << expression.type.arraySize->size() << ':'
+        << *expression.type.arraySize;
+  } else {
+    out << '-';
+  }
+  out << '|' << expression.children.size() << '[';
+  for (const HIRExpression &child : expression.children) {
+    appendO2CSEExpressionKey(out, child);
+  }
+  out << "]}";
+}
+
+std::string o2CSEExpressionKey(const HIRExpression &expression) {
+  std::ostringstream out;
+  appendO2CSEExpressionKey(out, expression);
+  return out.str();
+}
+
+struct O2CSEAvailableExpression {
+  std::string name;
+  HIRType type;
+  SourceLocation location;
+  std::set<std::string> dependencies;
+};
+
+using O2CSEAvailableExpressionMap =
+    std::unordered_map<std::string, O2CSEAvailableExpression>;
+
+void eraseO2CSEInvalidatedExpressions(
+    O2CSEAvailableExpressionMap &available,
+    const std::set<std::string> &names) {
+  if (names.empty()) {
+    return;
+  }
+
+  for (auto iterator = available.begin(); iterator != available.end();) {
+    bool invalidated = names.find(iterator->second.name) != names.end();
+    for (const std::string &dependency : iterator->second.dependencies) {
+      invalidated = invalidated || names.find(dependency) != names.end();
+    }
+    if (invalidated) {
+      iterator = available.erase(iterator);
+    } else {
+      ++iterator;
+    }
+  }
+}
+
+std::optional<HIRExpression> o2CSEReplacementExpression(
+    const HIRExpression &expression,
+    const O2CSEAvailableExpressionMap &available) {
+  if (!isO2CSECandidateExpression(expression)) {
+    return std::nullopt;
+  }
+
+  const auto found = available.find(o2CSEExpressionKey(expression));
+  if (found == available.end()) {
+    return std::nullopt;
+  }
+  if (!sameType(found->second.type, expression.type)) {
+    return std::nullopt;
+  }
+
+  HIRExpression replacement;
+  replacement.kind = HIRExpressionKind::Identifier;
+  replacement.type = expression.type;
+  replacement.value = found->second.name;
+  replacement.location = expression.location.file.empty()
+                             ? found->second.location
+                             : expression.location;
+  return replacement;
+}
+
+bool replaceO2CSEExpression(HIRExpression &expression,
+                            const O2CSEAvailableExpressionMap &available) {
+  if (std::optional<HIRExpression> replacement =
+          o2CSEReplacementExpression(expression, available)) {
+    expression = std::move(*replacement);
+    return true;
+  }
+
+  bool changed = false;
+  switch (expression.kind) {
+  case HIRExpressionKind::Empty:
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::TextureSample:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+    return false;
+  case HIRExpressionKind::Group:
+  case HIRExpressionKind::MemberAccess:
+  case HIRExpressionKind::IndexAccess:
+  case HIRExpressionKind::NonUniform:
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::Constructor:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Binary:
+  case HIRExpressionKind::Select:
+    if (!isKnownPureHIRExpression(expression)) {
+      return false;
+    }
+    for (HIRExpression &child : expression.children) {
+      changed = replaceO2CSEExpression(child, available) || changed;
+    }
+    return changed;
+  }
+  return false;
+}
+
+bool applyO2PureExpressionCSEInBlock(std::vector<HIRStatement> &statements);
+
+bool applyO2PureExpressionCSEInStatement(HIRStatement &statement,
+                                         O2CSEAvailableExpressionMap &available) {
+  bool changed = false;
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration: {
+    changed = replaceO2CSEExpression(statement.value, available) || changed;
+    if (!statement.name.empty()) {
+      eraseO2CSEInvalidatedExpressions(available, {statement.name});
+    }
+    if (!statement.name.empty() && isO2CSECandidateExpression(statement.value)) {
+      std::set<std::string> dependencies;
+      collectHIRExpressionIdentifiers(statement.value, dependencies);
+      dependencies.erase(statement.name);
+      available[o2CSEExpressionKey(statement.value)] =
+          O2CSEAvailableExpression{statement.name, statement.declaredType,
+                                   statement.value.location,
+                                   std::move(dependencies)};
+    }
+    return changed;
+  }
+  case HIRStatementKind::Assignment: {
+    changed = replaceO2CSEExpression(statement.value, available) || changed;
+    std::set<std::string> assignedNames;
+    collectHIRAssignedNames(statement, assignedNames);
+    eraseO2CSEInvalidatedExpressions(available, assignedNames);
+    available.clear();
+    return changed;
+  }
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Expression: {
+    changed = replaceO2CSEExpression(statement.value, available) || changed;
+    if (hasHIRSideEffects(summarizeHIRStatementSideEffects(statement))) {
+      available.clear();
+    }
+    return changed;
+  }
+  case HIRStatementKind::Block:
+    changed = applyO2PureExpressionCSEInBlock(statement.body) || changed;
+    available.clear();
+    return changed;
+  case HIRStatementKind::If:
+    changed = applyO2PureExpressionCSEInBlock(statement.body) || changed;
+    changed = applyO2PureExpressionCSEInBlock(statement.elseBody) || changed;
+    available.clear();
+    return changed;
+  case HIRStatementKind::For:
+    changed = applyO2PureExpressionCSEInBlock(statement.initializer) || changed;
+    changed =
+        mutateHIRLoopUpdate(
+            statement, [](std::vector<HIRStatement> &update) {
+              return applyO2PureExpressionCSEInBlock(update);
+            }) ||
+        changed;
+    changed = applyO2PureExpressionCSEInBlock(statement.body) || changed;
+    available.clear();
+    return changed;
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Raw:
+    available.clear();
+    return false;
+  }
+  return changed;
+}
+
+bool applyO2PureExpressionCSEInBlock(std::vector<HIRStatement> &statements) {
+  bool changed = false;
+  O2CSEAvailableExpressionMap available;
+  for (HIRStatement &statement : statements) {
+    changed =
+        applyO2PureExpressionCSEInStatement(statement, available) || changed;
+  }
+  return changed;
+}
+
+bool applyO2PureExpressionCSE(HIRModule &module, DiagnosticEngine &) {
+  bool changed = false;
+  auto optimizeFunction = [&](HIRFunction &function) {
+    if (containsOpaqueDeadLocalCleanupStatement(function.body)) {
+      return;
+    }
+    changed =
+        mutateHIRFunctionBody(function, applyO2PureExpressionCSEInBlock) ||
+        changed;
+  };
+
+  for (HIRFunction &function : module.functions) {
+    optimizeFunction(function);
+  }
+  for (HIRStage &stage : module.stages) {
+    for (HIRFunction &function : stage.functions) {
+      optimizeFunction(function);
+    }
+  }
+  return changed;
+}
+
 bool inlineO2ScalarTemporariesInBlock(std::vector<HIRStatement> &statements);
 
 bool inlineO2ScalarTemporariesInStatement(HIRStatement &statement) {
@@ -7624,6 +7944,9 @@ constexpr HIRPassMetadata kCleanupDeadLocalDeclarationsPass{
 constexpr HIRPassMetadata kCleanupDeadLocalStoresPass{
     "hir.optimize.cleanup-dead-local-stores",
     "hir.optimize.cleanup-dead-local-stores", "cleanup"};
+constexpr HIRPassMetadata kO2PureExpressionCSEPass{
+    "hir.optimize.o2.pure-expression-cse",
+    "hir.optimize.o2.pure-expression-cse", "optimization"};
 constexpr HIRPassMetadata kInlineO2ScalarTemporariesPass{
     "hir.optimize.o2.inline-scalar-temporaries",
     "hir.optimize.o2.inline-scalar-temporaries", "optimization"};
@@ -7650,7 +7973,7 @@ const std::array<HIRPass, 11> kDefaultHIRPasses = {
     HIRPass{kValidateBackendInputPass, validateHIRBackendInput},
 };
 
-const std::array<HIRPass, 13> kO2HIRPasses = {
+const std::array<HIRPass, 14> kO2HIRPasses = {
     HIRPass{kValidateModuleShapePass, validateHIRModuleShape},
     HIRPass{kValidateTypedSymbolsPass, validateHIRTypedSymbols},
     HIRPass{kFoldConstantIntrinsicsPass, foldConstantHIRIntrinsics},
@@ -7660,6 +7983,7 @@ const std::array<HIRPass, 13> kO2HIRPasses = {
     HIRPass{kCleanupUnreachableStatementsPass, cleanupUnreachableHIRStatements},
     HIRPass{kCleanupDeadLocalDeclarationsPass, cleanupDeadHIRLocalDeclarations},
     HIRPass{kCleanupDeadLocalStoresPass, cleanupDeadHIRLocalStores},
+    HIRPass{kO2PureExpressionCSEPass, applyO2PureExpressionCSE},
     HIRPass{kInlineO2ScalarTemporariesPass, inlineO2ScalarTemporaries},
     HIRPass{kInlineO2LiteralVectorTemporariesPass,
             inlineO2LiteralVectorTemporaries},
@@ -7874,8 +8198,9 @@ HIRPassPolicyMetadata hirPassPolicyMetadataForConfig(
         kStableOptLevelPassSchedule};
   case OptimizationLevel::O2:
     return HIRPassPolicyMetadata{
-        "hir-o2-conservative-inline", "O2 conservative inline",
-        "O1 safe cleanup plus conservative temporary inlining.",
+        "hir-o2-conservative-local-values", "O2 conservative local values",
+        "O1 safe cleanup plus conservative local value reuse and temporary "
+        "inlining.",
         backendInputModeName(config.validateBackendInput),
         kStableOptLevelPassSchedule};
   }
