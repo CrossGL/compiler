@@ -2,5 +2,8 @@ runtime/examples/fixtures/source-free-vulkan-native.cglb/backend/vulkan/SourceFr
 runtime/examples/fixtures/source-free-vulkan-native.cglb/backend/vulkan/SourceFreeVulkanRuntimeExample.spvasm -text
 runtime/examples/fixtures/source-free-directx-emitted-dxil.cglb/backend/directx/SourceFreeDirectXEmittedDxilRuntimeExample.hlsl eol=lf
 runtime/examples/fixtures/source-free-directx-emitted-dxil.cglb/backend/directx/SourceFreeDirectXEmittedDxilRuntimeExample.dxil -text
+runtime/examples/fixtures/source-free-metal-native.cglb/backend/metal/SourceFreeMetalRuntimeExample.metal eol=lf
+runtime/examples/fixtures/source-free-metal-native.cglb/backend/metal/SourceFreeMetalRuntimeExample.air -text
+runtime/examples/fixtures/source-free-metal-native.cglb/backend/metal/SourceFreeMetalRuntimeExample.metallib -text
 runtime/examples/fixtures/source-free-opengl-validated-source.cglb/backend/opengl/SourceFreeOpenGLValidatedSourceRuntimeExample.comp.glsl eol=lf
 runtime/examples/fixtures/source-free-opengl-validated-source.cglb/backend/opengl/SourceFreeOpenGLValidatedSourceRuntimeExample.glsl eol=lf

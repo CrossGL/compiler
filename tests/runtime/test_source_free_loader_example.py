@@ -117,6 +117,31 @@ class SourceFreeRuntimeLoaderExampleTests(unittest.TestCase):
         )
         self.assertEqual(list(package_dir.rglob("*.cgl")), [])
 
+    def test_source_free_metal_descriptor_matches_checked_out_bytes(self) -> None:
+        package_dir = FIXTURE_ROOT / "source-free-metal-native.cglb"
+        descriptor_path = (
+            package_dir
+            / "backend"
+            / "metal"
+            / "SourceFreeMetalRuntimeExample.native-artifact.json"
+        )
+
+        descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+        source_bytes = (package_dir / descriptor["sourcePath"]).read_bytes()
+        artifact_bytes = (package_dir / descriptor["artifactPath"]).read_bytes()
+
+        self.assertEqual(descriptor["sourceHash"]["algorithm"], "sha256")
+        self.assertEqual(
+            descriptor["sourceHash"]["value"],
+            hashlib.sha256(source_bytes).hexdigest(),
+        )
+        self.assertEqual(descriptor["artifactHash"]["algorithm"], "sha256")
+        self.assertEqual(
+            descriptor["artifactHash"]["value"],
+            hashlib.sha256(artifact_bytes).hexdigest(),
+        )
+        self.assertEqual(descriptor["sizeBytes"], len(artifact_bytes))
+
     def test_example_opt_in_reports_metal_native_backend_admission(self) -> None:
         package_dir = FIXTURE_ROOT / "source-free-metal-native.cglb"
 

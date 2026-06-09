@@ -289,6 +289,16 @@ void testInvocationProvenanceCapturesCommandShape() {
   expect(provenance.outputPath == outputPath.string(),
          "invocation provenance records output path");
 
+  const std::filesystem::path launcherPath = scriptDir / "dxc.cmd";
+  const std::vector<std::string> launcherCommand{launcherPath.string(),
+                                                 "--version"};
+  const crossgl::ToolInvocationProvenance launcherProvenance =
+      crossgl::captureToolInvocationProvenance("dxc", launcherCommand);
+  expect(launcherProvenance.executable == "dxc",
+         "invocation provenance normalizes launcher suffixes");
+  expect(contains(launcherProvenance.commandShape, "dxc.cmd"),
+         "invocation provenance keeps raw launcher evidence in command shape");
+
   const crossgl::ProcessCaptureResult result =
       crossgl::runProcessCapture(command);
   crossgl::completeToolInvocationProvenance(provenance, result);

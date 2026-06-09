@@ -27,7 +27,6 @@
 namespace crossgl {
 namespace {
 
-#if defined(_WIN32)
 bool equalAsciiCaseInsensitive(std::string_view lhs, std::string_view rhs) {
   if (lhs.size() != rhs.size()) {
     return false;
@@ -48,6 +47,14 @@ bool equalAsciiCaseInsensitive(std::string_view lhs, std::string_view rhs) {
   return true;
 }
 
+bool hasKnownExecutableLauncherExtension(std::string_view extension) {
+  return equalAsciiCaseInsensitive(extension, ".exe") ||
+         equalAsciiCaseInsensitive(extension, ".cmd") ||
+         equalAsciiCaseInsensitive(extension, ".bat") ||
+         equalAsciiCaseInsensitive(extension, ".com");
+}
+
+#if defined(_WIN32)
 bool isWindowsBatchFile(const std::filesystem::path &path) {
   const std::string extension = path.extension().string();
   return equalAsciiCaseInsensitive(extension, ".bat") ||
@@ -443,6 +450,25 @@ std::string commandShapeFromArgs(const std::vector<std::string> &args,
                                responseFilePath);
   }
   return shape.str();
+}
+
+std::string invocationExecutableName(std::string_view toolName,
+                                     const std::vector<std::string> &args) {
+  if (args.empty()) {
+    return std::string(toolName);
+  }
+
+  const std::string executable =
+      std::filesystem::path(args.front()).filename().string();
+  const std::filesystem::path executablePath(executable);
+  const std::string extension = executablePath.extension().string();
+  if (!extension.empty() && hasKnownExecutableLauncherExtension(extension)) {
+    const std::string stem = executablePath.stem().string();
+    if (equalAsciiCaseInsensitive(stem, toolName)) {
+      return std::string(toolName);
+    }
+  }
+  return executable;
 }
 
 std::optional<ExecutableSearchResult>
@@ -915,9 +941,7 @@ ToolInvocationProvenance captureToolInvocationProvenance(
     std::string_view probeToolName) {
   ToolInvocationProvenance provenance;
   provenance.name = std::string(toolName);
-  provenance.executable =
-      args.empty() ? std::string(toolName)
-                   : std::filesystem::path(args.front()).filename().string();
+  provenance.executable = invocationExecutableName(toolName, args);
   const ToolStatus status =
       detectTool(probeToolName.empty() ? toolName : probeToolName);
   if (!status.version.empty()) {
