@@ -7734,6 +7734,16 @@ std::string_view optimizationLevelName(OptimizationLevel level) {
   return "O1";
 }
 
+std::string_view hirVerifierModeName(HIRVerifierMode mode) {
+  switch (mode) {
+  case HIRVerifierMode::Source:
+    return "source-validation";
+  case HIRVerifierMode::BackendInput:
+    return "backend-input-validation";
+  }
+  return "backend-input-validation";
+}
+
 std::optional<OptimizationLevel> parseOptimizationLevel(
     std::string_view value) {
   if (value == "O0") {
@@ -7895,6 +7905,16 @@ std::span<const HIRPass> sourceValidationHIRPassPipeline() {
   return {kDefaultHIRPasses.data(), kDefaultHIRPasses.size() - 1};
 }
 
+std::span<const HIRPass> hirVerifierPassPipeline(HIRVerifierMode mode) {
+  switch (mode) {
+  case HIRVerifierMode::Source:
+    return kO0SourceValidationPasses;
+  case HIRVerifierMode::BackendInput:
+    return kO0BackendValidationPasses;
+  }
+  return kO0BackendValidationPasses;
+}
+
 std::span<const HIRPass>
 hirPassPipelineForConfig(HIRPassPipelineConfig config) {
   switch (config.optimizationLevel) {
@@ -7913,6 +7933,16 @@ hirPassPipelineForConfig(HIRPassPipelineConfig config) {
   }
   return config.validateBackendInput ? defaultHIRPassPipeline()
                                      : sourceValidationHIRPassPipeline();
+}
+
+HIRPassPipelineResult verifyHIRModule(HIRModule &module,
+                                      DiagnosticEngine &diagnostics,
+                                      HIRVerifierConfig config) {
+  HIRPassPipelineConfig passConfig;
+  passConfig.optimizationLevel = OptimizationLevel::O0;
+  passConfig.validateBackendInput =
+      config.mode == HIRVerifierMode::BackendInput;
+  return runHIRPassPipeline(module, diagnostics, passConfig);
 }
 
 HIRPassPipelineResult runHIRPassPipeline(HIRModule &module,

@@ -84,6 +84,7 @@ REQUIRED_COVERAGE_CATEGORIES = (
     "diagnostic:opt.hir-expression-shape",
     "diagnostic:opt.hir-matrix-constructor",
     "diagnostic:opt.hir-missing-entry-point",
+    "diagnostic:opt.hir-raw-statement-backend-input",
     "diagnostic:opt.hir-resource-shape",
     "diagnostic:opt.hir-runtime-resource-array-shape",
     "diagnostic:opt.hir-scalar-constructor",
@@ -1110,6 +1111,10 @@ SELF_TEST_DIAGNOSTIC_COVERAGE = (
     ("testSelfDiagnosticExpressionShapeValidation", "opt.hir-expression-shape"),
     ("testSelfDiagnosticMatrixConstructorValidation", "opt.hir-matrix-constructor"),
     ("testSelfDiagnosticMissingEntryPointValidation", "opt.hir-missing-entry-point"),
+    (
+        "testSelfDiagnosticRawStatementBackendInputValidation",
+        "opt.hir-raw-statement-backend-input",
+    ),
     ("testSelfDiagnosticResourceShapeValidation", "opt.hir-resource-shape"),
     (
         "testSelfDiagnosticRuntimeResourceArrayShapeValidation",

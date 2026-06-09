@@ -5739,6 +5739,115 @@ void testHIRBackendInputRawStatementValidation() {
          "HIR backend-input descriptor rejects unstable contract versions");
 }
 
+void testHIRVerifierPublicEntryPoint() {
+  constexpr std::array<std::string_view, 3> sourceVerifierPasses = {
+      "hir.validate.module-shape",
+      "hir.validate.typed-symbols",
+      "hir.validate.storage-buffer-shapes",
+  };
+  constexpr std::array<std::string_view, 4> backendVerifierPasses = {
+      "hir.validate.module-shape",
+      "hir.validate.typed-symbols",
+      "hir.validate.storage-buffer-shapes",
+      "hir.validate.backend-input",
+  };
+  expect(crossgl::hirVerifierModeName(crossgl::HIRVerifierMode::Source) ==
+             "source-validation" &&
+             crossgl::hirVerifierModeName(
+                 crossgl::HIRVerifierMode::BackendInput) ==
+                 "backend-input-validation",
+         "HIR verifier mode names match backend input policy names");
+  expect(passNamesMatch(
+             crossgl::hirVerifierPassPipeline(crossgl::HIRVerifierMode::Source),
+             sourceVerifierPasses),
+         "HIR source verifier exposes validation-only passes");
+  expect(passNamesMatch(crossgl::hirVerifierPassPipeline(
+                            crossgl::HIRVerifierMode::BackendInput),
+                        backendVerifierPasses),
+         "HIR backend verifier exposes validation-only passes");
+
+  crossgl::HIRModule validModule = simpleModule();
+  const std::string before = crossgl::printHIR(validModule);
+  crossgl::DiagnosticEngine diagnostics;
+  const crossgl::HIRPassPipelineResult result =
+      crossgl::verifyHIRModule(validModule, diagnostics);
+  expect(!diagnostics.hasErrors() && result.completed &&
+             result.passCount == backendVerifierPasses.size() &&
+             result.scheduledPassCount == backendVerifierPasses.size() &&
+             result.changedPassCount == 0 && !result.changed &&
+             result.optimizationLevel == crossgl::OptimizationLevel::O0 &&
+             result.optimizationPolicyId == "hir-o0-validation-only" &&
+             result.backendInputMode == "backend-input-validation" &&
+             crossgl::printHIR(validModule) == before,
+         "HIR public verifier accepts valid modules without mutation or "
+         "optimization passes");
+  expect(crossgl::hirPassTraceJson(result).find("hir.optimize.") ==
+             std::string::npos,
+         "HIR public verifier trace excludes optimizer passes");
+  const crossgl::HIRBackendInputDescriptor descriptor =
+      crossgl::backendInputDescriptorForPipelineResult(result);
+  expect(crossgl::hirBackendInputDescriptorIsValidated(descriptor),
+         "HIR public verifier result can admit backend input");
+
+  crossgl::HIRModule missingEntryPoint = simpleModule();
+  missingEntryPoint.stages.front().entryPointName = "missing";
+  crossgl::DiagnosticEngine missingDiagnostics;
+  const crossgl::HIRPassPipelineResult missingResult =
+      crossgl::verifyHIRModule(missingEntryPoint, missingDiagnostics);
+  expect(hasDiagnosticCodeAndMessage(
+             missingDiagnostics.diagnostics(), "opt.hir-missing-entry-point",
+             "entry point 'missing' must match a stage function") &&
+             missingResult.scheduledPassCount == backendVerifierPasses.size() &&
+             missingResult.passCount == 1 &&
+             missingResult.passes.front().id == "hir.validate.module-shape" &&
+             missingResult.passes.front().status ==
+                 crossgl::HIRPassStatus::Failed,
+         "HIR public verifier reports module-shape diagnostics "
+         "deterministically");
+
+  auto token = [](crossgl::TokenKind kind, std::string text) {
+    crossgl::Token result;
+    result.kind = kind;
+    result.text = std::move(text);
+    return result;
+  };
+  crossgl::HIRStatement rawStatement;
+  rawStatement.kind = crossgl::HIRStatementKind::Raw;
+  rawStatement.rawTokens.push_back(
+      token(crossgl::TokenKind::Identifier, "backend_specific"));
+
+  crossgl::HIRModule sourceRawModule = simpleModule();
+  sourceRawModule.stages.front().functions.front().body.push_back(rawStatement);
+  crossgl::HIRVerifierConfig sourceConfig;
+  sourceConfig.mode = crossgl::HIRVerifierMode::Source;
+  crossgl::DiagnosticEngine sourceDiagnostics;
+  const crossgl::HIRPassPipelineResult sourceResult =
+      crossgl::verifyHIRModule(sourceRawModule, sourceDiagnostics,
+                               sourceConfig);
+  expect(!sourceDiagnostics.hasErrors() &&
+             sourceResult.passCount == sourceVerifierPasses.size() &&
+             sourceResult.backendInputMode == "source-validation",
+         "HIR source verifier accepts structured source-boundary raw HIR");
+
+  crossgl::HIRModule backendRawModule = simpleModule();
+  backendRawModule.stages.front().functions.front().body.push_back(
+      std::move(rawStatement));
+  crossgl::DiagnosticEngine backendDiagnostics;
+  const crossgl::HIRPassPipelineResult backendResult =
+      crossgl::verifyHIRModule(backendRawModule, backendDiagnostics);
+  expect(hasDiagnosticCodeAndMessage(
+             backendDiagnostics.diagnostics(),
+             "opt.hir-raw-statement-backend-input",
+             "must be lowered to structured HIR before backend/package input") &&
+             backendResult.scheduledPassCount == backendVerifierPasses.size() &&
+             backendResult.passCount == backendVerifierPasses.size() &&
+             backendResult.passes.back().id == "hir.validate.backend-input" &&
+             backendResult.passes.back().status ==
+                 crossgl::HIRPassStatus::Failed,
+         "HIR public verifier reports backend-input diagnostics "
+         "deterministically");
+}
+
 void testHIRControlTransferVerifierContract() {
   constexpr std::string_view diagnosticCode =
       "opt.hir-control-transfer-placement";
@@ -53425,6 +53534,7 @@ int main() {
   testHIROptimizationPipelineExpressionShapeValidation();
   testHIROptimizationPipelineStatementShapeValidation();
   testHIRBackendInputRawStatementValidation();
+  testHIRVerifierPublicEntryPoint();
   testHIROptimizationPipelineTypedSymbolValidation();
   testHIROptimizationPipelineScalarConstructorValidation();
   testHIROptimizationPipelineVectorConstructorValidation();

@@ -47,9 +47,18 @@ enum class OptimizationLevel {
   O2,
 };
 
+enum class HIRVerifierMode {
+  Source,
+  BackendInput,
+};
+
 struct HIRPassPipelineConfig {
   OptimizationLevel optimizationLevel = OptimizationLevel::O1;
   bool validateBackendInput = true;
+};
+
+struct HIRVerifierConfig {
+  HIRVerifierMode mode = HIRVerifierMode::BackendInput;
 };
 
 struct HIRModuleStats {
@@ -104,12 +113,17 @@ struct HIRPassTraceJsonOptions {
 
 std::string_view hirPassStatusName(HIRPassStatus status);
 std::string_view optimizationLevelName(OptimizationLevel level);
+std::string_view hirVerifierModeName(HIRVerifierMode mode);
 std::optional<OptimizationLevel> parseOptimizationLevel(std::string_view value);
 std::string hirPassScheduleFingerprint(std::span<const HIRPass> passes);
 std::span<const HIRPass> defaultHIRPassPipeline();
 std::span<const HIRPass> sourceValidationHIRPassPipeline();
+std::span<const HIRPass> hirVerifierPassPipeline(HIRVerifierMode mode);
 std::span<const HIRPass>
 hirPassPipelineForConfig(HIRPassPipelineConfig config);
+HIRPassPipelineResult verifyHIRModule(
+    HIRModule &module, DiagnosticEngine &diagnostics,
+    HIRVerifierConfig config = HIRVerifierConfig{});
 HIRPassPipelineResult runHIRPassPipeline(HIRModule &module,
                                          DiagnosticEngine &diagnostics,
                                          std::span<const HIRPass> passes);

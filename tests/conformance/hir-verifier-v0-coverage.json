@@ -450,6 +450,15 @@
         },
         {
           "kind": "diagnostic",
+          "name": "testHIRVerifierPublicEntryPoint",
+          "diagnostic_code": "opt.hir-raw-statement-backend-input",
+          "coverage_categories": [
+            "diagnostic:opt.hir-raw-statement-backend-input"
+          ],
+          "requirement": "The public backend-input HIR verifier entry point rejects raw statements without running optimizer passes."
+        },
+        {
+          "kind": "diagnostic",
           "name": "testOpenGLFunctionParameterArrayGLSL",
           "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
           "coverage_categories": [
