@@ -3096,6 +3096,10 @@ def check_storage_image_metadata(case_name, manifest, atomic=False):
         "kind": "storage_image",
         "sourceType": first_type,
         "storageImageFormat": first_format,
+        "evidenceId": (
+            f"target-legalization.v1.{target}.resource-binding."
+            f"compute.compute_main.{first_name}"
+        ),
     }
     array_binding_fields = {
         "sourceType": array_type,
@@ -3103,6 +3107,10 @@ def check_storage_image_metadata(case_name, manifest, atomic=False):
         "arraySize": "IMAGE_COUNT",
         "arrayElementCount": 2,
         "arrayDimensions": array_dimensions,
+        "evidenceId": (
+            f"target-legalization.v1.{target}.resource-binding."
+            f"compute.compute_main.{array_name}"
+        ),
     }
 
     if target == "directx":
@@ -3162,6 +3170,15 @@ def check_storage_image_metadata(case_name, manifest, atomic=False):
             "reflection.targetFeatures",
             reflection.get("targetFeatures"),
             expected_features,
+        )
+        expect_equal(
+            errors,
+            case_name,
+            "reflection.targetFeatures.storage-image.evidenceIds",
+            record_by_name(reflection.get("targetFeatures", []), "storage-image").get(
+                "evidenceIds"
+            ),
+            record_by_name(expected_features, "storage-image").get("evidenceIds"),
         )
         expect_equal(
             errors,

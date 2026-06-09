@@ -1116,7 +1116,7 @@ crossgl_add_python_expect_test(
     -DMODE=package-inspect-source-package
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=DirectXStorageImageAccessQualifierShader|summary.target=directx|reflection.resources.0.storageImageAccess=read|reflection.resources.1.storageImageAccess=write|reflection.resources.2.storageImageAccess=read_write|reflection.targetResourceBindings.0.storageImageAccess=read|reflection.targetResourceBindings.1.storageImageAccess=write|reflection.targetResourceBindings.2.storageImageAccess=read_write")
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=DirectXStorageImageAccessQualifierShader|summary.target=directx|reflection.resources.0.storageImageAccess=read|reflection.resources.1.storageImageAccess=write|reflection.resources.2.storageImageAccess=read_write|reflection.targetResourceBindings.0.storageImageAccess=read|reflection.targetResourceBindings.1.storageImageAccess=write|reflection.targetResourceBindings.2.storageImageAccess=read_write|reflection.targetResourceBindings.2.evidenceId=target-legalization.v1.directx.resource-binding.compute.compute_main.readWriteColor|reflection.targetFeatures.6.name=storage-image|reflection.targetFeatures.6.evidenceIds.0=target-legalization.v1.directx.capability.required.directx.resource.storage-image")
 
 crossgl_add_python_expect_test(
   NAME cglc_cli_package_verify_text_success_contract
