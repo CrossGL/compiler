@@ -174,8 +174,7 @@ def load_json_document(errors: list[str], case_name: str, path: Path) -> dict[st
         fail(
             errors,
             case_name,
-            f"{path}: invalid JSON at line {exc.lineno}, column {exc.colno}: "
-            f"{exc.msg}",
+            f"{path}: invalid JSON at line {exc.lineno}, column {exc.colno}: {exc.msg}",
         )
         return {}
     if not isinstance(parsed, dict):
@@ -204,7 +203,9 @@ def registry_targets_by_name(
     by_target: dict[str, dict[str, Any]] = {}
     for index, record in enumerate(targets):
         if not isinstance(record, dict) or not isinstance(record.get("target"), str):
-            fail(errors, case_name, f"registry.targets[{index}] must be a target object")
+            fail(
+                errors, case_name, f"registry.targets[{index}] must be a target object"
+            )
             continue
         target = record["target"]
         if target in by_target:
@@ -238,9 +239,7 @@ def parse_cpp_registry_contracts(
             target=target,
             package_mode=match.group("package_mode"),
             native_support_class=match.group("native_support_class"),
-            baseline_backend_capability_name=match.group(
-                "baseline_backend_capability"
-            ),
+            baseline_backend_capability_name=match.group("baseline_backend_capability"),
             native_artifact_capability=match.group("native_artifact_capability"),
             native_implemented=match.group("native_implemented") == "true",
             source_package_selectable=(
@@ -420,7 +419,8 @@ def registry_tool_requirement_capabilities(record: dict[str, Any]) -> list[str]:
     return [
         capability
         for capability in capabilities
-        if isinstance(capability, str) and capability_kind(capability) in TOOL_REQUIREMENT_KINDS
+        if isinstance(capability, str)
+        and capability_kind(capability) in TOOL_REQUIREMENT_KINDS
     ]
 
 
@@ -475,9 +475,7 @@ def check_registry_static_contract_alignment(errors: list[str], root: Path) -> N
 
         package_admission = registry_record.get("packageAdmission", {})
         native_artifact = registry_record.get("nativeArtifact", {})
-        registry_requirements = package_admission.get(
-            "packageArtifactRequirements", {}
-        )
+        registry_requirements = package_admission.get("packageArtifactRequirements", {})
         if not isinstance(package_admission, dict):
             fail(errors, case_name, f"registry {target}.packageAdmission invalid")
             continue

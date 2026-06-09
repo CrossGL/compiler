@@ -347,9 +347,7 @@ def check_source_remap_logical_input(root: Path, cglc: Path, tmp_dir: Path):
     diagnostics = payload.get("diagnostics")
     if not isinstance(diagnostics, list) or len(diagnostics) != 1:
         diagnostic_count = len(diagnostics) if isinstance(diagnostics, list) else None
-        errors.append(
-            f"{case_name}: expected one diagnostic, got {diagnostic_count!r}"
-        )
+        errors.append(f"{case_name}: expected one diagnostic, got {diagnostic_count!r}")
         return errors
 
     diagnostic = diagnostics[0]

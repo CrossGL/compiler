@@ -2111,10 +2111,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                         self.assertEqual(summary["runtime"]["artifactByteLimit"], 4)
                         self.assertIn(
                             expected_code,
-                            [
-                                diagnostic.code
-                                for diagnostic in report.reject_reasons
-                            ],
+                            [diagnostic.code for diagnostic in report.reject_reasons],
                         )
                         diagnostic = next(
                             diagnostic

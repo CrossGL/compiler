@@ -109,7 +109,7 @@ class LoaderArtifactPlan:
         if not self.path.is_file():
             raise PackageReadError(
                 f"loader artifact is missing on disk: {self.name} ({self.package_path})"
-        )
+            )
         return self
 
     def _as_manifest_artifact(self) -> Artifact:
