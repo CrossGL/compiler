@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+from itertools import combinations
 from pathlib import Path
 from typing import Any
 
@@ -148,6 +149,7 @@ PACKAGE_SMOKE_REGISTRATIONS = (
         ("readiness", "native-package-smoke", "package-layout-smoke"),
     ),
 )
+MUTABLE_OUTPUT_DEFINITIONS = ("OUTPUT",)
 
 
 def run(
@@ -203,6 +205,13 @@ def property_values(test: dict[str, Any], name: str) -> list[str]:
     return [str(value)]
 
 
+def ctest_list_property_values(test: dict[str, Any], name: str) -> set[str]:
+    values: set[str] = set()
+    for value in property_values(test, name):
+        values.update(item for item in value.split(";") if item)
+    return values
+
+
 def processor_values_for(test: dict[str, Any]) -> list[str]:
     values = property_values(test, "PROCESSORS")
     for key in ("processors", "PROCESSORS"):
@@ -247,6 +256,21 @@ def cmake_definition(test: dict[str, Any], name: str) -> str | None:
             if separator:
                 return value
     return None
+
+
+def cmake_definitions(test: dict[str, Any], name: str) -> list[str]:
+    plain_prefix = f"-D{name}="
+    typed_prefix = f"-D{name}:"
+    values: list[str] = []
+    for part in test.get("command", []):
+        text = str(part)
+        if text.startswith(plain_prefix):
+            values.append(text[len(plain_prefix) :])
+        elif text.startswith(typed_prefix):
+            _, separator, value = text.partition("=")
+            if separator:
+                values.append(value)
+    return values
 
 
 def display_path(root: Path, value: str) -> str:
@@ -588,6 +612,66 @@ def check_package_smoke_registrations(
                 f"{name}: smoke CTest PROCESSORS must be a positive integer, "
                 f"got {processor_values}; {test_context(root, inventory, test)}"
             )
+    return errors
+
+
+def mutable_output_paths(test: dict[str, Any]) -> list[tuple[str, str]]:
+    paths: list[tuple[str, str]] = []
+    for definition in MUTABLE_OUTPUT_DEFINITIONS:
+        for value in cmake_definitions(test, definition):
+            paths.append((definition, value))
+    return paths
+
+
+def registrations_are_serialized(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    if bool_property(left, "RUN_SERIAL") or bool_property(right, "RUN_SERIAL"):
+        return True
+    return bool(
+        ctest_list_property_values(left, "RESOURCE_LOCK")
+        & ctest_list_property_values(right, "RESOURCE_LOCK")
+    )
+
+
+def check_mutable_output_path_collisions(
+    root: Path, inventory: dict[str, Any], tests: list[dict[str, Any]]
+) -> list[str]:
+    errors: list[str] = []
+    paths: dict[str, list[tuple[str, str, dict[str, Any]]]] = {}
+    for test in tests:
+        for definition, value in mutable_output_paths(test):
+            normalized = normalized_path_text(value)
+            paths.setdefault(normalized, []).append((definition, value, test))
+
+    for entries in paths.values():
+        if len(entries) < 2:
+            continue
+
+        active_entries = [
+            entry for entry in entries if intentional_failure_reason(entry[2]) is None
+        ]
+        if len(active_entries) < 2:
+            continue
+
+        unsafe_pairs = [
+            (left, right)
+            for left, right in combinations(active_entries, 2)
+            if not registrations_are_serialized(left[2], right[2])
+        ]
+        if not unsafe_pairs:
+            continue
+
+        definition, value, _ = active_entries[0]
+        names = sorted({str(entry[2].get("name", "")) for entry in active_entries})
+        contexts = "; ".join(
+            test_context(root, inventory, entry[2]) for entry in active_entries[:3]
+        )
+        suffix = "" if len(active_entries) <= 3 else "; ..."
+        errors.append(
+            f"{display_path(root, value)}: mutable -D{definition}= path is "
+            "shared by parallel-capable tests "
+            f"{names}; use unique output paths or shared RESOURCE_LOCK/RUN_SERIAL; "
+            f"{contexts}{suffix}"
+        )
     return errors
 
 
@@ -1258,6 +1342,86 @@ def run_self_test() -> int:
         )
         return 1
 
+    output_collision_inventory = {
+        "backtraceGraph": {
+            "files": ["tests/cmake/CrossGLSourcePackageBuildTests.cmake"],
+            "nodes": [{"file": 0, "line": 512}],
+        }
+    }
+    output_collision_tests = [
+        {
+            "name": "cglc_build_directx_alpha_source_package",
+            "backtrace": 0,
+            "command": [
+                "cmake",
+                r"-DOUTPUT=D:\a\compiler\compiler\build\shared-output.cglb",
+                "-DTARGET=directx",
+                "-DMODE=source-package-build",
+            ],
+        },
+        {
+            "name": "cglc_build_directx_beta_source_package",
+            "backtrace": 0,
+            "command": [
+                "cmake",
+                r"-DOUTPUT=D:\a\compiler\compiler\build\shared-output.cglb",
+                "-DTARGET=directx",
+                "-DMODE=source-package-build",
+            ],
+        },
+    ]
+    output_collision_errors = check_mutable_output_path_collisions(
+        root, output_collision_inventory, output_collision_tests
+    )
+    if not any("mutable -DOUTPUT= path" in error for error in output_collision_errors):
+        print(
+            "Mutable output collision negative probe failed; "
+            f"errors were: {output_collision_errors}",
+            file=sys.stderr,
+        )
+        return 1
+    serialized_output_tests = [
+        dict(
+            test,
+            properties=[{"name": "RESOURCE_LOCK", "value": "shared-output"}],
+        )
+        for test in output_collision_tests
+    ]
+    serialized_output_errors = check_mutable_output_path_collisions(
+        root, output_collision_inventory, serialized_output_tests
+    )
+    if serialized_output_errors:
+        print(
+            "Mutable output collision RESOURCE_LOCK probe failed:\n"
+            + "\n".join(f"- {error}" for error in serialized_output_errors),
+            file=sys.stderr,
+        )
+        return 1
+    planned_output_collision_errors = check_mutable_output_path_collisions(
+        root,
+        output_collision_inventory,
+        [
+            output_collision_tests[0],
+            {
+                "name": "cglc_build_directx_shadow_case_planned_failure",
+                "backtrace": 0,
+                "command": [
+                    "cmake",
+                    r"-DOUTPUT=D:\a\compiler\compiler\build\shared-output.cglb",
+                    "-DTARGET=directx",
+                    "-DMODE=planned-build-failure",
+                ],
+            },
+        ],
+    )
+    if planned_output_collision_errors:
+        print(
+            "Mutable output collision planned-failure probe failed:\n"
+            + "\n".join(f"- {error}" for error in planned_output_collision_errors),
+            file=sys.stderr,
+        )
+        return 1
+
     will_fail_errors = check_intentional_failure_names(
         root,
         inventory,
@@ -1513,6 +1677,7 @@ def run_self_test() -> int:
     print("Windows-style fixture path probe passed.")
     print("Diagnostic owner context probes passed.")
     print("Native package/install smoke registration probes passed.")
+    print("Mutable output collision probes passed.")
     print("Optional-native label contract probes passed.")
     return 0
 
@@ -1553,6 +1718,7 @@ def main(argv: list[str]) -> int:
 
     errors.extend(check_required_ctest_registrations(root, inventory, tests))
     errors.extend(check_package_smoke_registrations(root, inventory, tests))
+    errors.extend(check_mutable_output_path_collisions(root, inventory, tests))
     errors.extend(check_optional_native_labels(root, inventory, tests))
     errors.extend(check_optional_native_target_coverage(tests))
     errors.extend(check_optional_native_filter_contract(tests))
