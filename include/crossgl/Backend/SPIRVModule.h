@@ -204,6 +204,10 @@ public:
 
   [[nodiscard]] std::string render(
       const SPIRVRenderOptions &options = SPIRVRenderOptions{}) const;
+  [[nodiscard]] const std::vector<SPIRVExtInstImportDefinition> &
+  extInstImports() const {
+    return imports_;
+  }
 
 private:
   static std::string sanitizePrefix(std::string_view prefix);

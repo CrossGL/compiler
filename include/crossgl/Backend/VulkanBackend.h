@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "crossgl/Basic/Diagnostic.h"
 #include "crossgl/HIR/HIR.h"
@@ -12,6 +13,16 @@ namespace crossgl {
 struct TargetLegalizationResourceBindingFacts;
 
 inline constexpr char kVulkanNativeTargetEnv[] = "vulkan1.2";
+
+struct VulkanSPIRVImport {
+  std::string resultId;
+  std::string instructionSet;
+};
+
+struct VulkanPrototypeAssemblyArtifact {
+  std::string assembly;
+  std::vector<VulkanSPIRVImport> extendedInstructionImports;
+};
 
 struct VulkanBuildResult {
   bool success = false;
@@ -26,6 +37,7 @@ struct VulkanBuildResult {
   std::filesystem::path assemblyPath;
   std::filesystem::path spvPath;
   std::filesystem::path disassemblyPath;
+  std::vector<VulkanSPIRVImport> extendedInstructionImports;
 };
 
 bool vulkanResourceUsesDescriptor(HIRResourceKind kind);
@@ -37,6 +49,9 @@ std::string vulkanResourceSPIRVType(const HIRResource &resource);
 std::string generateVulkanBackendIR(const HIRModule &module);
 std::string generateVulkanPrototypeAssembly(const HIRModule &module,
                                             DiagnosticEngine &diagnostics);
+VulkanPrototypeAssemblyArtifact
+generateVulkanPrototypeAssemblyArtifact(const HIRModule &module,
+                                        DiagnosticEngine &diagnostics);
 bool vulkanPrototypeBinarySupported(const HIRModule &module,
                                     DiagnosticEngine &diagnostics);
 VulkanBuildResult buildVulkanPrototypeBinary(

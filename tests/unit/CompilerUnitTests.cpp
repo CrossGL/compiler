@@ -23507,6 +23507,13 @@ void testSPIRVModuleBuilder() {
   module.addExtension("SPV_EXT_descriptor_indexing");
   module.addExtInstImport(crossgl::SPIRVModule::id("%glsl_std_450"),
                           "GLSL.std.450");
+  module.addExtInstImport(crossgl::SPIRVModule::id("%glsl_std_450"),
+                          "GLSL.std.450");
+  expect(module.extInstImports().size() == 1,
+         "SPIR-V module builder deduplicates extended instruction imports");
+  expect(module.extInstImports().front().result.str() == "%glsl_std_450" &&
+             module.extInstImports().front().instructionSet == "GLSL.std.450",
+         "SPIR-V module builder exposes extended instruction imports");
   module.setMemoryModel(crossgl::SPIRVAddressingModel::Logical,
                         crossgl::SPIRVMemoryModel::GLSL450);
   module.addEntryPoint(crossgl::SPIRVExecutionModel::GLCompute, mainFunction,
@@ -29617,10 +29624,20 @@ shader VulkanGraphicsMathIntrinsicShader {
          "Vulkan graphics prototype support accepts math intrinsics");
 
   crossgl::DiagnosticEngine assemblyDiagnostics;
-  const std::string assembly =
-      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  const crossgl::VulkanPrototypeAssemblyArtifact artifact =
+      crossgl::generateVulkanPrototypeAssemblyArtifact(*hir,
+                                                       assemblyDiagnostics);
+  const std::string &assembly = artifact.assembly;
   expect(!assembly.empty() && !assemblyDiagnostics.hasErrors(),
          "Vulkan graphics math intrinsic assembly has no diagnostics");
+  expect(artifact.extendedInstructionImports.size() == 1 &&
+             artifact.extendedInstructionImports.front().instructionSet ==
+                 "GLSL.std.450" &&
+             assembly.find(artifact.extendedInstructionImports.front().resultId +
+                           " = OpExtInstImport \"GLSL.std.450\"") !=
+                 std::string::npos,
+         "Vulkan graphics math intrinsic assembly exposes GLSL.std.450 "
+         "metadata");
   expect(assembly.find("OpExtInstImport \"GLSL.std.450\"") !=
              std::string::npos &&
              assembly.find("Normalize") != std::string::npos &&
@@ -51415,10 +51432,19 @@ shader AtanIntrinsicComputeShader {
          "atan intrinsic Vulkan HIR keeps call expressions");
 
   crossgl::DiagnosticEngine assemblyDiagnostics;
-  const std::string assembly =
-      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  const crossgl::VulkanPrototypeAssemblyArtifact artifact =
+      crossgl::generateVulkanPrototypeAssemblyArtifact(*hir,
+                                                       assemblyDiagnostics);
+  const std::string &assembly = artifact.assembly;
   expect(!assemblyDiagnostics.hasErrors(),
          "atan intrinsic Vulkan prototype assembly has no diagnostics");
+  expect(artifact.extendedInstructionImports.size() == 1 &&
+             artifact.extendedInstructionImports.front().resultId ==
+                 "%glsl_std_450" &&
+             artifact.extendedInstructionImports.front().instructionSet ==
+                 "GLSL.std.450",
+         "atan intrinsic Vulkan prototype assembly exposes GLSL.std.450 "
+         "metadata");
   expect(assembly.find("%glsl_std_450 = OpExtInstImport \"GLSL.std.450\"") !=
              std::string::npos,
          "atan intrinsic Vulkan prototype assembly imports GLSL.std.450");
@@ -51512,10 +51538,19 @@ shader MathIntrinsicComputeShader {
   }
 
   crossgl::DiagnosticEngine assemblyDiagnostics;
-  const std::string assembly =
-      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  const crossgl::VulkanPrototypeAssemblyArtifact artifact =
+      crossgl::generateVulkanPrototypeAssemblyArtifact(*hir,
+                                                       assemblyDiagnostics);
+  const std::string &assembly = artifact.assembly;
   expect(!assemblyDiagnostics.hasErrors(),
          "math intrinsic Vulkan prototype assembly has no diagnostics");
+  expect(artifact.extendedInstructionImports.size() == 1 &&
+             artifact.extendedInstructionImports.front().resultId ==
+                 "%glsl_std_450" &&
+             artifact.extendedInstructionImports.front().instructionSet ==
+                 "GLSL.std.450",
+         "math intrinsic Vulkan prototype assembly exposes GLSL.std.450 "
+         "metadata");
   expect(assembly.find("%glsl_std_450 = OpExtInstImport \"GLSL.std.450\"") !=
              std::string::npos,
          "math intrinsic Vulkan prototype assembly imports GLSL.std.450");

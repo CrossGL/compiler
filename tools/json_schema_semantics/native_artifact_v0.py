@@ -395,6 +395,58 @@ def validate_optimization_evidence(errors, instance):
                 )
 
 
+def validate_spirv_dependencies(errors, instance):
+    dependencies = instance.get("spirvDependencies")
+    if dependencies is None:
+        return
+
+    if instance.get("binaryKind") != "vulkan.spirv-module":
+        errors.append(
+            "$.spirvDependencies: only vulkan.spirv-module descriptors may "
+            "declare SPIR-V dependencies"
+        )
+        return
+
+    imports = dependencies.get("extendedInstructionSets")
+    if not isinstance(imports, list):
+        return
+
+    seen_result_ids = set()
+    seen_instruction_sets = set()
+    previous_key = None
+    for index, record in enumerate(imports):
+        if not isinstance(record, dict):
+            continue
+        result_id = record.get("resultId")
+        instruction_set = record.get("instructionSet")
+        if not isinstance(result_id, str) or not isinstance(instruction_set, str):
+            continue
+
+        key = (instruction_set, result_id)
+        if previous_key is not None and key < previous_key:
+            errors.append(
+                "$.spirvDependencies.extendedInstructionSets: imports must be "
+                "sorted by instructionSet then resultId"
+            )
+            break
+        previous_key = key
+
+        if result_id in seen_result_ids:
+            errors.append(
+                f"$.spirvDependencies.extendedInstructionSets[{index}].resultId: "
+                f"duplicate SPIR-V import result id {result_id!r}"
+            )
+        seen_result_ids.add(result_id)
+
+        if instruction_set in seen_instruction_sets:
+            errors.append(
+                "$.spirvDependencies.extendedInstructionSets"
+                f"[{index}].instructionSet: duplicate SPIR-V extended "
+                f"instruction set {instruction_set!r}"
+            )
+        seen_instruction_sets.add(instruction_set)
+
+
 def validate_duplicate_tools(errors, instance):
     seen = set()
     for index, tool in enumerate(instance["toolchainProvenance"]["tools"]):
@@ -417,5 +469,6 @@ def validate_semantics(instance):
     validate_native_binary_status(errors, instance)
     validate_validation_status(errors, instance)
     validate_optimization_evidence(errors, instance)
+    validate_spirv_dependencies(errors, instance)
     validate_duplicate_tools(errors, instance)
     return errors

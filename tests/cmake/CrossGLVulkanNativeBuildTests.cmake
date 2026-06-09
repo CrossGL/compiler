@@ -190,6 +190,22 @@ add_test(NAME cglc_build_vulkan_native_fake_spirv_success
     -DMODE=vulkan-build
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 
+crossgl_add_python_expect_test(
+  NAME cglc_build_vulkan_native_fake_intrinsics_import_closure
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_INTRINSIC_COMPUTE_SHADER}
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-fake-intrinsics-import-closure.cglb
+    -DEXPECTED_MODULE=IntrinsicComputeShader
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_VULKAN_SUCCESS_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=vulkan|binaryKind=vulkan.spirv-module|sourcePath=backend/vulkan/IntrinsicComputeShader.spvasm|artifactPath=backend/vulkan/IntrinsicComputeShader.spv|spirvDependencies.extendedInstructionSets.0.resultId=%glsl_std_450|spirvDependencies.extendedInstructionSets.0.instructionSet=GLSL.std.450|validationStatus=validated"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=spirvDependencies.extendedInstructionSets=1|validationDiagnostics=0"
+    "-DEXPECTED_SPVASM_SNIPPET=%glsl_std_450 = OpExtInstImport \"GLSL.std.450\""
+    -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DMODE=vulkan-build)
+
 add_test(NAME cglc_build_vulkan_native_fake_structured_decorations_validate
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -448,6 +464,8 @@ add_test(NAME cglc_build_vulkan_native_fake_spirv_val_unavailable_planned_failur
 
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_spirv_success vulkan)
+crossgl_label_optional_native_policy_test(
+  cglc_build_vulkan_native_fake_intrinsics_import_closure vulkan)
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_disassembly_unavailable vulkan)
 crossgl_label_optional_native_policy_test(

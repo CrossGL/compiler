@@ -36,6 +36,7 @@ _NATIVE_DESCRIPTOR_SUMMARY_FIELDS = (
     "validationStatus",
     "optimizationLevel",
     "optimizationEvidence",
+    "spirvDependencies",
     "sizeBytes",
 )
 _NATIVE_OPTIMIZATION_EVIDENCE_FIELDS = (

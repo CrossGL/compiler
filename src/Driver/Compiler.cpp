@@ -58,6 +58,7 @@ struct NativeArtifactDescriptorSpec {
   std::optional<std::string> optimizationEvidenceJson;
   std::vector<NativeArtifactToolProvenance> tools;
   std::vector<Diagnostic> validationDiagnostics;
+  std::vector<VulkanSPIRVImport> spirvExtendedInstructionImports;
 };
 
 struct NativeOptimizationEvidenceSpec {
@@ -1315,6 +1316,29 @@ std::string nativeOptimizationEvidenceJson(
   return out.str();
 }
 
+std::string spirvDependenciesJson(
+    const std::vector<VulkanSPIRVImport> &extendedInstructionImports) {
+  std::ostringstream out;
+  out << "{\n"
+      << "    \"extendedInstructionSets\": [";
+  for (std::size_t index = 0; index < extendedInstructionImports.size();
+       ++index) {
+    const VulkanSPIRVImport &import = extendedInstructionImports[index];
+    out << (index == 0 ? "\n" : ",\n")
+        << "      {\n"
+        << "        \"resultId\": \"" << escapeJson(import.resultId) << "\",\n"
+        << "        \"instructionSet\": \""
+        << escapeJson(import.instructionSet) << "\"\n"
+        << "      }";
+  }
+  if (!extendedInstructionImports.empty()) {
+    out << "\n    ";
+  }
+  out << "]\n"
+      << "  }";
+  return out.str();
+}
+
 std::string vulkanNativeOptimizationEffectiveLevel(
     const VulkanBuildResult &vulkanResult) {
   if (vulkanResult.optimizationStatus == "applied") {
@@ -1398,6 +1422,14 @@ std::string nativeArtifactDescriptorJson(
       (spec.optimizationEvidenceJson ? *spec.optimizationEvidenceJson
                                      : std::string()) +
       "\n";
+  std::string spirvDependencyFingerprint;
+  for (const VulkanSPIRVImport &import :
+       spec.spirvExtendedInstructionImports) {
+    spirvDependencyFingerprint += import.resultId;
+    spirvDependencyFingerprint += "\n";
+    spirvDependencyFingerprint += import.instructionSet;
+    spirvDependencyFingerprint += "\n";
+  }
   std::string validationDiagnosticFingerprint;
   for (const Diagnostic &diagnostic : spec.validationDiagnostics) {
     validationDiagnosticFingerprint += diagnostic.code;
@@ -1427,6 +1459,11 @@ std::string nativeArtifactDescriptorJson(
         << "  },\n"
         << "  \"sizeBytes\": " << *artifactSizeBytes;
   }
+  if (!spec.spirvExtendedInstructionImports.empty()) {
+    out << ",\n"
+        << "  \"spirvDependencies\": "
+        << spirvDependenciesJson(spec.spirvExtendedInstructionImports);
+  }
   out << ",\n"
       << "  \"toolchainProvenance\": {\n"
       << "    \"producer\": \"CrossGL-Compiler\",\n"
@@ -1442,7 +1479,8 @@ std::string nativeArtifactDescriptorJson(
       << "    \"invocation\": {\n"
       << "      \"commandLineSha256\": \""
       << escapeJson(
-             sha256(invocationFingerprint + validationDiagnosticFingerprint))
+             sha256(invocationFingerprint + spirvDependencyFingerprint +
+                    validationDiagnosticFingerprint))
       << "\",\n"
       << "      \"environmentSha256\": \"" << escapeJson(sha256("")) << "\"\n"
       << "    }\n"
@@ -2699,6 +2737,8 @@ CompileResult compile(const CompileRequest &request) {
           nativeOptimizationEvidenceJson(optimizationEvidence);
       descriptorSpec.tools =
           nativeDescriptorTools(nativePackagePolicy.requiredTools);
+      descriptorSpec.spirvExtendedInstructionImports =
+          vulkan.extendedInstructionImports;
       const std::optional<std::filesystem::path> descriptorPath =
           writeNativeArtifactDescriptor(backendHIR, target, packageDir,
                                         descriptorSpec, diagnostics);

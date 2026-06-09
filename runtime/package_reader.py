@@ -111,6 +111,7 @@ NATIVE_ARTIFACT_DESCRIPTOR_FIELDS = frozenset(
         "artifactPath",
         "artifactHash",
         "sizeBytes",
+        "spirvDependencies",
         "sourcePath",
         "sourceHash",
         "toolchainProvenance",

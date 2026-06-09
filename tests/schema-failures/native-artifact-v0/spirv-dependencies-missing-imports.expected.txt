@@ -1,0 +1,1 @@
+$.spirvDependencies: missing required property 'extendedInstructionSets'

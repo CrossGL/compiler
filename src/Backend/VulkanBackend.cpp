@@ -36,6 +36,24 @@ using PrototypeTextureOffset = std::array<int, 2>;
 
 const std::unordered_set<std::string> kEmptyStringSet;
 
+VulkanSPIRVImport
+vulkanSPIRVImport(const SPIRVExtInstImportDefinition &definition) {
+  return VulkanSPIRVImport{definition.result.str(), definition.instructionSet};
+}
+
+std::vector<VulkanSPIRVImport>
+sortedVulkanSPIRVImports(std::vector<VulkanSPIRVImport> imports) {
+  std::sort(imports.begin(), imports.end(),
+            [](const VulkanSPIRVImport &lhs,
+               const VulkanSPIRVImport &rhs) {
+              if (lhs.instructionSet != rhs.instructionSet) {
+                return lhs.instructionSet < rhs.instructionSet;
+              }
+              return lhs.resultId < rhs.resultId;
+            });
+  return imports;
+}
+
 enum class VulkanStorageImageAccessDecoration {
   None,
   NonWritable,
@@ -5947,6 +5965,16 @@ public:
                              {workgroup.x, workgroup.y, workgroup.z});
     (void)module;
     return module_.render();
+  }
+
+  std::vector<VulkanSPIRVImport> extendedInstructionImports() const {
+    std::vector<VulkanSPIRVImport> imports;
+    imports.reserve(module_.extInstImports().size());
+    for (const SPIRVExtInstImportDefinition &definition :
+         module_.extInstImports()) {
+      imports.push_back(vulkanSPIRVImport(definition));
+    }
+    return sortedVulkanSPIRVImports(std::move(imports));
   }
 
 private:
@@ -12056,6 +12084,10 @@ public:
     return out.str();
   }
 
+  std::vector<VulkanSPIRVImport> extendedInstructionImports() const {
+    return sortedVulkanSPIRVImports(extInstImports_);
+  }
+
 private:
   struct PointerInfo {
     HIRType type;
@@ -12104,6 +12136,8 @@ private:
     }
     glslStd450ImportId_ = freshId();
     imports_ << glslStd450ImportId_ << " = OpExtInstImport \"GLSL.std.450\"\n";
+    extInstImports_.push_back(
+        VulkanSPIRVImport{glslStd450ImportId_, "GLSL.std.450"});
     return glslStd450ImportId_;
   }
 
@@ -14110,6 +14144,7 @@ private:
   std::unordered_map<std::string, GraphicsFunctionInfo> functionsByKey_;
   std::string samplerTypeId_;
   std::string glslStd450ImportId_;
+  std::vector<VulkanSPIRVImport> extInstImports_;
   std::vector<PrototypeLoopLabels> loopLabels_;
   bool usesRuntimeDescriptorArray_ = false;
   bool usesNonUniformDescriptorIndex_ = false;
@@ -14117,10 +14152,13 @@ private:
   std::unordered_set<std::string> nonUniformDecorationIds_;
 };
 
-std::string generateVulkanGraphicsPrototypeAssembly(
+VulkanPrototypeAssemblyArtifact generateVulkanGraphicsPrototypeAssemblyArtifact(
     const HIRModule &module, DiagnosticEngine &diagnostics) {
   VulkanGraphicsSPIRVBuilder builder(module, diagnostics);
-  return builder.render();
+  VulkanPrototypeAssemblyArtifact artifact;
+  artifact.assembly = builder.render();
+  artifact.extendedInstructionImports = builder.extendedInstructionImports();
+  return artifact;
 }
 
 bool writeTextFile(const std::filesystem::path &path, std::string_view text,
@@ -14765,14 +14803,21 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
 
 std::string generateVulkanPrototypeAssembly(const HIRModule &module,
                                             DiagnosticEngine &diagnostics) {
+  return generateVulkanPrototypeAssemblyArtifact(module, diagnostics).assembly;
+}
+
+VulkanPrototypeAssemblyArtifact
+generateVulkanPrototypeAssemblyArtifact(const HIRModule &module,
+                                        DiagnosticEngine &diagnostics) {
   const HIRStage *graphicsVertex = nullptr;
   const HIRStage *graphicsFragment = nullptr;
   if (vulkanGraphicsStagePair(module, graphicsVertex, graphicsFragment)) {
-    return generateVulkanGraphicsPrototypeAssembly(module, diagnostics);
+    return generateVulkanGraphicsPrototypeAssemblyArtifact(module, diagnostics);
   }
 
+  VulkanPrototypeAssemblyArtifact artifact;
   if (!vulkanPrototypeBinarySupported(module, diagnostics)) {
-    return "";
+    return artifact;
   }
 
   const HIRStage &stage = *prototypeComputeStage(module);
@@ -14781,9 +14826,11 @@ std::string generateVulkanPrototypeAssembly(const HIRModule &module,
   PrototypeSPIRVBuilder builder(module, stage, diagnostics);
   const HIRFunction &entry = *entryFunction(stage);
   if (!builder.emit(module, stage, entry)) {
-    return "";
+    return artifact;
   }
-  return builder.render(module, stage);
+  artifact.assembly = builder.render(module, stage);
+  artifact.extendedInstructionImports = builder.extendedInstructionImports();
+  return artifact;
 }
 
 VulkanBuildResult buildVulkanPrototypeBinary(
@@ -14794,8 +14841,11 @@ VulkanBuildResult buildVulkanPrototypeBinary(
   VulkanBuildResult result;
   result.optimizationRequestedLevel =
       std::string(optimizationLevelName(optimizationLevel));
-  const std::string assembly =
-      generateVulkanPrototypeAssembly(module, diagnostics);
+  const VulkanPrototypeAssemblyArtifact assemblyArtifact =
+      generateVulkanPrototypeAssemblyArtifact(module, diagnostics);
+  const std::string &assembly = assemblyArtifact.assembly;
+  result.extendedInstructionImports =
+      assemblyArtifact.extendedInstructionImports;
   if (diagnostics.hasErrors()) {
     return result;
   }

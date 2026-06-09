@@ -1279,6 +1279,88 @@ bool validateNativeOptimizationEvidence(std::string_view value) {
   return true;
 }
 
+bool isValidSPIRVResultId(std::string_view value) {
+  if (value.size() < 2 || value.front() != '%') {
+    return false;
+  }
+  for (const char character : value) {
+    if (std::isspace(static_cast<unsigned char>(character))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool validateSPIRVExtendedInstructionSetImport(
+    std::string_view value, std::string &resultId,
+    std::string &instructionSet) {
+  const std::optional<std::vector<JsonObjectMemberRange>> members =
+      collectObjectMemberRanges(value);
+  if (!members ||
+      !membersAreAllowed(*members, {"resultId", "instructionSet"}) ||
+      !hasAllMembers(*members, {"resultId", "instructionSet"})) {
+    return false;
+  }
+  const std::optional<std::string> parsedResultId =
+      objectStringMember(value, "resultId");
+  const std::optional<std::string> parsedInstructionSet =
+      objectStringMember(value, "instructionSet");
+  if (!parsedResultId || !isValidSPIRVResultId(*parsedResultId) ||
+      !parsedInstructionSet || parsedInstructionSet->empty()) {
+    return false;
+  }
+  resultId = *parsedResultId;
+  instructionSet = *parsedInstructionSet;
+  return true;
+}
+
+bool validateSPIRVDependencies(std::string_view value) {
+  const std::optional<std::vector<JsonObjectMemberRange>> members =
+      collectObjectMemberRanges(value);
+  if (!members || !membersAreAllowed(*members, {"extendedInstructionSets"}) ||
+      !hasAllMembers(*members, {"extendedInstructionSets"})) {
+    return false;
+  }
+  const std::optional<std::string_view> importsValue =
+      findObjectMemberValue(value, "extendedInstructionSets");
+  if (!importsValue) {
+    return false;
+  }
+  const std::optional<std::vector<JsonRange>> importRanges =
+      collectArrayElementRanges(*importsValue);
+  if (!importRanges || importRanges->empty()) {
+    return false;
+  }
+
+  std::vector<std::string> seenResultIds;
+  std::vector<std::string> seenInstructionSets;
+  std::optional<std::pair<std::string, std::string>> previousKey;
+  for (JsonRange range : *importRanges) {
+    std::string resultId;
+    std::string instructionSet;
+    if (!validateSPIRVExtendedInstructionSetImport(
+            importsValue->substr(range.begin, range.end - range.begin),
+            resultId, instructionSet)) {
+      return false;
+    }
+
+    const std::pair<std::string, std::string> key{instructionSet, resultId};
+    if (previousKey && key < *previousKey) {
+      return false;
+    }
+    previousKey = key;
+    if (std::find(seenResultIds.begin(), seenResultIds.end(), resultId) !=
+            seenResultIds.end() ||
+        std::find(seenInstructionSets.begin(), seenInstructionSets.end(),
+                  instructionSet) != seenInstructionSets.end()) {
+      return false;
+    }
+    seenResultIds.push_back(std::move(resultId));
+    seenInstructionSets.push_back(std::move(instructionSet));
+  }
+  return true;
+}
+
 bool isKnownNativeToolRole(std::string_view role) {
   return role == "generator" || role == "compiler" || role == "assembler" ||
          role == "linker" || role == "validator" || role == "packager";
@@ -1610,8 +1692,9 @@ bool nativeArtifactDescriptorMatchesContract(
   if (!membersAreAllowed(
           *members, {"schemaVersion", "kind", "contractVersion", "target",
                      "binaryKind", "artifactPath", "artifactHash", "sizeBytes",
-                     "sourcePath", "sourceHash", "toolchainProvenance",
-                     "optimizationLevel", "optimizationEvidence",
+                     "spirvDependencies", "sourcePath", "sourceHash",
+                     "toolchainProvenance", "optimizationLevel",
+                     "optimizationEvidence",
                      "validationStatus", "nativeBinaryStatus",
                      "validationDiagnostics"}) ||
       !hasAllMembers(*members,
@@ -1659,6 +1742,13 @@ bool nativeArtifactDescriptorMatchesContract(
       findObjectMemberValue(descriptorText, "optimizationEvidence");
   if (optimizationEvidence &&
       !validateNativeOptimizationEvidence(*optimizationEvidence)) {
+    return false;
+  }
+  const std::optional<std::string_view> spirvDependencies =
+      findObjectMemberValue(descriptorText, "spirvDependencies");
+  if (spirvDependencies &&
+      (*health.binaryKind != "vulkan.spirv-module" ||
+       !validateSPIRVDependencies(*spirvDependencies))) {
     return false;
   }
 

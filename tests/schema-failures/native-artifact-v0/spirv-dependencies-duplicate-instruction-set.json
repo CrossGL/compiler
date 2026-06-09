@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "vulkan",
+  "binaryKind": "vulkan.spirv-module",
+  "artifactPath": "backend/vulkan/SimpleShader.spv",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "4545454545454545454545454545454545454545454545454545454545454545"
+  },
+  "sizeBytes": 4096,
+  "spirvDependencies": {
+    "extendedInstructionSets": [
+      {
+        "resultId": "%glsl_std_450",
+        "instructionSet": "GLSL.std.450"
+      },
+      {
+        "resultId": "%glsl_std_450_alt",
+        "instructionSet": "GLSL.std.450"
+      }
+    ]
+  },
+  "sourcePath": "backend/vulkan/SimpleShader.spvasm",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "toolchainProvenance": {
+    "producer": "cglc package build",
+    "tools": [
+      {
+        "name": "spirv-as",
+        "role": "assembler",
+        "version": "fixture",
+        "executable": "spirv-as"
+      },
+      {
+        "name": "spirv-val",
+        "role": "validator",
+        "version": "fixture",
+        "executable": "spirv-val"
+      }
+    ],
+    "invocation": {
+      "commandLineSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "environmentSha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  },
+  "optimizationLevel": "O0",
+  "validationStatus": "validated",
+  "validationDiagnostics": []
+}
