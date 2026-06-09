@@ -1436,6 +1436,12 @@ def check_alignment_case(
         )
 
 
+def runtime_texture_sampler_descriptor_array_recommended_target() -> str:
+    if sys.platform == "darwin" or sys.platform.startswith("win"):
+        return "metal"
+    return "vulkan"
+
+
 def alignment_cases() -> tuple[AlignmentCase, ...]:
     runtime_texture_capabilities = (
         "{target}.resource.runtime-descriptor-array",
@@ -1568,7 +1574,9 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
                     ),
                 ),
             ),
-            recommended_target="metal",
+            recommended_target=(
+                runtime_texture_sampler_descriptor_array_recommended_target()
+            ),
             recommended_package_mode="native",
         ),
         AlignmentCase(

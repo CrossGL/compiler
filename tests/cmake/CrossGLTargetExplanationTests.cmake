@@ -5,6 +5,7 @@ if(APPLE)
   set(CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET vulkan)
   set(CROSSGL_NATIVE_UNSUPPORTED_DEFAULT_TARGET metal)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
+  set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_NATIVE_UNSUPPORTED_SOURCE_FALLBACK_SELECTION_REASON
       auto-recommended-target)
 elseif(WIN32)
@@ -14,6 +15,7 @@ elseif(WIN32)
   set(CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET vulkan)
   set(CROSSGL_NATIVE_UNSUPPORTED_DEFAULT_TARGET directx)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
+  set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_NATIVE_UNSUPPORTED_SOURCE_FALLBACK_SELECTION_REASON
       auto-host-default)
 else()
@@ -23,6 +25,7 @@ else()
   set(CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET metal)
   set(CROSSGL_NATIVE_UNSUPPORTED_DEFAULT_TARGET vulkan)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
+  set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
   set(CROSSGL_NATIVE_UNSUPPORTED_SOURCE_FALLBACK_SELECTION_REASON
       auto-recommended-target)
 endif()
@@ -297,7 +300,7 @@ add_test(NAME cglc_explain_targets_vulkan_runtime_texture_sampler_descriptor_arr
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_VULKAN_RUNTIME_TEXTURE_SAMPLER_NONUNIFORM_DESCRIPTOR_ARRAY_SHADER}
     -DMODE=explain-targets
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|module=VulkanRuntimeTextureSamplerNonUniformDescriptorArrayShader|buildableTargetCount=3|recommendedTarget=metal|recommendedPackageMode=native"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|module=VulkanRuntimeTextureSamplerNonUniformDescriptorArrayShader|buildableTargetCount=3|recommendedTarget=${CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET}|recommendedPackageMode=native"
     "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.requiredCapabilityCount=26|metal.missingCapabilityCount=0|vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=true|vulkan.packageMode=native|vulkan.packageDecisionReason=native-package-available|vulkan.requiredCapabilityCount=29|vulkan.missingCapabilityCount=0"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.backend.native-metal-package|metal.requiredCapabilities=metal.stage.compute-kernel|metal.requiredCapabilities=metal.execution.workgroup-size|metal.requiredCapabilities=metal.resource.runtime-descriptor-array|metal.requiredCapabilities=metal.resource.runtime-texture-descriptor-array|metal.requiredCapabilities=metal.resource.runtime-sampler-descriptor-array|metal.requiredCapabilities=metal.layout.runtime-array|metal.requiredCapabilities=metal.resource.descriptor-array|metal.requiredCapabilities=metal.operation.nonuniform-descriptor-index|metal.requiredCapabilities=metal.operation.nonuniform-texture-descriptor-index|metal.requiredCapabilities=metal.operation.nonuniform-sampler-descriptor-index|vulkan.requiredCapabilities=vulkan.backend.vulkan-prototype-package|vulkan.requiredCapabilities=vulkan.stage.compute-kernel|vulkan.requiredCapabilities=vulkan.execution.workgroup-size|vulkan.requiredCapabilities=vulkan.resource.runtime-descriptor-array|vulkan.requiredCapabilities=vulkan.resource.runtime-texture-descriptor-array|vulkan.requiredCapabilities=vulkan.resource.runtime-sampler-descriptor-array|vulkan.requiredCapabilities=vulkan.layout.runtime-array|vulkan.requiredCapabilities=vulkan.resource.descriptor-array|vulkan.requiredCapabilities=vulkan.operation.nonuniform-descriptor-index|vulkan.requiredCapabilities=vulkan.operation.nonuniform-texture-descriptor-index|vulkan.requiredCapabilities=vulkan.operation.nonuniform-sampler-descriptor-index|vulkan.requiredCapabilities=vulkan.extension.SPV_EXT_descriptor_indexing|vulkan.requiredCapabilities=vulkan.capability.ShaderNonUniformEXT|vulkan.requiredCapabilities=vulkan.capability.SampledImageArrayNonUniformIndexingEXT"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)

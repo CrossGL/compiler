@@ -44270,20 +44270,13 @@ shader MetalRuntimeTextureDescriptorArraySampleUnsupportedShader {
   expect(metalRuntimeTextureSampleHir.has_value(),
          "Metal sampled runtime texture descriptor-array source builds HIR");
   if (metalRuntimeTextureSampleHir) {
-    const std::filesystem::path metalRuntimeTextureSamplePackageDir =
-        unitTestTempDirectoryPath() /
-        "crossgl-unit-runtime-texture-descriptor-array-sample-metal.cglb";
-    std::filesystem::remove_all(metalRuntimeTextureSamplePackageDir,
-                                removeError);
-    crossgl::DiagnosticEngine metalRuntimeTextureSampleDiagnostics;
-    const crossgl::MetalBuildResult metalRuntimeTextureSampleResult =
-        crossgl::buildMetalBinary(*metalRuntimeTextureSampleHir,
-                                  metalRuntimeTextureSamplePackageDir,
-                                  metalRuntimeTextureSampleDiagnostics);
-    expect(metalRuntimeTextureSampleResult.success,
-           "Metal builds sampled runtime texture descriptor arrays through "
+    crossgl::DiagnosticEngine metalRuntimeTextureSampleSupportDiagnostics;
+    expect(crossgl::metalNativeBackendSupported(
+               *metalRuntimeTextureSampleHir,
+               metalRuntimeTextureSampleSupportDiagnostics),
+           "Metal accepts sampled runtime texture descriptor arrays through "
            "typed descriptor tables");
-    expect(!metalRuntimeTextureSampleDiagnostics.hasErrors(),
+    expect(metalRuntimeTextureSampleSupportDiagnostics.diagnostics().empty(),
            "Metal sampled runtime texture descriptor arrays produce no "
            "diagnostics");
     const std::string metalRuntimeTextureSampleText =
@@ -44293,6 +44286,24 @@ shader MetalRuntimeTextureDescriptorArraySampleUnsupportedShader {
                std::string::npos,
            "Metal sampled runtime texture descriptor arrays lower element "
            "access through the texture table");
+    if (crossgl::findExecutable("xcrun")) {
+      const std::filesystem::path metalRuntimeTextureSamplePackageDir =
+          unitTestTempDirectoryPath() /
+          "crossgl-unit-runtime-texture-descriptor-array-sample-metal.cglb";
+      std::filesystem::remove_all(metalRuntimeTextureSamplePackageDir,
+                                  removeError);
+      crossgl::DiagnosticEngine metalRuntimeTextureSampleDiagnostics;
+      const crossgl::MetalBuildResult metalRuntimeTextureSampleResult =
+          crossgl::buildMetalBinary(*metalRuntimeTextureSampleHir,
+                                    metalRuntimeTextureSamplePackageDir,
+                                    metalRuntimeTextureSampleDiagnostics);
+      expect(metalRuntimeTextureSampleResult.success,
+             "Metal builds sampled runtime texture descriptor arrays through "
+             "typed descriptor tables");
+      expect(!metalRuntimeTextureSampleDiagnostics.hasErrors(),
+             "Metal sampled runtime texture descriptor arrays build with no "
+             "diagnostics");
+    }
   }
 
   constexpr std::string_view metalRuntimeSamplerSampleSource = R"(

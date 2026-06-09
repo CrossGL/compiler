@@ -65,14 +65,17 @@ if(APPLE)
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|xcrun")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE xcrun)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
+  set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
 elseif(WIN32)
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|metal|metallib")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE PATH)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
+  set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
 else()
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|metal|metallib")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE PATH)
   set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
+  set(CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
 endif()
 
 add_test(NAME cglc_doctor_json_toolchain_path_tools_available
@@ -238,7 +241,7 @@ add_test(NAME cglc_doctor_json_vulkan_runtime_texture_sampler_descriptor_array_n
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_VULKAN_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_POLICY_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=VulkanRuntimeTextureSamplerDescriptorArrayPolicyShader|targetExplanation.buildableTargetCount=3|targetExplanation.recommendedTarget=metal|targetExplanation.recommendedPackageMode=native"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=VulkanRuntimeTextureSamplerDescriptorArrayPolicyShader|targetExplanation.buildableTargetCount=3|targetExplanation.recommendedTarget=${CROSSGL_RUNTIME_TEXTURE_SAMPLER_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET}|targetExplanation.recommendedPackageMode=native"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
     "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.requiredCapabilityCount=22|metal.missingCapabilityCount=0|vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=true|vulkan.packageMode=native|vulkan.packageDecisionReason=native-package-available|vulkan.requiredCapabilityCount=22|vulkan.missingCapabilityCount=0"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.backend.native-metal-package|metal.requiredCapabilities=metal.resource.runtime-descriptor-array|metal.requiredCapabilities=metal.resource.runtime-texture-descriptor-array|metal.requiredCapabilities=metal.resource.runtime-sampler-descriptor-array|metal.requiredCapabilities=metal.layout.runtime-array|metal.requiredCapabilities=metal.resource.descriptor-array|vulkan.requiredCapabilities=vulkan.backend.vulkan-prototype-package|vulkan.requiredCapabilities=vulkan.resource.runtime-descriptor-array|vulkan.requiredCapabilities=vulkan.resource.runtime-texture-descriptor-array|vulkan.requiredCapabilities=vulkan.resource.runtime-sampler-descriptor-array|vulkan.requiredCapabilities=vulkan.layout.runtime-array|vulkan.requiredCapabilities=vulkan.resource.descriptor-array"
