@@ -5754,6 +5754,58 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 ],
             )
 
+    def test_runtime_artifact_selection_rejects_mismatched_report_loader_context(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "selection context diagnostics must stay metadata-only\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="vulkan",
+                )
+                selection = select_runtime_artifact(report, target="metal")
+
+            summary = selection.to_summary()
+            target_admission = summary["admission"]["target"]
+            reject_diagnostics = {
+                diagnostic["code"]: diagnostic
+                for diagnostic in summary["rejectReasons"]
+            }
+            diagnostic = reject_diagnostics["package.target.selection_loader_mismatch"]
+
+            self.assertFalse(selection.selected)
+            self.assertIsNone(selection.artifact)
+            self.assertEqual(summary["requestedTarget"], "metal")
+            self.assertEqual(summary["packageTarget"], "metal")
+            self.assertEqual(summary["admission"]["decision"], "rejected")
+            self.assertEqual(
+                target_admission["category"],
+                "selection-context-mismatch",
+            )
+            self.assertEqual(target_admission["requestedTarget"], "metal")
+            self.assertEqual(target_admission["reportLoaderTarget"], "vulkan")
+            self.assertEqual(target_admission["packageTarget"], "metal")
+            self.assertTrue(target_admission["matched"])
+            self.assertEqual(diagnostic["document"], "compatibilityReport")
+            self.assertEqual(diagnostic["path"], "loaderTarget")
+            self.assertEqual(diagnostic["expected"], "metal")
+            self.assertEqual(diagnostic["actual"], "vulkan")
+            self.assertEqual(
+                [diagnostic["code"] for diagnostic in summary["skipReasons"]],
+                ["package.target.loader_mismatch"],
+            )
+            self.assertFalse(selection.source_parsing_required)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_compatibility_report_admission_distinguishes_target_unsupported_and_unavailable(
         self,
     ) -> None:

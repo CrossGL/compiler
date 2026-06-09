@@ -3026,6 +3026,12 @@ def select_runtime_artifact(
 
     requested_mode = _normalize_runtime_artifact_selection_mode(package_mode)
     diagnostics = list(report.diagnostics)
+    diagnostics.extend(
+        _runtime_artifact_selection_context_diagnostics(
+            report=report,
+            requested_target=target,
+        )
+    )
     selected_mode: str | None = None
     artifact: Artifact | None = None
 
@@ -5488,6 +5494,29 @@ def _normalize_runtime_artifact_selection_mode(package_mode: str) -> str:
     return package_mode
 
 
+def _runtime_artifact_selection_context_diagnostics(
+    *,
+    report: PackageCompatibilityReport,
+    requested_target: str,
+) -> tuple[CompatibilityDiagnostic, ...]:
+    if report.loader_target is None or report.loader_target == requested_target:
+        return ()
+    return (
+        CompatibilityDiagnostic(
+            code="package.target.selection_loader_mismatch",
+            message=(
+                "runtime artifact selection target "
+                f"{requested_target} does not match compatibility report "
+                f"loader target {report.loader_target}"
+            ),
+            document="compatibilityReport",
+            path="loaderTarget",
+            expected=requested_target,
+            actual=report.loader_target,
+        ),
+    )
+
+
 def _has_blocking_diagnostics(
     diagnostics: list[CompatibilityDiagnostic],
 ) -> bool:
@@ -5567,6 +5596,7 @@ def _runtime_artifact_selection_target_admission(
                 "package.metadata.invalid",
                 "package.metadata.too_large",
                 "package.target.loader_mismatch",
+                "package.target.selection_loader_mismatch",
                 "package.target.unsupported",
                 "package.artifact_requirements.target_unsupported",
             }
@@ -5585,7 +5615,13 @@ def _runtime_artifact_selection_target_admission(
         "package.metadata.invalid",
         "package.metadata.too_large",
     )
-    if _first_diagnostic(target_diagnostics, "package.target.loader_mismatch"):
+    if _first_diagnostic(
+        target_diagnostics,
+        "package.target.selection_loader_mismatch",
+    ):
+        category = "selection-context-mismatch"
+        decision = "rejected"
+    elif _first_diagnostic(target_diagnostics, "package.target.loader_mismatch"):
         category = "target-mismatch"
         decision = "skipped"
     elif target_unavailable is not None:
@@ -5618,6 +5654,7 @@ def _runtime_artifact_selection_target_admission(
         "decision": decision,
         "category": category,
         "requestedTarget": requested_target,
+        "reportLoaderTarget": report.loader_target,
         "packageTarget": report.target,
         "matched": report.target == requested_target,
         "diagnostics": [diagnostic.to_summary() for diagnostic in target_diagnostics],
