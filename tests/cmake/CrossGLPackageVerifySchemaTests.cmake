@@ -597,7 +597,7 @@ function(crossgl_add_opengl_compute_fake_glslang_package_verify_test)
   set(opengl_fake_glslang_verify_native_descriptor_paths
     "sourceHash.value")
   set(opengl_fake_glslang_verify_native_descriptor_fields
-    "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator|validationStatus=unavailable")
+    "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL OpenGL backend|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.0.executable=cglc|validationStatus=unavailable")
   set(opengl_fake_glslang_verify_native_descriptor_array_lengths
     "toolchainProvenance.tools=1|validationDiagnostics=0")
   if(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_NATIVE_BINARY_STATUS
@@ -610,8 +610,10 @@ function(crossgl_add_opengl_compute_fake_glslang_package_verify_test)
       "toolchainProvenance.tools=2|validationDiagnostics=0")
   elseif(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_VALIDATION_STATUS
          STREQUAL "failed")
+    set(opengl_fake_glslang_verify_native_descriptor_paths
+      "sourceHash.value|toolchainProvenance.tools.1.resolvedExecutable|toolchainProvenance.tools.1.versionDetail")
     set(opengl_fake_glslang_verify_native_descriptor_fields
-      "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|validationStatus=failed|validationDiagnostics.0.code=opengl.glslang-failed")
+      "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=glslangValidator|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed|validationStatus=failed|validationDiagnostics.0.code=opengl.glslang-failed")
     set(opengl_fake_glslang_verify_native_descriptor_array_lengths
       "toolchainProvenance.tools=2|validationDiagnostics=1")
   endif()
