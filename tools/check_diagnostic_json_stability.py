@@ -133,7 +133,9 @@ def expect_location_fields(
     case: DiagnosticExpectation,
     location: object,
 ) -> None:
-    expect_location_span_coherent(errors, case.name, "diagnostics[0].location", location)
+    expect_location_span_coherent(
+        errors, case.name, "diagnostics[0].location", location
+    )
     if not isinstance(location, dict):
         return
     expected_fields = {
@@ -276,11 +278,7 @@ def check_case(
 
 def build_cases(root: Path, tmp_dir: Path) -> tuple[DiagnosticExpectation, ...]:
     parse_fixture = (
-        root
-        / "tests"
-        / "frontend"
-        / "fixtures"
-        / "BadNamedVoidParameterShader.cgl"
+        root / "tests" / "frontend" / "fixtures" / "BadNamedVoidParameterShader.cgl"
     )
     sema_fixture = root / "tests" / "check-failures" / "BadTextureArityShader.cgl"
     opt_fixture = root / "tests" / "fixtures" / "RuntimeArrayNonFinalShader.cgl"
