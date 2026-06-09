@@ -42811,7 +42811,7 @@ shader VulkanSupportPredicateGraphicsUnsupportedResourceShader {
     }
   }
   fragment {
-    layout(set = 0, binding = 4) buffer vec4* debugValues;
+    layout(set = 0, binding = 4) buffer vec4* debugValues[];
     FragmentOutput main(FragmentInput input) {
       FragmentOutput output;
       output.color = vec4(input.uv.x, input.uv.y, 0.0, 1.0);
@@ -42823,9 +42823,9 @@ shader VulkanSupportPredicateGraphicsUnsupportedResourceShader {
   expectVulkanPrototypeUnsupported(
       graphicsUnsupportedResourceSource,
       "vulkan.prototype-unsupported-graphics-stage-resource",
-      "fragment.debugValues (storage-buffer, type vec4*, set 0 binding 4; "
-      "reason: only struct uniform buffers and graphics texture/sampler "
-      "descriptors are supported)",
+      "fragment.debugValues (storage-buffer, type vec4*[], set 0 binding 4; "
+      "reason: storage-buffer descriptor arrays require fixed-size numeric "
+      "resource array sizes)",
       "graphics-stage unsupported resource rejection support predicate");
 
   constexpr std::string_view uniformSource = R"(

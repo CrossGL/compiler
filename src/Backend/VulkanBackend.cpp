@@ -10829,6 +10829,61 @@ bool vulkanGraphicsSamplerResourceSupported(const HIRModule &module,
           elementType.name == "comparison_sampler");
 }
 
+const HIRResource *vulkanGraphicsStageResource(const HIRStage &stage,
+                                               std::string_view name) {
+  for (const HIRResource &resource : stage.resources) {
+    if (resource.name == name) {
+      return &resource;
+    }
+  }
+  return nullptr;
+}
+
+bool vulkanGraphicsStorageBufferDescriptorArraySizeSupported(
+    const HIRModule &module, const HIRResource &resource) {
+  if (!resource.type.arraySize.has_value()) {
+    return true;
+  }
+  if (resource.type.arraySize->empty()) {
+    return false;
+  }
+  const StorageLayoutContext layoutContext(module.structs, module.constants);
+  return prototypeArrayElementCount(resource.type, layoutContext).has_value();
+}
+
+bool vulkanGraphicsStorageBufferElementTypeSupported(
+    const HIRModule &module, const HIRResource &resource) {
+  if (resource.kind != HIRResourceKind::Buffer) {
+    return false;
+  }
+
+  const HIRType elementType = prototypeBufferElementType(resource);
+  const StorageLayoutContext layoutContext(module.structs, module.constants);
+  const std::optional<PrototypeStorageTypeLayout> layout =
+      prototypeStorageTypeLayout(elementType, layoutContext, true);
+  if (!layout.has_value() || layout->hasRuntimeArray) {
+    return false;
+  }
+  if (isPrototypeArithmeticType(elementType)) {
+    return true;
+  }
+  if (!isModuleStructType(module, elementType)) {
+    return false;
+  }
+  return !checkStorageCapabilities(elementType, layoutContext,
+                                   prototypeStorageCapabilityPolicy(), true,
+                                   resource.name)
+              .has_value();
+}
+
+bool vulkanGraphicsStorageBufferResourceSupported(
+    const HIRModule &module, const HIRResource &resource) {
+  return resource.kind == HIRResourceKind::Buffer &&
+         vulkanGraphicsStorageBufferDescriptorArraySizeSupported(module,
+                                                                 resource) &&
+         vulkanGraphicsStorageBufferElementTypeSupported(module, resource);
+}
+
 bool vulkanGraphicsStageResourceSupported(const HIRModule &module,
                                           const HIRStage &stage,
                                           const HIRResource &resource) {
@@ -10839,7 +10894,8 @@ bool vulkanGraphicsStageResourceSupported(const HIRModule &module,
     return false;
   }
   return vulkanGraphicsSampledTextureResourceSupported(module, resource) ||
-         vulkanGraphicsSamplerResourceSupported(module, resource);
+         vulkanGraphicsSamplerResourceSupported(module, resource) ||
+         vulkanGraphicsStorageBufferResourceSupported(module, resource);
 }
 
 const HIRField *vulkanGraphicsPositionField(const HIRStruct &structure) {
@@ -10958,6 +11014,120 @@ vulkanGraphicsSwizzleIndices(const HIRType &type, std::string_view member);
 bool vulkanGraphicsSwizzleResultTypeSupported(
     const HIRType &baseType, const HIRType &resultType,
     const std::vector<std::size_t> &indices);
+
+bool vulkanGraphicsIntIndexExpressionSupported(const HIRModule &module,
+                                               const HIRStage &stage,
+                                               const HIRExpression &expression,
+                                               bool allowStageHelpers) {
+  if (expression.kind == HIRExpressionKind::NonUniform ||
+      expression.type.arraySize.has_value() || expression.type.name != "int") {
+    return false;
+  }
+  return vulkanGraphicsExpressionSupported(module, stage, expression,
+                                           allowStageHelpers);
+}
+
+bool vulkanGraphicsStorageBufferElementAccessSupported(
+    const HIRModule &module, const HIRStage &stage,
+    const HIRExpression &expression, bool allowStageHelpers) {
+  const std::optional<PrototypeStorageBufferIndexAccess> access =
+      prototypeStorageBufferIndexAccess(expression);
+  if (!access.has_value() || access->elementIndex == nullptr) {
+    return false;
+  }
+
+  const HIRResource *resource =
+      vulkanGraphicsStageResource(stage, access->resourceName);
+  if (resource == nullptr ||
+      !vulkanGraphicsStorageBufferResourceSupported(module, *resource)) {
+    return false;
+  }
+
+  const bool resourceIsDescriptorArray =
+      resource->type.arraySize.has_value();
+  if (resourceIsDescriptorArray != (access->descriptorIndex != nullptr)) {
+    return false;
+  }
+  if (access->descriptorIndex != nullptr &&
+      !vulkanGraphicsIntIndexExpressionSupported(
+          module, stage, *access->descriptorIndex, allowStageHelpers)) {
+    return false;
+  }
+  if (!vulkanGraphicsIntIndexExpressionSupported(
+          module, stage, *access->elementIndex, allowStageHelpers)) {
+    return false;
+  }
+
+  const HIRType elementType = prototypeBufferElementType(*resource);
+  return isPrototypeArithmeticType(elementType) &&
+         vulkanGraphicsTypeEquals(expression.type, elementType);
+}
+
+bool vulkanGraphicsStructStorageBufferMemberAccessSupported(
+    const HIRModule &module, const HIRStage &stage,
+    const HIRExpression &expression, bool allowStageHelpers) {
+  const std::optional<PrototypeStructMemberChain> chain =
+      prototypeStructMemberChain(expression);
+  if (!chain.has_value()) {
+    return false;
+  }
+
+  const HIRExpression *base = prototypeStructMemberChainBase(*chain);
+  if (base == nullptr || base->kind != HIRExpressionKind::Identifier) {
+    return false;
+  }
+
+  const HIRResource *resource =
+      vulkanGraphicsStageResource(stage, base->value);
+  if (resource == nullptr ||
+      !vulkanGraphicsStorageBufferResourceSupported(module, *resource)) {
+    return false;
+  }
+
+  const HIRType elementType = prototypeBufferElementType(*resource);
+  if (!isModuleStructType(module, elementType)) {
+    return false;
+  }
+
+  const PrototypeStructMap structs = prototypeStructs(module);
+  const PrototypeConstantMap constants = prototypeConstants(module);
+  const std::optional<PrototypeStructStorageBufferAccess> access =
+      prototypeStructStorageBufferAccess(*chain, resource->type, false,
+                                         base->value, nullptr);
+  if (!access.has_value()) {
+    return false;
+  }
+
+  if (access->descriptorIndex != nullptr &&
+      !vulkanGraphicsIntIndexExpressionSupported(
+          module, stage, *access->descriptorIndex, allowStageHelpers)) {
+    return false;
+  }
+  if (access->elementIndex == nullptr ||
+      !vulkanGraphicsIntIndexExpressionSupported(
+          module, stage, *access->elementIndex, allowStageHelpers)) {
+    return false;
+  }
+
+  const std::optional<PrototypeResolvedStructFieldPath> fieldPath =
+      resolvePrototypeStructFieldPath(elementType, access->fieldSteps, structs,
+                                      constants, nullptr);
+  if (!fieldPath.has_value() ||
+      !vulkanGraphicsTypeEquals(expression.type, fieldPath->valueType)) {
+    return false;
+  }
+
+  for (const PrototypeResolvedAccessIndex &index : fieldPath->indices) {
+    if (index.dynamicIndex == nullptr) {
+      continue;
+    }
+    if (!vulkanGraphicsIntIndexExpressionSupported(
+            module, stage, *index.dynamicIndex, allowStageHelpers)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 const HIRFunction *
 vulkanGraphicsStageHelperFunction(const HIRStage &stage,
@@ -11507,6 +11677,10 @@ bool vulkanGraphicsExpressionSupported(const HIRModule &module,
                                              expression.children.front(),
                                              allowStageHelpers);
   case HIRExpressionKind::MemberAccess:
+    if (vulkanGraphicsStructStorageBufferMemberAccessSupported(
+            module, stage, expression, allowStageHelpers)) {
+      return true;
+    }
     if (expression.children.size() != 1 ||
         !vulkanGraphicsExpressionSupported(module, stage,
                                            expression.children.front(),
@@ -11552,8 +11726,10 @@ bool vulkanGraphicsExpressionSupported(const HIRModule &module,
            vulkanGraphicsExpressionSupported(module, stage,
                                              expression.children[2],
                                              allowStageHelpers);
-  case HIRExpressionKind::Empty:
   case HIRExpressionKind::IndexAccess:
+    return vulkanGraphicsStorageBufferElementAccessSupported(
+        module, stage, expression, allowStageHelpers);
+  case HIRExpressionKind::Empty:
   case HIRExpressionKind::NonUniform:
   case HIRExpressionKind::TextureCompareLodManual:
     return false;
@@ -11677,10 +11853,28 @@ std::string vulkanGraphicsStageResourceUnsupportedReason(
     }
     return "uniform buffers must be supported struct uniform resources";
   }
+  if (resource.kind == HIRResourceKind::Buffer) {
+    if (stage.stage != "vertex" && stage.stage != "fragment") {
+      return "storage-buffer descriptors are supported only in graphics stages";
+    }
+    if (resource.type.arraySize.has_value()) {
+      if (resource.type.arraySize->empty()) {
+        return "storage-buffer descriptor arrays require fixed-size numeric "
+               "resource array sizes";
+      }
+      if (!vulkanGraphicsStorageBufferDescriptorArraySizeSupported(module,
+                                                                   resource)) {
+        return "storage-buffer descriptor arrays require fixed-size numeric "
+               "resource array sizes";
+      }
+    }
+    return "storage buffers must use supported scalar/vector arithmetic or "
+           "std430 struct element types without runtime-array fields";
+  }
   if (resource.kind != HIRResourceKind::Texture &&
       resource.kind != HIRResourceKind::Sampler) {
-    return "only struct uniform buffers and graphics texture/sampler "
-           "descriptors are supported";
+    return "only struct uniform buffers, graphics storage buffers, and "
+           "graphics texture/sampler descriptors are supported";
   }
   if (stage.stage != "vertex" && stage.stage != "fragment") {
     return "texture/sampler descriptors are supported only in graphics stages";
@@ -11789,8 +11983,9 @@ bool vulkanGraphicsPrototypeSupported(const HIRModule &module,
           "vulkan.prototype-unsupported-graphics-body",
           "Vulkan graphics prototype emission currently supports declarations, "
           "assignments, struct/vector member accesses, scalar/vector "
-          "constructors, simple arithmetic expressions, fragment sampler2D "
-          "sampling, fixed-size fragment sampler2D/sampler descriptor arrays, "
+          "constructors, simple arithmetic expressions, direct or fixed-size "
+          "graphics storage-buffer accesses, fragment sampler2D sampling, "
+          "fixed-size fragment sampler2D/sampler descriptor arrays, "
           "direct or fixed-size fragment sampler2DShadow comparison descriptor "
           "arrays, direct fragment sampler2DArrayShadow comparison resources "
           "with optional explicit LOD, and returns");
@@ -12101,6 +12296,13 @@ private:
     bool nonUniformDescriptor = false;
   };
 
+  struct GraphicsStorageBufferInfo {
+    HIRType resourceType;
+    HIRType elementType;
+    std::string elementPointerTypeId;
+    std::string variableId;
+  };
+
   struct EmitValue {
     HIRType type;
     std::string id;
@@ -12114,6 +12316,8 @@ private:
     const HIRStruct *outputStruct = nullptr;
     const std::unordered_map<std::string, PointerInfo> *uniforms = nullptr;
     const std::unordered_map<std::string, PointerInfo> *descriptors = nullptr;
+    const std::unordered_map<std::string, GraphicsStorageBufferInfo>
+        *storageBuffers = nullptr;
     std::unordered_map<std::string, PointerInfo> locals;
     std::ostringstream variableLines;
     bool entry = false;
@@ -12427,6 +12631,248 @@ private:
     return id;
   }
 
+  std::string storageValueTypeId(const HIRType &type) {
+    const std::string key = typeKey(type);
+    if (const auto found = storageValueTypeIds_.find(key);
+        found != storageValueTypeIds_.end()) {
+      return found->second;
+    }
+
+    if (type.arraySize.has_value()) {
+      const HIRType elementType = prototypeArrayElementTypeOneDimension(type);
+      const std::string elementTypeId = storageValueTypeId(elementType);
+      if (elementTypeId.empty()) {
+        return "";
+      }
+
+      const std::optional<PrototypeStorageTypeLayout> layout =
+          prototypeStorageTypeLayout(type, layoutContext_, true);
+      if (!layout.has_value() || !layout->isArray) {
+        diagnostics_.error("vulkan.prototype-internal-type",
+                           "Vulkan graphics prototype cannot compute "
+                           "storage array layout for '" +
+                               formatType(type) + "'");
+        return "";
+      }
+
+      const std::string id =
+          (type.arraySize->empty() ? "%runtimearr_storage_"
+                                   : "%arr_storage_") +
+          sanitizeIdFragment(formatType(type));
+      storageValueTypeIds_[key] = id;
+      decorations_ << "OpDecorate " << id << " ArrayStride "
+                   << layout->arrayStrideBytes << "\n";
+      if (type.arraySize->empty()) {
+        types_ << id << " = OpTypeRuntimeArray " << elementTypeId << "\n";
+        return id;
+      }
+
+      const std::vector<std::string_view> dimensions =
+          prototypeArrayDimensions(*type.arraySize);
+      if (dimensions.empty()) {
+        diagnostics_.error("vulkan.prototype-internal-type",
+                           "Vulkan graphics prototype cannot resolve storage "
+                           "array dimension for '" +
+                               formatType(type) + "'");
+        return "";
+      }
+      const std::optional<std::size_t> elementCount =
+          prototypeArrayDimensionElementCount(dimensions.front(),
+                                              layoutContext_);
+      if (!elementCount.has_value()) {
+        diagnostics_.error("vulkan.prototype-internal-type",
+                           "Vulkan graphics prototype storage arrays require "
+                           "fixed-size numeric or folded-constant array "
+                           "sizes, got '" +
+                               formatType(type) + "'");
+        return "";
+      }
+      const std::string lengthId =
+          uintConstant(static_cast<unsigned int>(*elementCount));
+      types_ << id << " = OpTypeArray " << elementTypeId << " " << lengthId
+             << "\n";
+      return id;
+    }
+
+    const HIRStruct *structure = vulkanGraphicsStructType(module_, type);
+    if (structure == nullptr) {
+      return typeId(type);
+    }
+
+    std::vector<std::string> memberTypes;
+    memberTypes.reserve(structure->fields.size());
+    for (const HIRField &field : structure->fields) {
+      const std::string fieldTypeId = storageValueTypeId(field.type);
+      if (fieldTypeId.empty()) {
+        return "";
+      }
+      memberTypes.push_back(fieldTypeId);
+    }
+
+    const std::optional<PrototypeStorageTypeLayout> layout =
+        prototypeStorageTypeLayout(type, layoutContext_, true);
+    if (!layout.has_value()) {
+      diagnostics_.error("vulkan.prototype-internal-type",
+                         "Vulkan graphics prototype cannot compute storage "
+                         "layout for struct type '" +
+                             type.name + "'");
+      return "";
+    }
+
+    const std::string id = "%struct_storage_" + sanitizeIdFragment(type.name);
+    storageValueTypeIds_[key] = id;
+    for (const PrototypeStorageFieldLayout &field : layout->fields) {
+      decorations_ << "OpMemberDecorate " << id << " " << field.index
+                   << " Offset " << field.offsetBytes << "\n";
+    }
+    types_ << id << " = OpTypeStruct";
+    for (const std::string &memberType : memberTypes) {
+      types_ << " " << memberType;
+    }
+    types_ << "\n";
+    names_ << "OpName " << id << " \"" << structure->name << "\"\n";
+    for (std::size_t index = 0; index < structure->fields.size(); ++index) {
+      names_ << "OpMemberName " << id << " " << index << " \""
+             << structure->fields[index].name << "\"\n";
+    }
+    return id;
+  }
+
+  std::size_t storageBufferArrayStride(const HIRType &elementType) {
+    const std::optional<PrototypeStorageTypeLayout> layout =
+        prototypeStorageTypeLayout(elementType, layoutContext_, false);
+    if (!layout.has_value()) {
+      diagnostics_.error("vulkan.prototype-internal-type",
+                         "Vulkan graphics prototype cannot compute "
+                         "storage-buffer array stride for type '" +
+                             elementType.name + "'");
+      return 4;
+    }
+    return storageAlignTo(layout->sizeBytes, layout->alignmentBytes);
+  }
+
+  std::string storageBufferRuntimeArrayTypeId(const HIRType &elementType) {
+    const std::string key = typeKey(elementType);
+    if (const auto found = storageRuntimeArrayTypeIds_.find(key);
+        found != storageRuntimeArrayTypeIds_.end()) {
+      return found->second;
+    }
+
+    const std::string elementTypeId = storageValueTypeId(elementType);
+    if (elementTypeId.empty()) {
+      return "";
+    }
+    const std::string id =
+        "%runtimearr_" + sanitizeIdFragment(formatType(elementType));
+    storageRuntimeArrayTypeIds_[key] = id;
+    decorations_ << "OpDecorate " << id << " ArrayStride "
+                 << storageBufferArrayStride(elementType) << "\n";
+    types_ << id << " = OpTypeRuntimeArray " << elementTypeId << "\n";
+    return id;
+  }
+
+  std::string storageBufferStructTypeId(const HIRType &elementType) {
+    const std::string key = typeKey(elementType);
+    if (const auto found = storageStructTypeIds_.find(key);
+        found != storageStructTypeIds_.end()) {
+      return found->second;
+    }
+
+    const std::string arrayTypeId =
+        storageBufferRuntimeArrayTypeId(elementType);
+    if (arrayTypeId.empty()) {
+      return "";
+    }
+    const std::string id =
+        "%StorageBuffer_" + sanitizeIdFragment(formatType(elementType));
+    storageStructTypeIds_[key] = id;
+    decorations_ << "OpMemberDecorate " << id << " 0 Offset 0\n";
+    decorations_ << "OpDecorate " << id << " Block\n";
+    types_ << id << " = OpTypeStruct " << arrayTypeId << "\n";
+    return id;
+  }
+
+  std::string storageBufferDescriptorArrayTypeId(
+      const HIRType &resourceType, const HIRType &elementType) {
+    if (!resourceType.arraySize.has_value()) {
+      return storageBufferStructTypeId(elementType);
+    }
+
+    const std::string key = typeKey(resourceType);
+    if (const auto found = storageDescriptorArrayTypeIds_.find(key);
+        found != storageDescriptorArrayTypeIds_.end()) {
+      return found->second;
+    }
+
+    if (resourceType.arraySize->empty()) {
+      diagnostics_.error("vulkan.prototype-unsupported-graphics-stage-resource",
+                         "Vulkan graphics storage-buffer descriptor arrays "
+                         "require fixed-size numeric resource array sizes");
+      return "";
+    }
+    const std::optional<std::size_t> elementCount =
+        prototypeArrayElementCount(resourceType, layoutContext_);
+    if (!elementCount.has_value()) {
+      diagnostics_.error("vulkan.prototype-unsupported-graphics-stage-resource",
+                         "Vulkan graphics storage-buffer descriptor arrays "
+                         "require fixed-size numeric or folded-constant "
+                         "resource array sizes, got '" +
+                             formatType(resourceType) + "'");
+      return "";
+    }
+
+    const std::string structTypeId = storageBufferStructTypeId(elementType);
+    if (structTypeId.empty()) {
+      return "";
+    }
+    const std::string id =
+        "%arr_StorageBuffer_" + sanitizeIdFragment(formatType(resourceType));
+    storageDescriptorArrayTypeIds_[key] = id;
+    const std::string lengthId =
+        uintConstant(static_cast<unsigned int>(*elementCount));
+    types_ << id << " = OpTypeArray " << structTypeId << " " << lengthId
+           << "\n";
+    return id;
+  }
+
+  std::string storageBufferResourcePointerTypeId(
+      const HIRType &resourceType, const HIRType &elementType) {
+    const std::string key = typeKey(resourceType);
+    if (const auto found = storageResourcePointerTypeIds_.find(key);
+        found != storageResourcePointerTypeIds_.end()) {
+      return found->second;
+    }
+
+    const std::string valueType =
+        storageBufferDescriptorArrayTypeId(resourceType, elementType);
+    if (valueType.empty()) {
+      return "";
+    }
+    const std::string id =
+        "%ptr_StorageBuffer_Resource_" + sanitizeIdFragment(formatType(resourceType));
+    storageResourcePointerTypeIds_[key] = id;
+    types_ << id << " = OpTypePointer StorageBuffer " << valueType << "\n";
+    return id;
+  }
+
+  std::string storageBufferElementPointerTypeId(const HIRType &elementType) {
+    const std::string key = typeKey(elementType);
+    if (const auto found = storageElementPointerTypeIds_.find(key);
+        found != storageElementPointerTypeIds_.end()) {
+      return found->second;
+    }
+
+    const std::string elementTypeId = storageValueTypeId(elementType);
+    if (elementTypeId.empty()) {
+      return "";
+    }
+    const std::string id =
+        "%ptr_StorageBuffer_" + sanitizeIdFragment(formatType(elementType));
+    storageElementPointerTypeIds_[key] = id;
+    types_ << id << " = OpTypePointer StorageBuffer " << elementTypeId << "\n";
+    return id;
+  }
+
   std::string functionTypeId(const HIRType &returnType,
                              const std::vector<HIRType> &parameterTypes) {
     std::string key = typeKey(returnType) + "(";
@@ -12595,13 +13041,49 @@ private:
     return info;
   }
 
+  GraphicsStorageBufferInfo declareStorageBufferResource(
+      const HIRStage &stage, const HIRResource &resource) {
+    const HIRType elementType = prototypeBufferElementType(resource);
+    GraphicsStorageBufferInfo info;
+    info.resourceType = resource.type;
+    info.elementType = elementType;
+    info.elementPointerTypeId = storageBufferElementPointerTypeId(elementType);
+    info.variableId = "%resource_" + sanitizeIdFragment(stage.stage) + "_" +
+                      sanitizeIdFragment(resource.name);
+    const std::string pointerType =
+        storageBufferResourcePointerTypeId(resource.type, elementType);
+    if (info.elementPointerTypeId.empty() || pointerType.empty()) {
+      return info;
+    }
+    globals_ << info.variableId << " = OpVariable " << pointerType
+             << " StorageBuffer\n";
+    names_ << "OpName " << info.variableId << " \"" << resource.name
+           << "\"\n";
+    decorations_ << "OpDecorate " << info.variableId << " DescriptorSet "
+                 << resource.set << "\n";
+    decorations_ << "OpDecorate " << info.variableId << " Binding "
+                 << resource.binding << "\n";
+    return info;
+  }
+
   void declareStageResources(
       const HIRStage &stage, std::vector<std::string> &interfaceIds) {
     std::unordered_map<std::string, PointerInfo> &uniforms =
       stage.stage == "vertex" ? vertexUniforms_ : fragmentUniforms_;
     std::unordered_map<std::string, PointerInfo> &descriptors =
         stage.stage == "vertex" ? vertexDescriptors_ : fragmentDescriptors_;
+    std::unordered_map<std::string, GraphicsStorageBufferInfo> &storageBuffers =
+        stage.stage == "vertex" ? vertexStorageBuffers_ : fragmentStorageBuffers_;
     for (const HIRResource &resource : stage.resources) {
+      if (vulkanGraphicsStorageBufferResourceSupported(module_, resource)) {
+        GraphicsStorageBufferInfo buffer =
+            declareStorageBufferResource(stage, resource);
+        if (!buffer.variableId.empty()) {
+          interfaceIds.push_back(buffer.variableId);
+          storageBuffers[resource.name] = std::move(buffer);
+        }
+        continue;
+      }
       if (!vulkanGraphicsUniformResourceSupported(module_, resource)) {
         if (!vulkanGraphicsStageResourceSupported(module_, stage, resource)) {
           continue;
@@ -12808,6 +13290,8 @@ private:
         stage->stage == "vertex" ? &vertexUniforms_ : &fragmentUniforms_;
     context.descriptors =
         stage->stage == "vertex" ? &vertexDescriptors_ : &fragmentDescriptors_;
+    context.storageBuffers = stage->stage == "vertex" ? &vertexStorageBuffers_
+                                                       : &fragmentStorageBuffers_;
   }
 
   bool emitEntryFunction(const HIRStage &stage, const HIRFunction &function,
@@ -12988,6 +13472,192 @@ private:
     return id;
   }
 
+  std::optional<EmitValue> emitStorageBufferIndexExpression(
+      FunctionContext &context, const HIRExpression &expression,
+      std::string_view diagnosticContext) {
+    if (expression.kind == HIRExpressionKind::NonUniform) {
+      diagnostics_.error("vulkan.prototype-unsupported-nonuniform-index",
+                         "Vulkan graphics storage-buffer descriptor indexing "
+                         "does not support nonuniform indices yet");
+      return std::nullopt;
+    }
+
+    const EmitValue index = emitExpression(context, expression);
+    if (index.type.arraySize.has_value() || index.type.name != "int") {
+      diagnostics_.error("vulkan.prototype-unsupported-graphics-body",
+                         "Vulkan graphics " + std::string(diagnosticContext) +
+                             " indices must be scalar int values");
+      return std::nullopt;
+    }
+    return index;
+  }
+
+  std::optional<PointerInfo>
+  emitStorageBufferElementPointer(FunctionContext &context,
+                                  const HIRExpression &expression) {
+    if (context.storageBuffers == nullptr) {
+      return std::nullopt;
+    }
+
+    const std::optional<PrototypeStorageBufferIndexAccess> access =
+        prototypeStorageBufferIndexAccess(expression);
+    if (!access.has_value() || access->elementIndex == nullptr) {
+      return std::nullopt;
+    }
+
+    const auto buffer = context.storageBuffers->find(access->resourceName);
+    if (buffer == context.storageBuffers->end()) {
+      return std::nullopt;
+    }
+    if (!isPrototypeArithmeticType(buffer->second.elementType)) {
+      diagnostics_.error("vulkan.prototype-unsupported-graphics-body",
+                         "Vulkan graphics struct storage-buffer resources "
+                         "require member field access");
+      return std::nullopt;
+    }
+
+    const bool bufferIsDescriptorArray =
+        buffer->second.resourceType.arraySize.has_value();
+    if (bufferIsDescriptorArray != (access->descriptorIndex != nullptr)) {
+      diagnostics_.error(
+          "vulkan.prototype-unsupported-graphics-body",
+          bufferIsDescriptorArray
+              ? "Vulkan graphics storage-buffer descriptor arrays require "
+                "descriptor and element indices"
+              : "Vulkan graphics non-array storage buffers support only one "
+                "element index");
+      return std::nullopt;
+    }
+
+    std::optional<EmitValue> descriptorIndex;
+    if (access->descriptorIndex != nullptr) {
+      descriptorIndex = emitStorageBufferIndexExpression(
+          context, *access->descriptorIndex, "storage-buffer descriptor");
+      if (!descriptorIndex.has_value()) {
+        return std::nullopt;
+      }
+    }
+
+    const std::optional<EmitValue> elementIndex =
+        emitStorageBufferIndexExpression(context, *access->elementIndex,
+                                         "storage-buffer element");
+    if (!elementIndex.has_value()) {
+      return std::nullopt;
+    }
+
+    PointerInfo result{buffer->second.elementType,
+                       buffer->second.elementPointerTypeId, freshId(),
+                       "StorageBuffer", HIRResourceKind::Value};
+    functions_ << result.pointerId << " = OpAccessChain "
+               << result.pointerTypeId << " " << buffer->second.variableId;
+    if (descriptorIndex.has_value()) {
+      functions_ << " " << descriptorIndex->id;
+    }
+    functions_ << " " << intConstant(0) << " " << elementIndex->id << "\n";
+    return result;
+  }
+
+  std::optional<PointerInfo>
+  emitStorageBufferMemberPointer(FunctionContext &context,
+                                 const HIRExpression &expression) {
+    if (context.storageBuffers == nullptr) {
+      return std::nullopt;
+    }
+
+    const std::optional<PrototypeStructMemberChain> chain =
+        prototypeStructMemberChain(expression);
+    if (!chain.has_value()) {
+      return std::nullopt;
+    }
+    const HIRExpression *base = prototypeStructMemberChainBase(*chain);
+    if (base == nullptr || base->kind != HIRExpressionKind::Identifier) {
+      return std::nullopt;
+    }
+
+    const auto buffer = context.storageBuffers->find(base->value);
+    if (buffer == context.storageBuffers->end()) {
+      return std::nullopt;
+    }
+    if (!isModuleStructType(module_, buffer->second.elementType)) {
+      return std::nullopt;
+    }
+
+    const std::optional<PrototypeStructStorageBufferAccess> access =
+        prototypeStructStorageBufferAccess(
+            *chain, buffer->second.resourceType, false, base->value,
+            &diagnostics_);
+    if (!access.has_value()) {
+      return std::nullopt;
+    }
+
+    const PrototypeStructMap structs = prototypeStructs(module_);
+    const PrototypeConstantMap constants = prototypeConstants(module_);
+    const std::optional<PrototypeResolvedStructFieldPath> fieldPath =
+        resolvePrototypeStructFieldPath(buffer->second.elementType,
+                                        access->fieldSteps, structs, constants,
+                                        &diagnostics_);
+    if (!fieldPath.has_value()) {
+      return std::nullopt;
+    }
+
+    std::optional<EmitValue> descriptorIndex;
+    if (access->descriptorIndex != nullptr) {
+      descriptorIndex = emitStorageBufferIndexExpression(
+          context, *access->descriptorIndex, "storage-buffer descriptor");
+      if (!descriptorIndex.has_value()) {
+        return std::nullopt;
+      }
+    }
+    if (access->elementIndex == nullptr) {
+      diagnostics_.error("vulkan.prototype-unsupported-graphics-body",
+                         "Vulkan graphics storage-buffer struct member "
+                         "access requires an element index");
+      return std::nullopt;
+    }
+    const std::optional<EmitValue> elementIndex =
+        emitStorageBufferIndexExpression(context, *access->elementIndex,
+                                         "storage-buffer element");
+    if (!elementIndex.has_value()) {
+      return std::nullopt;
+    }
+
+    PointerInfo result{fieldPath->valueType,
+                       storageBufferElementPointerTypeId(fieldPath->valueType),
+                       freshId(), "StorageBuffer", HIRResourceKind::Value};
+    if (result.pointerTypeId.empty()) {
+      return std::nullopt;
+    }
+
+    functions_ << result.pointerId << " = OpAccessChain "
+               << result.pointerTypeId << " " << buffer->second.variableId;
+    if (descriptorIndex.has_value()) {
+      functions_ << " " << descriptorIndex->id;
+    }
+    functions_ << " " << intConstant(0) << " " << elementIndex->id;
+    for (const PrototypeResolvedAccessIndex &index : fieldPath->indices) {
+      if (index.constantIndex.has_value()) {
+        functions_ << " "
+                   << intConstant(static_cast<int>(*index.constantIndex));
+        continue;
+      }
+      if (index.dynamicIndex == nullptr) {
+        diagnostics_.error("vulkan.prototype-unsupported-graphics-body",
+                           "Vulkan graphics cannot emit an empty "
+                           "storage-buffer field access-chain index");
+        return std::nullopt;
+      }
+      const std::optional<EmitValue> dynamicIndex =
+          emitStorageBufferIndexExpression(context, *index.dynamicIndex,
+                                           "storage-buffer field");
+      if (!dynamicIndex.has_value()) {
+        return std::nullopt;
+      }
+      functions_ << " " << dynamicIndex->id;
+    }
+    functions_ << "\n";
+    return result;
+  }
+
   std::optional<PointerInfo> emitAccessPointer(FunctionContext &context,
                                                const HIRExpression &expression) {
     if (expression.kind == HIRExpressionKind::Identifier) {
@@ -13006,8 +13676,16 @@ private:
                              "'");
       return std::nullopt;
     }
+    if (expression.kind == HIRExpressionKind::IndexAccess) {
+      return emitStorageBufferElementPointer(context, expression);
+    }
     if (expression.kind == HIRExpressionKind::MemberAccess &&
         expression.children.size() == 1) {
+      if (std::optional<PointerInfo> storagePointer =
+              emitStorageBufferMemberPointer(context, expression);
+          storagePointer.has_value()) {
+        return storagePointer;
+      }
       std::optional<PointerInfo> base =
           emitAccessPointer(context, expression.children.front());
       if (!base.has_value()) {
@@ -13406,8 +14084,18 @@ private:
       return emitTextureSample(context, expression);
     case HIRExpressionKind::TextureCompare:
       return emitTextureCompare(context, expression);
+    case HIRExpressionKind::IndexAccess: {
+      std::optional<PointerInfo> pointer =
+          emitStorageBufferElementPointer(context, expression);
+      if (pointer.has_value()) {
+        return emitLoad(*pointer);
+      }
+      diagnostics_.error("vulkan.prototype-unsupported-graphics-body",
+                         "unsupported index access in Vulkan graphics "
+                         "prototype");
+      return EmitValue{expression.type, intConstant(0)};
+    }
     case HIRExpressionKind::Empty:
-    case HIRExpressionKind::IndexAccess:
     case HIRExpressionKind::NonUniform:
     case HIRExpressionKind::TextureCompareLodManual:
       diagnostics_.error("vulkan.prototype-unsupported-graphics-body",
@@ -14172,6 +14860,12 @@ private:
   std::unordered_map<std::string, std::string> uniformBlockTypeIds_;
   std::unordered_map<std::string, std::string> imageTypeIds_;
   std::unordered_map<std::string, std::string> descriptorArrayTypeIds_;
+  std::unordered_map<std::string, std::string> storageValueTypeIds_;
+  std::unordered_map<std::string, std::string> storageRuntimeArrayTypeIds_;
+  std::unordered_map<std::string, std::string> storageStructTypeIds_;
+  std::unordered_map<std::string, std::string> storageDescriptorArrayTypeIds_;
+  std::unordered_map<std::string, std::string> storageResourcePointerTypeIds_;
+  std::unordered_map<std::string, std::string> storageElementPointerTypeIds_;
   std::unordered_map<std::string, std::string> sampledImageTypeIds_;
   std::unordered_map<std::string, std::string> functionTypeIds_;
   std::unordered_map<std::string, std::string> intConstants_;
@@ -14185,6 +14879,9 @@ private:
   std::unordered_map<std::string, PointerInfo> fragmentUniforms_;
   std::unordered_map<std::string, PointerInfo> vertexDescriptors_;
   std::unordered_map<std::string, PointerInfo> fragmentDescriptors_;
+  std::unordered_map<std::string, GraphicsStorageBufferInfo> vertexStorageBuffers_;
+  std::unordered_map<std::string, GraphicsStorageBufferInfo>
+      fragmentStorageBuffers_;
   PointerInfo vertexPosition_;
   std::string vertexFunctionId_;
   std::string fragmentFunctionId_;
