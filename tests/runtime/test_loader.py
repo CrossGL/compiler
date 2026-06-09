@@ -739,6 +739,24 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                     "runtime_loader_main.OutputBuffer"
                 ),
             )
+            self.assertEqual(
+                summary["reflectionResources"]["targetFeatures"],
+                [
+                    {
+                        "target": "metal",
+                        "kind": "package",
+                        "name": "fixture",
+                        "evidenceIds": [
+                            "target-legalization.v1.metal.capability.required."
+                            "metal.package.fixture"
+                        ],
+                    }
+                ],
+            )
+            self.assertEqual(
+                summary["metadataContract"]["reflectionInputs"]["targetFeatures"],
+                summary["reflectionResources"]["targetFeatures"],
+            )
             binding_metadata = summary["targetResourceBindingMetadata"]
             self.assertEqual(
                 binding_metadata,
@@ -4523,6 +4541,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                         "target": target,
                         "kind": "package",
                         "name": "fixture",
+                        "evidenceIds": [
+                            f"target-legalization.v1.{target}.capability.required."
+                            f"{target}.package.fixture"
+                        ],
                     }
                 ],
             },

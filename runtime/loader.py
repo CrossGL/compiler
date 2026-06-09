@@ -658,7 +658,7 @@ class RuntimeLoaderPlan:
             "targetFeatures": [
                 _summarize_reflection_record(
                     record,
-                    ("target", "kind", "name"),
+                    ("target", "kind", "name", "evidenceIds"),
                 )
                 for record in selected_features
             ],
