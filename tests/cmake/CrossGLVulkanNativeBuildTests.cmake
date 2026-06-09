@@ -2021,6 +2021,32 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_CONTAINS=OpLogicalNot|OpLogicalOr|OpLogicalAnd|OpLogicalEqual|OpLogicalNotEqual|OpSGreaterThan|OpSLessThan|OpIEqual|OpSelect %int"
       "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeImage|OpTypeSampler|NonUniformEXT|vulkan.prototype-unsupported-expression"
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
+  add_test(NAME cglc_build_vulkan_unsigned_arithmetic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_UNSIGNED_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-unsigned-arithmetic.cglb
+      -DEXPECTED_MODULE=VulkanUnsignedArithmeticComputeShader
+      -DEXPECTED_STORAGE_ELEMENT=uint
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanUnsignedArithmeticComputeShader|artifacts.backendAssembly=backend/vulkan/VulkanUnsignedArithmeticComputeShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanUnsignedArithmeticComputeShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanUnsignedArithmeticComputeShader|nativeBinary=backend/vulkan/VulkanUnsignedArithmeticComputeShader.spv|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1|manualTextureCompareKernels=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=uint*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|values.set=0|values.binding=0|values.storageBufferLayout.elementType=uint|values.storageBufferLayout.layout=std430|values.storageBufferLayout.arrayStrideBytes=4"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-constructor.kind=operation|scalar-arithmetic.kind=operation|scalar-comparison.kind=operation|select-expression.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      "-DEXPECTED_SPVASM_SNIPPET=OpUDiv %uint"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_unsigned_arithmetic_spvasm_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_UNSIGNED_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-unsigned-arithmetic-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanUnsignedArithmeticComputeShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpIAdd %uint|OpISub %uint|OpIMul %uint|OpUDiv %uint|OpUMod %uint|OpULessThan %bool|OpUGreaterThanEqual %bool|OpSelect %uint"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpSDiv %uint|OpSRem %uint|vulkan.prototype-unsupported-expression"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
   add_test(NAME cglc_build_vulkan_float_equality_negation_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>

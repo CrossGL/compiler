@@ -897,7 +897,7 @@ bool isPrototypeArithmeticType(const HIRType &type) {
 }
 
 bool isPrototypeArithmeticOperator(std::string_view op) {
-  return op == "+" || op == "-" || op == "*" || op == "/";
+  return op == "+" || op == "-" || op == "*" || op == "/" || op == "%";
 }
 
 bool isPrototypeComparisonOperator(std::string_view op) {
@@ -4388,6 +4388,18 @@ bool prototypeExpressionSupported(
     }
     if (isPrototypeArithmeticOperator(expression.value)) {
       if (matrixMultiply.has_value()) {
+        return true;
+      }
+      if (expression.value == "%") {
+        if (!(leftType.name == "int" || leftType.name == "uint") ||
+            !samePrototypeType(leftType, rightType) ||
+            !samePrototypeType(leftType, expression.type)) {
+          diagnostics.error(
+              "vulkan.prototype-unsupported-expression",
+              "Vulkan prototype modulo lowering supports only scalar int "
+              "or uint operands with matching result type");
+          return false;
+        }
         return true;
       }
       if (samePrototypeType(leftType, rightType)) {
@@ -10038,6 +10050,27 @@ private:
       if (op == "/") {
         return "OpSDiv";
       }
+      if (op == "%") {
+        return "OpSRem";
+      }
+    }
+
+    if (operandType.name == "uint" && resultType.name == "uint") {
+      if (op == "+") {
+        return "OpIAdd";
+      }
+      if (op == "-") {
+        return "OpISub";
+      }
+      if (op == "*") {
+        return "OpIMul";
+      }
+      if (op == "/") {
+        return "OpUDiv";
+      }
+      if (op == "%") {
+        return "OpUMod";
+      }
     }
 
     if (operandType.name == "bool" && resultType.name == "bool") {
@@ -10088,6 +10121,27 @@ private:
       }
       if (op == ">=") {
         return "OpSGreaterThanEqual";
+      }
+      if (op == "==") {
+        return "OpIEqual";
+      }
+      if (op == "!=") {
+        return "OpINotEqual";
+      }
+    }
+
+    if (operandType.name == "uint" && resultType.name == "bool") {
+      if (op == "<") {
+        return "OpULessThan";
+      }
+      if (op == "<=") {
+        return "OpULessThanEqual";
+      }
+      if (op == ">") {
+        return "OpUGreaterThan";
+      }
+      if (op == ">=") {
+        return "OpUGreaterThanEqual";
       }
       if (op == "==") {
         return "OpIEqual";
