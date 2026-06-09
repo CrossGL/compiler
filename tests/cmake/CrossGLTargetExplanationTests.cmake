@@ -4,6 +4,7 @@ if(APPLE)
   set(CROSSGL_GRAPHICS_AUTO_SELECTION_REASON auto-host-default)
   set(CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET vulkan)
   set(CROSSGL_NATIVE_UNSUPPORTED_DEFAULT_TARGET metal)
+  set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_NATIVE_UNSUPPORTED_SOURCE_FALLBACK_SELECTION_REASON
       auto-recommended-target)
 elseif(WIN32)
@@ -12,6 +13,7 @@ elseif(WIN32)
   set(CROSSGL_GRAPHICS_AUTO_SELECTION_REASON auto-recommended-target)
   set(CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET vulkan)
   set(CROSSGL_NATIVE_UNSUPPORTED_DEFAULT_TARGET directx)
+  set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
   set(CROSSGL_NATIVE_UNSUPPORTED_SOURCE_FALLBACK_SELECTION_REASON
       auto-host-default)
 else()
@@ -20,6 +22,7 @@ else()
   set(CROSSGL_GRAPHICS_AUTO_SELECTION_REASON auto-host-default)
   set(CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET metal)
   set(CROSSGL_NATIVE_UNSUPPORTED_DEFAULT_TARGET vulkan)
+  set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
   set(CROSSGL_NATIVE_UNSUPPORTED_SOURCE_FALLBACK_SELECTION_REASON
       auto-recommended-target)
 endif()
@@ -274,7 +277,7 @@ add_test(NAME cglc_explain_targets_metal_graphics_descriptor_array_native_eviden
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_SHADER}
     -DMODE=explain-targets
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|module=MetalGraphicsDescriptorArrayShader|buildableTargetCount=2|recommendedTarget=metal|recommendedPackageMode=native"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|module=MetalGraphicsDescriptorArrayShader|buildableTargetCount=2|recommendedTarget=${CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET}|recommendedPackageMode=native"
     "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.requiredCapabilityCount=21|metal.missingCapabilityCount=0"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.backend.native-metal-package|metal.requiredCapabilities=metal.stage.vertex-shader|metal.requiredCapabilities=metal.stage.fragment-shader|metal.requiredCapabilities=metal.resource.sampled-texture|metal.requiredCapabilities=metal.resource.sampler-state|metal.requiredCapabilities=metal.resource.descriptor-array|metal.requiredCapabilities=metal.layout.fixed-array|metal.requiredCapabilities=metal.texture.depth-compare-format|metal.requiredCapabilities=metal.operation.texture-shadow-compare-explicit-lod"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)

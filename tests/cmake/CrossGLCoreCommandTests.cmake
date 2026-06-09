@@ -64,9 +64,15 @@ set(CROSSGL_DOCTOR_FAKE_PATH_TOOLS
 if(APPLE)
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|xcrun")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE xcrun)
+  set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
+elseif(WIN32)
+  string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|metal|metallib")
+  set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE PATH)
+  set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET metal)
 else()
   string(APPEND CROSSGL_DOCTOR_FAKE_PATH_TOOLS "|metal|metallib")
   set(CROSSGL_DOCTOR_FAKE_METAL_TOOL_SOURCE PATH)
+  set(CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET vulkan)
 endif()
 
 add_test(NAME cglc_doctor_json_toolchain_path_tools_available
@@ -210,7 +216,7 @@ add_test(NAME cglc_doctor_json_metal_graphics_descriptor_array_native_evidence
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_SHADER}
     -DMODE=doctor-json
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=MetalGraphicsDescriptorArrayShader|targetExplanation.buildableTargetCount=2|targetExplanation.recommendedTarget=metal|targetExplanation.recommendedPackageMode=native"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|targetExplanation.schemaVersion=1|targetExplanation.module=MetalGraphicsDescriptorArrayShader|targetExplanation.buildableTargetCount=2|targetExplanation.recommendedTarget=${CROSSGL_METAL_GRAPHICS_DESCRIPTOR_ARRAY_RECOMMENDED_TARGET}|targetExplanation.recommendedPackageMode=native"
     -DTARGET_EXPLANATION_ROOT=targetExplanation
     "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=true|metal.packageMode=native|metal.packageDecisionReason=native-package-available|metal.requiredCapabilityCount=21|metal.missingCapabilityCount=0"
     "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.backend.native-metal-package|metal.requiredCapabilities=metal.resource.descriptor-array|metal.requiredCapabilities=metal.layout.fixed-array|metal.requiredCapabilities=metal.texture.depth-compare-format|metal.requiredCapabilities=metal.operation.texture-shadow-compare-explicit-lod"
