@@ -45,7 +45,7 @@
   "contract_manifest": {
     "path": "tools/cross_repo_language_contract.json",
     "schema": 1,
-    "contract_count": 157,
+    "contract_count": 158,
     "accepted_feature_group_count": 8,
     "negative_case_count": 28,
     "hash_fields": [
@@ -1147,10 +1147,10 @@
       "reason": "CrossTL accepts grouped switch case labels, but native compiler v0 requires each case section to have its own terminal break-delimited body.",
       "root": "compiler",
       "path": "tests/check-failures/BadUnsupportedSwitchGroupedLabelsShader.cgl",
-      "source_sha256": "cb0b0f5bd8f4d42298e2f7c6cb214716c47634599a8888859859bd3fbe576718",
+      "source_sha256": "cd2bc086b7ed5af6bcaa2cd0c575a54fc546d60eac5ba64a10e4199a2517a4d9",
       "translator": {
         "status": "accepts",
-        "ast_sha256": "44c4d44d4ea4361e614307f5ca3b3e24a0756f85c2893f5b003f69e50854a1e5"
+        "ast_sha256": "6c73af4cfcb15eeab12c6d1d90c40993e8542b82fb65445e09580353cc67d4f4"
       },
       "compiler": {
         "status": "rejects",
