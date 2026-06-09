@@ -19,6 +19,11 @@ shader PureIntrinsicConstantFoldingShader {
       float foldedScalarReflect = reflect(2.0, 1.0);
       vec3 foldedVectorReflect = reflect(vec3(1.0, -1.0, 0.0),
                                          vec3(0.0, 1.0, 0.0));
+      float foldedSmoothStep = smoothstep(0.0, 1.0, 0.5);
+      vec3 foldedVectorSmoothStep = smoothstep(vec3(0.0, 0.0, 0.0),
+                                               vec3(1.0, 2.0, 4.0),
+                                               vec3(-1.0, 1.0, 8.0));
+      float unfurledReversedSmoothStep = smoothstep(1.0, 0.0, 0.25);
 
       results[0] = foldedClamp.x;
       results[1] = foldedClamp.y;
@@ -44,6 +49,11 @@ shader PureIntrinsicConstantFoldingShader {
       results[21] = foldedVectorReflect.x;
       results[22] = foldedVectorReflect.y;
       results[23] = foldedVectorReflect.z;
+      results[24] = foldedSmoothStep;
+      results[25] = foldedVectorSmoothStep.x;
+      results[26] = foldedVectorSmoothStep.y;
+      results[27] = foldedVectorSmoothStep.z;
+      results[28] = unfurledReversedSmoothStep;
       return;
     }
   }

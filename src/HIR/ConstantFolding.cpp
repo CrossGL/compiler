@@ -523,6 +523,19 @@ std::optional<FoldedHIRValue> foldHIRValueIntrinsicCall(
                                     y->number * a->number)
                  : std::nullopt;
     }
+    if (name == "smoothstep" && arguments.size() == 3) {
+      std::optional<FoldedHIRScalar> edge0 = scalarArgument(0);
+      std::optional<FoldedHIRScalar> edge1 = scalarArgument(1);
+      std::optional<FoldedHIRScalar> x = scalarArgument(2);
+      if (!edge0.has_value() || !edge1.has_value() || !x.has_value() ||
+          edge0->number >= edge1->number) {
+        return std::nullopt;
+      }
+      const double t = std::clamp((x->number - edge0->number) /
+                                      (edge1->number - edge0->number),
+                                  0.0, 1.0);
+      return scalarFloatValue(t * t * (3.0 - 2.0 * t));
+    }
     if (name == "normalize" && arguments.size() == 1) {
       std::optional<FoldedHIRScalar> value = scalarArgument(0);
       if (!value.has_value() || value->number == 0.0) {
@@ -720,6 +733,24 @@ std::optional<FoldedHIRValue> foldHIRValueIntrinsicCall(
       }
       numbers.push_back(x->number * (1.0 - a->number) +
                         y->number * a->number);
+    }
+    return foldedVectorValue(numbers, false);
+  }
+  if (name == "smoothstep" && arguments.size() == 3) {
+    std::vector<double> numbers;
+    numbers.reserve(*vectorWidth);
+    for (std::size_t index = 0; index < *vectorWidth; ++index) {
+      std::optional<FoldedHIRScalar> edge0 = vectorComponent(0, index);
+      std::optional<FoldedHIRScalar> edge1 = vectorComponent(1, index);
+      std::optional<FoldedHIRScalar> x = vectorComponent(2, index);
+      if (!edge0.has_value() || !edge1.has_value() || !x.has_value() ||
+          edge0->number >= edge1->number) {
+        return std::nullopt;
+      }
+      const double t = std::clamp((x->number - edge0->number) /
+                                      (edge1->number - edge0->number),
+                                  0.0, 1.0);
+      numbers.push_back(t * t * (3.0 - 2.0 * t));
     }
     return foldedVectorValue(numbers, false);
   }
