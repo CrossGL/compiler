@@ -141,6 +141,28 @@ def validate_v8_source_map_record_contexts(errors, path, locations):
         )
 
 
+def validate_unpaged_source_location_index_bounds(
+    errors,
+    path,
+    locations,
+    *,
+    filters_active_count,
+    pagination_active_count,
+):
+    if filters_active_count != 0 or pagination_active_count != 0:
+        return
+
+    for kind in RECORD_KINDS:
+        count = locations[f"{kind}Count"]
+        for index, record in enumerate(locations[f"{kind}s"]):
+            record_index = record["index"]
+            if record_index >= count:
+                errors.append(
+                    f"{path}.{kind}s[{index}].index: expected < "
+                    f"{path}.{kind}Count {count!r}, got {record_index!r}"
+                )
+
+
 def validate_pagination_kind(errors, pagination, kind):
     offset = pagination[f"{kind}Offset"]
     total = pagination[f"{kind}TotalCount"]
@@ -345,26 +367,27 @@ def validate_record_stream(errors, records, categories, locations):
 def validate_semantics(instance):
     errors = []
     filters = instance["filters"]
+    filters_active_count = optional_field_count(
+        filters,
+        [
+            "stage",
+            "entryPoint",
+            "function",
+            "statementKind",
+            "expressionKind",
+            "expressionValue",
+            "ownerKind",
+            "ownerName",
+            "resourceRecordKind",
+            "resourceName",
+            "resourceKind",
+        ],
+    )
     add_equal_error(
         errors,
         "$.filters.activeCount",
         filters["activeCount"],
-        optional_field_count(
-            filters,
-            [
-                "stage",
-                "entryPoint",
-                "function",
-                "statementKind",
-                "expressionKind",
-                "expressionValue",
-                "ownerKind",
-                "ownerName",
-                "resourceRecordKind",
-                "resourceName",
-                "resourceKind",
-            ],
-        ),
+        filters_active_count,
         "present filter field count",
     )
 
@@ -406,6 +429,13 @@ def validate_semantics(instance):
     )
     validate_resource_location_ranges(errors, "$.hirSourceLocations", locations)
     validate_v8_source_map_record_contexts(errors, "$.hirSourceLocations", locations)
+    validate_unpaged_source_location_index_bounds(
+        errors,
+        "$.hirSourceLocations",
+        locations,
+        filters_active_count=filters_active_count,
+        pagination_active_count=pagination_active_count,
+    )
     validate_source_map_debug_boundary(errors, instance)
 
     for kind in RECORD_KINDS:
