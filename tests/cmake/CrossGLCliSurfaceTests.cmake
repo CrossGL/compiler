@@ -786,6 +786,28 @@ crossgl_add_cli_surface_test(cglc_cli_dump_ir_source_remap_logical_input_mismatc
     "error io.invalid-source-remap"
     "source remap generatedFile 'generated/from-translator.cgl' must match compiler input path 'generated/other-source.cgl'")
 
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_sidecar
+  EXPECTED_RESULT 0
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-crosstl-project-line.json
+  STDOUT_CONTAINS
+    "check passed:")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-crosstl-project-report-metadata.json
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "source remap document appears to be CrossTL project report sourceRemap metadata"
+    "sourceRemap.path"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "pass the compiler sidecar JSON referenced by sourceRemap.path instead")
+
 crossgl_add_cli_surface_test(cglc_cli_dump_ir_default_stage_hir_contract
   EXPECTED_RESULT 0
   ARGS dump-ir ${CROSSGL_SIMPLE_SHADER}

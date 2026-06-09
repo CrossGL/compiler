@@ -139,6 +139,24 @@ crossgl_add_required_python_test(
     --instance
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-basic.json")
 crossgl_add_required_python_test(
+  NAME cglc_source_remap_v1_crosstl_project_line_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-crosstl-project-line.json")
+crossgl_add_required_python_test(
+  NAME cglc_crosstl_project_portability_report_v1_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/crosstl-project-portability-report-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-basic.json")
+crossgl_add_required_python_test(
   NAME cglc_source_remap_provenance_v1_json_schema
   COMMAND
     "${CROSSGL_PYTHON3}"

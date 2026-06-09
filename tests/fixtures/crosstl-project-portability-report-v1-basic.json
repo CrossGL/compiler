@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "generatedAt": 0,
+  "generator": {
+    "name": "CrossTL",
+    "pipeline": "project-porting",
+    "packageVersion": "0.0.0"
+  },
+  "project": {
+    "root": ".",
+    "targets": [
+      "cgl"
+    ],
+    "outputDir": "out"
+  },
+  "summary": {
+    "artifactCount": 1,
+    "translatedCount": 1,
+    "failedCount": 0,
+    "diagnosticCounts": {
+      "note": 0,
+      "warning": 0,
+      "error": 0
+    },
+    "sourceMapCount": 1,
+    "fineGrainedSourceMapCount": 1,
+    "sourceRemapCount": 1,
+    "sourceRemapMappingCount": 2,
+    "sourceRemapsByGranularity": {
+      "line": 1
+    },
+    "sourceRemapsByTarget": {
+      "cgl": 1
+    },
+    "sourceRemapsBySourceBackend": {
+      "cgl": 1
+    }
+  },
+  "units": [],
+  "skipped": [],
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "target": "cgl",
+      "path": "out/cgl/simple.cgl",
+      "status": "translated",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "sourceSizeBytes": 44,
+      "generatedHash": {
+        "algorithm": "sha256",
+        "value": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "generatedSizeBytes": 44,
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "out/cgl/simple.source-remap.json",
+        "target": "cgl",
+        "generatedFile": "out/cgl/simple.cgl",
+        "mappingGranularity": "line",
+        "mappingCount": 2,
+        "sizeBytes": 1091,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        }
+      }
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": [],
+  "validation": {},
+  "migration": {},
+  "artifactMatrix": {},
+  "externalCorpus": {}
+}

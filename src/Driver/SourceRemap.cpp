@@ -133,6 +133,13 @@ bool objectHasOnlyMembers(std::string_view object,
   return false;
 }
 
+bool looksLikeProjectReportSourceRemapMetadata(std::string_view object) {
+  return findObjectMemberValue(object, "path").has_value() &&
+         findObjectMemberValue(object, "target").has_value() &&
+         findObjectMemberValue(object, "mappingGranularity").has_value() &&
+         findObjectMemberValue(object, "mappingCount").has_value();
+}
+
 std::optional<std::size_t> sourceRemapSizeMember(std::string_view object,
                                                  std::string_view field) {
   const std::optional<std::uintmax_t> value = objectUnsignedMember(object, field);
@@ -349,6 +356,15 @@ std::optional<SourceRemap> parseSourceRemap(std::string_view text,
   std::string unexpectedKey;
   if (!objectHasOnlyMembers(text, {"schemaVersion", "generatedFile", "mappings"},
                             unexpectedKey)) {
+    if (looksLikeProjectReportSourceRemapMetadata(text)) {
+      reportInvalidRemap(
+          diagnostics,
+          "source remap document appears to be CrossTL project report "
+          "sourceRemap metadata; pass the compiler sidecar JSON referenced by "
+          "sourceRemap.path instead",
+          documentLocation);
+      return std::nullopt;
+    }
     reportInvalidRemap(
         diagnostics,
         unexpectedKey.empty()
