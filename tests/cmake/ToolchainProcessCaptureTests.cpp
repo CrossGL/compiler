@@ -253,12 +253,67 @@ void testExecutableDiscoverySkipsDirectories() {
   std::filesystem::remove_all(root);
 }
 
+void testInvocationProvenanceCapturesCommandShape() {
+  const std::filesystem::path root = makeTempRoot();
+  const std::filesystem::path scriptDir = root / "fake tools";
+  const std::string commandName = "crossgl-toolchain-provenance-probe";
+  std::filesystem::create_directories(scriptDir);
+  writeScript(scriptPath(scriptDir, commandName), 0);
+
+  std::string path = scriptDir.string();
+  if (const char *oldPath = std::getenv("PATH")) {
+    path += pathSeparator();
+    path += oldPath;
+  }
+  ScopedPath scopedPath(path);
+  expect(scopedPath.ok(), "test can override PATH for provenance capture");
+
+  const std::filesystem::path outputPath = root / "out.bin";
+  const std::vector<std::string> command{
+      commandName, "-Fo", outputPath.string(), root.string() + "/input.hlsl"};
+  crossgl::ToolInvocationProvenance provenance =
+      crossgl::captureToolInvocationProvenance(commandName, command,
+                                               outputPath.string());
+  expect(provenance.name == commandName,
+         "invocation provenance records logical tool name");
+  expect(provenance.executable == commandName,
+         "invocation provenance records executable name");
+  expect(provenance.executableSource == "PATH",
+         "invocation provenance records executable source");
+  expect(!provenance.versionProbeStatus.empty(),
+         "invocation provenance records version probe status");
+  expect(provenance.argumentsSha256.size() == 64,
+         "invocation provenance records argv hash");
+  expect(contains(provenance.commandShape, "-Fo <output> <path>"),
+         "invocation provenance records portable command shape");
+  expect(provenance.outputPath == outputPath.string(),
+         "invocation provenance records output path");
+
+  const crossgl::ProcessCaptureResult result =
+      crossgl::runProcessCapture(command);
+  crossgl::completeToolInvocationProvenance(provenance, result);
+  expect(provenance.provenanceStatus == "succeeded",
+         "successful command completes provenance");
+
+  crossgl::ToolInvocationProvenance missing =
+      crossgl::captureToolInvocationProvenance(
+          "crossgl-missing-provenance-tool",
+          {"crossgl-missing-provenance-tool"});
+  expect(missing.provenanceStatus == "missing-tool",
+         "missing tool records missing provenance status");
+  expect(contains(missing.provenanceDetail, "command was not invoked"),
+         "missing tool records unavailable diagnostic");
+
+  std::filesystem::remove_all(root);
+}
+
 } // namespace
 
 int main() {
   testProcessCapture();
   testExecutableDiscoveryUsesPathOrder();
   testExecutableDiscoverySkipsDirectories();
+  testInvocationProvenanceCapturesCommandShape();
   if (failures != 0) {
     std::cerr << failures << " toolchain process capture test(s) failed\n";
     return 1;

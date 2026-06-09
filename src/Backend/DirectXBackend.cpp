@@ -12,6 +12,7 @@
 #include "crossgl/Backend/TextureSample.h"
 #include "crossgl/Backend/TextureTypes.h"
 #include "crossgl/Backend/Toolchain.h"
+#include "crossgl/Basic/SHA256.h"
 #include "crossgl/Frontend/TokenText.h"
 #include "crossgl/HIR/TypeSemantics.h"
 
@@ -5757,6 +5758,28 @@ directxDxcCommandProfile(std::string_view targetProfile,
   return out.str();
 }
 
+ToolInvocationProvenance combineDirectXGraphicsDxcProvenance(
+    ToolInvocationProvenance vertex, const ToolInvocationProvenance &fragment,
+    const std::filesystem::path &bundleOutputPath) {
+  const std::string vertexStatus = vertex.provenanceStatus;
+  const std::string fragmentStatus = fragment.provenanceStatus;
+  vertex.argumentsSha256 =
+      sha256(vertex.argumentsSha256 + "\n" + fragment.argumentsSha256 + "\n");
+  vertex.commandShape =
+      "vertex: " + vertex.commandShape + "; fragment: " + fragment.commandShape;
+  vertex.outputPath = bundleOutputPath.string();
+  if (vertex.provenanceStatus == "succeeded" &&
+      fragment.provenanceStatus == "succeeded") {
+    vertex.provenanceStatus = "succeeded";
+    vertex.provenanceDetail.clear();
+  } else {
+    vertex.provenanceStatus = "failed";
+    vertex.provenanceDetail = "vertex dxc " + vertexStatus +
+                              "; fragment dxc " + fragmentStatus;
+  }
+  return vertex;
+}
+
 std::filesystem::path
 directxPackageRelativePath(const std::filesystem::path &path,
                            const std::filesystem::path &packageDir) {
@@ -5942,9 +5965,20 @@ buildDirectXSourcePackage(const HIRModule &module,
     const std::string fragmentCommandProfile = directxDxcCommandProfile(
         fragmentProfile, fragmentEntryPoint, packageRelativeFragmentDxil,
         packageRelativeSource, optimizationLevel);
+    ToolInvocationProvenance vertexProvenance =
+        captureToolInvocationProvenance("dxc", vertexCommand,
+                                        vertexDxil.string());
+    ToolInvocationProvenance fragmentProvenance =
+        captureToolInvocationProvenance("dxc", fragmentCommand,
+                                        fragmentDxil.string());
     const ProcessCaptureResult vertexResult = runProcessCapture(vertexCommand);
     const ProcessCaptureResult fragmentResult =
         runProcessCapture(fragmentCommand);
+    completeToolInvocationProvenance(vertexProvenance, vertexResult);
+    completeToolInvocationProvenance(fragmentProvenance, fragmentResult);
+    result.dxcProvenance = combineDirectXGraphicsDxcProvenance(
+        std::move(vertexProvenance), fragmentProvenance,
+        result.nativeBinaryPath);
     if (vertexResult.started && vertexResult.exitCode == 0 &&
         fragmentResult.started && fragmentResult.exitCode == 0 &&
         std::filesystem::exists(vertexDxil) &&
@@ -6006,7 +6040,10 @@ buildDirectXSourcePackage(const HIRModule &module,
   const std::string commandProfile = directxDxcCommandProfile(
       profile, entryPoint, packageRelativeNativeBinary, packageRelativeSource,
       optimizationLevel);
+  result.dxcProvenance = captureToolInvocationProvenance(
+      "dxc", command, result.nativeBinaryPath.string());
   const ProcessCaptureResult dxcResult = runProcessCapture(command);
+  completeToolInvocationProvenance(*result.dxcProvenance, dxcResult);
   if (dxcResult.started && dxcResult.exitCode == 0 &&
       std::filesystem::exists(result.nativeBinaryPath)) {
     diagnostics.note("directx.dxil-emitted",

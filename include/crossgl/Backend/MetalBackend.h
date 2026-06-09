@@ -27,6 +27,8 @@ struct MetalBuildResult {
   std::filesystem::path airPath;
   std::filesystem::path metallibPath;
   std::filesystem::path compileOptionsPath;
+  std::optional<ToolInvocationProvenance> metalCompilerProvenance;
+  std::optional<ToolInvocationProvenance> metallibProvenance;
 };
 
 enum class MetalBuildProfile {

@@ -1,9 +1,11 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "crossgl/Backend/Toolchain.h"
 #include "crossgl/Basic/Diagnostic.h"
 #include "crossgl/HIR/HIR.h"
 #include "crossgl/Optimizer/HIRPassManager.h"
@@ -37,6 +39,10 @@ struct VulkanBuildResult {
   std::filesystem::path assemblyPath;
   std::filesystem::path spvPath;
   std::filesystem::path disassemblyPath;
+  std::optional<ToolInvocationProvenance> assemblerProvenance;
+  std::optional<ToolInvocationProvenance> optimizerProvenance;
+  std::optional<ToolInvocationProvenance> validatorProvenance;
+  std::optional<ToolInvocationProvenance> disassemblerProvenance;
   std::vector<VulkanSPIRVImport> extendedInstructionImports;
 };
 

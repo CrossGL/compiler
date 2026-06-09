@@ -14985,9 +14985,13 @@ VulkanBuildResult buildVulkanPrototypeBinary(
     return result;
   }
 
-  int status = runProcess({"spirv-as", "--target-env", kVulkanNativeTargetEnv,
-                           result.assemblyPath.string(), "-o",
-                           result.spvPath.string()});
+  const std::vector<std::string> assembleCommand{
+      "spirv-as", "--target-env", kVulkanNativeTargetEnv,
+      result.assemblyPath.string(), "-o", result.spvPath.string()};
+  result.assemblerProvenance = captureToolInvocationProvenance(
+      "spirv-as", assembleCommand, result.spvPath.string());
+  int status = runProcess(assembleCommand);
+  completeToolInvocationProvenance(*result.assemblerProvenance, status);
   if (status != 0) {
     diagnostics.error("vulkan.assemble-failed",
                       "spirv-as failed for generated Vulkan prototype assembly");
@@ -15010,11 +15014,13 @@ VulkanBuildResult buildVulkanPrototypeBinary(
     const std::filesystem::path optimizedPath =
         backendDir / (module.name + ".opt.spv");
     std::filesystem::remove(optimizedPath, error);
-    status = runProcess({*spirvOpt,
-                         std::string("--target-env=") + kVulkanNativeTargetEnv,
-                         "-O",
-                         result.spvPath.string(), "-o",
-                         optimizedPath.string()});
+    const std::vector<std::string> optimizeCommand{
+        *spirvOpt, std::string("--target-env=") + kVulkanNativeTargetEnv, "-O",
+        result.spvPath.string(), "-o", optimizedPath.string()};
+    result.optimizerProvenance = captureToolInvocationProvenance(
+        "spirv-opt", optimizeCommand, optimizedPath.string());
+    status = runProcess(optimizeCommand);
+    completeToolInvocationProvenance(*result.optimizerProvenance, status);
     if (status != 0) {
       diagnostics.error("vulkan.optimize-failed",
                         "spirv-opt failed for generated Vulkan prototype "
@@ -15040,8 +15046,13 @@ VulkanBuildResult buildVulkanPrototypeBinary(
     result.optimizationStatus = "applied";
   }
 
-  status = runProcess({"spirv-val", "--target-env", kVulkanNativeTargetEnv,
-                       result.spvPath.string()});
+  const std::vector<std::string> validateCommand{
+      "spirv-val", "--target-env", kVulkanNativeTargetEnv,
+      result.spvPath.string()};
+  result.validatorProvenance =
+      captureToolInvocationProvenance("spirv-val", validateCommand);
+  status = runProcess(validateCommand);
+  completeToolInvocationProvenance(*result.validatorProvenance, status);
   if (status != 0) {
     diagnostics.error("vulkan.validate-failed",
                       "spirv-val failed for generated Vulkan prototype binary");
@@ -15051,8 +15062,13 @@ VulkanBuildResult buildVulkanPrototypeBinary(
   if (findExecutable("spirv-dis")) {
     result.disassemblyPath =
         backendDir / (module.name + ".disassembly.spvasm");
-    status = runProcess({"spirv-dis", result.spvPath.string(), "-o",
-                         result.disassemblyPath.string()});
+    const std::vector<std::string> disassembleCommand{
+        "spirv-dis", result.spvPath.string(), "-o",
+        result.disassemblyPath.string()};
+    result.disassemblerProvenance = captureToolInvocationProvenance(
+        "spirv-dis", disassembleCommand, result.disassemblyPath.string());
+    status = runProcess(disassembleCommand);
+    completeToolInvocationProvenance(*result.disassemblerProvenance, status);
     if (status == 0) {
       result.disassemblyStatus = "emitted";
     } else {

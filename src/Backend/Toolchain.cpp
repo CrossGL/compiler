@@ -2,6 +2,7 @@
 
 #include "crossgl/Backend/Target.h"
 #include "crossgl/Basic/Json.h"
+#include "crossgl/Basic/SHA256.h"
 
 #include <algorithm>
 #include <array>
@@ -380,6 +381,68 @@ std::string firstProbeLine(std::string text) {
     text.resize(maxProbeLineLength);
   }
   return text;
+}
+
+std::string invocationArgumentsFingerprint(
+    const std::vector<std::string> &args) {
+  std::string fingerprint;
+  for (const std::string &arg : args) {
+    fingerprint += arg;
+    fingerprint.push_back('\0');
+  }
+  return sha256(fingerprint);
+}
+
+bool hasPathSeparator(std::string_view text) {
+  return text.find('/') != std::string_view::npos ||
+         text.find('\\') != std::string_view::npos;
+}
+
+bool hasLikelyPathExtension(std::string_view text) {
+  const std::size_t slash = text.find_last_of("/\\");
+  const std::size_t dot = text.find_last_of('.');
+  return dot != std::string_view::npos &&
+         (slash == std::string_view::npos || dot > slash + 1) &&
+         dot + 1 < text.size();
+}
+
+std::string commandShapeToken(std::string_view arg, std::string_view previous,
+                              std::string_view outputPath,
+                              std::string_view responseFilePath) {
+  if (!responseFilePath.empty() && arg == responseFilePath) {
+    return "<response-file>";
+  }
+  if (!arg.empty() && arg.front() == '@') {
+    return "@<response-file>";
+  }
+  if (!outputPath.empty() && arg == outputPath) {
+    return "<output>";
+  }
+  if (previous == "-o" || previous == "-Fo" || previous == "/Fo") {
+    return "<output>";
+  }
+  if (hasPathSeparator(arg) || hasLikelyPathExtension(arg)) {
+    return "<path>";
+  }
+  return std::string(arg);
+}
+
+std::string commandShapeFromArgs(const std::vector<std::string> &args,
+                                 std::string_view outputPath,
+                                 std::string_view responseFilePath) {
+  std::ostringstream shape;
+  for (std::size_t index = 0; index < args.size(); ++index) {
+    if (index != 0) {
+      shape << ' ';
+    }
+    if (index == 0) {
+      shape << std::filesystem::path(args[index]).filename().generic_string();
+      continue;
+    }
+    shape << commandShapeToken(args[index], args[index - 1], outputPath,
+                               responseFilePath);
+  }
+  return shape.str();
 }
 
 std::optional<ExecutableSearchResult>
@@ -844,6 +907,73 @@ int runProcess(const std::vector<std::string> &args) {
   const std::string command = joinCommand(args);
   return decodeSystemStatus(std::system(command.c_str()));
 #endif
+}
+
+ToolInvocationProvenance captureToolInvocationProvenance(
+    std::string_view toolName, const std::vector<std::string> &args,
+    std::string_view outputPath, std::string_view responseFilePath,
+    std::string_view probeToolName) {
+  ToolInvocationProvenance provenance;
+  provenance.name = std::string(toolName);
+  provenance.executable =
+      args.empty() ? std::string(toolName)
+                   : std::filesystem::path(args.front()).filename().string();
+  const ToolStatus status =
+      detectTool(probeToolName.empty() ? toolName : probeToolName);
+  if (!status.version.empty()) {
+    provenance.version = status.version;
+  }
+  provenance.resolvedExecutable = status.resolvedPath;
+  provenance.executableSource = status.source;
+  provenance.versionProbeStatus = status.probeStatus;
+  provenance.versionDetail = status.versionDetail;
+  provenance.argumentsSha256 = invocationArgumentsFingerprint(args);
+  provenance.commandShape =
+      commandShapeFromArgs(args, outputPath, responseFilePath);
+  provenance.responseFilePath = std::string(responseFilePath);
+  provenance.outputPath = std::string(outputPath);
+  if (!status.available) {
+    provenance.provenanceStatus = "missing-tool";
+    provenance.provenanceDetail =
+        "tool '" + provenance.name + "' was not found; command was not invoked";
+  } else if (args.empty()) {
+    provenance.provenanceStatus = "incomplete";
+    provenance.provenanceDetail = "no command arguments were recorded";
+  } else {
+    provenance.provenanceStatus = "captured";
+  }
+  return provenance;
+}
+
+void completeToolInvocationProvenance(ToolInvocationProvenance &provenance,
+                                      const ProcessCaptureResult &result) {
+  if (!result.started) {
+    provenance.provenanceStatus = "not-started";
+    provenance.provenanceDetail =
+        result.error.empty() ? "command was not started" : result.error;
+    return;
+  }
+  if (result.exitCode == 0 && result.error.empty()) {
+    provenance.provenanceStatus = "succeeded";
+    return;
+  }
+  provenance.provenanceStatus = "failed";
+  std::ostringstream detail;
+  detail << "exit " << result.exitCode;
+  if (!result.error.empty()) {
+    detail << ": " << result.error;
+  }
+  provenance.provenanceDetail = detail.str();
+}
+
+void completeToolInvocationProvenance(ToolInvocationProvenance &provenance,
+                                      int exitCode) {
+  if (exitCode == 0) {
+    provenance.provenanceStatus = "succeeded";
+    return;
+  }
+  provenance.provenanceStatus = "failed";
+  provenance.provenanceDetail = "exit " + std::to_string(exitCode);
 }
 
 std::string toolchainOptimizationPolicyDetail(std::string_view toolName) {

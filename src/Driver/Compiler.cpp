@@ -47,6 +47,14 @@ struct NativeArtifactToolProvenance {
   std::string executableSource;
   std::string versionProbeStatus;
   std::string versionDetail;
+  std::string argumentsSha256;
+  std::string commandShape;
+  std::string responseFilePath;
+  std::string outputPath;
+  std::string outputSha256;
+  std::optional<std::uintmax_t> outputSizeBytes;
+  std::string provenanceStatus;
+  std::string provenanceDetail;
 };
 
 struct NativeArtifactDescriptorSpec {
@@ -1191,6 +1199,45 @@ void writeNativeArtifactTool(std::ostringstream &out,
         << indent << "  \"versionDetail\": \"" << escapeJson(tool.versionDetail)
         << "\"";
   }
+  if (!tool.argumentsSha256.empty()) {
+    out << ",\n"
+        << indent << "  \"argumentsSha256\": \""
+        << escapeJson(tool.argumentsSha256) << "\"";
+  }
+  if (!tool.commandShape.empty()) {
+    out << ",\n"
+        << indent << "  \"commandShape\": \""
+        << escapeJson(tool.commandShape) << "\"";
+  }
+  if (!tool.responseFilePath.empty()) {
+    out << ",\n"
+        << indent << "  \"responseFilePath\": \""
+        << escapeJson(tool.responseFilePath) << "\"";
+  }
+  if (!tool.outputPath.empty()) {
+    out << ",\n"
+        << indent << "  \"outputPath\": \"" << escapeJson(tool.outputPath)
+        << "\"";
+  }
+  if (!tool.outputSha256.empty()) {
+    out << ",\n"
+        << indent << "  \"outputSha256\": \""
+        << escapeJson(tool.outputSha256) << "\"";
+  }
+  if (tool.outputSizeBytes) {
+    out << ",\n"
+        << indent << "  \"outputSizeBytes\": " << *tool.outputSizeBytes;
+  }
+  if (!tool.provenanceStatus.empty()) {
+    out << ",\n"
+        << indent << "  \"provenanceStatus\": \""
+        << escapeJson(tool.provenanceStatus) << "\"";
+  }
+  if (!tool.provenanceDetail.empty()) {
+    out << ",\n"
+        << indent << "  \"provenanceDetail\": \""
+        << escapeJson(tool.provenanceDetail) << "\"";
+  }
   out << "\n" << indent << "}";
 }
 
@@ -1411,6 +1458,15 @@ std::string nativeArtifactDescriptorJson(
       spec.artifactPath ? std::optional<std::string>(packageRelativePath(
                               packageDir, *spec.artifactPath))
                         : std::nullopt;
+  std::vector<NativeArtifactToolProvenance> descriptorTools = spec.tools;
+  if (artifactPath && artifactHash && artifactSizeBytes) {
+    for (NativeArtifactToolProvenance &tool : descriptorTools) {
+      if (tool.outputPath == *artifactPath) {
+        tool.outputSha256 = *artifactHash;
+        tool.outputSizeBytes = *artifactSizeBytes;
+      }
+    }
+  }
   const std::string invocationFingerprint =
       std::string(targetName(target)) + "\n" + module.name + "\n" +
       spec.binaryKind + "\n" + sourcePath + "\n" +
@@ -1434,6 +1490,21 @@ std::string nativeArtifactDescriptorJson(
     validationDiagnosticFingerprint += "\n";
     validationDiagnosticFingerprint += diagnostic.message;
     validationDiagnosticFingerprint += "\n";
+  }
+  std::string toolInvocationFingerprint;
+  for (const NativeArtifactToolProvenance &tool : descriptorTools) {
+    toolInvocationFingerprint += tool.name;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.role;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.argumentsSha256;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.commandShape;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.outputPath;
+    toolInvocationFingerprint += "\n";
+    toolInvocationFingerprint += tool.provenanceStatus;
+    toolInvocationFingerprint += "\n";
   }
 
   std::ostringstream out;
@@ -1466,18 +1537,19 @@ std::string nativeArtifactDescriptorJson(
       << "  \"toolchainProvenance\": {\n"
       << "    \"producer\": \"CrossGL-Compiler\",\n"
       << "    \"tools\": [";
-  for (std::size_t index = 0; index < spec.tools.size(); ++index) {
+  for (std::size_t index = 0; index < descriptorTools.size(); ++index) {
     out << (index == 0 ? "\n" : ",\n");
-    writeNativeArtifactTool(out, spec.tools[index], "      ");
+    writeNativeArtifactTool(out, descriptorTools[index], "      ");
   }
-  if (!spec.tools.empty()) {
+  if (!descriptorTools.empty()) {
     out << "\n    ";
   }
   out << "],\n"
       << "    \"invocation\": {\n"
       << "      \"commandLineSha256\": \""
       << escapeJson(sha256(invocationFingerprint + spirvDependencyFingerprint +
-                           validationDiagnosticFingerprint))
+                           validationDiagnosticFingerprint +
+                           toolInvocationFingerprint))
       << "\",\n"
       << "      \"environmentSha256\": \"" << escapeJson(sha256("")) << "\"\n"
       << "    }\n"
@@ -1570,7 +1642,59 @@ nativeArtifactTool(std::string name, std::string role, std::string executable,
   tool.executableSource = status.source;
   tool.versionProbeStatus = status.probeStatus;
   tool.versionDetail = status.versionDetail;
+  if (status.source == "not-found") {
+    tool.provenanceStatus = "missing-tool";
+    tool.provenanceDetail =
+        "tool '" + tool.name + "' was not found; command was not invoked";
+  }
   return tool;
+}
+
+std::string descriptorRelativePath(const std::filesystem::path &packageDir,
+                                   std::string_view path) {
+  if (path.empty()) {
+    return {};
+  }
+  const std::filesystem::path parsed(path);
+  if (parsed.is_absolute()) {
+    return packageRelativePath(packageDir, parsed);
+  }
+  return parsed.generic_string();
+}
+
+void applyInvocationProvenance(
+    NativeArtifactToolProvenance &tool,
+    const ToolInvocationProvenance &invocation,
+    const std::filesystem::path &packageDir) {
+  if (!invocation.version.empty()) {
+    tool.version = invocation.version;
+  }
+  if (!invocation.executable.empty()) {
+    tool.executable = invocation.executable;
+  }
+  tool.resolvedExecutable = invocation.resolvedExecutable;
+  tool.executableSource = invocation.executableSource;
+  tool.versionProbeStatus = invocation.versionProbeStatus;
+  tool.versionDetail = invocation.versionDetail;
+  tool.argumentsSha256 = invocation.argumentsSha256;
+  tool.commandShape = invocation.commandShape;
+  tool.responseFilePath =
+      descriptorRelativePath(packageDir, invocation.responseFilePath);
+  tool.outputPath = descriptorRelativePath(packageDir, invocation.outputPath);
+  tool.provenanceStatus = invocation.provenanceStatus;
+  tool.provenanceDetail = invocation.provenanceDetail;
+}
+
+void applyInvocationProvenance(
+    std::vector<NativeArtifactToolProvenance> &tools, std::string_view name,
+    std::string_view role, const ToolInvocationProvenance &invocation,
+    const std::filesystem::path &packageDir) {
+  for (NativeArtifactToolProvenance &tool : tools) {
+    if (tool.name == name && tool.role == role) {
+      applyInvocationProvenance(tool, invocation, packageDir);
+      return;
+    }
+  }
 }
 
 NativeArtifactToolProvenance crossglGeneratorTool() {
@@ -1742,7 +1866,8 @@ sourcePackageDescriptorSpec(const SourcePackageArtifact &artifact,
 
 NativeArtifactDescriptorSpec
 directxNativeDescriptorSpec(const DirectXSourcePackageResult &directxResult,
-                            const TargetNativePackageDescriptorPolicy &policy) {
+                            const TargetNativePackageDescriptorPolicy &policy,
+                            const std::filesystem::path &packageDir) {
   NativeArtifactDescriptorSpec descriptorSpec;
   descriptorSpec.binaryKind = policy.binaryKind;
   descriptorSpec.sourcePath = directxResult.sourcePath;
@@ -1755,6 +1880,10 @@ directxNativeDescriptorSpec(const DirectXSourcePackageResult &directxResult,
   descriptorSpec.optimizationEvidenceJson = nativeOptimizationEvidenceJson(
       directxNativeOptimizationEvidence(directxResult));
   descriptorSpec.tools = nativeDescriptorTools(policy.requiredTools);
+  if (directxResult.dxcProvenance) {
+    applyInvocationProvenance(descriptorSpec.tools, "dxc", "compiler",
+                              *directxResult.dxcProvenance, packageDir);
+  }
   return descriptorSpec;
 }
 
@@ -2373,6 +2502,10 @@ bool finalizeSourcePackageBuild(
     descriptorSpec.optimizationEvidenceJson =
         sourcePackageDescriptorOptimizationEvidenceJson(descriptorPolicy,
                                                         *directxResult);
+    if (directxResult->dxcProvenance) {
+      applyInvocationProvenance(descriptorSpec.tools, "dxc", "compiler",
+                                *directxResult->dxcProvenance, packageDir);
+    }
   }
   if (target == TargetKind::OpenGL && sourceValidationDiagnostics != nullptr &&
       !sourceValidationDiagnostics->empty()) {
@@ -2454,7 +2587,8 @@ bool finalizeDirectXNativePackageBuild(
   const std::optional<std::filesystem::path> descriptorPath =
       writeNativeArtifactDescriptor(
           module, target, packageDir,
-          directxNativeDescriptorSpec(directxResult, nativePackagePolicy),
+          directxNativeDescriptorSpec(directxResult, nativePackagePolicy,
+                                      packageDir),
           diagnostics);
   if (!descriptorPath) {
     return false;
@@ -3025,6 +3159,16 @@ CompileResult compile(const CompileRequest &request) {
           metalNativeOptimizationEvidence(metal, nativePackagePolicy));
       descriptorSpec.tools =
           nativeDescriptorTools(nativePackagePolicy.requiredTools);
+      if (metal.metalCompilerProvenance) {
+        applyInvocationProvenance(descriptorSpec.tools, "xcrun metal",
+                                  "compiler",
+                                  *metal.metalCompilerProvenance, packageDir);
+      }
+      if (metal.metallibProvenance) {
+        applyInvocationProvenance(descriptorSpec.tools, "xcrun metallib",
+                                  "linker", *metal.metallibProvenance,
+                                  packageDir);
+      }
       const std::optional<std::filesystem::path> descriptorPath =
           writeNativeArtifactDescriptor(backendHIR, target, packageDir,
                                         descriptorSpec, diagnostics);
@@ -3111,6 +3255,16 @@ CompileResult compile(const CompileRequest &request) {
           nativeOptimizationEvidenceJson(optimizationEvidence);
       descriptorSpec.tools =
           nativeDescriptorTools(nativePackagePolicy.requiredTools);
+      if (vulkan.assemblerProvenance) {
+        applyInvocationProvenance(descriptorSpec.tools, "spirv-as",
+                                  "assembler",
+                                  *vulkan.assemblerProvenance, packageDir);
+      }
+      if (vulkan.validatorProvenance) {
+        applyInvocationProvenance(descriptorSpec.tools, "spirv-val",
+                                  "validator",
+                                  *vulkan.validatorProvenance, packageDir);
+      }
       descriptorSpec.spirvExtendedInstructionImports =
           vulkan.extendedInstructionImports;
       const std::optional<std::filesystem::path> descriptorPath =

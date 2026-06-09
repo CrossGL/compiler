@@ -4299,8 +4299,12 @@ buildMetalBinary(const HIRModule &module,
     metadata << metalCompileOptionsJson(module, compileOptions);
   }
 
-  int status = runProcess(
-      metalCompileCommand(compileOptions, result.sourcePath, result.airPath));
+  const std::vector<std::string> metalCommand =
+      metalCompileCommand(compileOptions, result.sourcePath, result.airPath);
+  result.metalCompilerProvenance = captureToolInvocationProvenance(
+      "xcrun metal", metalCommand, result.airPath.string(), {}, "metal");
+  int status = runProcess(metalCommand);
+  completeToolInvocationProvenance(*result.metalCompilerProvenance, status);
   if (status != 0) {
     diagnostics.error("metal.compile-failed",
                       "Apple metal compiler failed for generated source");
@@ -4311,8 +4315,13 @@ buildMetalBinary(const HIRModule &module,
     return result;
   }
 
-  status = runProcess(
-      metalLibraryCommand(compileOptions, result.airPath, result.metallibPath));
+  const std::vector<std::string> metallibCommand =
+      metalLibraryCommand(compileOptions, result.airPath, result.metallibPath);
+  result.metallibProvenance = captureToolInvocationProvenance(
+      "xcrun metallib", metallibCommand, result.metallibPath.string(), {},
+      "metallib");
+  status = runProcess(metallibCommand);
+  completeToolInvocationProvenance(*result.metallibProvenance, status);
   if (status != 0) {
     diagnostics.error("metal.library-failed",
                       "metallib failed for generated AIR");

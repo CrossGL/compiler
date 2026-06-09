@@ -1588,7 +1588,11 @@ bool validateToolRecord(std::string_view value,
       !membersAreAllowed(*members, {"name", "role", "version", "executable",
                                     "resolvedExecutable", "executableSource",
                                     "versionProbeStatus", "versionDetail",
-                                    "argumentsSha256"}) ||
+                                    "argumentsSha256", "commandShape",
+                                    "responseFilePath", "outputPath",
+                                    "outputSha256", "outputSizeBytes",
+                                    "provenanceStatus",
+                                    "provenanceDetail"}) ||
       !hasAllMembers(*members, {"name", "role", "version", "executable"})) {
     return false;
   }
@@ -1606,6 +1610,58 @@ bool validateToolRecord(std::string_view value,
     const std::optional<std::string> argumentsSha256 =
         objectStringMember(value, "argumentsSha256");
     if (!argumentsSha256 || !isLowercaseSha256(*argumentsSha256)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "commandShape")) {
+    const std::optional<std::string> commandShape =
+        objectStringMember(value, "commandShape");
+    if (!commandShape || commandShape->empty()) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "responseFilePath")) {
+    const std::optional<std::string> responseFilePath =
+        objectStringMember(value, "responseFilePath");
+    if (!responseFilePath || !isPackageRelativePath(*responseFilePath)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "outputPath")) {
+    const std::optional<std::string> outputPath =
+        objectStringMember(value, "outputPath");
+    if (!outputPath || !isPackageRelativePath(*outputPath)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "outputSha256")) {
+    const std::optional<std::string> outputSha256 =
+        objectStringMember(value, "outputSha256");
+    if (!outputSha256 || !isLowercaseSha256(*outputSha256)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "outputSizeBytes") &&
+      !objectUnsignedMember(value, "outputSizeBytes")) {
+    return false;
+  }
+  if (hasMember(*members, "provenanceStatus")) {
+    const std::optional<std::string> provenanceStatus =
+        objectStringMember(value, "provenanceStatus");
+    if (!provenanceStatus ||
+        (*provenanceStatus != "captured" &&
+         *provenanceStatus != "succeeded" &&
+         *provenanceStatus != "failed" &&
+         *provenanceStatus != "missing-tool" &&
+         *provenanceStatus != "not-started" &&
+         *provenanceStatus != "incomplete")) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "provenanceDetail")) {
+    const std::optional<std::string> provenanceDetail =
+        objectStringMember(value, "provenanceDetail");
+    if (!provenanceDetail || provenanceDetail->empty()) {
       return false;
     }
   }

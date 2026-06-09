@@ -407,6 +407,37 @@
         },
         "argumentsSha256": {
           "$ref": "#/$defs/sha256"
+        },
+        "commandShape": {
+          "type": "string",
+          "minLength": 1
+        },
+        "responseFilePath": {
+          "$ref": "#/$defs/normalizedPath"
+        },
+        "outputPath": {
+          "$ref": "#/$defs/normalizedPath"
+        },
+        "outputSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "outputSizeBytes": {
+          "$ref": "#/$defs/sizeBytes"
+        },
+        "provenanceStatus": {
+          "type": "string",
+          "enum": [
+            "captured",
+            "succeeded",
+            "failed",
+            "missing-tool",
+            "not-started",
+            "incomplete"
+          ]
+        },
+        "provenanceDetail": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
