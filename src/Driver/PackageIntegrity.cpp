@@ -2423,6 +2423,53 @@ void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
   out << "\n" << indent << "}";
 }
 
+void writeSourceRemapProvenanceSummary(
+    std::ostream &out, const PackageSourceRemapProvenanceHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"artifactPresent\": "
+      << (health.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"exists\": " << (health.exists ? "true" : "false")
+      << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health)
+      << "\",\n"
+      << indent << "  \"path\": ";
+  writeNullableString(out, health.path);
+  out << ",\n" << indent << "  \"target\": ";
+  writeNullableString(out, health.target);
+  out << ",\n" << indent << "  \"generatedFile\": ";
+  writeNullableString(out, health.generatedFile);
+  out << ",\n" << indent << "  \"mappingGranularity\": ";
+  writeNullableString(out, health.mappingGranularity);
+  out << ",\n" << indent << "  \"mappingCount\": ";
+  writeNullableUnsigned(out, health.mappingCount);
+  out << ",\n" << indent << "  \"sourcePath\": ";
+  writeNullableString(out, health.sourcePath);
+  out << ",\n" << indent << "  \"sourceSha256\": ";
+  writeNullableString(out, health.sourceSha256);
+  out << ",\n" << indent << "  \"sourceSizeBytes\": ";
+  writeNullableUnsigned(out, health.sourceSizeBytes);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"identityMatchesContract\": ";
+  writeNullableBool(out, health.checks.identityMatchesContract);
+  out << ",\n" << indent << "    \"targetMatchesPackage\": ";
+  writeNullableBool(out, health.checks.targetMatchesPackage);
+  out << ",\n" << indent << "    \"generatedFilePresent\": ";
+  writeNullableBool(out, health.checks.generatedFilePresent);
+  out << ",\n" << indent << "    \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(out, health.checks.mappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"mappingCountPositive\": ";
+  writeNullableBool(out, health.checks.mappingCountPositive);
+  out << ",\n" << indent << "    \"sourcePathPresent\": ";
+  writeNullableBool(out, health.checks.sourcePathPresent);
+  out << ",\n" << indent << "    \"sourceHashPresent\": ";
+  writeNullableBool(out, health.checks.sourceHashPresent);
+  out << ",\n" << indent << "    \"sourceSizeBytesPresent\": ";
+  writeNullableBool(out, health.checks.sourceSizeBytesPresent);
+  out << "\n" << indent << "  }\n" << indent << "}";
+}
+
 void writeNativeArtifactDescriptorSummary(
     std::ostream &out, const PackageNativeArtifactDescriptorHealth &health) {
   out << "{\n"
@@ -2740,6 +2787,8 @@ void verifyPackageMetadata(
 void writeSummary(std::ostream &out, const PackageMetadata &metadata) {
   const PackageNativeArtifactDescriptorHealth nativeArtifactDescriptor =
       collectPackageNativeArtifactDescriptorHealth(metadata);
+  const PackageDebugArtifactHealth debugArtifactHealth =
+      collectPackageDebugArtifactHealth(metadata);
   const PackageTargetLegalizationEvidence targetLegalizationEvidence =
       collectPackageTargetLegalizationEvidence(metadata);
   out << "{\n"
@@ -2756,6 +2805,9 @@ void writeSummary(std::ostream &out, const PackageMetadata &metadata) {
       << "    \"artifactCount\": " << metadata.artifacts.size() << ",\n"
       << "    \"debugArtifactsPresent\": "
       << (metadata.debugArtifactsPresent ? "true" : "false") << ",\n"
+      << "    \"sourceRemap\": ";
+  writeSourceRemapProvenanceSummary(out, debugArtifactHealth.sourceRemap, "    ");
+  out << ",\n"
       << "    \"nativeArtifactDescriptor\": ";
   writeNativeArtifactDescriptorSummary(out, nativeArtifactDescriptor);
   out << ",\n"

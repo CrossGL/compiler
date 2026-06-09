@@ -351,7 +351,7 @@ crossgl_add_package_verify_json_schema_test(
   LOGICAL_INPUT generated/from-translator.cgl
   SOURCE_REMAP ${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE}
   EXPECTED_JSON_FIELDS
-    "schemaVersion=1|success=true|summary.module=StorageBufferComputeShader|summary.target=directx|summary.artifactCount=7|summary.debugArtifactsPresent=true|diagnosticCounts.error=0"
+    "schemaVersion=1|success=true|summary.module=StorageBufferComputeShader|summary.target=directx|summary.artifactCount=7|summary.debugArtifactsPresent=true|summary.sourceRemap.artifactPresent=true|summary.sourceRemap.exists=true|summary.sourceRemap.health=ok|summary.sourceRemap.path=ir/source-remap-provenance.json|summary.sourceRemap.target=directx|summary.sourceRemap.generatedFile=generated/from-translator.cgl|summary.sourceRemap.mappingGranularity=source-span|summary.sourceRemap.mappingCount=1|summary.sourceRemap.sourceSha256=${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SHA256}|summary.sourceRemap.sourceSizeBytes=${CROSSGL_PACKAGE_VERIFY_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}|summary.sourceRemap.checks.identityMatchesContract=true|summary.sourceRemap.checks.targetMatchesPackage=true|summary.sourceRemap.checks.mappingGranularityMatchesContract=true|summary.sourceRemap.checks.mappingCountPositive=true|summary.sourceRemap.checks.sourceHashPresent=true|diagnosticCounts.error=0"
   EXPECTED_JSON_ARRAY_LENGTHS
     "diagnostics=0"
   EXPECTED_MANIFEST_JSON_FIELDS

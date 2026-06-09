@@ -42,6 +42,26 @@ TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE = re.compile(
     r"(?P<capability_target>metal|vulkan|directx|opengl)\.[A-Za-z0-9_.-]+)"
     r"|(?:abi\.(?:required|missing)\.[A-Za-z0-9_.-]+))$"
 )
+LOWERCASE_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+SOURCE_REMAP_PROVENANCE_CHECKS = (
+    "identityMatchesContract",
+    "targetMatchesPackage",
+    "generatedFilePresent",
+    "mappingGranularityMatchesContract",
+    "mappingCountPositive",
+    "sourcePathPresent",
+    "sourceHashPresent",
+    "sourceSizeBytesPresent",
+)
+SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS = (
+    "target",
+    "generatedFile",
+    "mappingGranularity",
+    "mappingCount",
+    "sourcePath",
+    "sourceSha256",
+    "sourceSizeBytes",
+)
 
 
 def validate_diagnostic_counts(errors, diagnostic_counts, diagnostics):
@@ -83,6 +103,7 @@ def validate_summary(errors, success, summary):
         artifact_context_label="successful",
         enforce_target_native_status=not has_recorded_native_package_mode(summary),
     )
+    validate_source_remap_summary(errors, summary)
     validate_native_artifact_descriptor_summary(errors, summary)
     validate_reflection_summary(errors, summary)
     validate_native_ready_descriptor_evidence(errors, summary)
@@ -256,6 +277,116 @@ def validate_native_artifact_descriptor_summary(errors, summary):
         errors.append(
             "$.summary.nativeArtifactDescriptor.optimizationEvidence.status: "
             "planned source-package descriptors must not claim applied optimization"
+        )
+
+
+def validate_source_remap_summary(errors, summary):
+    source_remap = summary.get("sourceRemap")
+    if not isinstance(source_remap, dict):
+        return
+
+    artifact_present = source_remap["artifactPresent"]
+    exists = source_remap["exists"]
+    checks = source_remap["checks"]
+    check_values = [checks[name] for name in SOURCE_REMAP_PROVENANCE_CHECKS]
+
+    if artifact_present and not summary["debugArtifactsPresent"]:
+        errors.append(
+            "$.summary.sourceRemap.artifactPresent: sourceRemap provenance "
+            "requires debug artifacts"
+        )
+
+    if not artifact_present:
+        add_equal_error(
+            errors,
+            "$.summary.sourceRemap.exists",
+            exists,
+            False,
+            "absent sourceRemap artifact file existence",
+        )
+        expected_health = "not-present"
+        expected_checks = [None] * len(check_values)
+        for field in ("path", *SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS):
+            if source_remap[field] is not None:
+                errors.append(
+                    f"$.summary.sourceRemap.{field}: expected null when absent"
+                )
+    elif not exists:
+        expected_health = "incomplete"
+        expected_checks = [None] * len(check_values)
+        for field in SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS:
+            if source_remap[field] is not None:
+                errors.append(
+                    f"$.summary.sourceRemap.{field}: expected null when unreadable"
+                )
+    else:
+        add_equal_error(
+            errors,
+            "$.summary.sourceRemap.checks.targetMatchesPackage",
+            checks["targetMatchesPackage"],
+            source_remap["target"] == summary["target"],
+            "sourceRemap provenance target matches package",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.sourceRemap.checks.generatedFilePresent",
+            checks["generatedFilePresent"],
+            bool(source_remap["generatedFile"]),
+            "sourceRemap provenance generatedFile presence",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.sourceRemap.checks.mappingGranularityMatchesContract",
+            checks["mappingGranularityMatchesContract"],
+            source_remap["mappingGranularity"] == "source-span",
+            "sourceRemap provenance mappingGranularity contract",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.sourceRemap.checks.mappingCountPositive",
+            checks["mappingCountPositive"],
+            source_remap["mappingCount"] is not None
+            and source_remap["mappingCount"] > 0,
+            "sourceRemap provenance positive mapping count",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.sourceRemap.checks.sourcePathPresent",
+            checks["sourcePathPresent"],
+            bool(source_remap["sourcePath"]),
+            "sourceRemap provenance source path presence",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.sourceRemap.checks.sourceHashPresent",
+            checks["sourceHashPresent"],
+            source_remap["sourceSha256"] is not None
+            and LOWERCASE_SHA256.fullmatch(source_remap["sourceSha256"]) is not None,
+            "sourceRemap provenance source hash presence",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.sourceRemap.checks.sourceSizeBytesPresent",
+            checks["sourceSizeBytesPresent"],
+            source_remap["sourceSizeBytes"] is not None,
+            "sourceRemap provenance source size presence",
+        )
+        expected_health = (
+            "ok" if all(value is True for value in check_values) else "drift"
+        )
+        expected_checks = None
+
+    add_equal_error(
+        errors,
+        "$.summary.sourceRemap.health",
+        source_remap["health"],
+        expected_health,
+        "sourceRemap provenance health from checks",
+    )
+    if expected_checks is not None and check_values != expected_checks:
+        errors.append(
+            "$.summary.sourceRemap.checks: expected null checks when absent "
+            "or incomplete"
         )
 
 

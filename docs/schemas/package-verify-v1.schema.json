@@ -93,6 +93,9 @@
         "debugArtifactsPresent": {
           "type": "boolean"
         },
+        "sourceRemap": {
+          "$ref": "#/$defs/sourceRemapSummary"
+        },
         "nativeArtifactDescriptor": {
           "$ref": "#/$defs/nativeArtifactDescriptorSummary"
         },
@@ -384,6 +387,147 @@
         "boolean",
         "null"
       ]
+    },
+    "nullableSourceRemapTarget": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl",
+        null
+      ]
+    },
+    "nullableSourceRemapGranularity": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "source-span",
+        null
+      ]
+    },
+    "nullableSha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sourceRemapChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityMatchesContract",
+        "targetMatchesPackage",
+        "generatedFilePresent",
+        "mappingGranularityMatchesContract",
+        "mappingCountPositive",
+        "sourcePathPresent",
+        "sourceHashPresent",
+        "sourceSizeBytesPresent"
+      ],
+      "properties": {
+        "identityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "generatedFilePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingCountPositive": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourcePathPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceHashPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceSizeBytesPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "sourceRemapSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "exists",
+        "health",
+        "path",
+        "target",
+        "generatedFile",
+        "mappingGranularity",
+        "mappingCount",
+        "sourcePath",
+        "sourceSha256",
+        "sourceSizeBytes",
+        "checks"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "not-present",
+            "incomplete",
+            "drift",
+            "ok"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/nullableSourceRemapTarget"
+        },
+        "generatedFile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/nullableSourceRemapGranularity"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "sourcePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceSha256": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "sourceSizeBytes": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "checks": {
+          "$ref": "#/$defs/sourceRemapChecks"
+        }
+      }
     },
     "targetLegalizationPackageMode": {
       "type": [
