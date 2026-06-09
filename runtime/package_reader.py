@@ -30,6 +30,7 @@ RUNTIME_ARTIFACT_BYTE_LIMIT = 512 * 1024 * 1024
 RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
 _DEFAULT_ARTIFACT_BYTE_LIMIT = object()
 NATIVE_BINARY_READY_STATUSES = frozenset(("emitted", "validated"))
+SOURCE_FREE_NATIVE_RUNTIME_TARGETS = frozenset(("directx", "metal", "vulkan"))
 RUNTIME_ARTIFACT_MODES = frozenset(("auto", "native", "source"))
 RUNTIME_ARTIFACT_SELECTION_MODES = frozenset(
     ("auto", "native", "source", "source-package")
@@ -1775,13 +1776,30 @@ class RuntimePackage:
                 f"nativeBinaryStatus={self.native_binary_status!r}"
             )
         if (
-            contract.native_binary_status_required
-            and self.native_binary_status == "validated"
+            _native_artifact_descriptor_required_for_runtime_artifact(
+                target=self.target,
+                artifacts=self.artifacts,
+                native_binary_status=self.native_binary_status,
+                contract=contract,
+            )
             and self.artifact("nativeArtifactDescriptor") is None
         ):
             raise PackageReadError(
-                "validated native runtime artifact requires "
+                "native-ready runtime artifact requires "
                 "manifest.artifacts.nativeArtifactDescriptor"
+            )
+        if (
+            _native_profile_required_for_runtime_artifact(
+                target=self.target,
+                artifacts=self.artifacts,
+                native_binary_status=self.native_binary_status,
+                contract=contract,
+            )
+            and self.artifact("nativeProfile") is None
+        ):
+            raise PackageReadError(
+                "vulkan native runtime artifact requires "
+                "manifest.artifacts.nativeProfile"
             )
         return self.require_existing_artifact("nativeBinary")
 
@@ -2648,7 +2666,8 @@ def _recorded_requirements_are_source_free_native_descriptor(
         return False
 
     return (
-        target_contract.package_mode in (SOURCE_PACKAGE_MODE, "native")
+        target_contract.target in SOURCE_FREE_NATIVE_RUNTIME_TARGETS
+        and target_contract.package_mode in (SOURCE_PACKAGE_MODE, "native")
         and package_mode == "native"
         and required_artifacts == ("nativeBinary",)
         and requires_native_status is False
@@ -4974,6 +4993,11 @@ def _append_descriptor_source_fingerprint_diagnostics(
     descriptor: dict[str, Any],
     source_artifact: Artifact | None,
 ) -> None:
+    _descriptor_sha256_value(
+        diagnostics,
+        descriptor.get("sourceHash"),
+        descriptor_field="sourceHash",
+    )
     if source_artifact is None:
         return
 
@@ -4992,18 +5016,6 @@ def _append_descriptor_source_fingerprint_diagnostics(
                 expected=source_artifact.package_path,
                 actual=_contract_actual_value(source_path),
             )
-        )
-
-    if source_artifact.exists:
-        _append_descriptor_hash_diagnostics(
-            diagnostics,
-            descriptor=descriptor,
-            descriptor_field="sourceHash",
-            artifact=source_artifact,
-            mismatch_code="package.native_artifact_descriptor.source_hash_mismatch",
-            mismatch_message=(
-                "native artifact descriptor sourceHash does not match sourcePath bytes"
-            ),
         )
 
 
@@ -5059,6 +5071,8 @@ def _append_descriptor_native_binary_fingerprint_diagnostics(
         )
 
     if not native_binary_artifact.exists:
+        return
+    if _is_crossgl_source_input_path(native_binary_artifact.package_path):
         return
 
     _append_descriptor_hash_diagnostics(
@@ -6134,6 +6148,63 @@ def _native_runtime_artifact_is_usable(
     return True
 
 
+def _native_artifact_descriptor_required_for_runtime_artifact(
+    *,
+    target: str | None,
+    artifacts: tuple[Artifact, ...],
+    native_binary_status: Any,
+    contract: TargetArtifactContract | None,
+) -> bool:
+    native_artifact = _artifact_by_name(artifacts, "nativeBinary")
+    if contract is None or native_artifact is None:
+        return False
+    if native_binary_status == "planned":
+        return False
+    return contract.package_mode == "native" or _native_binary_status_is_ready(
+        native_binary_status
+    )
+
+
+def _native_profile_required_for_runtime_artifact(
+    *,
+    target: str | None,
+    artifacts: tuple[Artifact, ...],
+    native_binary_status: Any,
+    contract: TargetArtifactContract | None,
+) -> bool:
+    return (
+        target == "vulkan"
+        and _native_artifact_descriptor_required_for_runtime_artifact(
+            target=target,
+            artifacts=artifacts,
+            native_binary_status=native_binary_status,
+            contract=contract,
+        )
+    )
+
+
+def _native_artifact_descriptor_required_for_runtime_selection(
+    report: PackageCompatibilityReport,
+) -> bool:
+    return _native_artifact_descriptor_required_for_runtime_artifact(
+        target=report.target,
+        artifacts=report.available_artifacts,
+        native_binary_status=report.native_binary_status,
+        contract=report.target_contract,
+    )
+
+
+def _native_profile_required_for_runtime_selection(
+    report: PackageCompatibilityReport,
+) -> bool:
+    return _native_profile_required_for_runtime_artifact(
+        target=report.target,
+        artifacts=report.available_artifacts,
+        native_binary_status=report.native_binary_status,
+        contract=report.target_contract,
+    )
+
+
 def _select_native_runtime_artifact(
     report: PackageCompatibilityReport,
 ) -> tuple[Artifact | None, tuple[CompatibilityDiagnostic, ...]]:
@@ -6175,29 +6246,6 @@ def _select_native_runtime_artifact(
                 actual=report.native_binary_status,
             )
         )
-    if (
-        contract is not None
-        and contract.native_binary_status_required
-        and report.native_binary_status == "validated"
-        and _artifact_by_name(report.available_artifacts, "nativeArtifactDescriptor")
-        is None
-    ):
-        diagnostics.append(
-            CompatibilityDiagnostic(
-                code="package.native_artifact_descriptor.required_missing",
-                message=(
-                    f"{report.target} validated nativeBinaryStatus requires "
-                    "manifest.artifacts.nativeArtifactDescriptor for native "
-                    "runtime selection"
-                ),
-                document="manifest",
-                artifact="nativeArtifactDescriptor",
-                path="artifacts.nativeArtifactDescriptor",
-                expected="declared native artifact descriptor metadata",
-                actual="missing",
-            )
-        )
-
     if not artifact.exists:
         diagnostics.append(
             CompatibilityDiagnostic(
@@ -6210,6 +6258,46 @@ def _select_native_runtime_artifact(
                 artifact="nativeBinary",
                 path=artifact.package_path,
                 expected="regular file",
+                actual="missing",
+            )
+        )
+
+    if (
+        _native_artifact_descriptor_required_for_runtime_selection(report)
+        and _artifact_by_name(report.available_artifacts, "nativeArtifactDescriptor")
+        is None
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.native_artifact_descriptor.required_missing",
+                message=(
+                    f"{report.target} native-ready runtime selection requires "
+                    "manifest.artifacts.nativeArtifactDescriptor for native "
+                    "runtime selection"
+                ),
+                document="manifest",
+                artifact="nativeArtifactDescriptor",
+                path="artifacts.nativeArtifactDescriptor",
+                expected="declared native artifact descriptor metadata",
+                actual="missing",
+            )
+        )
+
+    if (
+        _native_profile_required_for_runtime_selection(report)
+        and _artifact_by_name(report.available_artifacts, "nativeProfile") is None
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.native_profile.required_missing",
+                message=(
+                    "vulkan native-ready runtime selection requires "
+                    "manifest.artifacts.nativeProfile metadata"
+                ),
+                document="manifest",
+                artifact="nativeProfile",
+                path="artifacts.nativeProfile",
+                expected="declared Vulkan native profile metadata",
                 actual="missing",
             )
         )
@@ -9030,6 +9118,10 @@ def _contract_actual_value(value: Any) -> Any:
 
 def _native_binary_status_is_ready(value: Any) -> bool:
     return isinstance(value, str) and value in NATIVE_BINARY_READY_STATUSES
+
+
+def _is_crossgl_source_input_path(package_path: str) -> bool:
+    return PurePosixPath(package_path).suffix.lower() == ".cgl"
 
 
 def _json_type_name(value: Any) -> str:

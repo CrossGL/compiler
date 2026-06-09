@@ -537,7 +537,7 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
                 )
                 summary = plan.to_summary()
 
-            diagnostic_code = "metal_loader.native_artifact_descriptor_not_declared"
+            diagnostic_code = "package.native_artifact_descriptor.required_missing"
             reject_codes = [diagnostic.code for diagnostic in plan.reject_reasons]
             descriptor_admission = summary["nativeAdmission"][
                 "nativeArtifactDescriptor"

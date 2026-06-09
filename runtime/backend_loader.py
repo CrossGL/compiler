@@ -439,14 +439,14 @@ def _native_artifact_descriptor_admission_diagnostics(
     native_artifact_descriptor: NativeArtifactDescriptorPlan | None,
 ) -> tuple[CompatibilityDiagnostic, ...]:
     if native_artifact_descriptor is None:
-        if _recorded_native_contract_requires_descriptor(runtime_plan):
+        if _native_runtime_plan_requires_descriptor(runtime_plan):
             return (
                 CompatibilityDiagnostic(
                     code=f"{target}_loader.native_artifact_descriptor_not_declared",
                     message=(
                         f"{target} native loader requires "
-                        "manifest.artifacts.nativeArtifactDescriptor for "
-                        "recorded native package admission"
+                        "manifest.artifacts.nativeArtifactDescriptor for native "
+                        "binary admission"
                     ),
                     document="manifest",
                     artifact=NATIVE_ARTIFACT_DESCRIPTOR,
@@ -629,16 +629,16 @@ def _native_artifact_descriptor_admission_diagnostics(
     return tuple(diagnostics)
 
 
-def _recorded_native_contract_requires_descriptor(
+def _native_runtime_plan_requires_descriptor(
     runtime_plan: RuntimeLoaderPlan,
 ) -> bool:
     contract = runtime_plan.compatibility_report.target_contract
-    return (
-        contract is not None
-        and contract.requirements_source == "manifest"
-        and contract.package_mode == "native"
-        and runtime_plan.runtime_artifact_selection.selected_package_mode == "native"
-    )
+    if contract is None:
+        return False
+    native_availability = runtime_plan.compatibility_report.artifact_availability[
+        "native"
+    ]
+    return bool(native_availability["usable"])
 
 
 def _native_artifact_descriptor_plan(

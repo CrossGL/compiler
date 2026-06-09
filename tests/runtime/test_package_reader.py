@@ -1065,6 +1065,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
             self._write_valid_package(package_dir, native_status="emitted")
+            self._write_native_artifact_descriptor(package_dir)
 
             package = read_package(package_dir)
 
@@ -1106,6 +1107,12 @@ class RuntimePackageReaderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
             self._write_valid_package(package_dir, native_status="validated")
+            self._write_native_artifact_descriptor(
+                package_dir,
+                mutate=lambda descriptor: descriptor.update(
+                    {"validationStatus": "validated"}
+                ),
+            )
             (
                 package_dir / "backend" / "metal" / "RuntimeReaderFixture.metallib"
             ).unlink()
@@ -1460,6 +1467,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     ],
                 },
             )
+            self._write_native_artifact_descriptor(package_dir)
 
             package = read_package(package_dir)
             report = package.compatibility_report(loader_target="metal")
@@ -3119,13 +3127,13 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 "sourcePath",
             ),
             (
-                "source hash mismatch",
+                "source hash invalid",
                 lambda descriptor: descriptor["sourceHash"].__setitem__(
                     "value",
-                    "2" * 64,
+                    "Z" * 64,
                 ),
-                "package.native_artifact_descriptor.source_hash_mismatch",
-                "sourceHash.value",
+                "package.native_artifact_descriptor.source_hash_invalid",
+                "sourceHash",
             ),
             (
                 "artifact hash mismatch",

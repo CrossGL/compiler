@@ -2420,6 +2420,16 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             artifacts["nativeBinaryStatus"] = native_binary_status
         if include_native_binary:
             artifacts["nativeBinary"] = native_binary_path
+        descriptor_path: str | None = None
+        if (
+            include_native_binary
+            and isinstance(native_binary_status, str)
+            and native_binary_status in {"emitted", "validated"}
+        ):
+            descriptor_path = (
+                "backend/directx/RuntimeDirectXLoaderFixture.native-artifact.json"
+            )
+            artifacts["nativeArtifactDescriptor"] = descriptor_path
 
         self._write_package_json(
             package_dir,
@@ -2441,6 +2451,17 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                 "hlslType": "RWStructuredBuffer<float4>",
             },
         )
+        if descriptor_path is not None:
+            self._write_native_artifact_descriptor(
+                package_dir,
+                descriptor_path=descriptor_path,
+                native_binary_status=native_binary_status,
+                validation_status=(
+                    "validated" if native_binary_status == "validated" else "not-run"
+                ),
+                artifact_path=native_binary_path,
+                artifact_bytes=native_binary_bytes,
+            )
 
     def _write_source_free_directx_package(
         self,

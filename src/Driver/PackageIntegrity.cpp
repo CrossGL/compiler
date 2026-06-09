@@ -213,22 +213,39 @@ bool hasRequiredPathArtifacts(
   return true;
 }
 
-bool isDirectXNativeRequirements(
+bool isDescriptorBackedNativeRequirements(
     const PackageMetadata &metadata,
     const PackageArtifactRequirementsRecord &requirements) {
-  return metadata.target == "directx" && requirements.target == "directx" &&
-         requirements.packageMode == "native" &&
-         (hasSingleRequiredPathArtifact(requirements, "nativeBinary") ||
-          hasRequiredPathArtifacts(requirements,
-                                   {"backendSource", "nativeBinary"})) &&
-         !requirements.requiresNativeBinaryStatus &&
-         !requirements.allowsPlannedNativeBinary &&
-         !requirements.allowsPlannedNativeSourceEvidence &&
-         findArtifact(metadata, "nativeBinary") != nullptr &&
-         findArtifact(metadata, "nativeArtifactDescriptor") != nullptr &&
-         findArtifact(metadata, "nativeBinaryStatus") == nullptr &&
-         findArtifact(metadata, "backendAssembly") == nullptr &&
-         findArtifact(metadata, "intermediate") == nullptr;
+  const bool sourceFreeNativeRequirements =
+      hasSingleRequiredPathArtifact(requirements, "nativeBinary");
+  const bool directXNativeSourceSidecarRequirements =
+      metadata.target == "directx" &&
+      hasRequiredPathArtifacts(requirements, {"backendSource", "nativeBinary"});
+
+  if (requirements.target != metadata.target ||
+      requirements.packageMode != "native" ||
+      (!sourceFreeNativeRequirements &&
+       !directXNativeSourceSidecarRequirements) ||
+      requirements.requiresNativeBinaryStatus ||
+      requirements.allowsPlannedNativeBinary ||
+      requirements.allowsPlannedNativeSourceEvidence ||
+      findArtifact(metadata, "nativeBinary") == nullptr ||
+      findArtifact(metadata, "nativeArtifactDescriptor") == nullptr ||
+      findArtifact(metadata, "nativeBinaryStatus") != nullptr ||
+      findArtifact(metadata, "backendAssembly") != nullptr ||
+      findArtifact(metadata, "intermediate") != nullptr) {
+    return false;
+  }
+
+  if (sourceFreeNativeRequirements && findArtifact(metadata, "backendSource")) {
+    return false;
+  }
+
+  if (metadata.target == "directx" || metadata.target == "metal") {
+    return true;
+  }
+  return metadata.target == "vulkan" &&
+         findArtifact(metadata, "nativeProfile") != nullptr;
 }
 
 std::string packageArtifactEvidenceId(std::string_view target,
@@ -279,9 +296,9 @@ bool verifyArtifactRequirementsForVerification(
 
   const PackageTargetContract *contract =
       packageTargetContractFor(metadata.target);
-  const bool directXNativeRequirements =
-      isDirectXNativeRequirements(metadata, requirements);
-  if (contract != nullptr && !directXNativeRequirements) {
+  const bool descriptorBackedNativeRequirements =
+      isDescriptorBackedNativeRequirements(metadata, requirements);
+  if (contract != nullptr && !descriptorBackedNativeRequirements) {
     const std::string_view expectedPackageMode =
         expectedPackageArtifactRequirementMode(*contract);
     if (requirements.packageMode != expectedPackageMode) {
