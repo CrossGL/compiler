@@ -5,7 +5,7 @@
     "id": "crosstl-frontend-language-spec-v0",
     "path": "docs/language/crosstl-frontend-language-spec-v0.json",
     "schema_version": 0,
-    "sha256": "65091fc357206d5c9292fedd636cd9af2c3fef79782068fc4b526916214e1f43",
+    "sha256": "7d051f336d92115114f78153adc38e6a189028234475b2a915e7b36b47e03cda",
     "source_authority": {
       "mode": "crosstl-frontend-derived-v0",
       "canonical_until": "shared-spec-package",
@@ -26,11 +26,11 @@
       "source_files": [
         {
           "path": "crosstl/translator/lexer.py",
-          "sha256": "e5c2c18870bcd14eecb4b2e1db301d9f8e98af3a8a51acbf4c46b84df9548986"
+          "sha256": "4022b7e23c46538d7a080cd1719773567fc60cc9994ad3ba1bab5f0fcbad8bc4"
         },
         {
           "path": "crosstl/translator/parser.py",
-          "sha256": "2a30ce24a4f5acf48025efbaef780c06f2bfc71de299ddd91b6cf4d02485f2ca"
+          "sha256": "2c9d6e4776083bde1035cfd2c37b49e6c12e9f9510a5d205449fcc6fb3a3d7fe"
         },
         {
           "path": "crosstl/translator/ast.py",
@@ -38,7 +38,7 @@
         },
         {
           "path": "crosstl/translator/validation.py",
-          "sha256": "f49c538761a15773144141a311fb7ed4b33c6d647bf4d573589d50d90c7c6820"
+          "sha256": "0e09be9f94e3b94426a559f2fcda6ddc5800ef6237ac6d430f93c54f24d60513"
         }
       ]
     }
@@ -639,7 +639,7 @@
           "reason": "CrossTL accepts switch/case/default statements, but native compiler v0 only lowers restricted non-fallthrough scalar switch forms.",
           "translator": {
             "status": "accepts",
-            "ast_sha256": "7585e70c640a45d183a3187ed671c06b411fd3aa2adfbd3d2e26a1b4a63682ab"
+            "ast_sha256": "5a9b87aac8b7039a2a4d223d0d67fc32e30695813242d090a5961ba9c7eab6bb"
           },
           "compiler": {
             "status": "rejects",
@@ -662,7 +662,7 @@
           "reason": "CrossTL accepts duplicate switch case labels, but native compiler v0 rejects duplicate folded scalar labels to avoid silently shadowing later cases.",
           "translator": {
             "status": "accepts",
-            "ast_sha256": "17c17451f6ac458c06f4ea9be25c44217cba461db78de44d4d2615eb5a95ffde"
+            "ast_sha256": "775f633e8ddd565c46cf03da2230bf5271df9491cde578862de37fefd57789ba"
           },
           "compiler": {
             "status": "rejects",
@@ -685,7 +685,7 @@
           "reason": "CrossTL accepts grouped switch case labels, but native compiler v0 requires each case section to have its own terminal break-delimited body.",
           "translator": {
             "status": "accepts",
-            "ast_sha256": "6c73af4cfcb15eeab12c6d1d90c40993e8542b82fb65445e09580353cc67d4f4"
+            "ast_sha256": "c39f69e68fb44397ca93f2ae478655ff3fdd16ac0c798a1eefd161e75dab9969"
           },
           "compiler": {
             "status": "rejects",
@@ -708,7 +708,7 @@
           "reason": "CrossTL accepts switch case labels with expressions of different scalar types, but native compiler v0 requires labels compatible with the selector type.",
           "translator": {
             "status": "accepts",
-            "ast_sha256": "d1b6fa7eb3e40120cdf29725274519b3863b2bc3ad27a14da2d3c66b98adf386"
+            "ast_sha256": "cb6ce9419ec46dcadc5959c8d710f91ce181516f06e830aa666b6c92e0c6f46b"
           },
           "compiler": {
             "status": "rejects",
@@ -731,7 +731,7 @@
           "reason": "CrossTL accepts break statements inside switch sections, but native compiler v0 only strips a terminal switch-local break from each case body.",
           "translator": {
             "status": "accepts",
-            "ast_sha256": "d97e219d918a569aa0cf4f57d1c00838b0134ce71ad9b7532d7fb624c4749a83"
+            "ast_sha256": "1ac76db9f8fad247345d7a6993f55d8ce58d7fd51cc250d6809ac76bedd0bae6"
           },
           "compiler": {
             "status": "rejects",
@@ -754,7 +754,7 @@
           "reason": "CrossTL accepts for-in loop statements, but native compiler v0 only lowers C-style for loops.",
           "translator": {
             "status": "accepts",
-            "ast_sha256": "ec21f337d7199987ca0624b869e7434b38b59a1978d3d9d26107b9917c5818ee"
+            "ast_sha256": "4df1b1f85b00c5690d989e5c6a3e324513207912687535a8afc092ebf455f2f6"
           },
           "compiler": {
             "status": "rejects",
@@ -861,172 +861,172 @@
   "contracts": {
     "compiler/tests/fixtures/ArithmeticComputeShader.cgl": {
       "source_sha256": "c42e247420b88186d019d67b14a5cb7c4c6d5c9ebae176a187c8d9929d5498a6",
-      "translator_ast_sha256": "36f9544c584ab6341f5420eea2f306d9ad5b835e31be0b583b6293204cdd6b31",
+      "translator_ast_sha256": "b5d22ed8f05f2591aea61c54b60b9df63eb6f2afd78db7a1a6419953e5cca671",
       "compiler_hir_sha256": "97b74e377816d0213a0fdb3256c2cd313cce49263051d572fbe59b5f34140e9e"
     },
     "compiler/tests/fixtures/AtanIntrinsicComputeShader.cgl": {
       "source_sha256": "2f7b06c0a6c5d5aa21ec86d5f5788412b3fd6996625dce7d3f358fbae102a5b9",
-      "translator_ast_sha256": "01a6840f2f32b6f4e7cb9323a17353ced8a44359c105ec0194ce315fc3bb047c",
+      "translator_ast_sha256": "e46be599dd32850947ea18b0ed759532b68807c7cf317bf9528a55b3f24df82d",
       "compiler_hir_sha256": "2791f50f51414f596eea8a148da409a844661e0c85efb45c01d874ba918f0bf6"
     },
     "compiler/tests/fixtures/BooleanDeMorganBackendShader.cgl": {
       "source_sha256": "75df9e86ecd50ed5d6dd0a8cb700d62a74b039b85ddd397adbf7511c6ff79c8e",
-      "translator_ast_sha256": "14834c5964573ea9082b3dbe598bf903c30dbd602b7fc99fe0aa8db7a1b29f87",
+      "translator_ast_sha256": "a03c5c7d7f9e9d3232388fd4509d456e466fbbebaa555ef88f000814521f45ff",
       "compiler_hir_sha256": "e466d33642aaeaf0fb786f3fe564856a48d4381c28658b95a4b798830c464753"
     },
     "compiler/tests/fixtures/ColonVarComputeShader.cgl": {
       "source_sha256": "461bd00eac3dd95d5029042d241baa9f58340cfe9237ae54d8e6899e808cdf43",
-      "translator_ast_sha256": "fec407cbcb49872d98c23f10970b30cee2142d722a66d83be456fb143907cae6",
+      "translator_ast_sha256": "e5fd0196cace939b67045717f28e75a61b4f8232bd03efbc043516db8efd2b3e",
       "compiler_hir_sha256": "86d444b64d3e31eb22f6f1f16b334443003e9761a22257a03f5f66f6ec48c7b9"
     },
     "compiler/tests/fixtures/ComparisonComputeShader.cgl": {
       "source_sha256": "855de28fe1bb73bcc4e0ebe954f25afc0523748a8495d64843d716c435dc6a7e",
-      "translator_ast_sha256": "737ec8fbe7782117a96a2fa9e06db02096264b46b27394cad5df8ecda9ffaf09",
+      "translator_ast_sha256": "bf9abe05437247aa27fe34e14d6a439a9274726bef88636c0aaba86715b233b7",
       "compiler_hir_sha256": "cef990ac3af066e93be744ac17686ebc5d7ce09aad7d323bdf48abe3646d13c2"
     },
     "compiler/tests/fixtures/ComparisonSamplerRoleShader.cgl": {
       "source_sha256": "93396a1f6ae7abc1d1584a093101196919ab90a6a4e4da870a177bf4046bf1f1",
-      "translator_ast_sha256": "701c4737f33c94e6539af9b15105cffa7da1be129fa5a53158699804879c39d6",
+      "translator_ast_sha256": "7bbf1f8d4aef06355db7a2562dbfd758147f3f7b4bed068e165387d7bed7e7f5",
       "compiler_hir_sha256": "76c65d6fe0866c0e31fdbb61562f04c0b06f8ec479078a9d574d779367734d02"
     },
     "compiler/tests/fixtures/DirectXMixedManualSamplerUsageUnsupportedShader.cgl": {
       "source_sha256": "a8d606b43698bbb1e3496e66bb8861713248d8102f7ab416aef3391615b97dc0",
-      "translator_ast_sha256": "a7fe8cae7e7bc4d833ad1aae64c1b5a1460f61d88f958a086ff1370fde582974",
+      "translator_ast_sha256": "61a04a895c8c31877f5e3b60021853ebe91e19339f4420c1bc97d697102f8125",
       "compiler_hir_sha256": "b1ce5ceb61a806b037beabcc9e687695901b68cefc88102806ff9d0765818983"
     },
     "compiler/tests/fixtures/DirectXMixedSamplerArrayUsageUnsupportedShader.cgl": {
       "source_sha256": "c6b360d67879d76610d4a4489f98b4413497dfcfa41e09e509bef9d42198393c",
-      "translator_ast_sha256": "56d92694845622e3f389c7ceaf884f050028231b444dca2ca13f2de44981fc69",
+      "translator_ast_sha256": "27c000ed976226d54edc1d4121d1f7cd11179bde9b2dff3771b20a769a05d68c",
       "compiler_hir_sha256": "6eb281669e635c51a811482cea49f4f676dc09023e8a502c9db42b91ebfd4adb"
     },
     "compiler/tests/fixtures/DirectXMixedSamplerUsageUnsupportedShader.cgl": {
       "source_sha256": "957b15961a13796fd760155e0e59497c6339926409e0331448e76564d0e010c4",
-      "translator_ast_sha256": "0f00b579f6bb5d8080610c28ca96a59ebf503b948406988aa54aabce0a4f729b",
+      "translator_ast_sha256": "304df406eba8ce8d4dcf892a9b549c65639c814a2144e65726a44ce420485a63",
       "compiler_hir_sha256": "cbf584e7deaa95af3e9e3b3f84a5d0f1f150d3b0e96fe857aa94853273db0d81"
     },
     "compiler/tests/fixtures/DoWhileComputeShader.cgl": {
       "source_sha256": "6194f5d1643d7c566def1bf93856b96d14a69809b1b3bc16c9bf968cad318c48",
-      "translator_ast_sha256": "7d260b3dcb2eceae246422852907b554056efbdf39aacafe67104db3e0b36167",
+      "translator_ast_sha256": "a52f9e8134f7a8f8ba758bc6eb0aff15f814d65623749ef9c5014161f6d0f441",
       "compiler_hir_sha256": "923a302b244bef03db859f0f97fc32b819dc88ce96952c80aea0073cc930f1f3"
     },
     "compiler/tests/fixtures/FloatEqualityNegationBackendShader.cgl": {
       "source_sha256": "1c61b0443bed839dbead9eba746ad884c5bb6de94aaf3a166e4d98125fbd0240",
-      "translator_ast_sha256": "2f507647f6517e64f409ccd84d1e32b92c7406da666089864c33a612d8818567",
+      "translator_ast_sha256": "7e2ed2cadbc110a035b6bd4c8694096c9b4e668a6c732ce38a4808200e2acb3f",
       "compiler_hir_sha256": "e45f3f55cc1eb25fa3ff8e4319a07040bbca6a8948b8d24f752108323cb00303"
     },
     "compiler/tests/fixtures/FnStyleFunctionShader.cgl": {
       "source_sha256": "f30b3bd0e13a0b7e06f87eb3c0d9a03188f018c7a7b1be7cc24702204ccaa46c",
-      "translator_ast_sha256": "aa0307a043fe016ff62782c093af5300035c46af5cd3fe5ab6efefb2fb56eed8",
+      "translator_ast_sha256": "98a21abe78a1146670294e05cf1804c4118d842f7bb9008d5c01c61f5638af30",
       "compiler_hir_sha256": "cc7d15cc489264d3e9e2105106143fdbf6aa064a66b313aa4e2070814643e6b7"
     },
     "compiler/tests/fixtures/ForComputeShader.cgl": {
       "source_sha256": "0d44539472320cb452aef43ef154092869e0cbd7d11eaf4894c984743dd1799d",
-      "translator_ast_sha256": "2cf1e47153fe5533b22d4e3f73b79dcb78b951e8771632e577501d0b14ebd831",
+      "translator_ast_sha256": "e9146f83e8f879bc85736a21a8202bc7efc2af7cdc17f9ba71719030a2631a13",
       "compiler_hir_sha256": "1e8e725683ff0ea5dafadc23de194164db0a256f727eaea1c025c8a1cc31e80d"
     },
     "compiler/tests/fixtures/ForConstantStrideComputeShader.cgl": {
       "source_sha256": "cbfd934aa2d8427f94d84c307d7ac927df3f3d9e133b2231310506fb1c4a5058",
-      "translator_ast_sha256": "0d6f78711b9dccd49fce96b21b2f1e672861904c7b49a977b7df09f74670ad39",
+      "translator_ast_sha256": "5c13cc1301c8b44d7d74876f95ef19edff2d5f540bd6e62dc0185de2567c53a3",
       "compiler_hir_sha256": "ea82dcebfdba6969617df4a1abafc0002daf299f20013106e5ed503e2f955bc5"
     },
     "compiler/tests/fixtures/ForDynamicStrideComputeShader.cgl": {
       "source_sha256": "63180de1bf76a80e3d0cfba0a0528efe86ddbdefc77f27014d25599c60b4766f",
-      "translator_ast_sha256": "f5280fd3ec7e663632f79a0a480ef48489bd6414182b77fcc9499c0c242a54f3",
+      "translator_ast_sha256": "857742a8d9b5a885a74d36ec80d93760402dbd54bf8ed5b4cadd913f04cc0b44",
       "compiler_hir_sha256": "7fcb2d59c96608899b544f0207ce2d33d567482c77b8368334be47eb8006072d"
     },
     "compiler/tests/fixtures/ForFoldedUpdateComputeShader.cgl": {
       "source_sha256": "d461efeeeafd69cea78258d0580ad28329748a2db7d328149c7957a50fdc054f",
-      "translator_ast_sha256": "47d68f387f81bd4d80b7a7036d0d025e1c9317e0539d1af7a13d56dbf596a290",
+      "translator_ast_sha256": "0d68b7bc6506a26c64e4d014c24e1ecc186ec766c243791dcb7485c64c56cb86",
       "compiler_hir_sha256": "5e1b1f30ab3db66d9f654cca5a27852e9df19ccecacb58ef48c5b77a370351dc"
     },
     "compiler/tests/fixtures/ForOmittedHeaderComputeShader.cgl": {
       "source_sha256": "d5c3467901ac50694a4db5b11bbd983701cee947e197490dcbdd65f87ed80533",
-      "translator_ast_sha256": "9a7fdd0bd5ea07be8968a204f342dc8beb9f488fd4c2d38726fce1624dd93571",
+      "translator_ast_sha256": "b0eee74065b19c6734186660463bd5e69fec7efc1c837fe5fc37b695ea7ff623",
       "compiler_hir_sha256": "2db50104e0ac3345ecf9f653b9e8ff182ba51cdc05211f5fe380b4abdf36f29d"
     },
     "compiler/tests/fixtures/ForStrideComputeShader.cgl": {
       "source_sha256": "7786bcc65381ba9e9d1c3f81517b343fa505374955376eb70ee18d36a6653dda",
-      "translator_ast_sha256": "cc6c9c82de5f767cfc34db1d616b3ad362f99381889b102848427e69a17ef081",
+      "translator_ast_sha256": "577bbe13bbb167af393167475d088ba3f37f034206de7f5b1045cc7816d3be59",
       "compiler_hir_sha256": "c24a51c29b8a13b2aad93c494a8f3ccf5dafe2ce4756ff4f7207b20502b23c5f"
     },
     "compiler/tests/fixtures/FunctionParameterArrayShader.cgl": {
       "source_sha256": "aa6bac627c015458e73bccd4cd9211a5edf9274279beb64f47e34e59c9991a1c",
-      "translator_ast_sha256": "361df5f5a0e195ec3af62fa697d162090700041072bcc3024174d45ae8d7c108",
+      "translator_ast_sha256": "8944b91cfdb2be7f970a7a0e00af24dbf57510737d061e1d2378ca576b9543fe",
       "compiler_hir_sha256": "f33ce5295d0865b2656f662e0b69ee5d1062c14a83911a55f4add02a1abc2fc0"
     },
     "compiler/tests/fixtures/IfComputeShader.cgl": {
       "source_sha256": "3d7aecfeff361ec5ab58e6a8038f2d2be14b6dcbd482dcdb98f8d9a66241adb4",
-      "translator_ast_sha256": "14bc945d0737f5418b4942ce5eecc4b0bd632183b3d04bf69ff6c1d9b88f68a8",
+      "translator_ast_sha256": "2927073ca1d781da3df560584db1e0e6b22dc8ca47ce54b3dc0bc2735f721251",
       "compiler_hir_sha256": "01cfb036b05e3dd9e1f09533a79922018fda623014776b32e35f4a39d76767b1"
     },
     "compiler/tests/fixtures/IfReturnComputeShader.cgl": {
       "source_sha256": "304431d6083846c3968ca745a313e19424dc20df9f095a740c33e0de9058903c",
-      "translator_ast_sha256": "1d0a0caa0058a15114550c44ff47c97f11916d09fdf904cf27e38dcef0df3d49",
+      "translator_ast_sha256": "f44fca102990143f3e7c879725fdd18b1c104a7026ba4b32e18ba523b24423fe",
       "compiler_hir_sha256": "e07675f86dcf70930a191bad03fe6f720edfb558b5267f87f031b293d91ea956"
     },
     "compiler/tests/fixtures/IfScopedComputeShader.cgl": {
       "source_sha256": "15c77d46c1f979d7fb2203ed1e3c3c9b62d0e2c815c273dacc39cf3f378b3355",
-      "translator_ast_sha256": "03b5a4eae4ddf9a320c815d4865f3c9a296e78dd495e3cbf5102ef2c811a692a",
+      "translator_ast_sha256": "0d40bb4df86952a34fd79b32c9dc8dfa8965f9d2148f5a64c45920a43d70de97",
       "compiler_hir_sha256": "5fea86ba276ea9c9bcdf486629f987534b755ec95e73c3ed9d2323baad060cda"
     },
     "compiler/tests/fixtures/IntrinsicComputeShader.cgl": {
       "source_sha256": "128745ef2156445b14db62770cac20fa48bf085a9d2b0944cf05741d28c399a0",
-      "translator_ast_sha256": "e5260321f750fe2e970d95b34bfaf903a1ff8a9070e4eb89a50f049d851821cc",
+      "translator_ast_sha256": "0c465572d838e518ecd37263fe63465de88e905930e5788809b86f7f3a61cf70",
       "compiler_hir_sha256": "ba3df2cf09644bc679663acc3abf4827951ce283488e58277558f1302cc6527b"
     },
     "compiler/tests/fixtures/LetMutComputeShader.cgl": {
       "source_sha256": "59a97f5f1def379fa4396cd14cb6bd8a108d673f4902c6b728fc599c897221a0",
-      "translator_ast_sha256": "09c49734c5b39c23c25443392d3e95fdcb32b5bebbeb685b0eda9d36f911154f",
+      "translator_ast_sha256": "dde7ee48680e4532b39479b705d0c4337277e9ce62a9977e8a073926801ef0c9",
       "compiler_hir_sha256": "6b2a5e4cdda8f0cc07d968e9d1af710861b1e71edb13aa00a4db3002eacd11b0"
     },
     "compiler/tests/fixtures/LoadLocalComputeShader.cgl": {
       "source_sha256": "3f8ba65174f7b15e4bccf2d0f8d68e72c08763b86159b261a1a703b078e4fab2",
-      "translator_ast_sha256": "6431108161b5789978b7147cec748b49c57620104974bc1a9cbdf052fea7ecdf",
+      "translator_ast_sha256": "71502fe58f7707d3ee7dd3035b17dad2c04bbde385328c7f8d2d8cab081e309e",
       "compiler_hir_sha256": "a8eaf5c198b61829baebfd1966084279fae1bca0f60ff625bdfd6ac686440b6c"
     },
     "compiler/tests/fixtures/LoopComputeShader.cgl": {
       "source_sha256": "72b09eae287eeffae6088b81f39cdee61e2278a8d795345e13ddacb868663558",
-      "translator_ast_sha256": "858d20096720e299754a3b263241e390928505884b38f1e76d5a7c8ad0a1842a",
+      "translator_ast_sha256": "05c33067be4159fab5c601a1a64a90ac33398ac20c7fd4ae23e0daa2cf8d5d70",
       "compiler_hir_sha256": "f7c3b6021fc91b9efc02db97c92a72b3a4587d5637bd441db4eed9d079aaad41"
     },
     "compiler/tests/fixtures/MatrixConstructorComputeShader.cgl": {
       "source_sha256": "1b30275be8009a1cf7705407e58ddab84487703e4fc9fc3c4fd777e458a490f9",
-      "translator_ast_sha256": "b82e9b220391d89a7b8d367fc9edb7e6c38b0e341b3027de4e25befcdf882b2f",
+      "translator_ast_sha256": "5412b0c2d186f337bb37934e02f8660252c795f4c39080adb93b650509a6572b",
       "compiler_hir_sha256": "6fa2024aef24e0bea62e1a3985156c3f5b1ad9bb7268bd48e7a7231245c17d96"
     },
     "compiler/tests/fixtures/MatrixScalarArithmeticComputeShader.cgl": {
       "source_sha256": "a2d65e18a161607fa5f0618f8a81c2f5155cd363d016072063c679409f91383f",
-      "translator_ast_sha256": "d4a5de3d1b7ebf89e8d8cdf39605a6624cd38dad419fed804fdf4fa1f16f3815",
+      "translator_ast_sha256": "ca24dbd18c0b5c292b735f09fc2197f88bbfc4dee09bd9650d735e15e35d6c2b",
       "compiler_hir_sha256": "05db33e1029149026572d003bf22531ed4b90bf2e1e0e4e0fdece7cba5f41df7"
     },
     "compiler/tests/fixtures/MatrixVectorArithmeticComputeShader.cgl": {
       "source_sha256": "a1426f351120a25b7fa3e36b3ea9e48b5ba5cce9dbd6958202f2a9247aac0f5f",
-      "translator_ast_sha256": "2269b7c330b2f38d83953f960f74533cd131d31d4811fa822d79cca000b8c91c",
+      "translator_ast_sha256": "de7c2d9016f78bd088acbb9fb5593c9b2e1c27b040d82ed098c0dec097a8a967",
       "compiler_hir_sha256": "0c371b9524f9bc4efc6195a62474802a216d5108c2cb924091be85ac834b79f7"
     },
     "compiler/tests/fixtures/MetalMultiSetResourceShader.cgl": {
       "source_sha256": "0c910356a4db1c2017dc981180a61c6752bd6899a19af6d1ef6343d9c79a90d2",
-      "translator_ast_sha256": "207cf24eb4fe5f5296ea4dd7107bdd4542544fc60ae77cce2cf49a0faa799717",
+      "translator_ast_sha256": "c32657d9d4211bc6531ecfb079763c558bdb92c6f168ba6a3f8b14b3df71d563",
       "compiler_hir_sha256": "b300c55e0c7849dcd45a6380b225f04f4b22e58e32a4ef37f69ab42ad687e49a"
     },
     "compiler/tests/fixtures/MetalStorageBufferArrayUnsupportedShader.cgl": {
       "source_sha256": "63b8182c62d83744a063049b7a97a943ecfb4c177b22041b30e356feb691a211",
-      "translator_ast_sha256": "a107454347f8568f3984c1da29d119f77c69e59dfea996ad12d234734d903bf8",
+      "translator_ast_sha256": "cbe6e43559a3258eea3f66ac12d381408e5092f9ef84686d395d5d24988f08f5",
       "compiler_hir_sha256": "dc86d374466d678330ee447c434fc5c94a109591917b2bf1409bf65194543513"
     },
     "compiler/tests/fixtures/MetalStorageBufferDynamicDescriptorArrayUnsupportedShader.cgl": {
       "source_sha256": "572c5bb36d81f4821af42c0bc9d386487f6ddce70dabdd82ad478a74b4bc737d",
-      "translator_ast_sha256": "6cd40d03f3eb1a17aabe4cb6ac388dda2ee3658c37c748cc70dd98a06eb2e720",
+      "translator_ast_sha256": "a76c8692d9dd107bedcfc8699eaa5ad6ad7882b0a48209668fabf45d69a5937f",
       "compiler_hir_sha256": "931f500ee87fe51215135155864fe7cdbeddfaf9f2410c16f1058b3c67074dd9"
     },
     "compiler/tests/fixtures/MetalStorageBufferFoldedDescriptorArrayShader.cgl": {
       "source_sha256": "82a12d7a4322e52e528aed08fe3be37ac40a33ab24dd415fa6a2cd729c2d16c4",
-      "translator_ast_sha256": "f778583b9a2b283087abc55e4da306e1e97d8b7fb2a7da7616bd3ee9ba347e1f",
+      "translator_ast_sha256": "0655535109faaa17ff4eff4d4ef449988c854149bd905ebcc6fdec0a6f303d07",
       "compiler_hir_sha256": "b42ba8393a24a418c560f3920ea54df064fcf4ce4c1e18dce763ae2b5af8e66e"
     },
     "compiler/tests/fixtures/MetalStorageBufferOutOfRangeDescriptorArrayUnsupportedShader.cgl": {
       "source_sha256": "9a65e3156163a7ea4a6f1a3bb6b16cd1172fa0c22c419271126a2dd6b7ed77f5",
-      "translator_ast_sha256": "1f9be3232d2d7892b2b90a479badfb90487f26c3980c110fd0b94a5c2a9527cc",
+      "translator_ast_sha256": "0dd1358793a11763c92d294055939a75bce177fd2d4e89943417fb202f7116de",
       "compiler_hir_sha256": "8a3580b69f91a0866de4827e65746d21f4c3b5c1d8a2136438a06872ab4115d9"
     },
     "compiler/tests/fixtures/MinimalComputeShader.cgl": {
@@ -1036,617 +1036,617 @@
     },
     "compiler/tests/fixtures/MixedResourceDescriptorArrayShader.cgl": {
       "source_sha256": "90ee6800463f84cc582817a13380d4357fa19042f34b0ddd84f2f242636e3780",
-      "translator_ast_sha256": "40c4fe55cd236336b93a8bdfee64e138aabb186932007856de0d1541cce3880a",
+      "translator_ast_sha256": "c601b253f1aae8a8a115df070c9b0a2e4be81c5fbaae6940669eb2368f65d719",
       "compiler_hir_sha256": "ea22b7b571bf8853e968dbb3fc1cfda807f19ae044b256e3e63b4387aba0c9c6"
     },
     "compiler/tests/fixtures/MixedResourceSymbolicDescriptorArrayShader.cgl": {
       "source_sha256": "f366fcfb3fb6693b7d8d969fcfe7489c047cbfe11393aa128ed8a022b061c4e2",
-      "translator_ast_sha256": "6801c1de21c006631815870d98eaa5095b4152c521d289f9d97c15f39aaa0f97",
+      "translator_ast_sha256": "ab2f8c166d55efccc7d941912b217e9e3183b4c99917e6a579338094d0abee96",
       "compiler_hir_sha256": "1e9c9f2e1344bc2f56a533c120fd44c9506825eb4187d43a0c6208e7dafbf789"
     },
     "compiler/tests/fixtures/MixedTextureCompareDescriptorArrayShader.cgl": {
       "source_sha256": "0edb6cbe71ea7796476e4221c4645ebadf658024ebff7cff0ca895087df72d80",
-      "translator_ast_sha256": "c3d70ee08d84b3cfd8a3153b72ebac64a7272b1bf8a2ae846ba73560f665fb6a",
+      "translator_ast_sha256": "835461557087ba67c4bbf9286669e354c3d5bc55a8b459b98b5d61b5e9ea8ce6",
       "compiler_hir_sha256": "97f15fd3325cc60f364cf7a04bd4073cb86edb53414829d20449a1333992ab3d"
     },
     "compiler/tests/fixtures/MixedTextureManualCompareDescriptorArrayShader.cgl": {
       "source_sha256": "ee585ff8e6bdf9acf229509dece0f01c097ac1728cc06a72d03d8424f2a9f3fb",
-      "translator_ast_sha256": "35ee1349afed46e3afa4a9fcae721437c798ba716f394fa7e556a9f290df9c7c",
+      "translator_ast_sha256": "65ca7c28bb5337470623fc8b237cb4c0238e77159769acedf24e99a1019a6e9e",
       "compiler_hir_sha256": "b6565d022bdfdc46b9b692492c247ea1b1d8e7192c46a47d46245f8f745df7c1"
     },
     "compiler/tests/fixtures/NestedForComputeShader.cgl": {
       "source_sha256": "62e53827041a9e925e916eade2016047788d43659638bc27fd99ddd6ecb5649d",
-      "translator_ast_sha256": "ac352402f5f3403ddef16313f033c40c18b46ca27c58620bbf3bb71ca469b789",
+      "translator_ast_sha256": "415e760f1cc2fd02eb90927a0901678f36f64d4b2347d59277199ab9808475be",
       "compiler_hir_sha256": "5648307c06d55f58192fa29d192183d3f5e5ea2dbcf5c7e7f3011fbdfdcd7232"
     },
     "compiler/tests/fixtures/NestedIfComputeShader.cgl": {
       "source_sha256": "27536d484a4c2d7a78691a760c0d2bcc93b77cbc8efd28aa401f89fd6d8b08f6",
-      "translator_ast_sha256": "95bff479492e9b46ee87646857164ce1ffc312ffde713337aebf9d6510bfad6c",
+      "translator_ast_sha256": "9eed54713ac42e814db5a35bb330ce3ed1d505950db54120055f83aace524374",
       "compiler_hir_sha256": "e48a414da6fb6cbbc7d0df6034dd7d640cdc7250c40fc365d1647fda9a21eeda"
     },
     "compiler/tests/fixtures/NonParenthesizedControlFlowShader.cgl": {
       "source_sha256": "c177f79e3b2c71fe3b35af9a016e40dc5115b879d67885795f496db43e59be9b",
-      "translator_ast_sha256": "57821c66504a5c17946d7e71e0e558557d8876e2505d2db0a0f8c7b3697e6164",
+      "translator_ast_sha256": "423339f0cab193758490d7c7321289eb46aaf3ddb05f2c94c22356e4ec498cd9",
       "compiler_hir_sha256": "79e9d7b6c5683b72567c5e95b61d9d6d1dd23684593a70aaadae0616a7c73236"
     },
     "compiler/tests/fixtures/NumericFloatLiteralShader.cgl": {
       "source_sha256": "8d796ed88ddcefa8434c0214835df5ab243b143f702edb00f57f5a26af2241be",
-      "translator_ast_sha256": "ee982334c8700f674ae76bcbd165053ac4c07aace31d41d593dbf40752b99a72",
+      "translator_ast_sha256": "ddfec93bf64186eeaeda45a161ee2e267d1e90b6ba70480a58170d59f22bef17",
       "compiler_hir_sha256": "ee15408579031d46f2cb6815c5ab1f4ca809ee7e64685dfeb1a2afb4afa1cc55"
     },
     "compiler/tests/fixtures/ReadModifyWriteComputeShader.cgl": {
       "source_sha256": "57e92b895897f46caec55a7e65ce37ad00ca9fb92e74cb7e7f9c66548373e984",
-      "translator_ast_sha256": "ccf93294c32c1aa7a9bbae3d8a791df635f41d77d8c3036b1124815293a53911",
+      "translator_ast_sha256": "b180a43f4fdf161188886363c006d5bd4bb7e340fc422cb4770c3338307e27d4",
       "compiler_hir_sha256": "f8f5721aff5928905297fb9dc0e97de3e3f39874dcb046853d2312b097b03276"
     },
     "compiler/tests/fixtures/ResourceArrayAccessShader.cgl": {
       "source_sha256": "a20951579eaa4d91da2b9e9731cf5cfa11e928abc979f688e8b833eeb1968b29",
-      "translator_ast_sha256": "c62c3650fd2a5b4a0d2431a6b1c3e9609837885de09b9c0b6d18ed28ee7e7b9d",
+      "translator_ast_sha256": "ad341919089c4dd2432f08763ad84b21ffdc726db5f8351f42a20b380c2313be",
       "compiler_hir_sha256": "ff7352d0cafe369660c336fabfa652096fd7728f6a5b319c840df56cfc8c7004"
     },
     "compiler/tests/fixtures/ResourceArrayShader.cgl": {
       "source_sha256": "7a2978b7cb5f18cd61cd8a13ef9ea074b6a86176ba9db8c0dd828e96bcf5aaad",
-      "translator_ast_sha256": "a0b3e278577fd67302fa62aa2d0dc02322704db39d6dcf29086998aae65d4e37",
+      "translator_ast_sha256": "78203c5f507aab6f9f1af0b7fcdf1cff134dd10946abe6926d79edec257a9c3e",
       "compiler_hir_sha256": "36ad887e298949348942cd36e860a6255c52bd975f4533c4c4a8d5b9797fe630"
     },
     "compiler/tests/fixtures/ResourceGroupAliasShader.cgl": {
       "source_sha256": "4e9cb30903a730cc50eb9fb1e59fdfe06e3e928bdca9e848271c6c6e183224d5",
-      "translator_ast_sha256": "c702f1929a688706ad1d3b9a15f5f22bafb1ed9cfd4eb66a9e8106903c0f3e34",
+      "translator_ast_sha256": "6bb429e67ee5be97e2467fca672ebabad06cb38ad45744184bb9f2ef1eef1096",
       "compiler_hir_sha256": "08a3a3e3144b736bacf52f33f42aafc5106593acbcdcbd7211beac5a99199c19"
     },
     "compiler/tests/fixtures/ResourceLocationAliasShader.cgl": {
       "source_sha256": "178255643cf42491e75b61014dec1937d0238baddafc83f4e9edd0bebf467018",
-      "translator_ast_sha256": "96cc03582a9acbacd0a94ae70589db04ec8f594d7333ffdb22949e9962c8a7a5",
+      "translator_ast_sha256": "a551c3f48df35b69951304ca463907923ff04cda507b3f6fd7fb30835426c542",
       "compiler_hir_sha256": "6e641fc1a8c3175372872f7a5188ee7dd6d5dc448798465e40f824f1976355a2"
     },
     "compiler/tests/fixtures/ResourceRegisterAliasShader.cgl": {
       "source_sha256": "20bff827368baad7de80692f43b5cd308f46e8f9834a7c4b88316def006936bd",
-      "translator_ast_sha256": "8afde10d326e05355fa43ecb3d504585bb85b587175f5b3264cd77e542dbcee3",
+      "translator_ast_sha256": "358ae8bf63a059944961b845d8867e71389df85ef892eed66195b1cf2722f656",
       "compiler_hir_sha256": "a3fcef7eb38287aabf359114130fe50434303bf4a8e7f78a7ac0a91db4b14aaf"
     },
     "compiler/tests/fixtures/ResourceShader.cgl": {
       "source_sha256": "9213f2331dec7747d0e4bea92b083bb3bd9c4e30238d59b943fe49f33b525038",
-      "translator_ast_sha256": "d8e7a00fdbca1965d5eed7023714a874e91388cf5c19dd89af9755a116a938e3",
+      "translator_ast_sha256": "0a3fbfae47665c094058d71889b179568694ce13a2f190f37485ea1fe451ba9c",
       "compiler_hir_sha256": "b343f0fbf7635d0323ff19f15eb931c183fb401e72ddda16c92dee8d6e1e3134"
     },
     "compiler/tests/fixtures/RuntimeArrayDynamicOuterIndexShader.cgl": {
       "source_sha256": "29aed2b16f903706167da41e49b98f699c49ad3e3ab6716f02aa74454a1cb83a",
-      "translator_ast_sha256": "3dfa5db8a0885b0d6f30e525cbb33c50d62a5a3f2856afc22ee50c16979707f2",
+      "translator_ast_sha256": "b74f17fae3256460231da1d3d2ab20e80300c0b210014ebb635ba7c60ff8d327",
       "compiler_hir_sha256": "5f1bd3942760dd912831dc2f4344c612fccd454a0e0d1031ee464ea42520e48e"
     },
     "compiler/tests/fixtures/RuntimeArrayDynamicOuterIndexUnsupportedShader.cgl": {
       "source_sha256": "fb9a92c491c0e35d64468cd03d848e234b866abc57e6a0eb7be7e82dc824d82a",
-      "translator_ast_sha256": "3a2f6709e0c36d45741f31048a054275aec293338ddc16ec022bb09eab0f9308",
+      "translator_ast_sha256": "b3fdba95135486046362bfa1f61305aa88b5c8173525269000d51330acaf1ff5",
       "compiler_hir_sha256": "ba7c79bcabda90d1ec85348e4a04e354316fb668a935e6c8033312f81e0690c1"
     },
     "compiler/tests/fixtures/RuntimeArrayShader.cgl": {
       "source_sha256": "03f86cc53ffdab6d6a62642af99b24dcbf56957a4ed2d74c1596c80bd349933f",
-      "translator_ast_sha256": "5908554a4953ebda35c6d7892b5094943baec6e4abfaa52599de464065bedd38",
+      "translator_ast_sha256": "abeb8898ec29222763134adad08da3a7d9c57df380cabf4dd47ef6dd33764f26",
       "compiler_hir_sha256": "ab1e8bc05a5ae4fe634acb406988225685b716c7c0229fcde2f2b5139d968799"
     },
     "compiler/tests/fixtures/RuntimeResourceArrayUnsupportedShader.cgl": {
       "source_sha256": "6c2f3964b5c150d2dd20d5457e1858883105996139b4bd61f29d4dc91fc6e2d3",
-      "translator_ast_sha256": "5aeb59bc87db9a46a286df080733973bb6b9d6e63f871f7bf3c23715673398ad",
+      "translator_ast_sha256": "8d48832a531e973cd51195757ffd4a92021b6818da6f532e0567b7e0624b4c1a",
       "compiler_hir_sha256": "883094bb6c9bc69e1bf2383c716641ce21616e14639ecbab0d463c25dfb6323c"
     },
     "compiler/tests/fixtures/RuntimeStructArrayShader.cgl": {
       "source_sha256": "e8fa931de6cb550bf1b51d88f91e0e4941360aa0daeed2736ac0bbc8b6326e05",
-      "translator_ast_sha256": "d9fdd7b6a1cc4b8a0b836f993d3fa794ce7f7c513bff83e608f147e80f72f9b2",
+      "translator_ast_sha256": "c9df1ad00e0d53a294685b9294ca51946bd788870161276a7cfacb4cb5f12e93",
       "compiler_hir_sha256": "ebbe9942260eb4401124f90fc390a6e6313243a5d06e0fb67d2786a53ec02f73"
     },
     "compiler/tests/fixtures/RuntimeVectorArrayShader.cgl": {
       "source_sha256": "a8e77fee98677471df329c27f3cc8aa99fd9d2a75102d475265f73ddc936c03d",
-      "translator_ast_sha256": "a67d17784963e5a7f5218207e30090087886ab5d7f21211a0e7996327a5c0a74",
+      "translator_ast_sha256": "a72f8e6cc92e7cee65ceb362aef942e534436dc0dbed77946aec14fc8270c73f",
       "compiler_hir_sha256": "1bc7cdf085b06f6943f8aa1892c8d1498be0e374b549b3b0de1956d3d93e5fd6"
     },
     "compiler/tests/fixtures/SamplerCubeFamilyOnlyNonUniformCompareLodManualDescriptorArrayShader.cgl": {
       "source_sha256": "b8d291fc655778366e189d80484e5bb7bd12572e3ceb3011c267cda2054f1da3",
-      "translator_ast_sha256": "e117118ce2f0d4d3b6978b6066fa9c6576cbfafcde5550550094cfe8e2903a21",
+      "translator_ast_sha256": "77e2d0b8fe0ed5e09871d404406836c017293f2eba0754729e826b4b889d0fac",
       "compiler_hir_sha256": "65e5f84c2c00df3ac4fa44b4a31fe22a143e4fd6be0d5a4b4d2d1cf833271cd0"
     },
     "compiler/tests/fixtures/SamplerDescriptorArrayShader.cgl": {
       "source_sha256": "da89c320b0324b65c0b7df66af489064f0037c8ce7a1f3be2810a1a7dcfe733d",
-      "translator_ast_sha256": "38298317cbd442105e13cc3971bd30475d0cc76dfae8e285395ecea2090059e3",
+      "translator_ast_sha256": "629157d95b672604f8ef59021b5798f822c911890559461b972ca2d6a8498e82",
       "compiler_hir_sha256": "eff1c5126cbc06b0b2443d805a29b4c9cd4ad21933f3176ba062d8560bf55cfd"
     },
     "compiler/tests/fixtures/SamplerFamilyOnlyNonUniformCompareDescriptorArrayShader.cgl": {
       "source_sha256": "f90ef81bbc5ac76dbf1a98a2865b3d7a9eab6618ec5e40ef34b0d2a8f24b3e92",
-      "translator_ast_sha256": "820d2e2162559c79689becff8880056b8c9bc5b489b87d94df2efa81ee1405bb",
+      "translator_ast_sha256": "af2c15d1e1f7ca84aa8df5ea1304f46b171c70c66df5d391ad346d277c989097",
       "compiler_hir_sha256": "8d3c7baa94613f8bf1cfc91a1bf659764e40210a8637bb95f611b9ce1ec1532f"
     },
     "compiler/tests/fixtures/SamplerOnlyCompareDescriptorArrayShader.cgl": {
       "source_sha256": "6b96af1ffebbbac25b2bbb53ee476811ba1997b43d754065ca78a07dea62d27f",
-      "translator_ast_sha256": "185280bc0cf892c1a9492b23e1efc1b725cf2dd8e2e34c65406c3795768e2192",
+      "translator_ast_sha256": "57b31f04026a50b4b0307ca8fd9ad945fbc81bff1e81ccca0ed11cb9c04dca4f",
       "compiler_hir_sha256": "2744589d0ace72d4f41c8eebc59b33aedc074f72ac7de0369de8924b9cb78144"
     },
     "compiler/tests/fixtures/SamplerOnlyDescriptorArraySampleShader.cgl": {
       "source_sha256": "2563fc78b2d66445742739419077ddcf11cbba6484c562b0d94b4bc1713ebad1",
-      "translator_ast_sha256": "08d7c69dd765d60b16964e0816066b43eaa35aac6dd429078883c712b4d4e049",
+      "translator_ast_sha256": "109470fb8bffe01631f05618691be5f17169ae930ee072ec0c64f24ebfe4c974",
       "compiler_hir_sha256": "bbd847e0ec03a61d45150796a8387b54c7eabd3664102be2dc3fdad851406a72"
     },
     "compiler/tests/fixtures/SamplerOnlyNonUniformCompareDescriptorArrayLodShader.cgl": {
       "source_sha256": "0c0d7a0ceb5d9fdd255e30f42ee4831651d38237604782375d08fad951a63860",
-      "translator_ast_sha256": "51fb7108307e320b72691c89e1c8408b8d85a6db18a195faddfc1e954ca00420",
+      "translator_ast_sha256": "d4ea37d092132f00466938dd2a6fa79ee0c8d9817d425fa030e8d30d309329f2",
       "compiler_hir_sha256": "efb4d1270c092a6c5f567b347386483cc677b0090f8ab188efff11958ac7bed2"
     },
     "compiler/tests/fixtures/SamplerOnlyNonUniformCompareDescriptorArrayShader.cgl": {
       "source_sha256": "b56a003faca65f91cba0dbe05f14b9c1233314556673e6a7571b76ed8fbdf2bd",
-      "translator_ast_sha256": "71c686b83d215ab8ab074af9e9df00fe857ef572518e98de59f22b57cddfd751",
+      "translator_ast_sha256": "d9bda791f530db57f9e2b20cc604a50934d0e4a81497314d35fea305ad4ca210",
       "compiler_hir_sha256": "e549ea50ce93d53de5226821df7bbf03558b136d9def267175821962fa269f2b"
     },
     "compiler/tests/fixtures/SamplerOnlyNonUniformCompareLodManualDescriptorArrayShader.cgl": {
       "source_sha256": "c7fc5d5f0e661a40186cbad121b005e87dc82741a8435c47eadde7950483299d",
-      "translator_ast_sha256": "e04d1dda24d6d0877ec818e2c290a1aace8a6cbf3c4531199584b4d1d9ca7b26",
+      "translator_ast_sha256": "491d971080875583a23fac4662d94fd7dac1b1180925c9a169cbe69aea3f144f",
       "compiler_hir_sha256": "8856f4dac58131704a8df11055fc30033323f5feb7b024b8510fc15a29749a86"
     },
     "compiler/tests/fixtures/SamplerOnlyNonUniformDescriptorArraySampleShader.cgl": {
       "source_sha256": "21219e2bf3931c1035bec26702a6058c008a1d0c2b696bd8df4c2ad5baa5a4ed",
-      "translator_ast_sha256": "6ca512e37b938df64e2da87ab2fa91391ee723dc617531947d4c9e655d3665d4",
+      "translator_ast_sha256": "5b77db9f1176b65ac904e74ad206f3e382113fc621d505a8082033abce27d1a9",
       "compiler_hir_sha256": "fa89776e44e55b0af2a025c246f845b9bbf87c73093d3011edad08203db8531b"
     },
     "compiler/tests/fixtures/ScalarConstructorComputeShader.cgl": {
       "source_sha256": "cadd63e0a7342853ed59896e8f41b05f06b1918959689798fb76e7a283983295",
-      "translator_ast_sha256": "4c0c29dfd778170b7210f481da6b8a65c15e42ee9f77c124accb283b4eadc234",
+      "translator_ast_sha256": "35fe555cfd13cd88fae435669b891dea9981541a5d77c0512ca56be0774a257b",
       "compiler_hir_sha256": "398ae10785e9d02b62652ec1d24552b3cdeb6cf8d931b7f1afc523e7fa38d273"
     },
     "compiler/tests/fixtures/ScalarExpressionComputeShader.cgl": {
       "source_sha256": "497e23bdf4a853e851fe0b3d82bd455f210c99109c708146e6f2d7ebe1e8a5e2",
-      "translator_ast_sha256": "37d73b41fc007e92f3e3a02fb1a451024e67a7f6f309a8acd6e4b46a65ad32ef",
+      "translator_ast_sha256": "70072ef0ab0d2160ccdd74180a0482a620f9cd2a4c642757b98c2d3a2263c595",
       "compiler_hir_sha256": "2807a8f2804c3b4136eb41e3ca2560b9fd3dbfab6cff910e1b1e000c445b16ff"
     },
     "compiler/tests/fixtures/SelectExpressionBackendShader.cgl": {
       "source_sha256": "bb03aaa9ed2fa593939ea5fb5ec6569e5ea7661e989a1fcef0f8dd71df913609",
-      "translator_ast_sha256": "57f01d10aa2dd81ff48687221bb23122fd41624c1301f34730f8a049476763e8",
+      "translator_ast_sha256": "fafda85d1a94f8be45ea09720e25d29e0a0ebdfbb334f9497f6179a55095cf4a",
       "compiler_hir_sha256": "d0b45ba26bd942f48a6c9261b1ae7de9c372d9a9f184d6799777ebdb4c0a8b83"
     },
     "compiler/tests/fixtures/SimpleShader.cgl": {
       "source_sha256": "f2736779b2831445cf004bd9864e99366bb1298d17457595c8bf286972b84e1c",
-      "translator_ast_sha256": "d5a3971c200f5534b12afe03d9139c268cb5d45b0c7bfb29af5550dab52383ff",
+      "translator_ast_sha256": "e34fc0c3dd4d15095a76f64c99a0fee0892ffc9c04728393ec9fbb621112e9d3",
       "compiler_hir_sha256": "5b9f3d138bffee9c69c68985b8dffebcaf849b16ce3295379f2096b20268f067"
     },
     "compiler/tests/fixtures/StorageBufferArrayAccessShader.cgl": {
       "source_sha256": "b723e2b68f881396ad93aeb58edd8f85988eacbee92c6ec852530a94e1509735",
-      "translator_ast_sha256": "234834bb35878071a39cd2beaad304210dac4b6bafe1c33c38e971f14c88bcb6",
+      "translator_ast_sha256": "f2a1f5448114d84c5015abaabbb0042d2aecfda972e8bf4d8257f23d6170ef60",
       "compiler_hir_sha256": "7e6cdc1d4dd4a7345594242deca59fd3aa537d9ce6370e91278c8ee42ae83bba"
     },
     "compiler/tests/fixtures/StorageBufferComputeShader.cgl": {
       "source_sha256": "7b573de26282b494e21f3ed2f3485fbc67c9a72fba01ce08ff9267c27a81045d",
-      "translator_ast_sha256": "0e432b3304f4438ebc20f1b0be0685a6fc6e03e25228ae5d68b282372f79925e",
+      "translator_ast_sha256": "e78daa102676b88506b633027638d53158e391e4be9f500df174457f5e7678cc",
       "compiler_hir_sha256": "dbb87cb2882a2f60770a717cdd58e6f277a60c8ba9bb2c8cb37a45c068206aea"
     },
     "compiler/tests/fixtures/StorageBufferStructArrayAccessShader.cgl": {
       "source_sha256": "f7a2cfd97672180659c722be6f090b19cef6bcd188494c665616578c97417635",
-      "translator_ast_sha256": "070dbcefcff92b1d27c58dd3cc77f722133a5126ff3b5a52ffce99fad9a041f5",
+      "translator_ast_sha256": "c1c1271c7c41f9525417c9fa8adb90404020c5e1f949c6517b7f316559df9a72",
       "compiler_hir_sha256": "afd6b4c09c55c2315789ba3700b160d78eb2251860f08cab9c1aadd97ece1b63"
     },
     "compiler/tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl": {
       "source_sha256": "11c80280ed6471ef61d932882c13fbe62db9b1e475dcc41ed8e40197035586bc",
-      "translator_ast_sha256": "330d197b3823fc1af8fd4255c3b53374cc90708c88a3b7e457003744d098c8ef",
+      "translator_ast_sha256": "94514d16f7b47df28fa0fc00590c2b49469381e542ea818d06b005e769fd8d93",
       "compiler_hir_sha256": "0a5aea5264d36fca73f21a1daa069204c52ce0c25a43751990ac3d36b81518b5"
     },
     "compiler/tests/fixtures/StorageBufferUnsizedDescriptorArrayUnsupportedShader.cgl": {
       "source_sha256": "3ec5c851171e18cc00f6c9c25a9cc50a0f8273186cce90a42d190be923bf425c",
-      "translator_ast_sha256": "f1af7e4d4bd120bd027ee997a097db191e1e387d5a5b2364b62b740ecaa608ba",
+      "translator_ast_sha256": "b5793ed62b339d95b3603d9a21d642bd59d9231d2299ea5a3af2f7f664da2763",
       "compiler_hir_sha256": "36bcc7b8a51c80bcc4ec8bb09e2edb973a2a852d5c6f176e7f6981d03d27a920"
     },
     "compiler/tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl": {
       "source_sha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
-      "translator_ast_sha256": "8cf4eb2121b0238ae72d69064e2e2c741aa979b9c88393eaeaa2f902e34a7525",
+      "translator_ast_sha256": "4aff52d40dca0d1960ef7b0c4812c0495cb96832a8f41aa083da866b18064304",
       "compiler_hir_sha256": "f9d6bce9ed065f66b5e3da2cdddcc882a0b0ffb6a0addc752d83ebad2998cf3a"
     },
     "compiler/tests/fixtures/StorageImageAtomicShader.cgl": {
       "source_sha256": "a5a0191fffb927d04b796b4cade9d374945dc40b8eecd3b89738b3845adbbf36",
-      "translator_ast_sha256": "8a4983aee09351a8388fb4233c8929c287fdbdd6385e5dfddb56da21f101efd4",
+      "translator_ast_sha256": "e17997b7f8ead39eaf20eb6ae9c9818bae1bf66ae134b80ab57e79840cac6519",
       "compiler_hir_sha256": "1b107d444bbdd953272a293f64eb30a2d885b758311199695d9cfe0dae78db97"
     },
     "compiler/tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl": {
       "source_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
-      "translator_ast_sha256": "be666268e6b2ac023fae869b0eba390d36ba81e8f4ecae17137f77d6078ad897",
+      "translator_ast_sha256": "e89e17d612021a5210c8376a7b9648b43d5330ec8ec593bca87917accec9db0e",
       "compiler_hir_sha256": "8c7cee5669034eab58ee28da18468edc8cfd0b5c44436d10d276fb9ddc7a0b26"
     },
     "compiler/tests/fixtures/StorageImageExplicitFormatShader.cgl": {
       "source_sha256": "45f88a12264cec4a3bf6eb6ffe7e63f6d9ceeb3964fad7703c64a0ea35a69703",
-      "translator_ast_sha256": "5cdb4f73eec8445f4103a7e49f9f057d69ab53fb644d24aee69d329d47ee879e",
+      "translator_ast_sha256": "01e54f6606c9bbcdf63132d5eb75c1509ccec3595e45a44bcfa5d1cdc291df53",
       "compiler_hir_sha256": "5bdbfab809bef13da265856ff054ef4f0ff3954bb215cd71641faede1c0e33ed"
     },
     "compiler/tests/fixtures/StructArrayFieldComputeShader.cgl": {
       "source_sha256": "50e45c0740534fd4345a8e8f57c70de85f22c0626bc24aeac27b9bf192926e83",
-      "translator_ast_sha256": "fb0f43873a72b6e9b8e7c6b9e6a05e34bb8d007720412ed86bc5d80532e90d88",
+      "translator_ast_sha256": "ef40dde098bdf43bb946ba452179aea57f078e5c5482512c168f058659827791",
       "compiler_hir_sha256": "666ce8f37c8f618f5c6daefdebf8109132db02f0902316e9900a11b28d448dd1"
     },
     "compiler/tests/fixtures/StructBufferComputeShader.cgl": {
       "source_sha256": "6f97c7a9f7f9e30f79253d5ebb0477ba3b4c9f06b37a984f56c844e5004f2c60",
-      "translator_ast_sha256": "6db6b27fa6ad27f15c3b58df7bf6642d30a0a2dbbb1db0eaf4b49f7ce910dc48",
+      "translator_ast_sha256": "1b5504ce2311eefc89c20cb981e01859f29252ec9f4009584adc8b43582aa776",
       "compiler_hir_sha256": "58f8e2aca6ee14c6e988ab367f56ed854e1a06caca8168f86d56bb104805c733"
     },
     "compiler/tests/fixtures/StructConstantArrayFieldComputeShader.cgl": {
       "source_sha256": "f1531e37c1f994aa5801fe4d6363ef17761698969da28071ea17d16563253719",
-      "translator_ast_sha256": "1df0b09d1f4042cf64b64a70100ae2701d191ec9f97a77ad1c5c7f241746aa94",
+      "translator_ast_sha256": "dd6a530a2225d39862039fe1c031573331316f55b3866c0e2ff8213808413f83",
       "compiler_hir_sha256": "fa72f7e067c9fcebb8336f45278d0d3d7dc9da8a3cf2af71e1bc7254a9dfeda4"
     },
     "compiler/tests/fixtures/StructMultidimVectorArrayFieldComputeShader.cgl": {
       "source_sha256": "a00bb624720051a7a5837402c2ea8a95d71f75d8172e6678f910c8a977bf60e9",
-      "translator_ast_sha256": "5ebd10a84a06514f369659a83140735b876e7fd426f3595098c9128fc40fcca0",
+      "translator_ast_sha256": "01acec53f4a5f82c9d0987a86b2233536561b41ea06c1bdfe94c1a14d27a4485",
       "compiler_hir_sha256": "c14d9d483db842462050a73fd66aa8c945a034fc245b6b9a677a5b20ef41c840"
     },
     "compiler/tests/fixtures/StructNestedArrayFieldComputeShader.cgl": {
       "source_sha256": "40658bd0ee41dddbe710ee6fc49c03ec6e647c6d3565b40ca3d3df2ca2d973fe",
-      "translator_ast_sha256": "97423dd68cc87a655a2b84cd5adb7b08da0718666019b2933407f0d53c368485",
+      "translator_ast_sha256": "409065ab426a7fe0bd0ade5c4024381b99936444236ac77be46a34ac51f83bbe",
       "compiler_hir_sha256": "81b709ab52c3bf3d30ca15e7f5abbaa56844ecb6a2def15511af7a5c17b24fe4"
     },
     "compiler/tests/fixtures/StructNestedFieldComputeShader.cgl": {
       "source_sha256": "028f731b12773f42b0ea312f077533c4c791a73323e668212e9f5153a5dbe86a",
-      "translator_ast_sha256": "8a41fb5f1d1880e9e66a6c294ba496fc7f2db6648e6238cfade12a89842c6627",
+      "translator_ast_sha256": "223307a7f877a53ab52ead28719e32021f743a248d7be161dc8debff9340eb50",
       "compiler_hir_sha256": "b306ba87a1e02af74218dc279597c488e04e4b97e140bfd18ce14112ccdbe500"
     },
     "compiler/tests/fixtures/StructVectorArrayFieldComputeShader.cgl": {
       "source_sha256": "42c2390a13dfbcad27ff90727d62be0e1c9d2d2450fdef7a1f46da83cbb2e2e1",
-      "translator_ast_sha256": "7af2cb1360890ba6e733dc3cf8c8a42b82e7909f0cce7482719b740e758c0bef",
+      "translator_ast_sha256": "4f997e8f1eb6e8464366087c2829a560d6883db3dcbeb3fa94fd8096ed3b54d1",
       "compiler_hir_sha256": "9603d01b4c7e321532f81b9290cd9c6d44d3db3cda310d11cd5dfef68cfdc818"
     },
     "compiler/tests/fixtures/StructVectorBufferComputeShader.cgl": {
       "source_sha256": "996ff026234820488b4896d2f0309ce51133b2a56e0e787326ccebb3ee7e006b",
-      "translator_ast_sha256": "96a48a0afda004c560277c2440f6964efeb630ac6bfc9d6b6b9228b6742f6c02",
+      "translator_ast_sha256": "b623bf96464d6e2d4c3cc9121164c8dda99390b2765a1fa34531b4a37bad750e",
       "compiler_hir_sha256": "4ff31b759f24ffaf0f871d02624a0a39518bb8558203e83ac52c873bd713d46b"
     },
     "compiler/tests/fixtures/SwitchComputeShader.cgl": {
       "source_sha256": "c85dd3def959349840abb23bb37d77fa7c0fe13f8b4f29e9b5ed733f7013538e",
-      "translator_ast_sha256": "df5ac6d0c9a00e44d2c377d62de69f40791fc5470fd2de017eff34fbc2689922",
+      "translator_ast_sha256": "9ca63f96ec99b18e62c40431a4cee7a59da8d4092a93956bf5ec95519043e4c0",
       "compiler_hir_sha256": "38f1be3fd66da849f1d8b3f7c17662f8b43a7f6b43accaefcfaa09b6da6ba822"
     },
     "compiler/tests/fixtures/SwitchGroupedLabelsComputeShader.cgl": {
       "source_sha256": "c886654704786d725a7befc880511a8431f75361519e0aec86351e03e8ef512f",
-      "translator_ast_sha256": "88512f0b68ae8e101ee1a202857cacf805f313cb53c88a8b386b6671db470187",
+      "translator_ast_sha256": "738c14f3bede82435e3339a2d9dddc210326c212397300db785af671d89a8829",
       "compiler_hir_sha256": "53c1873158f10ffae3ea8324ef1390a47fb3d3c6e016ffd0b664197a77989faa"
     },
     "compiler/tests/fixtures/SwitchTerminalGroupedLabelsComputeShader.cgl": {
       "source_sha256": "2b50869601d4fac87737e1097ad17b8a5ead8aa9e4005b9fd0d180e87abd29d2",
-      "translator_ast_sha256": "437fb8f044b4843c0de0d6ca0c3f0691978c674eeb589e1c12e83c2d816861c8",
+      "translator_ast_sha256": "387ef798ec97a45aeca951440c475bb062b39edffeada28d5c94df2e22963d3f",
       "compiler_hir_sha256": "da6ba7031648cea476d457bbc2185b0d1cb8ca624804a31d771abb2cbbad4139"
     },
     "compiler/tests/fixtures/Texture2DArrayShadowCompareLodManualGather2x2Shader.cgl": {
       "source_sha256": "97cd46cee05f24e303c058b6c3faf8427f34b73788533356c419d8681223869e",
-      "translator_ast_sha256": "6a147855d285b0426dce0af44321dba0f690c59f4c107d81ba790b92405cd99e",
+      "translator_ast_sha256": "e3af41b09e3b4b3587fd511e2d07d23574145e556d83e07d6cfb148c6f6870b8",
       "compiler_hir_sha256": "8531a8bf73c8165e3a60d0f1f00ee9ce23674437c28accf533c21075b046715e"
     },
     "compiler/tests/fixtures/Texture2DArrayShadowCompareLodManualKernel4Shader.cgl": {
       "source_sha256": "74b0e35b72f0b1c43b1425d640436c70d00ac9e17853e0438e74fc95f107757e",
-      "translator_ast_sha256": "3ba67c10ac135e1254384af05ac908bde0963f8f6205b6e55214ad925316d3b3",
+      "translator_ast_sha256": "cf9827a755fd66f2ffed78bd53ac9be3a35be853b6c9f02a940b7661e3f10068",
       "compiler_hir_sha256": "91f9e7f9b7ea78c03a00368fd99289b05ff0a303edab8457cd7b7a37034867d1"
     },
     "compiler/tests/fixtures/Texture2DArrayShadowCompareLodManualKernel8Shader.cgl": {
       "source_sha256": "879e8cc99d6e2edc652b9b734b4c2bc768ca028b8caa6802649faba0808dd73d",
-      "translator_ast_sha256": "825d1ba0c53b43e58a042a1b562ce8338d722e36b7046585f48bec731efb776b",
+      "translator_ast_sha256": "42c1948972f20d00b1e1eea6b1964b1dc1f7aa73bface61710fe3e44bcbf8d2e",
       "compiler_hir_sha256": "33e80b2124cf03cacb47667a9e4601b242570020df7334525cae026f85ddc608"
     },
     "compiler/tests/fixtures/Texture2DArrayShadowCompareLodManualOffsetShader.cgl": {
       "source_sha256": "1083f3a3303b0fe241e818c66c80b29d6d096d46b24059ad0f3bbb9f6f228093",
-      "translator_ast_sha256": "0d914ec746a1a517327e885a48ae4faa2e53bd82a4e6e81f71dbf3df966a62ff",
+      "translator_ast_sha256": "6c2a28af43207b8d7f8ff2e582a06062f76a3ba2191944c2636168cdb71daf9a",
       "compiler_hir_sha256": "5bccd12ec92315cf786d34e6b3522cc7d93d9ae54d0156a14113f2750a581bca"
     },
     "compiler/tests/fixtures/Texture2DArrayShadowCompareLodManualShader.cgl": {
       "source_sha256": "d80917e18ccd441e1b5f86176ed6763ff730bf6fa93fe8d9154a67870d76d476",
-      "translator_ast_sha256": "73e402a521466385c1e4ac38bab0ac9aa0ec0d95a3450dc320ff2cf60c94b893",
+      "translator_ast_sha256": "dd2f4d77a75ff8e50558e924613c4a3936384a7c32ad08d8c6dafca2fb9e75b1",
       "compiler_hir_sha256": "298db098f9c437d88220b546701828350cf0a63486ad2c4deb61f49f0b1bb081"
     },
     "compiler/tests/fixtures/Texture2DArrayShadowCompareLodUnsupportedShader.cgl": {
       "source_sha256": "19784963872465b9ad1494140c6530dc2f6bebe708f5297b6be5cae560529fb2",
-      "translator_ast_sha256": "0d0c22596bc976fed0e68d0c7a130fc9212f117b88fc57c529b942311c9f22d7",
+      "translator_ast_sha256": "38607ec0ed165128f48383377cf7b8f0ae4fcc14ab641be998c985fb8c45d5db",
       "compiler_hir_sha256": "cedc66402bd0e6c2f5187f3465a7484f89ef2d754f60a9c75920b76f826ad2e7"
     },
     "compiler/tests/fixtures/Texture2DShadowCompareLodManualGather2x2Shader.cgl": {
       "source_sha256": "761d3b1eb46faee924452cf32c7eb70eb90e0e1af2e0fe2b1052e6b189480dc2",
-      "translator_ast_sha256": "349f926e9ba8701ea3899221a6c8c581bc72ec472fbedbd6cd3ab1f7fe58256e",
+      "translator_ast_sha256": "05c45bf558c77dcd4b8fab188927d7db1e74b53da60d900a8e436749d114c505",
       "compiler_hir_sha256": "6b2717e01c1d9281c193f59c9c5dc86a7eaae32d86145604fd7c77cb72a8d753"
     },
     "compiler/tests/fixtures/Texture2DShadowCompareLodManualKernel4Shader.cgl": {
       "source_sha256": "504b08c77a3620fc78fb984d9ad4aea5d1bf07e1bbf04258f46ca52283be2ad1",
-      "translator_ast_sha256": "8008444571f39b37763757f8d34e58b5dd2efdf1d08391a3e5c3d9fdf8097523",
+      "translator_ast_sha256": "4775feee3f1aac10d91fea8711b8e0206e01ed53e9183cab6d317deb4adba501",
       "compiler_hir_sha256": "792961986c3c4c6ee078472d2310f0159c13958f86f60728f16eac88ddb0e4d8"
     },
     "compiler/tests/fixtures/Texture2DShadowCompareLodManualKernel8Shader.cgl": {
       "source_sha256": "a5c806ebd2f409d4132f1e74893b65312a7153e174c049ce1296649949fd375b",
-      "translator_ast_sha256": "03810d2414a3c66ea800e1c1b5b945bf53147d2c0a72f70f29f2e4a144735eb0",
+      "translator_ast_sha256": "063f04d278c4c58c9ae9e2dc235cef04bfb2145469cd4567c510d956c49e51f0",
       "compiler_hir_sha256": "73c9152f39b92d55c3e1d4d28171213586135c9c317026d93b79939d946f79df"
     },
     "compiler/tests/fixtures/Texture2DShadowCompareLodManualKernelListShader.cgl": {
       "source_sha256": "e11468b28d51aebd9d0d73c068e1ab14ea0d60ad3846864180c50982a3cdbc20",
-      "translator_ast_sha256": "15f6a5094d6145dd81c5f9be14ae879f9f86828870910d2a985325c02eaa21f1",
+      "translator_ast_sha256": "eada37952097a358a15ec23a6b3f80a8a8ac45b065e03dcec8a600d783de23fe",
       "compiler_hir_sha256": "71dba1eb0624329e98a6660f802be7bb25ae512e58db92505f07b5315d968824"
     },
     "compiler/tests/fixtures/Texture2DShadowCompareLodManualOffsetShader.cgl": {
       "source_sha256": "705c402c7ca0543e0c8d24832fdcf4be09334b8fe73c505f29b0191f30a3a5a4",
-      "translator_ast_sha256": "9a5e6825c3fc75ae4beca2141afbe103f941ae6ced083b0ec7e3b097af100e29",
+      "translator_ast_sha256": "6354692b316b04f8574697134aed8c40951f7c2fc022a9717943c9c66f09a0f2",
       "compiler_hir_sha256": "dd35a6f6a7d7b701878b40b3ef010284b09fbf20e49e9235fdda81d60047f404"
     },
     "compiler/tests/fixtures/Texture2DShadowCompareLodManualShader.cgl": {
       "source_sha256": "b1f1c397515d65a03a4994e897489105f09a3b50a692e7923a9ef1dce6ca920b",
-      "translator_ast_sha256": "01e717661b7c292212b59e17135e1cef57acf663b3dbff2525f533e616b7522c",
+      "translator_ast_sha256": "48d5b2f4442dd010fcb8716325e57ecfcfad3171682cb60c525fd9541fc1f835",
       "compiler_hir_sha256": "d5c90fdd25324f1d9ed6ffc5013ac751c53e61ce6d02eedecff2e98d402d4db7"
     },
     "compiler/tests/fixtures/TextureArrayCompareDescriptorArrayLodShader.cgl": {
       "source_sha256": "227c90255b02e36d2ad993dfeed4bf340abba476e1066e2c12e5ac7be68b03c3",
-      "translator_ast_sha256": "a01225486ab5aaa37b83621fd85505d578520981cf85c526110cf4c3687468a1",
+      "translator_ast_sha256": "bb9d614687843d3670143d3c54f86aceebd7e12e66f3cb2316e9331acb10602e",
       "compiler_hir_sha256": "ea059bcafd3bb14495197938218c560ab6e099bcc5975821a413b157e2044fb7"
     },
     "compiler/tests/fixtures/TextureArrayCompareDescriptorArrayShader.cgl": {
       "source_sha256": "e74faed348687df911b3877b8e9f0702f101cf0a59e52bf6d472a4634597c2f6",
-      "translator_ast_sha256": "31caf082cc11dbb5463c28eb32692294e5c98820bb086c6cdb23ea604c356282",
+      "translator_ast_sha256": "4bd3d04056268b497ff0947a580f70cad84484216126fbcdd289ef0ef45c6047",
       "compiler_hir_sha256": "e4fcd778073f15aa3113730822ed18742b70fcfa23b49c6e9bb3d591b3799815"
     },
     "compiler/tests/fixtures/TextureArrayDimensionShader.cgl": {
       "source_sha256": "68ab53fc4ef965f64739499c377bb47a035406de9e9fcbc0a8a1ad4141851f02",
-      "translator_ast_sha256": "4a5b8a0f0e7b9e051dd8044449a3081b0dd9c504d041c118013cf177319a1ccb",
+      "translator_ast_sha256": "08fd50714364251f7afff072acf3a8eb5cb45c792b033d1eb5913a4f1c178f52",
       "compiler_hir_sha256": "8035703ff04ca8a03e442d92f9a4618635c72b34db502cdb4c12f785119ad8fa"
     },
     "compiler/tests/fixtures/TextureArrayShadowCompareLodUnsupportedShader.cgl": {
       "source_sha256": "baee6e74cd1785ea580a53ac09cdf782a40c76969fb67581faea8cb60c663adc",
-      "translator_ast_sha256": "4100363987bcdc4fa1f68c0c3c400339712a7a65afb361c8f3f2d7474bd0f668",
+      "translator_ast_sha256": "85308cf11d961c298b78c0b58ca337231e558bf7da254c6517231b63f47f65ee",
       "compiler_hir_sha256": "a23bea031040b09abf2049819a2f85ec5e5cf4f3741ff90d32c1fd25a72cf079"
     },
     "compiler/tests/fixtures/TextureArrayShadowCompareShader.cgl": {
       "source_sha256": "434bd3a27bae2e2eb8cffe96ea51ec3416fdb65befe40bbb6fb8279abe673e64",
-      "translator_ast_sha256": "7c5afb961250f69f19106da52fed59d34ed4d88a3a0cf945f931e9006b45e830",
+      "translator_ast_sha256": "c7c02761e72006a515635eb181fd6302484d47ae166a17678867b0f6d1c793ac",
       "compiler_hir_sha256": "7d750039bb7114d70e5fed04531957b020d3b4bda50f6352715c20501a2fa05a"
     },
     "compiler/tests/fixtures/TextureCompare2DLodShader.cgl": {
       "source_sha256": "e3ca5bad622eada39193993d9ab57a0fc9b4763e979915f95e983dcafc6c32e3",
-      "translator_ast_sha256": "91b01146ce14ab000069c17cf55e8140693dea0bd39b533c9ac98f770fd3098b",
+      "translator_ast_sha256": "8964856fb348ffaa641f46dc52e70b89ac9f7527822c483002901c71f4f0e574",
       "compiler_hir_sha256": "748cb67afc583e9d90d3f2ec5186817d5544cd425d77a2852f3dc561a14ab2b4"
     },
     "compiler/tests/fixtures/TextureCompareDescriptorArrayLodShader.cgl": {
       "source_sha256": "076cd3e599ea8dd4d5c225117fc3d8ca7a40064b76783fe1d9e3880e8ab57048",
-      "translator_ast_sha256": "5264fcc2283034a877ab0b5ec3d598b0741182d84057511eaebc09a171b66024",
+      "translator_ast_sha256": "2a7231064ac6123550eb9fc323333cab7e2b59de5832fa856750d80797c5288c",
       "compiler_hir_sha256": "d416051461433500b9aef0178acb18d33a5165ba7e2da34f484d0d9fd4c24804"
     },
     "compiler/tests/fixtures/TextureCompareDescriptorArrayShader.cgl": {
       "source_sha256": "b6f2466126b649c1c00309993a706e4b82ddfaa01e199fd8be7b6f590455f083",
-      "translator_ast_sha256": "8241f5b43bf7256266ad36c97ed56c7bf254bc3340775f5c509a6bdbdfb3728b",
+      "translator_ast_sha256": "532687cc9e03d54c0fc60faf01255f97647e2dcdbce49776f7c0a423697ea8ee",
       "compiler_hir_sha256": "ce7f7cfaad40cb8c87a6d98e5f341c3cc9bb5dd431bd55552d06b1eda3e3d83f"
     },
     "compiler/tests/fixtures/TextureCompareLodManualDescriptorArrayShader.cgl": {
       "source_sha256": "2cafddbc51931a32027aa07ea3a5ebfc815a9686deba8c1b8ffec798748bfd64",
-      "translator_ast_sha256": "116e3b53ae417ddb5e0882f6b880e3a07283459e2f2429d21eb806e4ddf6fd78",
+      "translator_ast_sha256": "a7c28d1ae500008f3d5afcd9589fc128e26d8eed1dc756141184a0c059a8e3b4",
       "compiler_hir_sha256": "e6a86bb2e25993087629210e6ca55903f7b21f2b330fd7ea8f8fd29e9d9469be"
     },
     "compiler/tests/fixtures/TextureCompareLodManualNonUniformDescriptorArrayShader.cgl": {
       "source_sha256": "412651b5dc31c67217e8c26b9223d2036a4e8e0baacfc570b51d9ddf506e8f86",
-      "translator_ast_sha256": "0b34eb7d4b6db07c095464683977a2b48a4d0811a562e28b27c5b51e21a8b1ed",
+      "translator_ast_sha256": "0a55322ed3eaaedad7b49de74cf648c26dafaa7d33a00d31af953cf8f1ebd01f",
       "compiler_hir_sha256": "e6ec19a6877f57e2cd6fd3e0e3b3d1136c4ebfcc49005497547ed76ce5ff42c1"
     },
     "compiler/tests/fixtures/TextureCompareLodShader.cgl": {
       "source_sha256": "bebb676d84077bd7aeb46fe792576f947629b9520f95610aed326cce0c24b1cd",
-      "translator_ast_sha256": "5664751f8f68fbfaac3157fb11d031a07726f4cff0b4322fea1e6da547671f69",
+      "translator_ast_sha256": "ba70817256e6ba4dc4fb5b23f32080a358c6283e702e1a28ad7ea0b4abec62dc",
       "compiler_hir_sha256": "2fff03d307c1e6a3a4057ae909f4cbd468c9e4fc7e5ed4beeb3a254516907231"
     },
     "compiler/tests/fixtures/TextureCompareNonUniformDescriptorArrayLodShader.cgl": {
       "source_sha256": "8264923fd175212fe694f98fd188fdc484a1b7afbe3d3899317bdbb34e8fc965",
-      "translator_ast_sha256": "b1b5242f8a9d2139c35d03299f950b81f5ebdbc2a76badd11c5526a01615e919",
+      "translator_ast_sha256": "c648f3058dc16cc24351ac889ce9d78eba520a5a7ffef2b2d13b570b3e30cd09",
       "compiler_hir_sha256": "c3f60e971e124f959c872e2d8e8d833a5eed16e0f2218bbe46382591adce1a33"
     },
     "compiler/tests/fixtures/TextureCompareNonUniformDescriptorArrayShader.cgl": {
       "source_sha256": "f943745d2ed4f14896ee4a2848985688ac365aae4f1ce86644c80227f147230c",
-      "translator_ast_sha256": "30b096414cca68ce496940dbc96d3b321b4d58c274585a4a33851dd95c8613c3",
+      "translator_ast_sha256": "d8e116ce9fb24fcf5316b5f2e4cba268e3b98e97bfd26cb2187065ec676649eb",
       "compiler_hir_sha256": "adf1aad21e5a74badcd8e96a19d03c6b5df4df23689c56b846bb2e12646cbd2f"
     },
     "compiler/tests/fixtures/TextureCompareShadowShader.cgl": {
       "source_sha256": "967cfa879cf0b9d3a1c82568171aae5b102e6f6dbb75fcfa6283181b3d202083",
-      "translator_ast_sha256": "d7093f0aeda4d27e38c988aa39832277b7383aa116a32099dc06158d6669ad8e",
+      "translator_ast_sha256": "cc70103fffa1001df7e729d3bd832599a0f963004b9fcc1b80cf5f2ce0846f22",
       "compiler_hir_sha256": "9ad6192467fd4d825b05779b1b19d6af181f99db0845ada1133e2d36b321353d"
     },
     "compiler/tests/fixtures/TextureCubeArrayShadowCompareLodManualShader.cgl": {
       "source_sha256": "a1a62ab3cf091e9d0f4691f1c9d55967d214aa39c583e8fa140d5c504c521290",
-      "translator_ast_sha256": "a93307778c5c2818b438e993f9ee967a29c54e28a4edec0694080703e04aa2d4",
+      "translator_ast_sha256": "6a1eef633dbb9f9ccd3b746326c489369330461adc7c6f85a3f0d8a9af155691",
       "compiler_hir_sha256": "ef6e56e296df08f3702cc8b7d15973dcde286b8e390ee38ee94ff874a11a9622"
     },
     "compiler/tests/fixtures/TextureCubeArrayShadowCompareLodUnsupportedShader.cgl": {
       "source_sha256": "a944d9ea7cac6bff117dab4f4384854af11993585278cec0445b24fc08f1e159",
-      "translator_ast_sha256": "ac2fe1c2bbe994e56477786c95db98e95de4c7dccaace0f51a2d74fab161ab26",
+      "translator_ast_sha256": "db606e1a9ab0d33e2f394655a83ed945ec775d1803a3f21dc0d38ce5165c7a64",
       "compiler_hir_sha256": "b31ead6848a59596e7e470537cf9222ace422e666df2d115d5ef2dc28d63a4b0"
     },
     "compiler/tests/fixtures/TextureCubeCompareDescriptorArrayLodShader.cgl": {
       "source_sha256": "65829d05089f333760044b074afd3888379483fddd57fedc9eb2d2a54fa28379",
-      "translator_ast_sha256": "65e055b7c5dbc43245749ac1deee4a41e0d479d51932bad1f83d8f5417ac42bc",
+      "translator_ast_sha256": "5535c46a2b2c601eb02a8743927be91c136b584ca61b5977ee5338948d162953",
       "compiler_hir_sha256": "768035678602c1d068c07d6c29508ec4c10898088f35ef14732c5c18f8759821"
     },
     "compiler/tests/fixtures/TextureCubeCompareDescriptorArrayShader.cgl": {
       "source_sha256": "9eaabd4f2dfd820da7fe6179f52d6325594942e08f163c8dc786fc5389088dad",
-      "translator_ast_sha256": "742ff220ca3beb0bb4fd36bd23d2a95f876de8649eb6bf1a83c493fd349f3b8d",
+      "translator_ast_sha256": "4908dddf98d2074b303dae9a6f95cb0dd8de144f80ec379b17897cef277742a3",
       "compiler_hir_sha256": "c98a50b977ae1dbd7d35a88a90730b51a0c07f191f6815bb29fcccec7dcbdb06"
     },
     "compiler/tests/fixtures/TextureCubeFamilyCompareLodManualNonUniformDescriptorArrayShader.cgl": {
       "source_sha256": "78f012b4e2fd3317f432254d96845065bb4c0072d5f40428e042d02c23275978",
-      "translator_ast_sha256": "ccd6035f8d871ca99f221a950d083eed270e461bfde7abf4583324de80acc94c",
+      "translator_ast_sha256": "c189e01b08c61f6eafe08045ce8b446bcb9ab4bc83ca40f8144fb2974508a24a",
       "compiler_hir_sha256": "dce71afe9a0ad882e03373bebe85f64d310b327fb8005db74354d2e9103e4efe"
     },
     "compiler/tests/fixtures/TextureCubeFamilyOnlyNonUniformCompareLodManualDescriptorArrayShader.cgl": {
       "source_sha256": "9715991d5c51666132e52861efb389acb4e7555a8e304a301454e2ba59ce2879",
-      "translator_ast_sha256": "9f5bfa08953e35a18dc2fd22e5d824f620fe8567194ebeb1d0ae974e45d6979b",
+      "translator_ast_sha256": "ffcebfb6a63bb9f04206bfde692e91917cbc9f3c9e6bdd6ec452735c0ef26227",
       "compiler_hir_sha256": "89b0b046c907af6e379bddbd643dfb6265643c77779fdc3cd26b193c918d169a"
     },
     "compiler/tests/fixtures/TextureCubeShadowCompareLodManualShader.cgl": {
       "source_sha256": "a69dfe70ad9e1b042dff6673d562da37b221d77f17f58471e8c3bc2b4f2ac53f",
-      "translator_ast_sha256": "bc6fe93e208a23ce2e18093a3d52d0704ebff688862571b656fad1f0b62b7876",
+      "translator_ast_sha256": "44b9409e7dcc0f38ea0229b312ea74f9672c5b77210e525f989371bcaa740373",
       "compiler_hir_sha256": "5a6b7d7e90ba87d627a6895bef5655675135d20b7a8c4984c513acae0c19483f"
     },
     "compiler/tests/fixtures/TextureCubeShadowCompareLodUnsupportedShader.cgl": {
       "source_sha256": "d017ec44c8a76f2cf7e161e08f9a10926faa59928ae8be395c2bd3075db9fa01",
-      "translator_ast_sha256": "9e31cf02d2e8160363db9c66eb53404292ecea4c17e8ba58d43e1c5b225de921",
+      "translator_ast_sha256": "7673755183f810196309148996a31f3542ada461bf92a6dcc549abe312f72aa9",
       "compiler_hir_sha256": "fb2fd5c01a1910b2304e428689c66806613b26741e102f501ebb6f1cce2ad69e"
     },
     "compiler/tests/fixtures/TextureDescriptorArrayShader.cgl": {
       "source_sha256": "464e890dc3481a05f7aa5babda28990873e43f25ab4dc929f87b44465b7c60f5",
-      "translator_ast_sha256": "246dea614301acae87a22b9bb7fc2feb1dfe0821acc30cf167cd7323026dd92e",
+      "translator_ast_sha256": "6586b9825bd7537238098738334f9b740fd93d15bdc083b8eb95d207889afc3b",
       "compiler_hir_sha256": "cf9988fb436e10b4d52d0cacf69deefffe8912b35f15862e74e2a7c742060d45"
     },
     "compiler/tests/fixtures/TextureFamilyOnlyNonUniformCompareDescriptorArrayShader.cgl": {
       "source_sha256": "3d5a0c39bb9a598128c3f49557caf9dc0c30a16e4a764e2ae53500d22cae48d5",
-      "translator_ast_sha256": "40add88027660cc27e8b11db1c57b7ae725db7a0fdb9e2cf445eecd58e11febd",
+      "translator_ast_sha256": "bbbbc46d4b90d70aac5acfc5f9bac996fceeda846aa6d05d2be84c1171949394",
       "compiler_hir_sha256": "d8deb7edb3f12161fdfbe5f17b46b5df9c136c0b1456d5521f495cc991486eea"
     },
     "compiler/tests/fixtures/TextureOnlyCompareDescriptorArrayShader.cgl": {
       "source_sha256": "71697638bf2a6070cbc3ab2d6a29f178db84707611f928be7b695c21c91e7257",
-      "translator_ast_sha256": "4bb6738439f7fdcabc4fba17d9e1e3c3c68474ed6510339896d9c063f117995d",
+      "translator_ast_sha256": "7542686bc9d5dd7348a37032f963dd99917ee2af98b8c613f409ca6dba587130",
       "compiler_hir_sha256": "240c23a1cb44e6edd7706832f45b2351455bbb5ae0c41204468b92a5dee760d3"
     },
     "compiler/tests/fixtures/TextureOnlyDescriptorArraySampleShader.cgl": {
       "source_sha256": "fd26cbff6f73ae4b514af21d7f018af97ace97a742a8772292b1f04835a19a1d",
-      "translator_ast_sha256": "f92aaa8e78badc07db2ced6f65fca238d5f741c422a0bcfb1ceb3293aa72fd5f",
+      "translator_ast_sha256": "3622ea70222dd46fc6fc8451eed18642e0ee8cef4f793a49a58ce137e04bbca2",
       "compiler_hir_sha256": "7717c8be9c8a3dc083aed768037d62902f0717b9b08b4fb79f96302c77c2e15c"
     },
     "compiler/tests/fixtures/TextureOnlyNonUniformCompareDescriptorArrayLodShader.cgl": {
       "source_sha256": "f83c53539d059f35521184fc561498f8be89feb86c0857a40e1a2653fe3c7467",
-      "translator_ast_sha256": "3942c68b47cc3e6f063d7daa0d8041c28f08626c4bb4ca18a8971918b56c3dd9",
+      "translator_ast_sha256": "1643190cb2a855b86258ed3c4542f946e0a3738ce0ffd6a8dc2e27b65959348d",
       "compiler_hir_sha256": "4bb57d6b99134524a230e13af0ab914beeee3ae805a93ed097fce26649fa5bea"
     },
     "compiler/tests/fixtures/TextureOnlyNonUniformCompareDescriptorArrayShader.cgl": {
       "source_sha256": "0322ec938740b5666a5121a700736083134addf89fad67fb39d7896af0b34f42",
-      "translator_ast_sha256": "8349b49cfae977487b42cbd8e6d553a30da7532681c916de8597352843b30e9a",
+      "translator_ast_sha256": "1e5782f03a88c96bff9f06ff92a1e10df619180fa6b07c4f0054dbc0d58c04d8",
       "compiler_hir_sha256": "e2d06c2c23befb79de1cf5ba87b20be6c70c332a746da665ab4ff81a3490d07f"
     },
     "compiler/tests/fixtures/TextureOnlyNonUniformCompareLodManualDescriptorArrayShader.cgl": {
       "source_sha256": "e1eaf251d28ee05886f5d3192f670a468aee521be55daa870b17c54664207bff",
-      "translator_ast_sha256": "8cb3745965823601ec413c190f316a322d42cf4dac864c5ee2b2c15cdc1049ec",
+      "translator_ast_sha256": "c4ca2994da5b9466edb2410047d0421394bc1c54bc3a220d608ca490cac9df56",
       "compiler_hir_sha256": "74c3f855cbbf20c32a732a6549d6b7df0b83ed58ca1791cdb4c9149917817eab"
     },
     "compiler/tests/fixtures/TextureOnlyNonUniformDescriptorArraySampleShader.cgl": {
       "source_sha256": "17e0cedd66b91a4534cd14262beba4a8e629df8672781b785be226730920d1fc",
-      "translator_ast_sha256": "aaccaa7e43bbe1cbc0139ead36c30d1666adea92a9e32c5374031d58c3e7f93f",
+      "translator_ast_sha256": "1469c815100020b115e8dad28a34eb97adc62684099b463e62a5f8e2a83e2ebd",
       "compiler_hir_sha256": "d68dcfbfce4e3bb14d83141af0072ac3d1336ad3c328dd7ec25e7043339085fd"
     },
     "compiler/tests/fixtures/TextureOnlyNonUniformUintDescriptorArraySampleShader.cgl": {
       "source_sha256": "4917495cee6909fcf9e28879f5802ecdc05a8525bef70d713b770a1f19ca5a51",
-      "translator_ast_sha256": "2591d046dad0eb22218fd8b4014db1a6a337df0993aa1773126cc285c1ae43fa",
+      "translator_ast_sha256": "23e13890ec083db5f41717c25b1ba51482c1dbd21c0352b3a6f3393259f0818a",
       "compiler_hir_sha256": "826bdb1ecaa214113ac914e14c3a582a07c11c8b4863a0a405990052ae47af72"
     },
     "compiler/tests/fixtures/TextureSamplerDescriptorArraySizeMismatchShader.cgl": {
       "source_sha256": "d1c8ff88572d867083c0a2b4d000217d8b8c319de605b3dd9f7b7816602b573d",
-      "translator_ast_sha256": "d1b4f7925b61b4d1d4fb53431fe88fcd85fd02094e371027f8affa067a6debd5",
+      "translator_ast_sha256": "df9b5cf907528243962bb7f5f334601a10c82eeded371735b1678949e722b970",
       "compiler_hir_sha256": "ba0da8e8edf8a00ea5dff7135484603b0b9ad099ace63d81c88044761a182584"
     },
     "compiler/tests/fixtures/Vector3BufferComputeShader.cgl": {
       "source_sha256": "88380a7e2180305255823496ffa57640099f0bbced6ffc78769c92c4fb426a87",
-      "translator_ast_sha256": "3ffe8f98132e15de63fb5f39e6977fcfbc1bb0eb0cd815084ec18147a2cc2512",
+      "translator_ast_sha256": "e020046217a1f9a94d093ff57cc8e4c259e2d7797fc409a0a8badce9b6f2f3bc",
       "compiler_hir_sha256": "53d99e1e8f77ce5285d6695f91638ac19f1a5fe2d14acf77ddebeecbde60e9c9"
     },
     "compiler/tests/fixtures/VectorBufferComputeShader.cgl": {
       "source_sha256": "74e738dcc4341f3c0451849ac97927a6d4913e11180b7faa3b6f5c0fed80c6dc",
-      "translator_ast_sha256": "5c124d38fc324941f24efe40e222ebe0d66a74dc40a7c4c98962f933d3a9ccce",
+      "translator_ast_sha256": "b824c81a136bd5416ec8cf174eec5266ee6978054a22a3847fe29f069348900a",
       "compiler_hir_sha256": "f3c245f5f2e60d4f4fffb2a46ea0efa5c9afbd2ddd41f22e4885caf3fe96a29f"
     },
     "compiler/tests/fixtures/VectorLocalComputeShader.cgl": {
       "source_sha256": "40d2b5632f404a7f2a154bc95699b1c85912cc6e86f9fbbb61314c1857b640d2",
-      "translator_ast_sha256": "66d5a05d69361b1177b5993735c2302d45d991931b90325be86d764f0e910f04",
+      "translator_ast_sha256": "60b70215fffae55a53c01e7d58dcd606aad44a15e15fb1020309042779d48c46",
       "compiler_hir_sha256": "fc1f06eef7e686298f19ec70921f4a73cc3df5cb4e42578203d6d7de8657b846"
     },
     "compiler/tests/fixtures/VectorScalarCastComputeShader.cgl": {
       "source_sha256": "e453a1aa96aff5627a4d464de46ffc6dc0746ba210f1f7cd5e6ee69dbe1e888c",
-      "translator_ast_sha256": "39e17ceca43d036ae1b7ae0b67c4f935498d7c51e96e37e20e86110098bd2d4b",
+      "translator_ast_sha256": "cd85822b723ad4c3f55735bccacc2955f3ba5866c4a91d31cc2ccb9cd7937bac",
       "compiler_hir_sha256": "46b6ba3ff7f8388e57caa58c8f21382ff63c632f5ecea27d0846fe05b4ad9c33"
     },
     "compiler/tests/fixtures/VectorScalarComputeShader.cgl": {
       "source_sha256": "3d825101bfc75e4802dd3813d6c745b02051d3c1114d13bd8750597788997dfe",
-      "translator_ast_sha256": "7657b69b73bb58f09f7d39914cad4e868d3a921312e618db1ee9898f6ebdf07c",
+      "translator_ast_sha256": "4f40c91fcdbeadaa889b8e0d88a6e9d247f2a7505e3dd9dcc391f1a87b6d231e",
       "compiler_hir_sha256": "5ea990740a4e37e0055a42e5be0c8dadac584e4b20d7e0006643cebc89c75920"
     },
     "compiler/tests/fixtures/VectorSwizzleComputeShader.cgl": {
       "source_sha256": "00f34df8897ea453363eda48ab6d167aaaf7fe0fe7ecb2221240b329e97b228c",
-      "translator_ast_sha256": "635d1ea6bd3cf1aebddb54d656e7bada866c8342f5a94d305961907f94421a8f",
+      "translator_ast_sha256": "9a7ab4ab8e3cb162c40e5b9d91fc3c8ff311089111bdc56638273dbfac0e8345",
       "compiler_hir_sha256": "900d5ce178e04393d162a788807879efffc42fc74a39dfcb9920b02fb5706837"
     },
     "compiler/tests/fixtures/VulkanDynamicDescriptorArrayIndexShader.cgl": {
       "source_sha256": "144d8c2e2c318e415fe787d0cc820291d2349dac1405057e9632627c9aeeb411",
-      "translator_ast_sha256": "4afe82d0735242cf1cb10576cf7d718644b1928cde9e31d5b74e88f363170a18",
+      "translator_ast_sha256": "2a830120509416e0e08da022f14bf00bdc4d0b2b8c298e7204e0a1ec9460a9e6",
       "compiler_hir_sha256": "c114bdd8e427fd739b147bc16eccbb400dbfda6cdf0faaa8a2a87fc97c9cb8b5"
     },
     "compiler/tests/fixtures/VulkanIntegerTextureArraySamplerLodShader.cgl": {
       "source_sha256": "c1b2b7e14610581679e62869d6e03822c5711d0c5b795d74f356b10b3ca6f3b5",
-      "translator_ast_sha256": "2f9aeff3917737b76e8f6aebda74c52f498184c23e3c3fc4951cc2f34fd30c78",
+      "translator_ast_sha256": "67d53418e865d97059b4d2873ed5348113da8600b91ccbbd8e8961275ef0800c",
       "compiler_hir_sha256": "15da40bc22b698d299b6433dcad73f4eebc0270e8f586b398541c8dc996192ed"
     },
     "compiler/tests/fixtures/VulkanIntegerTextureSamplerLodShader.cgl": {
       "source_sha256": "fe6a37050d42c8c6aab99c19051ab1ab393f38cc05dec1277ff138150cbaf290",
-      "translator_ast_sha256": "b7918e6d06724b35b88c292c67855d9b011fab0b361404d4370d1a9ad17afe98",
+      "translator_ast_sha256": "91d1bd9f3aee8a7530ddb861d7475bfe85610d9f7c4890e1d27be5df844a9c07",
       "compiler_hir_sha256": "1df6a22e3fa73b66ad7ac1b519cce89fc2427d69d14d7b750e0163896e034806"
     },
     "compiler/tests/fixtures/VulkanNonUniformDescriptorArrayIndexShader.cgl": {
       "source_sha256": "bd44376f6fe3c9a0c7e3d067a6813d1b1ebef0a71f5dea96f43c8528f99092cd",
-      "translator_ast_sha256": "666e69f10937a647a4ca952530bbc28b499ab418a6204183c4b8009d6331b917",
+      "translator_ast_sha256": "ffb4d73bcafd5c4a9f2b7e8caf22148f426fcc47bf43b34a37da1188dee1e381",
       "compiler_hir_sha256": "cea5db3079852104d7d9d907a4c8255d53a7652dd2a8ebb536d79be24d7e0bff"
     },
     "compiler/tests/fixtures/VulkanTextureSampler3DArrayLodShader.cgl": {
       "source_sha256": "c6dda5c465adf879820b11251d202c80071a0d5a0027913ad6860910615e1cef",
-      "translator_ast_sha256": "def638889b78f5892fc40c895fc4404c7e3d616dbed76224beecfeba1bba1190",
+      "translator_ast_sha256": "4120321ef65d5f063f83f5b9c16b886e6b65ef15364fec16b63adb849da1f6d3",
       "compiler_hir_sha256": "8adc588cc5767b10ae12d87809cf1f0b6c5c6b185affaca429067fc5960021cd"
     },
     "compiler/tests/fixtures/VulkanTextureSampler3DLodShader.cgl": {
       "source_sha256": "322c6cf60c5b5ac7aadd40e05f8568914ca03899769e08d4b462a1666dae793a",
-      "translator_ast_sha256": "9aa15125e41f5a5e29fb049e01b3902ff9e54dbd8643bbda49935c376070b4e1",
+      "translator_ast_sha256": "d736e160330923eb023fb56e7223fc57d82a8217b9e4be61b8d527e64a1c63e4",
       "compiler_hir_sha256": "02e3a783d2ccc76751e1067a6b91a992567d1d6803e9d35586e7ae98a9a58333"
     },
     "compiler/tests/fixtures/VulkanTextureSamplerArrayAccessUnsupportedShader.cgl": {
       "source_sha256": "dd7260ad7a60da805a240aa85e5e7785072c60ecbe15f8e8b890e7bc4b88ccf7",
-      "translator_ast_sha256": "83f857f292eff792a3c8b5cec7da030d0482c6311c3bd61a8e27e90d879af4d2",
+      "translator_ast_sha256": "453603fabfecce5392d51fc369994520abb972738013e30231fc98b74c26aaaa",
       "compiler_hir_sha256": "88cf95201b4314387c1bd33c9ff4ef031faeffd097ea328e89294d655da0557e"
     },
     "compiler/tests/fixtures/VulkanTextureSamplerArrayDescriptorShader.cgl": {
       "source_sha256": "dc23b940d5c5c3c257bcc33753d02e4f2f74979f0fa4f16f3887c9aa0b8fd646",
-      "translator_ast_sha256": "cc4f39add9332b95d84ceca3b819ac7bf1753cb6718249469402934797733ae7",
+      "translator_ast_sha256": "285252eefe45c6cb3c913df66821804616b166a0c38ece21de1bf452c83ced96",
       "compiler_hir_sha256": "5c13a901225684c06288d1fdc7536ffe1620693b32a5d419570ff874190b822f"
     },
     "compiler/tests/fixtures/VulkanTextureSamplerArrayLodShader.cgl": {
       "source_sha256": "2012c159b234b93956424c120f78c9ef9dfae9b728c7e7f7127468c1304798e6",
-      "translator_ast_sha256": "c5ff852813a78473fd063d56f8098d287d4960247cab94b73c484617a3230404",
+      "translator_ast_sha256": "5689ed0244808a17498ac111a55ca306370473b013796d5fdb67fa04c07e39e2",
       "compiler_hir_sha256": "336cbd83265031913e0d3518d55a250b2998b82a9a2d689baa72aaf765be3874"
     },
     "compiler/tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl": {
       "source_sha256": "10be2cb8466e96795ffc567f103d9fdc2b8e477b5c69df06ab5383da82564a29",
-      "translator_ast_sha256": "e4a5d9aeb54c6c9cf60411f8a2dc2e35428a7c7a600e0b4f3390fabced7432cb",
+      "translator_ast_sha256": "9253d06879dff7c8032f9ced485e62e8882e06c65fc48f928ff4de3a1da77ecb",
       "compiler_hir_sha256": "6684c3f4522bab0aa8324e671832d69cbbd535a51dfa8eff701291f76ffe363a"
     },
     "compiler/tests/fixtures/VulkanTextureSamplerCubeLodShader.cgl": {
       "source_sha256": "4984b11f77400482145ff81b7bdce79129b9df1bb9f4ee2d9ae20073f08f3bdc",
-      "translator_ast_sha256": "175f17482aa419d093097647684eb4be6f473c3429e46c436f076c999eac1705",
+      "translator_ast_sha256": "a188a3807e3288c59ee192ff9daec7c2d1326011f479da8a164271d413298128",
       "compiler_hir_sha256": "99dff865870f0753b7e5ae27d15f278600d332ee78bcce7d2f56dbbd3fdc97fb"
     },
     "compiler/tests/fixtures/VulkanTextureSamplerLodShader.cgl": {
       "source_sha256": "2f60b58a8f89cab516aaa059edd69ff2d69e37507bbe0363abf7c6ba69144de7",
-      "translator_ast_sha256": "f441b42d0b15f347095b7a4dcb0f8e4bb7033cf3b6bcdf1fe6b298830a6fd4ed",
+      "translator_ast_sha256": "ea7f02b5d4001b8e7170864f4def610f48635076a9d0739e38004d8a37d04749",
       "compiler_hir_sha256": "4ebe80e53c8e8345cacc595416014115ddd07a16dd084c884c469338ed034b51"
     },
     "compiler/tests/fixtures/WhileComputeShader.cgl": {
       "source_sha256": "dd61bafecf825fa88ee0dddcd6670f39af62b1425d00909c3f4d971724badcb3",
-      "translator_ast_sha256": "d4b899250a72193b35e1da3eea50d74d46f4981b6f353e7ea109ea1028797d6f",
+      "translator_ast_sha256": "5e67ed3684e82b615ca8a5cd930c378d0c64d7b546ef713e35479a341def42f4",
       "compiler_hir_sha256": "e99db3f71bba9b81a622aa8f8d9b0f219b6e5dd173cb5b101bac0279c47e8445"
     },
     "translator/examples/advanced/ArrayTest.cgl": {
       "source_sha256": "da802ae5b78a3d272f94bdffcb036e7e574550f1d6db046263cf99d8b07b86da",
-      "translator_ast_sha256": "131547247a7bf31ec8b7f8c712033a61b046e2157c8b46677fc83431949b287d",
+      "translator_ast_sha256": "1bdf9982085b0ca6a0b0f806803cb2f7a1219ad1994d6842bdb464170b4ca42d",
       "compiler_hir_sha256": "2623324afe40c2a1042b7ccbdcbccc0b250c90c3b6c7ba32a339b4b79e5ba13c"
     },
     "translator/examples/compute/ParticleSimulation.cgl": {
       "source_sha256": "98cbcaec828dd6cc0eb36a53be91797e655cff31ab2f9448f758d1dff1b94d49",
-      "translator_ast_sha256": "0e304e54540c0a049c167106d5d80feab8c0406ae32507da97a8020b56cdbdb2",
+      "translator_ast_sha256": "833ec9df7876f9235d6f73c759aece67576bfca53a79dcaa2c23dd3a968feccb",
       "compiler_hir_sha256": "9555206a056a0b1d7bfa957e6169eba4e0c345f9ab1f6fe43b59a7fa74fee215"
     },
     "translator/examples/gpu_computing/MatrixMultiplication.cgl": {
       "source_sha256": "4c002060f3203388c1224a223696ab8b27f40a685a220a77707ebb4374c6c0c8",
-      "translator_ast_sha256": "ff13d8f35d19149b7baafc5411783d3d5713f0712f4028f8514062d9d998329c",
+      "translator_ast_sha256": "9a1a6d187128f8f61989ddf7dff19fc5e9ee0dba4becadf6d2d705adc0abdfa3",
       "compiler_hir_sha256": "c59efe6c3142111d674b6e259593e0842440e1aae9f6a1c2c9dfa0d11772d87d"
     },
     "translator/examples/graphics/ComplexShader.cgl": {
       "source_sha256": "e9e9cfe5a86c820d8ae290e13394183195e687c3b5c3f493dd01e89493fac4b3",
-      "translator_ast_sha256": "4f4faf30328f45b6e4a4dd9cd7154db77e6fb68fc8215ea3087315f7fada5a78",
+      "translator_ast_sha256": "957a5ac4de5d9020a662acab7791bce66cf867d78072074d4dfaf992ca83b970",
       "compiler_hir_sha256": "1b59229b1bac79d49b67aa506c9ae1717a48d3b88cebf0765cee63b8ff75a40c"
     },
     "translator/examples/graphics/PerlinNoise.cgl": {
       "source_sha256": "39270d9fac2e2215ed31d1388ea697c2d168e652981b645b3969bc9d9d8eb893",
-      "translator_ast_sha256": "c3b2eaad1fc3e5b702b9b79408dbba685d968a88faf7a047a414c3c2401aa017",
+      "translator_ast_sha256": "4561bf7e09ce89727687c9191a09cc99de368fec5b86e94f88f8149de72a624e",
       "compiler_hir_sha256": "7fcbbe04bbb3b14061f1122a766fc72c11354df16c93d23135f955766bff5364"
     },
     "translator/examples/graphics/SimpleShader.cgl": {
       "source_sha256": "7af4509b1d78770755c08a5817976bfa316ff1214c6c1403504f4ea67f6be39a",
-      "translator_ast_sha256": "d5a3971c200f5534b12afe03d9139c268cb5d45b0c7bfb29af5550dab52383ff",
+      "translator_ast_sha256": "e34fc0c3dd4d15095a76f64c99a0fee0892ffc9c04728393ec9fbb621112e9d3",
       "compiler_hir_sha256": "5b9f3d138bffee9c69c68985b8dffebcaf849b16ce3295379f2096b20268f067"
     }
   }
