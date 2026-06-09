@@ -5,6 +5,12 @@ from .common import validate_unique_values
 
 
 TARGET_ORDER = ("metal", "vulkan", "directx", "opengl")
+DISPLAY_NAMES = {
+    "metal": "Metal",
+    "vulkan": "Vulkan",
+    "directx": "DirectX",
+    "opengl": "OpenGL",
+}
 PACKAGE_MODES = {
     "metal": "native",
     "vulkan": "native",
@@ -202,6 +208,13 @@ def validate_target_record(errors, path, record):
         record["packageMode"],
         PACKAGE_MODES[target],
         "registry v0 target package mode",
+    )
+    add_equal_error(
+        errors,
+        f"{path}.displayName",
+        record["displayName"],
+        DISPLAY_NAMES[target],
+        "registry v0 target display name",
     )
 
     capability_ids = [capability["id"] for capability in record["capabilities"]]
