@@ -410,6 +410,13 @@
             "r32ui"
           ]
         },
+        "storageImageAccess": {
+          "enum": [
+            "read",
+            "write",
+            "read_write"
+          ]
+        },
         "sourceMapRef": {
           "$ref": "#/$defs/sourceMapRef"
         }
@@ -472,6 +479,13 @@
             "r32f",
             "r32i",
             "r32ui"
+          ]
+        },
+        "storageImageAccess": {
+          "enum": [
+            "read",
+            "write",
+            "read_write"
           ]
         },
         "addressSpace": {

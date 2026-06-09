@@ -1029,6 +1029,18 @@ crossgl_add_python_expect_test(
     "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=StorageBufferComputeShader|summary.target=directx|summary.debugArtifactsPresent=true")
 
 crossgl_add_python_expect_test(
+  NAME cglc_cli_package_inspect_storage_image_access_json_schema
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_DIRECTX_STORAGE_IMAGE_ACCESS_QUALIFIER_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-package-inspect-storage-image-access.cglb
+    -DMODE=package-inspect-source-package
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=DirectXStorageImageAccessQualifierShader|summary.target=directx|reflection.resources.0.storageImageAccess=read|reflection.resources.1.storageImageAccess=write|reflection.resources.2.storageImageAccess=read_write|reflection.targetResourceBindings.0.storageImageAccess=read|reflection.targetResourceBindings.1.storageImageAccess=write|reflection.targetResourceBindings.2.storageImageAccess=read_write")
+
+crossgl_add_python_expect_test(
   NAME cglc_cli_package_verify_text_success_contract
   DEFINITIONS
     -DCGLC=$<TARGET_FILE:cglc>

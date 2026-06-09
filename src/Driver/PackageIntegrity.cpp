@@ -1758,6 +1758,13 @@ void verifyReflectionBindingResourceFields(
         optionalStringLabel(resource.storageImageFormat),
         optionalStringLabel(binding.storageImageFormat), diagnostics);
   }
+  if ((resource.storageImageAccess || binding.storageImageAccess) &&
+      binding.storageImageAccess != resource.storageImageAccess) {
+    diagnoseReflectionBindingMismatch(
+        binding, "storageImageAccess",
+        optionalStringLabel(resource.storageImageAccess),
+        optionalStringLabel(binding.storageImageAccess), diagnostics);
+  }
 }
 
 void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,

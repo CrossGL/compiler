@@ -51,6 +51,7 @@ struct ReflectionResource {
   std::optional<std::size_t> binding;
   std::optional<std::string> addressSpace;
   std::optional<std::string> storageImageFormat;
+  std::optional<std::string> storageImageAccess;
 };
 
 struct ReflectionStorageBufferFieldLayout {
@@ -91,6 +92,7 @@ struct ReflectionTargetResourceBinding {
   std::optional<std::string> storageClass;
   std::optional<std::string> spirvType;
   std::optional<std::string> storageImageFormat;
+  std::optional<std::string> storageImageAccess;
   std::optional<std::size_t> argumentIndex;
   std::optional<std::size_t> set;
   std::optional<std::size_t> binding;

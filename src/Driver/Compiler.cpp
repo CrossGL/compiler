@@ -920,6 +920,11 @@ void writeGraphicsAbiResource(std::ostringstream &out, const HIRModule &module,
         << indent << "  \"storageImageFormat\": \""
         << escapeJson(*resource.storageImageFormat) << "\"";
   }
+  if (resource.storageImageAccess.has_value()) {
+    out << ",\n"
+        << indent << "  \"storageImageAccess\": \""
+        << escapeJson(*resource.storageImageAccess) << "\"";
+  }
   out << ",\n" << indent << "  \"sourceMapRef\":\n";
   writeSourceMapRefJson(out, sourceMapRef, std::string(indent) + "  ");
   out << "\n" << indent << "}";
@@ -964,6 +969,10 @@ void writeGraphicsAbiRecord(std::ostringstream &out, const HIRModule &module,
   if (record.storageImageFormat.has_value()) {
     out << indent << "  \"storageImageFormat\": \""
         << escapeJson(*record.storageImageFormat) << "\",\n";
+  }
+  if (record.storageImageAccess.has_value()) {
+    out << indent << "  \"storageImageAccess\": \""
+        << escapeJson(*record.storageImageAccess) << "\",\n";
   }
   out << indent << "  \"addressSpace\": \"" << escapeJson(record.addressSpace)
       << "\",\n"

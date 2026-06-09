@@ -414,6 +414,8 @@ void collectReflectionResources(
         optionalStringMemberValue(resourceObject, "addressSpace");
     record.storageImageFormat =
         optionalStringMemberValue(resourceObject, "storageImageFormat");
+    record.storageImageAccess =
+        optionalStringMemberValue(resourceObject, "storageImageAccess");
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(resourceObject, "arrayDimensions", "[]");
     resourcesOut.push_back(std::move(record));
@@ -460,6 +462,8 @@ void collectReflectionTargetResourceBindings(
         optionalStringMemberValue(bindingObject, "addressSpace");
     record.storageImageFormat =
         optionalStringMemberValue(bindingObject, "storageImageFormat");
+    record.storageImageAccess =
+        optionalStringMemberValue(bindingObject, "storageImageAccess");
     record.arrayElementCount =
         objectUnsignedMember(bindingObject, "arrayElementCount");
     record.arrayDimensionsJson =

@@ -442,6 +442,16 @@ crossgl_add_directx_descriptor_array_package_verify_schema_test(
   MODULE StorageImageAtomicDescriptorArrayShader)
 
 crossgl_add_package_verify_json_schema_test(
+  NAME cglc_package_verify_json_schema_directx_storage_image_access_qualifier_source_package
+  TARGET directx
+  INPUT ${CROSSGL_DIRECTX_STORAGE_IMAGE_ACCESS_QUALIFIER_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test-directx-storage-image-access-qualifier-package-verify-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=true|summary.module=DirectXStorageImageAccessQualifierShader|summary.target=directx|summary.nativeBinaryStatus=planned|summary.artifactCount=6|summary.debugArtifactsPresent=true|diagnosticCounts.error=0"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=0")
+
+crossgl_add_package_verify_json_schema_test(
   NAME cglc_package_verify_json_schema_legacy_missing_artifact_requirements_compat
   TARGET directx
   INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
