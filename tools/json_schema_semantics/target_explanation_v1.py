@@ -35,6 +35,7 @@ NORMALIZED_LEGALIZATION_FIELDS = {
 }
 
 NATIVE_PACKAGE_TOOL_REQUIREMENTS = {
+    "directx": ("directx.toolchain.dxc",),
     "metal": (
         "metal.toolchain.xcrun-metal",
         "metal.toolchain.xcrun-metallib",

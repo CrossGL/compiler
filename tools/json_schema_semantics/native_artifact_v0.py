@@ -110,6 +110,17 @@ def is_directx_planned_dxc_evidence(instance):
     )
 
 
+def is_directx_native_dxil_descriptor(instance):
+    return (
+        instance["target"] == "directx"
+        and instance["binaryKind"] == "directx.dxil"
+        and instance.get("nativeBinaryStatus") is None
+        and instance.get("artifactPath") is not None
+        and instance.get("artifactHash") is not None
+        and instance.get("sizeBytes") is not None
+    )
+
+
 def directx_planned_dxc_tools_match(instance):
     tools = [
         tool
@@ -278,6 +289,8 @@ def validate_native_binary_status(errors, instance):
 
     if is_source_package_target(target):
         if status is None:
+            if is_directx_native_dxil_descriptor(instance):
+                return
             errors.append(
                 f"$.nativeBinaryStatus: {target} descriptors require nativeBinaryStatus"
             )

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <initializer_list>
 #include <limits>
 #include <ostream>
 #include <sstream>
@@ -147,8 +148,8 @@ std::string formatRequiredPathArtifacts(
     const PackageArtifactRequirementsRecord &requirements) {
   std::ostringstream out;
   out << "[";
-  for (std::size_t index = 0;
-       index < requirements.requiredPathArtifacts.size(); ++index) {
+  for (std::size_t index = 0; index < requirements.requiredPathArtifacts.size();
+       ++index) {
     if (index != 0) {
       out << ", ";
     }
@@ -186,6 +187,48 @@ bool requiredPathArtifactsMatchTargetContract(
     }
   }
   return true;
+}
+
+bool hasSingleRequiredPathArtifact(
+    const PackageArtifactRequirementsRecord &requirements,
+    std::string_view artifactName) {
+  return requirements.requiredPathArtifacts.size() == 1 &&
+         requirements.requiredPathArtifacts.front().name == artifactName;
+}
+
+bool hasRequiredPathArtifacts(
+    const PackageArtifactRequirementsRecord &requirements,
+    std::initializer_list<std::string_view> artifactNames) {
+  if (requirements.requiredPathArtifacts.size() != artifactNames.size()) {
+    return false;
+  }
+  auto expected = artifactNames.begin();
+  for (const PackageRequiredPathArtifactRecord &artifact :
+       requirements.requiredPathArtifacts) {
+    if (artifact.name != *expected) {
+      return false;
+    }
+    ++expected;
+  }
+  return true;
+}
+
+bool isDirectXNativeRequirements(
+    const PackageMetadata &metadata,
+    const PackageArtifactRequirementsRecord &requirements) {
+  return metadata.target == "directx" && requirements.target == "directx" &&
+         requirements.packageMode == "native" &&
+         (hasSingleRequiredPathArtifact(requirements, "nativeBinary") ||
+          hasRequiredPathArtifacts(requirements,
+                                   {"backendSource", "nativeBinary"})) &&
+         !requirements.requiresNativeBinaryStatus &&
+         !requirements.allowsPlannedNativeBinary &&
+         !requirements.allowsPlannedNativeSourceEvidence &&
+         findArtifact(metadata, "nativeBinary") != nullptr &&
+         findArtifact(metadata, "nativeArtifactDescriptor") != nullptr &&
+         findArtifact(metadata, "nativeBinaryStatus") == nullptr &&
+         findArtifact(metadata, "backendAssembly") == nullptr &&
+         findArtifact(metadata, "intermediate") == nullptr;
 }
 
 std::string packageArtifactEvidenceId(std::string_view target,
@@ -236,7 +279,9 @@ bool verifyArtifactRequirementsForVerification(
 
   const PackageTargetContract *contract =
       packageTargetContractFor(metadata.target);
-  if (contract != nullptr) {
+  const bool directXNativeRequirements =
+      isDirectXNativeRequirements(metadata, requirements);
+  if (contract != nullptr && !directXNativeRequirements) {
     const std::string_view expectedPackageMode =
         expectedPackageArtifactRequirementMode(*contract);
     if (requirements.packageMode != expectedPackageMode) {
@@ -251,15 +296,15 @@ bool verifyArtifactRequirementsForVerification(
     }
 
     if (!requiredPathArtifactsMatchTargetContract(requirements, *contract)) {
-      diagnostics.error(
-          diagnosticCode("invalid-manifest"),
-          "package manifest "
-          "packageArtifactRequirements.requiredPathArtifacts must match manifest "
-          "target contract: expected " +
-              formatRequiredPathArtifacts(*contract) + ", got " +
-              formatRequiredPathArtifacts(requirements),
-          requirements.requiredPathArtifactsLocation.value_or(
-              requirements.location));
+      diagnostics.error(diagnosticCode("invalid-manifest"),
+                        "package manifest "
+                        "packageArtifactRequirements.requiredPathArtifacts "
+                        "must match manifest "
+                        "target contract: expected " +
+                            formatRequiredPathArtifacts(*contract) + ", got " +
+                            formatRequiredPathArtifacts(requirements),
+                        requirements.requiredPathArtifactsLocation.value_or(
+                            requirements.location));
       valid = false;
     }
 
@@ -451,7 +496,8 @@ jsonArrayElements(std::string_view value) {
     ++position;
     skipWhitespace(value, position);
     return position == value.size()
-               ? std::optional<std::vector<std::string_view>>(std::move(elements))
+               ? std::optional<std::vector<std::string_view>>(
+                     std::move(elements))
                : std::nullopt;
   }
 
@@ -532,7 +578,8 @@ bool manifestToolRequirementsDrift(
                             sidecar.requiredToolCount) ||
          optionalFieldDrift(manifest.missingToolCount,
                             sidecar.missingToolCount) ||
-         optionalFieldDrift(manifest.requiredToolIds, sidecar.requiredToolIds) ||
+         optionalFieldDrift(manifest.requiredToolIds,
+                            sidecar.requiredToolIds) ||
          optionalFieldDrift(manifest.missingToolIds, sidecar.missingToolIds) ||
          optionalFieldDrift(manifest.optionalNativeToolMissing,
                             sidecar.optionalNativeToolMissing) ||
@@ -673,7 +720,8 @@ debugMetadataLegalizationEvidence(const PackageMetadata &metadata) {
             objectUnsignedMember(*summary, "missingToolCount");
       }
       if (!evidence.requiredToolIds) {
-        evidence.requiredToolIds = stringArrayMember(*summary, "requiredToolIds");
+        evidence.requiredToolIds =
+            stringArrayMember(*summary, "requiredToolIds");
       }
       if (!evidence.missingToolIds) {
         evidence.missingToolIds = stringArrayMember(*summary, "missingToolIds");
@@ -728,7 +776,8 @@ targetExplanationLegalizationEvidence(const PackageMetadata &metadata) {
       objectBoolMember(*record, "packageBuildSupported");
   evidence.packageDecisionReason =
       objectStringMember(*record, "packageDecisionReason");
-  evidence.requiredToolCount = objectUnsignedMember(*record, "requiredToolCount");
+  evidence.requiredToolCount =
+      objectUnsignedMember(*record, "requiredToolCount");
   evidence.missingToolCount = objectUnsignedMember(*record, "missingToolCount");
   evidence.requiredToolIds = stringArrayMember(*record, "requiredToolIds");
   evidence.missingToolIds = stringArrayMember(*record, "missingToolIds");
@@ -800,7 +849,8 @@ void appendMissingEvidence(std::vector<std::string> &missingEvidence,
 PackageTargetLegalizationEvidence
 collectPackageTargetLegalizationEvidence(const PackageMetadata &metadata) {
   PackageTargetLegalizationEvidence evidence;
-  evidence.manifestToolRequirements = manifestToolRequirementsEvidence(metadata);
+  evidence.manifestToolRequirements =
+      manifestToolRequirementsEvidence(metadata);
   evidence.debugMetadata = debugMetadataLegalizationEvidence(metadata);
   evidence.targetExplanation = targetExplanationLegalizationEvidence(metadata);
   evidence.packageArtifactRequirementEvidenceIds = firstEvidenceIds(
@@ -852,9 +902,8 @@ collectPackageTargetLegalizationEvidence(const PackageMetadata &metadata) {
           *evidence.manifestToolRequirements.packageMode ==
               metadata.artifactRequirements->packageMode;
     }
-    evidence.manifestToolRequirementEvidenceIdsPresent =
-        hasEvidenceIds(evidence.manifestToolRequirements
-                           .toolRequirementEvidenceIds);
+    evidence.manifestToolRequirementEvidenceIdsPresent = hasEvidenceIds(
+        evidence.manifestToolRequirements.toolRequirementEvidenceIds);
     evidence.debugMetadataToolRequirementsMatchManifest =
         sidecarToolRequirementsMatchManifest(evidence.manifestToolRequirements,
                                              evidence.debugMetadata);
@@ -883,9 +932,9 @@ collectPackageTargetLegalizationEvidence(const PackageMetadata &metadata) {
   if (evidence.manifestToolRequirements.present &&
       !hasEvidenceIds(
           evidence.manifestToolRequirements.toolRequirementEvidenceIds)) {
-    appendMissingEvidence(
-        evidence.missingEvidence,
-        "manifest.targetLegalizationToolRequirements.toolRequirementEvidenceIds");
+    appendMissingEvidence(evidence.missingEvidence,
+                          "manifest.targetLegalizationToolRequirements."
+                          "toolRequirementEvidenceIds");
   }
 
   const bool applicable = metadata.artifactRequirements.has_value() ||
@@ -1045,14 +1094,12 @@ void verifyDebugArtifacts(const PackageMetadata &metadata,
                           DiagnosticEngine &diagnostics) {
   const PackageArtifactRecord *sourceRemap =
       findArtifact(metadata, "sourceRemap");
-  if (sourceRemap &&
-      !(metadata.debugMetadataArtifactPresent &&
-        metadata.hirSourceMapArtifactPresent)) {
-    diagnostics.error(
-        diagnosticCode("source-remap-without-debug-artifacts"),
-        artifactLabel("sourceRemap", sourceRemap) +
-            " requires debugMetadata and hirSourceMap",
-        artifactLocation(metadata, *sourceRemap));
+  if (sourceRemap && !(metadata.debugMetadataArtifactPresent &&
+                       metadata.hirSourceMapArtifactPresent)) {
+    diagnostics.error(diagnosticCode("source-remap-without-debug-artifacts"),
+                      artifactLabel("sourceRemap", sourceRemap) +
+                          " requires debugMetadata and hirSourceMap",
+                      artifactLocation(metadata, *sourceRemap));
   }
 
   if (metadata.debugMetadataArtifactPresent !=
@@ -1144,8 +1191,7 @@ void verifyDebugArtifactHealth(const PackageMetadata &metadata,
             " records.totalCount must match categoryCounts.recordTotalCount",
         sourceMapLocation);
   }
-  if (health.sourceRemap.artifactPresent &&
-      health.sourceRemap.health != "ok") {
+  if (health.sourceRemap.artifactPresent && health.sourceRemap.health != "ok") {
     const PackageArtifactRecord *sourceRemap =
         findArtifact(metadata, "sourceRemap");
     diagnostics.error(diagnosticCode("source-remap-provenance-invalid"),
@@ -1169,12 +1215,11 @@ void verifyNativeArtifactDescriptor(
         requirements.packageMode == "native" ||
         (nativeBinaryStatus && *nativeBinaryStatus != "planned");
     if (nativeReady) {
-      diagnostics.error(
-          diagnosticCode("native-artifact-descriptor-required"),
-          metadata.target +
-              " native-ready package verification requires "
-              "nativeArtifactDescriptor artifact evidence",
-          artifactsLocation(metadata));
+      diagnostics.error(diagnosticCode("native-artifact-descriptor-required"),
+                        metadata.target +
+                            " native-ready package verification requires "
+                            "nativeArtifactDescriptor artifact evidence",
+                        artifactsLocation(metadata));
     }
     return;
   }
@@ -1271,7 +1316,8 @@ void verifyTargetLegalizationEvidence(const PackageMetadata &metadata,
       metadata.targetLegalizationToolRequirements) {
     diagnostics.error(
         diagnosticCode("target-legalization-manifest-tool-target-mismatch"),
-        "targetLegalizationToolRequirements target must match package target '" +
+        "targetLegalizationToolRequirements target must match package target "
+        "'" +
             metadata.target + "'",
         metadata.targetLegalizationToolRequirements->targetLocation.value_or(
             metadata.targetLegalizationToolRequirements->location));
@@ -1586,8 +1632,8 @@ std::string reflectionTargetBindingDuplicateIdentityLabel(
          "' name '" + binding.name + "' kind '" + binding.kind + "'";
 }
 
-std::string reflectionResourceLabel(
-    const PackageReflectionResourceRecord &resource) {
+std::string
+reflectionResourceLabel(const PackageReflectionResourceRecord &resource) {
   if (!resource.name.empty()) {
     return "'" + resource.name + "'";
   }
@@ -1688,7 +1734,8 @@ fixedArrayElementCountFromDimensions(std::string_view arrayDimensionsJson) {
 
   std::uintmax_t product = 1;
   for (std::string_view dimension : *dimensions) {
-    const std::optional<std::string> kind = objectStringMember(dimension, "kind");
+    const std::optional<std::string> kind =
+        objectStringMember(dimension, "kind");
     if (!kind || *kind != "fixed") {
       return std::nullopt;
     }
@@ -1723,13 +1770,14 @@ void diagnoseReflectionBindingArrayMismatch(
     const PackageReflectionTargetResourceBindingRecord &binding,
     std::string field, std::string expected, std::string actual,
     DiagnosticEngine &diagnostics) {
-  diagnostics.error(diagnosticCode("reflection-target-resource-binding-array-"
-                                   "mismatch"),
-                    "reflection selected-target resource binding " +
-                        reflectionTargetBindingLabel(binding) + " " + field +
-                        " must match reflected resource array metadata: expected " +
-                        expected + ", got " + actual,
-                    binding.location);
+  diagnostics.error(
+      diagnosticCode("reflection-target-resource-binding-array-"
+                     "mismatch"),
+      "reflection selected-target resource binding " +
+          reflectionTargetBindingLabel(binding) + " " + field +
+          " must match reflected resource array metadata: expected " +
+          expected + ", got " + actual,
+      binding.location);
 }
 
 void verifyReflectionBindingResourceFields(
@@ -1742,10 +1790,9 @@ void verifyReflectionBindingResourceFields(
         "'" + binding.sourceType + "'", diagnostics);
   }
   if (binding.arrayDimensionsJson != resource.arrayDimensionsJson) {
-    diagnoseReflectionBindingArrayMismatch(binding, "arrayDimensions",
-                                           resource.arrayDimensionsJson,
-                                           binding.arrayDimensionsJson,
-                                           diagnostics);
+    diagnoseReflectionBindingArrayMismatch(
+        binding, "arrayDimensions", resource.arrayDimensionsJson,
+        binding.arrayDimensionsJson, diagnostics);
   }
   const std::optional<std::uintmax_t> resourceFixedArrayElementCount =
       fixedArrayElementCountFromDimensions(resource.arrayDimensionsJson);
@@ -1762,16 +1809,14 @@ void verifyReflectionBindingResourceFields(
         std::to_string(*binding.arrayElementCount), diagnostics);
   }
   if (binding.set != resource.set) {
-    diagnoseReflectionBindingMismatch(binding, "set",
-                                      optionalUnsignedLabel(resource.set),
-                                      optionalUnsignedLabel(binding.set),
-                                      diagnostics);
+    diagnoseReflectionBindingMismatch(
+        binding, "set", optionalUnsignedLabel(resource.set),
+        optionalUnsignedLabel(binding.set), diagnostics);
   }
   if (binding.binding != resource.binding) {
-    diagnoseReflectionBindingMismatch(binding, "binding",
-                                      optionalUnsignedLabel(resource.binding),
-                                      optionalUnsignedLabel(binding.binding),
-                                      diagnostics);
+    diagnoseReflectionBindingMismatch(
+        binding, "binding", optionalUnsignedLabel(resource.binding),
+        optionalUnsignedLabel(binding.binding), diagnostics);
   }
   if (resource.addressSpace &&
       !reflectionAddressSpacesMatch(resource.addressSpace,
@@ -1804,16 +1849,15 @@ void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
         !hasReflectionTargetResourceBindingDuplicateIdentity(*binding)) {
       continue;
     }
-    const auto duplicate =
-        std::find_if(metadata.reflectionTargetResourceBindings.begin(), binding,
-                     [&](const PackageReflectionTargetResourceBindingRecord
-                             &candidate) {
-                       return candidate.target == metadata.target &&
-                              hasReflectionTargetResourceBindingDuplicateIdentity(
-                                  candidate) &&
-                              reflectionTargetBindingDuplicateIdentityMatches(
-                                  candidate, *binding);
-                     });
+    const auto duplicate = std::find_if(
+        metadata.reflectionTargetResourceBindings.begin(), binding,
+        [&](const PackageReflectionTargetResourceBindingRecord &candidate) {
+          return candidate.target == metadata.target &&
+                 hasReflectionTargetResourceBindingDuplicateIdentity(
+                     candidate) &&
+                 reflectionTargetBindingDuplicateIdentityMatches(candidate,
+                                                                 *binding);
+        });
     if (duplicate == binding) {
       continue;
     }
@@ -2001,17 +2045,14 @@ void writeGraphicsAbiSummary(std::ostream &out,
                              const PackageGraphicsAbiSummary &summary,
                              std::string_view indent) {
   out << "{\n"
-      << indent << "  \"module\": \"" << escapeJson(summary.module)
-      << "\",\n"
-      << indent << "  \"target\": \"" << escapeJson(summary.target)
-      << "\",\n"
-      << indent << "  \"entryPointCount\": " << summary.entryPointCount
-      << ",\n"
+      << indent << "  \"module\": \"" << escapeJson(summary.module) << "\",\n"
+      << indent << "  \"target\": \"" << escapeJson(summary.target) << "\",\n"
+      << indent << "  \"entryPointCount\": " << summary.entryPointCount << ",\n"
       << indent << "  \"vertexInputCount\": " << summary.vertexInputCount
       << ",\n"
       << indent << "  \"varyingCount\": " << summary.varyingCount << ",\n"
-      << indent << "  \"fragmentOutputCount\": "
-      << summary.fragmentOutputCount << ",\n"
+      << indent << "  \"fragmentOutputCount\": " << summary.fragmentOutputCount
+      << ",\n"
       << indent << "  \"builtinCount\": " << summary.builtinCount << ",\n"
       << indent << "  \"resourceCount\": " << summary.resourceCount << ",\n"
       << indent << "  \"abiRecordCount\": " << summary.abiRecordCount << "\n"
@@ -2025,13 +2066,11 @@ void writeGraphicsAbiDiagnostics(
   out << "[";
   for (std::size_t index = 0; index < diagnostics.size(); ++index) {
     const PackageGraphicsAbiDiagnostic &diagnostic = diagnostics[index];
-    out << (index == 0 ? "\n" : ",\n")
-        << indent << "{\n"
+    out << (index == 0 ? "\n" : ",\n") << indent << "{\n"
         << indent << "  \"severity\": \"error\",\n"
-        << indent << "  \"code\": \"" << escapeJson(diagnostic.code)
-        << "\",\n"
-        << indent << "  \"message\": \""
-        << escapeJson(diagnostic.message) << "\"\n"
+        << indent << "  \"code\": \"" << escapeJson(diagnostic.code) << "\",\n"
+        << indent << "  \"message\": \"" << escapeJson(diagnostic.message)
+        << "\"\n"
         << indent << "}";
   }
   if (!diagnostics.empty()) {
@@ -2055,8 +2094,7 @@ void writeGraphicsAbiHealth(std::ostream &out,
   out << ",\n"
       << indent << "  \"exists\": " << (health.exists ? "true" : "false")
       << ",\n"
-      << indent << "  \"health\": \"" << escapeJson(health.health)
-      << "\",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health) << "\",\n"
       << indent << "  \"validation\": \"lightweight-structural\",\n"
       << indent << "  \"schemaVersion\": ";
   writeNullableUnsigned(out, health.schemaVersion);
@@ -2166,8 +2204,7 @@ void writeTargetLegalizationEvidence(
   out << ",\n"
       << indent << "  \"checks\": {\n"
       << indent << "    \"manifestToolRequirementsTargetMatchesPackage\": ";
-  writeNullableBool(out,
-                    evidence.manifestToolRequirementsTargetMatchesPackage);
+  writeNullableBool(out, evidence.manifestToolRequirementsTargetMatchesPackage);
   out << ",\n"
       << indent
       << "    \"manifestToolRequirementsPackageModeMatchesRequirements\": ";
@@ -2175,8 +2212,7 @@ void writeTargetLegalizationEvidence(
       out, evidence.manifestToolRequirementsPackageModeMatchesRequirements);
   out << ",\n"
       << indent << "    \"manifestToolRequirementEvidenceIdsPresent\": ";
-  writeNullableBool(out,
-                    evidence.manifestToolRequirementEvidenceIdsPresent);
+  writeNullableBool(out, evidence.manifestToolRequirementEvidenceIdsPresent);
   out << ",\n" << indent << "    \"debugMetadataTargetMatchesPackage\": ";
   writeNullableBool(out, evidence.debugMetadataTargetMatchesPackage);
   out << ",\n" << indent << "    \"targetExplanationTargetMatchesPackage\": ";
@@ -2190,8 +2226,7 @@ void writeTargetLegalizationEvidence(
                     evidence.targetExplanationPackageModeMatchesRequirements);
   out << ",\n"
       << indent << "    \"debugMetadataToolRequirementsMatchManifest\": ";
-  writeNullableBool(out,
-                    evidence.debugMetadataToolRequirementsMatchManifest);
+  writeNullableBool(out, evidence.debugMetadataToolRequirementsMatchManifest);
   out << ",\n"
       << indent << "    \"targetExplanationToolRequirementsMatchManifest\": ";
   writeNullableBool(out,

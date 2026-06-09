@@ -951,9 +951,35 @@ def validate_capability_target_prefix(errors, path, target, capabilities):
             )
 
 
+SOURCE_PACKAGE_FALLBACK_NATIVE_EVIDENCE = {
+    "directx": {
+        "directx.backend.native-dxil-package",
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator",
+    },
+}
+
+
+def source_package_fallback_native_mode(record):
+    if not record.get("nativeImplemented") or not record.get("sourcePackageSupported"):
+        return False
+    optional_evidence = SOURCE_PACKAGE_FALLBACK_NATIVE_EVIDENCE.get(record["target"])
+    if not optional_evidence:
+        return False
+    missing_capabilities = record.get("missingCapabilities", [])
+    if not isinstance(missing_capabilities, list) or not missing_capabilities:
+        return False
+    return all(
+        isinstance(capability, str) and capability in optional_evidence
+        for capability in missing_capabilities
+    )
+
+
 def expected_package_mode(record):
     if not record["packageBuildSupported"]:
         return "unsupported"
+    if source_package_fallback_native_mode(record):
+        return "source-package"
     if record["nativeImplemented"]:
         return "native"
     if record["sourcePackageSupported"]:
