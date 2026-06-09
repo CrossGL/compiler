@@ -4952,7 +4952,7 @@ void testHIROptimizationLevelTracePolicies() {
       "hir.optimize.cleanup-dead-local-stores",
       "hir.validate.storage-buffer-shapes",
   };
-  constexpr std::array<std::string_view, 12> o2TracePolicy = {
+  constexpr std::array<std::string_view, 13> o2TracePolicy = {
       "hir.validate.module-shape",
       "hir.validate.typed-symbols",
       "hir.optimize.fold-constant-intrinsics",
@@ -4962,6 +4962,7 @@ void testHIROptimizationLevelTracePolicies() {
       "hir.optimize.cleanup-unreachable-statements",
       "hir.optimize.cleanup-dead-local-declarations",
       "hir.optimize.cleanup-dead-local-stores",
+      "hir.optimize.o2.pure-expression-cse",
       "hir.optimize.o2.inline-scalar-temporaries",
       "hir.optimize.o2.inline-literal-vector-temporaries",
       "hir.validate.storage-buffer-shapes",
@@ -5072,6 +5073,8 @@ void testHIROptimizationLevelTracePolicies() {
              o1Trace.find(
                  "\"name\": \"hir.optimize.cleanup-dead-local-stores\"") !=
                  std::string::npos &&
+             o1Trace.find("hir.optimize.o2.pure-expression-cse") ==
+                 std::string::npos &&
              o1Trace.find("hir.optimize.o2.inline-scalar-temporaries") ==
                  std::string::npos &&
              o1Trace.find("hir.optimize.o2.inline-literal-vector-temporaries") ==
@@ -5087,16 +5090,18 @@ void testHIROptimizationLevelTracePolicies() {
              o2Result.passScheduleFingerprint == o2TracePolicyFingerprint &&
              o2Trace.find("\"optimizationLevel\": \"O2\"") !=
                  std::string::npos &&
-             o2Trace.find("\"id\": \"hir-o2-conservative-inline\"") !=
+             o2Trace.find("\"id\": \"hir-o2-conservative-local-values\"") !=
                  std::string::npos &&
-             o2Trace.find("\"name\": \"O2 conservative inline\"") !=
+             o2Trace.find("\"name\": \"O2 conservative local values\"") !=
                  std::string::npos &&
              o2Trace.find("\"backendInputMode\": \"source-validation\"") !=
                  std::string::npos &&
              o2Trace.find(o2TracePolicyFingerprint) != std::string::npos &&
              o2Trace.find("\"id\": \"hir-o1-safe-cleanup\"") ==
                  std::string::npos &&
-             o2Trace.find("\"passCount\": 12") != std::string::npos &&
+             o2Trace.find("\"passCount\": 13") != std::string::npos &&
+             o2Trace.find("hir.optimize.o2.pure-expression-cse") !=
+                 std::string::npos &&
              o2Trace.find("hir.optimize.o2.inline-scalar-temporaries") !=
                  std::string::npos &&
              o2Trace.find(
