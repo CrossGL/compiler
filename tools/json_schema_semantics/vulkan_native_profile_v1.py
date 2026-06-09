@@ -6,6 +6,24 @@ EXPECTED_TOOL_STATUS_BY_OPTIMIZATION_STATUS = {
     "skipped-tool-missing": "missing",
 }
 
+EXPECTED_OPTIMIZATION_PROFILE_BY_REQUESTED_LEVEL = {
+    "O0": {
+        "policy": "disabled-by-opt-level",
+        "level": "none",
+        "statuses": {"skipped-disabled"},
+    },
+    "O1": {
+        "policy": "disabled-by-opt-level",
+        "level": "none",
+        "statuses": {"skipped-disabled"},
+    },
+    "O2": {
+        "policy": "use-when-available",
+        "level": "-O",
+        "statuses": {"applied", "skipped-tool-missing"},
+    },
+}
+
 
 def contains_whitespace(value):
     return any(char.isspace() for char in value)
@@ -101,6 +119,38 @@ def validate_optimization_evidence(errors, instance):
     status = optimization["status"]
 
     if requested_level is not None:
+        expected_profile = EXPECTED_OPTIMIZATION_PROFILE_BY_REQUESTED_LEVEL[
+            requested_level
+        ]
+        expected_policy = expected_profile["policy"]
+        if optimization["policy"] != expected_policy:
+            errors.append(
+                "$.debug.optimization.policy: requestedLevel "
+                f"{requested_level!r} requires {expected_policy!r}, got "
+                f"{optimization['policy']!r}"
+            )
+
+        expected_level = expected_profile["level"]
+        if optimization["level"] != expected_level:
+            errors.append(
+                "$.debug.optimization.level: requestedLevel "
+                f"{requested_level!r} requires {expected_level!r}, got "
+                f"{optimization['level']!r}"
+            )
+
+        expected_statuses = expected_profile["statuses"]
+        if status not in expected_statuses:
+            if len(expected_statuses) == 1:
+                expected_status = next(iter(expected_statuses))
+                expected_status_label = repr(expected_status)
+            else:
+                expected_status_label = repr(sorted(expected_statuses))
+            errors.append(
+                "$.debug.optimization.status: requestedLevel "
+                f"{requested_level!r} requires {expected_status_label}, got "
+                f"{status!r}"
+            )
+
         if target_env is None:
             errors.append(
                 "$.debug.optimization.targetEnv: current optimization evidence "
