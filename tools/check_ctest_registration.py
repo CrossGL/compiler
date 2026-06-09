@@ -108,6 +108,7 @@ TARGET_CONTEXTS: dict[str, tuple[str, tuple[str, ...]]] = {
 }
 OPTIONAL_NATIVE_HELPER = "tests/cmake/CrossGLOptionalNativeTools.cmake"
 FIXTURE_VARIABLE_FILE = "tests/cmake/CrossGLTestFixtures.cmake"
+LANGUAGE_CONTRACT_MANIFEST = "tools/cross_repo_language_contract.json"
 INTENTIONAL_FAILURE_SUFFIXES = (
     "_planned_failure",
     "_unsupported_failure",
@@ -765,6 +766,91 @@ def check_fixture_families(root: Path, tests: list[dict[str, Any]]) -> list[str]
     return errors
 
 
+def iter_negative_contract_cases(manifest: dict[str, Any]):
+    groups = manifest.get("negative_contracts", {})
+    if not isinstance(groups, dict):
+        raise ValueError("negative_contracts must be an object")
+
+    for group_name, group in sorted(groups.items()):
+        if isinstance(group, dict):
+            cases = group.get("cases", [])
+        elif isinstance(group, list):
+            cases = group
+        else:
+            raise ValueError(
+                f"negative_contracts.{group_name} must be an object or list"
+            )
+        if not isinstance(cases, list):
+            raise ValueError(f"negative_contracts.{group_name}.cases must be a list")
+        for case in cases:
+            if not isinstance(case, dict):
+                raise ValueError(
+                    f"negative_contracts.{group_name} contains a non-object case"
+                )
+            yield case
+
+
+def load_language_contract_negative_fixture_paths(
+    root: Path,
+) -> tuple[list[str], list[str]]:
+    manifest_path = root / LANGUAGE_CONTRACT_MANIFEST
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return [], [f"could not read {LANGUAGE_CONTRACT_MANIFEST}: {exc}"]
+    except json.JSONDecodeError as exc:
+        return [], [f"could not parse {LANGUAGE_CONTRACT_MANIFEST}: {exc}"]
+
+    paths: set[str] = set()
+    errors: list[str] = []
+    try:
+        cases = list(iter_negative_contract_cases(manifest))
+    except ValueError as exc:
+        return [], [f"{LANGUAGE_CONTRACT_MANIFEST}: {exc}"]
+
+    for case in cases:
+        if case.get("root", "compiler") != "compiler":
+            continue
+        path = case.get("path")
+        if not isinstance(path, str) or not path.startswith("tests/check-failures/"):
+            continue
+        paths.add(path)
+        if not (root / path).is_file():
+            case_id = case.get("id", path)
+            errors.append(
+                f"{case_id}: negative language contract fixture is missing: {path}"
+            )
+
+    return sorted(paths), errors
+
+
+def check_language_contract_negative_ctest_coverage(
+    root: Path,
+    tests: list[dict[str, Any]],
+    contract_paths: list[str] | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    if contract_paths is None:
+        contract_paths, load_errors = load_language_contract_negative_fixture_paths(
+            root
+        )
+        errors.extend(load_errors)
+        if load_errors:
+            return errors
+
+    command_blob = "\n".join(normalized_command_text(test) for test in tests)
+    for path in sorted(contract_paths):
+        if normalized_path_text(path) in command_blob:
+            continue
+        errors.append(
+            f"{path}: compiler negative language contract fixture is not "
+            "referenced by any CTest command; "
+            f"context: {fixture_family_context('tests/check-failures')}; "
+            f"manifest={LANGUAGE_CONTRACT_MANIFEST}"
+        )
+    return errors
+
+
 def planned_failure_tests(tests: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         test
@@ -966,6 +1052,38 @@ def run_self_test() -> int:
     ):
         print(
             f"Fixture-family context probe failed; context was: {family_context}",
+            file=sys.stderr,
+        )
+        return 1
+
+    contract_fixture = "tests/check-failures/BadContractFixture.cgl"
+    contract_coverage_errors = check_language_contract_negative_ctest_coverage(
+        root, tests, [contract_fixture]
+    )
+    if not any(contract_fixture in error for error in contract_coverage_errors):
+        print(
+            "Language contract negative fixture probe failed to report missing "
+            f"CTest coverage; errors were: {contract_coverage_errors}",
+            file=sys.stderr,
+        )
+        return 1
+    contract_coverage_ok = check_language_contract_negative_ctest_coverage(
+        root,
+        [
+            {
+                "name": "contract_check_failure",
+                "command": [
+                    "cmake",
+                    r"-DINPUT=D:\a\compiler\compiler\tests\check-failures\BadContractFixture.cgl",
+                ],
+            }
+        ],
+        [contract_fixture],
+    )
+    if contract_coverage_ok:
+        print(
+            "Language contract negative fixture probe rejected a registered "
+            f"CTest fixture; errors were: {contract_coverage_ok}",
             file=sys.stderr,
         )
         return 1
@@ -1439,6 +1557,7 @@ def main(argv: list[str]) -> int:
     errors.extend(check_optional_native_target_coverage(tests))
     errors.extend(check_optional_native_filter_contract(tests))
     errors.extend(check_fixture_families(root, tests))
+    errors.extend(check_language_contract_negative_ctest_coverage(root, tests))
     errors.extend(check_intentional_failure_names(root, inventory, tests))
     if not args.metadata_only:
         errors.extend(

@@ -73,7 +73,7 @@
           "sha256": "152cf6b2e0bc796255b316b7413c18a68ff8228cf6ba5c5801aa3bac8db4e135"
         }
       ],
-      "fixture_count": 16,
+      "fixture_count": 17,
       "fixtures": [
         {
           "id": "compiler/tests/fixtures/IfComputeShader.cgl",
@@ -164,6 +164,12 @@
           "source_sha256": "c85dd3def959349840abb23bb37d77fa7c0fe13f8b4f29e9b5ed733f7013538e",
           "translator_ast_sha256": "df5ac6d0c9a00e44d2c377d62de69f40791fc5470fd2de017eff34fbc2689922",
           "compiler_hir_sha256": "38f1be3fd66da849f1d8b3f7c17662f8b43a7f6b43accaefcfaa09b6da6ba822"
+        },
+        {
+          "id": "compiler/tests/fixtures/SwitchGroupedLabelsComputeShader.cgl",
+          "source_sha256": "c886654704786d725a7befc880511a8431f75361519e0aec86351e03e8ef512f",
+          "translator_ast_sha256": "88512f0b68ae8e101ee1a202857cacf805f313cb53c88a8b386b6671db470187",
+          "compiler_hir_sha256": "53c1873158f10ffae3ea8324ef1390a47fb3d3c6e016ffd0b664197a77989faa"
         },
         {
           "id": "compiler/tests/fixtures/NonParenthesizedControlFlowShader.cgl",

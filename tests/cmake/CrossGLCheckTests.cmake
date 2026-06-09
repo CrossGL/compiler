@@ -683,6 +683,8 @@ add_test(NAME cglc_check_do_while_hir_trailing_condition_break
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_switch_compute
   COMMAND cglc check ${CROSSGL_SWITCH_COMPUTE_SHADER})
+add_test(NAME cglc_check_switch_grouped_labels_compute
+  COMMAND cglc check ${CROSSGL_SWITCH_GROUPED_LABELS_COMPUTE_SHADER})
 add_test(NAME cglc_check_switch_hir_if_chain
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -703,7 +705,7 @@ set_tests_properties(cglc_check_switch_hir_no_switch_break
 add_test(NAME cglc_check_switch_grouped_labels_hir_if_chain
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
-    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/SwitchGroupedLabelsComputeShader.cgl
+    -DINPUT=${CROSSGL_SWITCH_GROUPED_LABELS_COMPUTE_SHADER}
     -DSTAGE=hir
     -DMODE=dump-stage
     "-DMUST_CONTAIN=block[^\n]*\n        decl int __crossgl_selector = mode : int[^\n]*\n        if __crossgl_selector == 0 \\|\\| __crossgl_selector == 1 : bool[^\n]*\n          assign total : int = 10 : int[^\n]*\n        else[^\n]*\n          if __crossgl_selector == 2 : bool[^\n]*\n            assign total : int = 20 : int[^\n]*\n          else[^\n]*\n            assign total : int = 30 : int"
@@ -1882,6 +1884,12 @@ crossgl_add_native_v0_unsupported_failure(
   7
   7
   "message=restricted switch/case/default statements|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_switch_grouped_labels_failure
+  ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_SWITCH_GROUPED_LABELS_COMPAT_SHADER}
+  7
+  7
+  "message=terminal grouped case labels|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_switch_terminal_grouped_labels_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchTerminalGroupedLabelsShader.cgl

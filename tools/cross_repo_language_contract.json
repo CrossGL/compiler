@@ -103,6 +103,7 @@
         "compiler/tests/fixtures/WhileComputeShader.cgl",
         "compiler/tests/fixtures/DoWhileComputeShader.cgl",
         "compiler/tests/fixtures/SwitchComputeShader.cgl",
+        "compiler/tests/fixtures/SwitchGroupedLabelsComputeShader.cgl",
         "compiler/tests/fixtures/NonParenthesizedControlFlowShader.cgl"
       ]
     },
