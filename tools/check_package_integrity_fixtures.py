@@ -1549,8 +1549,10 @@ def run_native_delegation_cases(root, cglc, tmp_dir):
         ),
         (
             "native-delegated-requirement-evidence-extra-id",
-            lambda evidence_ids: evidence_ids
-            + ["target-legalization.v1.directx.package-artifact.fixture.extra"],
+            lambda evidence_ids: (
+                evidence_ids
+                + ["target-legalization.v1.directx.package-artifact.fixture.extra"]
+            ),
         ),
     ):
         package, source, manifest = make_package(tmp_dir, case_name)
