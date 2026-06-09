@@ -54,6 +54,18 @@ ENTRY_POINT_IDENTITY_SOURCE_FACTS = (
     "entry_point",
 )
 ENTRY_POINT_IDENTITY_TYPE_FACTS = ("void_entry_point",)
+GRAPHICS_STAGE = "graphics"
+GRAPHICS_ENTRY_POINT_IDENTITY_SOURCE_FACTS = (
+    "shader_module",
+    "vertex_stage",
+    "fragment_stage",
+    "vertex_entry_point",
+    "fragment_entry_point",
+)
+GRAPHICS_ENTRY_POINT_IDENTITY_TYPE_FACTS = (
+    "vertex_entry_point_io_structs",
+    "fragment_entry_point_io_structs",
+)
 WORKGROUP_SOURCE_FACT = "layout_local_size"
 BLOCKED_FAMILY_REPORT_FIELDS = (
     "unsupportedHirFamilies[].id",
@@ -442,10 +454,11 @@ def expected_resource_binding_fields(resource_facts: dict[str, Any]) -> list[str
 
 
 def expected_resource_requirement_fields(resource_facts: dict[str, Any]) -> list[str]:
-    return [
-        "resourceFacts.localSize",
-        *expected_resource_binding_fields(resource_facts),
-    ]
+    fields: list[str] = []
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    fields.extend(expected_resource_binding_fields(resource_facts))
+    return fields
 
 
 def expected_target_independent_resource_metadata_fields(
@@ -472,18 +485,62 @@ def prefixed_fact_fields(prefix: str, facts: list[str]) -> list[str]:
     return [f"{prefix}.{fact}" for fact in facts]
 
 
-def expected_entry_point_identity_fields() -> list[str]:
+def local_size_present(resource_facts: dict[str, Any]) -> bool:
+    local_size = resource_facts.get("localSize")
+    return (
+        isinstance(local_size, list)
+        and len(local_size) == 3
+        and all(isinstance(item, int) and item > 0 for item in local_size)
+    )
+
+
+def expected_entry_point_identity_source_facts(stage: str | None) -> tuple[str, ...]:
+    if stage == GRAPHICS_STAGE:
+        return GRAPHICS_ENTRY_POINT_IDENTITY_SOURCE_FACTS
+    return ENTRY_POINT_IDENTITY_SOURCE_FACTS
+
+
+def expected_entry_point_identity_type_facts(stage: str | None) -> tuple[str, ...]:
+    if stage == GRAPHICS_STAGE:
+        return GRAPHICS_ENTRY_POINT_IDENTITY_TYPE_FACTS
+    return ENTRY_POINT_IDENTITY_TYPE_FACTS
+
+
+def expected_entry_point_identity_fields(stage: str | None = None) -> list[str]:
     return [
         "stage",
         "entryPoint",
         *prefixed_fact_fields(
-            "sourceLocationFacts", list(ENTRY_POINT_IDENTITY_SOURCE_FACTS)
+            "sourceLocationFacts",
+            list(expected_entry_point_identity_source_facts(stage)),
         ),
-        *prefixed_fact_fields("typeFacts", list(ENTRY_POINT_IDENTITY_TYPE_FACTS)),
+        *prefixed_fact_fields(
+            "typeFacts",
+            list(expected_entry_point_identity_type_facts(stage)),
+        ),
     ]
 
 
-def expected_workgroup_size_fields() -> list[str]:
+def expected_entry_point_requirement_fields(
+    resource_facts: dict[str, Any],
+) -> list[str]:
+    fields = ["stage", "entryPoint"]
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    return fields
+
+
+def expected_local_size_fields(resource_facts: dict[str, Any]) -> list[str]:
+    return ["resourceFacts.localSize"] if local_size_present(resource_facts) else []
+
+
+def expected_workgroup_size_fields(
+    source_facts: list[str], resource_facts: dict[str, Any]
+) -> list[str]:
+    if WORKGROUP_SOURCE_FACT not in source_facts or not local_size_present(
+        resource_facts
+    ):
+        return []
     return ["resourceFacts.localSize", f"sourceLocationFacts.{WORKGROUP_SOURCE_FACT}"]
 
 
@@ -492,22 +549,24 @@ def expected_type_fact_fields(type_facts: list[str]) -> list[str]:
 
 
 def expected_diagnostics_provenance_fields(
-    source_facts: list[str], type_facts: list[str]
+    source_facts: list[str], type_facts: list[str], resource_facts: dict[str, Any]
 ) -> list[str]:
-    return [
+    fields = [
         "path",
         "stage",
         "entryPoint",
         *prefixed_fact_fields("sourceLocationFacts", source_facts),
         *expected_type_fact_fields(type_facts),
-        "resourceFacts.localSize",
     ]
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    return fields
 
 
 def expected_source_map_debug_preservation_fields(
-    source_facts: list[str], type_facts: list[str]
+    source_facts: list[str], type_facts: list[str], resource_facts: dict[str, Any]
 ) -> list[str]:
-    return [
+    fields = [
         "path",
         "stage",
         "entryPoint",
@@ -516,8 +575,10 @@ def expected_source_map_debug_preservation_fields(
         *SOURCE_MAP_DEBUG_LOCATION_FIELDS,
         *prefixed_fact_fields("sourceLocationFacts", source_facts),
         *expected_type_fact_fields(type_facts),
-        "resourceFacts.localSize",
     ]
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    return fields
 
 
 def expected_control_flow_report(
@@ -566,7 +627,7 @@ def expected_lowering_evidence(
         "entryPointIdentity": {
             "stage": stage,
             "entryPoint": entry_point,
-            "fields": expected_entry_point_identity_fields(),
+            "fields": expected_entry_point_identity_fields(stage),
         },
         "sourceLocationExpectation": {
             "required": True,
@@ -679,7 +740,9 @@ def check_resource_facts(
     errors: list[str],
 ) -> None:
     local_size = resource_facts.get("localSize")
-    if (
+    if stage == GRAPHICS_STAGE and local_size is None:
+        pass
+    elif (
         not isinstance(local_size, list)
         or len(local_size) != 3
         or not all(isinstance(item, int) and item > 0 for item in local_size)
@@ -1102,6 +1165,7 @@ def check_fixture_parity_requirements(
     resource_facts: dict[str, Any],
     errors: list[str],
 ) -> None:
+    stage = record.get("stage") if isinstance(record.get("stage"), str) else None
     parity = require_object(
         record.get(PARITY_REQUIREMENT_KEY),
         f"{field}.{PARITY_REQUIREMENT_KEY}",
@@ -1161,7 +1225,7 @@ def check_fixture_parity_requirements(
     )
     compare_fields(
         entry_fields,
-        ["stage", "entryPoint", "resourceFacts.localSize"],
+        expected_entry_point_requirement_fields(resource_facts),
         f"{field}.{PARITY_REQUIREMENT_KEY}.entryPoint",
         errors,
     )
@@ -1200,7 +1264,9 @@ def check_fixture_parity_requirements(
     )
     compare_fields(
         diagnostics_fields,
-        expected_diagnostics_provenance_fields(source_facts, type_facts),
+        expected_diagnostics_provenance_fields(
+            source_facts, type_facts, resource_facts
+        ),
         f"{field}.{PARITY_REQUIREMENT_KEY}.diagnosticsProvenance",
         errors,
     )
@@ -1213,7 +1279,9 @@ def check_fixture_parity_requirements(
     )
     compare_fields(
         source_map_debug_fields,
-        expected_source_map_debug_preservation_fields(source_facts, type_facts),
+        expected_source_map_debug_preservation_fields(
+            source_facts, type_facts, resource_facts
+        ),
         f"{field}.{PARITY_REQUIREMENT_KEY}.sourceMapDebugPreservation",
         errors,
     )
@@ -1229,6 +1297,7 @@ def check_fixture_parity_report(
     blocked_family_ids: list[str],
     errors: list[str],
 ) -> None:
+    stage = record.get("stage") if isinstance(record.get("stage"), str) else None
     report = require_object(
         record.get(REPORT_FIELD_KEY), f"{field}.{REPORT_FIELD_KEY}", errors
     )
@@ -1264,18 +1333,21 @@ def check_fixture_parity_report(
     )
     if "source_file" not in source_facts:
         errors.append(f"{field}.sourceLocationFacts must include 'source_file'")
-    for source_fact in ENTRY_POINT_IDENTITY_SOURCE_FACTS:
+    for source_fact in expected_entry_point_identity_source_facts(stage):
         if source_fact not in source_facts:
             errors.append(
                 f"{field}.sourceLocationFacts must include {source_fact!r} "
                 "for entry-point identity parity"
             )
-    if WORKGROUP_SOURCE_FACT not in source_facts:
+    if (
+        expected_workgroup_size_fields(source_facts, resource_facts)
+        and WORKGROUP_SOURCE_FACT not in source_facts
+    ):
         errors.append(
             f"{field}.sourceLocationFacts must include {WORKGROUP_SOURCE_FACT!r} "
             "for workgroup-size provenance"
         )
-    for type_fact in ENTRY_POINT_IDENTITY_TYPE_FACTS:
+    for type_fact in expected_entry_point_identity_type_facts(stage):
         if type_fact not in type_facts:
             errors.append(
                 f"{field}.typeFacts must include {type_fact!r} "
@@ -1303,7 +1375,7 @@ def check_fixture_parity_report(
     )
     compare_fields(
         entry_identity_fields,
-        expected_entry_point_identity_fields(),
+        expected_entry_point_identity_fields(stage),
         f"{field}.{REPORT_FIELD_KEY}.entryPointIdentity",
         errors,
     )
@@ -1312,11 +1384,12 @@ def check_fixture_parity_report(
         report.get("localSize"),
         f"{field}.{REPORT_FIELD_KEY}.localSize",
         errors,
+        allow_empty_fields=not expected_local_size_fields(resource_facts),
         allowed_keys={"required", "fields"},
     )
     compare_fields(
         local_size_fields,
-        ["resourceFacts.localSize"],
+        expected_local_size_fields(resource_facts),
         f"{field}.{REPORT_FIELD_KEY}.localSize",
         errors,
     )
@@ -1325,11 +1398,14 @@ def check_fixture_parity_report(
         report.get("workgroupSize"),
         f"{field}.{REPORT_FIELD_KEY}.workgroupSize",
         errors,
+        allow_empty_fields=not expected_workgroup_size_fields(
+            source_facts, resource_facts
+        ),
         allowed_keys={"required", "fields"},
     )
     compare_fields(
         workgroup_size_fields,
-        expected_workgroup_size_fields(),
+        expected_workgroup_size_fields(source_facts, resource_facts),
         f"{field}.{REPORT_FIELD_KEY}.workgroupSize",
         errors,
     )
@@ -1381,7 +1457,9 @@ def check_fixture_parity_report(
     )
     compare_fields(
         diagnostics_fields,
-        expected_diagnostics_provenance_fields(source_facts, type_facts),
+        expected_diagnostics_provenance_fields(
+            source_facts, type_facts, resource_facts
+        ),
         f"{field}.{REPORT_FIELD_KEY}.diagnosticsProvenance",
         errors,
     )
@@ -1394,7 +1472,9 @@ def check_fixture_parity_report(
     )
     compare_fields(
         source_map_debug_fields,
-        expected_source_map_debug_preservation_fields(source_facts, type_facts),
+        expected_source_map_debug_preservation_fields(
+            source_facts, type_facts, resource_facts
+        ),
         f"{field}.{REPORT_FIELD_KEY}.sourceMapDebugPreservation",
         errors,
     )
@@ -1698,6 +1778,7 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
         "stages": set(),
         "workgroupSizes": set(),
         "functions": set(),
+        "functionSignatures": set(),
         "resources": set(),
         "declaredTypes": set(),
         "hasBoolResult": any(" : bool" in line for line in lines),
@@ -1705,7 +1786,7 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
             line.startswith("if ") and line.endswith(" : bool") for line in lines
         ),
         "hasElse": "else" in lines,
-        "hasReturn": "return" in lines,
+        "hasReturn": any(line.startswith("return") for line in lines),
         "hasAssignment": any(line.startswith("assign ") for line in lines),
         "hasStorageRead": any(
             not line.startswith("assign ") and re.search(r"\b\w+\[[^\]]+\]", line)
@@ -1730,7 +1811,8 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
         r"^workgroup_size\s+([0-9]+),\s*([0-9]+),\s*([0-9]+)$"
     )
     function_pattern = re.compile(
-        r"^fn\s+([A-Za-z_][A-Za-z0-9_]*)\(\)\s+->\s+([A-Za-z_][A-Za-z0-9_*]*)$"
+        r"^fn\s+([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s+->\s+"
+        r"([A-Za-z_][A-Za-z0-9_*]*)$"
     )
     resource_pattern = re.compile(
         r"^resource\s+([A-Za-z_][A-Za-z0-9_]*)\s+(.+?)\s+"
@@ -1766,7 +1848,12 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
             facts["workgroupSizes"].add(tuple(int(match.group(i)) for i in range(1, 4)))
             continue
         if match := function_pattern.match(line):
-            facts["functions"].add((match.group(1), match.group(2)))
+            parameter_text = match.group(2).strip()
+            facts["functionSignatures"].add(
+                (match.group(1), parameter_text, match.group(3))
+            )
+            if not parameter_text:
+                facts["functions"].add((match.group(1), match.group(3)))
             continue
         if match := resource_pattern.match(line):
             facts["resources"].add(
@@ -1922,7 +2009,29 @@ def check_hir_text_parity(
     module_name = Path(path).stem
     if module_name not in facts["modules"]:
         errors.append(f"{field}: HIR text must include module {module_name}")
-    if isinstance(stage, str) and isinstance(entry_point, str):
+    if stage == GRAPHICS_STAGE and isinstance(entry_point, str):
+        expected_stage_entries = (
+            ("vertex", entry_point, "VertexInput input", "VertexOutput"),
+            ("fragment", entry_point, "FragmentInput input", "FragmentOutput"),
+        )
+        for expected_stage, expected_entry, parameter_text, return_type in (
+            expected_stage_entries
+        ):
+            if (expected_stage, expected_entry) not in facts["stages"]:
+                errors.append(
+                    f"{field}: HIR text must include stage {expected_stage} "
+                    f"entry {expected_entry}"
+                )
+            if (
+                expected_entry,
+                parameter_text,
+                return_type,
+            ) not in facts["functionSignatures"]:
+                errors.append(
+                    f"{field}: HIR text must include fn {expected_entry}"
+                    f"({parameter_text}) -> {return_type}"
+                )
+    elif isinstance(stage, str) and isinstance(entry_point, str):
         if (stage, entry_point) not in facts["stages"]:
             errors.append(
                 f"{field}: HIR text must include stage {stage} entry {entry_point}"
@@ -1931,7 +2040,11 @@ def check_hir_text_parity(
             errors.append(f"{field}: HIR text must include fn {entry_point}() -> void")
 
     local_size = resource_facts.get("localSize")
-    if isinstance(local_size, list) and len(local_size) == 3:
+    if (
+        stage != GRAPHICS_STAGE
+        and isinstance(local_size, list)
+        and len(local_size) == 3
+    ):
         expected_size = tuple(local_size)
         if expected_size not in facts["workgroupSizes"]:
             errors.append(
@@ -2045,6 +2158,14 @@ def check_hir_text_parity(
             )
     if "return_statement" in source_facts and not facts["hasReturn"]:
         errors.append(f"{field}: HIR text must include return")
+    if "vertex_stage" in source_facts and ("vertex", entry_point) not in facts[
+        "stages"
+    ]:
+        errors.append(f"{field}: HIR text must include a vertex stage entry")
+    if "fragment_stage" in source_facts and ("fragment", entry_point) not in facts[
+        "stages"
+    ]:
+        errors.append(f"{field}: HIR text must include a fragment stage entry")
     if CONTROL_FLOW_FAMILY in allowed_families:
         if not facts["hasIfBool"]:
             errors.append(f"{field}: HIR text must include if ... : bool")
@@ -2184,6 +2305,31 @@ def check_hir_source_map_parity(
         kind == "literal" for _, kind, _, _ in expression_tuples
     ):
         errors.append(f"{field}: HIR source-map missing scalar literal expressions")
+    if "vertex_entry_point_io_structs" in type_facts:
+        for owner_name, expected_type in (
+            ("VertexInput.position", "vec3"),
+            ("VertexInput.texCoord", "vec2"),
+            ("VertexInput.color", "vec4"),
+            ("VertexOutput.position", "vec4"),
+            ("VertexOutput.uv", "vec2"),
+            ("VertexOutput.tint", "vec4"),
+        ):
+            if ("field-type", owner_name, expected_type) not in type_triples:
+                errors.append(
+                    f"{field}: HIR source-map missing vertex stage I/O field "
+                    f"{owner_name}:{expected_type}"
+                )
+    if "fragment_entry_point_io_structs" in type_facts:
+        for owner_name, expected_type in (
+            ("FragmentInput.uv", "vec2"),
+            ("FragmentInput.tint", "vec4"),
+            ("FragmentOutput.color", "vec4"),
+        ):
+            if ("field-type", owner_name, expected_type) not in type_triples:
+                errors.append(
+                    f"{field}: HIR source-map missing fragment stage I/O field "
+                    f"{owner_name}:{expected_type}"
+                )
 
     if "return_statement" in source_facts and not any(
         kind == "return" for kind, _, _ in statement_triples
@@ -2425,16 +2571,21 @@ def entry_point_report_fields() -> dict[str, object]:
     return {"required": True, "fields": ["stage", "entryPoint"]}
 
 
-def entry_point_identity_report_fields() -> dict[str, object]:
-    return {"required": True, "fields": expected_entry_point_identity_fields()}
+def entry_point_identity_report_fields(stage: str | None) -> dict[str, object]:
+    return {"required": True, "fields": expected_entry_point_identity_fields(stage)}
 
 
-def local_size_report_fields() -> dict[str, object]:
-    return {"required": True, "fields": ["resourceFacts.localSize"]}
+def local_size_report_fields(resource_facts: dict[str, Any]) -> dict[str, object]:
+    return {"required": True, "fields": expected_local_size_fields(resource_facts)}
 
 
-def workgroup_size_report_fields() -> dict[str, object]:
-    return {"required": True, "fields": expected_workgroup_size_fields()}
+def workgroup_size_report_fields(
+    source_facts: list[str], resource_facts: dict[str, Any]
+) -> dict[str, object]:
+    return {
+        "required": True,
+        "fields": expected_workgroup_size_fields(source_facts, resource_facts),
+    }
 
 
 def resource_binding_report_fields(resource_facts: dict[str, Any]) -> dict[str, object]:
@@ -2458,21 +2609,23 @@ def type_fact_report_fields(type_facts: list[str]) -> dict[str, object]:
 
 
 def diagnostics_provenance_fields(
-    source_facts: list[str], type_facts: list[str]
+    source_facts: list[str], type_facts: list[str], resource_facts: dict[str, Any]
 ) -> dict[str, object]:
     return {
         "required": True,
-        "fields": expected_diagnostics_provenance_fields(source_facts, type_facts),
+        "fields": expected_diagnostics_provenance_fields(
+            source_facts, type_facts, resource_facts
+        ),
     }
 
 
 def source_map_debug_preservation_fields(
-    source_facts: list[str], type_facts: list[str]
+    source_facts: list[str], type_facts: list[str], resource_facts: dict[str, Any]
 ) -> dict[str, object]:
     return {
         "required": True,
         "fields": expected_source_map_debug_preservation_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
     }
 
@@ -2509,7 +2662,7 @@ def build_parity_requirements(record: dict[str, Any]) -> dict[str, object]:
         "typeFacts": {"required": True, "fields": type_facts},
         "entryPoint": {
             "required": True,
-            "fields": ["stage", "entryPoint", "resourceFacts.localSize"],
+            "fields": expected_entry_point_requirement_fields(resource_facts),
         },
         "resources": {
             "required": True,
@@ -2522,10 +2675,10 @@ def build_parity_requirements(record: dict[str, Any]) -> dict[str, object]:
             ),
         },
         "diagnosticsProvenance": diagnostics_provenance_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
         "sourceMapDebugPreservation": source_map_debug_preservation_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
     }
 
@@ -2539,6 +2692,7 @@ def build_report_fields(record: dict[str, Any]) -> dict[str, object]:
     resource_facts = require_object(
         record["resourceFacts"], "self-test.resourceFacts", []
     )
+    stage = record["stage"] if isinstance(record.get("stage"), str) else None
     blocked_family_ids = [
         "remaining_texture_image_intrinsics",
         "descriptor_indexing_and_nonuniform",
@@ -2547,19 +2701,19 @@ def build_report_fields(record: dict[str, Any]) -> dict[str, object]:
     return {
         "sourceFile": source_file_report_fields(),
         "entryPoint": entry_point_report_fields(),
-        "entryPointIdentity": entry_point_identity_report_fields(),
-        "localSize": local_size_report_fields(),
-        "workgroupSize": workgroup_size_report_fields(),
+        "entryPointIdentity": entry_point_identity_report_fields(stage),
+        "localSize": local_size_report_fields(resource_facts),
+        "workgroupSize": workgroup_size_report_fields(source_facts, resource_facts),
         "resourceBindings": resource_binding_report_fields(resource_facts),
         "targetIndependentResourceMetadata": (
             target_independent_resource_metadata_report_fields(resource_facts)
         ),
         "typeFacts": type_fact_report_fields(type_facts),
         "diagnosticsProvenance": diagnostics_provenance_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
         "sourceMapDebugPreservation": source_map_debug_preservation_fields(
-            source_facts, type_facts
+            source_facts, type_facts, resource_facts
         ),
         "controlFlowSlice": control_flow_report_fields(
             families, source_facts, type_facts

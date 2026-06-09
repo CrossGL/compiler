@@ -7417,6 +7417,449 @@
         },
         "controlFlowCategory": "straight-line"
       }
+    },
+    {
+      "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+      "productionFacing": false,
+      "sourceLineage": {
+        "sourceLanguage": "CrossGL",
+        "sourceLanguageVersion": "v0",
+        "specAnchor": "docs/language/crosstl-frontend-language-spec-v0.json",
+        "contractAnchor": "tools/cross_repo_language_contract.json",
+        "fixtureKind": "checked-in-source-fixture",
+        "productionInput": false
+      },
+      "stage": "graphics",
+      "entryPoint": "main",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics",
+        "graphics_stage_io_metadata"
+      ],
+      "sourceLocationFacts": [
+        "source_file",
+        "shader_module",
+        "vertex_stage",
+        "fragment_stage",
+        "entry_point",
+        "vertex_entry_point",
+        "fragment_entry_point",
+        "vertex_input_struct",
+        "vertex_output_struct",
+        "fragment_input_struct",
+        "fragment_output_struct",
+        "vertex_stage_output_position",
+        "vertex_stage_output_varyings",
+        "fragment_stage_input_varyings",
+        "fragment_stage_output_color",
+        "vertex_member_access",
+        "fragment_member_access",
+        "local_variable_declarations",
+        "return_statement"
+      ],
+      "typeFacts": [
+        "vertex_entry_point_io_structs",
+        "fragment_entry_point_io_structs",
+        "vertex_position_builtin_vec4",
+        "stage_varying_vec2_vec4",
+        "fragment_output_vec4",
+        "vec2_scalar",
+        "vec3_scalar",
+        "vec4_scalar",
+        "constructor_cast_expression",
+        "scalar_literals"
+      ],
+      "resourceFacts": {
+        "localSize": null,
+        "descriptors": [],
+        "storageBuffers": [],
+        "storageImages": [],
+        "textures": [],
+        "samplers": [],
+        "targetIndependentResourceMetadata": []
+      },
+      "parityRequirements": {
+        "sourceLocations": {
+          "required": true,
+          "fields": [
+            "source_file",
+            "shader_module",
+            "vertex_stage",
+            "fragment_stage",
+            "entry_point",
+            "vertex_entry_point",
+            "fragment_entry_point",
+            "vertex_input_struct",
+            "vertex_output_struct",
+            "fragment_input_struct",
+            "fragment_output_struct",
+            "vertex_stage_output_position",
+            "vertex_stage_output_varyings",
+            "fragment_stage_input_varyings",
+            "fragment_stage_output_color",
+            "vertex_member_access",
+            "fragment_member_access",
+            "local_variable_declarations",
+            "return_statement"
+          ]
+        },
+        "typeFacts": {
+          "required": true,
+          "fields": [
+            "vertex_entry_point_io_structs",
+            "fragment_entry_point_io_structs",
+            "vertex_position_builtin_vec4",
+            "stage_varying_vec2_vec4",
+            "fragment_output_vec4",
+            "vec2_scalar",
+            "vec3_scalar",
+            "vec4_scalar",
+            "constructor_cast_expression",
+            "scalar_literals"
+          ]
+        },
+        "entryPoint": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint"
+          ]
+        },
+        "resources": {
+          "required": true,
+          "fields": [
+            "resourceFacts.descriptors",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ]
+        },
+        "targetIndependentResourceMetadata": {
+          "required": true,
+          "fields": [
+            "resourceFacts.targetIndependentResourceMetadata"
+          ]
+        },
+        "diagnosticsProvenance": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.vertex_stage",
+            "sourceLocationFacts.fragment_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.vertex_entry_point",
+            "sourceLocationFacts.fragment_entry_point",
+            "sourceLocationFacts.vertex_input_struct",
+            "sourceLocationFacts.vertex_output_struct",
+            "sourceLocationFacts.fragment_input_struct",
+            "sourceLocationFacts.fragment_output_struct",
+            "sourceLocationFacts.vertex_stage_output_position",
+            "sourceLocationFacts.vertex_stage_output_varyings",
+            "sourceLocationFacts.fragment_stage_input_varyings",
+            "sourceLocationFacts.fragment_stage_output_color",
+            "sourceLocationFacts.vertex_member_access",
+            "sourceLocationFacts.fragment_member_access",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs",
+            "typeFacts.vertex_position_builtin_vec4",
+            "typeFacts.stage_varying_vec2_vec4",
+            "typeFacts.fragment_output_vec4",
+            "typeFacts.vec2_scalar",
+            "typeFacts.vec3_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals"
+          ]
+        },
+        "sourceMapDebugPreservation": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.vertex_stage",
+            "sourceLocationFacts.fragment_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.vertex_entry_point",
+            "sourceLocationFacts.fragment_entry_point",
+            "sourceLocationFacts.vertex_input_struct",
+            "sourceLocationFacts.vertex_output_struct",
+            "sourceLocationFacts.fragment_input_struct",
+            "sourceLocationFacts.fragment_output_struct",
+            "sourceLocationFacts.vertex_stage_output_position",
+            "sourceLocationFacts.vertex_stage_output_varyings",
+            "sourceLocationFacts.fragment_stage_input_varyings",
+            "sourceLocationFacts.fragment_stage_output_color",
+            "sourceLocationFacts.vertex_member_access",
+            "sourceLocationFacts.fragment_member_access",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs",
+            "typeFacts.vertex_position_builtin_vec4",
+            "typeFacts.stage_varying_vec2_vec4",
+            "typeFacts.fragment_output_vec4",
+            "typeFacts.vec2_scalar",
+            "typeFacts.vec3_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals"
+          ]
+        }
+      },
+      "parityReportFields": {
+        "sourceFile": {
+          "required": true,
+          "fields": [
+            "path",
+            "sourceLocationFacts.source_file"
+          ]
+        },
+        "entryPoint": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint"
+          ]
+        },
+        "entryPointIdentity": {
+          "required": true,
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.vertex_stage",
+            "sourceLocationFacts.fragment_stage",
+            "sourceLocationFacts.vertex_entry_point",
+            "sourceLocationFacts.fragment_entry_point",
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs"
+          ]
+        },
+        "localSize": {
+          "required": true,
+          "fields": []
+        },
+        "workgroupSize": {
+          "required": true,
+          "fields": []
+        },
+        "resourceBindings": {
+          "required": true,
+          "fields": [
+            "resourceFacts.descriptors",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ]
+        },
+        "targetIndependentResourceMetadata": {
+          "required": true,
+          "fields": [
+            "resourceFacts.targetIndependentResourceMetadata"
+          ]
+        },
+        "typeFacts": {
+          "required": true,
+          "fields": [
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs",
+            "typeFacts.vertex_position_builtin_vec4",
+            "typeFacts.stage_varying_vec2_vec4",
+            "typeFacts.fragment_output_vec4",
+            "typeFacts.vec2_scalar",
+            "typeFacts.vec3_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals"
+          ]
+        },
+        "diagnosticsProvenance": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.vertex_stage",
+            "sourceLocationFacts.fragment_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.vertex_entry_point",
+            "sourceLocationFacts.fragment_entry_point",
+            "sourceLocationFacts.vertex_input_struct",
+            "sourceLocationFacts.vertex_output_struct",
+            "sourceLocationFacts.fragment_input_struct",
+            "sourceLocationFacts.fragment_output_struct",
+            "sourceLocationFacts.vertex_stage_output_position",
+            "sourceLocationFacts.vertex_stage_output_varyings",
+            "sourceLocationFacts.fragment_stage_input_varyings",
+            "sourceLocationFacts.fragment_stage_output_color",
+            "sourceLocationFacts.vertex_member_access",
+            "sourceLocationFacts.fragment_member_access",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs",
+            "typeFacts.vertex_position_builtin_vec4",
+            "typeFacts.stage_varying_vec2_vec4",
+            "typeFacts.fragment_output_vec4",
+            "typeFacts.vec2_scalar",
+            "typeFacts.vec3_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals"
+          ]
+        },
+        "sourceMapDebugPreservation": {
+          "required": true,
+          "fields": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.vertex_stage",
+            "sourceLocationFacts.fragment_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.vertex_entry_point",
+            "sourceLocationFacts.fragment_entry_point",
+            "sourceLocationFacts.vertex_input_struct",
+            "sourceLocationFacts.vertex_output_struct",
+            "sourceLocationFacts.fragment_input_struct",
+            "sourceLocationFacts.fragment_output_struct",
+            "sourceLocationFacts.vertex_stage_output_position",
+            "sourceLocationFacts.vertex_stage_output_varyings",
+            "sourceLocationFacts.fragment_stage_input_varyings",
+            "sourceLocationFacts.fragment_stage_output_color",
+            "sourceLocationFacts.vertex_member_access",
+            "sourceLocationFacts.fragment_member_access",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs",
+            "typeFacts.vertex_position_builtin_vec4",
+            "typeFacts.stage_varying_vec2_vec4",
+            "typeFacts.fragment_output_vec4",
+            "typeFacts.vec2_scalar",
+            "typeFacts.vec3_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals"
+          ]
+        },
+        "controlFlowSlice": {
+          "required": true,
+          "slice": "none",
+          "fields": []
+        },
+        "blockedFamilyRationale": {
+          "required": true,
+          "fields": [
+            "unsupportedHirFamilies[].id",
+            "unsupportedHirFamilies[].reason"
+          ],
+          "families": [
+            "remaining_texture_image_intrinsics",
+            "descriptor_indexing_and_nonuniform",
+            "crosstl_examples_and_backend_policy"
+          ]
+        }
+      },
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "graphics",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.vertex_stage",
+            "sourceLocationFacts.fragment_stage",
+            "sourceLocationFacts.vertex_entry_point",
+            "sourceLocationFacts.fragment_entry_point",
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "vertex_stage",
+            "fragment_stage",
+            "entry_point",
+            "vertex_entry_point",
+            "fragment_entry_point",
+            "vertex_input_struct",
+            "vertex_output_struct",
+            "fragment_input_struct",
+            "fragment_output_struct",
+            "vertex_stage_output_position",
+            "vertex_stage_output_varyings",
+            "fragment_stage_input_varyings",
+            "fragment_stage_output_color",
+            "vertex_member_access",
+            "fragment_member_access",
+            "local_variable_declarations",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "empty-resource-facts",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "vertex_entry_point_io_structs",
+            "fragment_entry_point_io_structs",
+            "vertex_position_builtin_vec4",
+            "stage_varying_vec2_vec4",
+            "fragment_output_vec4",
+            "vec2_scalar",
+            "vec3_scalar",
+            "vec4_scalar",
+            "constructor_cast_expression",
+            "scalar_literals"
+          ]
+        },
+        "controlFlowCategory": "straight-line"
+      }
     }
   ],
   "allowedHirFamilies": [
@@ -7482,6 +7925,13 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl"
       ],
       "reason": "Direct compute storage-image descriptors, read/write/read_write access qualifier facts, fixed literal-index storage-image descriptor-array facts, and one nonuniform storage-image descriptor-array marker fixture with 2D/2D-array dimensions, formats, imageLoad/imageStore source facts, nonuniform markers, and source index expressions are recorded as report-only catalog evidence; access-qualified fixed-array indexing remains declaration-only evidence."
+    },
+    {
+      "id": "graphics_stage_io_metadata",
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "reason": "The graphics provenance fixture records vertex and fragment stage entry-point identity, stage input/output structs, varyings, and fragment output metadata as report-only MLIR bridge evidence."
     }
   ],
   "unsupportedHirFamilies": [
@@ -7559,6 +8009,11 @@
         "id": "storage_image_atomic_operation_family_locations",
         "required": true,
         "description": "The direct storage-image atomic fixture preserves imageAtomicAdd, Min, Max, And, Or, Exchange, and Xor source operation families without descriptor-array indexing."
+      },
+      {
+        "id": "graphics_stage_io_fixture_locations",
+        "required": true,
+        "description": "The graphics provenance fixture must name vertex and fragment stages, stage entry points, stage input/output structs, varyings, fragment color output, member accesses, local declarations, and return provenance."
       }
     ],
     "types": [
@@ -7611,6 +8066,11 @@
         "id": "storage_image_atomic_result_payload_type_facts",
         "required": true,
         "description": "The direct storage-image atomic fixture preserves signed int and unsigned uint result and payload type facts for scalar image atomic operation families."
+      },
+      {
+        "id": "graphics_stage_io_type_facts",
+        "required": true,
+        "description": "The graphics provenance fixture must preserve vertex and fragment entry-point I/O struct facts, vertex position, varying, fragment output, vector scalar, constructor cast, and scalar literal type evidence."
       }
     ],
     "resources": [
@@ -7731,12 +8191,12 @@
       {
         "id": "fixture_diagnostic_entry_identity",
         "required": true,
-        "description": "Each admitted fixture must tie diagnostics to the source file, shader module, compute stage, entry point name, and void entry-point type fact."
+        "description": "Each admitted fixture must tie diagnostics to the source file, shader module, stage identity, entry point name, and target-independent entry-point type facts."
       },
       {
         "id": "fixture_workgroup_provenance",
         "required": true,
-        "description": "Each admitted fixture must preserve the recorded local-size triple together with the layout_local_size source-location fact from the fixture source."
+        "description": "Compute fixtures must preserve the recorded local-size triple together with the layout_local_size source-location fact; graphics fixtures omit local-size requirements."
       },
       {
         "id": "fixture_blocked_family_rationale",

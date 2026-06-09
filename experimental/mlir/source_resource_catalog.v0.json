@@ -70,7 +70,8 @@
     ],
     "resourceFreeFixtures": [
       "tests/fixtures/MinimalComputeShader.cgl",
-      "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
     ]
   },
   "catalogConsistency": {
@@ -90,6 +91,7 @@
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -105,6 +107,7 @@
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -125,12 +128,15 @@
         "explicit_lod_scalar",
         "float_pointer_storage_buffer",
         "float_scalar",
+        "fragment_entry_point_io_structs",
+        "fragment_output_vec4",
         "int_pointer_storage_buffer",
         "int_scalar",
         "ivec3_scalar",
         "ivec4_pointer_storage_buffer",
         "ivec4_scalar",
         "scalar_literals",
+        "stage_varying_vec2_vec4",
         "storage_buffer_element_type",
         "storage_image_atomic_int_payload_type",
         "storage_image_atomic_int_result_type",
@@ -145,8 +151,12 @@
         "unary_expression_result_types",
         "uvec4_pointer_storage_buffer",
         "uvec4_scalar",
+        "vec2_scalar",
+        "vec3_scalar",
         "vec4_pointer_storage_buffer",
         "vec4_scalar",
+        "vertex_entry_point_io_structs",
+        "vertex_position_builtin_vec4",
         "void_entry_point"
       ],
       "opTypeCatalogFacts": [
@@ -159,12 +169,15 @@
         "explicit_lod_scalar",
         "float_pointer_storage_buffer",
         "float_scalar",
+        "fragment_entry_point_io_structs",
+        "fragment_output_vec4",
         "int_pointer_storage_buffer",
         "int_scalar",
         "ivec3_scalar",
         "ivec4_pointer_storage_buffer",
         "ivec4_scalar",
         "scalar_literals",
+        "stage_varying_vec2_vec4",
         "storage_buffer_element_type",
         "storage_image_atomic_int_payload_type",
         "storage_image_atomic_int_result_type",
@@ -179,8 +192,12 @@
         "unary_expression_result_types",
         "uvec4_pointer_storage_buffer",
         "uvec4_scalar",
+        "vec2_scalar",
+        "vec3_scalar",
         "vec4_pointer_storage_buffer",
         "vec4_scalar",
+        "vertex_entry_point_io_structs",
+        "vertex_position_builtin_vec4",
         "void_entry_point"
       ],
       "missingFromOpTypeCatalog": [],
@@ -188,8 +205,8 @@
       "matches": true
     },
     "operationFixtureCoverage": {
-      "operationCount": 31,
-      "fixtureCoverageRowCount": 145,
+      "operationCount": 37,
+      "fixtureCoverageRowCount": 154,
       "referencedFixtures": [
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/MinimalComputeShader.cgl",
@@ -200,6 +217,7 @@
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
         "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -216,43 +234,43 @@
     "dimensions": [
       {
         "name": "sourceLocations",
-        "fixtureCount": 13,
-        "coveredFixtureCount": 13,
+        "fixtureCount": 14,
+        "coveredFixtureCount": 14,
         "missingFixtureCount": 0,
         "requiredForEveryFixture": true
       },
       {
         "name": "entryPointIdentity",
-        "fixtureCount": 13,
-        "coveredFixtureCount": 13,
+        "fixtureCount": 14,
+        "coveredFixtureCount": 14,
         "missingFixtureCount": 0,
         "requiredForEveryFixture": true
       },
       {
         "name": "resources",
-        "fixtureCount": 13,
-        "coveredFixtureCount": 13,
+        "fixtureCount": 14,
+        "coveredFixtureCount": 14,
         "missingFixtureCount": 0,
         "requiredForEveryFixture": true
       },
       {
         "name": "targetIndependentResourceMetadata",
-        "fixtureCount": 13,
-        "coveredFixtureCount": 13,
+        "fixtureCount": 14,
+        "coveredFixtureCount": 14,
         "missingFixtureCount": 0,
         "requiredForEveryFixture": true
       },
       {
         "name": "sourceResourceEntrypointPreservation",
-        "fixtureCount": 13,
-        "coveredFixtureCount": 13,
+        "fixtureCount": 14,
+        "coveredFixtureCount": 14,
         "missingFixtureCount": 0,
         "requiredForEveryFixture": true
       },
       {
         "name": "sourceMapDebugPreservation",
-        "fixtureCount": 13,
-        "coveredFixtureCount": 13,
+        "fixtureCount": 14,
+        "coveredFixtureCount": 14,
         "missingFixtureCount": 0,
         "requiredForEveryFixture": true
       }
@@ -632,6 +650,48 @@
             "covered": true,
             "requiredFieldCount": 38,
             "manifestFieldCount": 38,
+            "missingManifestFields": []
+          }
+        }
+      },
+      {
+        "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "status": "covered",
+        "dimensions": {
+          "sourceLocations": {
+            "covered": true,
+            "requiredFieldCount": 19,
+            "manifestFieldCount": 19,
+            "missingManifestFields": []
+          },
+          "entryPointIdentity": {
+            "covered": true,
+            "requiredFieldCount": 9,
+            "manifestFieldCount": 9,
+            "missingManifestFields": []
+          },
+          "resources": {
+            "covered": true,
+            "requiredFieldCount": 5,
+            "manifestFieldCount": 5,
+            "missingManifestFields": []
+          },
+          "targetIndependentResourceMetadata": {
+            "covered": true,
+            "requiredFieldCount": 1,
+            "manifestFieldCount": 1,
+            "missingManifestFields": []
+          },
+          "sourceResourceEntrypointPreservation": {
+            "covered": true,
+            "requiredFieldCount": 17,
+            "manifestFieldCount": 17,
+            "missingManifestFields": []
+          },
+          "sourceMapDebugPreservation": {
+            "covered": true,
+            "requiredFieldCount": 44,
+            "manifestFieldCount": 44,
             "missingManifestFields": []
           }
         }
@@ -6345,6 +6405,469 @@
       }
     },
     {
+      "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+      "stage": "graphics",
+      "entryPoint": "main",
+      "experimentSlice": "graphics-stage-io-metadata",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "empty-resource-facts",
+      "entryPointIdentity": {
+        "requiredFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.vertex_stage",
+          "sourceLocationFacts.fragment_stage",
+          "sourceLocationFacts.vertex_entry_point",
+          "sourceLocationFacts.fragment_entry_point",
+          "typeFacts.vertex_entry_point_io_structs",
+          "typeFacts.fragment_entry_point_io_structs"
+        ],
+        "manifestFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.vertex_stage",
+          "sourceLocationFacts.fragment_stage",
+          "sourceLocationFacts.vertex_entry_point",
+          "sourceLocationFacts.fragment_entry_point",
+          "typeFacts.vertex_entry_point_io_structs",
+          "typeFacts.fragment_entry_point_io_structs"
+        ],
+        "missingManifestFields": []
+      },
+      "sourceLocations": {
+        "inventoryFacts": [
+          "source_file",
+          "shader_module",
+          "vertex_stage",
+          "fragment_stage",
+          "entry_point",
+          "vertex_entry_point",
+          "fragment_entry_point",
+          "vertex_input_struct",
+          "vertex_output_struct",
+          "fragment_input_struct",
+          "fragment_output_struct",
+          "vertex_stage_output_position",
+          "vertex_stage_output_varyings",
+          "fragment_stage_input_varyings",
+          "fragment_stage_output_color",
+          "vertex_member_access",
+          "fragment_member_access",
+          "local_variable_declarations",
+          "return_statement"
+        ],
+        "manifestFacts": [
+          "source_file",
+          "shader_module",
+          "vertex_stage",
+          "fragment_stage",
+          "entry_point",
+          "vertex_entry_point",
+          "fragment_entry_point",
+          "vertex_input_struct",
+          "vertex_output_struct",
+          "fragment_input_struct",
+          "fragment_output_struct",
+          "vertex_stage_output_position",
+          "vertex_stage_output_varyings",
+          "fragment_stage_input_varyings",
+          "fragment_stage_output_color",
+          "vertex_member_access",
+          "fragment_member_access",
+          "local_variable_declarations",
+          "return_statement"
+        ],
+        "requiredByBoundary": [
+          "entry_point",
+          "fragment_input_struct",
+          "fragment_output_struct",
+          "fragment_stage",
+          "fragment_stage_input_varyings",
+          "fragment_stage_output_color",
+          "return_statement",
+          "shader_module",
+          "source_file",
+          "vertex_input_struct",
+          "vertex_output_struct",
+          "vertex_stage",
+          "vertex_stage_output_position",
+          "vertex_stage_output_varyings"
+        ],
+        "missingFromManifest": []
+      },
+      "targetIndependentTypeFacts": {
+        "inventoryFacts": [
+          "vertex_entry_point_io_structs",
+          "fragment_entry_point_io_structs",
+          "vertex_position_builtin_vec4",
+          "stage_varying_vec2_vec4",
+          "fragment_output_vec4",
+          "vec2_scalar",
+          "vec3_scalar",
+          "vec4_scalar",
+          "constructor_cast_expression",
+          "scalar_literals"
+        ],
+        "manifestFacts": [
+          "vertex_entry_point_io_structs",
+          "fragment_entry_point_io_structs",
+          "vertex_position_builtin_vec4",
+          "stage_varying_vec2_vec4",
+          "fragment_output_vec4",
+          "vec2_scalar",
+          "vec3_scalar",
+          "vec4_scalar",
+          "constructor_cast_expression",
+          "scalar_literals"
+        ],
+        "missingFromManifest": []
+      },
+      "sourceMapDebugFacts": {
+        "requiredContractFacts": [
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false"
+        ],
+        "manifestFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.vertex_stage",
+          "sourceLocationFacts.fragment_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.vertex_entry_point",
+          "sourceLocationFacts.fragment_entry_point",
+          "sourceLocationFacts.vertex_input_struct",
+          "sourceLocationFacts.vertex_output_struct",
+          "sourceLocationFacts.fragment_input_struct",
+          "sourceLocationFacts.fragment_output_struct",
+          "sourceLocationFacts.vertex_stage_output_position",
+          "sourceLocationFacts.vertex_stage_output_varyings",
+          "sourceLocationFacts.fragment_stage_input_varyings",
+          "sourceLocationFacts.fragment_stage_output_color",
+          "sourceLocationFacts.vertex_member_access",
+          "sourceLocationFacts.fragment_member_access",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.vertex_entry_point_io_structs",
+          "typeFacts.fragment_entry_point_io_structs",
+          "typeFacts.vertex_position_builtin_vec4",
+          "typeFacts.stage_varying_vec2_vec4",
+          "typeFacts.fragment_output_vec4",
+          "typeFacts.vec2_scalar",
+          "typeFacts.vec3_scalar",
+          "typeFacts.vec4_scalar",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.scalar_literals"
+        ],
+        "missingRequiredContractFacts": []
+      },
+      "resourceFacts": {
+        "localSize": null,
+        "manifestFields": [
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "descriptors": [],
+        "storageBuffers": [],
+        "storageImages": [],
+        "textures": [],
+        "samplers": [],
+        "emptyCollections": [
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "missingManifestFields": []
+      },
+      "targetIndependentResourceMetadata": {
+        "manifestFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "records": [],
+        "missingManifestFields": []
+      },
+      "sourceResourceEntrypointPreservation": {
+        "requiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.vertex_stage",
+          "sourceLocationFacts.fragment_stage",
+          "sourceLocationFacts.vertex_entry_point",
+          "sourceLocationFacts.fragment_entry_point",
+          "typeFacts.vertex_entry_point_io_structs",
+          "typeFacts.fragment_entry_point_io_structs",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "sourceEntrypointFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.vertex_stage",
+          "sourceLocationFacts.fragment_stage",
+          "sourceLocationFacts.vertex_entry_point",
+          "sourceLocationFacts.fragment_entry_point",
+          "typeFacts.vertex_entry_point_io_structs",
+          "typeFacts.fragment_entry_point_io_structs"
+        ],
+        "resourceFields": [
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "manifestRequiredFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.vertex_stage",
+          "sourceLocationFacts.fragment_stage",
+          "sourceLocationFacts.vertex_entry_point",
+          "sourceLocationFacts.fragment_entry_point",
+          "typeFacts.vertex_entry_point_io_structs",
+          "typeFacts.fragment_entry_point_io_structs",
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers",
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "missingManifestFields": []
+      },
+      "parityEvidence": {
+        "entryPointRequirementFields": [
+          "stage",
+          "entryPoint"
+        ],
+        "sourceLocationRequirementFields": [
+          "source_file",
+          "shader_module",
+          "vertex_stage",
+          "fragment_stage",
+          "entry_point",
+          "vertex_entry_point",
+          "fragment_entry_point",
+          "vertex_input_struct",
+          "vertex_output_struct",
+          "fragment_input_struct",
+          "fragment_output_struct",
+          "vertex_stage_output_position",
+          "vertex_stage_output_varyings",
+          "fragment_stage_input_varyings",
+          "fragment_stage_output_color",
+          "vertex_member_access",
+          "fragment_member_access",
+          "local_variable_declarations",
+          "return_statement"
+        ],
+        "typeFactRequirementFields": [
+          "vertex_entry_point_io_structs",
+          "fragment_entry_point_io_structs",
+          "vertex_position_builtin_vec4",
+          "stage_varying_vec2_vec4",
+          "fragment_output_vec4",
+          "vec2_scalar",
+          "vec3_scalar",
+          "vec4_scalar",
+          "constructor_cast_expression",
+          "scalar_literals"
+        ],
+        "sourceMapDebugRequirementFields": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.vertex_stage",
+          "sourceLocationFacts.fragment_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.vertex_entry_point",
+          "sourceLocationFacts.fragment_entry_point",
+          "sourceLocationFacts.vertex_input_struct",
+          "sourceLocationFacts.vertex_output_struct",
+          "sourceLocationFacts.fragment_input_struct",
+          "sourceLocationFacts.fragment_output_struct",
+          "sourceLocationFacts.vertex_stage_output_position",
+          "sourceLocationFacts.vertex_stage_output_varyings",
+          "sourceLocationFacts.fragment_stage_input_varyings",
+          "sourceLocationFacts.fragment_stage_output_color",
+          "sourceLocationFacts.vertex_member_access",
+          "sourceLocationFacts.fragment_member_access",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.vertex_entry_point_io_structs",
+          "typeFacts.fragment_entry_point_io_structs",
+          "typeFacts.vertex_position_builtin_vec4",
+          "typeFacts.stage_varying_vec2_vec4",
+          "typeFacts.fragment_output_vec4",
+          "typeFacts.vec2_scalar",
+          "typeFacts.vec3_scalar",
+          "typeFacts.vec4_scalar",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.scalar_literals"
+        ],
+        "resourceRequirementFields": [
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataRequirementFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "reportFields": {
+          "sourceFile": [
+            "path",
+            "sourceLocationFacts.source_file"
+          ],
+          "entryPoint": [
+            "stage",
+            "entryPoint"
+          ],
+          "entryPointIdentity": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.vertex_stage",
+            "sourceLocationFacts.fragment_stage",
+            "sourceLocationFacts.vertex_entry_point",
+            "sourceLocationFacts.fragment_entry_point",
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs"
+          ],
+          "workgroupSize": [],
+          "resourceBindings": [
+            "resourceFacts.descriptors",
+            "resourceFacts.storageBuffers",
+            "resourceFacts.storageImages",
+            "resourceFacts.textures",
+            "resourceFacts.samplers"
+          ],
+          "targetIndependentResourceMetadata": [
+            "resourceFacts.targetIndependentResourceMetadata"
+          ],
+          "typeFacts": [
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs",
+            "typeFacts.vertex_position_builtin_vec4",
+            "typeFacts.stage_varying_vec2_vec4",
+            "typeFacts.fragment_output_vec4",
+            "typeFacts.vec2_scalar",
+            "typeFacts.vec3_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals"
+          ],
+          "sourceMapDebugPreservation": [
+            "path",
+            "stage",
+            "entryPoint",
+            "manifest.artifacts.debugMetadata",
+            "manifest.artifacts.hirSourceMap",
+            "ir/debug-metadata.json",
+            "ir/hir-source-map.json",
+            "debugMetadata.schemaVersion=11",
+            "hirSourceMap.schemaVersion=7",
+            "debugMetadata.hirSourceLocations",
+            "hirSourceMap.hirSourceLocations",
+            "hirSourceMap.categoryCounts",
+            "hirSourceMap.filters.activeCount=0",
+            "hirSourceMap.pagination.activeCount=0",
+            "hirSourceMap.records.enabled=false",
+            "sourceLocationFacts.source_file",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.vertex_stage",
+            "sourceLocationFacts.fragment_stage",
+            "sourceLocationFacts.entry_point",
+            "sourceLocationFacts.vertex_entry_point",
+            "sourceLocationFacts.fragment_entry_point",
+            "sourceLocationFacts.vertex_input_struct",
+            "sourceLocationFacts.vertex_output_struct",
+            "sourceLocationFacts.fragment_input_struct",
+            "sourceLocationFacts.fragment_output_struct",
+            "sourceLocationFacts.vertex_stage_output_position",
+            "sourceLocationFacts.vertex_stage_output_varyings",
+            "sourceLocationFacts.fragment_stage_input_varyings",
+            "sourceLocationFacts.fragment_stage_output_color",
+            "sourceLocationFacts.vertex_member_access",
+            "sourceLocationFacts.fragment_member_access",
+            "sourceLocationFacts.local_variable_declarations",
+            "sourceLocationFacts.return_statement",
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs",
+            "typeFacts.vertex_position_builtin_vec4",
+            "typeFacts.stage_varying_vec2_vec4",
+            "typeFacts.fragment_output_vec4",
+            "typeFacts.vec2_scalar",
+            "typeFacts.vec3_scalar",
+            "typeFacts.vec4_scalar",
+            "typeFacts.constructor_cast_expression",
+            "typeFacts.scalar_literals"
+          ]
+        }
+      }
+    },
+    {
       "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
       "stage": "compute",
       "entryPoint": "main",
@@ -9823,12 +10346,12 @@
     }
   ],
   "coverageSummary": {
-    "fixtureCount": 13,
+    "fixtureCount": 14,
     "resourceBoundFixtureCount": 11,
     "storageImageFixtureCount": 6,
     "sampledTextureSamplerFixtureCount": 2,
-    "resourceFreeFixtureCount": 2,
-    "targetIndependentTypeFactCount": 32,
+    "resourceFreeFixtureCount": 3,
+    "targetIndependentTypeFactCount": 39,
     "targetIndependentTypeFacts": [
       "assignment_expression_result_types",
       "binary_expression_result_types",
@@ -9839,12 +10362,15 @@
       "explicit_lod_scalar",
       "float_pointer_storage_buffer",
       "float_scalar",
+      "fragment_entry_point_io_structs",
+      "fragment_output_vec4",
       "int_pointer_storage_buffer",
       "int_scalar",
       "ivec3_scalar",
       "ivec4_pointer_storage_buffer",
       "ivec4_scalar",
       "scalar_literals",
+      "stage_varying_vec2_vec4",
       "storage_buffer_element_type",
       "storage_image_atomic_int_payload_type",
       "storage_image_atomic_int_result_type",
@@ -9859,8 +10385,12 @@
       "unary_expression_result_types",
       "uvec4_pointer_storage_buffer",
       "uvec4_scalar",
+      "vec2_scalar",
+      "vec3_scalar",
       "vec4_pointer_storage_buffer",
       "vec4_scalar",
+      "vertex_entry_point_io_structs",
+      "vertex_position_builtin_vec4",
       "void_entry_point"
     ],
     "fixtures": [
@@ -9873,6 +10403,7 @@
       "tests/fixtures/StorageImageExplicitFormatShader.cgl",
       "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
       "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
       "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl",

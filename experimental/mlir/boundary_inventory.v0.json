@@ -59,7 +59,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -126,7 +127,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -194,7 +196,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -202,6 +205,166 @@
       ],
       "requiredFixtureFacts": [
         "return_statement"
+      ]
+    },
+    {
+      "operation": "hir.vertex_stage",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the vertex stage boundary and entry-point provenance for the graphics stage I/O fixture.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "vertex_stage",
+        "stage"
+      ]
+    },
+    {
+      "operation": "hir.fragment_stage",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the fragment stage boundary and entry-point provenance for the graphics stage I/O fixture.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "fragment_stage",
+        "stage"
+      ]
+    },
+    {
+      "operation": "hir.stage_input",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records graphics stage input struct provenance and target-independent entry-point I/O type facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_io_metadata"
+      ],
+      "requiredFixtureFacts": [
+        "vertex_input_struct",
+        "fragment_input_struct",
+        "typeFacts.vertex_entry_point_io_structs",
+        "typeFacts.fragment_entry_point_io_structs"
+      ]
+    },
+    {
+      "operation": "hir.stage_output",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records graphics stage output struct provenance, including vertex position and fragment color output carriers.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_io_metadata"
+      ],
+      "requiredFixtureFacts": [
+        "vertex_output_struct",
+        "fragment_output_struct",
+        "vertex_stage_output_position",
+        "typeFacts.vertex_position_builtin_vec4",
+        "typeFacts.fragment_output_vec4"
+      ]
+    },
+    {
+      "operation": "hir.stage_varying",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Links vertex stage output varying facts to matching fragment stage input varying facts without lowering backend locations.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_io_metadata"
+      ],
+      "requiredFixtureFacts": [
+        "vertex_stage_output_varyings",
+        "fragment_stage_input_varyings",
+        "typeFacts.stage_varying_vec2_vec4"
+      ]
+    },
+    {
+      "operation": "hir.fragment_output",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records fragment color output metadata as target-independent stage I/O evidence.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_io_metadata"
+      ],
+      "requiredFixtureFacts": [
+        "fragment_stage_output_color",
+        "typeFacts.fragment_output_vec4"
       ]
     },
     {
@@ -1515,6 +1678,37 @@
         "resource_bindings",
         "direct_storage_image_atomics",
         "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.vertex_stage",
+        "hir.fragment_stage",
+        "hir.entry_point",
+        "hir.stage_input",
+        "hir.stage_output",
+        "hir.stage_varying",
+        "hir.fragment_output",
+        "hir.return"
+      ],
+      "resourceFactMode": "empty-resource-facts",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "stage_io_metadata",
         "package_artifact_contracts"
       ],
       "fixtureInventoryParity": {

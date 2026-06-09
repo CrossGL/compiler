@@ -178,6 +178,18 @@ ENTRY_POINT_IDENTITY_FIELDS = (
     "resourceFacts.localSize",
 )
 ENTRY_POINT_IDENTITY_REPORT_FIELDS = ENTRY_POINT_IDENTITY_FIELDS[:-1]
+GRAPHICS_STAGE = "graphics"
+GRAPHICS_ENTRY_POINT_IDENTITY_FIELDS = (
+    "stage",
+    "entryPoint",
+    "sourceLocationFacts.shader_module",
+    "sourceLocationFacts.vertex_stage",
+    "sourceLocationFacts.fragment_stage",
+    "sourceLocationFacts.vertex_entry_point",
+    "sourceLocationFacts.fragment_entry_point",
+    "typeFacts.vertex_entry_point_io_structs",
+    "typeFacts.fragment_entry_point_io_structs",
+)
 SOURCE_RESOURCE_ENTRYPOINT_FIELDS = (
     "path",
     "stage",
@@ -189,6 +201,19 @@ SOURCE_RESOURCE_ENTRYPOINT_FIELDS = (
     "sourceLocationFacts.layout_local_size",
     "typeFacts.void_entry_point",
     "resourceFacts.localSize",
+)
+GRAPHICS_SOURCE_RESOURCE_ENTRYPOINT_FIELDS = (
+    "path",
+    "stage",
+    "entryPoint",
+    "sourceLocationFacts.source_file",
+    "sourceLocationFacts.shader_module",
+    "sourceLocationFacts.vertex_stage",
+    "sourceLocationFacts.fragment_stage",
+    "sourceLocationFacts.vertex_entry_point",
+    "sourceLocationFacts.fragment_entry_point",
+    "typeFacts.vertex_entry_point_io_structs",
+    "typeFacts.fragment_entry_point_io_structs",
 )
 REQUIRED_SOURCE_MAP_DEBUG_FACTS = (
     "manifest.artifacts.debugMetadata",
@@ -485,8 +510,42 @@ def prefixed_fact_fields(prefix: str, facts: list[str]) -> list[str]:
     return [f"{prefix}.{fact}" for fact in facts]
 
 
+def local_size_present(resource_facts: dict[str, Any]) -> bool:
+    local_size = resource_facts.get("localSize")
+    return (
+        isinstance(local_size, list)
+        and len(local_size) == 3
+        and all(isinstance(item, int) and item > 0 for item in local_size)
+    )
+
+
+def expected_entry_point_identity_fields(
+    stage: object, resource_facts: dict[str, Any]
+) -> list[str]:
+    if stage == GRAPHICS_STAGE:
+        return list(GRAPHICS_ENTRY_POINT_IDENTITY_FIELDS)
+    fields = list(ENTRY_POINT_IDENTITY_REPORT_FIELDS)
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    return fields
+
+
+def expected_entry_point_report_fields(stage: object) -> list[str]:
+    if stage == GRAPHICS_STAGE:
+        return list(GRAPHICS_ENTRY_POINT_IDENTITY_FIELDS)
+    return list(ENTRY_POINT_IDENTITY_REPORT_FIELDS)
+
+
+def source_resource_entrypoint_fields_for_fixture(stage: object) -> list[str]:
+    if stage == GRAPHICS_STAGE:
+        return list(GRAPHICS_SOURCE_RESOURCE_ENTRYPOINT_FIELDS)
+    return list(SOURCE_RESOURCE_ENTRYPOINT_FIELDS)
+
+
 def expected_resource_manifest_fields(resource_facts: dict[str, Any]) -> list[str]:
-    fields = ["resourceFacts.localSize"]
+    fields: list[str] = []
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
     fields.append("resourceFacts.descriptors")
     descriptors = resource_facts.get("descriptors")
     if isinstance(descriptors, list) and descriptors:
@@ -530,7 +589,11 @@ def expected_resource_manifest_fields(resource_facts: dict[str, Any]) -> list[st
 
 
 def expected_resource_binding_fields(resource_facts: dict[str, Any]) -> list[str]:
-    return expected_resource_manifest_fields(resource_facts)[1:]
+    return [
+        field
+        for field in expected_resource_manifest_fields(resource_facts)
+        if field != "resourceFacts.localSize"
+    ]
 
 
 def expected_metadata_manifest_fields(metadata: dict[str, Any]) -> list[str]:
@@ -650,11 +713,11 @@ def check_descriptor_array_records(
 
 
 def expected_source_resource_entrypoint_fields(
-    resource_fields: list[str], metadata_fields: list[str]
+    stage: object, resource_fields: list[str], metadata_fields: list[str]
 ) -> list[str]:
     return ordered_unique(
         [
-            *SOURCE_RESOURCE_ENTRYPOINT_FIELDS,
+            *source_resource_entrypoint_fields_for_fixture(stage),
             *resource_fields,
             *metadata_fields,
         ]
@@ -681,17 +744,19 @@ def manifest_source_resource_entrypoint_fields(
 
 
 def expected_source_map_debug_facts(
-    source_facts: list[str], type_facts: list[str]
+    source_facts: list[str], type_facts: list[str], resource_facts: dict[str, Any]
 ) -> list[str]:
-    return [
+    fields = [
         "path",
         "stage",
         "entryPoint",
         *REQUIRED_SOURCE_MAP_DEBUG_FACTS,
         *prefixed_fact_fields("sourceLocationFacts", source_facts),
         *prefixed_fact_fields("typeFacts", type_facts),
-        "resourceFacts.localSize",
     ]
+    if local_size_present(resource_facts):
+        fields.append("resourceFacts.localSize")
+    return fields
 
 
 def parity_dimension_record(
@@ -735,7 +800,7 @@ def fixture_parity_dimensions(record: dict[str, Any]) -> dict[str, dict[str, Any
     type_facts = require_object(record.get("targetIndependentTypeFacts"), "", [])
     source_map = require_object(record.get("sourceMapDebugFacts"), "", [])
     source_map_required = expected_source_map_debug_facts(
-        source_required, string_list(type_facts.get("inventoryFacts"))
+        source_required, string_list(type_facts.get("inventoryFacts")), resource_facts
     )
     source_map_manifest = string_list(source_map.get("manifestFacts"))
 
@@ -1095,7 +1160,7 @@ def derive_fixture_catalog(
         )
         required_source_resource_entrypoint_fields = (
             expected_source_resource_entrypoint_fields(
-                expected_resource_fields, expected_metadata_fields
+                fixture.get("stage"), expected_resource_fields, expected_metadata_fields
             )
         )
         available_source_resource_entrypoint_fields = (
@@ -1128,10 +1193,15 @@ def derive_fixture_catalog(
                 "loweringStatus": manifest_record.get("loweringStatus"),
                 "resourceFactMode": boundary_record.get("resourceFactMode"),
                 "entryPointIdentity": {
-                    "requiredFields": list(ENTRY_POINT_IDENTITY_FIELDS),
+                    "requiredFields": expected_entry_point_identity_fields(
+                        fixture.get("stage"), resource_facts
+                    ),
                     "manifestFacts": entry_point_facts,
                     "missingManifestFields": missing_fields(
-                        list(ENTRY_POINT_IDENTITY_FIELDS), entry_point_facts
+                        expected_entry_point_identity_fields(
+                            fixture.get("stage"), resource_facts
+                        ),
+                        entry_point_facts,
                     ),
                 },
                 "sourceLocations": {
@@ -1166,7 +1236,14 @@ def derive_fixture_catalog(
                     "samplers": resource_facts.get("samplers", []),
                     "emptyCollections": empty_collections,
                     "missingManifestFields": missing_fields(
-                        ["resourceFacts.localSize", *RESOURCE_COLLECTION_FIELDS],
+                        [
+                            *(
+                                ["resourceFacts.localSize"]
+                                if local_size_present(resource_facts)
+                                else []
+                            ),
+                            *RESOURCE_COLLECTION_FIELDS,
+                        ],
                         resource_fields,
                     ),
                 },
@@ -1181,7 +1258,11 @@ def derive_fixture_catalog(
                 },
                 "sourceResourceEntrypointPreservation": {
                     "requiredFields": required_source_resource_entrypoint_fields,
-                    "sourceEntrypointFields": list(SOURCE_RESOURCE_ENTRYPOINT_FIELDS),
+                    "sourceEntrypointFields": (
+                        source_resource_entrypoint_fields_for_fixture(
+                            fixture.get("stage")
+                        )
+                    ),
                     "resourceFields": expected_resource_fields,
                     "targetIndependentResourceMetadataFields": (
                         expected_metadata_fields
@@ -1387,13 +1468,21 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
             fixture_records_for_matrix.append(record)
         if tuple(record) != FIXTURE_KEYS:
             errors.append(f"{CATALOG_PATH}: fixtures[{index}] schema changed")
+        record_resource_facts = (
+            record.get("resourceFacts")
+            if isinstance(record.get("resourceFacts"), dict)
+            else {}
+        )
         path = record.get("path")
         if not isinstance(path, str) or not path:
             errors.append(f"{CATALOG_PATH}: fixtures[{index}].path invalid")
         else:
             fixture_paths.append(path)
-        if record.get("stage") != "compute":
-            errors.append(f"{CATALOG_PATH}: fixtures[{index}].stage must be 'compute'")
+        if record.get("stage") not in {"compute", GRAPHICS_STAGE}:
+            errors.append(
+                f"{CATALOG_PATH}: fixtures[{index}].stage must be 'compute' "
+                f"or {GRAPHICS_STAGE!r}"
+            )
         if not isinstance(record.get("entryPoint"), str) or not record["entryPoint"]:
             errors.append(
                 f"{CATALOG_PATH}: fixtures[{index}].entryPoint must be non-empty"
@@ -1408,12 +1497,15 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
             errors.append(
                 f"{CATALOG_PATH}: fixtures[{index}].entryPointIdentity schema changed"
             )
-        if entry_point.get("requiredFields") != list(ENTRY_POINT_IDENTITY_FIELDS):
+        expected_entry_identity_fields = expected_entry_point_identity_fields(
+            record.get("stage"), record_resource_facts
+        )
+        if entry_point.get("requiredFields") != expected_entry_identity_fields:
             errors.append(
                 f"{CATALOG_PATH}: fixtures[{index}].entryPointIdentity."
                 "requiredFields are stale"
             )
-        if entry_point.get("manifestFacts") != list(ENTRY_POINT_IDENTITY_FIELDS):
+        if entry_point.get("manifestFacts") != expected_entry_identity_fields:
             errors.append(
                 f"{CATALOG_PATH}: fixtures[{index}].entryPointIdentity."
                 "manifestFacts must preserve entry point identity"
@@ -1480,7 +1572,7 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
         compare_fields(
             string_list(source_map.get("manifestFacts")),
             expected_source_map_debug_facts(
-                inventory_source_facts, inventory_type_facts
+                inventory_source_facts, inventory_type_facts, record_resource_facts
             ),
             f"fixtures[{index}].sourceMapDebugFacts.manifestFacts",
             errors,
@@ -1559,7 +1651,7 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
             )
         required_source_resource_entrypoint_fields = (
             expected_source_resource_entrypoint_fields(
-                expected_resource_fields, expected_metadata_fields
+                record.get("stage"), expected_resource_fields, expected_metadata_fields
             )
         )
         compare_fields(
@@ -1570,7 +1662,7 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
         )
         compare_fields(
             string_list(source_resource_entrypoint.get("sourceEntrypointFields")),
-            list(SOURCE_RESOURCE_ENTRYPOINT_FIELDS),
+            source_resource_entrypoint_fields_for_fixture(record.get("stage")),
             f"fixtures[{index}].sourceResourceEntrypointPreservation."
             "sourceEntrypointFields",
             errors,
@@ -1615,7 +1707,15 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
             )
         compare_fields(
             string_list(parity.get("entryPointRequirementFields")),
-            ["stage", "entryPoint", "resourceFacts.localSize"],
+            [
+                "stage",
+                "entryPoint",
+                *(
+                    ["resourceFacts.localSize"]
+                    if local_size_present(resource_facts)
+                    else []
+                ),
+            ],
             f"fixtures[{index}].parityEvidence.entryPointRequirementFields",
             errors,
         )
@@ -1634,7 +1734,7 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
         compare_fields(
             string_list(parity.get("sourceMapDebugRequirementFields")),
             expected_source_map_debug_facts(
-                inventory_source_facts, inventory_type_facts
+                inventory_source_facts, inventory_type_facts, resource_facts
             ),
             f"fixtures[{index}].parityEvidence.sourceMapDebugRequirementFields",
             errors,
@@ -1678,13 +1778,18 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
         )
         compare_fields(
             string_list(report_fields.get("entryPointIdentity")),
-            list(ENTRY_POINT_IDENTITY_REPORT_FIELDS),
+            expected_entry_point_report_fields(record.get("stage")),
             f"fixtures[{index}].parityEvidence.reportFields.entryPointIdentity",
             errors,
         )
         compare_fields(
             string_list(report_fields.get("workgroupSize")),
-            ["resourceFacts.localSize", "sourceLocationFacts.layout_local_size"],
+            (
+                ["resourceFacts.localSize", "sourceLocationFacts.layout_local_size"]
+                if local_size_present(resource_facts)
+                and "layout_local_size" in inventory_source_facts
+                else []
+            ),
             f"fixtures[{index}].parityEvidence.reportFields.workgroupSize",
             errors,
         )
@@ -1710,7 +1815,7 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
         compare_fields(
             string_list(report_fields.get("sourceMapDebugPreservation")),
             expected_source_map_debug_facts(
-                inventory_source_facts, inventory_type_facts
+                inventory_source_facts, inventory_type_facts, resource_facts
             ),
             f"fixtures[{index}].parityEvidence.reportFields.sourceMapDebugPreservation",
             errors,
@@ -1921,8 +2026,17 @@ def run_self_test() -> list[str]:
             "layout_local_size",
         ]
         type_facts = ["void_entry_point"]
+        minimal_resource_facts = {
+            "localSize": [1, 1, 1],
+            "descriptors": [],
+            "storageBuffers": [],
+            "storageImages": [],
+            "textures": [],
+            "samplers": [],
+            "targetIndependentResourceMetadata": [],
+        }
         source_map_debug_facts = expected_source_map_debug_facts(
-            source_facts, type_facts
+            source_facts, type_facts, minimal_resource_facts
         )
         resource_fields = ["resourceFacts.localSize", *RESOURCE_COLLECTION_FIELDS]
         resource_fixture_path = "tests/fixtures/ZResourceTest.cgl"
@@ -1941,8 +2055,46 @@ def run_self_test() -> list[str]:
             "float_pointer_storage_buffer",
             "storage_buffer_element_type",
         ]
+        storage_resource_facts = {
+            "localSize": [1, 1, 1],
+            "descriptors": [
+                {
+                    "stage": "compute",
+                    "name": "values",
+                    "kind": "storageBuffer",
+                    "set": 0,
+                    "binding": 0,
+                }
+            ],
+            "storageBuffers": [
+                {
+                    "name": "values",
+                    "type": "float*",
+                    "elementType": "float",
+                    "addressSpace": "storage",
+                    "writeAccess": True,
+                }
+            ],
+            "storageImages": [],
+            "textures": [],
+            "samplers": [],
+            "targetIndependentResourceMetadata": [
+                {
+                    "stage": "compute",
+                    "name": "values",
+                    "kind": "storageBuffer",
+                    "sourceType": "float*",
+                    "elementType": "float",
+                    "addressSpace": "storage",
+                    "access": "read_write",
+                    "set": 0,
+                    "binding": 0,
+                    "targetIndependent": True,
+                }
+            ],
+        }
         resource_source_map_debug_facts = expected_source_map_debug_facts(
-            resource_source_facts, resource_type_facts
+            resource_source_facts, resource_type_facts, storage_resource_facts
         )
         resource_bound_fields = [
             "resourceFacts.localSize",
@@ -2039,15 +2191,7 @@ def run_self_test() -> list[str]:
                             "fields": source_map_debug_facts
                         },
                     },
-                    "resourceFacts": {
-                        "localSize": [1, 1, 1],
-                        "descriptors": [],
-                        "storageBuffers": [],
-                        "storageImages": [],
-                        "textures": [],
-                        "samplers": [],
-                        "targetIndependentResourceMetadata": [],
-                    },
+                    "resourceFacts": minimal_resource_facts,
                 },
                 {
                     "path": resource_fixture_path,
@@ -2100,44 +2244,7 @@ def run_self_test() -> list[str]:
                             "fields": resource_source_map_debug_facts
                         },
                     },
-                    "resourceFacts": {
-                        "localSize": [1, 1, 1],
-                        "descriptors": [
-                            {
-                                "stage": "compute",
-                                "name": "values",
-                                "kind": "storageBuffer",
-                                "set": 0,
-                                "binding": 0,
-                            }
-                        ],
-                        "storageBuffers": [
-                            {
-                                "name": "values",
-                                "type": "float*",
-                                "elementType": "float",
-                                "addressSpace": "storage",
-                                "writeAccess": True,
-                            }
-                        ],
-                        "storageImages": [],
-                        "textures": [],
-                        "samplers": [],
-                        "targetIndependentResourceMetadata": [
-                            {
-                                "stage": "compute",
-                                "name": "values",
-                                "kind": "storageBuffer",
-                                "sourceType": "float*",
-                                "elementType": "float",
-                                "addressSpace": "storage",
-                                "access": "read_write",
-                                "set": 0,
-                                "binding": 0,
-                                "targetIndependent": True,
-                            }
-                        ],
-                    },
+                    "resourceFacts": storage_resource_facts,
                 },
             ],
         }
@@ -2150,7 +2257,9 @@ def run_self_test() -> list[str]:
                     "loweringStatus": "eligible-report-only",
                     "boundaryFactCoverage": {
                         "sourceLocationFacts": source_facts,
-                        "entryPointFacts": list(ENTRY_POINT_IDENTITY_FIELDS),
+                        "entryPointFacts": expected_entry_point_identity_fields(
+                            "compute", minimal_resource_facts
+                        ),
                         "resourceFactFields": resource_fields,
                         "targetIndependentResourceMetadataFields": [
                             RESOURCE_METADATA_COLLECTION
@@ -2165,7 +2274,9 @@ def run_self_test() -> list[str]:
                     "loweringStatus": "eligible-report-only",
                     "boundaryFactCoverage": {
                         "sourceLocationFacts": resource_source_facts,
-                        "entryPointFacts": list(ENTRY_POINT_IDENTITY_FIELDS),
+                        "entryPointFacts": expected_entry_point_identity_fields(
+                            "compute", storage_resource_facts
+                        ),
                         "resourceFactFields": resource_bound_fields,
                         "targetIndependentResourceMetadataFields": (
                             resource_metadata_fields

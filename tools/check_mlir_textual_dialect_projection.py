@@ -104,6 +104,7 @@ OPERATION_NAMING_BOUNDARY_KEYS = (
     "blockedNamespaceOperationCount",
 )
 OPERATION_NAME_PATTERN = re.compile(r"^hir\.[A-Za-z_][A-Za-z0-9_.-]*$")
+GRAPHICS_STAGE = "graphics"
 
 
 def read_text(path: Path) -> str:
@@ -236,6 +237,10 @@ def textual_form_for_operation(operation: str) -> str:
         return 'hir.module @${module} attributes {source = "${source_file}"}'
     if operation == "hir.compute_stage":
         return 'hir.compute_stage @compute attributes {stage = "compute"}'
+    if operation == "hir.vertex_stage":
+        return 'hir.vertex_stage @vertex attributes {stage = "vertex"}'
+    if operation == "hir.fragment_stage":
+        return 'hir.fragment_stage @fragment attributes {stage = "fragment"}'
     if operation == "hir.entry_point":
         return "hir.entry_point @${entryPoint} : () -> !hir.void"
     if operation == "hir.workgroup_size":
@@ -244,6 +249,14 @@ def textual_form_for_operation(operation: str) -> str:
         return "hir.return loc(${return_statement})"
     if operation == "hir.source_location_anchor":
         return "hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}"
+    if operation == "hir.stage_input":
+        return "hir.stage_input @${structName} {${fields}} : !hir.stage_io"
+    if operation == "hir.stage_output":
+        return "hir.stage_output @${structName} {${fields}} : !hir.stage_io"
+    if operation == "hir.stage_varying":
+        return "hir.stage_varying @${name} : ${type} vertex.output -> fragment.input"
+    if operation == "hir.fragment_output":
+        return "hir.fragment_output @${name} {location = ${location}} : ${type}"
     if operation == "hir.resource":
         return 'hir.resource @${resourceName} {set = ${set}, binding = ${binding}, kind = "${kind}"}'
     if operation == "hir.storage_buffer":
@@ -413,6 +426,24 @@ def textual_module_skeleton(
     local_size = resource_facts.get("localSize")
     if not isinstance(local_size, list) or len(local_size) != 3:
         local_size = [1, 1, 1]
+    if fixture.get("stage") == GRAPHICS_STAGE:
+        return [
+            f'hir.module @{module_name} attributes {{source = "{fixture_path}"}} {{',
+            '  hir.vertex_stage @vertex attributes {stage = "vertex"}',
+            "  hir.entry_point @main(%input: !hir.struct<VertexInput>) -> !hir.struct<VertexOutput>",
+            "  hir.stage_input @VertexInput {position: !hir.vec3, texCoord: !hir.vec2, color: !hir.vec4}",
+            "  hir.stage_output @VertexOutput {position: !hir.vec4, uv: !hir.vec2, tint: !hir.vec4}",
+            '  hir.fragment_stage @fragment attributes {stage = "fragment"}',
+            "  hir.entry_point @main(%input: !hir.struct<FragmentInput>) -> !hir.struct<FragmentOutput>",
+            "  hir.stage_input @FragmentInput {uv: !hir.vec2, tint: !hir.vec4}",
+            "  hir.stage_output @FragmentOutput {color: !hir.vec4}",
+            "  hir.stage_varying @uv : !hir.vec2 vertex.output -> fragment.input",
+            "  hir.stage_varying @tint : !hir.vec4 vertex.output -> fragment.input",
+            "  hir.fragment_output @color {location = 0} : !hir.vec4",
+            "  hir.return loc(return_statement)",
+            "  hir.source_location_anchor {source_file, shader_module, vertex_stage, fragment_stage, vertex_entry_point, fragment_entry_point, return_statement}",
+            "}",
+        ]
     lines = [
         f'hir.module @{module_name} attributes {{source = "{fixture_path}"}} {{',
         '  hir.compute_stage @compute attributes {stage = "compute"}',
@@ -697,8 +728,12 @@ def check_fixture_projection(
     if not isinstance(path, str) or not path:
         errors.append(f"{CATALOG_PATH}: fixtures[{index}].path invalid")
         path = ""
-    if record.get("stage") != "compute":
-        errors.append(f"{CATALOG_PATH}: fixtures[{index}].stage must be 'compute'")
+    stage = record.get("stage")
+    if stage not in {"compute", GRAPHICS_STAGE}:
+        errors.append(
+            f"{CATALOG_PATH}: fixtures[{index}].stage must be 'compute' "
+            f"or {GRAPHICS_STAGE!r}"
+        )
     if not isinstance(record.get("entryPoint"), str) or not record["entryPoint"]:
         errors.append(f"{CATALOG_PATH}: fixtures[{index}].entryPoint invalid")
     expected_operations = string_list(record.get("expectedOperations"))
@@ -718,12 +753,27 @@ def check_fixture_projection(
             f"{CATALOG_PATH}: fixtures[{index}].textualModuleSkeleton uses blocked namespace"
         )
     required_skeleton_tokens = (
-        "hir.module",
-        "hir.compute_stage",
-        "hir.entry_point",
-        "hir.workgroup_size",
-        "hir.return",
-        "hir.source_location_anchor",
+        (
+            "hir.module",
+            "hir.vertex_stage",
+            "hir.fragment_stage",
+            "hir.entry_point",
+            "hir.stage_input",
+            "hir.stage_output",
+            "hir.stage_varying",
+            "hir.fragment_output",
+            "hir.return",
+            "hir.source_location_anchor",
+        )
+        if stage == GRAPHICS_STAGE
+        else (
+            "hir.module",
+            "hir.compute_stage",
+            "hir.entry_point",
+            "hir.workgroup_size",
+            "hir.return",
+            "hir.source_location_anchor",
+        )
     )
     for token in required_skeleton_tokens:
         if not any(token in line for line in skeleton):
@@ -739,14 +789,27 @@ def check_fixture_projection(
         errors.append(
             f"{CATALOG_PATH}: fixtures[{index}].sourceResourcePreservation schema changed"
         )
-    for required_source_fact in (
-        "source_file",
-        "shader_module",
-        "compute_stage",
-        "entry_point",
-        "layout_local_size",
-        "return_statement",
-    ):
+    required_source_facts = (
+        (
+            "source_file",
+            "shader_module",
+            "vertex_stage",
+            "fragment_stage",
+            "vertex_entry_point",
+            "fragment_entry_point",
+            "return_statement",
+        )
+        if stage == GRAPHICS_STAGE
+        else (
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement",
+        )
+    )
+    for required_source_fact in required_source_facts:
         if required_source_fact not in string_list(
             preservation.get("sourceLocationFacts")
         ):
@@ -754,13 +817,19 @@ def check_fixture_projection(
                 f"{CATALOG_PATH}: fixtures[{index}] missing source fact "
                 f"{required_source_fact!r}"
             )
-    if "void_entry_point" not in string_list(
+    required_type_fact = (
+        "vertex_entry_point_io_structs"
+        if stage == GRAPHICS_STAGE
+        else "void_entry_point"
+    )
+    if required_type_fact not in string_list(
         preservation.get("targetIndependentTypeFacts")
     ):
         errors.append(
-            f"{CATALOG_PATH}: fixtures[{index}] missing void_entry_point type fact"
+            f"{CATALOG_PATH}: fixtures[{index}] missing "
+            f"{required_type_fact} type fact"
         )
-    if "resourceFacts.localSize" not in string_list(
+    if stage != GRAPHICS_STAGE and "resourceFacts.localSize" not in string_list(
         preservation.get("resourceFactFields")
     ):
         errors.append(f"{CATALOG_PATH}: fixtures[{index}] missing local size field")

@@ -1322,6 +1322,144 @@
       }
     },
     {
+      "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+      "stage": "graphics",
+      "entryPoint": "main",
+      "experimentSlice": "graphics-stage-io-metadata",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "empty-resource-facts",
+      "expectedOperations": [
+        "hir.module",
+        "hir.vertex_stage",
+        "hir.fragment_stage",
+        "hir.entry_point",
+        "hir.stage_input",
+        "hir.stage_output",
+        "hir.stage_varying",
+        "hir.fragment_output",
+        "hir.return"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @GraphicsProvenanceHIRShader attributes {source = \"tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl\"} {",
+        "  hir.vertex_stage @vertex attributes {stage = \"vertex\"}",
+        "  hir.entry_point @main(%input: !hir.struct<VertexInput>) -> !hir.struct<VertexOutput>",
+        "  hir.stage_input @VertexInput {position: !hir.vec3, texCoord: !hir.vec2, color: !hir.vec4}",
+        "  hir.stage_output @VertexOutput {position: !hir.vec4, uv: !hir.vec2, tint: !hir.vec4}",
+        "  hir.fragment_stage @fragment attributes {stage = \"fragment\"}",
+        "  hir.entry_point @main(%input: !hir.struct<FragmentInput>) -> !hir.struct<FragmentOutput>",
+        "  hir.stage_input @FragmentInput {uv: !hir.vec2, tint: !hir.vec4}",
+        "  hir.stage_output @FragmentOutput {color: !hir.vec4}",
+        "  hir.stage_varying @uv : !hir.vec2 vertex.output -> fragment.input",
+        "  hir.stage_varying @tint : !hir.vec4 vertex.output -> fragment.input",
+        "  hir.fragment_output @color {location = 0} : !hir.vec4",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, vertex_stage, fragment_stage, vertex_entry_point, fragment_entry_point, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "vertex_stage",
+          "fragment_stage",
+          "entry_point",
+          "vertex_entry_point",
+          "fragment_entry_point",
+          "vertex_input_struct",
+          "vertex_output_struct",
+          "fragment_input_struct",
+          "fragment_output_struct",
+          "vertex_stage_output_position",
+          "vertex_stage_output_varyings",
+          "fragment_stage_input_varyings",
+          "fragment_stage_output_color",
+          "vertex_member_access",
+          "fragment_member_access",
+          "local_variable_declarations",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.vertex_stage",
+          "sourceLocationFacts.fragment_stage",
+          "sourceLocationFacts.vertex_entry_point",
+          "sourceLocationFacts.fragment_entry_point",
+          "typeFacts.vertex_entry_point_io_structs",
+          "typeFacts.fragment_entry_point_io_structs"
+        ],
+        "targetIndependentTypeFacts": [
+          "vertex_entry_point_io_structs",
+          "fragment_entry_point_io_structs",
+          "vertex_position_builtin_vec4",
+          "stage_varying_vec2_vec4",
+          "fragment_output_vec4",
+          "vec2_scalar",
+          "vec3_scalar",
+          "vec4_scalar",
+          "constructor_cast_expression",
+          "scalar_literals"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.descriptors",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.vertex_stage",
+          "sourceLocationFacts.fragment_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.vertex_entry_point",
+          "sourceLocationFacts.fragment_entry_point",
+          "sourceLocationFacts.vertex_input_struct",
+          "sourceLocationFacts.vertex_output_struct",
+          "sourceLocationFacts.fragment_input_struct",
+          "sourceLocationFacts.fragment_output_struct",
+          "sourceLocationFacts.vertex_stage_output_position",
+          "sourceLocationFacts.vertex_stage_output_varyings",
+          "sourceLocationFacts.fragment_stage_input_varyings",
+          "sourceLocationFacts.fragment_stage_output_color",
+          "sourceLocationFacts.vertex_member_access",
+          "sourceLocationFacts.fragment_member_access",
+          "sourceLocationFacts.local_variable_declarations",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.vertex_entry_point_io_structs",
+          "typeFacts.fragment_entry_point_io_structs",
+          "typeFacts.vertex_position_builtin_vec4",
+          "typeFacts.stage_varying_vec2_vec4",
+          "typeFacts.fragment_output_vec4",
+          "typeFacts.vec2_scalar",
+          "typeFacts.vec3_scalar",
+          "typeFacts.vec4_scalar",
+          "typeFacts.constructor_cast_expression",
+          "typeFacts.scalar_literals"
+        ]
+      }
+    },
+    {
       "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
       "stage": "compute",
       "entryPoint": "main",
@@ -2075,7 +2213,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -2185,6 +2324,15 @@
         },
         {
           "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "source_file",
@@ -2353,7 +2501,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "entry_point",
@@ -2463,6 +2612,15 @@
         },
         {
           "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "entry_point",
@@ -2618,7 +2776,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "return_statement"
@@ -2719,6 +2878,210 @@
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.vertex_stage",
+      "textualForm": "hir.vertex_stage @vertex attributes {stage = \"vertex\"}",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Carries the vertex stage boundary and entry-point provenance for the graphics stage I/O fixture.",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "vertex_stage",
+        "stage"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "vertex_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.fragment_stage",
+      "textualForm": "hir.fragment_stage @fragment attributes {stage = \"fragment\"}",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Carries the fragment stage boundary and entry-point provenance for the graphics stage I/O fixture.",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "fragment_stage",
+        "stage"
+      ],
+      "typeFactsRequired": [],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "fragment_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.stage_input",
+      "textualForm": "hir.stage_input @${structName} {${fields}} : !hir.stage_io",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Records graphics stage input struct provenance and target-independent entry-point I/O type facts.",
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "vertex_input_struct",
+        "fragment_input_struct"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.vertex_entry_point_io_structs",
+        "typeFacts.fragment_entry_point_io_structs"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "vertex_input_struct",
+            "fragment_input_struct",
+            "typeFacts.vertex_entry_point_io_structs",
+            "typeFacts.fragment_entry_point_io_structs"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.stage_output",
+      "textualForm": "hir.stage_output @${structName} {${fields}} : !hir.stage_io",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Records graphics stage output struct provenance, including vertex position and fragment color output carriers.",
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "vertex_output_struct",
+        "fragment_output_struct",
+        "vertex_stage_output_position"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.vertex_position_builtin_vec4",
+        "typeFacts.fragment_output_vec4"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "vertex_output_struct",
+            "fragment_output_struct",
+            "vertex_stage_output_position",
+            "typeFacts.vertex_position_builtin_vec4",
+            "typeFacts.fragment_output_vec4"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.stage_varying",
+      "textualForm": "hir.stage_varying @${name} : ${type} vertex.output -> fragment.input",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Links vertex stage output varying facts to matching fragment stage input varying facts without lowering backend locations.",
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "vertex_stage_output_varyings",
+        "fragment_stage_input_varyings"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.stage_varying_vec2_vec4"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "vertex_stage_output_varyings",
+            "fragment_stage_input_varyings",
+            "typeFacts.stage_varying_vec2_vec4"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.fragment_output",
+      "textualForm": "hir.fragment_output @${name} {location = ${location}} : ${type}",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Records fragment color output metadata as target-independent stage I/O evidence.",
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "fragment_stage_output_color"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.fragment_output_vec4"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "fragment_stage_output_color",
+            "typeFacts.fragment_output_vec4"
           ],
           "missingRequiredFacts": []
         }
@@ -4651,8 +5014,8 @@
     "productionLinked": false
   },
   "coverageSummary": {
-    "fixtureCount": 13,
-    "operationCount": 31,
+    "fixtureCount": 14,
+    "operationCount": 37,
     "resourceBoundFixtureCount": 11,
     "resourceBoundFixtures": [
       "tests/fixtures/IfComputeShader.cgl",
@@ -4691,6 +5054,7 @@
       "tests/fixtures/StorageImageExplicitFormatShader.cgl",
       "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
       "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
       "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
       "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
       "tests/frontend/fixtures/StorageImageHIRShader.cgl",
@@ -4705,6 +5069,12 @@
         "hir.entry_point",
         "hir.workgroup_size",
         "hir.return",
+        "hir.vertex_stage",
+        "hir.fragment_stage",
+        "hir.stage_input",
+        "hir.stage_output",
+        "hir.stage_varying",
+        "hir.fragment_output",
         "hir.source_location_anchor",
         "hir.scalar_declare",
         "hir.scalar_expr",
@@ -4738,6 +5108,12 @@
         "hir.entry_point",
         "hir.workgroup_size",
         "hir.return",
+        "hir.vertex_stage",
+        "hir.fragment_stage",
+        "hir.stage_input",
+        "hir.stage_output",
+        "hir.stage_varying",
+        "hir.fragment_output",
         "hir.source_location_anchor",
         "hir.scalar_declare",
         "hir.scalar_expr",
