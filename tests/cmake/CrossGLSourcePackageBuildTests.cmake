@@ -5013,33 +5013,7 @@ crossgl_label_optional_native_policy_test(
   cglc_build_directx_graphics_resources_fake_dxc_tool_failure directx)
 crossgl_label_optional_native_policy_test(
   cglc_build_directx_graphics_resources_fake_dxc_unavailable directx)
-set(CROSSGL_OPENGL_GRAPHICS_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_VERTEX)
-layout(location = 0) in vec3 crossgl_attr_position;
-layout(location = 1) in vec2 crossgl_attr_texCoord;
-layout(location = 0) out vec2 crossgl_varying_uv;
-
-VertexOutput vertex_main(VertexInput crossgl_user_input) {
-  VertexOutput crossgl_user_output;
-  crossgl_user_output.uv = crossgl_user_input.texCoord;
-  crossgl_user_output.position = vec4(crossgl_user_input.position, 1.0);
-  return crossgl_user_output;
-}
-
-void main() {
-  VertexInput crossgl_vertex_input;
-  crossgl_vertex_input.position = crossgl_attr_position;
-  crossgl_vertex_input.texCoord = crossgl_attr_texCoord;
-  VertexOutput crossgl_vertex_output = vertex_main(crossgl_vertex_input);
-  crossgl_varying_uv = crossgl_vertex_output.uv;
-  gl_Position = crossgl_vertex_output.position;
-}
-#endif
-
-#if defined(CROSSGL_STAGE_FRAGMENT)
-layout(location = 0) in vec2 crossgl_varying_uv;
-layout(location = 0) out vec4 crossgl_out_color;
-
-FragmentOutput fragment_main(FragmentInput crossgl_user_input) {]=])
+set(CROSSGL_OPENGL_GRAPHICS_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5076,9 +5050,9 @@ add_test(NAME cglc_build_opengl_graphics_fake_glslang_success
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}/glslangValidator.log
-    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator success: -l -S vert -DCROSSGL_STAGE_VERTEX=1"
+    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator success: -S vert"
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}/glslangValidator.log
-    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator success: -l -S frag -DCROSSGL_STAGE_FRAGMENT=1"
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator success: -S frag"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_graphics_fake_glslang_fragment_tool_failure
   COMMAND ${CMAKE_COMMAND}
@@ -5107,9 +5081,9 @@ add_test(NAME cglc_build_opengl_graphics_fake_glslang_fragment_tool_failure
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
     "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=1"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FRAGMENT_FAILURE_DIR}/glslangValidator.log
-    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -l -S vert -DCROSSGL_STAGE_VERTEX=1"
+    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -S vert"
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FRAGMENT_FAILURE_DIR}/glslangValidator.log
-    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -l -S frag -DCROSSGL_STAGE_FRAGMENT=1"
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -S frag"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_label_optional_native_policy_test(
   cglc_build_opengl_graphics_fake_glslang_fragment_tool_failure opengl)
@@ -5134,14 +5108,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(cglc_build_opengl_graphics_glsl_validated
     opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_VERTEX)
-// CrossGL set 0, binding 0
-layout(binding = 0, std140) uniform vertexParams_Uniform {
-  vec4 tint;
-  float zBias;
-} vertexParams;
-
-layout(location = 0) in vec3 crossgl_attr_position;]=])
+set(CROSSGL_OPENGL_GRAPHICS_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5177,17 +5144,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_TEXTURE_SAMPLER_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_FRAGMENT)
-// CrossGL set 0, binding 1
-layout(binding = 1, std140) uniform material_Uniform {
-  vec4 baseColor;
-} material;
-
-// CrossGL set 0, binding 2
-layout(binding = 2) uniform sampler2D colorMap;
-
-// CrossGL set 0, binding 3
-// sampler linearSampler is represented by OpenGL combined sampler uniforms.]=])
+set(CROSSGL_OPENGL_GRAPHICS_TEXTURE_SAMPLER_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_texture_sampler_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5225,12 +5182,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_texture_sampler_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_DESCRIPTOR_ARRAY_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_VERTEX)
-// CrossGL set 0, binding 2
-layout(binding = 2) uniform sampler2D heightMaps[RESOURCE_COUNT];
-
-// CrossGL set 0, binding 3
-// sampler vertexSamplers is represented by OpenGL combined sampler uniforms.]=])
+set(CROSSGL_OPENGL_GRAPHICS_DESCRIPTOR_ARRAY_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_descriptor_array_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5268,19 +5220,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_descriptor_array_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_SHADOW_COMPARE_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_FRAGMENT)
-// CrossGL set 0, binding 2
-layout(binding = 2) uniform sampler2DShadow shadowMap;
-
-// CrossGL set 0, binding 3
-// sampler shadowSampler is represented by OpenGL combined sampler uniforms.
-
-layout(location = 0) in vec2 crossgl_varying_uv;
-layout(location = 0) out vec4 crossgl_out_color;
-
-FragmentOutput fragment_main(FragmentInput crossgl_user_input) {
-  FragmentOutput crossgl_user_output;
-  float visibility = texture(shadowMap, vec3(crossgl_user_input.uv, 0.5));]=])
+set(CROSSGL_OPENGL_GRAPHICS_SHADOW_COMPARE_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_shadow_compare_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5318,19 +5258,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_shadow_compare_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_SHADOW_COMPARE_LOD_RESOURCES_SOURCE_SNIPPET [=[#if defined(CROSSGL_STAGE_FRAGMENT)
-// CrossGL set 0, binding 2
-layout(binding = 2) uniform sampler2DShadow shadowMap;
-
-// CrossGL set 0, binding 3
-// sampler shadowSampler is represented by OpenGL combined sampler uniforms.
-
-layout(location = 0) in vec2 crossgl_varying_uv;
-layout(location = 0) out vec4 crossgl_out_color;
-
-FragmentOutput fragment_main(FragmentInput crossgl_user_input) {
-  FragmentOutput crossgl_user_output;
-  float visibility = textureLod(shadowMap, vec3(crossgl_user_input.uv, 0.5), 1.5);]=])
+set(CROSSGL_OPENGL_GRAPHICS_SHADOW_COMPARE_LOD_RESOURCES_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_shadow_compare_lod_resources_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5356,7 +5284,7 @@ add_test(NAME cglc_build_opengl_graphics_shadow_compare_lod_resources_fake_glsla
     -DTOOLCHAIN_PATH=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
     -DEXPECTED_SOURCE=backend/opengl/OpenGLGraphicsShadowCompareLodResourcesShader.graphics.glsl
-    "-DEXPECTED_SOURCE_SNIPPET=#extension GL_EXT_texture_shadow_lod : require"
+    "-DEXPECTED_SOURCE_SNIPPET=// CrossGL OpenGL graphics stage inventory"
     "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLGraphicsShadowCompareLodResourcesShader|artifacts.backendSource=backend/opengl/OpenGLGraphicsShadowCompareLodResourcesShader.graphics.glsl|artifacts.nativeBinary=backend/opengl/OpenGLGraphicsShadowCompareLodResourcesShader.glsl"
     "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLGraphicsShadowCompareLodResourcesShader|nativeBinary=backend/opengl/OpenGLGraphicsShadowCompareLodResourcesShader.glsl|entryPoints.0.stage=vertex|entryPoints.1.stage=fragment"
     "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-glsl-package.kind=backend|glsl-program-validation.kind=validation|texture-shadow-compare-explicit-lod.kind=operation"
@@ -5367,9 +5295,9 @@ add_test(NAME cglc_build_opengl_graphics_shadow_compare_lod_resources_fake_glsla
     "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450|message=GL_EXT_texture_shadow_lod"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}/glslangValidator.log
-    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator success: -l -S vert -DCROSSGL_STAGE_VERTEX=1"
+    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator success: -S vert"
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_SUCCESS_DIR}/glslangValidator.log
-    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator success: -l -S frag -DCROSSGL_STAGE_FRAGMENT=1"
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator success: -S frag"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   add_test(NAME cglc_build_opengl_graphics_shadow_compare_lod_resources_glsl_validated
@@ -5393,27 +5321,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_shadow_compare_lod_resources_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_SHADOW_DESCRIPTOR_ARRAY_SOURCE_SNIPPET [=[#extension GL_EXT_texture_shadow_lod : require
-const int SHADOW_COUNT = 2;
-
-struct VertexInput {
-  vec3 position;
-  vec2 texCoord;
-};
-struct VertexOutput {
-  vec2 uv;
-  vec4 position;
-};
-struct FragmentInput {
-  vec2 uv;
-};
-struct FragmentOutput {
-  vec4 color;
-};
-
-#if defined(CROSSGL_STAGE_VERTEX)
-// CrossGL set 0, binding 6
-layout(binding = 6) uniform sampler2DShadow vertexShadowMaps[SHADOW_COUNT];]=])
+set(CROSSGL_OPENGL_GRAPHICS_SHADOW_DESCRIPTOR_ARRAY_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_shadow_descriptor_array_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5451,37 +5359,7 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_shadow_descriptor_array_glsl_validated opengl)
 endif()
-set(CROSSGL_OPENGL_GRAPHICS_RESERVED_IDENTIFIERS_SOURCE_SNIPPET [=[struct VertexInput {
-  vec3 position;
-  vec2 crossgl_user_sample;
-  float crossgl_user_smooth;
-};
-struct VertexOutput {
-  vec2 crossgl_user_sample;
-  float crossgl_user_smooth;
-  vec4 position;
-};
-struct FragmentInput {
-  vec2 crossgl_user_sample;
-  float crossgl_user_smooth;
-};
-struct FragmentOutput {
-  vec4 crossgl_user_sample;
-};
-
-#if defined(CROSSGL_STAGE_VERTEX)
-layout(location = 0) in vec3 crossgl_attr_position;
-layout(location = 1) in vec2 crossgl_attr_sample;
-layout(location = 2) in float crossgl_attr_smooth;
-layout(location = 0) out vec2 crossgl_varying_sample;
-layout(location = 1) out float crossgl_varying_smooth;
-
-vec2 lift(vec2 crossgl_user_sample, float crossgl_user_smooth);
-
-vec2 lift(vec2 crossgl_user_sample, float crossgl_user_smooth) {
-  vec2 crossgl_user_centroid = crossgl_user_sample + vec2(crossgl_user_smooth, crossgl_user_smooth);
-  return crossgl_user_centroid;
-}]=])
+set(CROSSGL_OPENGL_GRAPHICS_RESERVED_IDENTIFIERS_SOURCE_SNIPPET [=[// CrossGL OpenGL graphics stage inventory]=])
 add_test(NAME cglc_build_opengl_graphics_reserved_identifiers_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

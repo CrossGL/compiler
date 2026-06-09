@@ -339,12 +339,61 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
                 "backend/opengl/"
                 "OpenGLGraphicsTextureSamplerResourcesShader.graphics-abi.json"
             )
+            backend_source_path = artifacts["backendSource"]
+            native_binary_path = artifacts["nativeBinary"]
+            vertex_source_path = (
+                "backend/opengl/OpenGLGraphicsTextureSamplerResourcesShader.vert.glsl"
+            )
+            fragment_source_path = (
+                "backend/opengl/OpenGLGraphicsTextureSamplerResourcesShader.frag.glsl"
+            )
+            validated_vertex_path = (
+                "backend/opengl/"
+                "OpenGLGraphicsTextureSamplerResourcesShader.validated.vert.glsl"
+            )
+            validated_fragment_path = (
+                "backend/opengl/"
+                "OpenGLGraphicsTextureSamplerResourcesShader.validated.frag.glsl"
+            )
             self.assertEqual(artifacts["graphicsAbi"], graphics_abi_path)
             self.assertNotIn(
                 "graphicsAbi",
                 manifest["packageArtifactRequirements"]["requiredPathArtifacts"],
             )
             self.assertTrue((package_dir / graphics_abi_path).is_file())
+            self.assertTrue((package_dir / vertex_source_path).is_file())
+            self.assertTrue((package_dir / fragment_source_path).is_file())
+            self.assertTrue((package_dir / validated_vertex_path).is_file())
+            self.assertTrue((package_dir / validated_fragment_path).is_file())
+            source_inventory = (package_dir / backend_source_path).read_text(
+                encoding="utf-8"
+            )
+            native_inventory = (package_dir / native_binary_path).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn(f"stage vertex: {vertex_source_path}", source_inventory)
+            self.assertIn(f"stage fragment: {fragment_source_path}", source_inventory)
+            self.assertIn(f"stage vertex: {validated_vertex_path}", native_inventory)
+            self.assertIn(
+                f"stage fragment: {validated_fragment_path}", native_inventory
+            )
+            vertex_source = (package_dir / vertex_source_path).read_text(
+                encoding="utf-8"
+            )
+            fragment_source = (package_dir / fragment_source_path).read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("void main()", vertex_source)
+            self.assertIn("gl_Position", vertex_source)
+            self.assertIn("void main()", fragment_source)
+            self.assertIn("crossgl_out_color", fragment_source)
+            fake_log = fake_tool_log.read_text(encoding="utf-8")
+            self.assertIn("-S vert", fake_log)
+            self.assertIn(vertex_source_path, fake_log)
+            self.assertIn("-S frag", fake_log)
+            self.assertIn(fragment_source_path, fake_log)
+            self.assertNotIn("-DCROSSGL_STAGE_VERTEX", fake_log)
+            self.assertNotIn("-DCROSSGL_STAGE_FRAGMENT", fake_log)
 
             verifier = subprocess.run(
                 [

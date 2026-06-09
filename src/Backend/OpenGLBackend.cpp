@@ -4889,6 +4889,114 @@ std::string generateOpenGLGraphicsSource(
   return out.str();
 }
 
+std::string generateOpenGLGraphicsStageSource(
+    const HIRModule &module, std::string_view stageName,
+    const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr) {
+  std::ostringstream out;
+  if (!openGLGraphicsTextualBackendSupported(module)) {
+    return out.str();
+  }
+
+  const HIRStage *vertexStage = nullptr;
+  const HIRStage *fragmentStage = nullptr;
+  (void)openGLGraphicsStagePair(module, vertexStage, fragmentStage);
+  const HIRFunction &vertexEntry = *entryFunction(*vertexStage);
+  const HIRFunction &fragmentEntry = *entryFunction(*fragmentStage);
+  const HIRStruct &vertexInput =
+      *openGLStructType(module, vertexEntry.parameters.front().type);
+  const HIRStruct &vertexOutput =
+      *openGLStructType(module, vertexEntry.returnType);
+  const HIRStruct &fragmentInput =
+      *openGLStructType(module, fragmentEntry.parameters.front().type);
+  const HIRStruct &fragmentOutput =
+      *openGLStructType(module, fragmentEntry.returnType);
+  const HIRField &position = *openGLGraphicsPositionField(vertexOutput);
+
+  const HIRStage &stage = stageName == "vertex" ? *vertexStage : *fragmentStage;
+  const OpenGLEmitContext context =
+      makeOpenGLEmitContext(module, stage, true, resourceBindings);
+
+  emitOpenGLSourcePreamble(out, module, context);
+  emitOpenGLStructDeclarations(
+      out, module,
+      openGLGraphicsStructDeclarations(module, vertexEntry, fragmentEntry),
+      context);
+
+  if (stageName == "vertex") {
+    for (const HIRResource &resource : vertexStage->resources) {
+      emitResourceDeclaration(out, module, resource, context);
+    }
+    if (moduleUsesManualTextureCompare(module)) {
+      emitManualCompareHelper(out);
+    }
+    for (std::size_t index = 0; index < vertexInput.fields.size(); ++index) {
+      const HIRField &field = vertexInput.fields[index];
+      out << "layout(location = " << index << ") in " << glslType(field.type)
+          << " " << openGLVertexAttributeName(field.name) << ";\n";
+    }
+    for (std::size_t index = 0; index < fragmentInput.fields.size(); ++index) {
+      const HIRField &field = fragmentInput.fields[index];
+      out << "layout(location = " << index << ") out " << glslType(field.type)
+          << " " << openGLVaryingName(field.name) << ";\n";
+    }
+    out << "\n";
+    emitStageFunctionDefinitions(out, module, *vertexStage, vertexEntry,
+                                 context, "vertex_main");
+    out << "void main() {\n";
+    out << "  " << vertexInput.name << " crossgl_vertex_input;\n";
+    for (const HIRField &field : vertexInput.fields) {
+      out << "  crossgl_vertex_input." << emitFieldName(field.name, context)
+          << " = " << openGLVertexAttributeName(field.name) << ";\n";
+    }
+    out << "  " << vertexOutput.name
+        << " crossgl_vertex_output = vertex_main(crossgl_vertex_input);\n";
+    for (const HIRField &field : fragmentInput.fields) {
+      out << "  " << openGLVaryingName(field.name)
+          << " = crossgl_vertex_output." << emitFieldName(field.name, context)
+          << ";\n";
+    }
+    out << "  gl_Position = crossgl_vertex_output."
+        << emitFieldName(position.name, context) << ";\n";
+    out << "}\n";
+    return out.str();
+  }
+
+  for (const HIRResource &resource : fragmentStage->resources) {
+    emitResourceDeclaration(out, module, resource, context);
+  }
+  if (moduleUsesManualTextureCompare(module)) {
+    emitManualCompareHelper(out);
+  }
+  for (std::size_t index = 0; index < fragmentInput.fields.size(); ++index) {
+    const HIRField &field = fragmentInput.fields[index];
+    out << "layout(location = " << index << ") in " << glslType(field.type)
+        << " " << openGLVaryingName(field.name) << ";\n";
+  }
+  for (std::size_t index = 0; index < fragmentOutput.fields.size(); ++index) {
+    const HIRField &field = fragmentOutput.fields[index];
+    out << "layout(location = " << index << ") out " << glslType(field.type)
+        << " " << openGLFragmentOutputName(field.name) << ";\n";
+  }
+  out << "\n";
+  emitStageFunctionDefinitions(out, module, *fragmentStage, fragmentEntry,
+                               context, "fragment_main");
+  out << "void main() {\n";
+  out << "  " << fragmentInput.name << " crossgl_fragment_input;\n";
+  for (const HIRField &field : fragmentInput.fields) {
+    out << "  crossgl_fragment_input." << emitFieldName(field.name, context)
+        << " = " << openGLVaryingName(field.name) << ";\n";
+  }
+  out << "  " << fragmentOutput.name
+      << " crossgl_fragment_output = fragment_main(crossgl_fragment_input);\n";
+  for (const HIRField &field : fragmentOutput.fields) {
+    out << "  " << openGLFragmentOutputName(field.name)
+        << " = crossgl_fragment_output." << emitFieldName(field.name, context)
+        << ";\n";
+  }
+  out << "}\n";
+  return out.str();
+}
+
 std::string generateOpenGLSource(
     const HIRModule &module,
     const TargetLegalizationResourceBindingFacts *resourceBindings) {
@@ -5132,6 +5240,49 @@ bool diagnoseOpenGLLegalizedResourceDeclarationMismatches(
   return failed;
 }
 
+std::string openGLPackageRelativePath(
+    const std::filesystem::path &packageDir,
+    const std::filesystem::path &artifactPath) {
+  const auto relative = artifactPath.lexically_relative(packageDir);
+  const auto normalized = relative.lexically_normal();
+  if (!normalized.empty() && !normalized.is_absolute()) {
+    const auto first = normalized.begin();
+    if (first == normalized.end() || first->string() != "..") {
+      return normalized.generic_string();
+    }
+  }
+  return artifactPath.generic_string();
+}
+
+bool writeOpenGLTextFile(const std::filesystem::path &path,
+                         std::string_view text,
+                         DiagnosticEngine &diagnostics,
+                         std::string_view code) {
+  std::ofstream output(path, std::ios::binary);
+  if (!output) {
+    diagnostics.error(std::string(code),
+                      "failed to write '" + path.string() + "'");
+    return false;
+  }
+  output << text;
+  return true;
+}
+
+std::string openGLGraphicsStageInventory(
+    const HIRModule &module, const std::filesystem::path &packageDir,
+    const std::filesystem::path &vertexPath,
+    const std::filesystem::path &fragmentPath, std::string_view status) {
+  std::ostringstream out;
+  out << "// CrossGL OpenGL graphics stage inventory\n";
+  out << "// module: " << module.name << "\n";
+  out << "// status: " << status << "\n";
+  out << "// stage vertex: "
+      << openGLPackageRelativePath(packageDir, vertexPath) << "\n";
+  out << "// stage fragment: "
+      << openGLPackageRelativePath(packageDir, fragmentPath) << "\n";
+  return out.str();
+}
+
 std::string generateOpenGLBackendIR(const HIRModule &module) {
   std::ostringstream out;
   out << "// backend lowering for opengl: textual GLSL compute/graphics "
@@ -5288,18 +5439,40 @@ buildOpenGLSourcePackage(const HIRModule &module,
   const std::string sourceKind = graphicsSource ? "graphics" : "compute";
   result.sourcePath = openglDir / (module.name + sourceSuffix);
   result.nativeBinaryPath = openglDir / (module.name + ".glsl");
+  const std::filesystem::path vertexSourcePath =
+      openglDir / (module.name + ".vert.glsl");
+  const std::filesystem::path fragmentSourcePath =
+      openglDir / (module.name + ".frag.glsl");
+  const std::filesystem::path validatedVertexPath =
+      openglDir / (module.name + ".validated.vert.glsl");
+  const std::filesystem::path validatedFragmentPath =
+      openglDir / (module.name + ".validated.frag.glsl");
   std::filesystem::remove(result.nativeBinaryPath, error);
+  std::filesystem::remove(validatedVertexPath, error);
+  std::filesystem::remove(validatedFragmentPath, error);
 
   const std::string sourceText = generateOpenGLSource(module, resourceBindings);
   const std::string glslEvidence = openGLGLSLEvidenceSummary(module);
-  std::ofstream source(result.sourcePath, std::ios::binary);
-  if (!source) {
-    diagnostics.error("opengl.write-source",
-                      "failed to write '" + result.sourcePath.string() + "'");
+  if (graphicsSource) {
+    const std::string vertexSourceText =
+        generateOpenGLGraphicsStageSource(module, "vertex", resourceBindings);
+    const std::string fragmentSourceText =
+        generateOpenGLGraphicsStageSource(module, "fragment", resourceBindings);
+    const std::string sourceInventory =
+        openGLGraphicsStageInventory(module, packageDir, vertexSourcePath,
+                                     fragmentSourcePath, "source");
+    if (!writeOpenGLTextFile(vertexSourcePath, vertexSourceText, diagnostics,
+                             "opengl.write-source") ||
+        !writeOpenGLTextFile(fragmentSourcePath, fragmentSourceText, diagnostics,
+                             "opengl.write-source") ||
+        !writeOpenGLTextFile(result.sourcePath, sourceInventory, diagnostics,
+                             "opengl.write-source")) {
+      return result;
+    }
+  } else if (!writeOpenGLTextFile(result.sourcePath, sourceText, diagnostics,
+                                  "opengl.write-source")) {
     return result;
   }
-  source << sourceText;
-  source.close();
 
   const std::optional<std::string> glslang = findExecutable("glslangValidator");
   if (!glslang.has_value()) {
@@ -5315,24 +5488,39 @@ buildOpenGLSourcePackage(const HIRModule &module,
   int status = 0;
   if (graphicsSource) {
     const int vertexStatus =
-        runProcess({*glslang, "-l", "-S", "vert",
-                    "-DCROSSGL_STAGE_VERTEX=1", result.sourcePath.string()});
+        runProcess({*glslang, "-S", "vert", vertexSourcePath.string()});
     const int fragmentStatus =
-        runProcess({*glslang, "-l", "-S", "frag",
-                    "-DCROSSGL_STAGE_FRAGMENT=1", result.sourcePath.string()});
+        runProcess({*glslang, "-S", "frag", fragmentSourcePath.string()});
     status = vertexStatus == 0 && fragmentStatus == 0 ? 0 : 1;
   } else {
     status = runProcess({*glslang, "-S", "comp", result.sourcePath.string()});
   }
   if (status == 0) {
-    std::ofstream validated(result.nativeBinaryPath, std::ios::binary);
-    if (!validated) {
-      diagnostics.error(
-          "opengl.write-validated-source",
-          "failed to write '" + result.nativeBinaryPath.string() + "'");
-      return result;
+    if (graphicsSource) {
+      const std::string vertexSourceText =
+          generateOpenGLGraphicsStageSource(module, "vertex", resourceBindings);
+      const std::string fragmentSourceText =
+          generateOpenGLGraphicsStageSource(module, "fragment", resourceBindings);
+      const std::string validatedInventory =
+          openGLGraphicsStageInventory(module, packageDir, validatedVertexPath,
+                                       validatedFragmentPath, "validated");
+      if (!writeOpenGLTextFile(validatedVertexPath, vertexSourceText,
+                               diagnostics,
+                               "opengl.write-validated-source") ||
+          !writeOpenGLTextFile(validatedFragmentPath, fragmentSourceText,
+                               diagnostics,
+                               "opengl.write-validated-source") ||
+          !writeOpenGLTextFile(result.nativeBinaryPath, validatedInventory,
+                               diagnostics,
+                               "opengl.write-validated-source")) {
+        return result;
+      }
+    } else {
+      if (!writeOpenGLTextFile(result.nativeBinaryPath, sourceText, diagnostics,
+                               "opengl.write-validated-source")) {
+        return result;
+      }
     }
-    validated << sourceText;
 
     diagnostics.note("opengl.glsl-validated",
                      "validated generated GLSL " + sourceKind +
@@ -5346,6 +5534,8 @@ buildOpenGLSourcePackage(const HIRModule &module,
   }
 
   std::filesystem::remove(result.nativeBinaryPath, error);
+  std::filesystem::remove(validatedVertexPath, error);
+  std::filesystem::remove(validatedFragmentPath, error);
   result.validatorStatus = "failed";
   Diagnostic diagnostic;
   diagnostic.severity = DiagnosticSeverity::Warning;
