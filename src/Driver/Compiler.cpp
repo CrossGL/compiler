@@ -2527,10 +2527,14 @@ bool finalizeSourcePackageBuild(
 
   const std::filesystem::path nativeBinaryPackagePath =
       packageRelativePath(packageDir, artifact.nativeBinary);
-  const ReflectionDocument reflectionDocument =
-      buildReflectionDocument(module, contract, nativeBinaryPackagePath);
+  const std::optional<ReflectionDocument> reflectionDocument =
+      buildReflectionDocument(module, contract, nativeBinaryPackagePath,
+                              diagnostics);
+  if (!reflectionDocument) {
+    return false;
+  }
   const std::optional<std::filesystem::path> graphicsAbiSidecarPath =
-      writeGraphicsAbiSidecar(module, target, packageDir, reflectionDocument,
+      writeGraphicsAbiSidecar(module, target, packageDir, *reflectionDocument,
                               diagnostics);
   if (shouldEmitGraphicsAbi(module) && !graphicsAbiSidecarPath) {
     return false;
@@ -2545,7 +2549,7 @@ bool finalizeSourcePackageBuild(
       sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
       targetExplanationPath ? &*targetExplanationPath : nullptr,
       graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr);
-  const std::string reflection = reflectionJson(reflectionDocument);
+  const std::string reflection = reflectionJson(*reflectionDocument);
   return finalizePackageBuild(packageDir, manifest, reflection, inputPath,
                               diagnostics) &&
          stagedPackage.promote(diagnostics);
@@ -2596,10 +2600,14 @@ bool finalizeDirectXNativePackageBuild(
 
   const std::filesystem::path nativeBinaryPackagePath =
       packageRelativePath(packageDir, directxResult.nativeBinaryPath);
-  const ReflectionDocument reflectionDocument =
-      buildReflectionDocument(module, contract, nativeBinaryPackagePath);
+  const std::optional<ReflectionDocument> reflectionDocument =
+      buildReflectionDocument(module, contract, nativeBinaryPackagePath,
+                              diagnostics);
+  if (!reflectionDocument) {
+    return false;
+  }
   const std::optional<std::filesystem::path> graphicsAbiSidecarPath =
-      writeGraphicsAbiSidecar(module, target, packageDir, reflectionDocument,
+      writeGraphicsAbiSidecar(module, target, packageDir, *reflectionDocument,
                               diagnostics);
   if (shouldEmitGraphicsAbi(module) && !graphicsAbiSidecarPath) {
     return false;
@@ -2615,7 +2623,7 @@ bool finalizeDirectXNativePackageBuild(
       targetExplanationPath ? &*targetExplanationPath : nullptr,
       graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
       &nativePackagePolicy, &directxResult);
-  const std::string reflection = reflectionJson(reflectionDocument);
+  const std::string reflection = reflectionJson(*reflectionDocument);
   return finalizePackageBuild(packageDir, manifest, reflection, inputPath,
                               diagnostics) &&
          stagedPackage.promote(diagnostics);
@@ -3178,11 +3186,16 @@ CompileResult compile(const CompileRequest &request) {
       }
       const std::filesystem::path nativeBinaryPackagePath =
           packageRelativePath(packageDir, metal.metallibPath);
-      const ReflectionDocument reflectionDocument = buildReflectionDocument(
-          backendHIR, admission->decision.contract, nativeBinaryPackagePath);
+      const std::optional<ReflectionDocument> reflectionDocument =
+          buildReflectionDocument(backendHIR, admission->decision.contract,
+                                  nativeBinaryPackagePath, diagnostics);
+      if (!reflectionDocument) {
+        assignDiagnostics();
+        return result;
+      }
       const std::optional<std::filesystem::path> graphicsAbiSidecarPath =
           writeGraphicsAbiSidecar(backendHIR, target, packageDir,
-                                  reflectionDocument, diagnostics);
+                                  *reflectionDocument, diagnostics);
       if (shouldEmitGraphicsAbi(backendHIR) && !graphicsAbiSidecarPath) {
         assignDiagnostics();
         return result;
@@ -3197,7 +3210,7 @@ CompileResult compile(const CompileRequest &request) {
           targetExplanationPath ? &*targetExplanationPath : nullptr,
           graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
           &nativePackagePolicy);
-      const std::string reflection = reflectionJson(reflectionDocument);
+      const std::string reflection = reflectionJson(*reflectionDocument);
       if (finalizePackageBuild(packageDir, manifest, reflection,
                                request.inputPath, diagnostics) &&
           stagedPackage.promote(diagnostics)) {
@@ -3276,11 +3289,16 @@ CompileResult compile(const CompileRequest &request) {
       }
       const std::filesystem::path nativeBinaryPackagePath =
           packageRelativePath(packageDir, vulkan.spvPath);
-      const ReflectionDocument reflectionDocument = buildReflectionDocument(
-          backendHIR, admission->decision.contract, nativeBinaryPackagePath);
+      const std::optional<ReflectionDocument> reflectionDocument =
+          buildReflectionDocument(backendHIR, admission->decision.contract,
+                                  nativeBinaryPackagePath, diagnostics);
+      if (!reflectionDocument) {
+        assignDiagnostics();
+        return result;
+      }
       const std::optional<std::filesystem::path> graphicsAbiSidecarPath =
           writeGraphicsAbiSidecar(backendHIR, target, packageDir,
-                                  reflectionDocument, diagnostics);
+                                  *reflectionDocument, diagnostics);
       if (shouldEmitGraphicsAbi(backendHIR) && !graphicsAbiSidecarPath) {
         assignDiagnostics();
         return result;
@@ -3295,7 +3313,7 @@ CompileResult compile(const CompileRequest &request) {
           targetExplanationPath ? &*targetExplanationPath : nullptr,
           graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
           &nativePackagePolicy);
-      const std::string reflection = reflectionJson(reflectionDocument);
+      const std::string reflection = reflectionJson(*reflectionDocument);
       if (finalizePackageBuild(packageDir, manifest, reflection,
                                request.inputPath, diagnostics) &&
           stagedPackage.promote(diagnostics)) {

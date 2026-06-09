@@ -11,6 +11,8 @@
 
 namespace crossgl {
 
+class DiagnosticEngine;
+
 struct ReflectionParameter {
   std::string name;
   std::string type;
@@ -197,6 +199,14 @@ ReflectionDocument buildReflectionDocument(
 ReflectionDocument buildReflectionDocument(
     const HIRModule &module, const TargetLegalizationContract &contract,
     const std::filesystem::path &nativeBinaryPath);
+std::optional<ReflectionDocument> buildReflectionDocument(
+    const HIRModule &module, TargetKind target,
+    const std::filesystem::path &nativeBinaryPath,
+    DiagnosticEngine &diagnostics);
+std::optional<ReflectionDocument> buildReflectionDocument(
+    const HIRModule &module, const TargetLegalizationContract &contract,
+    const std::filesystem::path &nativeBinaryPath,
+    DiagnosticEngine &diagnostics);
 
 std::string reflectionJson(const HIRModule &module, TargetKind target,
                            const std::filesystem::path &nativeBinaryPath);

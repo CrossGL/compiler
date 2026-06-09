@@ -16204,6 +16204,29 @@ bool reflectionProjectionThrows(
   return false;
 }
 
+bool reflectionProjectionReportsDiagnostic(
+    const crossgl::HIRModule &module,
+    const crossgl::TargetLegalizationContract &contract,
+    std::string_view expectedFragment) {
+  crossgl::DiagnosticEngine diagnostics;
+  try {
+    const std::optional<crossgl::ReflectionDocument> document =
+        crossgl::buildReflectionDocument(
+            module, contract,
+            "/tmp/ReflectionResourceBindingDriftShader.bin", diagnostics);
+    const crossgl::Diagnostic *diagnostic = findDiagnostic(
+        diagnostics.diagnostics(),
+        "artifact.reflection-target-resource-binding-projection");
+    return !document && diagnostics.diagnostics().size() == 1 &&
+           diagnostic != nullptr &&
+           diagnostic->severity == crossgl::DiagnosticSeverity::Error &&
+           diagnostic->message.find(expectedFragment) != std::string::npos &&
+           diagnostic->message.find("runtime_error") == std::string::npos;
+  } catch (const std::exception &) {
+    return false;
+  }
+}
+
 void testReflectionResourceBindingProjectionRejectsContractDrift() {
   constexpr std::string_view source = R"(
 shader ReflectionResourceBindingDriftShader {
@@ -16319,6 +16342,11 @@ shader ReflectionResourceBindingDriftShader {
                                     "orphan legalization resource binding"),
          "reflection projection rejects legalization binding records without "
          "backend-plan resources");
+  expect(reflectionProjectionReportsDiagnostic(
+             *hir, orphanRecordContract,
+             "orphan legalization resource binding"),
+         "reflection diagnostic builder reports orphan legalization binding "
+         "records without escaping runtime_error text");
 }
 
 void testTargetLegalizationStorageImageProducerFacts() {

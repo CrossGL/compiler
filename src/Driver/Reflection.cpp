@@ -3,6 +3,7 @@
 #include "crossgl/Backend/BackendExpressions.h"
 #include "crossgl/Backend/BackendPlan.h"
 #include "crossgl/Backend/TextureCompare.h"
+#include "crossgl/Basic/Diagnostic.h"
 #include "crossgl/Basic/Json.h"
 #include "crossgl/Driver/StorageLayout.h"
 #include "crossgl/HIR/TypeSemantics.h"
@@ -397,9 +398,14 @@ std::string optionalStringForDiagnostic(
   return "'" + *value + "'";
 }
 
+class ReflectionResourceBindingProjectionError : public std::runtime_error {
+public:
+  using std::runtime_error::runtime_error;
+};
+
 [[noreturn]] void throwReflectionResourceBindingProjectionError(
     std::string detail) {
-  throw std::runtime_error(
+  throw ReflectionResourceBindingProjectionError(
       "reflection target resource binding projection failed: " +
       std::move(detail));
 }
@@ -1113,6 +1119,33 @@ buildReflectionDocument(const HIRModule &module,
   }
 
   return document;
+}
+
+std::optional<ReflectionDocument>
+buildReflectionDocument(const HIRModule &module, TargetKind target,
+                        const std::filesystem::path &nativeBinaryPath,
+                        DiagnosticEngine &diagnostics) {
+  try {
+    return buildReflectionDocument(module, target, nativeBinaryPath);
+  } catch (const ReflectionResourceBindingProjectionError &error) {
+    diagnostics.error("artifact.reflection-target-resource-binding-projection",
+                      error.what());
+    return std::nullopt;
+  }
+}
+
+std::optional<ReflectionDocument>
+buildReflectionDocument(const HIRModule &module,
+                        const TargetLegalizationContract &contract,
+                        const std::filesystem::path &nativeBinaryPath,
+                        DiagnosticEngine &diagnostics) {
+  try {
+    return buildReflectionDocument(module, contract, nativeBinaryPath);
+  } catch (const ReflectionResourceBindingProjectionError &error) {
+    diagnostics.error("artifact.reflection-target-resource-binding-projection",
+                      error.what());
+    return std::nullopt;
+  }
 }
 
 std::string reflectionJson(const HIRModule &module, TargetKind target,
