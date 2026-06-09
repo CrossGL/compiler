@@ -7679,6 +7679,106 @@ class RuntimePackageReaderTests(unittest.TestCase):
             ):
                 read_package(package_dir)
 
+    def test_compatibility_report_rejects_required_artifact_backend_target_mismatch_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source to recover backend mismatch\n",
+                encoding="utf-8",
+            )
+
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            moved_artifacts = {}
+            for artifact_name in ("backendSource", "intermediate", "nativeBinary"):
+                original_path = manifest["artifacts"][artifact_name]
+                moved_path = original_path.replace("backend/metal/", "backend/directx/")
+                moved_file = package_dir / moved_path
+                moved_file.parent.mkdir(parents=True, exist_ok=True)
+                (package_dir / original_path).rename(moved_file)
+                manifest["artifacts"][artifact_name] = moved_path
+                moved_artifacts[artifact_name] = moved_path
+            (package_dir / "backend" / "metal").rmdir()
+            self._write_json(manifest_path, manifest)
+
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            reflection["nativeBinary"] = moved_artifacts["nativeBinary"]
+            self._write_json(reflection_path, reflection)
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="metal",
+                )
+                selection = select_runtime_artifact(report, target="metal")
+
+            summary = report.to_summary()
+            mismatch_code = "package.artifact.backend_target_mismatch"
+            mismatches = [
+                diagnostic
+                for diagnostic in summary["rejectReasons"]
+                if diagnostic["code"] == mismatch_code
+            ]
+            artifact_records = {
+                artifact["name"]: artifact
+                for artifact in summary["artifactCompatibility"]["artifacts"]
+            }
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(report.status, "incompatible")
+            self.assertFalse(report.source_parsing_required)
+            self.assertFalse(selection.selected)
+            self.assertIsNone(selection.artifact)
+            self.assertFalse(selection.source_parsing_required)
+            self.assertEqual(
+                [
+                    (
+                        diagnostic["artifact"],
+                        diagnostic["path"],
+                        diagnostic["expected"],
+                        diagnostic["actual"],
+                    )
+                    for diagnostic in mismatches
+                ],
+                [
+                    (
+                        "backendSource",
+                        moved_artifacts["backendSource"],
+                        "backend/metal/",
+                        "backend/directx/",
+                    ),
+                    (
+                        "intermediate",
+                        moved_artifacts["intermediate"],
+                        "backend/metal/",
+                        "backend/directx/",
+                    ),
+                    (
+                        "nativeBinary",
+                        moved_artifacts["nativeBinary"],
+                        "backend/metal/",
+                        "backend/directx/",
+                    ),
+                ],
+            )
+            self.assertIsNone(summary["artifactCompatibility"]["selectedArtifact"])
+            for artifact_name in ("backendSource", "intermediate", "nativeBinary"):
+                self.assertEqual(
+                    artifact_records[artifact_name]["decision"],
+                    "rejected",
+                )
+                self.assertEqual(
+                    artifact_records[artifact_name]["reason"],
+                    mismatch_code,
+                )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_compatibility_report_rejects_target_incompatible_native_profile(
         self,
     ) -> None:

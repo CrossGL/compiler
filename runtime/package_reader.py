@@ -5654,6 +5654,14 @@ def _runtime_artifact_selection_native_admission(
         ),
         None,
     )
+    native_blocking_reason = next(
+        (
+            diagnostic
+            for diagnostic in native_diagnostics
+            if diagnostic.severity in {"error", "skip"}
+        ),
+        None,
+    )
 
     if decision != "accepted":
         if blocking_reason is not None:
@@ -5673,6 +5681,8 @@ def _runtime_artifact_selection_native_admission(
             reason = "package.artifact.selection_file_missing"
         elif not native_usable:
             reason = "package.native_binary_status.not_ready"
+        elif native_blocking_reason is not None:
+            reason = native_blocking_reason.code
 
     return {
         "decision": decision,
@@ -8783,6 +8793,14 @@ def _target_contract_diagnostics(
             )
             continue
 
+        backend_target_diagnostic = _required_artifact_backend_target_diagnostic(
+            target=target,
+            artifact_name=artifact_name,
+            artifact=artifact,
+        )
+        if backend_target_diagnostic is not None:
+            diagnostics.append(backend_target_diagnostic)
+
         if artifact.exists:
             continue
         if (
@@ -8807,6 +8825,38 @@ def _target_contract_diagnostics(
         )
 
     return tuple(diagnostics)
+
+
+def _required_artifact_backend_target_diagnostic(
+    *,
+    target: str,
+    artifact_name: str,
+    artifact: Artifact,
+) -> CompatibilityDiagnostic | None:
+    backend_target = _backend_artifact_target(artifact.package_path)
+    if backend_target is None or backend_target == target:
+        return None
+    return CompatibilityDiagnostic(
+        code="package.artifact.backend_target_mismatch",
+        message=(
+            f"manifest.artifacts.{artifact_name} is declared under "
+            f"backend/{backend_target}/ but target {target} requires "
+            f"backend/{target}/ artifacts"
+        ),
+        document="manifest",
+        artifact=artifact_name,
+        path=artifact.package_path,
+        expected=f"backend/{target}/",
+        actual=f"backend/{backend_target}/",
+    )
+
+
+def _backend_artifact_target(package_path: str) -> str | None:
+    parts = PurePosixPath(package_path).parts
+    if len(parts) < 2 or parts[0] != "backend":
+        return None
+    backend_target = parts[1]
+    return backend_target if backend_target else None
 
 
 def _native_binary_status_diagnostics(
