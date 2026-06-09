@@ -2407,8 +2407,8 @@ private:
         "CrossTL/CrossGL native v0 only supports restricted "
         "switch/case/default statements with case labels compatible with the "
         "scalar selector, an optional trailing default, and a terminal break "
-        "in every case; fallthrough and terminal grouped case labels are not "
-        "supported",
+        "in every case; fallthrough and non-terminal switch-local breaks are "
+        "not supported",
         std::move(location));
     return makeRawFallback(std::move(statement));
   }
@@ -2683,11 +2683,6 @@ private:
       if (hasTopLevelSwitchLabel(tokens, cursor, bodyEnd)) {
         return std::nullopt;
       }
-      if (section.labels.size() > 1 &&
-          (bodyEnd == end || tokens[bodyEnd].text == "default")) {
-        return std::nullopt;
-      }
-
       section.body = parseStatementsInRange(tokens, cursor, bodyEnd);
       if (section.body.empty() ||
           section.body.back().kind != HIRStatementKind::Break) {

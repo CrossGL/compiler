@@ -685,6 +685,8 @@ add_test(NAME cglc_check_switch_compute
   COMMAND cglc check ${CROSSGL_SWITCH_COMPUTE_SHADER})
 add_test(NAME cglc_check_switch_grouped_labels_compute
   COMMAND cglc check ${CROSSGL_SWITCH_GROUPED_LABELS_COMPUTE_SHADER})
+add_test(NAME cglc_check_switch_terminal_grouped_labels_compute
+  COMMAND cglc check ${CROSSGL_SWITCH_TERMINAL_GROUPED_LABELS_COMPUTE_SHADER})
 add_test(NAME cglc_check_switch_hir_if_chain
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -709,6 +711,14 @@ add_test(NAME cglc_check_switch_grouped_labels_hir_if_chain
     -DSTAGE=hir
     -DMODE=dump-stage
     "-DMUST_CONTAIN=block[^\n]*\n        decl int __crossgl_selector = mode : int[^\n]*\n        if __crossgl_selector == 0 \\|\\| __crossgl_selector == 1 : bool[^\n]*\n          assign total : int = 10 : int[^\n]*\n        else[^\n]*\n          if __crossgl_selector == 2 : bool[^\n]*\n            assign total : int = 20 : int[^\n]*\n          else[^\n]*\n            assign total : int = 30 : int"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_check_switch_terminal_grouped_labels_hir_if_chain
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SWITCH_TERMINAL_GROUPED_LABELS_COMPUTE_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=block[^\n]*\n        decl int __crossgl_selector = mode : int[^\n]*\n        if __crossgl_selector == 0 \\|\\| __crossgl_selector == 1 : bool[^\n]*\n          assign total : int = 10 : int[^\n]*\n      block[^\n]*\n        decl int __crossgl_selector = mode : int[^\n]*\n        if __crossgl_selector == 2 \\|\\| __crossgl_selector == 3 : bool[^\n]*\n          assign total : int = total \\+ 20 : int[^\n]*\n        else[^\n]*\n          assign total : int = total \\+ 30 : int"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForIncrementDecrementHIRShader.cgl)
 add_test(NAME cglc_check_for_increment_decrement_hir
@@ -1889,13 +1899,7 @@ crossgl_add_native_v0_unsupported_failure(
   ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_SWITCH_GROUPED_LABELS_COMPAT_SHADER}
   7
   7
-  "message=terminal grouped case labels|message=native v0")
-crossgl_add_native_v0_unsupported_failure(
-  cglc_check_unsupported_native_v0_switch_terminal_grouped_labels_failure
-  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchTerminalGroupedLabelsShader.cgl
-  7
-  7
-  "message=terminal grouped case labels|message=native v0")
+  "message=restricted switch/case/default statements|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_switch_incompatible_case_label_type_failure
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedSwitchIncompatibleCaseLabelTypeShader.cgl

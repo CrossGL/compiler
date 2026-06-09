@@ -17518,9 +17518,11 @@ shader SwitchGroupedLabelsBoundaryShader {
         case 0:
         case 1:
           values[1] = 1;
+        case 2:
+          values[1] = 2;
           break;
         default:
-          values[1] = 2;
+          values[1] = 3;
           break;
       }
       return;
@@ -17528,7 +17530,7 @@ shader SwitchGroupedLabelsBoundaryShader {
   }
 }
 )",
-                                    "unsupported switch grouped labels");
+                                    "unsupported switch grouped fallthrough");
 
   expectUnsupportedSwitchDiagnostic(R"(
 shader SwitchIncompatibleLabelBoundaryShader {
