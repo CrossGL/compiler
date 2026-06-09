@@ -6945,6 +6945,30 @@ sameArmHIRSelectReplacementExpression(HIRExpression &expression) {
   return replacement;
 }
 
+std::optional<HIRExpression>
+idempotentHIRMinMaxReplacementExpression(const HIRExpression &expression) {
+  if (expression.kind != HIRExpressionKind::Call ||
+      (expression.value != "min" && expression.value != "max") ||
+      expression.children.size() != 2 ||
+      !isIntegerScalarOrVectorType(expression.type)) {
+    return std::nullopt;
+  }
+
+  const HIRExpression &left = expression.children[0];
+  const HIRExpression &right = expression.children[1];
+  if (!structurallySameHIRExpression(left, right) ||
+      !isKnownPureHIRExpression(left) ||
+      !hirExpressionTypeCanReplaceParent(expression, left)) {
+    return std::nullopt;
+  }
+
+  HIRExpression replacement = groupedHIRPreservedReplacement(left);
+  if (!hirExpressionTypeCanReplaceParent(expression, replacement)) {
+    return std::nullopt;
+  }
+  return replacement;
+}
+
 std::optional<std::size_t>
 algebraicHIRBinaryReplacementChild(const HIRExpression &expression) {
   if (expression.kind != HIRExpressionKind::Binary ||
@@ -7143,6 +7167,11 @@ bool simplifyAlgebraicHIRExpression(HIRExpression &expression) {
   }
   if (std::optional<HIRExpression> replacement =
           algebraicHIRBinaryReplacementExpression(expression)) {
+    expression = std::move(*replacement);
+    return true;
+  }
+  if (std::optional<HIRExpression> replacement =
+          idempotentHIRMinMaxReplacementExpression(expression)) {
     expression = std::move(*replacement);
     return true;
   }

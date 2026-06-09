@@ -14,6 +14,7 @@ set(CROSSGL_OPTIMIZER_STORAGE_IMAGE_CONSTANTS_SHADER ${CMAKE_CURRENT_SOURCE_DIR}
 set(CROSSGL_OPTIMIZER_BOOLEAN_ALGEBRA_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/BooleanAlgebraOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_ZERO_ALGEBRA_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/ZeroAlgebraOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_INTEGER_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/IntegerIdentityOptimizerShader.cgl)
+set(CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/MinMaxIdentityOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_MODULO_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/ModuloIdentityOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_INTEGER_RELATIONAL_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/IntegerRelationalIdentityOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_FLOAT_UNARY_IDENTITY_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/FloatUnaryIdentityOptimizerShader.cgl)
@@ -502,6 +503,39 @@ add_test(NAME cglc_optimizer_hir_integer_identity_pass_trace_changed
 set_tests_properties(cglc_optimizer_hir_integer_identity_pass_trace_changed
   PROPERTIES
     PASS_REGULAR_EXPRESSION [=["name": "hir[.]optimize[.]simplify-algebraic".*"changed": true]=])
+
+add_test(NAME cglc_optimizer_minmax_identity_check
+  COMMAND cglc check ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER})
+
+set(CROSSGL_OPTIMIZER_MINMAX_IDENTITY_HIR_REGEX [=[decl int minSameInt = dynamicIndex : int.*decl int maxSameInt = \(dynamicIndex \+ 1\) : int.*decl uint minSameUint = unsignedIndex : uint.*decl uint maxSameUint = \(unsignedIndex \+ 1\) : uint.*decl int minSameUnknown = min\(unknownInt\(dynamicIndex\), unknownInt\(dynamicIndex\)\) : int.*decl float minSameFloat = min\(floatBase, floatBase\) : float.*decl float maxSameFloat = max\(floatBase, floatBase\) : float]=])
+set(CROSSGL_OPTIMIZER_MINMAX_IDENTITY_O2_HIR_REGEX [=[decl int minSameUnknown = min\(unknownInt\(dynamicIndex\), unknownInt\(dynamicIndex\)\) : int.*decl float minSameFloat = min\(floatBase, floatBase\) : float.*decl float maxSameFloat = max\(floatBase, floatBase\) : float.*assign values\[1\] : int = dynamicIndex \+ \(dynamicIndex \+ 1\) : int.*assign unsignedValues\[1\] : uint = unsignedIndex \+ \(unsignedIndex \+ 1\) : uint]=])
+set(CROSSGL_OPTIMIZER_MINMAX_IDENTITY_FAIL_REGEX [=[minSameInt = min\(dynamicIndex, dynamicIndex\)|maxSameInt = max\(dynamicIndex \+ 1, dynamicIndex \+ 1\)|minSameUint = min\(unsignedIndex, unsignedIndex\)|maxSameUint = max\(unsignedIndex \+ 1, unsignedIndex \+ 1\)|minSameUnknown = unknownInt\(dynamicIndex\) : int|minSameFloat = floatBase : float|maxSameFloat = floatBase : float]=])
+
+add_test(NAME cglc_optimizer_hir_minmax_identity_simplify_o1
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER} --stage hir --opt-level O1)
+set_tests_properties(cglc_optimizer_hir_minmax_identity_simplify_o1
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_HIR_REGEX}
+    FAIL_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_FAIL_REGEX})
+
+add_test(NAME cglc_optimizer_hir_minmax_identity_simplify_o2
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER} --stage hir --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_minmax_identity_simplify_o2
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_O2_HIR_REGEX}
+    FAIL_REGULAR_EXPRESSION ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_FAIL_REGEX})
+
+add_test(NAME cglc_optimizer_hir_minmax_identity_pass_trace_changed_o1
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER} --stage hir-pass-trace --opt-level O1)
+set_tests_properties(cglc_optimizer_hir_minmax_identity_pass_trace_changed_o1
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O1".*"name": "hir[.]optimize[.]simplify-algebraic".*"changed": true.*"status": "completed"]=])
+
+add_test(NAME cglc_optimizer_hir_minmax_identity_pass_trace_changed_o2
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_MINMAX_IDENTITY_SHADER} --stage hir-pass-trace --opt-level O2)
+set_tests_properties(cglc_optimizer_hir_minmax_identity_pass_trace_changed_o2
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]simplify-algebraic".*"changed": true.*"status": "completed"]=])
 
 add_test(NAME cglc_optimizer_modulo_identity_check
   COMMAND cglc check ${CROSSGL_OPTIMIZER_MODULO_IDENTITY_SHADER})
