@@ -1070,6 +1070,98 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 package.runtime_artifact("native")
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_validated_status_rejects_planned_descriptor_status_without_source_parse(
+        self,
+    ) -> None:
+        expected_code = "package.native_artifact_descriptor.native_binary_status_mismatch"
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(
+                package_dir,
+                target="opengl",
+                native_status="validated",
+            )
+            native_path = "backend/opengl/RuntimeReaderFixture.validated.glsl"
+            (package_dir / native_path).write_text(
+                "// validated OpenGL native source\n",
+                encoding="utf-8",
+            )
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["nativeBinary"] = native_path
+            self._write_json(manifest_path, manifest)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            reflection["nativeBinary"] = native_path
+            self._write_json(reflection_path, reflection)
+            self._write_native_artifact_descriptor(
+                package_dir,
+                mutate=lambda descriptor: descriptor.update(
+                    {
+                        "nativeBinaryStatus": "planned",
+                        "validationStatus": "validated",
+                    }
+                ),
+            )
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "validated/planned descriptor mismatch must not parse source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="opengl",
+                )
+                selection = select_runtime_artifact(report, target="opengl")
+
+            summary = report.to_summary()
+            selection_summary = selection.to_summary()
+            diagnostic = next(
+                diagnostic
+                for diagnostic in summary["rejectReasons"]
+                if diagnostic["code"] == expected_code
+            )
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(report.status, "incompatible")
+            self.assertFalse(report.source_parsing_required)
+            self.assertEqual(report.native_binary_status, "validated")
+            self.assertTrue(report.target_contract.native_binary_status_required)
+            self.assertEqual(
+                report.target_contract.allowed_native_binary_statuses,
+                ("planned", "validated"),
+            )
+            self.assertFalse(selection.selected)
+            self.assertFalse(selection.source_parsing_required)
+            self.assertEqual(selection.artifact, None)
+            self.assertEqual(diagnostic["document"], "nativeArtifactDescriptor")
+            self.assertEqual(diagnostic["artifact"], "nativeArtifactDescriptor")
+            self.assertEqual(diagnostic["path"], "nativeBinaryStatus")
+            self.assertEqual(diagnostic["expected"], "validated")
+            self.assertEqual(diagnostic["actual"], "planned")
+            self.assertEqual(
+                selection_summary["admission"]["native"]["reason"],
+                expected_code,
+            )
+            self.assertEqual(
+                selection_summary["admission"]["native"]["diagnostics"][0]["code"],
+                expected_code,
+            )
+            with self._guard_crossgl_source_reads():
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    (
+                        "native artifact descriptor is not compatible: "
+                        "native artifact descriptor nativeBinaryStatus does not "
+                        "match manifest\\.artifacts\\.nativeBinaryStatus"
+                    ),
+                ):
+                    read_package(package_dir)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_compatibility_report_exposes_runtime_contract(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)

@@ -318,6 +318,72 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             self.assertEqual(summary["rejectReasons"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_source_free_native_artifact_with_spirv_dependencies_remains_loadable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            descriptor_path = "metadata/native-artifact.json"
+            self._write_source_free_vulkan_package(
+                package_dir,
+                descriptor_path=descriptor_path,
+            )
+            descriptor_file = package_dir / descriptor_path
+            descriptor = json.loads(descriptor_file.read_text(encoding="utf-8"))
+            spirv_dependencies = {
+                "extendedInstructionSets": [
+                    {
+                        "resultId": "%glsl_std_450",
+                        "instructionSet": "GLSL.std.450",
+                    }
+                ]
+            }
+            descriptor["spirvDependencies"] = spirv_dependencies
+            self._write_json(descriptor_file, descriptor)
+            source_path = package_dir / "source" / "RuntimeVulkanLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "SPIR-V dependency metadata must not trigger source parsing\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads(), self._guard_compiler_and_device_work():
+                plan = plan_vulkan_native_loader(package_dir)
+                summary = plan.to_summary()
+
+            descriptor_summary = summary["nativeArtifactDescriptor"]
+            descriptor_admission = summary["nativeAdmission"][
+                "nativeArtifactDescriptor"
+            ]
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertIs(plan.require_ready(), plan)
+            self.assertEqual(summary["rejectReasons"], [])
+            self.assertEqual(summary["sourceInputs"], [])
+            self.assertEqual(summary["compilerInvocationRequired"], False)
+            self.assertEqual(summary["deviceExecutionRequired"], False)
+            self.assertEqual(
+                summary["runtimePlan"]["runtimeArtifactSelection"][
+                    "selectedPackageMode"
+                ],
+                "native",
+            )
+            self.assertEqual(plan.native_artifact.name, "nativeBinary")
+            self.assertEqual(
+                descriptor_summary["fields"]["spirvDependencies"],
+                spirv_dependencies,
+            )
+            self.assertEqual(
+                descriptor_admission["fields"]["spirvDependencies"],
+                spirv_dependencies,
+            )
+            self.assertEqual(descriptor_admission["decision"], "accepted")
+            self.assertEqual(
+                summary["vulkanNativeAdmission"]["decision"],
+                "accepted",
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_runtime_selection_native_and_auto_select_spv_but_source_package_rejects(
         self,
     ) -> None:
