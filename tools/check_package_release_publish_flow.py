@@ -973,6 +973,15 @@ def graphics_package_expectations(package_root):
                     f"{manifest_path}: source-package row must require "
                     "nativeBinaryStatus"
                 )
+        expected_evidence_ids = expected_package_artifact_requirement_evidence_ids(
+            requirements
+        )
+        if requirements.get("evidenceIds") != expected_evidence_ids:
+            raise CheckError(
+                f"{manifest_path}: packageArtifactRequirements.evidenceIds "
+                f"expected {expected_evidence_ids!r}, "
+                f"got {requirements.get('evidenceIds')!r}"
+            )
 
         expected_artifacts = {}
         for name, relative_path in artifacts.items():
@@ -1020,12 +1029,41 @@ def graphics_package_expectations(package_root):
                         "requiresNativeBinaryStatus",
                         "allowsPlannedNativeBinary",
                         "allowsPlannedNativeSourceEvidence",
+                        "evidenceIds",
                     )
                 },
                 "artifacts": expected_artifacts,
             }
         )
     return expectations
+
+
+def expected_package_artifact_requirement_evidence_ids(requirements):
+    target = requirements["target"]
+    evidence_ids = [
+        f"target-legalization.v1.{target}.package-artifacts."
+        f"{requirements['packageMode']}"
+    ]
+    evidence_ids.extend(
+        f"target-legalization.v1.{target}.package-artifact.required.{name}"
+        for name in requirements["requiredPathArtifacts"]
+    )
+    if requirements["requiresNativeBinaryStatus"]:
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.native-binary-status.required"
+        )
+    if requirements["allowsPlannedNativeBinary"]:
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-binary.allowed"
+        )
+    if requirements["allowsPlannedNativeSourceEvidence"]:
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-source-evidence.allowed"
+        )
+    return evidence_ids
 
 
 def artifact_path_from_record(record):

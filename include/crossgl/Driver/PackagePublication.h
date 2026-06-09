@@ -195,6 +195,7 @@ struct PackageReleasePackageArtifactRequirements {
   std::string target;
   std::string packageMode;
   std::vector<std::string> requiredPathArtifacts;
+  std::vector<std::string> evidenceIds;
   bool requiresNativeBinaryStatus = false;
   bool allowsPlannedNativeBinary = false;
   bool allowsPlannedNativeSourceEvidence = false;

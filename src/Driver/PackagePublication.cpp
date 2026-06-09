@@ -203,6 +203,19 @@ void writeNullableString(std::ostream &out,
   }
 }
 
+void writeStringArray(std::ostream &out, const std::vector<std::string> &values,
+                      std::string_view indent) {
+  out << "[";
+  for (std::size_t index = 0; index < values.size(); ++index) {
+    out << (index == 0 ? "\n" : ",\n") << indent << "  \""
+        << escapeJson(values[index]) << "\"";
+  }
+  if (!values.empty()) {
+    out << "\n" << indent;
+  }
+  out << "]";
+}
+
 void writeNullableUnsigned(std::ostream &out,
                            const std::optional<std::uint64_t> &value) {
   if (value) {
@@ -2564,6 +2577,37 @@ bool parseReleaseBundleNativeBinaryStatus(
   return true;
 }
 
+std::string releasePackageArtifactEvidenceId(std::string_view target,
+                                             std::string_view suffix) {
+  return "target-legalization.v1." + std::string(target) + "." +
+         std::string(suffix);
+}
+
+std::vector<std::string> expectedReleasePackageArtifactRequirementEvidenceIds(
+    const PackageReleasePackageArtifactRequirements &requirements) {
+  std::vector<std::string> evidenceIds;
+  evidenceIds.push_back(releasePackageArtifactEvidenceId(
+      requirements.target, "package-artifacts." + requirements.packageMode));
+  for (const std::string &artifact : requirements.requiredPathArtifacts) {
+    evidenceIds.push_back(releasePackageArtifactEvidenceId(
+        requirements.target, "package-artifact.required." + artifact));
+  }
+  if (requirements.requiresNativeBinaryStatus) {
+    evidenceIds.push_back(releasePackageArtifactEvidenceId(
+        requirements.target, "package-artifact.native-binary-status.required"));
+  }
+  if (requirements.allowsPlannedNativeBinary) {
+    evidenceIds.push_back(releasePackageArtifactEvidenceId(
+        requirements.target, "package-artifact.planned-native-binary.allowed"));
+  }
+  if (requirements.allowsPlannedNativeSourceEvidence) {
+    evidenceIds.push_back(releasePackageArtifactEvidenceId(
+        requirements.target,
+        "package-artifact.planned-native-source-evidence.allowed"));
+  }
+  return evidenceIds;
+}
+
 bool validateReleasePackageArtifactRequirements(
     const PackageReleasePackageArtifactRequirements &requirements,
     std::string_view packageTarget, const std::filesystem::path &documentPath,
@@ -2672,6 +2716,17 @@ bool validateReleasePackageArtifactRequirements(
       valid = false;
     }
   }
+  if (!requirements.evidenceIds.empty() &&
+      requirements.evidenceIds !=
+          expectedReleasePackageArtifactRequirementEvidenceIds(requirements)) {
+    diagnostics.error(std::string(invalidCode),
+                      std::string(label) +
+                          " packageArtifactRequirements.evidenceIds must "
+                          "match target legalization package artifact "
+                          "evidence",
+                      pathLocation(documentPath));
+    valid = false;
+  }
   return valid;
 }
 
@@ -2708,6 +2763,16 @@ parseReleaseBundleArtifactRequirements(
           releaseBundleDiagnosticCode("missing-field"),
           releaseBundleDiagnosticCode("invalid-field"),
           "package release bundle packageArtifactRequirements");
+  const bool hasEvidenceIds = findObjectMemberValue(*valueText, "evidenceIds")
+                                  .has_value();
+  std::optional<std::vector<std::string>> evidenceIds;
+  if (hasEvidenceIds) {
+    evidenceIds = parseRequiredStringArrayMember(
+        *valueText, "evidenceIds", bundlePath, diagnostics,
+        releaseBundleDiagnosticCode("missing-field"),
+        releaseBundleDiagnosticCode("invalid-field"),
+        "package release bundle packageArtifactRequirements");
+  }
   const std::optional<bool> requiresNativeBinaryStatus =
       parseRequiredReleaseBundleBoolMember(
           *valueText, "requiresNativeBinaryStatus", bundlePath, diagnostics);
@@ -2719,6 +2784,7 @@ parseReleaseBundleArtifactRequirements(
           *valueText, "allowsPlannedNativeSourceEvidence", bundlePath,
           diagnostics);
   if (!target || !packageMode || !requiredPathArtifacts ||
+      (hasEvidenceIds && !evidenceIds) ||
       !requiresNativeBinaryStatus || !allowsPlannedNativeBinary ||
       !allowsPlannedNativeSourceEvidence) {
     return std::nullopt;
@@ -2728,6 +2794,9 @@ parseReleaseBundleArtifactRequirements(
   requirements.target = *target;
   requirements.packageMode = *packageMode;
   requirements.requiredPathArtifacts = *requiredPathArtifacts;
+  if (evidenceIds) {
+    requirements.evidenceIds = *evidenceIds;
+  }
   requirements.requiresNativeBinaryStatus = *requiresNativeBinaryStatus;
   requirements.allowsPlannedNativeBinary = *allowsPlannedNativeBinary;
   requirements.allowsPlannedNativeSourceEvidence =
@@ -2774,6 +2843,16 @@ parseReleasePublishArtifactRequirements(
           releasePublishDiagnosticCode("missing-field"),
           releasePublishDiagnosticCode("invalid-field"),
           "package release publish plan packageArtifactRequirements");
+  const bool hasEvidenceIds = findObjectMemberValue(*valueText, "evidenceIds")
+                                  .has_value();
+  std::optional<std::vector<std::string>> evidenceIds;
+  if (hasEvidenceIds) {
+    evidenceIds = parseRequiredStringArrayMember(
+        *valueText, "evidenceIds", planPath, diagnostics,
+        releasePublishDiagnosticCode("missing-field"),
+        releasePublishDiagnosticCode("invalid-field"),
+        "package release publish plan packageArtifactRequirements");
+  }
   const std::optional<bool> requiresNativeBinaryStatus =
       parseRequiredReleasePublishBoolMember(
           *valueText, "requiresNativeBinaryStatus", planPath, diagnostics);
@@ -2785,6 +2864,7 @@ parseReleasePublishArtifactRequirements(
           *valueText, "allowsPlannedNativeSourceEvidence", planPath,
           diagnostics);
   if (!target || !packageMode || !requiredPathArtifacts ||
+      (hasEvidenceIds && !evidenceIds) ||
       !requiresNativeBinaryStatus || !allowsPlannedNativeBinary ||
       !allowsPlannedNativeSourceEvidence) {
     return std::nullopt;
@@ -2794,6 +2874,9 @@ parseReleasePublishArtifactRequirements(
   requirements.target = *target;
   requirements.packageMode = *packageMode;
   requirements.requiredPathArtifacts = *requiredPathArtifacts;
+  if (evidenceIds) {
+    requirements.evidenceIds = *evidenceIds;
+  }
   requirements.requiresNativeBinaryStatus = *requiresNativeBinaryStatus;
   requirements.allowsPlannedNativeBinary = *allowsPlannedNativeBinary;
   requirements.allowsPlannedNativeSourceEvidence =
@@ -5847,6 +5930,7 @@ packageReleaseArtifactRequirementsRecord(
       metadataRequirements.allowsPlannedNativeBinary;
   requirements.allowsPlannedNativeSourceEvidence =
       metadataRequirements.allowsPlannedNativeSourceEvidence;
+  requirements.evidenceIds = metadataRequirements.evidenceIds;
   for (const PackageRequiredPathArtifactRecord &artifact :
        metadataRequirements.requiredPathArtifacts) {
     requirements.requiredPathArtifacts.push_back(artifact.name);
@@ -8947,8 +9031,12 @@ void writePackageReleaseArtifactRequirements(
       << (requirements->allowsPlannedNativeBinary ? "true" : "false")
       << ",\n"
       << childIndent << "\"allowsPlannedNativeSourceEvidence\": "
-      << (requirements->allowsPlannedNativeSourceEvidence ? "true" : "false")
-      << "\n"
+      << (requirements->allowsPlannedNativeSourceEvidence ? "true" : "false");
+  if (!requirements->evidenceIds.empty()) {
+    out << ",\n" << childIndent << "\"evidenceIds\": ";
+    writeStringArray(out, requirements->evidenceIds, childIndent);
+  }
+  out << "\n"
       << indent << "}";
 }
 

@@ -212,6 +212,36 @@ def validate_package_artifact_requirements(
             errors.append(
                 f"{path}.requiredPathArtifacts[{index}]: expected known path artifact"
             )
+    evidence_ids = requirements.get("evidenceIds")
+    if isinstance(evidence_ids, list):
+        expected_evidence_ids = [
+            f"target-legalization.v1.{target}.package-artifacts."
+            f"{requirements['packageMode']}"
+        ]
+        expected_evidence_ids.extend(
+            f"target-legalization.v1.{target}.package-artifact.required.{name}"
+            for name in requirements["requiredPathArtifacts"]
+        )
+        if requirements["requiresNativeBinaryStatus"]:
+            expected_evidence_ids.append(
+                f"target-legalization.v1.{target}."
+                "package-artifact.native-binary-status.required"
+            )
+        if requirements["allowsPlannedNativeBinary"]:
+            expected_evidence_ids.append(
+                f"target-legalization.v1.{target}."
+                "package-artifact.planned-native-binary.allowed"
+            )
+        if requirements["allowsPlannedNativeSourceEvidence"]:
+            expected_evidence_ids.append(
+                f"target-legalization.v1.{target}."
+                "package-artifact.planned-native-source-evidence.allowed"
+            )
+        if evidence_ids != expected_evidence_ids:
+            errors.append(
+                f"{path}.evidenceIds: expected package artifact evidence IDs "
+                f"{expected_evidence_ids!r}"
+            )
 
 
 def validate_release_package_artifacts_against_requirements(
