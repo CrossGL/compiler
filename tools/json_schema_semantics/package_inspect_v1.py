@@ -887,14 +887,11 @@ def validate_native_artifact_descriptor(
     ):
         expected_health = "invalid"
         expected_checks = None
-    elif descriptor["health"] == "invalid":
-        expected_health = "invalid"
-        expected_checks = None
     elif all(value is True or value is None for value in check_values):
         expected_health = "ok"
         expected_checks = None
     else:
-        expected_health = "invalid" if descriptor["health"] == "invalid" else "drift"
+        expected_health = "drift"
         expected_checks = None
 
     add_equal_error(
