@@ -747,8 +747,10 @@ crossgl_add_package_verify_json_schema_test(
 
 if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   set(CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS validated)
+  set(CROSSGL_OPENGL_NATIVE_ARTIFACT_VALIDATION_STATUS validated)
 else()
   set(CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS planned)
+  set(CROSSGL_OPENGL_NATIVE_ARTIFACT_VALIDATION_STATUS unavailable)
 endif()
 
 function(crossgl_add_opengl_descriptor_array_package_verify_schema_test)
@@ -790,7 +792,9 @@ function(crossgl_add_opengl_descriptor_array_package_verify_schema_test)
     EXPECTED_MANIFEST_JSON_ARRAY_CONTAINS
       "targetLegalizationToolRequirements.requiredToolIds=opengl.toolchain.opengl-driver|targetLegalizationToolRequirements.requiredToolIds=opengl.validation.glsl-program-validation|targetLegalizationToolRequirements.missingToolIds=opengl.toolchain.opengl-driver|targetLegalizationToolRequirements.missingToolIds=opengl.validation.glsl-program-validation|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirements.present|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirement.required.toolchain.opengl-driver|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirement.missing.validation.glsl-program-validation|packageArtifactRequirements.requiredPathArtifacts=backendSource|packageArtifactRequirements.requiredPathArtifacts=nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifacts.source-package|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.required.backendSource|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.required.nativeBinary|packageArtifactRequirements.evidenceIds=target-legalization.v1.opengl.package-artifact.planned-native-binary.allowed"
     EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS
-      "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6")
+      "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5|packageArtifactRequirements.requiredPathArtifacts=2|packageArtifactRequirements.evidenceIds=6"
+    EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
+      "target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/${opengl_descriptor_array_module}.comp.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=${CROSSGL_OPENGL_SOURCE_PACKAGE_NATIVE_BINARY_STATUS}|validationStatus=${CROSSGL_OPENGL_NATIVE_ARTIFACT_VALIDATION_STATUS}")
 endfunction()
 
 crossgl_add_package_verify_json_schema_test(
