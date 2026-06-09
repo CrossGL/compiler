@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "defaultTarget": "directx",
+  "buildableTargetCount": 1,
+  "recommendedTarget": "directx",
+  "recommendedPackageMode": "source-package",
+  "targets": [
+    {
+      "target": "directx",
+      "targetBackend": "directx",
+      "nativeImplemented": false,
+      "sourcePackageSupported": true,
+      "packageBuildSupported": true,
+      "supportStatus": "source-package",
+      "legalizationState": "legalized",
+      "packageMode": "source-package",
+      "packageDecisionProvenance": "source-package-only",
+      "packageDecisionReason": "source-package-available",
+      "decisionReasonCodes": [
+        "package-mode:source-package",
+        "package-reason:source-package-available",
+        "optional-native-tool:missing"
+      ],
+      "packageRankScore": 1,
+      "artifactLinks": [
+        "ir/target-explanation.json#targets/directx"
+      ],
+      "reportLinks": [
+        "target-explanation-v1#targets/directx"
+      ],
+      "remediation": "Source package output is available; native artifact remediation requires satisfying: directx.backend.native-dxil-package, directx.toolchain.dxc, directx.validation.dxil-validator.",
+      "requiredCapabilityCount": 4,
+      "missingCapabilityCount": 3,
+      "legalizationCoreEvidenceIds": [
+        "target-legalization.v1.directx.decision",
+        "target-legalization.v1.directx.state.legalized",
+        "target-legalization.v1.directx.support.source-package",
+        "target-legalization.v1.directx.package-mode.source-package",
+        "target-legalization.v1.directx.package-provenance.source-package-only",
+        "target-legalization.v1.directx.optional-native-tool.missing",
+        "target-legalization.v1.directx.package-reason.source-package-available"
+      ],
+      "diagnosticEvidenceIds": [],
+      "requiredCapabilities": [
+        "directx.backend.hlsl-lowering",
+        "directx.backend.native-dxil-package",
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator"
+      ],
+      "missingCapabilities": [
+        "directx.backend.native-dxil-package",
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator"
+      ]
+    }
+  ]
+}
