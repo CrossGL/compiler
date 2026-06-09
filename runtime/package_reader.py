@@ -6160,8 +6160,10 @@ def _native_artifact_descriptor_required_for_runtime_artifact(
         return False
     if native_binary_status == "planned":
         return False
-    return contract.package_mode == "native" or _native_binary_status_is_ready(
-        native_binary_status
+    if _native_binary_status_is_ready(native_binary_status):
+        return True
+    return (
+        contract.requirements_source == "manifest" and contract.package_mode == "native"
     )
 
 

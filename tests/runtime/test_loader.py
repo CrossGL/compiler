@@ -568,16 +568,16 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
-            self._write_valid_package(package_dir, target="opengl")
+            self._write_valid_package(package_dir, target="metal")
             manifest_path = package_dir / "manifest.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             artifacts = manifest["artifacts"]
             native_path = artifacts["nativeBinary"]
             artifacts.pop("backendSource")
-            artifacts.pop("nativeBinaryStatus")
+            artifacts.pop("intermediate")
             artifacts["nativeArtifactDescriptor"] = "metadata/native-artifact.json"
             manifest["packageArtifactRequirements"] = {
-                "target": "opengl",
+                "target": "metal",
                 "packageMode": "native",
                 "requiredPathArtifacts": ["nativeBinary"],
                 "requiresNativeBinaryStatus": False,
@@ -588,14 +588,22 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             native_file = package_dir / native_path
             descriptor_path = package_dir / "metadata" / "native-artifact.json"
             descriptor_path.parent.mkdir()
+            source_payload = (
+                "recorded source-free native plans must not parse source\n"
+            ).encode("utf-8")
             self._write_json(
                 descriptor_path,
                 {
                     "schemaVersion": 1,
                     "kind": "crossgl.nativeArtifact",
                     "contractVersion": "native-artifact-v0",
-                    "target": "opengl",
-                    "binaryKind": "opengl.source",
+                    "target": "metal",
+                    "binaryKind": "metal.metallib",
+                    "sourcePath": "source/RuntimeLoaderFixture.cgl",
+                    "sourceHash": {
+                        "algorithm": "sha256",
+                        "value": hashlib.sha256(source_payload).hexdigest(),
+                    },
                     "artifactPath": native_path,
                     "artifactHash": {
                         "algorithm": "sha256",
@@ -620,13 +628,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             )
             source_path = package_dir / "source" / "RuntimeLoaderFixture.cgl"
             source_path.parent.mkdir()
-            source_path.write_text(
-                "recorded source-free native plans must not parse source\n",
-                encoding="utf-8",
-            )
+            source_path.write_bytes(source_payload)
 
             with self._guard_crossgl_source_path_reads():
-                plan = read_loader_plan(package_dir, "opengl")
+                plan = read_loader_plan(package_dir, "metal")
 
             summary = plan.to_summary()
             admission = summary["runtimeArtifactAdmission"]
@@ -1225,6 +1230,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                     "allowsPlannedNativeBinary": False,
                     "allowsPlannedNativeSourceEvidence": False,
                 },
+                native_artifact_descriptor=True,
             )
 
             plan = read_loader_plan(package_dir, "metal")
@@ -3365,6 +3371,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 package_dir,
                 target="directx",
                 native_status="emitted",
+                native_artifact_descriptor=True,
             )
 
             report = read_compatibility_report(package_dir, loader_target="directx")
@@ -4311,6 +4318,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
         target: str = "metal",
         native_status: str | None = None,
         package_artifact_requirements: dict[str, object] | None = None,
+        native_artifact_descriptor: bool = False,
     ) -> None:
         backend_dir = package_dir / "backend" / target
         backend_dir.mkdir(parents=True)
@@ -4345,6 +4353,9 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             native_status = "planned"
         if native_status is not None:
             artifacts["nativeBinaryStatus"] = native_status
+        descriptor_path = "metadata/native-artifact.json"
+        if native_artifact_descriptor:
+            artifacts["nativeArtifactDescriptor"] = descriptor_path
 
         manifest: dict[str, object] = {
             "schemaVersion": 1,
@@ -4364,6 +4375,15 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
         if package_artifact_requirements is not None:
             manifest["packageArtifactRequirements"] = package_artifact_requirements
         self._write_json(package_dir / "manifest.json", manifest)
+        if native_artifact_descriptor:
+            self._write_native_artifact_descriptor(
+                package_dir,
+                descriptor_path=descriptor_path,
+                target=target,
+                source_path=source_path,
+                binary_path=binary_path,
+                native_status=native_status,
+            )
         self._write_json(
             package_dir / "reflection.json",
             {
@@ -4425,6 +4445,61 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 ],
             },
         )
+
+    def _write_native_artifact_descriptor(
+        self,
+        package_dir: Path,
+        *,
+        descriptor_path: str,
+        target: str,
+        source_path: str,
+        binary_path: str,
+        native_status: str | None,
+    ) -> None:
+        source_file = package_dir / source_path
+        binary_file = package_dir / binary_path
+        binary_kind = {
+            "directx": "directx.dxil",
+            "metal": "metal.metallib",
+            "opengl": "opengl.source",
+        }.get(target, f"{target}.native")
+        descriptor_file = package_dir / descriptor_path
+        descriptor_file.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = {
+            "schemaVersion": 1,
+            "kind": "crossgl.nativeArtifact",
+            "contractVersion": "native-artifact-v0",
+            "target": target,
+            "binaryKind": binary_kind,
+            "sourcePath": source_path,
+            "sourceHash": {
+                "algorithm": "sha256",
+                "value": hashlib.sha256(source_file.read_bytes()).hexdigest(),
+            },
+            "artifactPath": binary_path,
+            "artifactHash": {
+                "algorithm": "sha256",
+                "value": hashlib.sha256(binary_file.read_bytes()).hexdigest(),
+            },
+            "sizeBytes": binary_file.stat().st_size,
+            "toolchainProvenance": {
+                "producer": "runtime loader fixture",
+                "tools": [],
+            },
+            "optimizationLevel": "O0",
+            "optimizationEvidence": {
+                "requestedLevel": "O0",
+                "effectiveLevel": "O0",
+                "policy": "metadata-only",
+                "status": "metadata-only",
+                "evidenceSource": {"kind": "descriptor"},
+            },
+            "validationStatus": "unavailable",
+            "validationDiagnostics": [],
+        }
+        if native_status is not None:
+            descriptor["nativeBinaryStatus"] = native_status
+        self._write_json(descriptor_file, descriptor)
 
     @staticmethod
     def _target_resource_binding_abi(target: str) -> dict[str, object]:
