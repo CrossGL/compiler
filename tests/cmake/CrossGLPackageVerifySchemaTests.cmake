@@ -970,6 +970,18 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
     INPUT ${CROSSGL_METAL_STORAGE_IMAGE_ATOMIC_DESCRIPTOR_ARRAY_SHADER}
     OUTPUT test-metal-storage-image-atomic-descriptor-array-package-verify-schema.cglb
     MODULE MetalStorageImageAtomicDescriptorArrayShader)
+
+  crossgl_add_metal_native_descriptor_array_package_verify_schema_test(
+    NAME cglc_package_verify_json_schema_metal_storage_image_2d_nonuniform_descriptor_array_native
+    INPUT ${CROSSGL_METAL_STORAGE_IMAGE_2D_NONUNIFORM_DESCRIPTOR_ARRAY_SHADER}
+    OUTPUT test-metal-storage-image-2d-nonuniform-descriptor-array-package-verify-schema.cglb
+    MODULE MetalStorageImage2DNonUniformDescriptorArrayShader)
+
+  crossgl_add_metal_native_descriptor_array_package_verify_schema_test(
+    NAME cglc_package_verify_json_schema_metal_storage_image_2d_array_nonuniform_descriptor_array_native
+    INPUT ${CROSSGL_METAL_STORAGE_IMAGE_2D_ARRAY_NONUNIFORM_DESCRIPTOR_ARRAY_SHADER}
+    OUTPUT test-metal-storage-image-2d-array-nonuniform-descriptor-array-package-verify-schema.cglb
+    MODULE MetalStorageImage2DArrayNonUniformDescriptorArrayShader)
 else()
   crossgl_add_optional_native_skip_test(
     NAME cglc_package_verify_json_schema_metal_native_unavailable
@@ -985,6 +997,14 @@ else()
     REQUIRED_VARS CROSSGL_XCRUN CROSSGL_METAL CROSSGL_METALLIB)
   crossgl_add_optional_native_skip_test(
     NAME cglc_package_verify_json_schema_metal_storage_image_atomic_descriptor_array_native_unavailable
+    TARGET metal
+    REQUIRED_VARS CROSSGL_XCRUN CROSSGL_METAL CROSSGL_METALLIB)
+  crossgl_add_optional_native_skip_test(
+    NAME cglc_package_verify_json_schema_metal_storage_image_2d_nonuniform_descriptor_array_native_unavailable
+    TARGET metal
+    REQUIRED_VARS CROSSGL_XCRUN CROSSGL_METAL CROSSGL_METALLIB)
+  crossgl_add_optional_native_skip_test(
+    NAME cglc_package_verify_json_schema_metal_storage_image_2d_array_nonuniform_descriptor_array_native_unavailable
     TARGET metal
     REQUIRED_VARS CROSSGL_XCRUN CROSSGL_METAL CROSSGL_METALLIB)
 endif()
