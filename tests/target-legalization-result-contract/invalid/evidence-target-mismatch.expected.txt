@@ -1,1 +1,1 @@
-must use target 'directx'
+must use target prefix 'target-legalization.v1.directx.'

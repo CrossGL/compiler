@@ -1,2 +1,1 @@
 $.result.abiFacts.evidenceIds: evidence ID 'target-legalization.v1.vulkan.support.native' is not ABI evidence
-$.result.abiFacts.facts[0].evidenceIds: evidence ID 'target-legalization.v1.vulkan.support.native' is not ABI evidence

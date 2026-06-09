@@ -23,6 +23,16 @@
       "directx.package.source-artifact"
     ],
     "missingCapabilities": [],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.directx.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
     "diagnostics": [],
     "rewrites": [
       {
@@ -49,7 +59,8 @@
       "target-legalization.v1.directx.abi.not-required",
       "target-legalization.v1.directx.decision",
       "target-legalization.v1.directx.package-provenance.source-package-only",
-      "target-legalization.v1.directx.rewrite.not-required"
+      "target-legalization.v1.directx.rewrite.not-required",
+      "target-legalization.v1.directx.tool-requirements.empty"
     ]
   }
 }

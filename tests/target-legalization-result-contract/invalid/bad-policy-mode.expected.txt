@@ -1,1 +1,1 @@
-$.policy.mode: expected 'report-only'
+$.policy.mode: expected constant 'report-only'

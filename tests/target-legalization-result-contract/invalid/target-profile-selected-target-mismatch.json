@@ -12,7 +12,14 @@
     "targetProfile": {
       "target": "vulkan",
       "profile": "vulkan.v0.native",
-      "packageMode": "native"
+      "packageMode": "native",
+      "requestedTarget": "auto",
+      "preferredTarget": "vulkan",
+      "resolvedTarget": "metal",
+      "selectedTarget": "metal",
+      "selectionReason": "auto-host-default",
+      "autoRequested": true,
+      "selectedTargetBuildable": true
     },
     "packageMode": "native",
     "packageDecisionProvenance": "native-package-available",
@@ -24,13 +31,39 @@
     ],
     "missingCapabilities": [],
     "toolRequirements": {
-      "requiredToolIds": [],
+      "requiredToolIds": [
+        "vulkan.toolchain.spirv-as",
+        "vulkan.validation.spirv-val"
+      ],
       "missingToolIds": [],
       "optionalNativeToolMissing": false,
       "evidenceIds": [
-        "target-legalization.v1.vulkan.tool-requirements.empty"
+        "target-legalization.v1.vulkan.tool-requirement.required.toolchain.spirv-as",
+        "target-legalization.v1.vulkan.tool-requirement.required.validation.spirv-val",
+        "target-legalization.v1.vulkan.tool-requirements.present"
       ],
-      "records": [],
+      "records": [
+        {
+          "id": "vulkan.toolchain.spirv-as",
+          "kind": "toolchain",
+          "name": "spirv-as",
+          "status": "required",
+          "target": "vulkan",
+          "evidenceIds": [
+            "target-legalization.v1.vulkan.tool-requirement.required.toolchain.spirv-as"
+          ]
+        },
+        {
+          "id": "vulkan.validation.spirv-val",
+          "kind": "validation",
+          "name": "spirv-val",
+          "status": "required",
+          "target": "vulkan",
+          "evidenceIds": [
+            "target-legalization.v1.vulkan.tool-requirement.required.validation.spirv-val"
+          ]
+        }
+      ],
       "optionalNativeToolStatus": "not-required"
     },
     "diagnostics": [],
@@ -51,7 +84,7 @@
         {
           "id": "entry-point.compute-main",
           "kind": "entry-point",
-          "status": "missing",
+          "status": "provided",
           "target": "vulkan",
           "evidenceIds": [
             "target-legalization.v1.vulkan.abi.entry-point"
@@ -74,7 +107,9 @@
       "target-legalization.v1.vulkan.rewrite.not-required",
       "target-legalization.v1.vulkan.state.legalized",
       "target-legalization.v1.vulkan.support.native",
-      "target-legalization.v1.vulkan.tool-requirements.empty"
+      "target-legalization.v1.vulkan.tool-requirement.required.toolchain.spirv-as",
+      "target-legalization.v1.vulkan.tool-requirement.required.validation.spirv-val",
+      "target-legalization.v1.vulkan.tool-requirements.present"
     ]
   }
 }

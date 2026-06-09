@@ -1,1 +1,1 @@
-must use one of
+expected one of ['native-tool', 'toolchain', 'validation']

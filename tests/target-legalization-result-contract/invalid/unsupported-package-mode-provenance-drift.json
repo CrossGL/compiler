@@ -26,6 +26,16 @@
     "missingCapabilities": [
       "directx.backend.dxil-validator"
     ],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.directx.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
     "diagnostics": [
       {
         "code": "target.source-package-selected",
@@ -77,7 +87,8 @@
       "target-legalization.v1.directx.diagnostic.source-package",
       "target-legalization.v1.directx.package-provenance.source-package-only",
       "target-legalization.v1.directx.resource-bindings.empty",
-      "target-legalization.v1.directx.rewrite.blocked"
+      "target-legalization.v1.directx.rewrite.blocked",
+      "target-legalization.v1.directx.tool-requirements.empty"
     ]
   }
 }

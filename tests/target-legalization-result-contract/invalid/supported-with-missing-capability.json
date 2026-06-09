@@ -26,8 +26,28 @@
     "missingCapabilities": [
       "directx.backend.dxil-validator"
     ],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.directx.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
     "diagnostics": [],
-    "rewrites": [],
+    "rewrites": [
+      {
+        "id": "no-target-rewrite",
+        "order": 0,
+        "status": "not-required",
+        "description": "No target-aware rewrite is required for this fixture.",
+        "evidenceIds": [
+          "target-legalization.v1.directx.rewrite.not-required"
+        ]
+      }
+    ],
     "abiFacts": {
       "state": "not-required",
       "facts": [],
@@ -35,10 +55,16 @@
         "target-legalization.v1.directx.abi.not-required"
       ]
     },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.directx.resource-bindings.empty"
+    ],
     "evidenceIds": [
       "target-legalization.v1.directx.abi.not-required",
       "target-legalization.v1.directx.decision",
-      "target-legalization.v1.directx.package-provenance.source-package-only"
+      "target-legalization.v1.directx.package-provenance.source-package-only",
+      "target-legalization.v1.directx.resource-bindings.empty",
+      "target-legalization.v1.directx.rewrite.not-required",
+      "target-legalization.v1.directx.tool-requirements.empty"
     ]
   }
 }

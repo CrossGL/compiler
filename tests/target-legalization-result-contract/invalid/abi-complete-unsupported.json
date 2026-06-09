@@ -25,6 +25,16 @@
     "missingCapabilities": [
       "opengl.feature.shadow-cube-lod"
     ],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.opengl.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
     "diagnostics": [
       {
         "code": "target.unsupported-shadow-cube-lod",
@@ -57,12 +67,20 @@
         "target-legalization.v1.opengl.abi.unsupported"
       ]
     },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.opengl.resource-bindings.empty"
+    ],
     "evidenceIds": [
       "target-legalization.v1.opengl.abi.unsupported",
       "target-legalization.v1.opengl.decision",
       "target-legalization.v1.opengl.diagnostic.unsupported-shadow-lod",
+      "target-legalization.v1.opengl.package-mode.unsupported",
       "target-legalization.v1.opengl.package-provenance.unsupported-source-form",
-      "target-legalization.v1.opengl.rewrite.blocked"
+      "target-legalization.v1.opengl.resource-bindings.empty",
+      "target-legalization.v1.opengl.rewrite.blocked",
+      "target-legalization.v1.opengl.state.rejected",
+      "target-legalization.v1.opengl.support.unsupported",
+      "target-legalization.v1.opengl.tool-requirements.empty"
     ]
   }
 }
