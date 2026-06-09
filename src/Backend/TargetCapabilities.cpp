@@ -1131,6 +1131,9 @@ TargetPackageDecision targetPackageDecision(const HIRModule &module,
   if (nativeImplemented && !supportsNativePackage) {
     decision.missingCapabilities =
         nativePredicateMissingCapabilities(resolvedTarget, nativeDiagnostics);
+    if (isSourcePackageTarget(resolvedTarget) && !supportsSourcePackage) {
+      decision.diagnostics = sourceDiagnostics.diagnostics();
+    }
   } else if (isSourcePackageTarget(resolvedTarget) && !supportsSourcePackage) {
     decision.missingCapabilities =
         sourcePredicateMissingCapabilities(resolvedTarget, sourceDiagnostics);

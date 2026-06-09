@@ -1499,7 +1499,9 @@ def alignment_cases() -> tuple[AlignmentCase, ...]:
                     source_package_supported=False,
                     package_mode="unsupported",
                     missing_capabilities=(
-                        "directx.backend.hlsl-lowering",
+                        "directx.backend.native-dxil-package",
+                        "directx.toolchain.dxc",
+                        "directx.validation.dxil-validator",
                         "directx.diagnostic.directx.unsupported-runtime-resource-array",
                     ),
                     required_capabilities=required_runtime_capabilities(

@@ -23,9 +23,11 @@ def expected_package_rank_score(record):
 
 def validate_debug_target_decision(errors, decision):
     selected_record = {
+        "target": decision["selectedTarget"],
         "packageBuildSupported": decision["selectedTargetPackageBuildSupported"],
         "nativeImplemented": decision["selectedTargetNativeImplemented"],
         "sourcePackageSupported": decision["selectedTargetSourcePackageSupported"],
+        "missingCapabilities": decision["selectedTargetMissingCapabilities"],
     }
     add_equal_error(
         errors,

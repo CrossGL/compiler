@@ -286,18 +286,16 @@ void testPackageMetadataHelpers() {
            "native-status policy without generated-contract fallback");
     const crossgl::PackageIntegrityResult recordedVerify =
         crossgl::verifyPackage(recordedPackageDir);
-    expect(!recordedVerify.success && !recordedVerify.diagnostics.empty(),
-           "package verify rejects recorded DirectX native requirements that "
-           "drift from the target contract");
+    expect(recordedVerify.success && recordedVerify.diagnostics.empty(),
+           "package verify accepts recorded DirectX native requirements that "
+           "match the promoted target contract");
     const std::string recordedVerifyJson =
         crossgl::packageVerifyJson(recordedVerify, recordedPackageDir);
-    expect(recordedVerifyJson.find("package.verify.invalid-manifest") !=
-                   std::string::npos &&
-               recordedVerifyJson.find(
-                   "packageArtifactRequirements.packageMode must match "
-                   "manifest target contract") != std::string::npos,
+    expect(recordedVerifyJson.find("\"success\": true") != std::string::npos &&
+               recordedVerifyJson.find("package.verify.invalid-manifest") ==
+                   std::string::npos,
            "package verify JSON reports recorded DirectX native package-mode "
-           "contract drift");
+           "contract success");
     expect(recordedVerifyJson.find("\"nativeBinaryStatus\": null") !=
                std::string::npos,
            "package verify JSON summary preserves recorded native status "
@@ -17933,7 +17931,7 @@ shader TargetCapabilityStorageImageShader {
       crossgl::targetPackageDecision(*hir, crossgl::TargetKind::DirectX);
   expect(directxPackage.target == crossgl::TargetKind::DirectX &&
              directxPackage.targetName == "directx" &&
-             !directxPackage.nativeImplemented &&
+             directxPackage.nativeImplemented &&
              directxPackage.sourcePackageSupported &&
              directxPackage.packageBuildSupported &&
              directxPackage.packageMode == "source-package" &&
@@ -18169,7 +18167,13 @@ shader TargetCapabilityNotImplementedShader {
                decision.packageMode == "unsupported" &&
                hasCapability(decision.missingCapabilities,
                              crossgl::TargetKind::DirectX, "backend",
-                             "hlsl-lowering") &&
+                             "native-dxil-package") &&
+               hasCapability(decision.missingCapabilities,
+                             crossgl::TargetKind::DirectX, "toolchain",
+                             "dxc") &&
+               hasCapability(decision.missingCapabilities,
+                             crossgl::TargetKind::DirectX, "validation",
+                             "dxil-validator") &&
                hasCapability(decision.missingCapabilities,
                              crossgl::TargetKind::DirectX, "diagnostic",
                              "directx.source-unsupported"),
@@ -18213,7 +18217,15 @@ shader TargetCapabilityNotImplementedShader {
     expect(notImplementedDiagnostic->target == "directx" &&
                std::find(notImplementedDiagnostic->missingCapabilities.begin(),
                          notImplementedDiagnostic->missingCapabilities.end(),
-                         "directx.backend.hlsl-lowering") !=
+                         "directx.backend.native-dxil-package") !=
+                   notImplementedDiagnostic->missingCapabilities.end() &&
+               std::find(notImplementedDiagnostic->missingCapabilities.begin(),
+                         notImplementedDiagnostic->missingCapabilities.end(),
+                         "directx.toolchain.dxc") !=
+                   notImplementedDiagnostic->missingCapabilities.end() &&
+               std::find(notImplementedDiagnostic->missingCapabilities.begin(),
+                         notImplementedDiagnostic->missingCapabilities.end(),
+                         "directx.validation.dxil-validator") !=
                    notImplementedDiagnostic->missingCapabilities.end() &&
                std::find(notImplementedDiagnostic->missingCapabilities.begin(),
                          notImplementedDiagnostic->missingCapabilities.end(),
@@ -32812,8 +32824,8 @@ shader TextureCompareLodManualKernelListShader {
              directxDebugDocument.targetDecision.selectedTarget == "directx" &&
              directxDebugDocument.targetDecision.selectionReason ==
                  "explicit-target" &&
-             !directxDebugDocument.targetDecision
-                  .selectedTargetNativeImplemented &&
+             directxDebugDocument.targetDecision
+                 .selectedTargetNativeImplemented &&
              directxDebugDocument.targetDecision
                  .selectedTargetSourcePackageSupported &&
              directxDebugDocument.targetDecision.selectedTargetPackageBuildSupported &&
@@ -32926,7 +32938,7 @@ shader TextureCompareLodManualKernelListShader {
           ? nullptr
           : findCapabilityGroup(directxSummary->requiredCapabilityGroups,
                                 "operation");
-  expect(directxSummary != nullptr && !directxSummary->nativeImplemented &&
+  expect(directxSummary != nullptr && directxSummary->nativeImplemented &&
              directxSummary->sourcePackageSupported &&
              directxSummary->packageBuildSupported &&
              directxSummary->packageBuildSupported ==

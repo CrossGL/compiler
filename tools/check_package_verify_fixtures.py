@@ -2746,30 +2746,45 @@ def run_cases(root, cglc):
                 break
         write_json(target_explanation_path, target_explanation)
 
-        expected = (
-            "package manifest packageArtifactRequirements.packageMode must match "
-            "manifest target contract"
-        )
+        def expect_recorded_native_requirements(payload):
+            case_errors = []
+            summary = payload.get("summary", {})
+            expect_equal(
+                case_errors,
+                "recorded-requirements-no-native-status-json",
+                "summary.nativeBinaryStatus",
+                summary.get("nativeBinaryStatus"),
+                None,
+            )
+            evidence = summary.get("targetLegalizationEvidence", {})
+            expect_equal(
+                case_errors,
+                "recorded-requirements-no-native-status-json",
+                "summary.targetLegalizationEvidence.packageMode",
+                evidence.get("packageMode"),
+                "native",
+            )
+            return case_errors
+
         errors.extend(
-            expect_failure(
+            expect_success(
                 cglc,
                 "recorded-requirements-no-native-status",
                 package,
-                expected,
+                "StorageBufferComputeShader for directx",
                 source=source,
             )
         )
         errors.extend(
-            expect_json_failure(
+            expect_json_success(
                 root,
                 cglc,
                 tmp_dir,
                 "recorded-requirements-no-native-status-json",
                 package,
-                expected,
+                recorded_requirements,
                 source=source,
-                manifest=recorded_requirements,
-                expected_code="package.verify.invalid-manifest",
+                extra_check=expect_recorded_native_requirements,
             )
         )
 

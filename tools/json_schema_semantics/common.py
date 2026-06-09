@@ -963,7 +963,10 @@ SOURCE_PACKAGE_FALLBACK_NATIVE_EVIDENCE = {
 def source_package_fallback_native_mode(record):
     if not record.get("nativeImplemented") or not record.get("sourcePackageSupported"):
         return False
-    optional_evidence = SOURCE_PACKAGE_FALLBACK_NATIVE_EVIDENCE.get(record["target"])
+    target = record.get("target") or record.get("selectedTarget")
+    if not target:
+        return False
+    optional_evidence = SOURCE_PACKAGE_FALLBACK_NATIVE_EVIDENCE.get(target)
     if not optional_evidence:
         return False
     missing_capabilities = record.get("missingCapabilities", [])

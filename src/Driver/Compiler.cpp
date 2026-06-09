@@ -1806,24 +1806,27 @@ DebugMetadataTargetCapabilitySummary debugSummaryFromProjection(
 void applyDebugMetadataProjection(
     DebugMetadataDocument &document,
     const TargetLegalizationContractProjection &projection,
-    TargetKind requestedTarget) {
+    TargetKind requestedTarget, bool singleTargetProjection) {
   const std::string resolvedTargetName =
       projectionResolvedTargetName(projection);
   const DebugMetadataTargetCapabilitySummary summary =
       debugSummaryFromProjection(projection);
-  document.targetCapabilities.defaultTarget =
-      std::string(targetName(defaultTargetForHost()));
-  bool replacedSummary = false;
-  for (DebugMetadataTargetCapabilitySummary &existing :
-       document.targetCapabilities.summaries) {
-    if (existing.target == resolvedTargetName) {
-      existing = summary;
-      replacedSummary = true;
-      break;
+  if (singleTargetProjection) {
+    document.targetCapabilities.defaultTarget = resolvedTargetName;
+    document.targetCapabilities.summaries = {summary};
+  } else {
+    bool replacedSummary = false;
+    for (DebugMetadataTargetCapabilitySummary &existing :
+         document.targetCapabilities.summaries) {
+      if (existing.target == resolvedTargetName) {
+        existing = summary;
+        replacedSummary = true;
+        break;
+      }
     }
-  }
-  if (!replacedSummary) {
-    document.targetCapabilities.summaries.push_back(summary);
+    if (!replacedSummary) {
+      document.targetCapabilities.summaries.push_back(summary);
+    }
   }
 
   document.targetDecision.requestedTarget =
@@ -1861,6 +1864,44 @@ void applyDebugMetadataProjection(
   document.targetDecision.diagnostics.clear();
 }
 
+std::string
+remediationFromProjection(const TargetLegalizationContractProjection &projection) {
+  if (projection.packageModeName == "native") {
+    return "No remediation required; native package output is available.";
+  }
+  if (projection.packageModeName == "source-package") {
+    if (!projection.missingCapabilityIds.empty()) {
+      std::ostringstream out;
+      out << "Source package output is available; native artifact remediation "
+             "requires satisfying: ";
+      for (std::size_t index = 0; index < projection.missingCapabilityIds.size();
+           ++index) {
+        if (index != 0) {
+          out << ", ";
+        }
+        out << projection.missingCapabilityIds[index];
+      }
+      out << ".";
+      return out.str();
+    }
+    return "No remediation required; source package output is available.";
+  }
+  if (!projection.missingCapabilityIds.empty()) {
+    std::ostringstream out;
+    out << "Select a buildable target or satisfy missing target capabilities: ";
+    for (std::size_t index = 0; index < projection.missingCapabilityIds.size();
+         ++index) {
+      if (index != 0) {
+        out << ", ";
+      }
+      out << projection.missingCapabilityIds[index];
+    }
+    out << ".";
+    return out.str();
+  }
+  return "Select a buildable target.";
+}
+
 TargetExplanationTargetRecord targetExplanationRecordFromProjection(
     const TargetLegalizationContractProjection &projection) {
   const std::string resolvedTargetName =
@@ -1881,10 +1922,7 @@ TargetExplanationTargetRecord targetExplanationRecordFromProjection(
   record.artifactLinks = {"ir/target-explanation.json#targets/" +
                           resolvedTargetName};
   record.reportLinks = {"target-explanation-v1#targets/" + resolvedTargetName};
-  record.remediation =
-      record.packageMode == "native"
-          ? "No remediation required; native package output is available."
-          : "No remediation required; source package output is available.";
+  record.remediation = remediationFromProjection(projection);
   record.requiredCapabilityCount = projection.requiredCapabilityCount;
   record.missingCapabilityCount = projection.missingCapabilityCount;
   record.requiredCapabilities = projection.requiredCapabilityIds;
@@ -1901,18 +1939,68 @@ TargetExplanationTargetRecord targetExplanationRecordFromProjection(
   return record;
 }
 
+bool isBuildableTargetExplanationRecord(
+    const TargetExplanationTargetRecord &record) {
+  return record.packageBuildSupported && !record.legalizationCoreEvidenceIds.empty();
+}
+
+void refreshTargetExplanationRecommendation(TargetExplanationDocument &document) {
+  document.buildableTargetCount = 0;
+  document.recommendedTarget.reset();
+  document.recommendedPackageMode.reset();
+  const TargetExplanationTargetRecord *recommended = nullptr;
+  for (const TargetExplanationTargetRecord &record : document.targets) {
+    if (!isBuildableTargetExplanationRecord(record)) {
+      continue;
+    }
+    ++document.buildableTargetCount;
+    if (recommended == nullptr ||
+        record.packageRankScore < recommended->packageRankScore ||
+        (record.packageRankScore == recommended->packageRankScore &&
+         record.target == document.defaultTarget &&
+         recommended->target != document.defaultTarget)) {
+      recommended = &record;
+    }
+  }
+  if (recommended != nullptr) {
+    document.recommendedTarget = recommended->target;
+    document.recommendedPackageMode = recommended->packageMode;
+  }
+}
+
+void applyTargetExplanationProjection(
+    TargetExplanationDocument &document,
+    const TargetLegalizationContractProjection &projection,
+    bool singleTargetProjection) {
+  TargetExplanationTargetRecord record =
+      targetExplanationRecordFromProjection(projection);
+  if (singleTargetProjection) {
+    document.targets = {std::move(record)};
+    document.defaultTarget = document.targets.front().target;
+  } else {
+    bool replacedRecord = false;
+    for (TargetExplanationTargetRecord &existing : document.targets) {
+      if (existing.target == record.target) {
+        existing = std::move(record);
+        replacedRecord = true;
+        break;
+      }
+    }
+    if (!replacedRecord) {
+      document.targets.push_back(std::move(record));
+    }
+  }
+  refreshTargetExplanationRecommendation(document);
+}
+
 TargetExplanationDocument targetExplanationDocumentFromProjection(
     const HIRModule &module,
     const TargetLegalizationContractProjection &projection) {
   TargetExplanationDocument document;
   document.module = module.name;
-  document.defaultTarget = std::string(targetName(defaultTargetForHost()));
   document.targets.push_back(targetExplanationRecordFromProjection(projection));
-  if (projectionSupportsPackage(projection)) {
-    document.buildableTargetCount = 1;
-    document.recommendedTarget = document.targets.front().target;
-    document.recommendedPackageMode = document.targets.front().packageMode;
-  }
+  document.defaultTarget = document.targets.front().target;
+  refreshTargetExplanationRecommendation(document);
   return document;
 }
 
@@ -1922,22 +2010,30 @@ bool rewriteDirectXTargetLegalizationSidecars(
     const DebugMetadataOptions &debugMetadataOptions,
     const std::optional<std::filesystem::path> &debugMetadataPath,
     const std::optional<std::filesystem::path> &targetExplanationPath,
-    DiagnosticEngine &diagnostics) {
+    DiagnosticEngine &diagnostics, bool singleTargetProjection) {
   if (debugMetadataPath) {
     DebugMetadataDocument document = buildDebugMetadataDocument(
         module, requestedTarget, std::nullopt, debugMetadataOptions);
-    applyDebugMetadataProjection(document, projection, requestedTarget);
+    applyDebugMetadataProjection(document, projection, requestedTarget,
+                                 singleTargetProjection);
     if (!writeText(*debugMetadataPath, debugMetadataJson(document), diagnostics,
                    "artifact.write-debug-metadata")) {
       return false;
     }
   }
-  if (targetExplanationPath &&
-      !writeText(*targetExplanationPath,
-                 targetExplanationJson(targetExplanationDocumentFromProjection(
-                     module, projection)),
-                 diagnostics, "artifact.write-target-explanation")) {
-    return false;
+  if (targetExplanationPath) {
+    TargetExplanationDocument document =
+        singleTargetProjection
+            ? targetExplanationDocumentFromProjection(module, projection)
+            : buildTargetExplanationDocument(module);
+    if (!singleTargetProjection) {
+      applyTargetExplanationProjection(document, projection,
+                                       singleTargetProjection);
+    }
+    if (!writeText(*targetExplanationPath, targetExplanationJson(document),
+                   diagnostics, "artifact.write-target-explanation")) {
+      return false;
+    }
   }
   return true;
 }
@@ -3065,10 +3161,14 @@ CompileResult compile(const CompileRequest &request) {
               ? admission->decision.projection
               : targetLegalizationSourcePackageFallbackProjection(backendHIR,
                                                                   target);
-      if (!rewriteDirectXTargetLegalizationSidecars(
-              backendHIR, request.target, directxProjection,
-              debugMetadataOptions, debugMetadataPath, targetExplanationPath,
-              diagnostics)) {
+      const bool shouldRewriteDirectXSidecars =
+          directx.nativeBinaryProduced ||
+          admission->decision.projection.packageModeName == "native";
+      if (shouldRewriteDirectXSidecars &&
+          !rewriteDirectXTargetLegalizationSidecars(
+              backendHIR, request.target, directxProjection, debugMetadataOptions,
+              debugMetadataPath, targetExplanationPath, diagnostics,
+              directx.nativeBinaryProduced)) {
         assignDiagnostics();
         return result;
       }

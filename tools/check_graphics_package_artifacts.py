@@ -943,8 +943,17 @@ def probe_directx_graphics_fake_dxc(root, tmp_dir, cglc):
         case_name,
         "manifest.artifacts.nativeBinaryStatus",
         artifacts.get("nativeBinaryStatus"),
-        "emitted",
+        None,
     )
+    expect_equal(
+        errors,
+        case_name,
+        "manifest.artifacts.nativeArtifactDescriptor",
+        artifacts.get("nativeArtifactDescriptor"),
+        (f"backend/directx/{DIRECTX_GRAPHICS_RESOURCE_MODULE}.native-artifact.json"),
+    )
+    if isinstance(artifacts.get("nativeArtifactDescriptor"), str):
+        expect_file(package / artifacts["nativeArtifactDescriptor"], errors, case_name)
     expect_equal(
         errors,
         case_name,
