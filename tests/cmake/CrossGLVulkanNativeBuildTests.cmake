@@ -1995,6 +1995,32 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_SNIPPET=OpDecorate %resource_values Binding 0"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_boolean_logic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_BOOLEAN_LOGIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-boolean-logic.cglb
+      -DEXPECTED_MODULE=VulkanBooleanLogicComputeShader
+      -DEXPECTED_STORAGE_ELEMENT=int
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanBooleanLogicComputeShader|artifacts.backendAssembly=backend/vulkan/VulkanBooleanLogicComputeShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanBooleanLogicComputeShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanBooleanLogicComputeShader|nativeBinary=backend/vulkan/VulkanBooleanLogicComputeShader.spv|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=2|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1|manualTextureCompareKernels=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=int*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|values.set=0|values.binding=0|values.storageBufferLayout.elementType=int|values.storageBufferLayout.layout=std430|values.storageBufferLayout.arrayStrideBytes=4"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-comparison.kind=operation|select-expression.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      "-DEXPECTED_SPVASM_SNIPPET=OpLogicalAnd %bool"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_boolean_logic_spvasm_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_BOOLEAN_LOGIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-boolean-logic-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanBooleanLogicComputeShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpLogicalNot|OpLogicalOr|OpLogicalAnd|OpLogicalEqual|OpLogicalNotEqual|OpSGreaterThan|OpSLessThan|OpIEqual|OpSelect %int"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeImage|OpTypeSampler|NonUniformEXT|vulkan.prototype-unsupported-expression"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
   add_test(NAME cglc_build_vulkan_float_equality_negation_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>

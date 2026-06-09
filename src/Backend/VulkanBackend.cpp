@@ -4292,10 +4292,11 @@ bool prototypeExpressionSupported(
                                         diagnostics);
   case HIRExpressionKind::Unary: {
     if (expression.children.empty() ||
-        (expression.value != "+" && expression.value != "-")) {
+        (expression.value != "+" && expression.value != "-" &&
+         expression.value != "!")) {
       diagnostics.error("vulkan.prototype-unsupported-expression",
                         "Vulkan prototype binary emission supports only unary "
-                        "+ and -");
+                        "+, -, and !");
       return false;
     }
     if (!prototypeExpressionSupported(expression.children.front(), locals,
@@ -4306,6 +4307,16 @@ bool prototypeExpressionSupported(
     const HIRType operandType =
         prototypeExpressionType(expression.children.front(), locals, resources,
                                 constants);
+    if (expression.value == "!") {
+      if (!isPrototypeScalarBoolType(operandType) ||
+          !isPrototypeScalarBoolType(expression.type)) {
+        diagnostics.error("vulkan.prototype-unsupported-expression",
+                          "Vulkan prototype logical not supports only scalar "
+                          "bool values");
+        return false;
+      }
+      return true;
+    }
     if (!isPrototypeArithmeticType(operandType)) {
       diagnostics.error("vulkan.prototype-unsupported-expression",
                         "Vulkan prototype binary emission supports unary "
@@ -4315,12 +4326,14 @@ bool prototypeExpressionSupported(
     return true;
   }
   case HIRExpressionKind::Binary: {
-    if (expression.children.size() < 2 ||
+    if (expression.children.size() != 2 ||
         (!isPrototypeArithmeticOperator(expression.value) &&
-         !isPrototypeComparisonOperator(expression.value))) {
+         !isPrototypeComparisonOperator(expression.value) &&
+         !isPrototypeLogicalOperator(expression.value))) {
       diagnostics.error("vulkan.prototype-unsupported-expression",
-                        "Vulkan prototype binary emission supports only scalar/vector "
-                        "arithmetic and comparison expressions");
+                        "Vulkan prototype binary emission supports only "
+                        "scalar/vector arithmetic, comparison, and logical "
+                        "expressions");
       return false;
     }
     if (!prototypeExpressionSupported(expression.children[0], locals, resources,
@@ -4335,6 +4348,31 @@ bool prototypeExpressionSupported(
     const HIRType rightType =
         prototypeExpressionType(expression.children[1], locals, resources,
                                 constants);
+    if (isPrototypeLogicalOperator(expression.value)) {
+      if (!isPrototypeScalarBoolType(leftType) ||
+          !isPrototypeScalarBoolType(rightType) ||
+          !isPrototypeScalarBoolType(expression.type)) {
+        diagnostics.error("vulkan.prototype-unsupported-expression",
+                          "Vulkan prototype logical binary operations require "
+                          "scalar bool operands and result");
+        return false;
+      }
+      if (!isKnownPureHIRExpression(expression.children[0]) ||
+          !isKnownPureHIRExpression(expression.children[1])) {
+        diagnostics.error("vulkan.prototype-unsupported-expression",
+                          "Vulkan prototype logical && and || lowering "
+                          "requires known-pure operands to preserve "
+                          "short-circuit semantics");
+        return false;
+      }
+      return true;
+    }
+    if (isPrototypeBoolEqualityOperator(expression.value) &&
+        isPrototypeScalarBoolType(leftType) &&
+        isPrototypeScalarBoolType(rightType) &&
+        isPrototypeScalarBoolType(expression.type)) {
+      return true;
+    }
     const std::optional<PrototypeMatrixMultiplyLowering> matrixMultiply =
         expression.value == "*"
             ? prototypeMatrixMultiplyLowering(leftType, rightType,
@@ -9764,6 +9802,13 @@ private:
       if (expression.value == "+") {
         return operand;
       }
+      if (expression.value == "!") {
+        const std::string resultId = nextTemp();
+        const std::string typeId = ensureType(expression.type);
+        instructionLines_.push_back(resultId + " = OpLogicalNot " + typeId +
+                                    " " + operand->id);
+        return PrototypeSPIRVValue{expression.type, resultId};
+      }
 
       const std::string resultId = nextTemp();
       const std::string typeId = ensureType(operand->type);
@@ -9992,6 +10037,21 @@ private:
       }
       if (op == "/") {
         return "OpSDiv";
+      }
+    }
+
+    if (operandType.name == "bool" && resultType.name == "bool") {
+      if (op == "&&") {
+        return "OpLogicalAnd";
+      }
+      if (op == "||") {
+        return "OpLogicalOr";
+      }
+      if (op == "==") {
+        return "OpLogicalEqual";
+      }
+      if (op == "!=") {
+        return "OpLogicalNotEqual";
       }
     }
 
