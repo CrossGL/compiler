@@ -7834,15 +7834,16 @@ publishPackageReleaseStage(const std::filesystem::path &stageReportPath,
   if (!document) {
     return result;
   }
-  validateReleasePublishStageNativePackageEvidence(*document,
-                                                   result.diagnostics);
-  if (countDiagnostics(result.diagnostics, DiagnosticSeverity::Error) != 0) {
-    return result;
-  }
 
   const ReleasePublishTargetBackend *backend =
       findReleasePublishTargetBackend(result.targetKind);
   planReleasePublishReceiptArtifacts(*document, backend, result);
+  if (countDiagnostics(result.diagnostics, DiagnosticSeverity::Error) != 0) {
+    return result;
+  }
+
+  validateReleasePublishStageNativePackageEvidence(*document,
+                                                   result.diagnostics);
   if (countDiagnostics(result.diagnostics, DiagnosticSeverity::Error) != 0) {
     return result;
   }
