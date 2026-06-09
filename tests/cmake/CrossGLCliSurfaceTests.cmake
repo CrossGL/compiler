@@ -205,6 +205,8 @@ file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BUILD_JSON_MANIFEST}"
 
 set(CROSSGL_CLI_SOURCE_BATCH_BUILD_REMAP_JSON_MANIFEST
   "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-build-remap-json.json")
+set(CROSSGL_CLI_SOURCE_BATCH_FULL_FILE_REMAP
+  "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json")
 file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BUILD_REMAP_JSON_MANIFEST}"
 "{
   \"schemaVersion\": 1,
@@ -993,7 +995,7 @@ crossgl_add_python_expect_test(
     -DMANIFEST=${CROSSGL_CLI_SOURCE_BATCH_BUILD_REMAP_JSON_MANIFEST}
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=1|entries.0.id=storage-remapped|entries.0.logicalInput=generated/from-translator.cgl|entries.0.sourceRemap=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json|entries.0.output=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-remap-storage.cglb|entries.0.artifact=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-remap-storage.cglb|entries.0.target=directx|entries.0.success=true|diagnosticReport.schemaVersion=1|diagnosticReport.diagnostics.0.severity=note|diagnosticReport.diagnostics.0.code=directx.source-package-emitted|diagnosticReport.diagnostics.1.severity=warning|diagnosticReport.diagnostics.1.code=directx.source-package-only"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=1|entries.0.id=storage-remapped|entries.0.logicalInput=generated/from-translator.cgl|entries.0.sourceRemap=${CROSSGL_CLI_SOURCE_BATCH_FULL_FILE_REMAP}|entries.0.output=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-remap-storage.cglb|entries.0.artifact=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-remap-storage.cglb|entries.0.target=directx|entries.0.success=true|diagnosticReport.schemaVersion=1|diagnosticReport.diagnostics.0.severity=note|diagnosticReport.diagnostics.0.code=directx.source-package-emitted|diagnosticReport.diagnostics.1.severity=warning|diagnosticReport.diagnostics.1.code=directx.source-package-only"
     "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=1|diagnosticReport.diagnostics=2"
     "-DEXPECTED_SOURCE_BATCH_PACKAGE=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-remap-storage.cglb"
     "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceRemapProvenance|contractVersion=source-remap-provenance-v1|target=directx|generatedFile=generated/from-translator.cgl|mappingGranularity=source-span|mappingCount=1"
