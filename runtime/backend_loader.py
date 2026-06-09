@@ -199,6 +199,9 @@ class SourceFreeNativeBackendLoaderPlan:
                 "targetResourceBindings": list(self.target_resource_bindings),
                 "workgroupSizes": list(self.workgroup_sizes),
             },
+            "graphicsDescriptorBindings": (
+                self.runtime_plan.compatibility_report.graphics_descriptor_bindings
+            ),
             "sourceInputs": [],
             "runtimePlan": self.runtime_plan.to_summary(),
             "rejectReasons": [

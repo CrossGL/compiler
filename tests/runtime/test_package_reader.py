@@ -944,6 +944,121 @@ class RuntimePackageReaderTests(unittest.TestCase):
             ):
                 read_package(package_dir)
 
+    def test_graphics_abi_descriptor_bindings_are_exposed_for_runtime(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            graphics_abi_path = self._write_graphics_abi_sidecar(
+                package_dir,
+                target="metal",
+            )
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for graphics ABI binding metadata\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="metal")
+
+            package_bindings = package.graphics_descriptor_bindings
+            report_bindings = report.to_summary()["graphicsDescriptorBindings"]
+            binding = package_bindings["bindings"][0]
+
+            self.assertTrue(report.compatible, report.to_summary()["diagnostics"])
+            self.assertEqual(
+                package.graphics_abi_artifact().package_path, graphics_abi_path
+            )
+            self.assertEqual(package_bindings["source"], "graphicsAbi.abiRecords")
+            self.assertEqual(package_bindings["bindingCount"], 1)
+            self.assertEqual(package_bindings, report_bindings)
+            self.assertEqual(binding["target"], "metal")
+            self.assertEqual(binding["stage"], "compute")
+            self.assertEqual(binding["entryPoint"], "runtime_reader_main")
+            self.assertEqual(binding["name"], "OutputBuffer")
+            self.assertEqual(binding["abi"], "kernelArgument")
+            self.assertEqual(binding["abiKind"], "kernelArgument")
+            self.assertEqual(binding["bindingClass"], "buffer")
+            self.assertEqual(binding["argumentIndex"], 0)
+            self.assertEqual(binding["set"], 0)
+            self.assertEqual(binding["binding"], 0)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_graphics_abi_target_drift_rejects_package_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            self._write_graphics_abi_sidecar(
+                package_dir,
+                target="metal",
+                sidecar_target="directx",
+            )
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for graphics ABI target drift\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="metal",
+                )
+
+            summary = report.to_summary()
+            reject_codes = [
+                diagnostic["code"] for diagnostic in summary["rejectReasons"]
+            ]
+            self.assertFalse(report.compatible)
+            self.assertIn("package.graphicsAbi.target_mismatch", reject_codes)
+            self.assertIn("package.graphicsAbi.binding_target_mismatch", reject_codes)
+            self.assertFalse(summary["sourceParsingRequired"])
+            with self._guard_crossgl_source_reads():
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "graphics ABI is not compatible",
+                ):
+                    read_package(package_dir)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_graphics_abi_binding_abi_mismatch_rejects_package(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            self._write_graphics_abi_sidecar(
+                package_dir,
+                target="metal",
+                binding_overrides={
+                    "abi": "descriptor",
+                    "bindingClass": "storage-buffer",
+                    "descriptorType": "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
+                },
+            )
+
+            report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+            diagnostic = next(
+                diagnostic
+                for diagnostic in summary["rejectReasons"]
+                if diagnostic["code"] == "package.graphicsAbi.binding_abi_invalid"
+            )
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(diagnostic["document"], "graphicsAbi")
+            self.assertEqual(diagnostic["path"], "abiRecords[0].abi")
+            self.assertIn("Metal argument ABI", diagnostic["expected"])
+            self.assertEqual(diagnostic["actual"]["abi"], "descriptor")
+            with self.assertRaisesRegex(
+                PackageReadError,
+                "graphics ABI is not compatible",
+            ):
+                read_package(package_dir)
+
     def test_runtime_artifact_auto_uses_native_only_when_status_is_ready(
         self,
     ) -> None:
@@ -5266,7 +5381,13 @@ class RuntimePackageReaderTests(unittest.TestCase):
             )
             self.assertEqual(
                 set(availability["sidecars"]),
-                {"manifest", "reflection", "diagnostics", "debugMetadata"},
+                {
+                    "manifest",
+                    "reflection",
+                    "diagnostics",
+                    "debugMetadata",
+                    "graphicsAbi",
+                },
             )
             self.assertEqual(
                 set(availability["artifacts"]),
@@ -8514,6 +8635,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "diagnosticCount",
                     "entryPoints",
                     "graphicsAbi",
+                    "graphicsDescriptorBindings",
                     "module",
                     "nativeBinaryStatus",
                     "packageArtifactRequirements",
@@ -8886,6 +9008,111 @@ class RuntimePackageReaderTests(unittest.TestCase):
         if target == "opengl":
             return {"program": 0, "binding": 0}
         return {"set": 0, "binding": 0}
+
+    def _write_graphics_abi_sidecar(
+        self,
+        package_dir: Path,
+        *,
+        target: str,
+        sidecar_target: str | None = None,
+        binding_overrides: dict[str, object] | None = None,
+    ) -> str:
+        manifest_path = package_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        graphics_abi_path = f"backend/{target}/RuntimeReaderFixture.graphics-abi.json"
+        binding = self._graphics_abi_binding_record(
+            target=sidecar_target or target,
+            binding_overrides=binding_overrides,
+        )
+        self._write_json(
+            package_dir / graphics_abi_path,
+            {
+                "schemaVersion": 1,
+                "module": "RuntimeReaderFixture",
+                "target": sidecar_target or target,
+                "entryPoints": [
+                    {
+                        "stage": "compute",
+                        "sourceName": "main",
+                        "backendName": "runtime_reader_main",
+                    }
+                ],
+                "vertexInputs": [],
+                "varyings": [],
+                "fragmentOutputs": [],
+                "builtins": [],
+                "resources": [
+                    {
+                        "stage": "compute",
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                        "type": "float4",
+                        "set": 0,
+                        "binding": 0,
+                    }
+                ],
+                "abiRecords": [binding],
+            },
+        )
+        manifest["artifacts"]["graphicsAbi"] = graphics_abi_path
+        self._write_json(manifest_path, manifest)
+        return graphics_abi_path
+
+    @staticmethod
+    def _graphics_abi_binding_record(
+        *,
+        target: str,
+        binding_overrides: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        target_fields: dict[str, dict[str, object]] = {
+            "directx": {
+                "abi": "registerBinding",
+                "bindingClass": "uav",
+                "descriptorType": "UAV",
+                "hlslType": "RWStructuredBuffer<float4>",
+                "argumentIndex": 0,
+                "set": 0,
+                "binding": 0,
+            },
+            "metal": {
+                "abi": "kernelArgument",
+                "bindingClass": "buffer",
+                "metalType": "device float4*",
+                "argumentIndex": 0,
+                "set": 0,
+                "binding": 0,
+            },
+            "opengl": {
+                "abi": "programResourceBinding",
+                "bindingClass": "storage-buffer",
+                "descriptorType": "buffer",
+                "argumentIndex": 0,
+                "set": 0,
+                "binding": 0,
+            },
+            "vulkan": {
+                "abi": "descriptor",
+                "bindingClass": "storage-buffer",
+                "descriptorType": "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
+                "storageClass": "StorageBuffer",
+                "spirvType": "%_runtimearr_v4float",
+                "set": 0,
+                "binding": 0,
+            },
+        }
+        binding: dict[str, object] = {
+            "target": target,
+            "stage": "compute",
+            "entryPoint": "runtime_reader_main",
+            "name": "OutputBuffer",
+            "kind": "storageBuffer",
+            "sourceType": "float4",
+            "addressSpace": "storage",
+        }
+        binding.update(target_fields[target])
+        if binding_overrides is not None:
+            binding.update(binding_overrides)
+        return binding
 
     @staticmethod
     def _sha256_file(path: Path) -> str:

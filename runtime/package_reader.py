@@ -345,8 +345,13 @@ class GraphicsAbiRecord:
     """Lightweight runtime-facing summary of optional graphics ABI metadata."""
 
     module: str | None
+    target: str | None
     schema_version: Any
     abi_version: Any
+    entry_points: tuple[dict[str, Any], ...]
+    resources: tuple[dict[str, Any], ...]
+    abi_records: tuple[dict[str, Any], ...]
+    descriptor_bindings: tuple[dict[str, Any], ...]
     stage_count: int
     stage_record_counts: dict[str, int]
     resource_count: int
@@ -355,12 +360,18 @@ class GraphicsAbiRecord:
     def to_summary(self) -> dict[str, Any]:
         return {
             "module": self.module,
+            "target": self.target,
             "schemaVersion": self.schema_version,
             "abiVersion": self.abi_version,
+            "entryPointCount": len(self.entry_points),
+            "resourceDeclarationCount": len(self.resources),
+            "abiRecordCount": len(self.abi_records),
+            "descriptorBindingCount": len(self.descriptor_bindings),
             "stageCount": self.stage_count,
             "stageRecordCounts": dict(self.stage_record_counts),
             "resourceCount": self.resource_count,
             "resourceRecordCounts": dict(self.resource_record_counts),
+            "descriptorBindings": list(self.descriptor_bindings),
         }
 
 
@@ -907,6 +918,8 @@ class PackageCompatibilityReport:
     reflection_availability: dict[str, Any]
     diagnostics_availability: dict[str, Any]
     debug_metadata_availability: dict[str, Any]
+    graphics_abi_availability: dict[str, Any]
+    graphics_descriptor_bindings: dict[str, Any]
     target_legalization_evidence: dict[str, Any]
     diagnostics: tuple[CompatibilityDiagnostic, ...]
     package_artifact_requirements_declared: bool = False
@@ -1030,6 +1043,7 @@ class PackageCompatibilityReport:
                 "reflection": self.reflection_availability,
                 "diagnostics": self.diagnostics_availability,
                 "debugMetadata": self.debug_metadata_availability,
+                "graphicsAbi": self.graphics_abi_availability,
             },
             "artifacts": {
                 "required": list(self.required_artifacts),
@@ -1217,6 +1231,8 @@ class PackageCompatibilityReport:
             "workgroupSizes": self.workgroup_size_summary,
             "diagnosticsMetadata": self.diagnostics_availability,
             "debugMetadata": self.debug_metadata_availability,
+            "graphicsAbi": self.graphics_abi_availability,
+            "graphicsDescriptorBindings": self.graphics_descriptor_bindings,
             "targetLegalizationEvidence": self.target_legalization_evidence,
             "targetLegalizationToolRequirements": (
                 self.target_legalization_tool_requirements
@@ -1486,6 +1502,14 @@ class RuntimePackage:
     def graphics_abi_record(self) -> GraphicsAbiRecord | None:
         return self.graphics_abi
 
+    @property
+    def graphics_descriptor_bindings(self) -> dict[str, Any]:
+        return _graphics_descriptor_binding_summary(
+            target=self.target,
+            reflection=self.reflection,
+            graphics_abi=self.graphics_abi,
+        )
+
     def require_graphics_abi(self) -> GraphicsAbiRecord:
         artifact = self.graphics_abi_artifact()
         if artifact is None:
@@ -1642,6 +1666,7 @@ class RuntimePackage:
             reflection=self.reflection,
             diagnostics_document=self.diagnostics,
             debug_metadata=self.debug_metadata,
+            graphics_abi=self.graphics_abi,
             target_explanation=self.target_explanation,
             artifacts=self.artifacts,
             native_binary_status=self.native_binary_status,
@@ -1699,6 +1724,7 @@ class RuntimePackage:
             "graphicsAbi": _graphics_abi_availability_summary(
                 self.graphics_abi_artifact(), self.graphics_abi
             ),
+            "graphicsDescriptorBindings": self.graphics_descriptor_bindings,
             "targetLegalizationEvidence": (
                 compatibility_report.target_legalization_evidence
             ),
@@ -1812,11 +1838,23 @@ def read_package(package_path: Path | str) -> RuntimePackage:
     debug_metadata = _read_optional_artifact_json_object(
         source, "debugMetadata", artifacts, root_file_name="debug metadata"
     )
-    graphics_abi = _graphics_abi_record(
-        _read_optional_artifact_json_object(
-            source, "graphicsAbi", artifacts, root_file_name="graphics ABI"
-        )
+    graphics_abi_document = _read_optional_artifact_json_object(
+        source, "graphicsAbi", artifacts, root_file_name="graphics ABI"
     )
+    graphics_abi = _graphics_abi_record(graphics_abi_document, target=target)
+    graphics_abi_diagnostics: list[CompatibilityDiagnostic] = []
+    _append_graphics_abi_diagnostics(
+        graphics_abi_diagnostics,
+        module=module,
+        target=target,
+        reflection=reflection,
+        graphics_abi=graphics_abi,
+    )
+    if graphics_abi_diagnostics:
+        messages = "; ".join(
+            diagnostic.message for diagnostic in graphics_abi_diagnostics
+        )
+        raise PackageReadError(f"graphics ABI is not compatible: {messages}")
     target_explanation = _read_optional_artifact_json_object(
         source,
         "targetExplanation",
@@ -1903,6 +1941,17 @@ def read_compatibility_report(
         diagnostic_prefix="package.target_explanation",
         expected="JSON object target explanation metadata",
     )
+    graphics_abi_document = _read_optional_artifact_json_object_for_report(
+        source,
+        "graphicsAbi",
+        artifacts,
+        root_file_name="graphics ABI",
+        diagnostics=metadata_diagnostics,
+        document="graphicsAbi",
+        diagnostic_prefix="package.graphicsAbi",
+        expected="JSON object graphics ABI metadata",
+    )
+    graphics_abi = _graphics_abi_record(graphics_abi_document, target=target)
 
     return _build_compatibility_report(
         root=source.root,
@@ -1913,6 +1962,7 @@ def read_compatibility_report(
         reflection=reflection,
         diagnostics_document=diagnostics_document,
         debug_metadata=debug_metadata,
+        graphics_abi=graphics_abi,
         target_explanation=target_explanation,
         artifacts=tuple(artifacts),
         native_binary_status=native_binary_status,
@@ -3097,6 +3147,7 @@ def _build_compatibility_report(
     reflection: dict[str, Any],
     diagnostics_document: dict[str, Any],
     debug_metadata: dict[str, Any] | None,
+    graphics_abi: GraphicsAbiRecord | None,
     target_explanation: dict[str, Any] | None,
     artifacts: tuple[Artifact, ...],
     native_binary_status: Any,
@@ -3143,6 +3194,14 @@ def _build_compatibility_report(
         diagnostics,
         target=target,
         artifacts=artifacts,
+        unreadable_documents=unreadable_documents,
+    )
+    _append_graphics_abi_diagnostics(
+        diagnostics,
+        module=module,
+        target=target,
+        reflection=reflection,
+        graphics_abi=graphics_abi,
         unreadable_documents=unreadable_documents,
     )
 
@@ -3212,6 +3271,7 @@ def _build_compatibility_report(
         _debug_metadata_record(debug_metadata) if debug_metadata is not None else None
     )
     debug_metadata_artifact = _artifact_by_name(artifacts, "debugMetadata")
+    graphics_abi_artifact = _artifact_by_name(artifacts, "graphicsAbi")
     if debug_metadata_record is not None and not debug_metadata_record.compatible:
         debug_schema_version = debug_metadata_record.schema_version
         debug_schema_artifact_path = (
@@ -3291,6 +3351,15 @@ def _build_compatibility_report(
         ),
         debug_metadata_availability=_debug_metadata_availability_summary(
             debug_metadata_artifact, debug_metadata_record
+        ),
+        graphics_abi_availability=_graphics_abi_availability_summary(
+            graphics_abi_artifact,
+            graphics_abi,
+        ),
+        graphics_descriptor_bindings=_graphics_descriptor_binding_summary(
+            target=target,
+            reflection=reflection,
+            graphics_abi=graphics_abi,
         ),
         target_legalization_evidence=target_legalization_evidence,
         diagnostics=tuple(diagnostics),
@@ -3734,6 +3803,246 @@ def _append_reflection_target_abi_diagnostics(
                 actual=_target_resource_binding_abi_actual(record),
             )
         )
+
+
+def _append_graphics_abi_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    module: str | None,
+    target: str | None,
+    reflection: dict[str, Any],
+    graphics_abi: GraphicsAbiRecord | None,
+    unreadable_documents: frozenset[str] = frozenset(),
+) -> None:
+    if graphics_abi is None or "graphicsAbi" in unreadable_documents:
+        return
+
+    if graphics_abi.schema_version is None:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.schema_version_missing",
+                message="graphics ABI sidecar schemaVersion is required",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="schemaVersion",
+                expected=1,
+                actual="missing",
+            )
+        )
+    elif _schema_version_is_malformed(graphics_abi.schema_version):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.schema_version_invalid",
+                message="graphics ABI sidecar schemaVersion must be an integer",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="schemaVersion",
+                expected=1,
+                actual=_contract_actual_value(graphics_abi.schema_version),
+            )
+        )
+    elif graphics_abi.schema_version != 1:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.schema_incompatible",
+                message="graphics ABI sidecar schemaVersion is not supported",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="schemaVersion",
+                expected=1,
+                actual=graphics_abi.schema_version,
+            )
+        )
+
+    if not _is_non_empty_string(graphics_abi.module):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.module_invalid",
+                message="graphics ABI sidecar module must be a non-empty string",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="module",
+                expected=module,
+                actual=_contract_actual_value(graphics_abi.module),
+            )
+        )
+    elif module is not None and graphics_abi.module != module:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.module_mismatch",
+                message="graphics ABI sidecar module must match manifest.module",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="module",
+                expected=module,
+                actual=graphics_abi.module,
+            )
+        )
+
+    has_canonical_bindings = _graphics_abi_has_canonical_binding_records(graphics_abi)
+    if not _is_non_empty_string(graphics_abi.target) and has_canonical_bindings:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.target_invalid",
+                message="graphics ABI sidecar target must be a non-empty string",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="target",
+                expected=target,
+                actual=_contract_actual_value(graphics_abi.target),
+            )
+        )
+    elif (
+        target is not None
+        and _is_non_empty_string(graphics_abi.target)
+        and graphics_abi.target != target
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.target_mismatch",
+                message="graphics ABI sidecar target must match manifest.target",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="target",
+                expected=target,
+                actual=graphics_abi.target,
+            )
+        )
+
+    if target is None:
+        return
+    _append_graphics_abi_binding_diagnostics(
+        diagnostics,
+        target=target,
+        reflection=reflection,
+        graphics_abi=graphics_abi,
+    )
+
+
+def _append_graphics_abi_binding_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    target: str,
+    reflection: dict[str, Any],
+    graphics_abi: GraphicsAbiRecord,
+) -> None:
+    if not _graphics_abi_has_canonical_binding_records(graphics_abi):
+        return
+
+    seen: dict[tuple[str, str, str, str | None], int] = {}
+    for index, record in enumerate(graphics_abi.abi_records):
+        if record.get("target") != target:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.graphicsAbi.binding_target_mismatch",
+                    message="graphics ABI resource binding target must match package target",
+                    document="graphicsAbi",
+                    artifact="graphicsAbi",
+                    path=f"abiRecords[{index}].target",
+                    expected=target,
+                    actual=record.get("target"),
+                )
+            )
+            continue
+
+        if not _target_resource_binding_abi_matches(target, record):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.graphicsAbi.binding_abi_invalid",
+                    message="graphics ABI resource binding ABI metadata does not match package target",
+                    document="graphicsAbi",
+                    artifact="graphicsAbi",
+                    path=f"abiRecords[{index}].abi",
+                    expected=TARGET_RESOURCE_BINDING_ABI_EXPECTATIONS.get(target),
+                    actual=_target_resource_binding_abi_actual(record),
+                )
+            )
+
+        key = _target_resource_binding_identity(record)
+        if key is None:
+            continue
+        if key not in seen:
+            seen[key] = index
+            continue
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.binding_duplicate",
+                message="graphics ABI resource binding records must be unique",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path=f"abiRecords[{index}]",
+                expected={
+                    "uniqueGraphicsBinding": {
+                        "target": target,
+                        "stage": key[0],
+                        "entryPoint": key[1],
+                        "name": key[2],
+                        "kind": key[3],
+                    }
+                },
+                actual={"duplicateOf": f"abiRecords[{seen[key]}]"},
+            )
+        )
+
+    reflection_keys = {
+        key
+        for record in _json_object_list(reflection.get("targetResourceBindings"))
+        if record.get("target") == target
+        if (key := _target_resource_binding_identity(record)) is not None
+    }
+    graphics_abi_keys = {
+        key
+        for record in graphics_abi.abi_records
+        if record.get("target") == target
+        if (key := _target_resource_binding_identity(record)) is not None
+    }
+    for stage, entry_point, name, kind in sorted(reflection_keys - graphics_abi_keys):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.binding_missing",
+                message="graphics ABI sidecar is missing a reflected target resource binding",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="abiRecords",
+                expected={
+                    "target": target,
+                    "stage": stage,
+                    "entryPoint": entry_point,
+                    "name": name,
+                    "kind": kind,
+                },
+                actual="missing",
+            )
+        )
+    for stage, entry_point, name, kind in sorted(graphics_abi_keys - reflection_keys):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.graphicsAbi.reflection_binding_missing",
+                message="graphics ABI resource binding does not match reflection targetResourceBindings",
+                document="graphicsAbi",
+                artifact="graphicsAbi",
+                path="abiRecords",
+                expected={
+                    "targetResourceBindings": {
+                        "target": target,
+                        "stage": stage,
+                        "entryPoint": entry_point,
+                        "name": name,
+                        "kind": kind,
+                    }
+                },
+                actual="missing",
+            )
+        )
+
+
+def _graphics_abi_has_canonical_binding_records(
+    graphics_abi: GraphicsAbiRecord,
+) -> bool:
+    return any(
+        isinstance(record.get("target"), str) or isinstance(record.get("abi"), str)
+        for record in graphics_abi.abi_records
+    )
 
 
 def _target_resource_binding_abi_matches(
@@ -8430,15 +8739,204 @@ def _debug_metadata_availability_summary(
     }
 
 
-def _graphics_abi_record(document: dict[str, Any] | None) -> GraphicsAbiRecord | None:
+_GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS = (
+    "target",
+    "stage",
+    "entryPoint",
+    "name",
+    "kind",
+    "sourceType",
+    "addressSpace",
+    "abi",
+    "bindingClass",
+    "descriptorType",
+    "argumentIndex",
+    "set",
+    "binding",
+    "metalType",
+    "hlslType",
+    "storageClass",
+    "spirvType",
+    "arrayDimensions",
+    "arrayElementCount",
+    "storageImageFormat",
+    "storageImageAccess",
+)
+
+
+def _graphics_descriptor_binding_summary(
+    *,
+    target: str | None,
+    reflection: dict[str, Any],
+    graphics_abi: GraphicsAbiRecord | None,
+) -> dict[str, Any]:
+    reflection_bindings = _graphics_descriptor_bindings_from_reflection(
+        reflection,
+        target=target,
+    )
+    graphics_abi_bindings = (
+        graphics_abi.descriptor_bindings if graphics_abi is not None else ()
+    )
+    bindings = graphics_abi_bindings if graphics_abi_bindings else reflection_bindings
+    source = (
+        "graphicsAbi.abiRecords"
+        if graphics_abi_bindings
+        else "reflection.targetResourceBindings"
+    )
+    return {
+        "schemaVersion": 1,
+        "target": target,
+        "source": source,
+        "graphicsAbiDeclared": graphics_abi is not None,
+        "bindingCount": len(bindings),
+        "reflectionBindingCount": len(reflection_bindings),
+        "graphicsAbiBindingCount": len(graphics_abi_bindings),
+        "bindings": list(bindings),
+    }
+
+
+def _graphics_descriptor_bindings_from_graphics_abi(
+    document: dict[str, Any],
+    *,
+    target: str | None,
+) -> tuple[dict[str, Any], ...]:
+    records = _json_object_records(document.get("abiRecords"))
+    if not records:
+        records = _json_object_records(document.get("targetResourceBindings"))
+    return _graphics_descriptor_binding_records(records, target=target)
+
+
+def _graphics_descriptor_bindings_from_reflection(
+    reflection: dict[str, Any],
+    *,
+    target: str | None,
+) -> tuple[dict[str, Any], ...]:
+    return _graphics_descriptor_binding_records(
+        _json_object_records(reflection.get("targetResourceBindings")),
+        target=target,
+    )
+
+
+def _graphics_descriptor_binding_records(
+    records: tuple[dict[str, Any], ...],
+    *,
+    target: str | None,
+) -> tuple[dict[str, Any], ...]:
+    normalized: list[dict[str, Any]] = []
+    for record in records:
+        record_target = record.get("target")
+        if (
+            target is not None
+            and isinstance(record_target, str)
+            and record_target != target
+        ):
+            continue
+        normalized.append(_graphics_descriptor_binding_record(record, target=target))
+    return tuple(
+        sorted(
+            normalized,
+            key=lambda record: (
+                str(record.get("stage") or ""),
+                str(record.get("entryPoint") or ""),
+                str(record.get("name") or ""),
+                str(record.get("kind") or ""),
+                str(record.get("target") or ""),
+            ),
+        )
+    )
+
+
+def _graphics_descriptor_binding_record(
+    record: dict[str, Any],
+    *,
+    target: str | None,
+) -> dict[str, Any]:
+    summary = _summarize_reflection_like_record(
+        record,
+        _GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS,
+    )
+    if "target" not in summary and target is not None:
+        summary["target"] = target
+    abi = summary.get("abi")
+    if isinstance(abi, dict):
+        for field_name in (
+            "space",
+            "register",
+            "buffer",
+            "texture",
+            "sampler",
+            "program",
+            "set",
+            "binding",
+        ):
+            if field_name in abi and field_name not in summary:
+                summary[field_name] = abi[field_name]
+    elif isinstance(abi, str):
+        summary["abiKind"] = abi
+    return summary
+
+
+def _summarize_reflection_like_record(
+    record: dict[str, Any],
+    fields: tuple[str, ...],
+) -> dict[str, Any]:
+    return {
+        field_name: record[field_name] for field_name in fields if field_name in record
+    }
+
+
+def _graphics_abi_record(
+    document: dict[str, Any] | None,
+    *,
+    target: str | None,
+) -> GraphicsAbiRecord | None:
     if document is None:
         return None
+    abi_records = _json_object_records(document.get("abiRecords"))
+    descriptor_bindings = _graphics_descriptor_bindings_from_graphics_abi(
+        document,
+        target=target,
+    )
     stage_record_counts = _graphics_abi_stage_record_counts(document)
     resource_record_counts = _graphics_abi_resource_record_counts(document)
     return GraphicsAbiRecord(
         module=_optional_string(document.get("module")),
+        target=_optional_string(document.get("target")),
         schema_version=document.get("schemaVersion"),
         abi_version=document.get("abiVersion", document.get("version")),
+        entry_points=tuple(
+            _summarize_reflection_like_record(
+                record,
+                ("stage", "sourceName", "backendName"),
+            )
+            for record in _json_object_records(document.get("entryPoints"))
+        ),
+        resources=tuple(
+            _summarize_reflection_like_record(
+                record,
+                (
+                    "stage",
+                    "name",
+                    "kind",
+                    "type",
+                    "set",
+                    "binding",
+                    "arrayDimensions",
+                    "arrayElementCount",
+                    "storageImageFormat",
+                    "storageImageAccess",
+                ),
+            )
+            for record in _json_object_records(document.get("resources"))
+        ),
+        abi_records=tuple(
+            _summarize_reflection_like_record(
+                record,
+                _GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS,
+            )
+            for record in abi_records
+        ),
+        descriptor_bindings=descriptor_bindings,
         stage_count=len(stage_record_counts),
         stage_record_counts=stage_record_counts,
         resource_count=sum(resource_record_counts.values()),
