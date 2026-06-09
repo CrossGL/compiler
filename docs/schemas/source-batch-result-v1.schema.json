@@ -83,6 +83,10 @@
         "logicalInput": {
           "$ref": "#/$defs/nonEmptyString"
         },
+        "sourceRemap": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Resolved source-remap sidecar path used for this source-batch entry when provided by the manifest."
+        },
         "output": {
           "$ref": "#/$defs/nonEmptyString"
         },

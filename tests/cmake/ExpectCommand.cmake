@@ -2129,6 +2129,41 @@ elseif(MODE STREQUAL "source-batch-check-json" OR
   endif()
   crossgl_apply_json_expectations("${stdout}")
   crossgl_validate_json_schema("${stdout}")
+  if(MODE STREQUAL "source-batch-build-json" AND
+     DEFINED EXPECTED_SOURCE_BATCH_PACKAGE)
+    if(NOT EXISTS "${EXPECTED_SOURCE_BATCH_PACKAGE}/manifest.json")
+      message(FATAL_ERROR
+              "expected source-batch package at ${EXPECTED_SOURCE_BATCH_PACKAGE}")
+    endif()
+    set(OUTPUT "${EXPECTED_SOURCE_BATCH_PACKAGE}")
+    file(READ "${EXPECTED_SOURCE_BATCH_PACKAGE}/manifest.json" manifest)
+    crossgl_expect_source_remap_provenance("${manifest}")
+    if(DEFINED EXPECTED_PACKAGE_INSPECT_JSON_FIELDS OR
+       DEFINED PACKAGE_INSPECT_JSON_SCHEMA)
+      execute_process(
+        COMMAND "${CGLC}" package inspect "${EXPECTED_SOURCE_BATCH_PACKAGE}" --json
+        RESULT_VARIABLE package_inspect_result
+        OUTPUT_VARIABLE package_inspect_stdout
+        ERROR_VARIABLE package_inspect_stderr
+      )
+      if(NOT package_inspect_result EQUAL 0)
+        message(FATAL_ERROR "package inspect failed: ${package_inspect_stderr}${package_inspect_stdout}")
+      endif()
+      if(DEFINED EXPECTED_PACKAGE_INSPECT_JSON_FIELDS)
+        string(REPLACE "|" ";" package_inspect_expectations
+               "${EXPECTED_PACKAGE_INSPECT_JSON_FIELDS}")
+        foreach(expectation IN LISTS package_inspect_expectations)
+          crossgl_split_json_expectation("${expectation}" path expected)
+          crossgl_expect_json_field("${package_inspect_stdout}" "${path}"
+                                    "${expected}")
+        endforeach()
+      endif()
+      if(DEFINED PACKAGE_INSPECT_JSON_SCHEMA)
+        crossgl_validate_json_schema_file("${package_inspect_stdout}"
+                                          "${PACKAGE_INSPECT_JSON_SCHEMA}")
+      endif()
+    endif()
+  endif()
 elseif(MODE STREQUAL "doctor-input")
   if(NOT result EQUAL 0)
     message(FATAL_ERROR "doctor input check failed: ${stderr}")

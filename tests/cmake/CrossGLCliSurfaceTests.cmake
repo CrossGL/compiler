@@ -203,6 +203,30 @@ file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BUILD_JSON_MANIFEST}"
 }
 ")
 
+set(CROSSGL_CLI_SOURCE_BATCH_BUILD_REMAP_JSON_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-build-remap-json.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_BUILD_REMAP_JSON_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"defaults\": {
+    \"target\": \"directx\",
+    \"optLevel\": \"O1\"
+  },
+  \"sources\": [
+    {
+      \"id\": \"storage-remapped\",
+      \"path\": \"tests/fixtures/StorageBufferComputeShader.cgl\",
+      \"logicalInput\": \"generated/from-translator.cgl\",
+      \"sourceRemap\": \"tests/fixtures/source-remap-v1-full-file.json\",
+      \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-remap-storage.cglb\",
+      \"debugIR\": true
+    }
+  ]
+}
+")
+
 if(CROSSGL_PYTHON3)
   set(CROSSGL_CLI_SOURCE_BATCH_CHECK_FAILURE_MANIFEST
     "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-check-failure.json")
@@ -960,6 +984,22 @@ crossgl_add_python_expect_test(
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=2|entries.0.id=storage|entries.0.output=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-storage.cglb|entries.0.artifact=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-storage.cglb|entries.0.target=directx|entries.0.success=true|entries.1.id=fn-style|entries.1.output=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-fn-style.cglb|entries.1.artifact=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-json-fn-style.cglb|entries.1.target=directx|entries.1.success=true|diagnosticReport.schemaVersion=1"
     "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=2")
+
+crossgl_add_python_expect_test(
+  NAME cglc_cli_build_source_manifest_source_remap_result_json_schema
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DMODE=source-batch-build-json
+    -DMANIFEST=${CROSSGL_CLI_SOURCE_BATCH_BUILD_REMAP_JSON_MANIFEST}
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=1|entries.0.id=storage-remapped|entries.0.logicalInput=generated/from-translator.cgl|entries.0.sourceRemap=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json|entries.0.output=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-remap-storage.cglb|entries.0.artifact=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-remap-storage.cglb|entries.0.target=directx|entries.0.success=true|diagnosticReport.schemaVersion=1|diagnosticReport.diagnostics.0.severity=note|diagnosticReport.diagnostics.0.code=directx.source-package-emitted|diagnosticReport.diagnostics.1.severity=warning|diagnosticReport.diagnostics.1.code=directx.source-package-only"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=1|diagnosticReport.diagnostics=2"
+    "-DEXPECTED_SOURCE_BATCH_PACKAGE=${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-remap-storage.cglb"
+    "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceRemapProvenance|contractVersion=source-remap-provenance-v1|target=directx|generatedFile=generated/from-translator.cgl|mappingGranularity=source-span|mappingCount=1"
+    -DSOURCE_REMAP_PROVENANCE_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-provenance-v1.schema.json
+    "-DEXPECTED_PACKAGE_INSPECT_JSON_FIELDS=summary.artifactCount=7|debugArtifacts.sourceRemap.artifactPresent=true|debugArtifacts.sourceRemap.exists=true|debugArtifacts.sourceRemap.health=ok|debugArtifacts.sourceRemap.generatedFile=generated/from-translator.cgl|debugArtifacts.sourceRemap.mappingCount=1|debugArtifacts.sourceRemap.checks.identityMatchesContract=true|debugArtifacts.sourceRemap.checks.targetMatchesPackage=true|debugArtifacts.sourceRemap.checks.sourceHashPresent=true"
+    -DPACKAGE_INSPECT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json)
 
 if(CROSSGL_PYTHON3)
   crossgl_add_python_expect_test(

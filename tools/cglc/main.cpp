@@ -458,6 +458,7 @@ struct SourceBatchEntryResult {
   std::string id;
   std::filesystem::path inputPath;
   std::optional<std::filesystem::path> logicalInputPath;
+  std::optional<std::filesystem::path> sourceRemapPath;
   std::optional<std::filesystem::path> outputPath;
   std::optional<std::filesystem::path> artifactPath;
   crossgl::TargetKind target = crossgl::TargetKind::Auto;
@@ -1136,6 +1137,11 @@ std::string sourceBatchResultJson(
           << crossgl::escapeJson(entry.logicalInputPath->generic_string())
           << "\",\n";
     }
+    if (entry.sourceRemapPath) {
+      out << "      \"sourceRemap\": \""
+          << crossgl::escapeJson(entry.sourceRemapPath->generic_string())
+          << "\",\n";
+    }
     if (entry.outputPath) {
       out << "      \"output\": \""
           << crossgl::escapeJson(entry.outputPath->generic_string())
@@ -1302,6 +1308,7 @@ int commandCheckSourceBatch(const std::vector<std::string> &args,
     entryResult.id = entry.id;
     entryResult.inputPath = entry.path;
     entryResult.logicalInputPath = entry.logicalInput;
+    entryResult.sourceRemapPath = entry.sourceRemap;
     entryResult.target =
         resolveSourceBatchTarget(entry, std::nullopt, manifest->defaults);
 
@@ -1388,6 +1395,7 @@ int commandBuildSourceBatch(const std::vector<std::string> &args,
     entryResult.id = entry.id;
     entryResult.inputPath = entry.path;
     entryResult.logicalInputPath = entry.logicalInput;
+    entryResult.sourceRemapPath = entry.sourceRemap;
     entryResult.outputPath = entry.output;
     entryResult.target =
         resolveSourceBatchTarget(entry, targetOverride, manifest->defaults);

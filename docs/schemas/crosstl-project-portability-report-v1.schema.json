@@ -207,6 +207,7 @@
         "mappingGranularity": {
           "type": "string",
           "enum": [
+            "file",
             "line"
           ]
         },
