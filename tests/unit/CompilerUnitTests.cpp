@@ -17591,6 +17591,73 @@ shader SwitchNestedLoopBreakShader {
          "switch nested loop break optimizes without diagnostics");
 }
 
+void testSwitchControlFlowTextBackendOutput() {
+  constexpr std::string_view source = R"(
+shader SwitchBackendOutputShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      int mode = values[0];
+      int total = 0;
+      switch (mode) {
+        case 0:
+        case 1:
+          total = 10;
+          break;
+        case 2:
+          total = 20;
+          break;
+        default:
+          total = 30;
+          break;
+      }
+      values[1] = total;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "switch backend output source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  expect(crossgl::directxTextualBackendSupported(*hir),
+         "DirectX textual backend accepts lowered restricted switch HIR");
+  const std::string directx = crossgl::generateDirectXSource(*hir);
+  expect(containsInOrder(directx,
+                         {"int __crossgl_selector = mode;",
+                          "if (__crossgl_selector == 0 || "
+                          "__crossgl_selector == 1) {",
+                          "total = 10;", "} else {",
+                          "if (__crossgl_selector == 2) {", "total = 20;",
+                          "} else {", "total = 30;", "values[1] = total;"}),
+         "DirectX backend emits grouped restricted switch as an if/else chain");
+  expect(directx.find("switch (") == std::string::npos &&
+             directx.find("case ") == std::string::npos &&
+             directx.find("default:") == std::string::npos,
+         "DirectX backend output does not preserve switch labels");
+
+  expect(crossgl::openglTextualBackendSupported(*hir),
+         "OpenGL textual backend accepts lowered restricted switch HIR");
+  const std::string opengl = crossgl::generateOpenGLSource(*hir);
+  expect(containsInOrder(opengl,
+                         {"int __crossgl_selector = mode;",
+                          "if (__crossgl_selector == 0 || "
+                          "__crossgl_selector == 1) {",
+                          "total = 10;", "} else {",
+                          "if (__crossgl_selector == 2) {", "total = 20;",
+                          "} else {", "total = 30;", "values[1] = total;"}),
+         "OpenGL backend emits grouped restricted switch as an if/else chain");
+  expect(opengl.find("switch (") == std::string::npos &&
+             opengl.find("case ") == std::string::npos &&
+             opengl.find("default:") == std::string::npos,
+         "OpenGL backend output does not preserve switch labels");
+}
+
 void testTargetCapabilityRegistry() {
   constexpr std::string_view source = R"(
 shader TargetCapabilityShader {
@@ -53644,6 +53711,7 @@ int main() {
   testDebugSourceLocationsUseGenericPathSeparators();
   testSwitchControlFlowHIR();
   testSwitchRestrictedBoundaryDiagnostics();
+  testSwitchControlFlowTextBackendOutput();
   testTargetCapabilityRegistry();
   testTargetCapabilityInventoryParity();
   testTargetLegalizationFacade();
