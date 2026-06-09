@@ -57,6 +57,7 @@ set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS
   tests/fixtures/mlir/minimal_compute_builtin_module.mlir
   tests/fixtures/mlir/scalar_expression_compute_builtin_module.mlir
   tests/fixtures/mlir/storage_buffer_compute_builtin_module.mlir
+  tests/fixtures/mlir/if_compute_builtin_module.mlir
 )
 list(LENGTH CROSSGL_MLIR_EXPERIMENT_SOURCES
   CROSSGL_MLIR_EXPERIMENT_SOURCE_COUNT)

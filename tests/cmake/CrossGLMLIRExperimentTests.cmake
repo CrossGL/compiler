@@ -207,6 +207,120 @@ set(CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_OUTPUT_MARKERS
   "read_write"
   "target-independent:storageBuffer:compute:values"
   "crossgl_real_mlir_smoke")
+set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_REQUIRED_MARKERS
+  "crossgl_fixture = \"tests/fixtures/IfComputeShader.cgl\""
+  "crossgl_stage = \"compute\""
+  "crossgl_entry_point = \"main\""
+  "crossgl_local_size = \"1,1,1\""
+  "crossgl_source_location_fact_source_file = true"
+  "crossgl_source_location_fact_shader_module = true"
+  "crossgl_source_location_fact_compute_stage = true"
+  "crossgl_source_location_fact_entry_point = true"
+  "crossgl_source_location_fact_layout_local_size = true"
+  "crossgl_source_location_fact_storage_buffer_declaration = true"
+  "crossgl_source_location_fact_local_variable_declarations = true"
+  "crossgl_source_location_fact_storage_buffer_read = true"
+  "crossgl_source_location_fact_if_statement = true"
+  "crossgl_source_location_fact_then_block_assignment = true"
+  "crossgl_source_location_fact_else_block_assignment = true"
+  "crossgl_source_location_fact_storage_buffer_write = true"
+  "crossgl_source_location_fact_return_statement = true"
+  "crossgl_type_fact_void_entry_point = true"
+  "crossgl_type_fact_float_scalar = true"
+  "crossgl_type_fact_float_pointer_storage_buffer = true"
+  "crossgl_type_fact_storage_buffer_element_type = true"
+  "crossgl_type_fact_comparison_expression_result_type = true"
+  "crossgl_type_fact_branch_condition_bool = true"
+  "crossgl_type_fact_assignment_expression_result_types = true"
+  "crossgl_type_fact_unary_expression_result_types = true"
+  "crossgl_resource_count = 1"
+  "crossgl_descriptor_count = 1"
+  "crossgl_descriptor_0_stage = \"compute\""
+  "crossgl_descriptor_0_name = \"values\""
+  "crossgl_descriptor_0_kind = \"storageBuffer\""
+  "crossgl_descriptor_0_set = 0"
+  "crossgl_descriptor_0_binding = 0"
+  "crossgl_storage_buffer_count = 1"
+  "crossgl_storage_buffer_0_name = \"values\""
+  "crossgl_storage_buffer_0_type = \"float*\""
+  "crossgl_storage_buffer_0_element_type = \"float\""
+  "crossgl_storage_buffer_0_address_space = \"storage\""
+  "crossgl_storage_buffer_0_read_access = true"
+  "crossgl_storage_buffer_0_write_access = true"
+  "crossgl_storage_buffer_read_count = 1"
+  "crossgl_storage_buffer_read_0_name = \"values\""
+  "crossgl_storage_buffer_read_0_index = 0"
+  "crossgl_storage_buffer_write_count = 1"
+  "crossgl_storage_buffer_write_0_name = \"values\""
+  "crossgl_storage_buffer_write_0_index = 1"
+  "crossgl_resource_fact_storage_buffer_read = true"
+  "crossgl_resource_fact_storage_buffer_write = true"
+  "crossgl_resource_fact_storage_images_empty = true"
+  "crossgl_resource_fact_textures_empty = true"
+  "crossgl_resource_fact_samplers_empty = true"
+  "crossgl_target_independent_resource_metadata_count = 1"
+  "crossgl_target_independent_resource_metadata_0_stage = \"compute\""
+  "crossgl_target_independent_resource_metadata_0_name = \"values\""
+  "crossgl_target_independent_resource_metadata_0_kind = \"storageBuffer\""
+  "crossgl_target_independent_resource_metadata_0_source_type = \"float*\""
+  "crossgl_target_independent_resource_metadata_0_element_type = \"float\""
+  "crossgl_target_independent_resource_metadata_0_address_space = \"storage\""
+  "crossgl_target_independent_resource_metadata_0_access = \"read_write\""
+  "crossgl_target_independent_resource_metadata_0_set = 0"
+  "crossgl_target_independent_resource_metadata_0_binding = 0"
+  "crossgl_target_independent_resource_metadata_0_target_independent = true"
+  "crossgl_control_flow_if_count = 1"
+  "crossgl_control_flow_if_0_has_else = true"
+  "crossgl_branch_condition_0_expression = \"x > 0.0\""
+  "crossgl_branch_condition_0_comparison = \"greater_than\""
+  "crossgl_branch_condition_0_result_type = \"bool\""
+  "crossgl_branch_local_assignment_count = 2"
+  "crossgl_branch_then_0_assignment = \"y = x\""
+  "crossgl_branch_else_0_assignment = \"y = -x\""
+  "crossgl_branch_return_fact_return_after_if = true"
+  "crossgl_resource_metadata = \"target-independent:storageBuffer:compute:values:set=0:binding=0:type=float*:element=float:addressSpace=storage:access=read_write\""
+  "crossgl_if_compute_metadata = \"control-flow:structured-if-else,condition:x_gt_zero,then:y=x,else:y=-x,return:after-if,storage-buffer:values[0]->values[1]\""
+  "crossgl_real_mlir_smoke = true")
+set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_OUTPUT_MARKERS
+  "crossgl_fixture"
+  "tests/fixtures/IfComputeShader.cgl"
+  "crossgl_stage"
+  "compute"
+  "crossgl_entry_point"
+  "crossgl_local_size"
+  "1,1,1"
+  "crossgl_source_location_fact_storage_buffer_read"
+  "crossgl_source_location_fact_if_statement"
+  "crossgl_source_location_fact_then_block_assignment"
+  "crossgl_source_location_fact_else_block_assignment"
+  "crossgl_source_location_fact_storage_buffer_write"
+  "crossgl_type_fact_branch_condition_bool"
+  "crossgl_type_fact_assignment_expression_result_types"
+  "crossgl_type_fact_unary_expression_result_types"
+  "crossgl_storage_buffer_0_read_access"
+  "crossgl_storage_buffer_0_write_access"
+  "crossgl_storage_buffer_read_count"
+  "crossgl_storage_buffer_read_0_index"
+  "crossgl_storage_buffer_write_count"
+  "crossgl_storage_buffer_write_0_index"
+  "crossgl_resource_fact_storage_buffer_read"
+  "crossgl_resource_fact_storage_buffer_write"
+  "crossgl_control_flow_if_count"
+  "crossgl_control_flow_if_0_has_else"
+  "crossgl_branch_condition_0_expression"
+  "x > 0.0"
+  "crossgl_branch_condition_0_comparison"
+  "greater_than"
+  "crossgl_branch_condition_0_result_type"
+  "bool"
+  "crossgl_branch_then_0_assignment"
+  "y = x"
+  "crossgl_branch_else_0_assignment"
+  "y = -x"
+  "crossgl_branch_return_fact_return_after_if"
+  "control-flow:structured-if-else"
+  "storage-buffer:values[0]->values[1]"
+  "crossgl_real_mlir_smoke")
 
 if(DEFINED CROSSGL_MLIR_EXPERIMENT_VERIFY_SCRIPT)
   foreach(required_var IN ITEMS
@@ -355,10 +469,19 @@ set(CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT
   "${CMAKE_CURRENT_SOURCE_DIR}/${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_RELATIVE}")
 set(CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_TEST
   "cglc_mlir_experiment_storage_buffer_compute_verifier")
+set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_FIXTURE
+  "tests/fixtures/IfComputeShader.cgl")
+set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_RELATIVE
+  "tests/fixtures/mlir/if_compute_builtin_module.mlir")
+set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT
+  "${CMAKE_CURRENT_SOURCE_DIR}/${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_RELATIVE}")
+set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_TEST
+  "cglc_mlir_experiment_if_compute_verifier")
 set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS
   "minimal_compute|${CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_TEST}|${CROSSGL_MLIR_EXPERIMENT_MINIMAL_FIXTURE}|${CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_INPUT_RELATIVE}|${CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_INPUT}|CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_OUTPUT_MARKERS|minimal compute"
   "scalar_expression_compute|${CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_TEST}|${CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_FIXTURE}|${CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_INPUT_RELATIVE}|${CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_INPUT}|CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_OUTPUT_MARKERS|scalar-expression compute"
-  "storage_buffer_compute|${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_TEST}|${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_FIXTURE}|${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_RELATIVE}|${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT}|CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_OUTPUT_MARKERS|storage-buffer compute")
+  "storage_buffer_compute|${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_TEST}|${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_FIXTURE}|${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_RELATIVE}|${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT}|CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_OUTPUT_MARKERS|storage-buffer compute"
+  "if_compute|${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_TEST}|${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_FIXTURE}|${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_RELATIVE}|${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT}|CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_OUTPUT_MARKERS|if-compute")
 set(CROSSGL_MLIR_EXPERIMENT_OPTIONAL_TOOL_EVIDENCE
   "${CMAKE_CURRENT_BINARY_DIR}/mlir/optional_tool_evidence.v0.json")
 set(CROSSGL_MLIR_FIXTURE_PARITY_REPORT_SCRIPT
@@ -699,6 +822,10 @@ set(CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_PRESENT FALSE)
 if(EXISTS "${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT}")
   set(CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_PRESENT TRUE)
 endif()
+set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_PRESENT FALSE)
+if(EXISTS "${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT}")
+  set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_PRESENT TRUE)
+endif()
 if(CROSSGL_MLIR_EXPERIMENT_VERIFIER_STATUS STREQUAL "toolchain-available")
   set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_SKIP_REGISTERED FALSE)
   set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_SKIP_REGEX "")
@@ -717,6 +844,8 @@ if(CROSSGL_MLIR_EXPERIMENT_VERIFIER_STATUS STREQUAL "toolchain-available")
     "${CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_INPUT_RELATIVE}")
   set(CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFIER_REQUIRED_FILES
     "${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_RELATIVE}")
+  set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFIER_REQUIRED_FILES
+    "${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_RELATIVE}")
 else()
   set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_SKIP_REGISTERED TRUE)
   set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_SKIP_REGEX "^SKIP:")
@@ -732,6 +861,7 @@ else()
   set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_REQUIRED_FILES "")
   set(CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFIER_REQUIRED_FILES "")
   set(CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFIER_REQUIRED_FILES "")
+  set(CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFIER_REQUIRED_FILES "")
 endif()
 crossgl_mlir_json_bool(CROSSGL_MLIR_OPTION_ENABLED_JSON
   "${CROSSGL_ENABLE_MLIR_EXPERIMENTAL}")
@@ -744,6 +874,8 @@ crossgl_mlir_json_bool(CROSSGL_MLIR_SCALAR_VERIFY_INPUT_PRESENT_JSON
   "${CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_INPUT_PRESENT}")
 crossgl_mlir_json_bool(CROSSGL_MLIR_STORAGE_VERIFY_INPUT_PRESENT_JSON
   "${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_PRESENT}")
+crossgl_mlir_json_bool(CROSSGL_MLIR_IF_VERIFY_INPUT_PRESENT_JSON
+  "${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_PRESENT}")
 crossgl_mlir_json_bool(CROSSGL_MLIR_TOOL_FOUND_JSON
   "${CROSSGL_MLIR_EXPERIMENT_VERIFIER_TOOL_FOUND}")
 crossgl_mlir_json_bool(CROSSGL_MLIR_SKIP_REGISTERED_JSON
@@ -786,10 +918,14 @@ crossgl_mlir_json_string_list(
 crossgl_mlir_json_string_list(
   CROSSGL_MLIR_STORAGE_REGISTRATION_REQUIRED_FILES_JSON
   ${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFIER_REQUIRED_FILES})
+crossgl_mlir_json_string_list(
+  CROSSGL_MLIR_IF_REGISTRATION_REQUIRED_FILES_JSON
+  ${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFIER_REQUIRED_FILES})
 crossgl_mlir_json_string_list(CROSSGL_MLIR_VERIFIER_CTESTS_JSON
   "${CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_TEST}"
   "${CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_TEST}"
-  "${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_TEST}")
+  "${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_TEST}"
+  "${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_TEST}")
 crossgl_mlir_json_string_list(CROSSGL_MLIR_REQUIRED_GATE_FACTS_JSON
   "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON"
   "MLIR_FOUND=TRUE"
@@ -797,6 +933,7 @@ crossgl_mlir_json_string_list(CROSSGL_MLIR_REQUIRED_GATE_FACTS_JSON
   "${CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_INPUT_RELATIVE}"
   "${CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_INPUT_RELATIVE}"
   "${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_RELATIVE}"
+  "${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_RELATIVE}"
   "mlir-opt discovery"
   "mlir-opt --version probe")
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/mlir")
@@ -844,6 +981,13 @@ file(WRITE "${CROSSGL_MLIR_EXPERIMENT_OPTIONAL_TOOL_EVIDENCE}"
   "      \"path\": \"${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_RELATIVE}\",\n"
   "      \"fixture\": \"${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_FIXTURE}\",\n"
   "      \"present\": ${CROSSGL_MLIR_STORAGE_VERIFY_INPUT_PRESENT_JSON}\n"
+  "    },\n"
+  "    {\n"
+  "      \"key\": \"if_compute\",\n"
+  "      \"sourceList\": \"CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS\",\n"
+  "      \"path\": \"${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_RELATIVE}\",\n"
+  "      \"fixture\": \"${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_FIXTURE}\",\n"
+  "      \"present\": ${CROSSGL_MLIR_IF_VERIFY_INPUT_PRESENT_JSON}\n"
   "    }\n"
   "  ],\n"
   "  \"verifierTool\": {\n"
@@ -902,6 +1046,19 @@ file(WRITE "${CROSSGL_MLIR_EXPERIMENT_OPTIONAL_TOOL_EVIDENCE}"
   "      \"buildTarget\": ${CROSSGL_MLIR_REGISTRATION_BUILD_TARGET_JSON},\n"
   "      \"input\": \"${CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_INPUT_RELATIVE}\",\n"
   "      \"requiredFiles\": ${CROSSGL_MLIR_STORAGE_REGISTRATION_REQUIRED_FILES_JSON},\n"
+  "      \"normalBuildRequired\": false,\n"
+  "      \"productionLinked\": false\n"
+  "    },\n"
+  "    {\n"
+  "      \"key\": \"if_compute\",\n"
+  "      \"ctest\": \"${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_TEST}\",\n"
+  "      \"mode\": ${CROSSGL_MLIR_REGISTRATION_MODE_JSON},\n"
+  "      \"invokesMlirOpt\": ${CROSSGL_MLIR_REGISTRATION_INVOKES_MLIR_OPT_JSON},\n"
+  "      \"usesVerifyDiagnostics\": ${CROSSGL_MLIR_REGISTRATION_USES_VERIFY_DIAGNOSTICS_JSON},\n"
+  "      \"buildsExperimentTarget\": ${CROSSGL_MLIR_REGISTRATION_BUILDS_TARGET_JSON},\n"
+  "      \"buildTarget\": ${CROSSGL_MLIR_REGISTRATION_BUILD_TARGET_JSON},\n"
+  "      \"input\": \"${CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_INPUT_RELATIVE}\",\n"
+  "      \"requiredFiles\": ${CROSSGL_MLIR_IF_REGISTRATION_REQUIRED_FILES_JSON},\n"
   "      \"normalBuildRequired\": false,\n"
   "      \"productionLinked\": false\n"
   "    }\n"
