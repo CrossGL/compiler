@@ -218,6 +218,33 @@ add_test(NAME cglc_dump_backend_metal_atomic_minmax_lowering
     -DMODE=dump-backend
     "-DMUST_CONTAIN=${CROSSGL_METAL_ATOMIC_MINMAX_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_METAL_ATOMIC_MINMAX_RETURN_REGEX [=[kernel void compute_main\(uint3 gl_GlobalInvocationID \[\[thread_position_in_grid\]\], uint3 gl_LocalInvocationID \[\[thread_position_in_threadgroup\]\], device atomic_int\* counters \[\[buffer\(0\)\]\], device atomic_uint\* unsignedCounters \[\[buffer\(1\)\]\], device CompatCounters\* compatCounters \[\[buffer\(2\)\]\], device int\* observed \[\[buffer\(3\)\]\], device uint\* unsignedObserved \[\[buffer\(4\)\]\]\) \{
+  threadgroup atomic_int tile\[GROUP_SIZE\];
+  threadgroup atomic_uint unsignedTile\[GROUP_SIZE\];
+  uint index = gl_LocalInvocationID\.x;
+  uint globalIndex = gl_GlobalInvocationID\.x;
+  int value = int\(gl_LocalInvocationID\.x\) \+ 1;
+  uint unsignedValue = globalIndex \+ 1;
+  int oldMin = atomic_fetch_min_explicit\(&counters\[index\], value, memory_order_relaxed\);
+  int oldMax = atomic_fetch_max_explicit\(&counters\[index\], value, memory_order_relaxed\);
+  oldMin = atomic_fetch_min_explicit\(&counters\[index\], 1, memory_order_relaxed\);
+  oldMax = atomic_fetch_max_explicit\(&counters\[index\], 2, memory_order_relaxed\);
+  uint oldUnsignedMin = atomic_fetch_min_explicit\(&unsignedCounters\[index\], unsignedValue, memory_order_relaxed\);
+  uint oldUnsignedMax = atomic_fetch_max_explicit\(&unsignedCounters\[index\], unsignedValue, memory_order_relaxed\);
+  int oldShared = atomic_fetch_min_explicit\(&tile\[index\], value, memory_order_relaxed\);
+  uint oldUnsignedShared = atomic_fetch_max_explicit\(&unsignedTile\[index\], unsignedValue, memory_order_relaxed\);
+  int oldCompat = atomic_fetch_max_explicit\(reinterpret_cast<device atomic_int\*>\(&compatCounters\[index\]\.active_count\), 1, memory_order_relaxed\);
+  uint oldCompatU = atomic_fetch_min_explicit\(reinterpret_cast<device atomic_uint\*>\(&compatCounters\[index\]\.spawn_count\), unsignedValue, memory_order_relaxed\);
+  atomic_fetch_min_explicit\(&counters\[index\], value, memory_order_relaxed\);
+  atomic_fetch_max_explicit\(&unsignedCounters\[index\], unsignedValue, memory_order_relaxed\);]=])
+add_test(NAME cglc_dump_backend_metal_atomic_minmax_return_lowering
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/metal/fixtures/MetalAtomicMinMaxReturnShader.cgl
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_METAL_ATOMIC_MINMAX_RETURN_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_METAL_ATOMIC_EXCHANGE_REGEX [=[kernel void compute_main\(uint3 gl_GlobalInvocationID \[\[thread_position_in_grid\]\], uint3 gl_LocalInvocationID \[\[thread_position_in_threadgroup\]\], device atomic_int\* counters \[\[buffer\(0\)\]\], device atomic_uint\* unsignedCounters \[\[buffer\(1\)\]\], device CompatCounters\* compatCounters \[\[buffer\(2\)\]\], device int\* values \[\[buffer\(3\)\]\], device uint\* unsignedValues \[\[buffer\(4\)\]\]\) \{
   threadgroup atomic_int tile\[GROUP_SIZE\];
   threadgroup atomic_uint unsignedTile\[GROUP_SIZE\];

@@ -2069,6 +2069,10 @@ std::string renderMetalExpression(const HIRExpression &expression,
                ? ""
                : renderMetalExpression(expression.children.front(), context);
   case HIRExpressionKind::Call: {
+    if (const std::optional<std::string> atomicCall =
+            renderMetalAtomicReadModifyWriteCall(expression, context)) {
+      return *atomicCall;
+    }
     if (isMetalWorkgroupBarrierCall(expression, context)) {
       return "threadgroup_barrier(mem_flags::mem_threadgroup)";
     }
@@ -2153,21 +2157,11 @@ std::string renderMetalStatementInline(const HIRStatement &statement,
     std::ostringstream out;
     out << mapMetalType(statement.declaredType) << " " << statement.name;
     if (statement.value.kind != HIRExpressionKind::Empty) {
-      if (const std::optional<std::string> atomicCall =
-              renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-        out << " = " << *atomicCall;
-      } else {
-        out << " = " << renderMetalExpression(statement.value, context);
-      }
+      out << " = " << renderMetalExpression(statement.value, context);
     }
     return out.str();
   }
   case HIRStatementKind::Assignment:
-    if (const std::optional<std::string> atomicCall =
-            renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-      return renderMetalExpression(statement.target, context) + " = " +
-             *atomicCall;
-    }
     return renderMetalExpression(statement.target, context) + " = " +
            renderMetalExpression(statement.value, context);
   case HIRStatementKind::Expression:
@@ -2208,23 +2202,13 @@ std::string renderMetalStatement(const HIRStatement &statement,
     out << spaces << mapMetalType(statement.declaredType) << " "
         << statement.name;
     if (statement.value.kind != HIRExpressionKind::Empty) {
-      if (const std::optional<std::string> atomicCall =
-              renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-        out << " = " << *atomicCall;
-      } else {
-        out << " = " << renderMetalExpression(statement.value, context);
-      }
+      out << " = " << renderMetalExpression(statement.value, context);
     }
     out << ";";
     break;
   case HIRStatementKind::Assignment:
     out << spaces << renderMetalExpression(statement.target, context) << " = ";
-    if (const std::optional<std::string> atomicCall =
-            renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-      out << *atomicCall;
-    } else {
-      out << renderMetalExpression(statement.value, context);
-    }
+    out << renderMetalExpression(statement.value, context);
     out << ";";
     break;
   case HIRStatementKind::Return:
@@ -2235,12 +2219,7 @@ std::string renderMetalStatement(const HIRStatement &statement,
     out << ";";
     break;
   case HIRStatementKind::Expression:
-    if (const std::optional<std::string> atomicCall =
-            renderMetalAtomicReadModifyWriteCall(statement.value, context)) {
-      out << spaces << *atomicCall << ";";
-    } else {
-      out << spaces << renderMetalExpression(statement.value, context) << ";";
-    }
+    out << spaces << renderMetalExpression(statement.value, context) << ";";
     break;
   case HIRStatementKind::Break:
     out << spaces << "break;";
