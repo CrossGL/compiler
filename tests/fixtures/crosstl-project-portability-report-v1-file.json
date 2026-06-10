@@ -145,15 +145,15 @@
       },
       "sourceRemap": {
         "schemaVersion": 1,
-        "path": "out/cgl/simple.source-remap.json",
+        "path": "out/cgl/simple-file.source-remap.json",
         "target": "cgl",
         "generatedFile": "out/cgl/simple.cgl",
         "mappingGranularity": "file",
         "mappingCount": 1,
-        "sizeBytes": 654,
+        "sizeBytes": 533,
         "hash": {
           "algorithm": "sha256",
-          "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          "value": "4407a5c48b300fddf048c5b20c1a3527518da4ffdc7caa9eea0457e6ef1036b9"
         }
       }
     }
