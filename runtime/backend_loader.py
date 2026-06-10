@@ -56,6 +56,19 @@ _NATIVE_OPTIMIZATION_EVIDENCE_FIELDS = (
     "profile",
     "flags",
 )
+_TARGET_RESOURCE_BINDING_METADATA_PARITY_FIELDS = (
+    "bindingClass",
+    "descriptorType",
+    "set",
+    "binding",
+    "argumentIndex",
+    "abi",
+    "evidenceId",
+    "arrayDimensions",
+    "arrayElementCount",
+    "storageImageFormat",
+    "storageImageAccess",
+)
 
 
 @dataclass(frozen=True)
@@ -1240,14 +1253,23 @@ def _target_resource_binding_metadata_admission_summary(
         if diagnostic.get("severity") in {"error", "skip"}
     ]
     identity_matches = parity["identityMatches"]
-    if identity_matches is True and not blocking_diagnostics:
+    content_matches = parity["contentMatches"]
+    if (
+        identity_matches is True
+        and content_matches is True
+        and not blocking_diagnostics
+    ):
         decision = "accepted"
         status = "matched"
         reason = "runtime.target_resource_binding_metadata.accepted"
         message = "target resource binding metadata matches selected bindings"
     else:
         decision = "rejected"
-        status = "mismatched" if identity_matches is False else "not-checkable"
+        status = (
+            "mismatched"
+            if identity_matches is False or content_matches is False
+            else "not-checkable"
+        )
         reason = (
             blocking_diagnostics[0]["code"]
             if blocking_diagnostics
@@ -1269,10 +1291,13 @@ def _target_resource_binding_metadata_admission_summary(
         "targetResourceBindingCount": len(plan.target_resource_bindings),
         "metadataBindingCount": len(plan.target_resource_binding_metadata),
         "identityMatches": identity_matches,
+        "contentMatches": content_matches,
         "missingMetadataBindingCount": len(parity["missingMetadataBindings"]),
         "staleMetadataBindingCount": len(parity["staleMetadataBindings"]),
+        "mismatchedMetadataBindingCount": len(parity["mismatchedMetadataBindings"]),
         "missingMetadataBindings": parity["missingMetadataBindings"],
         "staleMetadataBindings": parity["staleMetadataBindings"],
+        "mismatchedMetadataBindings": parity["mismatchedMetadataBindings"],
         "diagnosticCodes": [
             diagnostic["code"]
             for diagnostic in diagnostics
@@ -1325,6 +1350,30 @@ def _target_resource_binding_metadata_drift_diagnostics(
             )
         )
 
+    for mismatch in parity["mismatchedMetadataBindings"]:
+        identity = mismatch["identity"]
+        fields = mismatch["fields"]
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=f"{target}_loader.reflection.target_binding_metadata_mismatch",
+                message=(
+                    f"{target} native loader requires loader-facing binding "
+                    "metadata coordinates to match selected-target resource "
+                    "bindings"
+                ),
+                document="reflection",
+                path="targetResourceBindingMetadata.bindings",
+                expected={
+                    "identity": identity,
+                    "fields": {field["field"]: field["expected"] for field in fields},
+                },
+                actual={
+                    "identity": identity,
+                    "fields": {field["field"]: field["actual"] for field in fields},
+                },
+            )
+        )
+
     return tuple(diagnostics)
 
 
@@ -1334,23 +1383,36 @@ def _target_resource_binding_metadata_parity(
     target_resource_bindings: tuple[dict[str, Any], ...],
     target_resource_binding_metadata: tuple[dict[str, Any], ...],
 ) -> dict[str, Any]:
-    binding_keys = {
-        key
-        for record in target_resource_bindings
-        if (key := _target_resource_binding_metadata_identity(record)) is not None
-        and key[0] == target
-    }
-    metadata_keys = {
-        key
-        for record in target_resource_binding_metadata
-        if (key := _target_resource_binding_metadata_identity(record)) is not None
-        and key[0] == target
-    }
+    binding_records = _target_resource_binding_metadata_key_map(
+        target=target,
+        records=target_resource_bindings,
+    )
+    metadata_records = _target_resource_binding_metadata_key_map(
+        target=target,
+        records=target_resource_binding_metadata,
+    )
+    binding_keys = set(binding_records)
+    metadata_keys = set(metadata_records)
     missing_metadata_keys = tuple(sorted(binding_keys - metadata_keys))
     stale_metadata_keys = tuple(sorted(metadata_keys - binding_keys))
+    mismatched_metadata_bindings = [
+        {
+            "identity": _target_resource_binding_metadata_identity_summary(key),
+            "fields": mismatches,
+        }
+        for key in sorted(binding_keys & metadata_keys)
+        if (
+            mismatches := _target_resource_binding_metadata_content_mismatches(
+                binding_records[key],
+                metadata_records[key],
+            )
+        )
+    ]
     identity_matches = not missing_metadata_keys and not stale_metadata_keys
+    content_matches = not mismatched_metadata_bindings
     return {
         "identityMatches": identity_matches,
+        "contentMatches": content_matches,
         "missingMetadataBindings": [
             _target_resource_binding_metadata_identity_summary(key)
             for key in missing_metadata_keys
@@ -1359,6 +1421,7 @@ def _target_resource_binding_metadata_parity(
             _target_resource_binding_metadata_identity_summary(key)
             for key in stale_metadata_keys
         ],
+        "mismatchedMetadataBindings": mismatched_metadata_bindings,
     }
 
 
@@ -1369,6 +1432,7 @@ def _diagnostic_matches_target_binding_metadata(
         diagnostic.path == "targetResourceBindingMetadata.bindings"
         or diagnostic.code.endswith(".target_binding_metadata_missing")
         or diagnostic.code.endswith(".target_binding_metadata_stale")
+        or diagnostic.code.endswith(".target_binding_metadata_mismatch")
     )
 
 
@@ -1563,6 +1627,51 @@ def _target_resource_binding_metadata_identity(
     ):
         return None
     return target, stage, entry_point, name, kind if isinstance(kind, str) else None
+
+
+def _target_resource_binding_metadata_key_map(
+    *,
+    target: str,
+    records: tuple[dict[str, Any], ...],
+) -> dict[tuple[str, str, str, str, str | None], dict[str, Any]]:
+    mapping: dict[tuple[str, str, str, str, str | None], dict[str, Any]] = {}
+    for record in records:
+        key = _target_resource_binding_metadata_identity(record)
+        if key is not None and key[0] == target and key not in mapping:
+            mapping[key] = record
+    return mapping
+
+
+def _target_resource_binding_metadata_content_mismatches(
+    binding: dict[str, Any],
+    metadata: dict[str, Any],
+) -> list[dict[str, Any]]:
+    mismatches: list[dict[str, Any]] = []
+    for field_name in _TARGET_RESOURCE_BINDING_METADATA_PARITY_FIELDS:
+        expected = _target_resource_binding_metadata_field_value(binding, field_name)
+        actual = _target_resource_binding_metadata_field_value(metadata, field_name)
+        if expected == actual:
+            continue
+        mismatches.append(
+            {
+                "field": field_name,
+                "expected": expected,
+                "actual": actual,
+            }
+        )
+    return mismatches
+
+
+def _target_resource_binding_metadata_field_value(
+    record: dict[str, Any],
+    field_name: str,
+) -> Any:
+    value = record.get(field_name)
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, list):
+        return list(value)
+    return value
 
 
 def _target_resource_binding_metadata_identity_summary(

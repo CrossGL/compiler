@@ -136,10 +136,12 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             self.assertEqual(metadata_admission["decision"], "accepted")
             self.assertEqual(metadata_admission["status"], "matched")
             self.assertTrue(metadata_admission["identityMatches"])
+            self.assertTrue(metadata_admission["contentMatches"])
             self.assertEqual(metadata_admission["targetResourceBindingCount"], 1)
             self.assertEqual(metadata_admission["metadataBindingCount"], 1)
             self.assertEqual(metadata_admission["missingMetadataBindings"], [])
             self.assertEqual(metadata_admission["staleMetadataBindings"], [])
+            self.assertEqual(metadata_admission["mismatchedMetadataBindings"], [])
             self.assertEqual(metadata_admission["diagnostics"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
@@ -233,10 +235,12 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             self.assertEqual(metadata_admission["decision"], "rejected")
             self.assertEqual(metadata_admission["status"], "mismatched")
             self.assertFalse(metadata_admission["identityMatches"])
+            self.assertTrue(metadata_admission["contentMatches"])
             self.assertEqual(metadata_admission["targetResourceBindingCount"], 1)
             self.assertEqual(metadata_admission["metadataBindingCount"], 0)
             self.assertEqual(metadata_admission["missingMetadataBindingCount"], 1)
             self.assertEqual(metadata_admission["staleMetadataBindingCount"], 0)
+            self.assertEqual(metadata_admission["mismatchedMetadataBindingCount"], 0)
             self.assertEqual(metadata_admission["diagnosticCodes"], [diagnostic_code])
             self.assertEqual(diagnostic["document"], "reflection")
             self.assertEqual(
@@ -254,6 +258,115 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             )
             self.assertEqual(diagnostic["actual"], "missing")
             with self.assertRaisesRegex(PackageReadError, "binding metadata"):
+                plan.require_ready()
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_summary_rejects_target_binding_metadata_coordinate_mismatch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_source_free_metal_package(package_dir)
+            source_path = package_dir / "source" / "RuntimeBackendLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "metadata coordinate drift must not trigger source parsing\n",
+                encoding="utf-8",
+            )
+            mismatched_metadata = (
+                {
+                    "target": "metal",
+                    "stage": "compute",
+                    "entryPoint": "runtime_backend_loader_main",
+                    "name": "OutputBuffer",
+                    "kind": "storageBuffer",
+                    "bindingClass": "buffer",
+                    "descriptorType": "buffer",
+                    "set": None,
+                    "binding": None,
+                    "argumentIndex": None,
+                    "abi": {"buffer": 1},
+                    "identity": {
+                        "target": "metal",
+                        "stage": "compute",
+                        "entryPoint": "runtime_backend_loader_main",
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                    },
+                },
+            )
+
+            with (
+                mock.patch(
+                    "runtime.loader.RuntimeLoaderPlan."
+                    "target_resource_binding_metadata_records",
+                    return_value=mismatched_metadata,
+                ),
+                self._guard_source_reads(),
+            ):
+                plan = plan_source_free_native_backend_loader(
+                    package_dir,
+                    "metal",
+                    loader_name="metal-native",
+                )
+                summary = plan.to_summary()
+
+            diagnostic_code = "metal_loader.reflection.target_binding_metadata_mismatch"
+            reject_diagnostics = {
+                diagnostic["code"]: diagnostic
+                for diagnostic in summary["rejectReasons"]
+            }
+            diagnostic = reject_diagnostics[diagnostic_code]
+            metadata_admission = summary["nativeAdmission"][
+                "targetResourceBindingMetadata"
+            ]
+            mismatched_binding = metadata_admission["mismatchedMetadataBindings"][0]
+
+            self.assertFalse(plan.ready)
+            self.assertIsNone(plan.native_artifact)
+            self.assertEqual(summary["sourceInputs"], [])
+            self.assertEqual(summary["nativeAdmission"]["decision"], "rejected")
+            self.assertEqual(summary["nativeAdmission"]["reason"], diagnostic_code)
+            self.assertEqual(summary["reflection"]["targetResourceBindingCount"], 1)
+            self.assertEqual(
+                summary["reflection"]["targetResourceBindingMetadataCount"],
+                1,
+            )
+            self.assertEqual(metadata_admission["decision"], "rejected")
+            self.assertEqual(metadata_admission["status"], "mismatched")
+            self.assertTrue(metadata_admission["identityMatches"])
+            self.assertFalse(metadata_admission["contentMatches"])
+            self.assertEqual(metadata_admission["missingMetadataBindingCount"], 0)
+            self.assertEqual(metadata_admission["staleMetadataBindingCount"], 0)
+            self.assertEqual(metadata_admission["mismatchedMetadataBindingCount"], 1)
+            self.assertEqual(metadata_admission["diagnosticCodes"], [diagnostic_code])
+            self.assertEqual(
+                mismatched_binding["identity"],
+                {
+                    "target": "metal",
+                    "stage": "compute",
+                    "entryPoint": "runtime_backend_loader_main",
+                    "name": "OutputBuffer",
+                    "kind": "storageBuffer",
+                },
+            )
+            self.assertEqual(
+                mismatched_binding["fields"],
+                [
+                    {
+                        "field": "abi",
+                        "expected": {"buffer": 0},
+                        "actual": {"buffer": 1},
+                    }
+                ],
+            )
+            self.assertEqual(diagnostic["document"], "reflection")
+            self.assertEqual(
+                diagnostic["path"], "targetResourceBindingMetadata.bindings"
+            )
+            self.assertEqual(diagnostic["expected"]["fields"], {"abi": {"buffer": 0}})
+            self.assertEqual(diagnostic["actual"]["fields"], {"abi": {"buffer": 1}})
+            with self.assertRaisesRegex(PackageReadError, "coordinates"):
                 plan.require_ready()
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
