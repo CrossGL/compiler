@@ -156,6 +156,58 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             self.assertEqual(summary["rejectReasons"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_ready_plan_returns_explicit_dxil_handoff_without_source_parse(
+        self,
+    ) -> None:
+        expected_bytes = b"DXIL"
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_directx_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "DXIL handoff must not parse CrossGL source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads():
+                plan = plan_directx_native_loader(package_dir)
+                summary = plan.to_summary()
+                handoff = plan.require_dxil_handoff()
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "package artifact exceeds runtime byte limit",
+                ):
+                    plan.require_dxil_handoff(byte_limit=len(expected_bytes) - 1)
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertNotIn("runtimeArtifactHandoff", summary)
+            self.assertNotIn("dxilHandoff", summary)
+            self.assertEqual(handoff.artifact_name, "nativeBinary")
+            self.assertEqual(
+                handoff.package_path,
+                "backend/directx/RuntimeDirectXLoaderFixture.dxil",
+            )
+            self.assertEqual(handoff.package_format, "directory")
+            self.assertEqual(handoff.selected_package_mode, "native")
+            self.assertEqual(handoff.bytes, expected_bytes)
+            self.assertEqual(handoff.byte_length, len(expected_bytes))
+            self.assertIsNone(handoff.archive_path)
+            self.assertIsNone(handoff.archive_member)
+            self.assertEqual(handoff.metadata["sourceInputs"], [])
+            self.assertFalse(handoff.metadata["sourceParsingRequired"])
+            self.assertFalse(handoff.metadata["compilerInvocationRequired"])
+            self.assertFalse(handoff.metadata["deviceExecutionRequired"])
+            self.assertEqual(
+                handoff.metadata["runtimeArtifact"],
+                {
+                    "name": "nativeBinary",
+                    "path": "backend/directx/RuntimeDirectXLoaderFixture.dxil",
+                    "declaredBy": "manifest.artifacts.nativeBinary",
+                },
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_native_api_boundary_preserves_storage_image_metadata_without_source_parse(
         self,
     ) -> None:
@@ -411,6 +463,8 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             with self._guard_crossgl_source_reads():
                 plan = plan_directx_native_loader(package_dir)
                 summary = plan.to_summary()
+                with self.assertRaisesRegex(PackageReadError, "non-DXIL"):
+                    plan.require_dxil_handoff()
 
             descriptor_summary = summary["nativeArtifactDescriptor"]
             descriptor_admission = summary["nativeAdmission"][
@@ -613,6 +667,7 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             ):
                 plan = plan_directx_native_loader(zip_path)
                 summary = plan.to_summary()
+                handoff = plan.require_dxil_handoff()
 
             descriptor_summary = summary["nativeArtifactDescriptor"]
             self.assertTrue(plan.ready, summary["diagnostics"])
@@ -638,6 +693,19 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                 plan.native_artifact.archive_member,
                 f"{zip_path.name}/{native_path}",
             )
+            self.assertNotIn("runtimeArtifactHandoff", summary)
+            self.assertEqual(handoff.artifact_name, "nativeBinary")
+            self.assertEqual(handoff.package_path, native_path)
+            self.assertEqual(handoff.package_format, "zip")
+            self.assertEqual(handoff.selected_package_mode, "native")
+            self.assertEqual(handoff.bytes, b"DXIL")
+            self.assertEqual(handoff.archive_path, zip_path)
+            self.assertEqual(
+                handoff.archive_member,
+                f"{zip_path.name}/{native_path}",
+            )
+            self.assertEqual(handoff.metadata["sourceInputs"], [])
+            self.assertFalse(handoff.metadata["sourceParsingRequired"])
             self.assertTrue(
                 summary["nativeArtifact"]["absolutePath"].startswith(f"{zip_path}!/")
             )
@@ -872,6 +940,8 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(PackageReadError, "nativeBinary"):
                 plan.require_ready()
+            with self.assertRaisesRegex(PackageReadError, "nativeBinary"):
+                plan.require_dxil_handoff()
 
     def test_rejects_stale_or_malformed_dxil_descriptor_without_source_or_work(
         self,

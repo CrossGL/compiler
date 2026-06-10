@@ -9,7 +9,12 @@ from typing import Any
 
 from .backend_loader import SourceFreeNativeBackendLoaderPlan
 from .backend_loader import _graphics_abi_reflection_parity_summary
-from .loader import LoaderArtifactPlan, RuntimeLoaderPlan, read_loader_plan
+from .loader import (
+    LoaderArtifactPlan,
+    RuntimeLoaderPlan,
+    SourceFreeRuntimeArtifactHandoff,
+    read_loader_plan,
+)
 from .package_reader import CompatibilityDiagnostic, PackageReadError
 
 
@@ -28,6 +33,24 @@ class OpenGLLoaderPlan(RuntimeLoaderPlan):
     @property
     def opengl_source_package_admission_detail(self) -> dict[str, Any]:
         return _opengl_source_package_admission_detail(self)
+
+    def require_glsl_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        handoff = self.require_runtime_artifact_handoff(byte_limit=byte_limit)
+        if handoff.artifact_name != OPENGL_SOURCE_ARTIFACT:
+            raise PackageReadError(
+                "opengl source-package loader selected non-GLSL runtime artifact: "
+                f"{handoff.artifact_name}"
+            )
+        if not _path_has_suffix(handoff.package_path, OPENGL_BACKEND_SOURCE_SUFFIX):
+            raise PackageReadError(
+                "opengl source-package loader selected non-GLSL backend source: "
+                f"{handoff.package_path}"
+            )
+        return handoff
 
     def to_summary(self) -> dict[str, Any]:
         summary = super().to_summary()

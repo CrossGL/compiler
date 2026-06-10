@@ -190,6 +190,62 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
                     self.assertEqual(summary["rejectReasons"], [])
                     self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_source_package_plan_returns_explicit_glsl_handoff_without_crossgl_parse(
+        self,
+    ) -> None:
+        expected_bytes = b"// generated GLSL\n"
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_opengl_package(
+                package_dir,
+                native_binary_status="validated",
+                emit_native_artifact_descriptor=True,
+            )
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "GLSL handoff must not parse CrossGL source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                plan = plan_opengl_source_package_loader(package_dir)
+                summary = plan.to_summary()
+                handoff = plan.require_glsl_handoff()
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "package artifact exceeds runtime byte limit",
+                ):
+                    plan.require_glsl_handoff(byte_limit=len(expected_bytes) - 1)
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertNotIn("runtimeArtifactHandoff", summary)
+            self.assertNotIn("glslHandoff", summary)
+            self.assertEqual(handoff.artifact_name, "backendSource")
+            self.assertEqual(
+                handoff.package_path,
+                "backend/opengl/RuntimeOpenGLLoaderFixture.comp.glsl",
+            )
+            self.assertEqual(handoff.package_format, "directory")
+            self.assertEqual(handoff.selected_package_mode, "source-package")
+            self.assertEqual(handoff.bytes, expected_bytes)
+            self.assertEqual(handoff.byte_length, len(expected_bytes))
+            self.assertIsNone(handoff.archive_path)
+            self.assertIsNone(handoff.archive_member)
+            self.assertEqual(handoff.metadata["sourceInputs"], [])
+            self.assertFalse(handoff.metadata["sourceParsingRequired"])
+            self.assertFalse(handoff.metadata["compilerInvocationRequired"])
+            self.assertFalse(handoff.metadata["deviceExecutionRequired"])
+            self.assertEqual(
+                handoff.metadata["runtimeArtifact"],
+                {
+                    "name": "backendSource",
+                    "path": "backend/opengl/RuntimeOpenGLLoaderFixture.comp.glsl",
+                    "declaredBy": "manifest.artifacts.backendSource",
+                },
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_validated_source_package_requires_descriptor_evidence_without_crossgl_parse(
         self,
     ) -> None:
@@ -691,6 +747,7 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
     def test_zip_validated_source_package_admits_backend_source_without_source_reads(
         self,
     ) -> None:
+        expected_bytes = b"// generated GLSL\n"
         for package_mode in ("auto", "source-package"):
             with self.subTest(package_mode=package_mode):
                 with tempfile.TemporaryDirectory() as temp_dir:
@@ -730,6 +787,7 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
                             package_mode=package_mode,
                         )
                         summary = plan.to_summary()
+                        handoff = plan.require_glsl_handoff()
 
                     selection = summary["runtimeArtifactSelection"]
                     admission = summary["openglSourcePackageAdmission"]
@@ -771,6 +829,28 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
                         self.assertTrue(
                             artifact.archive_member.startswith(f"{zip_path.name}/")
                         )
+                    self.assertNotIn("runtimeArtifactHandoff", summary)
+                    self.assertEqual(handoff.artifact_name, "backendSource")
+                    self.assertEqual(
+                        handoff.package_path,
+                        "backend/opengl/RuntimeOpenGLLoaderFixture.comp.glsl",
+                    )
+                    self.assertEqual(handoff.package_format, "zip")
+                    self.assertEqual(
+                        handoff.selected_package_mode,
+                        "source-package",
+                    )
+                    self.assertEqual(handoff.bytes, expected_bytes)
+                    self.assertEqual(handoff.archive_path, zip_path)
+                    self.assertEqual(
+                        handoff.archive_member,
+                        (
+                            f"{zip_path.name}/backend/opengl/"
+                            "RuntimeOpenGLLoaderFixture.comp.glsl"
+                        ),
+                    )
+                    self.assertEqual(handoff.metadata["sourceInputs"], [])
+                    self.assertFalse(handoff.metadata["sourceParsingRequired"])
                     self.assertEqual(
                         plan.require_runtime_artifact().name,
                         "backendSource",
@@ -1350,6 +1430,8 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
             self.assertFalse(opengl_admission["backendSource"]["selectedForRuntime"])
             with self.assertRaisesRegex(PackageReadError, r"\.glsl"):
                 plan.require_loadable()
+            with self.assertRaisesRegex(PackageReadError, r"\.glsl"):
+                plan.require_glsl_handoff()
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def _write_valid_opengl_package(
