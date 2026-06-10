@@ -746,6 +746,26 @@ std::filesystem::path resolveManifestPath(const std::filesystem::path &base,
   return (base / path).lexically_normal();
 }
 
+bool pathLexicallyInsideOrEqual(const std::filesystem::path &root,
+                                const std::filesystem::path &path) {
+  const std::filesystem::path normalizedRoot = root.lexically_normal();
+  const std::filesystem::path normalizedPath = path.lexically_normal();
+  if (normalizedPath == normalizedRoot) {
+    return true;
+  }
+  const std::filesystem::path relative =
+      normalizedPath.lexically_relative(normalizedRoot);
+  if (relative.empty()) {
+    return false;
+  }
+  for (const auto &part : relative) {
+    if (part == "..") {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool isStableRelativeFilesystemPath(const std::filesystem::path &path) {
   return isSourceBatchStableRelativePath(path.generic_string());
 }
@@ -3291,6 +3311,23 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
     }
     if (root && !root->empty()) {
       projectRoot = resolveManifestPath(reportBase, *root);
+    }
+    std::optional<std::string> outputDir;
+    if (!parseOptionalSourceBatchStringMember(
+            *project, "outputDir", "CrossTL project report project",
+            manifestPath, diagnostics, outputDir)) {
+      return std::nullopt;
+    }
+    if (outputDir) {
+      const std::filesystem::path projectOutputDir =
+          resolveManifestPath(projectRoot, *outputDir);
+      if (!pathLexicallyInsideOrEqual(projectRoot, projectOutputDir)) {
+        sourceBatchManifestError(
+            diagnostics, manifestPath,
+            "CrossTL project report project.outputDir must resolve inside "
+            "project.root");
+        return std::nullopt;
+      }
     }
     if (!parseOptionalCrossTLProjectReportDeclaredTargets(
             *project, manifestPath, diagnostics, declaredTargets)) {
