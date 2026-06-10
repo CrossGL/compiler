@@ -1290,6 +1290,17 @@ void verifyDebugArtifacts(const PackageMetadata &metadata,
                       artifactLocation(metadata, *sourceRemap));
   }
 
+  const PackageArtifactRecord *backendSourceMap =
+      findArtifact(metadata, "backendSourceMap");
+  if (backendSourceMap && !(metadata.debugMetadataArtifactPresent &&
+                            metadata.hirSourceMapArtifactPresent)) {
+    diagnostics.error(
+        diagnosticCode("backend-source-map-without-debug-artifacts"),
+        artifactLabel("backendSourceMap", backendSourceMap) +
+            " requires debugMetadata and hirSourceMap",
+        artifactLocation(metadata, *backendSourceMap));
+  }
+
   if (metadata.debugMetadataArtifactPresent !=
       metadata.hirSourceMapArtifactPresent) {
     const PackageArtifactRecord *debugMetadata =
@@ -1387,6 +1398,17 @@ void verifyDebugArtifactHealth(const PackageMetadata &metadata,
                           " provenance health must be ok",
                       sourceRemap ? artifactLocation(metadata, *sourceRemap)
                                   : artifactsLocation(metadata));
+  }
+  if (health.backendSourceMap.artifactPresent &&
+      health.backendSourceMap.health != "ok") {
+    const PackageArtifactRecord *backendSourceMap =
+        findArtifact(metadata, "backendSourceMap");
+    diagnostics.error(diagnosticCode("backend-source-map-invalid"),
+                      artifactLabel("backendSourceMap", backendSourceMap) +
+                          " health must be ok",
+                      backendSourceMap
+                          ? artifactLocation(metadata, *backendSourceMap)
+                          : artifactsLocation(metadata));
   }
 }
 
@@ -2470,6 +2492,47 @@ void writeSourceRemapProvenanceSummary(
   out << "\n" << indent << "  }\n" << indent << "}";
 }
 
+void writeBackendSourceMapSummary(
+    std::ostream &out, const PackageBackendSourceMapHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"artifactPresent\": "
+      << (health.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"exists\": " << (health.exists ? "true" : "false")
+      << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health)
+      << "\",\n"
+      << indent << "  \"path\": ";
+  writeNullableString(out, health.path);
+  out << ",\n" << indent << "  \"target\": ";
+  writeNullableString(out, health.target);
+  out << ",\n" << indent << "  \"module\": ";
+  writeNullableString(out, health.module);
+  out << ",\n" << indent << "  \"backendLanguage\": ";
+  writeNullableString(out, health.backendLanguage);
+  out << ",\n" << indent << "  \"backendLineCount\": ";
+  writeNullableUnsigned(out, health.backendLineCount);
+  out << ",\n" << indent << "  \"mappingCount\": ";
+  writeNullableUnsigned(out, health.mappingCount);
+  out << ",\n" << indent << "  \"mappingRecordCount\": ";
+  writeNullableUnsigned(out, health.mappingRecordCount);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"identityMatchesContract\": ";
+  writeNullableBool(out, health.checks.identityMatchesContract);
+  out << ",\n" << indent << "    \"targetMatchesPackage\": ";
+  writeNullableBool(out, health.checks.targetMatchesPackage);
+  out << ",\n" << indent << "    \"moduleMatchesPackage\": ";
+  writeNullableBool(out, health.checks.moduleMatchesPackage);
+  out << ",\n" << indent << "    \"backendLanguagePresent\": ";
+  writeNullableBool(out, health.checks.backendLanguagePresent);
+  out << ",\n" << indent << "    \"backendLineCountPresent\": ";
+  writeNullableBool(out, health.checks.backendLineCountPresent);
+  out << ",\n" << indent << "    \"mappingCountMatchesMappings\": ";
+  writeNullableBool(out, health.checks.mappingCountMatchesMappings);
+  out << "\n" << indent << "  }\n" << indent << "}";
+}
+
 void writeNativeArtifactDescriptorSummary(
     std::ostream &out, const PackageNativeArtifactDescriptorHealth &health) {
   out << "{\n"
@@ -2807,6 +2870,9 @@ void writeSummary(std::ostream &out, const PackageMetadata &metadata) {
       << (metadata.debugArtifactsPresent ? "true" : "false") << ",\n"
       << "    \"sourceRemap\": ";
   writeSourceRemapProvenanceSummary(out, debugArtifactHealth.sourceRemap, "    ");
+  out << ",\n"
+      << "    \"backendSourceMap\": ";
+  writeBackendSourceMapSummary(out, debugArtifactHealth.backendSourceMap, "    ");
   out << ",\n"
       << "    \"nativeArtifactDescriptor\": ";
   writeNativeArtifactDescriptorSummary(out, nativeArtifactDescriptor);

@@ -96,6 +96,9 @@
         "sourceRemap": {
           "$ref": "#/$defs/sourceRemapSummary"
         },
+        "backendSourceMap": {
+          "$ref": "#/$defs/backendSourceMapSummary"
+        },
         "nativeArtifactDescriptor": {
           "$ref": "#/$defs/nativeArtifactDescriptorSummary"
         },
@@ -526,6 +529,105 @@
         },
         "checks": {
           "$ref": "#/$defs/sourceRemapChecks"
+        }
+      }
+    },
+    "backendSourceMapChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityMatchesContract",
+        "targetMatchesPackage",
+        "moduleMatchesPackage",
+        "backendLanguagePresent",
+        "backendLineCountPresent",
+        "mappingCountMatchesMappings"
+      ],
+      "properties": {
+        "identityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "moduleMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLanguagePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLineCountPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingCountMatchesMappings": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "backendSourceMapSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "exists",
+        "health",
+        "path",
+        "target",
+        "module",
+        "backendLanguage",
+        "backendLineCount",
+        "mappingCount",
+        "mappingRecordCount",
+        "checks"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "not-present",
+            "incomplete",
+            "drift",
+            "ok"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/nullableSourceRemapTarget"
+        },
+        "module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "backendLanguage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "backendLineCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "mappingRecordCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "checks": {
+          "$ref": "#/$defs/backendSourceMapChecks"
         }
       }
     },
