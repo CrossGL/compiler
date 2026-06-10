@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "project": {
+    "targets": [
+      "Metal"
+    ]
+  },
+  "summary": {
+    "artifactCount": 0,
+    "sourceRemapCount": 0,
+    "sourceRemapMappingCount": 0
+  },
+  "artifacts": []
+}

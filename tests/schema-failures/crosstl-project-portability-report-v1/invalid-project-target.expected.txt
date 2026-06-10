@@ -1,0 +1,1 @@
+$.project.targets[0]: expected string to match pattern '^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)*$', got 'Metal'

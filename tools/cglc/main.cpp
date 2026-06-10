@@ -2454,6 +2454,35 @@ bool crossTLProjectReportTargetDeclared(
   return false;
 }
 
+bool isCrossTLProjectReportTargetSegmentChar(char c) {
+  return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+}
+
+bool isCrossTLProjectReportTargetSeparator(char c) {
+  return c == '.' || c == '_' || c == '/' || c == '-';
+}
+
+bool isCrossTLProjectReportTargetName(std::string_view target) {
+  if (target.empty() || target.front() < 'a' || target.front() > 'z') {
+    return false;
+  }
+
+  bool previousWasSeparator = false;
+  for (std::size_t index = 1; index < target.size(); ++index) {
+    const char c = target[index];
+    if (isCrossTLProjectReportTargetSegmentChar(c)) {
+      previousWasSeparator = false;
+      continue;
+    }
+    if (!isCrossTLProjectReportTargetSeparator(c) || previousWasSeparator ||
+        index + 1 == target.size()) {
+      return false;
+    }
+    previousWasSeparator = true;
+  }
+  return true;
+}
+
 bool parseOptionalCrossTLProjectReportDeclaredTargets(
     std::string_view projectText, const std::filesystem::path &manifestPath,
     crossgl::DiagnosticEngine &diagnostics,
@@ -2481,6 +2510,26 @@ bool parseOptionalCrossTLProjectReportDeclaredTargets(
                   "] must be a non-empty string");
           valid = false;
           return false;
+        }
+        if (!isCrossTLProjectReportTargetName(target)) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              "CrossTL project report project.targets[" +
+                  std::to_string(targetIndex) +
+                  "] must match target name syntax");
+          valid = false;
+          return false;
+        }
+        for (const std::string &parsedTarget : parsedTargets) {
+          if (parsedTarget == target) {
+            sourceBatchManifestError(
+                diagnostics, manifestPath,
+                "CrossTL project report project.targets[" +
+                    std::to_string(targetIndex) + "] duplicates '" + target +
+                    "'");
+            valid = false;
+            return false;
+          }
         }
         parsedTargets.push_back(std::move(target));
         return true;

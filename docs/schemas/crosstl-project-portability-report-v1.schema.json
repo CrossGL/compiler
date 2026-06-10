@@ -108,6 +108,7 @@
         },
         "targets": {
           "type": "array",
+          "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/targetName"
           }

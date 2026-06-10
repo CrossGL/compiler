@@ -221,6 +221,10 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NO_TRANSLATED
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-no-translated.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNKNOWN_TARGET_SUMMARY
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-unknown-target-summary.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_INVALID_PROJECT_TARGET
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-invalid-project-target.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DUPLICATE_PROJECT_TARGET
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-duplicate-project-target.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_MISSING_REMAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-missing-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_MISMATCH
@@ -677,6 +681,36 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNKNOWN_TARGET_SUMMARY}"
       }
     }
   ]
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_INVALID_PROJECT_TARGET}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"project\": {
+    \"targets\": [\"Metal\"]
+  },
+  \"summary\": {
+    \"artifactCount\": 0,
+    \"sourceRemapCount\": 0,
+    \"sourceRemapMappingCount\": 0
+  },
+  \"artifacts\": []
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DUPLICATE_PROJECT_TARGET}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"project\": {
+    \"targets\": [\"cgl\", \"cgl\"]
+  },
+  \"summary\": {
+    \"artifactCount\": 0,
+    \"sourceRemapCount\": 0,
+    \"sourceRemapMappingCount\": 0
+  },
+  \"artifacts\": []
 }
 ")
 file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_MAP_FILE_MULTIMAP}"
@@ -3820,6 +3854,22 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_no_translated
   STDERR_CONTAINS
     "error project.source-batch.invalid-manifest"
     "CrossTL project report contains no translated cgl artifacts")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_invalid_project_target_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_INVALID_PROJECT_TARGET}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "project.targets[0] must match target name syntax")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_duplicate_project_target_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DUPLICATE_PROJECT_TARGET}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "project.targets[1] duplicates 'cgl'")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_missing_source_remap_fails
   EXPECTED_RESULT 1
