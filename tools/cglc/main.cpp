@@ -1409,6 +1409,11 @@ bool crossTLProjectReportSourceMapSpansEqual(
          left.endOffset == right.endOffset;
 }
 
+bool crossTLProjectReportSourceMapSpanIsSingleLine(
+    const CrossTLProjectReportSourceMapSpan &span) {
+  return span.line == span.endLine;
+}
+
 bool validateCrossTLProjectReportSourceMap(
     std::string_view sourceMapText, std::string_view context,
     const std::optional<std::string> &artifactSource,
@@ -1541,6 +1546,18 @@ bool validateCrossTLProjectReportSourceMap(
           valid = false;
           return false;
         }
+        if (sourceMapGranularity == "line" &&
+            (!crossTLProjectReportSourceMapSpanIsSingleLine(mappingSource) ||
+             !crossTLProjectReportSourceMapSpanIsSingleLine(
+                 mappingGenerated))) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              mappingContext +
+                  " must stay within one source and generated line for line "
+                  "granularity");
+          valid = false;
+          return false;
+        }
         for (std::size_t priorIndex = 0; priorIndex < generatedMappings.size();
              ++priorIndex) {
           if (crossTLProjectReportSourceMapSpansOverlap(
@@ -1583,6 +1600,27 @@ bool validateCrossTLProjectReportSourceMap(
                              std::string(context) +
                                  ".mappings must be a non-empty array");
     return false;
+  }
+  if (sourceMapGranularity == "file") {
+    if (mappingCount != 1) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          std::string(context) +
+              ".mappings must contain exactly one source/generated span pair "
+              "for file granularity");
+      return false;
+    }
+    const auto &mapping = seenMappings.front();
+    if (!crossTLProjectReportSourceMapSpansEqual(mapping.first, sourceSpan) ||
+        !crossTLProjectReportSourceMapSpansEqual(mapping.second,
+                                                generatedSpan)) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          std::string(context) +
+              ".mappings[0] must match source/generated envelopes for file "
+              "granularity");
+      return false;
+    }
   }
   return true;
 }
