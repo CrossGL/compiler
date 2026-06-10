@@ -4542,7 +4542,7 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_non_cgl_sourc
     --diagnostics-json
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
-    "sourceRemap expected only for cgl target artifacts")
+    "sourceRemap expected only for CrossGL target artifacts")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_duplicate_source_remap_path_fails
   EXPECTED_RESULT 1
@@ -5268,6 +5268,20 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_as_source_rem
   STDOUT_CONTAINS
     "\"code\": \"io.invalid-source-remap\""
     "source remap document appears to be a CrossTL project portability report"
+    "artifacts[].sourceRemap.path"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "pass the compiler sidecar JSON referenced by artifacts[].sourceRemap.path instead")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_artifact_source_map_as_source_remap_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-artifact-source-map-v1-basic.json
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "source remap document appears to be a CrossTL artifact source map"
     "artifacts[].sourceRemap.path"
   STDERR_CONTAINS
     "error io.invalid-source-remap"

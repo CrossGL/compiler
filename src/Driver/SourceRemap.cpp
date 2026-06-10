@@ -145,6 +145,10 @@ bool looksLikeCrossTLProjectPortabilityReport(std::string_view object) {
          "crosstl-project-portability-report";
 }
 
+bool looksLikeCrossTLArtifactSourceMap(std::string_view object) {
+  return objectStringMember(object, "kind") == "crosstl-artifact-source-map";
+}
+
 bool isLowercaseSha256(std::string_view value) {
   if (value.size() != 64) {
     return false;
@@ -676,6 +680,15 @@ std::optional<SourceRemap> parseSourceRemap(std::string_view text,
           diagnostics,
           "source remap document appears to be a CrossTL project portability "
           "report; pass the compiler sidecar JSON referenced by "
+          "artifacts[].sourceRemap.path instead",
+          documentLocation);
+      return std::nullopt;
+    }
+    if (looksLikeCrossTLArtifactSourceMap(text)) {
+      reportInvalidRemap(
+          diagnostics,
+          "source remap document appears to be a CrossTL artifact source map; "
+          "pass the compiler sidecar JSON referenced by "
           "artifacts[].sourceRemap.path instead",
           documentLocation);
       return std::nullopt;

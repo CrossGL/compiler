@@ -3011,7 +3011,8 @@ bool parseCrossTLProjectReportArtifact(
     if (target && !crossTLProjectReportIsCrossGLTarget(*target)) {
       sourceBatchManifestError(
           diagnostics, manifest.path,
-          context + ".sourceRemap expected only for cgl target artifacts");
+          context +
+              ".sourceRemap expected only for CrossGL target artifacts");
       return false;
     }
     if (!parseOptionalSourceBatchStringMember(

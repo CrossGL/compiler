@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-artifact-source-map",
+  "mappingGranularity": "line",
+  "target": "cgl",
+  "source": {
+    "file": "simple.cgl",
+    "line": 1,
+    "column": 1,
+    "offset": 0,
+    "length": 44,
+    "endLine": 2,
+    "endColumn": 14,
+    "endOffset": 44
+  },
+  "generated": {
+    "file": "out/cgl/simple.cgl",
+    "line": 1,
+    "column": 1,
+    "offset": 0,
+    "length": 44,
+    "endLine": 2,
+    "endColumn": 14,
+    "endOffset": 44
+  },
+  "mappings": [
+    {
+      "source": {
+        "file": "simple.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 44,
+        "endLine": 2,
+        "endColumn": 14,
+        "endOffset": 44
+      },
+      "generated": {
+        "file": "out/cgl/simple.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 44,
+        "endLine": 2,
+        "endColumn": 14,
+        "endOffset": 44
+      }
+    }
+  ]
+}
