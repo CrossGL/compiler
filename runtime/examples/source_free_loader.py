@@ -15,7 +15,11 @@ import sys
 from typing import Any, Callable
 
 from runtime.directx_loader import plan_directx_native_loader
-from runtime.loader import RuntimeLoaderPlan, read_loader_plan
+from runtime.loader import (
+    RuntimeLoaderPlan,
+    SourceFreeRuntimeArtifactHandoff,
+    read_loader_plan,
+)
 from runtime.metal_loader import plan_metal_native_loader
 from runtime.opengl_loader import plan_opengl_loader
 from runtime.opengl_loader import plan_opengl_native_loader
@@ -53,7 +57,11 @@ def inspect_source_free_package(
         and plan.compatibility_report.native_binary_status == "validated"
     ):
         plan = plan_opengl_loader(package_path)
-    summary = _plan_summary(plan)
+    runtime_artifact_handoff = plan.runtime_artifact_handoff()
+    summary = _plan_summary(
+        plan,
+        runtime_artifact_handoff=runtime_artifact_handoff,
+    )
     if native_admission:
         summary["nativeBackendAdmission"] = _native_backend_admission_summary(
             package_path,
@@ -70,10 +78,13 @@ def inspect_source_free_package(
     if not plan.loadable:
         return summary
 
-    runtime_artifact = plan.require_runtime_artifact()
+    if runtime_artifact_handoff is None:
+        runtime_artifact_handoff = plan.require_runtime_artifact_handoff()
+    runtime_artifact = runtime_artifact_handoff.artifact
     reflection = plan.compatibility_report.reflection
     summary.update(
         {
+            "runtimeArtifactHandoff": runtime_artifact_handoff.to_summary(),
             "selectedArtifact": runtime_artifact.to_summary(),
             "selectedArtifacts": [
                 artifact.to_summary() for artifact in plan.selected_artifacts
@@ -91,7 +102,11 @@ def inspect_source_free_package(
     return summary
 
 
-def _plan_summary(plan: RuntimeLoaderPlan) -> dict[str, Any]:
+def _plan_summary(
+    plan: RuntimeLoaderPlan,
+    *,
+    runtime_artifact_handoff: SourceFreeRuntimeArtifactHandoff | None = None,
+) -> dict[str, Any]:
     metadata_contract = plan.metadata_contract_summary
     return {
         "schemaVersion": 1,
@@ -118,6 +133,12 @@ def _plan_summary(plan: RuntimeLoaderPlan) -> dict[str, Any]:
         "runtimeArtifactAdmission": _runtime_artifact_admission_summary(
             plan,
             metadata_contract,
+            runtime_artifact_handoff=runtime_artifact_handoff,
+        ),
+        "runtimeArtifactHandoff": (
+            runtime_artifact_handoff.to_summary()
+            if runtime_artifact_handoff is not None
+            else None
         ),
         "selectedArtifact": None,
         "selectedArtifacts": [],
@@ -132,6 +153,8 @@ def _plan_summary(plan: RuntimeLoaderPlan) -> dict[str, Any]:
 def _runtime_artifact_admission_summary(
     plan: RuntimeLoaderPlan,
     metadata_contract: dict[str, Any],
+    *,
+    runtime_artifact_handoff: SourceFreeRuntimeArtifactHandoff | None = None,
 ) -> dict[str, Any]:
     selection = plan.runtime_artifact_selection
     admission = selection.admission or {}
@@ -143,7 +166,10 @@ def _runtime_artifact_admission_summary(
         "target": admission.get("target"),
         "native": admission.get("native"),
         "sourcePackageFallback": admission.get("sourcePackageFallback"),
-        "selectedArtifact": _selected_artifact_identity(plan),
+        "selectedArtifact": _selected_artifact_identity(
+            plan,
+            runtime_artifact_handoff=runtime_artifact_handoff,
+        ),
         "packageArtifactRequirementsSource": metadata_contract["contractSource"],
         "packageArtifactRequirements": metadata_contract["requirements"],
         "targetLegalizationEvidence": metadata_contract["targetLegalizationEvidence"],
@@ -163,7 +189,21 @@ def _runtime_artifact_admission_summary(
     }
 
 
-def _selected_artifact_identity(plan: RuntimeLoaderPlan) -> dict[str, Any] | None:
+def _selected_artifact_identity(
+    plan: RuntimeLoaderPlan,
+    *,
+    runtime_artifact_handoff: SourceFreeRuntimeArtifactHandoff | None = None,
+) -> dict[str, Any] | None:
+    if runtime_artifact_handoff is not None:
+        return {
+            "name": runtime_artifact_handoff.artifact_name,
+            "path": runtime_artifact_handoff.package_path,
+            "declaredBy": (
+                f"manifest.artifacts.{runtime_artifact_handoff.artifact_name}"
+            ),
+            "exists": runtime_artifact_handoff.artifact.exists,
+            "selectedPackageMode": runtime_artifact_handoff.selected_package_mode,
+        }
     artifact = plan.runtime_artifact
     if artifact is None:
         return None

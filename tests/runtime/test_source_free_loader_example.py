@@ -1593,6 +1593,28 @@ class SourceFreeRuntimeLoaderExampleTests(unittest.TestCase):
 
         self._assert_source_free_admission_invariants(zip_summary)
         self.assertEqual(
+            directory_summary["runtimeArtifactHandoff"]["packageFormat"],
+            "directory",
+        )
+        self.assertIsNone(
+            directory_summary["runtimeArtifactHandoff"]["artifact"]["archivePath"]
+        )
+        self.assertIsNone(
+            directory_summary["runtimeArtifactHandoff"]["artifact"]["archiveMember"]
+        )
+        self.assertEqual(
+            zip_summary["runtimeArtifactHandoff"]["packageFormat"],
+            "zip",
+        )
+        self.assertEqual(
+            zip_summary["runtimeArtifactHandoff"]["artifact"]["archivePath"],
+            str(zip_path),
+        )
+        self.assertEqual(
+            zip_summary["runtimeArtifactHandoff"]["artifact"]["archiveMember"],
+            f"{zip_path.name}/{zip_summary['selectedArtifact']['path']}",
+        )
+        self.assertEqual(
             self._normalize_package_location(directory_summary),
             self._normalize_package_location(zip_summary),
         )
@@ -1626,13 +1648,35 @@ class SourceFreeRuntimeLoaderExampleTests(unittest.TestCase):
         self._normalize_artifact_location(normalized["selectedArtifact"])
         for artifact in normalized["selectedArtifacts"]:
             self._normalize_artifact_location(artifact)
+        self._normalize_handoff_location(normalized["runtimeArtifactHandoff"])
         return normalized
 
     def _normalize_artifact_location(self, artifact: dict[str, Any] | None) -> None:
         if artifact is not None:
             artifact["absolutePath"] = "<artifact>"
 
+    def _normalize_handoff_location(self, handoff: dict[str, Any] | None) -> None:
+        if handoff is None:
+            return
+        handoff["packageFormat"] = "<package-format>"
+        artifact = handoff["artifact"]
+        artifact["absolutePath"] = "<artifact>"
+        artifact["archivePath"] = "<archive>"
+        artifact["archiveMember"] = "<archive-member>"
+        self._normalize_absolute_paths(handoff["metadata"])
+
+    def _normalize_absolute_paths(self, value: Any) -> None:
+        if isinstance(value, dict):
+            if "absolutePath" in value:
+                value["absolutePath"] = "<artifact>"
+            for child in value.values():
+                self._normalize_absolute_paths(child)
+        elif isinstance(value, list):
+            for child in value:
+                self._normalize_absolute_paths(child)
+
     def _assert_source_free_admission_invariants(self, summary: dict[str, Any]) -> None:
+        self._assert_runtime_artifact_handoff_invariants(summary)
         self.assertEqual(
             summary["runtimeArtifactAdmission"]["packageArtifactRequirementsSource"],
             summary["packageArtifactRequirementsSource"],
@@ -1681,6 +1725,50 @@ class SourceFreeRuntimeLoaderExampleTests(unittest.TestCase):
                 "deviceExecution": "not-executed",
             },
         )
+
+    def _assert_runtime_artifact_handoff_invariants(
+        self,
+        summary: dict[str, Any],
+    ) -> None:
+        handoff = summary["runtimeArtifactHandoff"]
+        if not summary["loadable"]:
+            self.assertIsNone(handoff)
+            return
+
+        self.assertIsNotNone(handoff)
+        selected_artifact = summary["selectedArtifact"]
+        admission_artifact = summary["runtimeArtifactAdmission"]["selectedArtifact"]
+        self.assertIsNotNone(selected_artifact)
+        self.assertIsNotNone(admission_artifact)
+
+        artifact = handoff["artifact"]
+        self.assertEqual(handoff["schemaVersion"], 1)
+        self.assertIn(handoff["packageFormat"], {"directory", "zip"})
+        self.assertFalse(handoff["sourceParsingRequired"])
+        self.assertFalse(handoff["compilerInvocationRequired"])
+        self.assertFalse(handoff["deviceExecutionRequired"])
+        self.assertGreater(handoff["byteLength"], 0)
+        if artifact["size"] is not None:
+            self.assertEqual(handoff["byteLength"], artifact["size"])
+
+        self.assertEqual(artifact["name"], selected_artifact["name"])
+        self.assertEqual(artifact["path"], selected_artifact["path"])
+        self.assertEqual(artifact["size"], selected_artifact["size"])
+        self.assertEqual(artifact["name"], admission_artifact["name"])
+        self.assertEqual(artifact["path"], admission_artifact["path"])
+        self.assertEqual(
+            handoff["selectedPackageMode"],
+            admission_artifact["selectedPackageMode"],
+        )
+
+        metadata = handoff["metadata"]
+        self.assertTrue(metadata["metadataOnly"])
+        self.assertEqual(metadata["sourceInputs"], [])
+        self.assertFalse(metadata["sourceParsingRequired"])
+        self.assertFalse(metadata["compilerInvocationRequired"])
+        self.assertFalse(metadata["deviceExecutionRequired"])
+        self.assertEqual(metadata["runtimeArtifact"]["name"], artifact["name"])
+        self.assertEqual(metadata["runtimeArtifact"]["path"], artifact["path"])
 
     def _run_cli_json(
         self,

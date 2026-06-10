@@ -115,6 +115,64 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_ready_plan_returns_explicit_runtime_artifact_handoff(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_source_free_metal_package(package_dir)
+            source_path = package_dir / "source" / "RuntimeBackendLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "native artifact handoff must not parse CrossGL source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads():
+                plan = plan_source_free_native_backend_loader(
+                    package_dir,
+                    "metal",
+                    loader_name="metal-native",
+                )
+                summary = plan.to_summary()
+                handoff = plan.require_runtime_artifact_handoff()
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertNotIn("runtimeArtifactHandoff", summary)
+            self.assertEqual(handoff.artifact_name, "nativeBinary")
+            self.assertEqual(handoff.package_path, summary["nativeArtifact"]["path"])
+            self.assertEqual(handoff.selected_package_mode, "native")
+            self.assertEqual(handoff.bytes, b"metallib")
+            self.assertEqual(handoff.byte_length, len(b"metallib"))
+            self.assertEqual(handoff.metadata["sourceInputs"], [])
+            self.assertFalse(handoff.metadata["sourceParsingRequired"])
+            self.assertFalse(handoff.metadata["compilerInvocationRequired"])
+            self.assertFalse(handoff.metadata["deviceExecutionRequired"])
+            self.assertEqual(
+                handoff.metadata["runtimeArtifact"]["name"],
+                "nativeBinary",
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_rejected_plan_does_not_return_runtime_artifact_handoff(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_source_free_metal_package(
+                package_dir,
+                write_native_binary=False,
+            )
+
+            with self._guard_source_reads():
+                plan = plan_source_free_native_backend_loader(
+                    package_dir,
+                    "metal",
+                    loader_name="metal-native",
+                )
+
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "metal-native loader plan rejected",
+                ):
+                    plan.require_runtime_artifact_handoff()
+
     def test_summary_exposes_graphics_abi_descriptor_bindings(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)

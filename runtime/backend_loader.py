@@ -13,7 +13,12 @@ import json
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .loader import LoaderArtifactPlan, RuntimeLoaderPlan, read_loader_plan
+from .loader import (
+    LoaderArtifactPlan,
+    RuntimeLoaderPlan,
+    SourceFreeRuntimeArtifactHandoff,
+    read_loader_plan,
+)
 from .package_reader import (
     CompatibilityDiagnostic,
     NATIVE_ARTIFACT_BINARY_KINDS_BY_TARGET,
@@ -143,6 +148,25 @@ class SourceFreeNativeBackendLoaderPlan:
         if not messages:
             messages = f"{self.loader_name} loader plan is not ready"
         raise PackageReadError(f"{self.loader_name} loader plan rejected: {messages}")
+
+    def require_runtime_artifact_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        self.require_ready()
+        handoff = self.runtime_plan.require_runtime_artifact_handoff(
+            byte_limit=byte_limit,
+        )
+        if (
+            self.native_artifact is not None
+            and handoff.artifact_name != self.native_artifact.name
+        ):
+            raise PackageReadError(
+                f"{self.loader_name} loader selected artifact mismatch: "
+                f"{handoff.artifact_name} != {self.native_artifact.name}"
+            )
+        return handoff
 
     @property
     def native_admission_summary(self) -> dict[str, Any]:
