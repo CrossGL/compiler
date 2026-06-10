@@ -3,12 +3,16 @@
   "kind": "crossgl-runtime-loader-plan",
   "success": false,
   "metadataOnly": true,
+  "sourceParsingRequired": false,
   "compilerInvocationRequired": false,
   "deviceExecutionRequired": false,
   "packageFormat": "directory",
+  "packageVersion": 1,
   "packageTarget": "directx",
   "requestedLoaderTarget": "directx",
+  "selectedTarget": null,
   "targetMatchesPackage": true,
+  "loadable": false,
   "requestedPackageMode": "auto",
   "selectedPackageMode": null,
   "selectedArtifact": {
@@ -17,6 +21,35 @@
     "packageMode": "source-package",
     "packageRelative": true,
     "exists": true
+  },
+  "requiredArtifacts": [
+    "backendSource",
+    "nativeBinary"
+  ],
+  "requiredArtifactPaths": {
+    "backendSource": "backend/directx/StorageBufferComputeShader.hlsl",
+    "nativeBinary": "backend/directx/StorageBufferComputeShader.dxil"
+  },
+  "runtimeArtifactPath": "backend/directx/StorageBufferComputeShader.hlsl",
+  "runtimeArtifactSelection": {
+    "schemaVersion": 1,
+    "requestedTarget": "directx",
+    "requestedPackageMode": "auto",
+    "packageTarget": "directx",
+    "selectedTarget": null,
+    "selected": false,
+    "selectedPackageMode": null,
+    "sourceParsingRequired": false,
+    "compilerInvocationRequired": false,
+    "deviceExecutionRequired": false,
+    "sourceInputs": [],
+    "artifact": {
+      "name": "backendSource",
+      "path": "backend/directx/StorageBufferComputeShader.hlsl",
+      "packageMode": "source-package",
+      "packageRelative": true,
+      "exists": true
+    }
   },
   "requiredMetadataInputs": [
     "manifest.json",

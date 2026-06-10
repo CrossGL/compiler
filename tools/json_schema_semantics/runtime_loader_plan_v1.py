@@ -4,7 +4,7 @@ from collections import Counter
 
 from package_target_contracts import TARGET_REQUIRED_PATH_ARTIFACTS
 
-from .common import add_equal_error
+from .common import add_equal_error, validate_normalized_package_path
 
 
 REQUIRED_METADATA_INPUTS = ["manifest.json", "reflection.json", "diagnostics.json"]
@@ -27,6 +27,10 @@ def validate_diagnostic_counts(errors, instance):
 def validate_metadata_only_contract(errors, instance):
     if instance["metadataOnly"] is not True:
         errors.append("$.metadataOnly: runtime loader plan must be metadata-only")
+    if instance["sourceParsingRequired"] is not False:
+        errors.append(
+            "$.sourceParsingRequired: runtime loader plan must not require source parsing"
+        )
     if instance["compilerInvocationRequired"] is not False:
         errors.append(
             "$.compilerInvocationRequired: runtime loader plan must not require "
@@ -43,6 +47,22 @@ def validate_metadata_only_contract(errors, instance):
             f"{REQUIRED_METADATA_INPUTS!r}"
         )
 
+    selection = instance["runtimeArtifactSelection"]
+    for field in (
+        "sourceParsingRequired",
+        "compilerInvocationRequired",
+        "deviceExecutionRequired",
+    ):
+        add_equal_error(
+            errors,
+            f"$.runtimeArtifactSelection.{field}",
+            selection[field],
+            instance[field],
+            f"$.{field}",
+        )
+    if selection["sourceInputs"] != []:
+        errors.append("$.runtimeArtifactSelection.sourceInputs: expected []")
+
 
 def validate_target_and_mode(errors, instance):
     package_target = instance["packageTarget"]
@@ -58,6 +78,21 @@ def validate_target_and_mode(errors, instance):
         instance["targetMatchesPackage"],
         targets_match,
         "package/requested target equality",
+    )
+    selected_target = requested_target if instance["success"] else None
+    add_equal_error(
+        errors,
+        "$.selectedTarget",
+        instance["selectedTarget"],
+        selected_target,
+        "successful requested loader target",
+    )
+    add_equal_error(
+        errors,
+        "$.loadable",
+        instance["loadable"],
+        instance["success"],
+        "$.success",
     )
 
     selected_mode = instance["selectedPackageMode"]
@@ -78,6 +113,11 @@ def validate_target_and_mode(errors, instance):
             errors.append(
                 "$.selectedPackageMode: must be null when selectedArtifact is null"
             )
+        if instance["runtimeArtifactPath"] is not None:
+            errors.append(
+                "$.runtimeArtifactPath: must be null when selectedArtifact is null"
+            )
+        validate_runtime_artifact_selection(errors, instance)
         return
 
     add_equal_error(
@@ -107,8 +147,20 @@ def validate_target_and_mode(errors, instance):
         errors.append("$.selectedArtifact.packageRelative: expected true")
     if not selected_artifact["exists"]:
         errors.append("$.selectedArtifact.exists: expected true")
-    if selected_artifact["path"].startswith("/") or "\\" in selected_artifact["path"]:
+    if selected_artifact["path"].startswith("/"):
         errors.append("$.selectedArtifact.path: expected normalized package path")
+    validate_normalized_package_path(
+        errors,
+        "$.selectedArtifact.path",
+        selected_artifact["path"],
+    )
+    add_equal_error(
+        errors,
+        "$.runtimeArtifactPath",
+        instance["runtimeArtifactPath"],
+        selected_artifact["path"],
+        "$.selectedArtifact.path",
+    )
 
     requested_mode = instance["requestedPackageMode"]
     if requested_mode != "auto" and selected_mode != requested_mode:
@@ -116,6 +168,40 @@ def validate_target_and_mode(errors, instance):
             "$.selectedPackageMode: explicit requestedPackageMode must select "
             f"{requested_mode!r}"
         )
+    validate_runtime_artifact_selection(errors, instance)
+
+
+def validate_runtime_artifact_selection(errors, instance):
+    selection = instance["runtimeArtifactSelection"]
+    equal_fields = (
+        ("requestedTarget", "requestedLoaderTarget"),
+        ("requestedPackageMode", "requestedPackageMode"),
+        ("packageTarget", "packageTarget"),
+        ("selectedTarget", "selectedTarget"),
+        ("selectedPackageMode", "selectedPackageMode"),
+    )
+    for selection_field, top_level_field in equal_fields:
+        add_equal_error(
+            errors,
+            f"$.runtimeArtifactSelection.{selection_field}",
+            selection[selection_field],
+            instance[top_level_field],
+            f"$.{top_level_field}",
+        )
+    add_equal_error(
+        errors,
+        "$.runtimeArtifactSelection.selected",
+        selection["selected"],
+        instance["success"],
+        "$.success",
+    )
+    add_equal_error(
+        errors,
+        "$.runtimeArtifactSelection.artifact",
+        selection["artifact"],
+        instance["selectedArtifact"],
+        "$.selectedArtifact",
+    )
 
 
 def validate_artifact_requirements(errors, instance):
@@ -126,6 +212,10 @@ def validate_artifact_requirements(errors, instance):
             errors.append(
                 "$.packageArtifactRequirements: successful plan requires requirements"
             )
+        if instance["requiredArtifacts"] != []:
+            errors.append("$.requiredArtifacts: expected [] without requirements")
+        if instance["requiredArtifactPaths"] != {}:
+            errors.append("$.requiredArtifactPaths: expected {} without requirements")
         return
 
     add_equal_error(
@@ -135,6 +225,30 @@ def validate_artifact_requirements(errors, instance):
         package_target,
         "$.packageTarget",
     )
+    add_equal_error(
+        errors,
+        "$.requiredArtifacts",
+        instance["requiredArtifacts"],
+        requirements["requiredPathArtifacts"],
+        "$.packageArtifactRequirements.requiredPathArtifacts",
+    )
+    required_path_keys = list(instance["requiredArtifactPaths"].keys())
+    if sorted(required_path_keys) != sorted(instance["requiredArtifacts"]):
+        errors.append(
+            "$.requiredArtifactPaths: expected exactly the requiredArtifacts keys"
+        )
+    for artifact_name, artifact_path in instance["requiredArtifactPaths"].items():
+        if artifact_path is None:
+            continue
+        if artifact_path.startswith("/"):
+            errors.append(
+                f"$.requiredArtifactPaths.{artifact_name}: expected package path"
+            )
+        validate_normalized_package_path(
+            errors,
+            f"$.requiredArtifactPaths.{artifact_name}",
+            artifact_path,
+        )
 
     expected_artifacts = TARGET_REQUIRED_PATH_ARTIFACTS.get(requirements["target"])
     if expected_artifacts is not None:

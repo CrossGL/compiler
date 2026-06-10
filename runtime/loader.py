@@ -367,14 +367,18 @@ class RuntimeLoaderPlan:
             and diagnostic_counts["error"] == 0
             and target_matches_package,
             "metadataOnly": True,
+            "sourceParsingRequired": self.source_parsing_required,
             "compilerInvocationRequired": False,
             "deviceExecutionRequired": False,
             "packageFormat": _runtime_loader_plan_package_format(
                 self.compatibility_report.package_format
             ),
+            "packageVersion": self.compatibility_report.manifest_schema_version,
             "packageTarget": package_target,
             "requestedLoaderTarget": requested_target,
+            "selectedTarget": self.selected_target,
             "targetMatchesPackage": target_matches_package,
+            "loadable": self.loadable,
             "requestedPackageMode": (
                 self.runtime_artifact_selection.requested_package_mode
             ),
@@ -382,6 +386,20 @@ class RuntimeLoaderPlan:
                 selected_artifact["packageMode"] if selected_artifact else None
             ),
             "selectedArtifact": selected_artifact,
+            "requiredArtifacts": list(self.required_artifacts),
+            "requiredArtifactPaths": self.required_artifact_paths,
+            "runtimeArtifactPath": self.runtime_artifact_path,
+            "runtimeArtifactSelection": (
+                _runtime_loader_plan_contract_runtime_artifact_selection(
+                    self,
+                    selected_artifact=selected_artifact,
+                    success=(
+                        selected_artifact is not None
+                        and diagnostic_counts["error"] == 0
+                        and target_matches_package
+                    ),
+                )
+            ),
             "requiredMetadataInputs": list(
                 _RUNTIME_LOADER_PLAN_REQUIRED_METADATA_INPUTS
             ),
@@ -1270,6 +1288,32 @@ def _runtime_loader_plan_contract_selected_artifact(
             not PurePosixPath(package_path).is_absolute() and "\\" not in package_path
         ),
         "exists": artifact.exists,
+    }
+
+
+def _runtime_loader_plan_contract_runtime_artifact_selection(
+    plan: RuntimeLoaderPlan,
+    *,
+    selected_artifact: dict[str, Any] | None,
+    success: bool,
+) -> dict[str, Any]:
+    return {
+        "schemaVersion": 1,
+        "requestedTarget": _runtime_loader_plan_target_or_null(plan.loader_target),
+        "requestedPackageMode": (
+            plan.runtime_artifact_selection.requested_package_mode
+        ),
+        "packageTarget": _runtime_loader_plan_target_or_null(plan.package_target),
+        "selectedTarget": plan.selected_target if success else None,
+        "selected": success,
+        "selectedPackageMode": (
+            selected_artifact["packageMode"] if selected_artifact else None
+        ),
+        "sourceParsingRequired": plan.source_parsing_required,
+        "compilerInvocationRequired": False,
+        "deviceExecutionRequired": False,
+        "sourceInputs": [],
+        "artifact": selected_artifact,
     }
 
 

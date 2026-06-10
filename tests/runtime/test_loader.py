@@ -161,6 +161,42 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             self.assertEqual(contract["requestedLoaderTarget"], "directx")
             self.assertEqual(contract["selectedPackageMode"], "source-package")
             self.assertEqual(contract["selectedArtifact"]["name"], "backendSource")
+            self.assertFalse(contract["sourceParsingRequired"])
+            self.assertEqual(contract["packageVersion"], 1)
+            self.assertEqual(contract["selectedTarget"], "directx")
+            self.assertTrue(contract["loadable"])
+            self.assertEqual(
+                contract["requiredArtifacts"],
+                ["backendSource", "nativeBinary"],
+            )
+            self.assertEqual(
+                contract["requiredArtifactPaths"],
+                {
+                    "backendSource": "backend/directx/RuntimeLoaderFixture.hlsl",
+                    "nativeBinary": "backend/directx/RuntimeLoaderFixture.dxil",
+                },
+            )
+            self.assertEqual(
+                contract["runtimeArtifactPath"],
+                "backend/directx/RuntimeLoaderFixture.hlsl",
+            )
+            self.assertEqual(
+                contract["runtimeArtifactSelection"],
+                {
+                    "schemaVersion": 1,
+                    "requestedTarget": "directx",
+                    "requestedPackageMode": "auto",
+                    "packageTarget": "directx",
+                    "selectedTarget": "directx",
+                    "selected": True,
+                    "selectedPackageMode": "source-package",
+                    "sourceParsingRequired": False,
+                    "compilerInvocationRequired": False,
+                    "deviceExecutionRequired": False,
+                    "sourceInputs": [],
+                    "artifact": contract["selectedArtifact"],
+                },
+            )
             self.assertEqual(
                 read_runtime_loader_plan_contract(package_dir, "directx"),
                 contract,

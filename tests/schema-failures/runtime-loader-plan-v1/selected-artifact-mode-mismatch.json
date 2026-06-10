@@ -3,12 +3,16 @@
   "kind": "crossgl-runtime-loader-plan",
   "success": true,
   "metadataOnly": true,
+  "sourceParsingRequired": false,
   "compilerInvocationRequired": false,
   "deviceExecutionRequired": false,
   "packageFormat": "directory",
+  "packageVersion": 1,
   "packageTarget": "vulkan",
   "requestedLoaderTarget": "vulkan",
+  "selectedTarget": "vulkan",
   "targetMatchesPackage": true,
+  "loadable": true,
   "requestedPackageMode": "auto",
   "selectedPackageMode": "native",
   "selectedArtifact": {
@@ -17,6 +21,35 @@
     "packageMode": "source-package",
     "packageRelative": true,
     "exists": true
+  },
+  "requiredArtifacts": [
+    "backendAssembly",
+    "nativeBinary"
+  ],
+  "requiredArtifactPaths": {
+    "backendAssembly": "backend/vulkan/Shader.spvasm",
+    "nativeBinary": "backend/vulkan/Shader.spv"
+  },
+  "runtimeArtifactPath": "backend/vulkan/Shader.spv",
+  "runtimeArtifactSelection": {
+    "schemaVersion": 1,
+    "requestedTarget": "vulkan",
+    "requestedPackageMode": "auto",
+    "packageTarget": "vulkan",
+    "selectedTarget": "vulkan",
+    "selected": true,
+    "selectedPackageMode": "native",
+    "sourceParsingRequired": false,
+    "compilerInvocationRequired": false,
+    "deviceExecutionRequired": false,
+    "sourceInputs": [],
+    "artifact": {
+      "name": "nativeBinary",
+      "path": "backend/vulkan/Shader.spv",
+      "packageMode": "source-package",
+      "packageRelative": true,
+      "exists": true
+    }
   },
   "requiredMetadataInputs": [
     "manifest.json",

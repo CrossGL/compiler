@@ -3,12 +3,16 @@
   "kind": "crossgl-runtime-loader-plan",
   "success": true,
   "metadataOnly": false,
+  "sourceParsingRequired": false,
   "compilerInvocationRequired": false,
   "deviceExecutionRequired": false,
   "packageFormat": "directory",
+  "packageVersion": 1,
   "packageTarget": "directx",
   "requestedLoaderTarget": "directx",
+  "selectedTarget": "directx",
   "targetMatchesPackage": true,
+  "loadable": true,
   "requestedPackageMode": "auto",
   "selectedPackageMode": "source-package",
   "selectedArtifact": {
@@ -17,6 +21,35 @@
     "packageMode": "source-package",
     "packageRelative": true,
     "exists": true
+  },
+  "requiredArtifacts": [
+    "backendSource",
+    "nativeBinary"
+  ],
+  "requiredArtifactPaths": {
+    "backendSource": "backend/directx/Shader.hlsl",
+    "nativeBinary": "backend/directx/Shader.dxil"
+  },
+  "runtimeArtifactPath": "backend/directx/Shader.hlsl",
+  "runtimeArtifactSelection": {
+    "schemaVersion": 1,
+    "requestedTarget": "directx",
+    "requestedPackageMode": "auto",
+    "packageTarget": "directx",
+    "selectedTarget": "directx",
+    "selected": true,
+    "selectedPackageMode": "source-package",
+    "sourceParsingRequired": false,
+    "compilerInvocationRequired": false,
+    "deviceExecutionRequired": false,
+    "sourceInputs": [],
+    "artifact": {
+      "name": "backendSource",
+      "path": "backend/directx/Shader.hlsl",
+      "packageMode": "source-package",
+      "packageRelative": true,
+      "exists": true
+    }
   },
   "requiredMetadataInputs": [
     "manifest.json",

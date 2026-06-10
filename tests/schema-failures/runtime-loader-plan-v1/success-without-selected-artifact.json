@@ -3,15 +3,42 @@
   "kind": "crossgl-runtime-loader-plan",
   "success": true,
   "metadataOnly": true,
+  "sourceParsingRequired": false,
   "compilerInvocationRequired": false,
   "deviceExecutionRequired": false,
   "packageFormat": "directory",
+  "packageVersion": 1,
   "packageTarget": "directx",
   "requestedLoaderTarget": "directx",
+  "selectedTarget": "directx",
   "targetMatchesPackage": true,
+  "loadable": true,
   "requestedPackageMode": "auto",
   "selectedPackageMode": null,
   "selectedArtifact": null,
+  "requiredArtifacts": [
+    "backendSource",
+    "nativeBinary"
+  ],
+  "requiredArtifactPaths": {
+    "backendSource": "backend/directx/Shader.hlsl",
+    "nativeBinary": "backend/directx/Shader.dxil"
+  },
+  "runtimeArtifactPath": null,
+  "runtimeArtifactSelection": {
+    "schemaVersion": 1,
+    "requestedTarget": "directx",
+    "requestedPackageMode": "auto",
+    "packageTarget": "directx",
+    "selectedTarget": "directx",
+    "selected": true,
+    "selectedPackageMode": null,
+    "sourceParsingRequired": false,
+    "compilerInvocationRequired": false,
+    "deviceExecutionRequired": false,
+    "sourceInputs": [],
+    "artifact": null
+  },
   "requiredMetadataInputs": [
     "manifest.json",
     "reflection.json",

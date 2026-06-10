@@ -215,6 +215,58 @@ Selection selectArtifact(const PackageMetadata &metadata,
   return {};
 }
 
+std::optional<std::uintmax_t>
+packageManifestSchemaVersion(const PackageMetadata *metadata) {
+  if (metadata == nullptr) {
+    return std::nullopt;
+  }
+  return objectUnsignedMember(metadata->documents.manifest, "schemaVersion");
+}
+
+std::vector<std::string>
+requiredArtifactNames(const PackageMetadata *metadata,
+                      const PackageTargetContract *contract) {
+  std::vector<std::string> names;
+  if (metadata != nullptr && metadata->artifactRequirements) {
+    names.reserve(metadata->artifactRequirements->requiredPathArtifacts.size());
+    for (const PackageRequiredPathArtifactRecord &artifact :
+         metadata->artifactRequirements->requiredPathArtifacts) {
+      names.push_back(artifact.name);
+    }
+    return names;
+  }
+
+  if (contract != nullptr) {
+    names.reserve(contract->requiredArtifactCount);
+    for (std::size_t index = 0; index < contract->requiredArtifactCount; ++index) {
+      names.emplace_back(contract->requiredArtifacts[index]);
+    }
+  }
+  return names;
+}
+
+void writeRequiredArtifactPaths(std::ostream &out,
+                                const PackageMetadata *metadata,
+                                const std::vector<std::string> &names,
+                                std::string_view indent) {
+  out << "{";
+  for (std::size_t index = 0; index < names.size(); ++index) {
+    const PackageArtifactRecord *artifact =
+        metadata != nullptr ? findArtifact(*metadata, names[index]) : nullptr;
+    out << (index == 0 ? "\n" : ",\n")
+        << indent << "  \"" << escapeJson(names[index]) << "\": ";
+    if (artifact != nullptr && !artifact->path.empty()) {
+      out << "\"" << escapeJson(artifact->path) << "\"";
+    } else {
+      out << "null";
+    }
+  }
+  if (!names.empty()) {
+    out << "\n" << indent;
+  }
+  out << "}";
+}
+
 void writePackageArtifactRequirements(
     std::ostream &out, const PackageArtifactRequirementsRecord &requirements,
     std::string_view indent) {
@@ -290,6 +342,43 @@ void writeSelectedArtifact(std::ostream &out,
       << indent << "  \"exists\": " << (artifact->exists ? "true" : "false")
       << "\n"
       << indent << "}";
+}
+
+void writeRuntimeArtifactSelection(
+    std::ostream &out, const PackageRuntimePlanOptions &options,
+    const PackageMetadata *metadata, const Selection &selection, bool success,
+    std::string_view indent) {
+  const std::string *packageTarget = metadata ? &metadata->target : nullptr;
+  const std::string *requestedLoaderTarget =
+      isKnownPackageTarget(options.requestedTarget) ? &options.requestedTarget
+                                                   : nullptr;
+  const std::optional<std::string> selectedTarget =
+      success && requestedLoaderTarget != nullptr
+          ? std::optional<std::string>(*requestedLoaderTarget)
+          : std::nullopt;
+  out << "{\n"
+      << indent << "  \"schemaVersion\": 1,\n"
+      << indent << "  \"requestedTarget\": ";
+  writeNullableString(out, requestedLoaderTarget);
+  out << ",\n" << indent << "  \"requestedPackageMode\": \""
+      << escapeJson(toString(options.packageMode)) << "\",\n"
+      << indent << "  \"packageTarget\": ";
+  writeNullableString(out, packageTarget);
+  out << ",\n" << indent << "  \"selectedTarget\": ";
+  writeNullableString(out, selectedTarget);
+  out << ",\n" << indent << "  \"selected\": "
+      << (success ? "true" : "false") << ",\n"
+      << indent << "  \"selectedPackageMode\": ";
+  writeNullableString(out, selection.mode);
+  out << ",\n"
+      << indent << "  \"sourceParsingRequired\": false,\n"
+      << indent << "  \"compilerInvocationRequired\": false,\n"
+      << indent << "  \"deviceExecutionRequired\": false,\n"
+      << indent << "  \"sourceInputs\": [],\n"
+      << indent << "  \"artifact\": ";
+  writeSelectedArtifact(out, selection.artifact, selection.mode,
+                        std::string(indent) + "  ");
+  out << "\n" << indent << "}";
 }
 
 void writeTargetLegalizationEvidenceSummary(std::ostream &out,
@@ -412,15 +501,31 @@ void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
                                                    : nullptr;
   const bool targetMatchesPackage =
       metadata != nullptr && metadata->target == options.requestedTarget;
+  const std::optional<std::uintmax_t> packageVersion =
+      packageManifestSchemaVersion(metadata);
+  const std::optional<std::string> selectedTarget =
+      success && requestedLoaderTarget != nullptr
+          ? std::optional<std::string>(*requestedLoaderTarget)
+          : std::nullopt;
+  const std::vector<std::string> requiredArtifacts =
+      requiredArtifactNames(metadata, contract);
   out << "{\n"
       << "  \"schemaVersion\": 1,\n"
       << "  \"kind\": \"crossgl-runtime-loader-plan\",\n"
       << "  \"success\": " << (success ? "true" : "false") << ",\n"
       << "  \"metadataOnly\": true,\n"
+      << "  \"sourceParsingRequired\": false,\n"
       << "  \"compilerInvocationRequired\": false,\n"
       << "  \"deviceExecutionRequired\": false,\n"
       << "  \"packageFormat\": ";
   writeNullableString(out, packageFormat);
+  out << ",\n"
+      << "  \"packageVersion\": ";
+  if (packageVersion) {
+    out << *packageVersion;
+  } else {
+    out << "null";
+  }
   out << ",\n"
       << "  \"packageTarget\": ";
   writeNullableString(out, packageTarget);
@@ -428,8 +533,12 @@ void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
       << "  \"requestedLoaderTarget\": ";
   writeNullableString(out, requestedLoaderTarget);
   out << ",\n"
+      << "  \"selectedTarget\": ";
+  writeNullableString(out, selectedTarget);
+  out << ",\n"
       << "  \"targetMatchesPackage\": "
       << (targetMatchesPackage ? "true" : "false") << ",\n"
+      << "  \"loadable\": " << (success ? "true" : "false") << ",\n"
       << "  \"requestedPackageMode\": \""
       << escapeJson(toString(options.packageMode)) << "\",\n"
       << "  \"selectedPackageMode\": ";
@@ -437,6 +546,22 @@ void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
   out << ",\n"
       << "  \"selectedArtifact\": ";
   writeSelectedArtifact(out, selection.artifact, selection.mode, "  ");
+  out << ",\n"
+      << "  \"requiredArtifacts\": ";
+  writeStringArray(out, requiredArtifacts);
+  out << ",\n"
+      << "  \"requiredArtifactPaths\": ";
+  writeRequiredArtifactPaths(out, metadata, requiredArtifacts, "  ");
+  out << ",\n"
+      << "  \"runtimeArtifactPath\": ";
+  if (selection.artifact != nullptr && !selection.artifact->path.empty()) {
+    out << "\"" << escapeJson(selection.artifact->path) << "\"";
+  } else {
+    out << "null";
+  }
+  out << ",\n"
+      << "  \"runtimeArtifactSelection\": ";
+  writeRuntimeArtifactSelection(out, options, metadata, selection, success, "  ");
   out << ",\n"
       << "  \"requiredMetadataInputs\": [\"manifest.json\", "
          "\"reflection.json\", \"diagnostics.json\"],\n"

@@ -9,15 +9,23 @@
     "kind",
     "success",
     "metadataOnly",
+    "sourceParsingRequired",
     "compilerInvocationRequired",
     "deviceExecutionRequired",
     "packageFormat",
+    "packageVersion",
     "packageTarget",
     "requestedLoaderTarget",
+    "selectedTarget",
     "targetMatchesPackage",
+    "loadable",
     "requestedPackageMode",
     "selectedPackageMode",
     "selectedArtifact",
+    "requiredArtifacts",
+    "requiredArtifactPaths",
+    "runtimeArtifactPath",
+    "runtimeArtifactSelection",
     "requiredMetadataInputs",
     "packageArtifactRequirementsSource",
     "packageArtifactRequirements",
@@ -42,6 +50,10 @@
       "type": "boolean",
       "const": true
     },
+    "sourceParsingRequired": {
+      "type": "boolean",
+      "const": false
+    },
     "compilerInvocationRequired": {
       "type": "boolean",
       "const": false
@@ -61,13 +73,22 @@
         null
       ]
     },
+    "packageVersion": {
+      "$ref": "#/$defs/nonNegativeIntegerOrNull"
+    },
     "packageTarget": {
       "$ref": "#/$defs/packageTargetOrNull"
     },
     "requestedLoaderTarget": {
       "$ref": "#/$defs/packageTargetOrNull"
     },
+    "selectedTarget": {
+      "$ref": "#/$defs/packageTargetOrNull"
+    },
     "targetMatchesPackage": {
+      "type": "boolean"
+    },
+    "loadable": {
       "type": "boolean"
     },
     "requestedPackageMode": {
@@ -85,6 +106,22 @@
           "type": "null"
         }
       ]
+    },
+    "requiredArtifacts": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/artifactRole"
+      }
+    },
+    "requiredArtifactPaths": {
+      "$ref": "#/$defs/requiredArtifactPaths"
+    },
+    "runtimeArtifactPath": {
+      "$ref": "#/$defs/artifactPathOrNull"
+    },
+    "runtimeArtifactSelection": {
+      "$ref": "#/$defs/runtimeArtifactSelection"
     },
     "requiredMetadataInputs": {
       "type": "array",
@@ -206,15 +243,10 @@
       ],
       "properties": {
         "name": {
-          "type": "string",
-          "enum": [
-            "backendSource",
-            "nativeBinary"
-          ]
+          "$ref": "#/$defs/runtimeArtifactRole"
         },
         "path": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/artifactPath"
         },
         "packageMode": {
           "$ref": "#/$defs/selectedPackageMode"
@@ -224,6 +256,119 @@
         },
         "exists": {
           "type": "boolean"
+        }
+      }
+    },
+    "runtimeArtifactSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "requestedTarget",
+        "requestedPackageMode",
+        "packageTarget",
+        "selectedTarget",
+        "selected",
+        "selectedPackageMode",
+        "sourceParsingRequired",
+        "compilerInvocationRequired",
+        "deviceExecutionRequired",
+        "sourceInputs",
+        "artifact"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "requestedTarget": {
+          "$ref": "#/$defs/packageTargetOrNull"
+        },
+        "requestedPackageMode": {
+          "$ref": "#/$defs/requestedPackageMode"
+        },
+        "packageTarget": {
+          "$ref": "#/$defs/packageTargetOrNull"
+        },
+        "selectedTarget": {
+          "$ref": "#/$defs/packageTargetOrNull"
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "selectedPackageMode": {
+          "$ref": "#/$defs/selectedPackageModeOrNull"
+        },
+        "sourceParsingRequired": {
+          "type": "boolean",
+          "const": false
+        },
+        "compilerInvocationRequired": {
+          "type": "boolean",
+          "const": false
+        },
+        "deviceExecutionRequired": {
+          "type": "boolean",
+          "const": false
+        },
+        "sourceInputs": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "artifact": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/selectedArtifact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "artifactRole": {
+      "type": "string",
+      "enum": [
+        "backendSource",
+        "backendAssembly",
+        "intermediate",
+        "nativeBinary"
+      ]
+    },
+    "runtimeArtifactRole": {
+      "type": "string",
+      "enum": [
+        "backendSource",
+        "nativeBinary"
+      ]
+    },
+    "artifactPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifactPathOrNull": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "requiredArtifactPaths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backendSource": {
+          "$ref": "#/$defs/artifactPathOrNull"
+        },
+        "backendAssembly": {
+          "$ref": "#/$defs/artifactPathOrNull"
+        },
+        "intermediate": {
+          "$ref": "#/$defs/artifactPathOrNull"
+        },
+        "nativeBinary": {
+          "$ref": "#/$defs/artifactPathOrNull"
         }
       }
     },
@@ -251,13 +396,7 @@
           "minItems": 1,
           "uniqueItems": true,
           "items": {
-            "type": "string",
-            "enum": [
-              "backendSource",
-              "backendAssembly",
-              "intermediate",
-              "nativeBinary"
-            ]
+            "$ref": "#/$defs/artifactRole"
           }
         },
         "requiresNativeBinaryStatus": {
