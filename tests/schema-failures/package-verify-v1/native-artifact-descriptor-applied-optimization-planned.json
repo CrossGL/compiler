@@ -22,6 +22,31 @@
         "tool": "dxc",
         "toolFlag": "-O3"
       }
+    },
+    "vulkanNativeProfile": {
+      "applicable": false,
+      "nativeProfileArtifactPresent": false,
+      "nativeProfileExists": false,
+      "health": "not-applicable",
+      "schemaVersion": null,
+      "api": null,
+      "profileName": null,
+      "vulkanVersion": null,
+      "spirvVersion": null,
+      "generator": null,
+      "nativeBinary": null,
+      "backendAssembly": null,
+      "disassemblyStatus": null,
+      "disassemblyPath": null,
+      "disassemblyExists": null,
+      "checks": {
+        "targetMatchesPackage": null,
+        "moduleMatchesPackage": null,
+        "nativeBinaryMatchesManifest": null,
+        "backendAssemblyMatchesManifest": null,
+        "emittedDisassemblyExists": null,
+        "spirvProfilePresent": null
+      }
     }
   },
   "diagnosticCounts": {
