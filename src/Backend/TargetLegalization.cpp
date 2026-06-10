@@ -2697,7 +2697,7 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
     policy.profileApi = "vulkan";
     policy.profileName = "vulkan-prototype";
     policy.vulkanVersion = "1.2";
-    policy.spirvVersion = "1.0";
+    policy.spirvVersion = kVulkanNativeSpirvVersion;
     policy.generatorName = "CrossGL Vulkan prototype backend";
     policy.binaryFormat = "SPIR-V";
     policy.assemblyFormat = "SPIR-V assembly";

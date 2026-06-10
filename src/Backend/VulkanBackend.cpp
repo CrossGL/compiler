@@ -6028,7 +6028,9 @@ public:
     module_.addExecutionMode(entryId, "LocalSize",
                              {workgroup.x, workgroup.y, workgroup.z});
     (void)module;
-    return module_.render();
+    SPIRVRenderOptions renderOptions;
+    renderOptions.version = kVulkanNativeSpirvVersion;
+    return module_.render(renderOptions);
   }
 
   std::vector<VulkanSPIRVImport> extendedInstructionImports() const {
@@ -12417,7 +12419,7 @@ public:
 
     std::ostringstream out;
     out << "; SPIR-V\n";
-    out << "; Version: 1.0\n";
+    out << "; Version: " << kVulkanNativeSpirvVersion << "\n";
     out << "; Generator: CrossGL Vulkan graphics prototype\n";
     out << "; Bound: " << (nextId_ + 1) << "\n";
     out << "; Schema: 0\n";

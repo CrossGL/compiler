@@ -733,7 +733,7 @@ def expect_inspect(
             case_name,
             "inspect.vulkanNativeProfile.spirvVersion",
             profile.get("spirvVersion"),
-            "1.0",
+            "1.5",
         )
 
 

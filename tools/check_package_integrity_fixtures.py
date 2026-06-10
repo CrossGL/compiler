@@ -808,7 +808,7 @@ def base_vulkan_native_profile(manifest):
         "profile": {
             "name": "vulkan-prototype",
             "vulkanVersion": "1.2",
-            "spirvVersion": "1.0",
+            "spirvVersion": "1.5",
         },
         "generator": "CrossGL Vulkan prototype backend",
         "artifacts": {

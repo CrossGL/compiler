@@ -2921,7 +2921,7 @@ def check_valid_target(case_name, manifest):
                 case_name,
                 "vulkanNativeProfile.spirvVersion",
                 native_profile["spirvVersion"],
-                "1.0",
+                "1.5",
             )
             expect_equal(
                 errors,

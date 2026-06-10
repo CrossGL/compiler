@@ -26130,7 +26130,8 @@ shader VulkanLegalizedBindingRequiredShader {
              nativePackagePolicy.profileApi == "vulkan" &&
              nativePackagePolicy.profileName == "vulkan-prototype" &&
              nativePackagePolicy.vulkanVersion == "1.2" &&
-             nativePackagePolicy.spirvVersion == "1.0" &&
+             nativePackagePolicy.spirvVersion ==
+                 crossgl::kVulkanNativeSpirvVersion &&
              nativePackagePolicy.generatorName ==
                  "CrossGL Vulkan prototype backend" &&
              nativePackagePolicy.binaryFormat == "SPIR-V" &&

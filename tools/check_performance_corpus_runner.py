@@ -3419,7 +3419,7 @@ def vulkan_native_profile(module, artifacts, args):
         "profile": {
             "name": "vulkan-prototype",
             "vulkanVersion": "1.2",
-            "spirvVersion": "1.0",
+            "spirvVersion": "1.5",
         },
         "generator": "fake-cglc",
         "artifacts": {
