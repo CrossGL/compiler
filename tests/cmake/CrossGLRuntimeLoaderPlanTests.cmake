@@ -170,3 +170,33 @@ crossgl_add_runtime_loader_plan_schema_test(
     "targetLegalizationEvidenceSummary.requiredToolIds=directx.toolchain.dxc|targetLegalizationEvidenceSummary.requiredToolIds=directx.validation.dxil-validator"
   EXPECTED_JSON_ARRAY_LENGTHS
     "requiredMetadataInputs=3|packageArtifactRequirements.requiredPathArtifacts=2|diagnostics=0")
+
+crossgl_add_runtime_loader_plan_schema_test(
+  NAME cglc_package_runtime_plan_stored_zip_root_source_package_auto_schema
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/runtime-plan-directx-stored-root-archive.cglb
+  PACKAGE_FORMAT stored-zip-root
+  PACKAGE_MODE auto
+  EXPECTED_RESULT 0
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|kind=crossgl-runtime-loader-plan|success=true|metadataOnly=true|compilerInvocationRequired=false|deviceExecutionRequired=false|packageFormat=zip|packageTarget=directx|requestedLoaderTarget=directx|targetMatchesPackage=true|requestedPackageMode=auto|selectedPackageMode=source-package|selectedArtifact.name=backendSource|selectedArtifact.path=backend/directx/StorageBufferComputeShader.hlsl|selectedArtifact.packageMode=source-package|selectedArtifact.packageRelative=true|selectedArtifact.exists=true|requiredMetadataInputs.0=manifest.json|requiredMetadataInputs.1=reflection.json|requiredMetadataInputs.2=diagnostics.json|packageArtifactRequirementsSource=manifest.packageArtifactRequirements|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|targetLegalizationEvidenceSummary.toolRequirementsPresent=true|targetLegalizationEvidenceSummary.target=directx|targetLegalizationEvidenceSummary.packageMode=source-package|targetLegalizationEvidenceSummary.requiredToolCount=2|reflectionSummary.resourceCount=1|reflectionSummary.targetResourceBindingCount=1|reflectionSummary.entryPointCount=1|reflectionSummary.workgroupSizeCount=1|reflectionSummary.threadgroupShapeSource=reflection.workgroupSizes|diagnosticCounts.error=0"
+  EXPECTED_JSON_ARRAY_CONTAINS
+    "targetLegalizationEvidenceSummary.requiredToolIds=directx.toolchain.dxc|targetLegalizationEvidenceSummary.requiredToolIds=directx.validation.dxil-validator"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "requiredMetadataInputs=3|packageArtifactRequirements.requiredPathArtifacts=2|diagnostics=0")
+
+crossgl_add_runtime_loader_plan_schema_test(
+  NAME cglc_package_runtime_plan_stored_zip_extra_root_file_source_package_auto_schema
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/runtime-plan-directx-stored-extra-root-archive.cglb
+  PACKAGE_FORMAT stored-zip-extra-root
+  PACKAGE_MODE auto
+  EXPECTED_RESULT 0
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|kind=crossgl-runtime-loader-plan|success=true|metadataOnly=true|compilerInvocationRequired=false|deviceExecutionRequired=false|packageFormat=zip|packageTarget=directx|requestedLoaderTarget=directx|targetMatchesPackage=true|requestedPackageMode=auto|selectedPackageMode=source-package|selectedArtifact.name=backendSource|selectedArtifact.path=backend/directx/StorageBufferComputeShader.hlsl|selectedArtifact.packageMode=source-package|selectedArtifact.packageRelative=true|selectedArtifact.exists=true|requiredMetadataInputs.0=manifest.json|requiredMetadataInputs.1=reflection.json|requiredMetadataInputs.2=diagnostics.json|packageArtifactRequirementsSource=manifest.packageArtifactRequirements|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|targetLegalizationEvidenceSummary.toolRequirementsPresent=true|targetLegalizationEvidenceSummary.target=directx|targetLegalizationEvidenceSummary.packageMode=source-package|targetLegalizationEvidenceSummary.requiredToolCount=2|reflectionSummary.resourceCount=1|reflectionSummary.targetResourceBindingCount=1|reflectionSummary.entryPointCount=1|reflectionSummary.workgroupSizeCount=1|reflectionSummary.threadgroupShapeSource=reflection.workgroupSizes|diagnosticCounts.error=0"
+  EXPECTED_JSON_ARRAY_CONTAINS
+    "targetLegalizationEvidenceSummary.requiredToolIds=directx.toolchain.dxc|targetLegalizationEvidenceSummary.requiredToolIds=directx.validation.dxil-validator"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "requiredMetadataInputs=3|packageArtifactRequirements.requiredPathArtifacts=2|diagnostics=0")

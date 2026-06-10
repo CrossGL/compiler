@@ -2940,17 +2940,27 @@ elseif(MODE STREQUAL "package-runtime-plan")
         "failed to create package runtime plan zip archive: "
         "${runtime_plan_archive_stderr}${runtime_plan_archive_stdout}")
     endif()
-  elseif(PACKAGE_FORMAT STREQUAL "stored-zip")
+  elseif(PACKAGE_FORMAT STREQUAL "stored-zip"
+      OR PACKAGE_FORMAT STREQUAL "stored-zip-root"
+      OR PACKAGE_FORMAT STREQUAL "stored-zip-extra-root")
     if(NOT DEFINED STORED_ZIP_PACKAGE_CREATOR)
       message(FATAL_ERROR
-        "STORED_ZIP_PACKAGE_CREATOR is required for PACKAGE_FORMAT=stored-zip")
+        "STORED_ZIP_PACKAGE_CREATOR is required for stored ZIP PACKAGE_FORMAT")
     endif()
     set(package_path "${OUTPUT}.stored-archive.cglb")
     file(REMOVE "${package_path}")
+    set(stored_zip_command
+      "${PYTHON3_EXECUTABLE}" "${STORED_ZIP_PACKAGE_CREATOR}"
+      --package-dir "${OUTPUT}"
+      --output "${package_path}")
+    if(PACKAGE_FORMAT STREQUAL "stored-zip-root")
+      list(APPEND stored_zip_command --no-prefix)
+    elseif(PACKAGE_FORMAT STREQUAL "stored-zip-extra-root")
+      list(APPEND stored_zip_command
+        --root-file "README.txt=not package metadata")
+    endif()
     execute_process(
-      COMMAND "${PYTHON3_EXECUTABLE}" "${STORED_ZIP_PACKAGE_CREATOR}"
-              --package-dir "${OUTPUT}"
-              --output "${package_path}"
+      COMMAND ${stored_zip_command}
       RESULT_VARIABLE runtime_plan_archive_result
       OUTPUT_VARIABLE runtime_plan_archive_stdout
       ERROR_VARIABLE runtime_plan_archive_stderr
@@ -2994,7 +3004,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   endif()
 
   set(package_path "${OUTPUT}")
-  set(verify_command "${CGLC}" package verify "${package_path}" --json)
+  set(verify_args)
   if(DEFINED MANIFEST_MUTATION_KIND)
     crossgl_mutate_package_manifest("${package_path}" "${MANIFEST_MUTATION_KIND}")
   endif()
@@ -3003,15 +3013,36 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL "invalid-package-dir")
     file(REMOVE_RECURSE "${package_path}")
     file(MAKE_DIRECTORY "${package_path}")
+  elseif(FAILURE_KIND STREQUAL "stored-zip-package")
+    if(NOT DEFINED STORED_ZIP_PACKAGE_CREATOR)
+      message(FATAL_ERROR
+        "STORED_ZIP_PACKAGE_CREATOR is required for stored ZIP verify tests")
+    endif()
+    set(stored_package_path "${OUTPUT}.stored-archive.cglb")
+    file(REMOVE "${stored_package_path}")
+    execute_process(
+      COMMAND "${PYTHON3_EXECUTABLE}" "${STORED_ZIP_PACKAGE_CREATOR}"
+              --package-dir "${OUTPUT}"
+              --output "${stored_package_path}"
+      RESULT_VARIABLE stored_package_result
+      OUTPUT_VARIABLE stored_package_stdout
+      ERROR_VARIABLE stored_package_stderr
+    )
+    if(NOT stored_package_result EQUAL 0)
+      message(FATAL_ERROR
+        "failed to create stored ZIP package for verify failure test: "
+        "${stored_package_stderr}${stored_package_stdout}")
+    endif()
+    set(package_path "${stored_package_path}")
   elseif(FAILURE_KIND STREQUAL "invalid-json-metadata")
     file(WRITE "${package_path}/manifest.json" "{ invalid json\n")
   elseif(FAILURE_KIND STREQUAL "source-mismatch")
     if(DEFINED VERIFY_SOURCE)
-      list(APPEND verify_command --source "${VERIFY_SOURCE}")
+      list(APPEND verify_args --source "${VERIFY_SOURCE}")
     else()
       set(mismatched_source "${package_path}-source-mismatch.cgl")
       file(WRITE "${mismatched_source}" "shader WrongSource {\n  compute main() {\n  }\n}\n")
-      list(APPEND verify_command --source "${mismatched_source}")
+      list(APPEND verify_args --source "${mismatched_source}")
     endif()
   elseif(FAILURE_KIND STREQUAL "missing-native-binary")
     file(READ "${package_path}/manifest.json" manifest)
@@ -3023,7 +3054,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
     file(REMOVE "${package_path}/${native_binary}")
   elseif(FAILURE_KIND STREQUAL "tampered-native-artifact-descriptor")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     file(READ "${package_path}/manifest.json" manifest)
     string(JSON native_artifact_descriptor ERROR_VARIABLE descriptor_error GET
@@ -3041,7 +3072,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "tampered-planned-native-artifact-optimization-level")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     file(READ "${package_path}/manifest.json" manifest)
     string(JSON native_artifact_descriptor ERROR_VARIABLE descriptor_error GET
@@ -3066,7 +3097,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "tampered-planned-native-artifact-compiler-tool")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     file(READ "${package_path}/manifest.json" manifest)
     string(JSON native_artifact_descriptor ERROR_VARIABLE descriptor_error GET
@@ -3084,7 +3115,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "tampered-unavailable-native-artifact-validator-tool")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     file(READ "${package_path}/manifest.json" manifest)
     string(JSON native_artifact_descriptor ERROR_VARIABLE descriptor_error GET
@@ -3101,14 +3132,14 @@ elseif(MODE STREQUAL "package-verify-json-failure")
     file(WRITE "${descriptor_path}" "${descriptor}")
   elseif(FAILURE_KIND STREQUAL "duplicate-selected-target-resource-binding")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     crossgl_mutate_package_reflection(
       "${package_path}" "duplicate-selected-target-resource-binding")
   elseif(FAILURE_KIND STREQUAL
          "selected-target-resource-binding-array-element-count-mismatch")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     crossgl_mutate_package_reflection(
       "${package_path}"
@@ -3116,7 +3147,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "selected-target-resource-binding-array-element-count-missing")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     crossgl_mutate_package_reflection(
       "${package_path}"
@@ -3124,7 +3155,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "selected-target-resource-binding-array-dimensions-mismatch")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     crossgl_mutate_package_reflection(
       "${package_path}"
@@ -3132,12 +3163,13 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL "malformed-package-artifact-requirements" OR
          FAILURE_KIND STREQUAL "target-conflicting-package-artifact-requirements")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
   else()
     message(FATAL_ERROR "unknown FAILURE_KIND: ${FAILURE_KIND}")
   endif()
 
+  set(verify_command "${CGLC}" package verify "${package_path}" --json ${verify_args})
   execute_process(
     COMMAND ${verify_command}
     RESULT_VARIABLE verify_result
@@ -3163,6 +3195,27 @@ elseif(MODE STREQUAL "package-inspect-json-failure")
   elseif(FAILURE_KIND STREQUAL "non-directory-package")
     file(REMOVE_RECURSE "${package_path}")
     file(WRITE "${package_path}" "not a package directory\n")
+  elseif(FAILURE_KIND STREQUAL "stored-zip-package")
+    if(NOT DEFINED STORED_ZIP_PACKAGE_CREATOR)
+      message(FATAL_ERROR
+        "STORED_ZIP_PACKAGE_CREATOR is required for stored ZIP inspect tests")
+    endif()
+    set(stored_package_path "${OUTPUT}.stored-archive.cglb")
+    file(REMOVE "${stored_package_path}")
+    execute_process(
+      COMMAND "${PYTHON3_EXECUTABLE}" "${STORED_ZIP_PACKAGE_CREATOR}"
+              --package-dir "${OUTPUT}"
+              --output "${stored_package_path}"
+      RESULT_VARIABLE stored_package_result
+      OUTPUT_VARIABLE stored_package_stdout
+      ERROR_VARIABLE stored_package_stderr
+    )
+    if(NOT stored_package_result EQUAL 0)
+      message(FATAL_ERROR
+        "failed to create stored ZIP package for inspect failure test: "
+        "${stored_package_stderr}${stored_package_stdout}")
+    endif()
+    set(package_path "${stored_package_path}")
   elseif(FAILURE_KIND STREQUAL "invalid-json-metadata")
     file(WRITE "${package_path}/manifest.json" "{ invalid json\n")
   elseif(FAILURE_KIND STREQUAL "malformed-package-artifact-requirements")

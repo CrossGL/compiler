@@ -124,7 +124,8 @@ function(crossgl_add_package_verify_json_failure_schema_test)
       "-DEXPECTED_JSON_FIELDS=${CROSSGL_VERIFY_FAILURE_SCHEMA_EXPECTED_JSON_FIELDS}"
       "-DEXPECTED_JSON_ARRAY_LENGTHS=${CROSSGL_VERIFY_FAILURE_SCHEMA_EXPECTED_JSON_ARRAY_LENGTHS}"
       -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-verify-v1.schema.json
-      -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+      -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+      -DSTORED_ZIP_PACKAGE_CREATOR=${CMAKE_CURRENT_FUNCTION_LIST_DIR}/CreateStoredZipPackage.py)
   if(CROSSGL_VERIFY_FAILURE_SCHEMA_TOOLCHAIN_PATH)
     list(APPEND verify_failure_definitions
       "-DTOOLCHAIN_PATH=${CROSSGL_VERIFY_FAILURE_SCHEMA_TOOLCHAIN_PATH}")
@@ -159,6 +160,17 @@ crossgl_add_package_verify_json_failure_schema_test(
     "schemaVersion=1|success=false|summary=null|diagnosticCounts.error=3|diagnostics.0.severity=error|diagnostics.0.code=package.verify.read-failed|diagnostics.1.severity=error|diagnostics.1.code=package.verify.read-failed|diagnostics.2.severity=error|diagnostics.2.code=package.verify.read-failed"
   EXPECTED_JSON_ARRAY_LENGTHS
     "diagnostics=3")
+
+crossgl_add_package_verify_json_failure_schema_test(
+  NAME cglc_package_verify_json_schema_stored_zip_package_failure
+  FAILURE_KIND stored-zip-package
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/stored-zip-package-verify-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=false|summary=null|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.unsupported-format"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=1")
 
 crossgl_add_package_verify_json_failure_schema_test(
   NAME cglc_package_verify_json_schema_invalid_json_metadata_failure

@@ -7,6 +7,7 @@
 #include <cctype>
 #include <fstream>
 #include <map>
+#include <set>
 #include <sstream>
 #include <system_error>
 #include <utility>
@@ -37,6 +38,7 @@ struct NativeArtifactToolRecord {
 
 struct ZipMemberRecord {
   std::string path;
+  std::string normalizedPath;
   std::uint16_t compressionMethod = 0;
   std::uint32_t compressedSize = 0;
   std::uint32_t uncompressedSize = 0;
@@ -177,22 +179,130 @@ std::optional<std::string> readFileSlice(const std::filesystem::path &path,
   return data;
 }
 
-bool hasSingleTopLevelPrefix(const std::vector<std::string> &paths,
-                             std::string &prefix) {
-  prefix.clear();
+bool isPackageRootMetadataFile(std::string_view path) {
+  return path == "manifest.json" || path == "reflection.json" ||
+         path == "diagnostics.json";
+}
+
+std::optional<std::string> normalizeZipMemberName(std::string_view path) {
+  if (path.empty() || path.find('\\') != std::string_view::npos ||
+      path.front() == '/') {
+    return std::nullopt;
+  }
+  if (path.size() >= 2 && std::isalpha(static_cast<unsigned char>(path[0])) &&
+      path[1] == ':') {
+    return std::nullopt;
+  }
+
+  std::vector<std::string> parts;
+  std::size_t start = 0;
+  while (start <= path.size()) {
+    const std::size_t slash = path.find('/', start);
+    const std::size_t end =
+        slash == std::string_view::npos ? path.size() : slash;
+    const std::string_view part = path.substr(start, end - start);
+    if (part == "..") {
+      return std::nullopt;
+    }
+    if (!part.empty() && part != ".") {
+      parts.emplace_back(part);
+    }
+    if (slash == std::string_view::npos) {
+      break;
+    }
+    start = slash + 1;
+  }
+  if (parts.empty()) {
+    return std::nullopt;
+  }
+
+  std::ostringstream normalized;
+  for (std::size_t index = 0; index < parts.size(); ++index) {
+    if (index > 0) {
+      normalized << '/';
+    }
+    normalized << parts[index];
+  }
+  return normalized.str();
+}
+
+std::string zipMetadataRootLabel(std::string_view root) {
+  if (root.empty()) {
+    return "archive root";
+  }
+  std::string label(root);
+  if (!label.empty() && label.back() == '/') {
+    label.pop_back();
+  }
+  return label;
+}
+
+std::optional<std::string>
+detectZipPackagePrefix(const std::vector<std::string> &paths,
+                       const std::filesystem::path &archivePath,
+                       DiagnosticEngine &diagnostics,
+                       const PackageMetadataLoadOptions &options) {
+  std::map<std::string, std::set<std::string>> metadataByRoot;
+  std::set<std::string> topLevelDirectories;
   for (const std::string &path : paths) {
+    if (isPackageRootMetadataFile(path)) {
+      metadataByRoot[""].insert(path);
+    }
     const std::size_t slash = path.find('/');
     if (slash == std::string::npos || slash == 0) {
-      return false;
+      continue;
     }
-    const std::string candidate = path.substr(0, slash + 1);
-    if (prefix.empty()) {
-      prefix = candidate;
-    } else if (prefix != candidate) {
-      return false;
+    topLevelDirectories.insert(path.substr(0, slash));
+    const std::string stripped = path.substr(slash + 1);
+    if (isPackageRootMetadataFile(stripped)) {
+      metadataByRoot[path.substr(0, slash + 1)].insert(stripped);
     }
   }
-  return !prefix.empty();
+
+  std::vector<std::string> completeRoots;
+  for (const auto &[root, names] : metadataByRoot) {
+    if (names.count("manifest.json") != 0 &&
+        names.count("reflection.json") != 0 &&
+        names.count("diagnostics.json") != 0) {
+      completeRoots.push_back(root);
+    }
+  }
+  if (completeRoots.size() > 1) {
+    std::ostringstream roots;
+    for (std::size_t index = 0; index < completeRoots.size(); ++index) {
+      if (index > 0) {
+        roots << ", ";
+      }
+      roots << zipMetadataRootLabel(completeRoots[index]);
+    }
+    diagnostics.error(diagnosticCode(options, "archive-ambiguous-root"),
+                      "package archive contains ambiguous package metadata "
+                      "roots: " +
+                          roots.str(),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+  if (completeRoots.empty()) {
+    return "";
+  }
+
+  const std::string prefix = completeRoots.front();
+  if (prefix.empty()) {
+    return prefix;
+  }
+  const std::string topLevel = prefix.substr(0, prefix.size() - 1);
+  if (topLevelDirectories != std::set<std::string>{topLevel}) {
+    return "";
+  }
+  if (metadataByRoot.count("") != 0) {
+    diagnostics.error(diagnosticCode(options, "archive-ambiguous-root"),
+                      "package archive contains ambiguous package metadata "
+                      "roots: archive root, " +
+                          zipMetadataRootLabel(prefix),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+  return prefix;
 }
 
 std::optional<std::map<std::string, ZipMemberRecord>>
@@ -327,6 +437,15 @@ readStoredZipMemberIndex(const std::filesystem::path &archivePath,
     member.localHeaderOffset = localHeaderOffset;
     member.directory = !path.empty() && path.back() == '/';
     if (!member.directory) {
+      std::optional<std::string> normalized = normalizeZipMemberName(member.path);
+      if (!normalized) {
+        diagnostics.error(diagnosticCode(options, "archive-invalid-member"),
+                          "package archive member is not package-relative: " +
+                              member.path,
+                          archiveMemberStartLocation(archivePath, member.path));
+        return std::nullopt;
+      }
+      member.normalizedPath = std::move(*normalized);
       if (member.compressionMethod != 0) {
         diagnostics.error(diagnosticCode(options, "unsupported-compression"),
                           "package archive member uses unsupported compression "
@@ -336,18 +455,24 @@ readStoredZipMemberIndex(const std::filesystem::path &archivePath,
                           archiveMemberStartLocation(archivePath, member.path));
         return std::nullopt;
       }
-      memberPaths.push_back(member.path);
+      memberPaths.push_back(member.normalizedPath);
     }
     members.push_back(std::move(member));
   }
 
-  std::string prefix;
-  const bool stripPrefix = hasSingleTopLevelPrefix(memberPaths, prefix);
+  std::optional<std::string> prefix =
+      detectZipPackagePrefix(memberPaths, archivePath, diagnostics, options);
+  if (!prefix) {
+    return std::nullopt;
+  }
   std::map<std::string, ZipMemberRecord> index;
   for (ZipMemberRecord member : members) {
-    std::string normalized = member.path;
-    if (stripPrefix && normalized.starts_with(prefix)) {
-      normalized.erase(0, prefix.size());
+    std::string normalized = member.normalizedPath;
+    if (!prefix->empty()) {
+      if (!normalized.starts_with(*prefix)) {
+        continue;
+      }
+      normalized.erase(0, prefix->size());
     }
     if (normalized.empty() || normalized.ends_with('/')) {
       continue;
