@@ -217,6 +217,11 @@ def validate_semantics(instance):
     artifacts = instance["artifacts"]
     summary = instance["summary"]
     diagnostics = instance.get("diagnostics", [])
+    artifact_paths = {
+        artifact.get("path")
+        for artifact in artifacts
+        if artifact.get("path") is not None
+    }
     project = instance.get("project")
     declared_targets = None
     if isinstance(project, dict) and isinstance(project.get("targets"), list):
@@ -406,6 +411,11 @@ def validate_semantics(instance):
                     f"{artifact_path}.sourceRemap.path: expected sidecar path, "
                     "not generated artifact path"
                 )
+        if source_remap_path in artifact_paths and source_remap_path != generated_path:
+            errors.append(
+                f"{artifact_path}.sourceRemap.path: expected sidecar path, "
+                "not artifact path"
+            )
         if isinstance(source_map, dict):
             source_map_granularity = source_map.get("mappingGranularity")
             if (
@@ -427,92 +437,89 @@ def validate_semantics(instance):
         if source_remap["mappingCount"] <= 0:
             errors.append(f"{artifact_path}.sourceRemap.mappingCount: expected > 0")
 
-    if "diagnostics" in instance:
-        for diagnostic_index, diagnostic in enumerate(diagnostics):
-            target = diagnostic.get("target")
-            if (
-                declared_targets is not None
-                and target is not None
-                and target not in declared_targets
-            ):
-                errors.append(
-                    f"$.diagnostics[{diagnostic_index}].target: expected to be "
-                    "declared in $.project.targets"
-                )
+    for diagnostic_index, diagnostic in enumerate(diagnostics):
+        target = diagnostic.get("target")
+        if (
+            declared_targets is not None
+            and target is not None
+            and target not in declared_targets
+        ):
+            errors.append(
+                f"$.diagnostics[{diagnostic_index}].target: expected to be "
+                "declared in $.project.targets"
+            )
 
-        diagnostic_counts = _diagnostic_counts(diagnostics)
-        diagnostics_by_code = _diagnostic_counts_by_field(diagnostics, "code")
-        diagnostics_by_target = _diagnostic_counts_by_field(diagnostics, "target")
-        diagnostics_by_source_backend = _diagnostic_counts_by_field(
-            diagnostics, "sourceBackend"
-        )
-        diagnostics_by_variant = _diagnostic_counts_by_field(diagnostics, "variant")
-        missing_capability_counts = _diagnostic_counts_by_missing_capability(
-            diagnostics
-        )
+    diagnostic_counts = _diagnostic_counts(diagnostics)
+    diagnostics_by_code = _diagnostic_counts_by_field(diagnostics, "code")
+    diagnostics_by_target = _diagnostic_counts_by_field(diagnostics, "target")
+    diagnostics_by_source_backend = _diagnostic_counts_by_field(
+        diagnostics, "sourceBackend"
+    )
+    diagnostics_by_variant = _diagnostic_counts_by_field(diagnostics, "variant")
+    missing_capability_counts = _diagnostic_counts_by_missing_capability(diagnostics)
 
-        if "diagnosticCounts" in instance:
-            _validate_summary_count_map(
-                errors,
-                "$.diagnosticCounts",
-                instance["diagnosticCounts"],
-                diagnostic_counts,
-                "diagnostic",
-            )
-        if "diagnosticCounts" in summary:
-            _validate_summary_count_map(
-                errors,
-                "$.summary.diagnosticCounts",
-                summary["diagnosticCounts"],
-                diagnostic_counts,
-                "diagnostic",
-            )
-        if "diagnosticsByCode" in summary:
-            _validate_summary_count_map(
-                errors,
-                "$.summary.diagnosticsByCode",
-                summary["diagnosticsByCode"],
-                diagnostics_by_code,
-                "diagnostic",
-            )
-        if "diagnosticsByTarget" in summary:
-            _validate_declared_target_count_keys(
-                errors,
-                "$.summary.diagnosticsByTarget",
-                summary["diagnosticsByTarget"],
-                declared_targets,
-            )
-            _validate_summary_count_map(
-                errors,
-                "$.summary.diagnosticsByTarget",
-                summary["diagnosticsByTarget"],
-                diagnostics_by_target,
-                "diagnostic",
-            )
-        if "diagnosticsBySourceBackend" in summary:
-            _validate_summary_count_map(
-                errors,
-                "$.summary.diagnosticsBySourceBackend",
-                summary["diagnosticsBySourceBackend"],
-                diagnostics_by_source_backend,
-                "diagnostic",
-            )
-        if "diagnosticsByVariant" in summary:
-            _validate_summary_count_map(
-                errors,
-                "$.summary.diagnosticsByVariant",
-                summary["diagnosticsByVariant"],
-                diagnostics_by_variant,
-                "diagnostic",
-            )
-        if "missingCapabilityCounts" in summary:
-            _validate_summary_count_map(
-                errors,
-                "$.summary.missingCapabilityCounts",
-                summary["missingCapabilityCounts"],
-                missing_capability_counts,
-                "diagnostic",
-            )
+    if "diagnosticCounts" in instance:
+        _validate_summary_count_map(
+            errors,
+            "$.diagnosticCounts",
+            instance["diagnosticCounts"],
+            diagnostic_counts,
+            "diagnostic",
+        )
+    if "diagnosticCounts" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.diagnosticCounts",
+            summary["diagnosticCounts"],
+            diagnostic_counts,
+            "diagnostic",
+        )
+    if "diagnosticsByCode" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.diagnosticsByCode",
+            summary["diagnosticsByCode"],
+            diagnostics_by_code,
+            "diagnostic",
+        )
+    if "diagnosticsByTarget" in summary:
+        _validate_declared_target_count_keys(
+            errors,
+            "$.summary.diagnosticsByTarget",
+            summary["diagnosticsByTarget"],
+            declared_targets,
+        )
+        _validate_summary_count_map(
+            errors,
+            "$.summary.diagnosticsByTarget",
+            summary["diagnosticsByTarget"],
+            diagnostics_by_target,
+            "diagnostic",
+        )
+    if "diagnosticsBySourceBackend" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.diagnosticsBySourceBackend",
+            summary["diagnosticsBySourceBackend"],
+            diagnostics_by_source_backend,
+            "diagnostic",
+        )
+    if "diagnosticsByVariant" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.diagnosticsByVariant",
+            summary["diagnosticsByVariant"],
+            diagnostics_by_variant,
+            "diagnostic",
+        )
+    if "missingCapabilityCounts" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.missingCapabilityCounts",
+            summary["missingCapabilityCounts"],
+            missing_capability_counts,
+            "diagnostic",
+        )
 
     if "artifactProvenanceByPipeline" in summary:
         _validate_summary_count_map(

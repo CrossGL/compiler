@@ -239,6 +239,10 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_MISSING_REMAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-missing-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-remap-target-mismatch.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-crossgl-target.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_MISMATCH
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-crossgl-target-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNDECLARED_ARTIFACT_TARGET
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-undeclared-artifact-target.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_FAILED_REMAP_TARGET_MISMATCH
@@ -1005,6 +1009,65 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_MISMATCH}"
   ]
 }
 ")
+file(READ "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON)
+string(REPLACE "\"root\": \".\""
+  "\"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\""
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON}")
+string(REPLACE "\"targets\": [
+      \"cgl\"
+    ]" "\"targets\": [
+      \"crossgl\"
+    ]"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON}")
+string(REPLACE "\"target\": \"cgl\""
+  "\"target\": \"crossgl\""
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON}")
+string(REPLACE "\"sourceMapsByTarget\": {
+      \"cgl\": 1
+    }" "\"sourceMapsByTarget\": {
+      \"crossgl\": 1
+    }"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON}")
+string(REPLACE "\"artifactProvenanceIntermediateByTarget\": {
+      \"cgl\": {
+        \"none\": 1
+      }
+    }" "\"artifactProvenanceIntermediateByTarget\": {
+      \"crossgl\": {
+        \"none\": 1
+      }
+    }"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON}")
+string(REPLACE "\"sourceRemapsByTarget\": {
+      \"cgl\": 1
+    }" "\"sourceRemapsByTarget\": {
+      \"crossgl\": 1
+    }"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON}")
+string(REPLACE "\"target\": \"crossgl\",
+        \"generatedFile\": \"out/cgl/simple.cgl\"" "\"target\": \"metal\",
+        \"generatedFile\": \"out/cgl/simple.cgl\""
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_MISMATCH_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON}")
+string(REPLACE "\"targets\": [
+      \"crossgl\"
+    ]" "\"targets\": [
+      \"crossgl\",
+      \"metal\"
+    ]"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_MISMATCH_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_MISMATCH_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_MISMATCH}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_MISMATCH_JSON}")
 file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNDECLARED_ARTIFACT_TARGET}"
 "{
   \"schemaVersion\": 1,
@@ -3901,6 +3964,20 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_source_batch_
     "\"success\": true"
     "\"diagnostics\": []")
 
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_crossgl_target_success_contract
+  EXPECTED_RESULT 0
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"kind\": \"crossgl.sourceBatchResult\""
+    "\"entryCount\": 1"
+    "\"id\": \"simple.cgl\""
+    "\"logicalInput\": \"out/cgl/simple.cgl\""
+    "\"sourceRemap\": \"${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE_SOURCE_REMAP}\""
+    "\"target\": \"auto\""
+    "\"success\": true"
+    "\"diagnostics\": []")
+
 crossgl_add_required_python_test(
   NAME cglc_crosstl_project_report_unknown_target_summary_json_schema
   COMMAND
@@ -4054,6 +4131,14 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_remap_target_
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
     "sourceRemap.target must match artifact target 'cgl'")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_crossgl_remap_target_mismatch_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_MISMATCH}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "sourceRemap.target must match artifact target 'crossgl'")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_undeclared_artifact_target_fails
   EXPECTED_RESULT 1

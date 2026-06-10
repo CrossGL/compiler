@@ -884,12 +884,10 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
             expected_source_remap_health = "incomplete"
             expected_source_remap_checks = [None] * len(source_remap_check_values)
         else:
-            add_equal_error(
+            validate_source_remap_provenance_checks(
                 errors,
-                "$.debugArtifacts.sourceRemap.checks.mappingGranularityMatchesContract",
-                source_remap_checks["mappingGranularityMatchesContract"],
-                source_remap["mappingGranularity"] == "source-span",
-                "sourceRemap provenance mappingGranularity contract",
+                source_remap,
+                summary,
             )
             if all(value is True for value in source_remap_check_values):
                 expected_source_remap_health = "ok"
@@ -1082,6 +1080,53 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
     )
     if expected_checks is not None and check_values != expected_checks:
         errors.append("$.debugArtifacts.checks: expected null checks when incomplete")
+
+
+def expected_source_remap_provenance_checks(source_remap, summary):
+    mapping_count = source_remap["mappingCount"]
+    return {
+        "identityMatchesContract": (
+            source_remap["schemaVersion"] == 1
+            and source_remap["kind"] == "crossgl.sourceRemapProvenance"
+            and source_remap["contractVersion"] == "source-remap-provenance-v1"
+        ),
+        "targetMatchesPackage": (
+            source_remap["target"] is not None
+            and source_remap["target"] == summary["target"]
+        ),
+        "generatedFilePresent": bool(source_remap["generatedFile"]),
+        "mappingGranularityMatchesContract": (
+            source_remap["mappingGranularity"] == "source-span"
+        ),
+        "mappingCountPositive": (
+            isinstance(mapping_count, int)
+            and not isinstance(mapping_count, bool)
+            and mapping_count > 0
+        ),
+        "sourcePathPresent": bool(source_remap["sourcePath"]),
+        "sourceHashPresent": (
+            source_remap["sourceSha256"] is not None
+            and LOWERCASE_SHA256.fullmatch(source_remap["sourceSha256"]) is not None
+        ),
+        "sourceSizeBytesPresent": source_remap["sourceSizeBytes"] is not None,
+    }
+
+
+def validate_source_remap_provenance_checks(errors, source_remap, summary):
+    checks = source_remap["checks"]
+    expected_check_values = expected_source_remap_provenance_checks(
+        source_remap,
+        summary,
+    )
+
+    for check_name in SOURCE_REMAP_PROVENANCE_CHECKS:
+        add_equal_error(
+            errors,
+            f"$.debugArtifacts.sourceRemap.checks.{check_name}",
+            checks[check_name],
+            expected_check_values[check_name],
+            f"sourceRemap provenance {check_name}",
+        )
 
 
 def validate_native_artifact_descriptor(

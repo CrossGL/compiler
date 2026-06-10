@@ -1,0 +1,1 @@
+$.summary.diagnosticsByCode: expected diagnostic counts {}, got {'project.config.include-pattern-outside-project': 1}

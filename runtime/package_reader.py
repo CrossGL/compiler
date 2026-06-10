@@ -101,10 +101,14 @@ SUPPORTED_NATIVE_ARTIFACT_DESCRIPTOR_SCHEMA_VERSION = 1
 SUPPORTED_NATIVE_PROFILE_SCHEMA_VERSION = 1
 SUPPORTED_PACKAGE_SCHEMA_VERSION = 1
 SUPPORTED_PACKAGE_TARGET_CONTRACT_SCHEMA_VERSION = 1
+SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION = 1
 SOURCE_ARTIFACT_NAMES = ("backendSource",)
 SOURCE_PACKAGE_MODE = "source-package"
 NATIVE_ARTIFACT_DESCRIPTOR_KIND = "crossgl.nativeArtifact"
 NATIVE_ARTIFACT_DESCRIPTOR_CONTRACT_VERSION = "native-artifact-v0"
+SOURCE_REMAP_PROVENANCE_KIND = "crossgl.sourceRemapProvenance"
+SOURCE_REMAP_PROVENANCE_CONTRACT_VERSION = "source-remap-provenance-v1"
+SOURCE_REMAP_PROVENANCE_MAPPING_GRANULARITY = "source-span"
 NATIVE_ARTIFACT_DESCRIPTOR_FIELDS = frozenset(
     (
         "schemaVersion",
@@ -3297,6 +3301,12 @@ def _build_compatibility_report(
         target_contract=contract,
         unreadable_documents=unreadable_documents,
     )
+    _append_source_remap_provenance_diagnostics(
+        diagnostics,
+        target=target,
+        artifacts=artifacts,
+        unreadable_documents=unreadable_documents,
+    )
 
     debug_metadata_record = (
         _debug_metadata_record(debug_metadata) if debug_metadata is not None else None
@@ -4440,6 +4450,290 @@ def _append_native_artifact_descriptor_diagnostics(
         native_binary_artifact=_artifact_by_name(artifacts, "nativeBinary"),
         native_binary_status=native_binary_status,
     )
+
+
+def _append_source_remap_provenance_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    target: str | None,
+    artifacts: tuple[Artifact, ...],
+    unreadable_documents: frozenset[str],
+) -> None:
+    if "manifest" in unreadable_documents:
+        return
+
+    provenance_artifact = _artifact_by_name(artifacts, "sourceRemap")
+    if provenance_artifact is None:
+        return
+
+    provenance = _read_declared_artifact_json_object_for_report(
+        provenance_artifact,
+        root_file_name="source remap provenance",
+        document="sourceRemap",
+        diagnostic_prefix="package.source_remap_provenance",
+        diagnostics=diagnostics,
+    )
+    if provenance is None:
+        return
+
+    _append_source_remap_provenance_identity_diagnostics(
+        diagnostics,
+        provenance=provenance,
+        target=target,
+    )
+    _append_source_remap_provenance_source_diagnostics(
+        diagnostics,
+        provenance=provenance,
+    )
+
+
+def _append_source_remap_provenance_identity_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    provenance: dict[str, Any],
+    target: str | None,
+) -> None:
+    schema_version = provenance.get("schemaVersion")
+    if schema_version is None:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.schema_version_missing",
+                message="sourceRemap provenance schemaVersion is required",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="schemaVersion",
+                expected=SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION,
+                actual="missing",
+            )
+        )
+    elif _schema_version_is_malformed(schema_version):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.schema_version_invalid",
+                message="sourceRemap provenance schemaVersion must be an integer",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="schemaVersion",
+                expected=SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION,
+                actual=_contract_actual_value(schema_version),
+            )
+        )
+    elif schema_version != SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.schema_incompatible",
+                message=(
+                    "sourceRemap provenance schemaVersion is not supported by "
+                    "this runtime"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="schemaVersion",
+                expected=SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION,
+                actual=schema_version,
+            )
+        )
+
+    for field_name, expected in (
+        ("kind", SOURCE_REMAP_PROVENANCE_KIND),
+        ("contractVersion", SOURCE_REMAP_PROVENANCE_CONTRACT_VERSION),
+    ):
+        actual = provenance.get(field_name)
+        if actual == expected:
+            continue
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=(
+                    "package.source_remap_provenance."
+                    f"{_snake_case(field_name)}_mismatch"
+                ),
+                message=(
+                    f"sourceRemap provenance {field_name} does not match the "
+                    "runtime contract"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path=field_name,
+                expected=expected,
+                actual=_contract_actual_value(actual),
+            )
+        )
+
+    provenance_target = provenance.get("target")
+    if target is not None and provenance_target != target:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.target_mismatch",
+                message="sourceRemap provenance target does not match manifest.target",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="target",
+                expected=target,
+                actual=_contract_actual_value(provenance_target),
+            )
+        )
+
+    generated_file = provenance.get("generatedFile")
+    if not _is_stable_relative_posix_path(generated_file):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.generated_file_invalid",
+                message=(
+                    "sourceRemap provenance generatedFile must be a stable "
+                    "relative POSIX path"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="generatedFile",
+                expected="stable relative POSIX path",
+                actual=_contract_actual_value(generated_file),
+            )
+        )
+
+    mapping_granularity = provenance.get("mappingGranularity")
+    if mapping_granularity != SOURCE_REMAP_PROVENANCE_MAPPING_GRANULARITY:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.mapping_granularity_mismatch",
+                message="sourceRemap provenance mappingGranularity must be source-span",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="mappingGranularity",
+                expected=SOURCE_REMAP_PROVENANCE_MAPPING_GRANULARITY,
+                actual=_contract_actual_value(mapping_granularity),
+            )
+        )
+
+    mapping_count = provenance.get("mappingCount")
+    if not isinstance(mapping_count, int) or isinstance(mapping_count, bool):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.mapping_count_invalid",
+                message="sourceRemap provenance mappingCount must be a positive integer",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="mappingCount",
+                expected="positive integer",
+                actual=_contract_actual_value(mapping_count),
+            )
+        )
+    elif mapping_count <= 0:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.mapping_count_invalid",
+                message="sourceRemap provenance mappingCount must be positive",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="mappingCount",
+                expected="positive integer",
+                actual=mapping_count,
+            )
+        )
+
+
+def _append_source_remap_provenance_source_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    provenance: dict[str, Any],
+) -> None:
+    source_remap = provenance.get("sourceRemap")
+    if not isinstance(source_remap, dict):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.source_remap_invalid",
+                message="sourceRemap provenance sourceRemap must be an object",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="sourceRemap",
+                expected="object",
+                actual=_json_type_name(source_remap),
+            )
+        )
+        return
+
+    source_path = source_remap.get("path")
+    if not _is_stable_relative_posix_path(source_path):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.source_path_invalid",
+                message=(
+                    "sourceRemap provenance sourceRemap.path must be a stable "
+                    "relative POSIX path"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="sourceRemap.path",
+                expected="stable relative POSIX path",
+                actual=_contract_actual_value(source_path),
+            )
+        )
+
+    sha256 = source_remap.get("sha256")
+    if not isinstance(sha256, dict):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.source_hash_invalid",
+                message=(
+                    "sourceRemap provenance sourceRemap.sha256 must be a "
+                    "sha256 hash object"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="sourceRemap.sha256",
+                expected={"algorithm": "sha256", "value": "lowercase sha256"},
+                actual=_json_type_name(sha256),
+            )
+        )
+    else:
+        algorithm = sha256.get("algorithm")
+        digest = sha256.get("value")
+        if algorithm != "sha256" or not _is_lowercase_sha256(digest):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.source_remap_provenance.source_hash_invalid",
+                    message=(
+                        "sourceRemap provenance sourceRemap.sha256 must contain "
+                        "algorithm=sha256 and a lowercase SHA-256 value"
+                    ),
+                    document="sourceRemap",
+                    artifact="sourceRemap",
+                    path="sourceRemap.sha256",
+                    expected={"algorithm": "sha256", "value": "lowercase sha256"},
+                    actual={
+                        "algorithm": _contract_actual_value(algorithm),
+                        "value": _contract_actual_value(digest),
+                    },
+                )
+            )
+
+    size_bytes = source_remap.get("sizeBytes")
+    if (
+        not isinstance(size_bytes, int)
+        or isinstance(size_bytes, bool)
+        or size_bytes < 0
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.source_size_bytes_invalid",
+                message=(
+                    "sourceRemap provenance sourceRemap.sizeBytes must be a "
+                    "non-negative integer"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="sourceRemap.sizeBytes",
+                expected="non-negative integer",
+                actual=_contract_actual_value(size_bytes),
+            )
+        )
+
+
+def _is_stable_relative_posix_path(value: Any) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    if "\\" in value or value.startswith("/"):
+        return False
+    return all(part not in ("", ".", "..") for part in value.split("/"))
 
 
 def _append_native_artifact_descriptor_key_diagnostics(

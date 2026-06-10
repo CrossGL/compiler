@@ -2878,7 +2878,7 @@ bool parseCrossTLProjectReportArtifact(
                                context + ".sourceRemap must be a JSON object");
       return false;
     }
-    if (target && *target != "cgl") {
+    if (target && !crossTLProjectReportIsCrossGLTarget(*target)) {
       sourceBatchManifestError(
           diagnostics, manifest.path,
           context + ".sourceRemap expected only for cgl target artifacts");
@@ -3060,7 +3060,7 @@ bool parseCrossTLProjectReportArtifact(
   if (!status || *status != "translated") {
     return true;
   }
-  if (!target || *target != "cgl") {
+  if (!target || !crossTLProjectReportIsCrossGLTarget(*target)) {
     return true;
   }
 

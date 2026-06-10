@@ -895,7 +895,6 @@ class RuntimePackageReaderTests(unittest.TestCase):
             backend_source_map_path = (
                 "backend/metal/RuntimeReaderFixture.backend-source-map.json"
             )
-            source_remap_path = "ir/source-remap-provenance.json"
             (package_dir / "ir").mkdir()
             self._write_json(
                 package_dir / backend_source_map_path,
@@ -912,26 +911,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "mappings": [],
                 },
             )
-            self._write_json(
-                package_dir / source_remap_path,
-                {
-                    "schemaVersion": 1,
-                    "kind": "crossgl.sourceRemapProvenance",
-                    "contractVersion": "source-remap-provenance-v1",
-                    "target": "metal",
-                    "generatedFile": "generated/from-translator.cgl",
-                    "mappingGranularity": "source-span",
-                    "mappingCount": 0,
-                    "sourceRemap": {
-                        "path": "source/original.crossgl",
-                        "sha256": {
-                            "algorithm": "sha256",
-                            "value": "0" * 64,
-                        },
-                        "sizeBytes": 0,
-                    },
-                },
-            )
+            source_remap_path = self._write_source_remap_provenance(package_dir)
             manifest["artifacts"]["backendSourceMap"] = backend_source_map_path
             manifest["artifacts"]["sourceRemap"] = source_remap_path
             self._write_json(manifest_path, manifest)
@@ -961,6 +941,142 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 ("backendSourceMap", "package.artifact.not_required"), skipped
             )
             self.assertIn(("sourceRemap", "package.artifact.not_required"), skipped)
+
+    def test_compatibility_report_accepts_valid_source_remap_provenance(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_remap_path = self._write_source_remap_provenance(package_dir)
+            provenance = json.loads(
+                (package_dir / source_remap_path).read_text(encoding="utf-8")
+            )
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertEqual(provenance["mappingCount"], 1)
+            self.assertEqual(summary["rejectReasons"], [])
+            artifact_record = next(
+                artifact
+                for artifact in summary["artifactCompatibility"]["artifacts"]
+                if artifact["name"] == "sourceRemap"
+            )
+            self.assertEqual(artifact_record["decision"], "skipped")
+            self.assertEqual(artifact_record["reason"], "package.artifact.not_required")
+            self.assertEqual(artifact_record["diagnostics"], [])
+
+    def test_compatibility_report_rejects_source_remap_provenance_health_drift(
+        self,
+    ) -> None:
+        cases = (
+            (
+                "mappingCount zero",
+                lambda document: document.update({"mappingCount": 0}),
+                "package.source_remap_provenance.mapping_count_invalid",
+                "mappingCount",
+                "positive integer",
+                0,
+            ),
+            (
+                "target mismatch",
+                lambda document: document.update({"target": "directx"}),
+                "package.source_remap_provenance.target_mismatch",
+                "target",
+                "metal",
+                "directx",
+            ),
+        )
+        for (
+            name,
+            mutate,
+            expected_code,
+            expected_path,
+            expected_value,
+            actual_value,
+        ) in cases:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+                    package_dir = Path(temp_dir)
+                    self._write_valid_package(package_dir)
+                    self._write_source_remap_provenance(
+                        package_dir,
+                        mutate=mutate,
+                    )
+
+                    with self._guard_crossgl_source_reads():
+                        report = read_compatibility_report(
+                            package_dir,
+                            loader_target="metal",
+                        )
+                    summary = report.to_summary()
+
+                    self.assertFalse(report.compatible)
+                    self.assertEqual(report.status, "incompatible")
+                    self.assertIn(
+                        expected_code,
+                        [diagnostic.code for diagnostic in report.reject_reasons],
+                    )
+                    diagnostic = next(
+                        diagnostic
+                        for diagnostic in summary["rejectReasons"]
+                        if diagnostic["code"] == expected_code
+                    )
+                    self.assertEqual(diagnostic["document"], "sourceRemap")
+                    self.assertEqual(diagnostic["artifact"], "sourceRemap")
+                    self.assertEqual(diagnostic["path"], expected_path)
+                    self.assertEqual(diagnostic["expected"], expected_value)
+                    self.assertEqual(diagnostic["actual"], actual_value)
+                    artifact_record = next(
+                        artifact
+                        for artifact in summary["artifactCompatibility"]["artifacts"]
+                        if artifact["name"] == "sourceRemap"
+                    )
+                    self.assertEqual(artifact_record["decision"], "rejected")
+                    self.assertEqual(artifact_record["reason"], expected_code)
+
+    def test_compatibility_report_rejects_missing_source_remap_provenance_file(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["sourceRemap"] = "ir/missing-source-remap.json"
+            self._write_json(manifest_path, manifest)
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            expected_code = "package.source_remap_provenance.file_missing"
+            self.assertFalse(report.compatible)
+            self.assertEqual(report.status, "incompatible")
+            self.assertIn(
+                expected_code,
+                [diagnostic.code for diagnostic in report.reject_reasons],
+            )
+            diagnostic = next(
+                diagnostic
+                for diagnostic in summary["rejectReasons"]
+                if diagnostic["code"] == expected_code
+            )
+            self.assertEqual(diagnostic["document"], "sourceRemap")
+            self.assertEqual(diagnostic["artifact"], "sourceRemap")
+            self.assertEqual(diagnostic["path"], "ir/missing-source-remap.json")
+            self.assertEqual(diagnostic["expected"], "regular file")
+            self.assertEqual(diagnostic["actual"], "missing")
+            artifact_record = next(
+                artifact
+                for artifact in summary["artifactCompatibility"]["artifacts"]
+                if artifact["name"] == "sourceRemap"
+            )
+            self.assertEqual(artifact_record["decision"], "rejected")
+            self.assertEqual(artifact_record["reason"], expected_code)
 
     def test_reports_absent_optional_graphics_abi(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
@@ -9366,6 +9482,42 @@ class RuntimePackageReaderTests(unittest.TestCase):
         self._write_json(package_dir / descriptor_path, descriptor)
         self._write_json(manifest_path, manifest)
         return descriptor
+
+    def _write_source_remap_provenance(
+        self,
+        package_dir: Path,
+        *,
+        mutate: object | None = None,
+    ) -> str:
+        manifest_path = package_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        target = manifest["target"]
+        source_remap_path = "ir/source-remap-provenance.json"
+        provenance: dict[str, object] = {
+            "schemaVersion": 1,
+            "kind": "crossgl.sourceRemapProvenance",
+            "contractVersion": "source-remap-provenance-v1",
+            "target": target,
+            "generatedFile": "generated/from-translator.cgl",
+            "mappingGranularity": "source-span",
+            "mappingCount": 1,
+            "sourceRemap": {
+                "path": "source/original.crossgl",
+                "sha256": {
+                    "algorithm": "sha256",
+                    "value": "0" * 64,
+                },
+                "sizeBytes": 0,
+            },
+        }
+        if mutate is not None:
+            mutate(provenance)
+        manifest["artifacts"]["sourceRemap"] = source_remap_path
+        source_remap_file = package_dir / source_remap_path
+        source_remap_file.parent.mkdir(parents=True, exist_ok=True)
+        self._write_json(source_remap_file, provenance)
+        self._write_json(manifest_path, manifest)
+        return source_remap_path
 
     @staticmethod
     def _target_resource_binding_abi(target: str) -> dict[str, object]:
