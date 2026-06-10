@@ -20,6 +20,20 @@ def _validate_summary_count_map(errors, path, actual, expected, label):
         errors.append(f"{path}: expected {label} counts {expected!r}, got {actual!r}")
 
 
+def _validate_declared_target_count_keys(
+    errors, path, actual, declared_targets, allow_unknown=False
+):
+    if declared_targets is None:
+        return
+    for target in actual:
+        if allow_unknown and target == "unknown":
+            continue
+        if target not in declared_targets:
+            errors.append(
+                f"{path}[{target!r}]: expected key to be declared in $.project.targets"
+            )
+
+
 def _provenance_pipeline_key(provenance):
     if not isinstance(provenance, dict):
         return "unknown"
@@ -462,6 +476,12 @@ def validate_semantics(instance):
                 "diagnostic",
             )
         if "diagnosticsByTarget" in summary:
+            _validate_declared_target_count_keys(
+                errors,
+                "$.summary.diagnosticsByTarget",
+                summary["diagnosticsByTarget"],
+                declared_targets,
+            )
             _validate_summary_count_map(
                 errors,
                 "$.summary.diagnosticsByTarget",
@@ -519,6 +539,13 @@ def validate_semantics(instance):
             "artifact provenance",
         )
     if "artifactProvenanceIntermediateByTarget" in summary:
+        _validate_declared_target_count_keys(
+            errors,
+            "$.summary.artifactProvenanceIntermediateByTarget",
+            summary["artifactProvenanceIntermediateByTarget"],
+            declared_targets,
+            allow_unknown=True,
+        )
         _validate_summary_count_map(
             errors,
             "$.summary.artifactProvenanceIntermediateByTarget",
@@ -560,6 +587,13 @@ def validate_semantics(instance):
             "sourceMap",
         )
     if "sourceMapsByTarget" in summary:
+        _validate_declared_target_count_keys(
+            errors,
+            "$.summary.sourceMapsByTarget",
+            summary["sourceMapsByTarget"],
+            declared_targets,
+            allow_unknown=True,
+        )
         _validate_summary_count_map(
             errors,
             "$.summary.sourceMapsByTarget",
@@ -608,6 +642,12 @@ def validate_semantics(instance):
             "sourceRemap",
         )
     if "sourceRemapsByTarget" in summary:
+        _validate_declared_target_count_keys(
+            errors,
+            "$.summary.sourceRemapsByTarget",
+            summary["sourceRemapsByTarget"],
+            declared_targets,
+        )
         _validate_summary_count_map(
             errors,
             "$.summary.sourceRemapsByTarget",

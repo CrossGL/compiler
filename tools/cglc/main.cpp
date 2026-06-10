@@ -2498,6 +2498,83 @@ bool parseOptionalCrossTLProjectReportDeclaredTargets(
   return true;
 }
 
+bool validateCrossTLProjectReportSummaryTargetKey(
+    std::string_view summaryKey, std::string_view target,
+    const std::optional<std::vector<std::string>> &declaredTargets,
+    bool allowUnknownTarget, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  if (!declaredTargets ||
+      (allowUnknownTarget && target == std::string_view("unknown")) ||
+      crossTLProjectReportTargetDeclared(declaredTargets, target)) {
+    return true;
+  }
+  sourceBatchManifestError(
+      diagnostics, manifestPath,
+      "CrossTL project report summary." + std::string(summaryKey) + "['" +
+          std::string(target) + "'] must be declared by project.targets");
+  return false;
+}
+
+bool validateCrossTLProjectReportSummaryTargetKeyMap(
+    const std::optional<CrossTLProjectReportSummary::CountMap> &counts,
+    std::string_view summaryKey,
+    const std::optional<std::vector<std::string>> &declaredTargets,
+    bool allowUnknownTarget, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  if (!declaredTargets || !counts) {
+    return true;
+  }
+  for (const auto &entry : *counts) {
+    if (!validateCrossTLProjectReportSummaryTargetKey(
+            summaryKey, entry.first, declaredTargets, allowUnknownTarget,
+            manifestPath, diagnostics)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool validateCrossTLProjectReportSummaryNestedTargetKeyMap(
+    const std::optional<CrossTLProjectReportSummary::NestedCountMap> &counts,
+    std::string_view summaryKey,
+    const std::optional<std::vector<std::string>> &declaredTargets,
+    bool allowUnknownTarget, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  if (!declaredTargets || !counts) {
+    return true;
+  }
+  for (const auto &entry : *counts) {
+    if (!validateCrossTLProjectReportSummaryTargetKey(
+            summaryKey, entry.first, declaredTargets, allowUnknownTarget,
+            manifestPath, diagnostics)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool validateCrossTLProjectReportSummaryDeclaredTargetKeys(
+    const CrossTLProjectReportSummary &summary,
+    const std::optional<std::vector<std::string>> &declaredTargets,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  return validateCrossTLProjectReportSummaryTargetKeyMap(
+             summary.diagnosticsByTarget, "diagnosticsByTarget",
+             declaredTargets, /*allowUnknownTarget=*/false, manifestPath,
+             diagnostics) &&
+         validateCrossTLProjectReportSummaryNestedTargetKeyMap(
+             summary.artifactProvenanceIntermediateByTarget,
+             "artifactProvenanceIntermediateByTarget", declaredTargets,
+             /*allowUnknownTarget=*/true, manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryTargetKeyMap(
+             summary.sourceMapsByTarget, "sourceMapsByTarget", declaredTargets,
+             /*allowUnknownTarget=*/true, manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryTargetKeyMap(
+             summary.sourceRemapsByTarget, "sourceRemapsByTarget",
+             declaredTargets, /*allowUnknownTarget=*/false, manifestPath,
+             diagnostics);
+}
+
 bool parseCrossTLProjectReportArtifact(
     std::string_view artifactText, std::size_t artifactIndex,
     const std::filesystem::path &projectRoot, SourceBatchManifest &manifest,
@@ -3170,6 +3247,10 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
             *project, manifestPath, diagnostics, declaredTargets)) {
       return std::nullopt;
     }
+  }
+  if (!validateCrossTLProjectReportSummaryDeclaredTargetKeys(
+          summary, declaredTargets, manifestPath, diagnostics)) {
+    return std::nullopt;
   }
 
   const std::optional<std::string_view> artifacts =

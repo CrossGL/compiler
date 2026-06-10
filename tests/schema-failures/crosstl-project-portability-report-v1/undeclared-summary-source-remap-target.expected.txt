@@ -1,0 +1,1 @@
+$.summary.sourceRemapsByTarget['metal']: expected key to be declared in $.project.targets; $.summary.sourceRemapsByTarget: expected sourceRemap counts {'cgl': 1}, got {'metal': 1}

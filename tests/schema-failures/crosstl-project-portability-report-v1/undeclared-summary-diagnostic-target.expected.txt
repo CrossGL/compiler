@@ -1,0 +1,1 @@
+$.summary.diagnosticsByTarget['metal']: expected key to be declared in $.project.targets; $.summary.diagnosticsByTarget: expected diagnostic counts {'cgl': 1}, got {'metal': 1}
