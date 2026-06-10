@@ -322,6 +322,24 @@ class SourceFreeRuntimeLoaderExampleTests(unittest.TestCase):
             admission["nativeProfile"]["fields"]["nativeBinary"],
             "backend/vulkan/SourceFreeVulkanRuntimeExample.spv",
         )
+        self.assertTrue(
+            admission["targetNativeAdmission"]["nativeProfile"][
+                "usesLegacySchemaFieldFallback"
+            ]
+        )
+        self.assertIsNone(
+            admission["targetNativeAdmission"]["nativeProfile"]["apiMatchesLoader"]
+        )
+        self.assertTrue(
+            admission["nativeApiBoundary"]["nativeProfileCompatibility"][
+                "usesLegacySchemaFieldFallback"
+            ]
+        )
+        self.assertTrue(
+            admission["nativeApiBoundary"]["runtimeInputs"]["nativeProfile"][
+                "usesLegacySchemaFieldFallback"
+            ]
+        )
         self.assertEqual(
             admission["targetNativeAdmission"]["decision"],
             "accepted",
@@ -1424,6 +1442,11 @@ class SourceFreeRuntimeLoaderExampleTests(unittest.TestCase):
                 "nativeBinary"
             ],
             "backend/vulkan/SourceFreeVulkanRuntimeExample.spv",
+        )
+        self.assertTrue(
+            admission["nativeApiBoundary"]["nativeProfileCompatibility"][
+                "usesLegacySchemaFieldFallback"
+            ]
         )
         self.assertTrue(
             admission["nativeApiBoundary"]["descriptorFreshness"][

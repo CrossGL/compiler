@@ -26,10 +26,18 @@ VULKAN_BACKEND_ASSEMBLY_ARTIFACT = "backendAssembly"
 VULKAN_NATIVE_PROFILE_ARTIFACT = "nativeProfile"
 VULKAN_NATIVE_BINARY_KIND = "vulkan.spirv-module"
 VULKAN_NATIVE_BINARY_SUFFIX = ".spv"
+VULKAN_NATIVE_PROFILE_API = "vulkan"
+VULKAN_NATIVE_PROFILE_NAME = "vulkan-prototype"
+VULKAN_NATIVE_PROFILE_VULKAN_VERSION = "1.2"
+VULKAN_NATIVE_PROFILE_BINARY_FORMAT = "SPIR-V"
+VULKAN_NATIVE_PROFILE_ASSEMBLY_FORMAT = "SPIR-V assembly"
+VULKAN_NATIVE_PROFILE_VALIDATION_TARGET_ENV = "vulkan1.2"
 _VULKAN_NATIVE_PROFILE_SUMMARY_FIELDS = (
     "schemaVersion",
+    "api",
     "module",
     "target",
+    "profile",
     "artifacts",
     "backendAssembly",
     "nativeBinary",
@@ -375,6 +383,8 @@ def _vulkan_native_profile_diagnostics(
             )
         )
 
+    diagnostics.extend(_vulkan_native_profile_schema_field_diagnostics(fields))
+
     module = fields.get("module")
     if plan.runtime_plan.module is not None and not isinstance(module, str):
         diagnostics.append(
@@ -597,6 +607,11 @@ def _vulkan_native_api_boundary(plan: VulkanNativeLoaderPlan) -> dict[str, Any]:
     descriptor = plan.native_artifact_descriptor
     native_profile = plan.native_profile
     fields = descriptor.fields if descriptor is not None else {}
+    native_profile_schema_detail = (
+        _vulkan_native_profile_schema_field_detail(native_profile.fields)
+        if native_profile is not None and native_profile.readable
+        else _vulkan_native_profile_absent_schema_field_detail()
+    )
     blocking_reason = _first_blocking_diagnostic(plan.diagnostics)
 
     return {
@@ -685,6 +700,7 @@ def _vulkan_native_api_boundary(plan: VulkanNativeLoaderPlan) -> dict[str, Any]:
         "nativeProfileCompatibility": {
             "declared": native_profile is not None,
             "readable": native_profile is not None and native_profile.readable,
+            **native_profile_schema_detail,
             "targetMatchesLoader": (
                 native_profile.fields.get("target") == VULKAN_LOADER_TARGET
                 if native_profile is not None and native_profile.readable
@@ -885,6 +901,7 @@ def _vulkan_native_profile_detail(
             "readable": False,
             "artifact": None,
             "fields": {},
+            **_vulkan_native_profile_absent_schema_field_detail(),
             "target": None,
             "targetMatchesLoader": None,
             "module": None,
@@ -911,12 +928,14 @@ def _vulkan_native_profile_detail(
     descriptor_profile_path = _descriptor_native_profile_evidence_path(
         plan.native_artifact_descriptor,
     )
+    schema_detail = _vulkan_native_profile_schema_field_detail(fields)
 
     return {
         "declared": True,
         "readable": native_profile.readable,
         "artifact": native_profile.artifact.to_summary(),
         "fields": fields,
+        **schema_detail,
         "target": profile_target if isinstance(profile_target, str) else None,
         "targetMatchesLoader": (
             profile_target == VULKAN_LOADER_TARGET if native_profile.readable else None
@@ -990,6 +1009,15 @@ def _vulkan_native_admission_checks(
         VULKAN_BACKEND_ASSEMBLY_ARTIFACT,
     )
     profile_module = profile_fields.get("module")
+    profile_schema_detail = (
+        _vulkan_native_profile_schema_field_detail(profile_fields)
+        if profile_readable
+        else _vulkan_native_profile_absent_schema_field_detail()
+    )
+    modern_profile_required = (
+        profile_readable
+        and profile_schema_detail["usesLegacySchemaFieldFallback"] is False
+    )
     graphics_closure = _vulkan_graphics_stage_closure(plan)
 
     return [
@@ -1258,6 +1286,114 @@ def _vulkan_native_admission_checks(
             required=profile_readable,
         ),
         _admission_check(
+            "nativeProfileUsesLegacySchemaFieldFallback",
+            (
+                profile_schema_detail["usesLegacySchemaFieldFallback"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path=None,
+            expected=False,
+            actual=profile_schema_detail["usesLegacySchemaFieldFallback"],
+            required=False,
+        ),
+        _admission_check(
+            "nativeProfileApiMatchesLoader",
+            profile_schema_detail["apiMatchesLoader"] if profile_readable else None,
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="api",
+            expected=VULKAN_NATIVE_PROFILE_API,
+            actual=profile_schema_detail["api"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileProfileNameMatchesExpected",
+            (
+                profile_schema_detail["profileNameMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="profile.name",
+            expected=VULKAN_NATIVE_PROFILE_NAME,
+            actual=profile_schema_detail["profileName"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileProfileVulkanVersionMatchesExpected",
+            (
+                profile_schema_detail["profileVulkanVersionMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="profile.vulkanVersion",
+            expected=VULKAN_NATIVE_PROFILE_VULKAN_VERSION,
+            actual=profile_schema_detail["profileVulkanVersion"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileProfileSpirvVersionValid",
+            (
+                profile_schema_detail["profileSpirvVersionValid"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="profile.spirvVersion",
+            expected="non-empty SPIR-V version string",
+            actual=profile_schema_detail["profileSpirvVersion"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileDebugBinaryFormatMatchesExpected",
+            (
+                profile_schema_detail["debugBinaryFormatMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.binaryFormat",
+            expected=VULKAN_NATIVE_PROFILE_BINARY_FORMAT,
+            actual=profile_schema_detail["debugBinaryFormat"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileDebugAssemblyFormatMatchesExpected",
+            (
+                profile_schema_detail["debugAssemblyFormatMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.assemblyFormat",
+            expected=VULKAN_NATIVE_PROFILE_ASSEMBLY_FORMAT,
+            actual=profile_schema_detail["debugAssemblyFormat"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileDebugValidationTargetEnvMatchesExpected",
+            (
+                profile_schema_detail["debugValidationTargetEnvMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.validationTargetEnv",
+            expected=VULKAN_NATIVE_PROFILE_VALIDATION_TARGET_ENV,
+            actual=profile_schema_detail["debugValidationTargetEnv"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
             "nativeProfileTargetMatchesLoader",
             (
                 profile_fields.get("target") == VULKAN_LOADER_TARGET
@@ -1513,6 +1649,7 @@ def _vulkan_api_profile_input(
             "artifact": None,
             "schemaVersion": None,
             "schemaVersionCompatible": None,
+            **_vulkan_native_profile_absent_schema_field_detail(),
             "target": None,
             "targetMatchesLoader": None,
             "module": None,
@@ -1530,6 +1667,7 @@ def _vulkan_api_profile_input(
     target = fields.get("target")
     native_binary = _vulkan_profile_artifact_path(fields, VULKAN_NATIVE_ARTIFACT)
     module = fields.get("module")
+    schema_detail = _vulkan_native_profile_schema_field_detail(fields)
 
     return {
         "declared": True,
@@ -1539,6 +1677,7 @@ def _vulkan_api_profile_input(
         "schemaVersionCompatible": (
             schema_version == 1 if native_profile.readable else None
         ),
+        **schema_detail,
         "target": target,
         "targetMatchesLoader": (
             target == VULKAN_LOADER_TARGET if native_profile.readable else None
@@ -1846,6 +1985,241 @@ def _vulkan_profile_artifact_path(
         if isinstance(value, str):
             return value
     return None
+
+
+def _vulkan_profile_object(fields: dict[str, Any]) -> dict[str, Any] | None:
+    profile = fields.get("profile")
+    return profile if isinstance(profile, dict) else None
+
+
+def _vulkan_profile_debug_field(fields: dict[str, Any], field_name: str) -> Any:
+    debug = fields.get("debug")
+    if not isinstance(debug, dict):
+        return None
+    return debug.get(field_name)
+
+
+def _vulkan_native_profile_uses_legacy_schema_field_fallback(
+    fields: dict[str, Any],
+) -> bool:
+    debug = fields.get("debug")
+    return (
+        "api" not in fields
+        and "profile" not in fields
+        and (
+            not isinstance(debug, dict)
+            or (
+                "binaryFormat" not in debug
+                and "assemblyFormat" not in debug
+                and "validationTargetEnv" not in debug
+            )
+        )
+    )
+
+
+def _vulkan_native_profile_absent_schema_field_detail() -> dict[str, Any]:
+    return {
+        "usesLegacySchemaFieldFallback": None,
+        "api": None,
+        "apiMatchesLoader": None,
+        "profile": None,
+        "profileName": None,
+        "profileNameMatchesExpected": None,
+        "profileVulkanVersion": None,
+        "profileVulkanVersionMatchesExpected": None,
+        "profileSpirvVersion": None,
+        "profileSpirvVersionValid": None,
+        "debugBinaryFormat": None,
+        "debugBinaryFormatMatchesExpected": None,
+        "debugAssemblyFormat": None,
+        "debugAssemblyFormatMatchesExpected": None,
+        "debugValidationTargetEnv": None,
+        "debugValidationTargetEnvMatchesExpected": None,
+    }
+
+
+def _vulkan_native_profile_schema_field_detail(
+    fields: dict[str, Any],
+) -> dict[str, Any]:
+    profile = _vulkan_profile_object(fields)
+    legacy_fallback = _vulkan_native_profile_uses_legacy_schema_field_fallback(fields)
+    api = fields.get("api")
+    profile_name = profile.get("name") if profile is not None else None
+    profile_vulkan_version = (
+        profile.get("vulkanVersion") if profile is not None else None
+    )
+    profile_spirv_version = profile.get("spirvVersion") if profile is not None else None
+    debug_binary_format = _vulkan_profile_debug_field(fields, "binaryFormat")
+    debug_assembly_format = _vulkan_profile_debug_field(fields, "assemblyFormat")
+    debug_validation_target_env = _vulkan_profile_debug_field(
+        fields,
+        "validationTargetEnv",
+    )
+
+    def _modern_match(actual: Any, expected: Any) -> bool | None:
+        if legacy_fallback:
+            return None
+        return actual == expected
+
+    return {
+        "usesLegacySchemaFieldFallback": legacy_fallback,
+        "api": api,
+        "apiMatchesLoader": _modern_match(api, VULKAN_NATIVE_PROFILE_API),
+        "profile": dict(profile) if profile is not None else None,
+        "profileName": profile_name,
+        "profileNameMatchesExpected": _modern_match(
+            profile_name,
+            VULKAN_NATIVE_PROFILE_NAME,
+        ),
+        "profileVulkanVersion": profile_vulkan_version,
+        "profileVulkanVersionMatchesExpected": _modern_match(
+            profile_vulkan_version,
+            VULKAN_NATIVE_PROFILE_VULKAN_VERSION,
+        ),
+        "profileSpirvVersion": profile_spirv_version,
+        "profileSpirvVersionValid": (
+            None
+            if legacy_fallback
+            else isinstance(profile_spirv_version, str)
+            and bool(profile_spirv_version.strip())
+        ),
+        "debugBinaryFormat": debug_binary_format,
+        "debugBinaryFormatMatchesExpected": _modern_match(
+            debug_binary_format,
+            VULKAN_NATIVE_PROFILE_BINARY_FORMAT,
+        ),
+        "debugAssemblyFormat": debug_assembly_format,
+        "debugAssemblyFormatMatchesExpected": _modern_match(
+            debug_assembly_format,
+            VULKAN_NATIVE_PROFILE_ASSEMBLY_FORMAT,
+        ),
+        "debugValidationTargetEnv": debug_validation_target_env,
+        "debugValidationTargetEnvMatchesExpected": _modern_match(
+            debug_validation_target_env,
+            VULKAN_NATIVE_PROFILE_VALIDATION_TARGET_ENV,
+        ),
+    }
+
+
+def _vulkan_native_profile_schema_field_diagnostics(
+    fields: dict[str, Any],
+) -> tuple[CompatibilityDiagnostic, ...]:
+    detail = _vulkan_native_profile_schema_field_detail(fields)
+    if detail["usesLegacySchemaFieldFallback"]:
+        return ()
+
+    diagnostics: list[CompatibilityDiagnostic] = []
+    if detail["apiMatchesLoader"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_api_mismatch",
+                message=(
+                    "Vulkan native loader requires nativeProfile.api to declare "
+                    "the Vulkan API contract"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="api",
+                expected=VULKAN_NATIVE_PROFILE_API,
+                actual=detail["api"],
+            )
+        )
+    if detail["profileNameMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_profile_name_mismatch",
+                message=(
+                    "Vulkan native loader requires nativeProfile.profile.name "
+                    "to match the expected Vulkan profile contract"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="profile.name",
+                expected=VULKAN_NATIVE_PROFILE_NAME,
+                actual=detail["profileName"],
+            )
+        )
+    if detail["profileVulkanVersionMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_profile_vulkan_version_mismatch",
+                message=(
+                    "Vulkan native loader requires "
+                    "nativeProfile.profile.vulkanVersion to match the loader "
+                    "profile version"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="profile.vulkanVersion",
+                expected=VULKAN_NATIVE_PROFILE_VULKAN_VERSION,
+                actual=detail["profileVulkanVersion"],
+            )
+        )
+    if detail["profileSpirvVersionValid"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_profile_spirv_version_invalid",
+                message=(
+                    "Vulkan native loader requires "
+                    "nativeProfile.profile.spirvVersion to be a non-empty string"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="profile.spirvVersion",
+                expected="non-empty SPIR-V version string",
+                actual=detail["profileSpirvVersion"],
+            )
+        )
+    if detail["debugBinaryFormatMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_debug_binary_format_mismatch",
+                message=(
+                    "Vulkan native loader requires nativeProfile.debug.binaryFormat "
+                    "to identify SPIR-V binary output"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="debug.binaryFormat",
+                expected=VULKAN_NATIVE_PROFILE_BINARY_FORMAT,
+                actual=detail["debugBinaryFormat"],
+            )
+        )
+    if detail["debugAssemblyFormatMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_debug_assembly_format_mismatch",
+                message=(
+                    "Vulkan native loader requires "
+                    "nativeProfile.debug.assemblyFormat to identify SPIR-V "
+                    "assembly output"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="debug.assemblyFormat",
+                expected=VULKAN_NATIVE_PROFILE_ASSEMBLY_FORMAT,
+                actual=detail["debugAssemblyFormat"],
+            )
+        )
+    if detail["debugValidationTargetEnvMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=(
+                    "vulkan_loader.native_profile_debug_validation_target_env_mismatch"
+                ),
+                message=(
+                    "Vulkan native loader requires "
+                    "nativeProfile.debug.validationTargetEnv to match the "
+                    "runtime validation target"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="debug.validationTargetEnv",
+                expected=VULKAN_NATIVE_PROFILE_VALIDATION_TARGET_ENV,
+                actual=detail["debugValidationTargetEnv"],
+            )
+        )
+    return tuple(diagnostics)
 
 
 def _vulkan_filtered_base_diagnostics(

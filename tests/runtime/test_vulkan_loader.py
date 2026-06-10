@@ -436,21 +436,8 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                 package_dir,
                 include_backend_source=True,
                 include_native_profile=True,
+                native_profile_schema="modern",
             )
-            profile_path = (
-                package_dir
-                / "backend"
-                / "vulkan"
-                / "RuntimeVulkanLoaderFixture.profile.json"
-            )
-            profile = json.loads(profile_path.read_text(encoding="utf-8"))
-            backend_assembly = profile.pop("backendAssembly")
-            native_binary = profile.pop("nativeBinary")
-            profile["artifacts"] = {
-                "backendAssembly": backend_assembly,
-                "nativeBinary": native_binary,
-            }
-            self._write_json(profile_path, profile)
             source_path = package_dir / "source" / "generated-profile.cgl"
             source_path.parent.mkdir(exist_ok=True)
             source_path.write_text(
@@ -473,7 +460,26 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                     "nativeBinary": ("backend/vulkan/RuntimeVulkanLoaderFixture.spv"),
                 },
             )
+            self.assertEqual(summary["vulkanNativeProfile"]["fields"]["api"], "vulkan")
+            self.assertEqual(
+                summary["vulkanNativeProfile"]["fields"]["profile"],
+                {
+                    "name": "vulkan-prototype",
+                    "vulkanVersion": "1.2",
+                    "spirvVersion": "1.5",
+                },
+            )
             profile_admission = summary["vulkanNativeAdmission"]["nativeProfile"]
+            self.assertFalse(profile_admission["usesLegacySchemaFieldFallback"])
+            self.assertTrue(profile_admission["apiMatchesLoader"])
+            self.assertTrue(profile_admission["profileNameMatchesExpected"])
+            self.assertTrue(profile_admission["profileVulkanVersionMatchesExpected"])
+            self.assertTrue(profile_admission["profileSpirvVersionValid"])
+            self.assertTrue(profile_admission["debugBinaryFormatMatchesExpected"])
+            self.assertTrue(profile_admission["debugAssemblyFormatMatchesExpected"])
+            self.assertTrue(
+                profile_admission["debugValidationTargetEnvMatchesExpected"]
+            )
             self.assertEqual(
                 profile_admission["backendAssembly"],
                 "backend/vulkan/RuntimeVulkanLoaderFixture.spvasm",
@@ -489,11 +495,92 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                     "nativeBinaryMatchesSpirv"
                 ]
             )
+            self.assertFalse(
+                summary["vulkanNativeApiBoundary"]["nativeProfileCompatibility"][
+                    "usesLegacySchemaFieldFallback"
+                ]
+            )
+            api_profile = summary["vulkanNativeApiBoundary"]["runtimeInputs"][
+                "nativeProfile"
+            ]
+            self.assertTrue(api_profile["apiMatchesLoader"])
+            self.assertTrue(api_profile["profileSpirvVersionValid"])
+            checks = {
+                check["name"]: check
+                for check in summary["vulkanNativeAdmission"]["checks"]
+            }
+            for check_name in (
+                "nativeProfileApiMatchesLoader",
+                "nativeProfileProfileNameMatchesExpected",
+                "nativeProfileProfileVulkanVersionMatchesExpected",
+                "nativeProfileProfileSpirvVersionValid",
+                "nativeProfileDebugBinaryFormatMatchesExpected",
+                "nativeProfileDebugAssemblyFormatMatchesExpected",
+                "nativeProfileDebugValidationTargetEnvMatchesExpected",
+            ):
+                self.assertTrue(checks[check_name]["required"])
+                self.assertTrue(checks[check_name]["passed"])
             self.assertEqual(
                 summary["vulkanNativeAdmission"]["spirvArtifact"][
                     "profileNativeBinary"
                 ],
                 "backend/vulkan/RuntimeVulkanLoaderFixture.spv",
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_ready_plan_reports_legacy_native_profile_schema_field_fallback(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_vulkan_package(
+                package_dir,
+                include_backend_source=True,
+                include_native_profile=True,
+            )
+            source_path = package_dir / "source" / "legacy-profile.cgl"
+            source_path.parent.mkdir(exist_ok=True)
+            source_path.write_text(
+                "legacy profile admission must stay metadata-only\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads(), self._guard_compiler_and_device_work():
+                plan = plan_vulkan_native_loader(package_dir)
+                summary = plan.to_summary()
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertEqual(summary["rejectReasons"], [])
+            profile_admission = summary["vulkanNativeAdmission"]["nativeProfile"]
+            self.assertTrue(profile_admission["usesLegacySchemaFieldFallback"])
+            self.assertIsNone(profile_admission["apiMatchesLoader"])
+            self.assertIsNone(profile_admission["profileNameMatchesExpected"])
+            self.assertIsNone(profile_admission["debugBinaryFormatMatchesExpected"])
+            api_boundary = summary["vulkanNativeApiBoundary"]
+            self.assertTrue(
+                api_boundary["nativeProfileCompatibility"][
+                    "usesLegacySchemaFieldFallback"
+                ]
+            )
+            self.assertTrue(
+                api_boundary["runtimeInputs"]["nativeProfile"][
+                    "usesLegacySchemaFieldFallback"
+                ]
+            )
+            checks = {
+                check["name"]: check
+                for check in summary["vulkanNativeAdmission"]["checks"]
+            }
+            self.assertTrue(
+                checks["nativeProfileUsesLegacySchemaFieldFallback"]["passed"]
+            )
+            self.assertFalse(checks["nativeProfileApiMatchesLoader"]["required"])
+            self.assertIsNone(checks["nativeProfileApiMatchesLoader"]["passed"])
+            self.assertFalse(
+                checks["nativeProfileDebugBinaryFormatMatchesExpected"]["required"]
+            )
+            self.assertIsNone(
+                checks["nativeProfileDebugBinaryFormatMatchesExpected"]["passed"]
             )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
@@ -2088,6 +2175,142 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                 plan.require_ready()
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_rejects_modern_native_profile_schema_field_mismatches(
+        self,
+    ) -> None:
+        cases = (
+            (
+                "api",
+                lambda profile: profile.__setitem__("api", "metal"),
+                "vulkan_loader.native_profile_api_mismatch",
+                "nativeProfileApiMatchesLoader",
+                "api",
+            ),
+            (
+                "profile name",
+                lambda profile: profile["profile"].__setitem__("name", "custom"),
+                "vulkan_loader.native_profile_profile_name_mismatch",
+                "nativeProfileProfileNameMatchesExpected",
+                "profile.name",
+            ),
+            (
+                "profile Vulkan version",
+                lambda profile: profile["profile"].__setitem__(
+                    "vulkanVersion",
+                    "1.3",
+                ),
+                "vulkan_loader.native_profile_profile_vulkan_version_mismatch",
+                "nativeProfileProfileVulkanVersionMatchesExpected",
+                "profile.vulkanVersion",
+            ),
+            (
+                "missing SPIR-V version",
+                lambda profile: profile["profile"].pop("spirvVersion"),
+                "vulkan_loader.native_profile_profile_spirv_version_invalid",
+                "nativeProfileProfileSpirvVersionValid",
+                "profile.spirvVersion",
+            ),
+            (
+                "debug binary format",
+                lambda profile: profile["debug"].__setitem__(
+                    "binaryFormat",
+                    "DXIL",
+                ),
+                "vulkan_loader.native_profile_debug_binary_format_mismatch",
+                "nativeProfileDebugBinaryFormatMatchesExpected",
+                "debug.binaryFormat",
+            ),
+            (
+                "debug assembly format",
+                lambda profile: profile["debug"].__setitem__(
+                    "assemblyFormat",
+                    "DXIL assembly",
+                ),
+                "vulkan_loader.native_profile_debug_assembly_format_mismatch",
+                "nativeProfileDebugAssemblyFormatMatchesExpected",
+                "debug.assemblyFormat",
+            ),
+            (
+                "debug validation target env",
+                lambda profile: profile["debug"].__setitem__(
+                    "validationTargetEnv",
+                    "vulkan1.3",
+                ),
+                ("vulkan_loader.native_profile_debug_validation_target_env_mismatch"),
+                "nativeProfileDebugValidationTargetEnvMatchesExpected",
+                "debug.validationTargetEnv",
+            ),
+        )
+
+        for case_name, mutate, expected_code, check_name, diagnostic_path in cases:
+            with self.subTest(case=case_name):
+                with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+                    package_dir = Path(temp_dir)
+                    self._write_valid_vulkan_package(
+                        package_dir,
+                        include_native_artifact_descriptor=True,
+                        include_native_profile=True,
+                        native_profile_schema="modern",
+                    )
+                    profile_path = (
+                        package_dir
+                        / "backend"
+                        / "vulkan"
+                        / "RuntimeVulkanLoaderFixture.profile.json"
+                    )
+                    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+                    mutate(profile)
+                    self._write_json(profile_path, profile)
+                    source_path = package_dir / "source" / "invalid.cgl"
+                    source_path.parent.mkdir()
+                    source_path.write_text(
+                        "modern profile mismatch must not parse source\n",
+                        encoding="utf-8",
+                    )
+
+                    with (
+                        self._guard_crossgl_source_reads(),
+                        self._guard_compiler_and_device_work(),
+                    ):
+                        plan = plan_vulkan_native_loader(package_dir)
+                        summary = plan.to_summary()
+
+                    self.assertFalse(plan.ready)
+                    self.assertFalse(plan.source_parsing_required)
+                    self.assertFalse(plan.device_execution_required)
+                    self.assertIsNone(plan.native_artifact)
+                    self.assertEqual(summary["sourceInputs"], [])
+                    reject_reasons = summary["rejectReasons"]
+                    self.assertIn(
+                        expected_code,
+                        [diagnostic["code"] for diagnostic in reject_reasons],
+                    )
+                    matching_diagnostic = next(
+                        diagnostic
+                        for diagnostic in reject_reasons
+                        if diagnostic["code"] == expected_code
+                    )
+                    self.assertEqual(matching_diagnostic["path"], diagnostic_path)
+                    vulkan_admission = summary["vulkanNativeAdmission"]
+                    self.assertEqual(vulkan_admission["decision"], "rejected")
+                    profile_admission = vulkan_admission["nativeProfile"]
+                    self.assertFalse(profile_admission["usesLegacySchemaFieldFallback"])
+                    mismatch_checks = {
+                        check["name"]: check for check in vulkan_admission["checks"]
+                    }
+                    self.assertTrue(mismatch_checks[check_name]["required"])
+                    self.assertFalse(mismatch_checks[check_name]["passed"])
+                    self.assertFalse(vulkan_admission["requiredChecksPassed"])
+                    self.assertIn(
+                        expected_code,
+                        summary["vulkanNativeApiBoundary"][
+                            "nativeProfileCompatibility"
+                        ]["failClosedDiagnosticCodes"],
+                    )
+                    with self.assertRaisesRegex(PackageReadError, "nativeProfile"):
+                        plan.require_ready()
+                    self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_rejects_descriptor_native_profile_evidence_path_mismatch(
         self,
     ) -> None:
@@ -2342,6 +2565,7 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
         descriptor_binary_kind: str = "vulkan.spirv-module",
         include_backend_source: bool = False,
         include_native_profile: bool = True,
+        native_profile_schema: str = "legacy",
     ) -> None:
         backend_dir = package_dir / "backend" / "vulkan"
         backend_dir.mkdir(parents=True)
@@ -2370,21 +2594,28 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
         if include_native_profile:
             profile_path = "backend/vulkan/RuntimeVulkanLoaderFixture.profile.json"
             artifacts["nativeProfile"] = profile_path
-            self._write_json(
-                package_dir / profile_path,
-                {
-                    "schemaVersion": 1,
-                    "module": "RuntimeVulkanLoaderFixture",
-                    "target": "vulkan",
-                    "backendAssembly": assembly_path,
-                    "nativeBinary": native_binary_path,
-                    "debug": {
-                        "disassembly": {
-                            "status": "skipped-tool-missing",
-                            "path": None,
-                        },
+            profile = {
+                "schemaVersion": 1,
+                "module": "RuntimeVulkanLoaderFixture",
+                "target": "vulkan",
+                "backendAssembly": assembly_path,
+                "nativeBinary": native_binary_path,
+                "debug": {
+                    "disassembly": {
+                        "status": "skipped-tool-missing",
+                        "path": None,
                     },
                 },
+            }
+            self._apply_vulkan_native_profile_schema(
+                profile,
+                native_profile_schema,
+                backend_assembly_path=assembly_path,
+                native_binary_path=native_binary_path,
+            )
+            self._write_json(
+                package_dir / profile_path,
+                profile,
             )
         if include_native_artifact_descriptor:
             descriptor_path = "metadata/native-artifact.json"
@@ -2456,12 +2687,46 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             },
         )
 
+    def _apply_vulkan_native_profile_schema(
+        self,
+        profile: dict[str, object],
+        schema: str,
+        *,
+        backend_assembly_path: str | None = None,
+        native_binary_path: str,
+    ) -> None:
+        if schema == "legacy":
+            return
+        if schema != "modern":
+            raise ValueError(f"unknown Vulkan native profile schema fixture: {schema}")
+
+        profile["api"] = "vulkan"
+        profile["profile"] = {
+            "name": "vulkan-prototype",
+            "vulkanVersion": "1.2",
+            "spirvVersion": "1.5",
+        }
+        artifacts: dict[str, str] = {"nativeBinary": native_binary_path}
+        if backend_assembly_path is not None:
+            artifacts["backendAssembly"] = backend_assembly_path
+        profile["artifacts"] = artifacts
+        profile.pop("backendAssembly", None)
+        profile.pop("nativeBinary", None)
+        debug = profile.get("debug")
+        if not isinstance(debug, dict):
+            debug = {}
+            profile["debug"] = debug
+        debug["binaryFormat"] = "SPIR-V"
+        debug["assemblyFormat"] = "SPIR-V assembly"
+        debug["validationTargetEnv"] = "vulkan1.2"
+
     def _write_source_free_vulkan_package(
         self,
         package_dir: Path,
         *,
         descriptor_path: str,
         descriptor_binary_kind: str = "vulkan.spirv-module",
+        native_profile_schema: str = "legacy",
     ) -> None:
         backend_dir = package_dir / "backend" / "vulkan"
         backend_dir.mkdir(parents=True)
@@ -2497,21 +2762,24 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                 },
             },
         )
-        self._write_json(
-            package_dir / profile_path,
-            {
-                "schemaVersion": 1,
-                "module": "RuntimeVulkanLoaderFixture",
-                "target": "vulkan",
-                "nativeBinary": native_path,
-                "debug": {
-                    "disassembly": {
-                        "status": "skipped-tool-missing",
-                        "path": None,
-                    },
+        profile = {
+            "schemaVersion": 1,
+            "module": "RuntimeVulkanLoaderFixture",
+            "target": "vulkan",
+            "nativeBinary": native_path,
+            "debug": {
+                "disassembly": {
+                    "status": "skipped-tool-missing",
+                    "path": None,
                 },
             },
+        }
+        self._apply_vulkan_native_profile_schema(
+            profile,
+            native_profile_schema,
+            native_binary_path=native_path,
         )
+        self._write_json(package_dir / profile_path, profile)
         self._write_json(
             package_dir / "reflection.json",
             {
