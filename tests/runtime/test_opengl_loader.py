@@ -312,6 +312,43 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
             self.assertEqual(summary["rejectReasons"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_source_package_admission_reports_graphics_abi_reflection_parity_without_crossgl_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_opengl_package(
+                package_dir,
+                native_binary_status="validated",
+                emit_native_artifact_descriptor=True,
+            )
+            self._write_graphics_abi_sidecar(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "OpenGL graphics ABI parity must not parse CrossGL source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                plan = plan_opengl_source_package_loader(package_dir)
+                summary = plan.to_summary()
+
+            admission = summary["openglSourcePackageAdmission"]
+            parity = admission["graphicsAbiReflectionParity"]
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertTrue(parity["graphicsAbiDeclared"])
+            self.assertTrue(parity["parityChecked"])
+            self.assertTrue(parity["identityMatches"])
+            self.assertEqual(parity["status"], "matched")
+            self.assertEqual(parity["reflectionBindingCount"], 1)
+            self.assertEqual(parity["graphicsAbiBindingCount"], 1)
+            self.assertEqual(parity["missingGraphicsAbiBindings"], [])
+            self.assertEqual(parity["staleGraphicsAbiBindings"], [])
+            self.assertEqual(parity["diagnostics"], [])
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_rejects_non_opengl_descriptor_kind_without_crossgl_parse(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
@@ -1466,6 +1503,56 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
                 "descriptorType": "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
             },
         )
+
+    def _write_graphics_abi_sidecar(self, package_dir: Path) -> None:
+        manifest_path = package_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        graphics_abi_path = (
+            "backend/opengl/RuntimeOpenGLLoaderFixture.graphics-abi.json"
+        )
+        self._write_json(
+            package_dir / graphics_abi_path,
+            {
+                "schemaVersion": 1,
+                "module": "RuntimeOpenGLLoaderFixture",
+                "target": "opengl",
+                "entryPoints": [
+                    {
+                        "stage": "compute",
+                        "sourceName": "main",
+                        "backendName": "runtime_opengl_loader_main",
+                    }
+                ],
+                "resources": [
+                    {
+                        "stage": "compute",
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                        "type": "float4",
+                        "set": 0,
+                        "binding": 0,
+                    }
+                ],
+                "abiRecords": [
+                    {
+                        "target": "opengl",
+                        "stage": "compute",
+                        "entryPoint": "runtime_opengl_loader_main",
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                        "sourceType": "float4",
+                        "addressSpace": "buffer",
+                        "abi": {"program": 0, "binding": 0},
+                        "bindingClass": "storage-buffer",
+                        "descriptorType": "shader-storage-buffer",
+                        "set": 0,
+                        "binding": 0,
+                    }
+                ],
+            },
+        )
+        manifest["artifacts"]["graphicsAbi"] = graphics_abi_path
+        self._write_json(manifest_path, manifest)
 
     def _write_package_json(
         self,

@@ -10,6 +10,7 @@ from typing import Any
 from .backend_loader import NATIVE_ARTIFACT_DESCRIPTOR
 from .backend_loader import NativeArtifactDescriptorPlan
 from .backend_loader import SourceFreeNativeBackendLoaderPlan
+from .backend_loader import _graphics_abi_reflection_parity_summary
 from .backend_loader import _native_artifact_descriptor_plan
 from .backend_loader import plan_source_free_native_backend_loader
 from .loader import LoaderArtifactPlan, RuntimeLoaderPlan, read_loader_plan
@@ -181,6 +182,11 @@ def _directx_native_api_boundary(plan: DirectXNativeLoaderPlan) -> dict[str, Any
                 descriptor=descriptor,
             ),
             "reflection": _directx_api_reflection_input(plan),
+            "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
+                plan.runtime_plan,
+                target=DIRECTX_LOADER_TARGET,
+                target_resource_bindings=plan.target_resource_bindings,
+            ),
             "versionCompatibility": plan.runtime_plan.version_compatibility_summary,
         },
         "descriptorFreshness": {

@@ -4,7 +4,47 @@ from .common import add_length_count_error
 from .common import validate_source_location_span
 
 
+def is_stable_relative_path(path):
+    if path == "":
+        return False
+    if "\\" in path:
+        return False
+    if path.startswith("/") or (
+        len(path) >= 2 and path[0].isalpha() and path[1] == ":"
+    ):
+        return False
+    return all(segment not in ("", ".", "..") for segment in path.split("/"))
+
+
+def source_span_identity(span):
+    return (
+        span["file"],
+        span["line"],
+        span["column"],
+        span["offset"],
+        span["length"],
+        span["endLine"],
+        span["endColumn"],
+        span["endOffset"],
+    )
+
+
+def backend_span_identity(span):
+    return (
+        span["startLine"],
+        span["endLine"],
+    )
+
+
+def backend_spans_overlap(left, right):
+    return (
+        left["startLine"] <= right["endLine"] and right["startLine"] <= left["endLine"]
+    )
+
+
 def validate_source_location_range(errors, path, location):
+    if not is_stable_relative_path(location["file"]):
+        errors.append(f"{path}.file: expected stable relative POSIX source path")
     validate_source_location_span(errors, path, location)
     if location["length"] <= 0:
         errors.append(f"{path}.length: expected > 0")
@@ -58,6 +98,8 @@ def validate_semantics(instance):
         errors.append("$.backend.language: expected 'hlsl' for directx target")
 
     line_count = backend["lineCount"]
+    backend_spans = []
+    seen_mappings = set()
     for index, mapping in enumerate(mappings):
         mapping_path = f"$.mappings[{index}]"
         if mapping["index"] != index:
@@ -78,5 +120,27 @@ def validate_semantics(instance):
                 f"{mapping_path}.originalLocation",
                 mapping["originalLocation"],
             )
+
+        for prior_index, prior_backend in backend_spans:
+            if backend_spans_overlap(prior_backend, mapping["backend"]):
+                errors.append(
+                    f"{mapping_path}.backend: overlaps "
+                    f"$.mappings[{prior_index}].backend"
+                )
+                break
+        backend_spans.append((index, mapping["backend"]))
+
+        mapping_identity = (
+            backend_span_identity(mapping["backend"]),
+            source_span_identity(mapping["location"]),
+            source_span_identity(mapping["originalLocation"])
+            if "originalLocation" in mapping
+            else None,
+        )
+        if mapping_identity in seen_mappings:
+            errors.append(
+                f"{mapping_path}: duplicate backend/location/original span tuple"
+            )
+        seen_mappings.add(mapping_identity)
 
     return errors

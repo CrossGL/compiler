@@ -137,6 +137,7 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
 
             bindings = summary["graphicsDescriptorBindings"]
             binding = bindings["bindings"][0]
+            parity = summary["graphicsAbiReflectionParity"]
 
             self.assertTrue(plan.ready, summary["diagnostics"])
             self.assertEqual(bindings["source"], "graphicsAbi.abiRecords")
@@ -149,6 +150,19 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             self.assertEqual(binding["argumentIndex"], 0)
             self.assertEqual(binding["set"], 0)
             self.assertEqual(binding["binding"], 0)
+            self.assertEqual(
+                summary["nativeAdmission"]["graphicsAbiReflectionParity"],
+                parity,
+            )
+            self.assertTrue(parity["graphicsAbiDeclared"])
+            self.assertTrue(parity["parityChecked"])
+            self.assertTrue(parity["identityMatches"])
+            self.assertEqual(parity["status"], "matched")
+            self.assertEqual(parity["reflectionBindingCount"], 1)
+            self.assertEqual(parity["graphicsAbiBindingCount"], 1)
+            self.assertEqual(parity["missingGraphicsAbiBindings"], [])
+            self.assertEqual(parity["staleGraphicsAbiBindings"], [])
+            self.assertEqual(parity["diagnostics"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_summary_rejects_resource_without_selected_target_binding(

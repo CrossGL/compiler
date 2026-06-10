@@ -1,0 +1,1 @@
+$.mappings[0].originalLocation.file: expected stable relative POSIX source path

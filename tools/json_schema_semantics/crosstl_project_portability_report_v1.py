@@ -358,10 +358,14 @@ def validate_semantics(instance):
                 errors, artifact_path, target, source_map_granularity, source_map
             )
 
-        if target == "cgl" and status == "translated" and source_remap is None:
+        if (
+            target in CROSSGL_TARGETS
+            and status == "translated"
+            and source_remap is None
+        ):
             errors.append(
-                f"{artifact_path}.sourceRemap: expected translated cgl artifact "
-                "to record sourceRemap metadata"
+                f"{artifact_path}.sourceRemap: expected translated CrossGL target "
+                "artifact to record sourceRemap metadata"
             )
             continue
         if source_remap is None:
@@ -383,9 +387,10 @@ def validate_semantics(instance):
             )
         source_remap_paths.add(source_remap_path)
 
-        if target is not None and target != "cgl":
+        if target is not None and target not in CROSSGL_TARGETS:
             errors.append(
-                f"{artifact_path}.sourceRemap: expected only for cgl target artifacts"
+                f"{artifact_path}.sourceRemap: expected only for CrossGL target "
+                "artifacts"
             )
         if target is not None and source_remap["target"] != target:
             errors.append(

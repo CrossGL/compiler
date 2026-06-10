@@ -8,6 +8,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .backend_loader import SourceFreeNativeBackendLoaderPlan
+from .backend_loader import _graphics_abi_reflection_parity_summary
 from .loader import LoaderArtifactPlan, RuntimeLoaderPlan, read_loader_plan
 from .package_reader import CompatibilityDiagnostic, PackageReadError
 
@@ -356,6 +357,14 @@ def _opengl_source_package_admission_detail(
                 for record in _target_resource_bindings(plan, OPENGL_LOADER_TARGET)
             ],
         },
+        "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
+            plan,
+            target=OPENGL_LOADER_TARGET,
+            target_resource_bindings=_target_resource_bindings(
+                plan,
+                OPENGL_LOADER_TARGET,
+            ),
+        ),
         "blockedByDiagnostics": [
             diagnostic.to_summary()
             for diagnostic in plan.diagnostics

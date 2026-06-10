@@ -202,6 +202,11 @@ class SourceFreeNativeBackendLoaderPlan:
             "graphicsDescriptorBindings": (
                 self.runtime_plan.compatibility_report.graphics_descriptor_bindings
             ),
+            "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
+                self.runtime_plan,
+                target=self.target,
+                target_resource_bindings=self.target_resource_bindings,
+            ),
             "sourceInputs": [],
             "runtimePlan": self.runtime_plan.to_summary(),
             "rejectReasons": [
@@ -719,6 +724,11 @@ def _native_admission_summary(
         ),
         "nativeArtifact": artifact_admission,
         "nativeArtifactDescriptor": descriptor_admission,
+        "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
+            plan.runtime_plan,
+            target=plan.target,
+            target_resource_bindings=plan.target_resource_bindings,
+        ),
         "runtimeSelection": {
             "requestedPackageMode": (
                 plan.runtime_plan.runtime_artifact_selection.requested_package_mode
@@ -1158,6 +1168,183 @@ def _target_resource_binding_drift_diagnostics(
         )
 
     return tuple(diagnostics)
+
+
+def _graphics_abi_reflection_parity_summary(
+    runtime_plan: RuntimeLoaderPlan,
+    *,
+    target: str,
+    target_resource_bindings: tuple[dict[str, Any], ...] | None = None,
+) -> dict[str, Any]:
+    graphics_descriptor_bindings = (
+        runtime_plan.compatibility_report.graphics_descriptor_bindings
+    )
+    if target_resource_bindings is None:
+        target_resource_bindings = _target_resource_bindings(runtime_plan, target)
+
+    reflection_bindings = tuple(
+        _graphics_abi_boundary_binding(record, target=target)
+        for record in target_resource_bindings
+    )
+    graphics_abi_declared = bool(
+        graphics_descriptor_bindings.get("graphicsAbiDeclared")
+    )
+    source = graphics_descriptor_bindings.get("source")
+    graphics_abi_bindings = (
+        tuple(
+            _graphics_abi_boundary_binding(record, target=target)
+            for record in _object_records(graphics_descriptor_bindings.get("bindings"))
+        )
+        if graphics_abi_declared and source == "graphicsAbi.abiRecords"
+        else ()
+    )
+    reflection_keys = _graphics_abi_binding_key_map(reflection_bindings)
+    graphics_abi_keys = _graphics_abi_binding_key_map(graphics_abi_bindings)
+    missing_graphics_abi_keys = tuple(
+        sorted(reflection_keys.keys() - graphics_abi_keys.keys())
+    )
+    stale_graphics_abi_keys = tuple(
+        sorted(graphics_abi_keys.keys() - reflection_keys.keys())
+    )
+    parity_checked = graphics_abi_declared and source == "graphicsAbi.abiRecords"
+    identity_matches = (
+        not missing_graphics_abi_keys and not stale_graphics_abi_keys
+        if parity_checked
+        else None
+    )
+    diagnostics = [
+        diagnostic.to_summary()
+        for diagnostic in runtime_plan.diagnostics
+        if diagnostic.document == "graphicsAbi" or diagnostic.artifact == "graphicsAbi"
+    ]
+
+    return {
+        "schemaVersion": 1,
+        "target": target,
+        "source": source,
+        "graphicsAbiDeclared": graphics_abi_declared,
+        "parityChecked": parity_checked,
+        "identityMatches": identity_matches,
+        "status": _graphics_abi_parity_status(
+            graphics_abi_declared=graphics_abi_declared,
+            parity_checked=parity_checked,
+            identity_matches=identity_matches,
+        ),
+        "reflectionBindingCount": len(reflection_bindings),
+        "graphicsAbiBindingCount": len(graphics_abi_bindings),
+        "missingGraphicsAbiBindingCount": len(missing_graphics_abi_keys),
+        "staleGraphicsAbiBindingCount": len(stale_graphics_abi_keys),
+        "missingGraphicsAbiBindings": [
+            _graphics_abi_binding_identity_summary(target, key)
+            for key in missing_graphics_abi_keys
+        ],
+        "staleGraphicsAbiBindings": [
+            _graphics_abi_binding_identity_summary(target, key)
+            for key in stale_graphics_abi_keys
+        ],
+        "diagnosticCodes": [
+            diagnostic["code"]
+            for diagnostic in diagnostics
+            if isinstance(diagnostic.get("code"), str)
+        ],
+        "diagnostics": diagnostics,
+    }
+
+
+def _graphics_abi_parity_status(
+    *,
+    graphics_abi_declared: bool,
+    parity_checked: bool,
+    identity_matches: bool | None,
+) -> str:
+    if not graphics_abi_declared:
+        return "not-declared"
+    if not parity_checked:
+        return "not-checkable"
+    if identity_matches:
+        return "matched"
+    return "mismatched"
+
+
+def _graphics_abi_binding_key_map(
+    records: tuple[dict[str, Any], ...],
+) -> dict[tuple[str, str, str, str | None], dict[str, Any]]:
+    mapping: dict[tuple[str, str, str, str | None], dict[str, Any]] = {}
+    for record in records:
+        key = _graphics_abi_binding_identity(record)
+        if key is not None and key not in mapping:
+            mapping[key] = record
+    return mapping
+
+
+def _graphics_abi_binding_identity(
+    record: dict[str, Any],
+) -> tuple[str, str, str, str | None] | None:
+    stage = record.get("stage")
+    entry_point = record.get("entryPoint")
+    name = record.get("name")
+    kind = record.get("kind")
+    if (
+        not isinstance(stage, str)
+        or not stage
+        or not isinstance(entry_point, str)
+        or not entry_point
+        or not isinstance(name, str)
+        or not name
+    ):
+        return None
+    return stage, entry_point, name, kind if isinstance(kind, str) else None
+
+
+def _graphics_abi_boundary_binding(
+    record: dict[str, Any],
+    *,
+    target: str,
+) -> dict[str, Any]:
+    summary = {
+        field_name: record[field_name]
+        for field_name in (
+            "target",
+            "stage",
+            "entryPoint",
+            "name",
+            "kind",
+            "abi",
+            "evidenceId",
+            "bindingClass",
+            "descriptorType",
+            "set",
+            "binding",
+            "argumentIndex",
+            "space",
+            "register",
+            "program",
+        )
+        if field_name in record
+    }
+    if "target" not in summary:
+        summary["target"] = target
+    return summary
+
+
+def _graphics_abi_binding_identity_summary(
+    target: str,
+    key: tuple[str, str, str, str | None],
+) -> dict[str, Any]:
+    stage, entry_point, name, kind = key
+    return {
+        "target": target,
+        "stage": stage,
+        "entryPoint": entry_point,
+        "name": name,
+        "kind": kind,
+    }
+
+
+def _object_records(value: Any) -> tuple[dict[str, Any], ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(record for record in value if isinstance(record, dict))
 
 
 def _reflection_resource_key(

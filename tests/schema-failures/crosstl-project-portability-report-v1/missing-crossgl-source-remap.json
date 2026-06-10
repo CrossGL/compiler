@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "summary": {
+    "artifactCount": 1,
+    "sourceRemapCount": 0,
+    "sourceRemapMappingCount": 0
+  },
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "target": "crossgl",
+      "path": "out/crossgl/simple.cgl",
+      "status": "translated"
+    }
+  ]
+}
