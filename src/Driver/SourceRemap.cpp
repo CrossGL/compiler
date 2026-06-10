@@ -199,6 +199,21 @@ sourceRemapMetadataHash(std::string_view metadata,
   return value;
 }
 
+std::optional<std::string>
+requiredSourceRemapMetadataHash(std::string_view metadata,
+                                DiagnosticEngine &diagnostics,
+                                const SourceLocation &metadataLocation) {
+  if (!findObjectMemberValue(metadata, "hash")) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.hash must contain sha256 algorithm and 64 lowercase "
+        "hexadecimal value",
+        metadataLocation);
+    return std::nullopt;
+  }
+  return sourceRemapMetadataHash(metadata, diagnostics, metadataLocation);
+}
+
 std::optional<std::uintmax_t>
 sourceRemapMetadataSizeBytes(std::string_view metadata,
                              DiagnosticEngine &diagnostics,
@@ -215,6 +230,51 @@ sourceRemapMetadataSizeBytes(std::string_view metadata,
     return std::nullopt;
   }
   return sizeBytes;
+}
+
+std::optional<std::uintmax_t>
+requiredSourceRemapMetadataSizeBytes(std::string_view metadata,
+                                     DiagnosticEngine &diagnostics,
+                                     const SourceLocation &metadataLocation) {
+  if (!findObjectMemberValue(metadata, "sizeBytes")) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.sizeBytes must be recorded",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  return sourceRemapMetadataSizeBytes(metadata, diagnostics, metadataLocation);
+}
+
+bool validateSourceRemapMetadataSchemaVersion(
+    std::string_view metadata, DiagnosticEngine &diagnostics,
+    const SourceLocation &metadataLocation) {
+  const std::optional<std::uintmax_t> schemaVersion =
+      objectUnsignedMember(metadata, "schemaVersion");
+  if (!schemaVersion || *schemaVersion != 1) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.schemaVersion must be 1",
+                       metadataLocation);
+    return false;
+  }
+  return true;
+}
+
+bool validateSourceRemapMetadataGranularity(
+    std::string_view metadata, DiagnosticEngine &diagnostics,
+    const SourceLocation &metadataLocation) {
+  const std::optional<std::string> granularity =
+      objectStringMember(metadata, "mappingGranularity");
+  if (!granularity ||
+      (*granularity != "file" && *granularity != "line" &&
+       *granularity != "statement" && *granularity != "token")) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.mappingGranularity must be file, line, statement, or "
+        "token",
+        metadataLocation);
+    return false;
+  }
+  return true;
 }
 
 std::optional<std::string>
@@ -449,12 +509,28 @@ SourceLocation remapInsideEntry(const SourceRemapEntry &entry,
 std::optional<SourceRemap> loadSourceRemapMetadata(
     std::string_view metadata, const std::filesystem::path &baseDirectory,
     SourceLocation metadataLocation, DiagnosticEngine &diagnostics) {
+  if (!validateSourceRemapMetadataSchemaVersion(metadata, diagnostics,
+                                                metadataLocation) ||
+      !validateSourceRemapMetadataGranularity(metadata, diagnostics,
+                                              metadataLocation)) {
+    return std::nullopt;
+  }
+
   const std::optional<std::string> sidecarPath =
       objectStringMember(metadata, "path");
   if (!sidecarPath || !isStableRelativePath(*sidecarPath)) {
     reportInvalidRemap(diagnostics,
                        "sourceRemap.path must be a stable relative POSIX path",
                        std::move(metadataLocation));
+    return std::nullopt;
+  }
+
+  const std::optional<std::uintmax_t> expectedSize =
+      requiredSourceRemapMetadataSizeBytes(metadata, diagnostics,
+                                           metadataLocation);
+  const std::optional<std::string> expectedHash =
+      requiredSourceRemapMetadataHash(metadata, diagnostics, metadataLocation);
+  if (!expectedSize || !expectedHash) {
     return std::nullopt;
   }
 
@@ -466,39 +542,22 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
     return std::nullopt;
   }
 
-  const bool hasSizeBytes =
-      findObjectMemberValue(metadata, "sizeBytes").has_value();
-  const std::optional<std::uintmax_t> expectedSize =
-      sourceRemapMetadataSizeBytes(metadata, diagnostics, metadataLocation);
-  if (hasSizeBytes && !expectedSize) {
+  if (*expectedSize != sidecarText->size()) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.sizeBytes does not match referenced sidecar '" +
+            resolvedSidecarPath.generic_string() + "'",
+        metadataLocation);
     return std::nullopt;
   }
-  if (expectedSize) {
-    if (*expectedSize != sidecarText->size()) {
-      reportInvalidRemap(
-          diagnostics,
-          "sourceRemap.sizeBytes does not match referenced sidecar '" +
-              resolvedSidecarPath.generic_string() + "'",
-          metadataLocation);
-      return std::nullopt;
-    }
-  }
-  const bool hasHash = findObjectMemberValue(metadata, "hash").has_value();
-  const std::optional<std::string> expectedHash =
-      sourceRemapMetadataHash(metadata, diagnostics, metadataLocation);
-  if (hasHash && !expectedHash) {
+  const std::string actualHash = sha256(*sidecarText);
+  if (*expectedHash != actualHash) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.hash.value does not match referenced sidecar '" +
+            resolvedSidecarPath.generic_string() + "'",
+        metadataLocation);
     return std::nullopt;
-  }
-  if (expectedHash) {
-    const std::string actualHash = sha256(*sidecarText);
-    if (*expectedHash != actualHash) {
-      reportInvalidRemap(
-          diagnostics,
-          "sourceRemap.hash.value does not match referenced sidecar '" +
-              resolvedSidecarPath.generic_string() + "'",
-          metadataLocation);
-      return std::nullopt;
-    }
   }
 
   std::optional<SourceRemap> remap =
