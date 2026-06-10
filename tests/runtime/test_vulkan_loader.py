@@ -469,17 +469,62 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                     "spirvVersion": "1.5",
                 },
             )
+            self.assertEqual(
+                summary["vulkanNativeProfile"]["fields"]["generator"],
+                "CrossGL Vulkan prototype backend",
+            )
+            self.assertEqual(
+                summary["vulkanNativeProfile"]["fields"]["debug"]["optimization"],
+                {
+                    "tool": "spirv-opt",
+                    "policy": "disabled-by-opt-level",
+                    "requestedLevel": "O1",
+                    "level": "none",
+                    "status": "skipped-disabled",
+                    "targetEnv": "vulkan1.2",
+                    "toolStatus": "not-run",
+                },
+            )
+            self.assertEqual(
+                summary["vulkanNativeProfile"]["fields"]["debug"]["disassembly"],
+                {
+                    "tool": "spirv-dis",
+                    "policy": "use-when-available",
+                    "status": "skipped-tool-missing",
+                    "path": None,
+                },
+            )
             profile_admission = summary["vulkanNativeAdmission"]["nativeProfile"]
             self.assertFalse(profile_admission["usesLegacySchemaFieldFallback"])
             self.assertTrue(profile_admission["apiMatchesLoader"])
             self.assertTrue(profile_admission["profileNameMatchesExpected"])
             self.assertTrue(profile_admission["profileVulkanVersionMatchesExpected"])
             self.assertTrue(profile_admission["profileSpirvVersionValid"])
+            self.assertTrue(profile_admission["generatorValid"])
             self.assertTrue(profile_admission["debugBinaryFormatMatchesExpected"])
             self.assertTrue(profile_admission["debugAssemblyFormatMatchesExpected"])
             self.assertTrue(
                 profile_admission["debugValidationTargetEnvMatchesExpected"]
             )
+            self.assertTrue(profile_admission["debugOptimizationPresent"])
+            self.assertTrue(profile_admission["debugOptimizationToolMatchesExpected"])
+            self.assertTrue(profile_admission["debugOptimizationPolicyValid"])
+            self.assertTrue(profile_admission["debugOptimizationRequestedLevelValid"])
+            self.assertTrue(profile_admission["debugOptimizationLevelValid"])
+            self.assertTrue(profile_admission["debugOptimizationStatusValid"])
+            self.assertTrue(
+                profile_admission[
+                    "debugOptimizationTargetEnvMatchesValidationTargetEnv"
+                ]
+            )
+            self.assertTrue(
+                profile_admission["debugOptimizationToolStatusMatchesStatus"]
+            )
+            self.assertTrue(profile_admission["debugDisassemblyPresent"])
+            self.assertTrue(profile_admission["debugDisassemblyToolMatchesExpected"])
+            self.assertTrue(profile_admission["debugDisassemblyPolicyMatchesExpected"])
+            self.assertTrue(profile_admission["debugDisassemblyStatusValid"])
+            self.assertTrue(profile_admission["debugDisassemblyPathMatchesStatus"])
             self.assertEqual(
                 profile_admission["backendAssembly"],
                 "backend/vulkan/RuntimeVulkanLoaderFixture.spvasm",
@@ -500,11 +545,29 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                     "usesLegacySchemaFieldFallback"
                 ]
             )
+            self.assertTrue(
+                summary["vulkanNativeApiBoundary"]["nativeProfileCompatibility"][
+                    "generatorValid"
+                ]
+            )
+            self.assertTrue(
+                summary["vulkanNativeApiBoundary"]["nativeProfileCompatibility"][
+                    "debugOptimizationToolStatusMatchesStatus"
+                ]
+            )
+            self.assertTrue(
+                summary["vulkanNativeApiBoundary"]["nativeProfileCompatibility"][
+                    "debugDisassemblyPathMatchesStatus"
+                ]
+            )
             api_profile = summary["vulkanNativeApiBoundary"]["runtimeInputs"][
                 "nativeProfile"
             ]
             self.assertTrue(api_profile["apiMatchesLoader"])
             self.assertTrue(api_profile["profileSpirvVersionValid"])
+            self.assertTrue(api_profile["generatorValid"])
+            self.assertTrue(api_profile["debugOptimizationPolicyValid"])
+            self.assertTrue(api_profile["debugDisassemblyPolicyMatchesExpected"])
             checks = {
                 check["name"]: check
                 for check in summary["vulkanNativeAdmission"]["checks"]
@@ -517,6 +580,18 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                 "nativeProfileDebugBinaryFormatMatchesExpected",
                 "nativeProfileDebugAssemblyFormatMatchesExpected",
                 "nativeProfileDebugValidationTargetEnvMatchesExpected",
+                "nativeProfileGeneratorValid",
+                "nativeProfileDebugOptimizationToolMatchesExpected",
+                "nativeProfileDebugOptimizationPolicyValid",
+                "nativeProfileDebugOptimizationRequestedLevelValid",
+                "nativeProfileDebugOptimizationLevelValid",
+                "nativeProfileDebugOptimizationStatusValid",
+                ("nativeProfileDebugOptimizationTargetEnvMatchesValidationTargetEnv"),
+                "nativeProfileDebugOptimizationToolStatusMatchesStatus",
+                "nativeProfileDebugDisassemblyToolMatchesExpected",
+                "nativeProfileDebugDisassemblyPolicyMatchesExpected",
+                "nativeProfileDebugDisassemblyStatusValid",
+                "nativeProfileDebugDisassemblyPathMatchesStatus",
             ):
                 self.assertTrue(checks[check_name]["required"])
                 self.assertTrue(checks[check_name]["passed"])
@@ -555,7 +630,10 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             self.assertTrue(profile_admission["usesLegacySchemaFieldFallback"])
             self.assertIsNone(profile_admission["apiMatchesLoader"])
             self.assertIsNone(profile_admission["profileNameMatchesExpected"])
+            self.assertIsNone(profile_admission["generatorValid"])
             self.assertIsNone(profile_admission["debugBinaryFormatMatchesExpected"])
+            self.assertIsNone(profile_admission["debugOptimizationPresent"])
+            self.assertIsNone(profile_admission["debugDisassemblyPresent"])
             api_boundary = summary["vulkanNativeApiBoundary"]
             self.assertTrue(
                 api_boundary["nativeProfileCompatibility"][
@@ -582,6 +660,22 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             self.assertIsNone(
                 checks["nativeProfileDebugBinaryFormatMatchesExpected"]["passed"]
             )
+            for check_name in (
+                "nativeProfileGeneratorValid",
+                "nativeProfileDebugOptimizationToolMatchesExpected",
+                "nativeProfileDebugOptimizationPolicyValid",
+                "nativeProfileDebugOptimizationRequestedLevelValid",
+                "nativeProfileDebugOptimizationLevelValid",
+                "nativeProfileDebugOptimizationStatusValid",
+                ("nativeProfileDebugOptimizationTargetEnvMatchesValidationTargetEnv"),
+                "nativeProfileDebugOptimizationToolStatusMatchesStatus",
+                "nativeProfileDebugDisassemblyToolMatchesExpected",
+                "nativeProfileDebugDisassemblyPolicyMatchesExpected",
+                "nativeProfileDebugDisassemblyStatusValid",
+                "nativeProfileDebugDisassemblyPathMatchesStatus",
+            ):
+                self.assertFalse(checks[check_name]["required"])
+                self.assertIsNone(checks[check_name]["passed"])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_graphics_stage_closure_reports_vertex_fragment_pair(self) -> None:
@@ -2240,6 +2334,155 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                 "nativeProfileDebugValidationTargetEnvMatchesExpected",
                 "debug.validationTargetEnv",
             ),
+            (
+                "empty generator",
+                lambda profile: profile.__setitem__("generator", ""),
+                "vulkan_loader.native_profile_generator_invalid",
+                "nativeProfileGeneratorValid",
+                "generator",
+            ),
+            (
+                "optimization tool",
+                lambda profile: profile["debug"]["optimization"].__setitem__(
+                    "tool",
+                    "custom-opt",
+                ),
+                ("vulkan_loader.native_profile_debug_optimization_tool_mismatch"),
+                "nativeProfileDebugOptimizationToolMatchesExpected",
+                "debug.optimization.tool",
+            ),
+            (
+                "optimization policy",
+                lambda profile: profile["debug"]["optimization"].update(
+                    {
+                        "requestedLevel": "O2",
+                        "policy": "disabled-by-opt-level",
+                        "level": "-O",
+                        "status": "applied",
+                        "toolStatus": "available",
+                    }
+                ),
+                ("vulkan_loader.native_profile_debug_optimization_policy_invalid"),
+                "nativeProfileDebugOptimizationPolicyValid",
+                "debug.optimization.policy",
+            ),
+            (
+                "optimization requested level",
+                lambda profile: profile["debug"]["optimization"].__setitem__(
+                    "requestedLevel",
+                    "O3",
+                ),
+                (
+                    "vulkan_loader."
+                    "native_profile_debug_optimization_requested_level_invalid"
+                ),
+                "nativeProfileDebugOptimizationRequestedLevelValid",
+                "debug.optimization.requestedLevel",
+            ),
+            (
+                "optimization level",
+                lambda profile: profile["debug"]["optimization"].update(
+                    {
+                        "requestedLevel": "O2",
+                        "policy": "use-when-available",
+                        "level": "none",
+                        "status": "applied",
+                        "toolStatus": "available",
+                    }
+                ),
+                ("vulkan_loader.native_profile_debug_optimization_level_invalid"),
+                "nativeProfileDebugOptimizationLevelValid",
+                "debug.optimization.level",
+            ),
+            (
+                "optimization status",
+                lambda profile: profile["debug"]["optimization"].update(
+                    {
+                        "requestedLevel": "O2",
+                        "policy": "use-when-available",
+                        "level": "-O",
+                        "status": "skipped-disabled",
+                        "toolStatus": "not-run",
+                    }
+                ),
+                ("vulkan_loader.native_profile_debug_optimization_status_invalid"),
+                "nativeProfileDebugOptimizationStatusValid",
+                "debug.optimization.status",
+            ),
+            (
+                "optimization target env",
+                lambda profile: profile["debug"]["optimization"].__setitem__(
+                    "targetEnv",
+                    "vulkan1.3",
+                ),
+                ("vulkan_loader.native_profile_debug_optimization_target_env_mismatch"),
+                ("nativeProfileDebugOptimizationTargetEnvMatchesValidationTargetEnv"),
+                "debug.optimization.targetEnv",
+            ),
+            (
+                "optimization tool status",
+                lambda profile: profile["debug"]["optimization"].__setitem__(
+                    "toolStatus",
+                    "available",
+                ),
+                (
+                    "vulkan_loader."
+                    "native_profile_debug_optimization_tool_status_mismatch"
+                ),
+                "nativeProfileDebugOptimizationToolStatusMatchesStatus",
+                "debug.optimization.toolStatus",
+            ),
+            (
+                "disassembly tool",
+                lambda profile: profile["debug"]["disassembly"].__setitem__(
+                    "tool",
+                    "custom-dis",
+                ),
+                ("vulkan_loader.native_profile_debug_disassembly_tool_mismatch"),
+                "nativeProfileDebugDisassemblyToolMatchesExpected",
+                "debug.disassembly.tool",
+            ),
+            (
+                "disassembly policy",
+                lambda profile: profile["debug"]["disassembly"].__setitem__(
+                    "policy",
+                    "disabled",
+                ),
+                ("vulkan_loader.native_profile_debug_disassembly_policy_mismatch"),
+                "nativeProfileDebugDisassemblyPolicyMatchesExpected",
+                "debug.disassembly.policy",
+            ),
+            (
+                "disassembly status",
+                lambda profile: profile["debug"]["disassembly"].__setitem__(
+                    "status",
+                    "unknown",
+                ),
+                ("vulkan_loader.native_profile_debug_disassembly_status_invalid"),
+                "nativeProfileDebugDisassemblyStatusValid",
+                "debug.disassembly.status",
+            ),
+            (
+                "emitted disassembly path",
+                lambda profile: profile["debug"]["disassembly"].update(
+                    {"status": "emitted", "path": None}
+                ),
+                ("vulkan_loader.native_profile_debug_disassembly_path_mismatch"),
+                "nativeProfileDebugDisassemblyPathMatchesStatus",
+                "debug.disassembly.path",
+            ),
+            (
+                "skipped disassembly path",
+                lambda profile: profile["debug"]["disassembly"].update(
+                    {
+                        "status": "skipped-tool-missing",
+                        "path": "backend/vulkan/Unexpected.disassembly.spvasm",
+                    }
+                ),
+                ("vulkan_loader.native_profile_debug_disassembly_path_mismatch"),
+                "nativeProfileDebugDisassemblyPathMatchesStatus",
+                "debug.disassembly.path",
+            ),
         )
 
         for case_name, mutate, expected_code, check_name, diagnostic_path in cases:
@@ -2706,6 +2949,7 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             "vulkanVersion": "1.2",
             "spirvVersion": "1.5",
         }
+        profile["generator"] = "CrossGL Vulkan prototype backend"
         artifacts: dict[str, str] = {"nativeBinary": native_binary_path}
         if backend_assembly_path is not None:
             artifacts["backendAssembly"] = backend_assembly_path
@@ -2719,6 +2963,21 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
         debug["binaryFormat"] = "SPIR-V"
         debug["assemblyFormat"] = "SPIR-V assembly"
         debug["validationTargetEnv"] = "vulkan1.2"
+        debug["optimization"] = {
+            "tool": "spirv-opt",
+            "policy": "disabled-by-opt-level",
+            "requestedLevel": "O1",
+            "level": "none",
+            "status": "skipped-disabled",
+            "targetEnv": "vulkan1.2",
+            "toolStatus": "not-run",
+        }
+        debug["disassembly"] = {
+            "tool": "spirv-dis",
+            "policy": "use-when-available",
+            "status": "skipped-tool-missing",
+            "path": None,
+        }
 
     def _write_source_free_vulkan_package(
         self,
