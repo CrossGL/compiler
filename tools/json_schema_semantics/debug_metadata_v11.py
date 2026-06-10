@@ -15,7 +15,7 @@ from .target_explanation_v1 import (
 )
 from .target_explanation_v1 import validate_tool_requirement_fields
 
-DEBUG_TARGET_SUMMARY_TARGETS = ("metal", "vulkan", "directx", "opengl")
+DEBUG_TARGET_SUMMARY_TARGETS = ("metal", "vulkan", "directx", "opengl", "wgsl")
 DEBUG_TARGET_SUMMARY_ORDER = {
     target: index for index, target in enumerate(DEBUG_TARGET_SUMMARY_TARGETS)
 }

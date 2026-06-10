@@ -54,6 +54,7 @@ backendIntrinsicNameForCall(TargetKind target,
   case TargetKind::OpenGL:
     return std::string(name);
   case TargetKind::Vulkan:
+  case TargetKind::WGSL:
   case TargetKind::Auto:
     return std::nullopt;
   }

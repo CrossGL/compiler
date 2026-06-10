@@ -781,6 +781,7 @@ bool isNativePackageToolRequirementId(TargetKind target,
            toolId == "vulkan.validation.spirv-val";
   case TargetKind::DirectX:
   case TargetKind::OpenGL:
+  case TargetKind::WGSL:
   case TargetKind::Auto:
     return false;
   }
@@ -878,6 +879,8 @@ predicateDiagnosticsForDecision(const HIRModule &module,
     if (!decision.sourcePackageSupported) {
       (void)openGLSourcePackageSupported(module, diagnostics);
     }
+    break;
+  case TargetKind::WGSL:
     break;
   case TargetKind::Metal:
     if (decision.nativeImplemented) {
@@ -1327,6 +1330,8 @@ packageArtifactRequirementsForDecision(const TargetPackageDecision &decision,
     requirements.allowsPlannedNativeBinary = true;
     requirements.allowsPlannedNativeSourceEvidence = true;
     break;
+  case TargetKind::WGSL:
+    break;
   case TargetKind::Auto:
     break;
   }
@@ -1463,6 +1468,7 @@ void appendNativePackageToolRequirements(
     return;
   case TargetKind::OpenGL:
   case TargetKind::Auto:
+  case TargetKind::WGSL:
     return;
   }
 }
@@ -2080,6 +2086,8 @@ expectedPackageArtifactKeys(TargetKind target,
     return {"backendSource", "nativeBinary"};
   case TargetKind::OpenGL:
     return {"backendSource", "nativeBinary"};
+  case TargetKind::WGSL:
+    return {};
   case TargetKind::Auto:
     return {};
   }
@@ -2544,6 +2552,7 @@ TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
   case TargetKind::Auto:
   case TargetKind::Metal:
   case TargetKind::Vulkan:
+  case TargetKind::WGSL:
     break;
   }
 
@@ -2718,6 +2727,7 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
     break;
   case TargetKind::OpenGL:
   case TargetKind::Auto:
+  case TargetKind::WGSL:
     return policy;
   }
   policy.optimizationEvidenceModeName =

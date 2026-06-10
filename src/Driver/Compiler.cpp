@@ -1736,6 +1736,9 @@ NativeArtifactToolProvenance crossglBackendGeneratorTool(TargetKind target) {
   case TargetKind::Vulkan:
     tool.name = "CrossGL Vulkan backend";
     break;
+  case TargetKind::WGSL:
+    tool.name = "CrossGL WGSL backend";
+    break;
   }
   tool.role = "generator";
   tool.version = CROSSGL_VERSION;

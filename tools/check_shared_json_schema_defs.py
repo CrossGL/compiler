@@ -70,12 +70,20 @@ SHARED_DEFINITION_COPIES = [
         ],
         "schemas": [
             "doctor-v1.schema.json",
+            "target-capability-registry-v1.schema.json",
+            "target-explanation-v1.schema.json",
+        ],
+    },
+    {
+        "shared": "target-record-v1.json",
+        "definitions": [
+            {"shared": "packageTargetName", "local": "targetName"},
+        ],
+        "schemas": [
             "manifest-v1.schema.json",
             "package-inspect-v1.schema.json",
             "package-verify-v1.schema.json",
             "reflection-v1.schema.json",
-            "target-capability-registry-v1.schema.json",
-            "target-explanation-v1.schema.json",
         ],
     },
     {
@@ -104,6 +112,12 @@ def definition(schema, path, name):
         raise KeyError(f"{path}: missing $defs.{name}") from exc
 
 
+def definition_pair(spec):
+    if isinstance(spec, str):
+        return spec, spec
+    return spec["shared"], spec.get("local", spec["shared"])
+
+
 def check_group(root, group):
     shared_path = root / "docs" / "schema-defs" / group["shared"]
     shared = load_json(shared_path)
@@ -113,18 +127,21 @@ def check_group(root, group):
     for schema_name in group["schemas"]:
         schema_path = root / "docs" / "schemas" / schema_name
         schema = load_json(schema_path)
-        for name in group["definitions"]:
+        for spec in group["definitions"]:
+            shared_name, local_name = definition_pair(spec)
             try:
-                expected = definition(shared, shared_path.relative_to(root), name)
-                actual = definition(schema, schema_path.relative_to(root), name)
+                expected = definition(
+                    shared, shared_path.relative_to(root), shared_name
+                )
+                actual = definition(schema, schema_path.relative_to(root), local_name)
             except KeyError as exc:
                 errors.append(str(exc))
                 continue
             checked += 1
             if actual != expected:
                 errors.append(
-                    f"{schema_path.relative_to(root)}: $defs.{name} differs from "
-                    f"{shared_path.relative_to(root)}"
+                    f"{schema_path.relative_to(root)}: $defs.{local_name} differs "
+                    f"from {shared_path.relative_to(root)} $defs.{shared_name}"
                 )
 
     return checked, errors

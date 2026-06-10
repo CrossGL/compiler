@@ -1015,10 +1015,14 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableString(out, backendSourceMap.backendLanguage);
   out << ",\n" << indent << "    \"backendLineCount\": ";
   writeNullableUnsigned(out, backendSourceMap.backendLineCount);
+  out << ",\n" << indent << "    \"backendSourceLineCount\": ";
+  writeNullableUnsigned(out, backendSourceMap.backendSourceLineCount);
   out << ",\n" << indent << "    \"mappingCount\": ";
   writeNullableUnsigned(out, backendSourceMap.mappingCount);
   out << ",\n" << indent << "    \"mappingRecordCount\": ";
   writeNullableUnsigned(out, backendSourceMap.mappingRecordCount);
+  out << ",\n" << indent << "    \"backendMaxMappedLine\": ";
+  writeNullableUnsigned(out, backendSourceMap.backendMaxMappedLine);
   out << ",\n"
       << indent << "    \"checks\": {\n"
       << indent << "      \"identityMatchesContract\": ";
@@ -1031,6 +1035,11 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableBool(out, backendSourceMap.checks.backendLanguagePresent);
   out << ",\n" << indent << "      \"backendLineCountPresent\": ";
   writeNullableBool(out, backendSourceMap.checks.backendLineCountPresent);
+  out << ",\n" << indent << "      \"backendLineCountMatchesSource\": ";
+  writeNullableBool(out,
+                    backendSourceMap.checks.backendLineCountMatchesSource);
+  out << ",\n" << indent << "      \"backendSpansWithinSource\": ";
+  writeNullableBool(out, backendSourceMap.checks.backendSpansWithinSource);
   out << ",\n" << indent << "      \"mappingCountMatchesMappings\": ";
   writeNullableBool(out, backendSourceMap.checks.mappingCountMatchesMappings);
   out << "\n" << indent << "    }\n" << indent << "  },\n"

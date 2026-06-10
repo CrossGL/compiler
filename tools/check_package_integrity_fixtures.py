@@ -26,7 +26,7 @@ from package_target_contracts import (
 MODULE_NAME = "StorageBufferComputeShader"
 CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS = "CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS"
 CROSSGL_CI_JOBS = "CROSSGL_CI_JOBS"
-DEBUG_TARGET_SUMMARY_TARGETS = ("metal", "vulkan", "directx", "opengl")
+DEBUG_TARGET_SUMMARY_TARGETS = ("metal", "vulkan", "directx", "opengl", "wgsl")
 TARGET_EXPLANATION_SCHEMA_PATH = (
     Path(__file__).resolve().parents[1]
     / "docs"
@@ -829,27 +829,54 @@ def base_vulkan_native_profile(manifest):
     }
 
 
+def capability_groups(capabilities):
+    groups = {}
+    group_order = []
+    for capability in capabilities:
+        parts = capability.split(".", 2)
+        kind = parts[1] if len(parts) == 3 else "capability"
+        if kind not in groups:
+            groups[kind] = []
+            group_order.append(kind)
+        groups[kind].append(capability)
+    return [
+        {
+            "kind": kind,
+            "count": len(groups[kind]),
+            "capabilities": groups[kind],
+        }
+        for kind in group_order
+    ]
+
+
 def debug_target_capability_summary(target):
+    unsupported = target == "wgsl"
+    source_package = target in {"directx", "opengl"}
+    native = target in {"metal", "vulkan"}
+    required_capabilities = ["wgsl.backend.wgsl-lowering"] if unsupported else []
+    missing_capabilities = copy.deepcopy(required_capabilities)
+    required_capability_groups = capability_groups(required_capabilities)
+    missing_capability_groups = capability_groups(missing_capabilities)
     capability_summary = {
         "target": target,
-        "nativeImplemented": target in {"metal", "vulkan"},
-        "sourcePackageSupported": target in {"directx", "opengl"},
-        "packageBuildSupported": True,
-        "packageMode": "source-package"
-        if target in {"directx", "opengl"}
-        else "native",
-        "packageDecisionReason": (
-            "source-package-available"
-            if target in {"directx", "opengl"}
-            else "native-package-available"
+        "nativeImplemented": native,
+        "sourcePackageSupported": source_package,
+        "packageBuildSupported": not unsupported,
+        "packageMode": "unsupported"
+        if unsupported
+        else ("source-package" if source_package else "native"),
+        "packageDecisionReason": "unsupported"
+        if unsupported
+        else (
+            "source-package-available" if source_package else "native-package-available"
         ),
-        "packageRankScore": 1 if target in {"directx", "opengl"} else 0,
-        "requiredCapabilityCount": 0,
-        "missingCapabilityCount": 0,
-        "requiredCapabilities": [],
-        "missingCapabilities": [],
-        "requiredCapabilityGroups": [],
-        "missingCapabilityGroups": [],
+        "packageRankScore": 2 if unsupported else (1 if source_package else 0),
+        "requiredCapabilityCount": len(required_capabilities),
+        "missingCapabilityCount": len(missing_capabilities),
+        "requiredCapabilities": required_capabilities,
+        "missingCapabilities": missing_capabilities,
+        "requiredCapabilityGroups": required_capability_groups,
+        "missingCapabilityGroups": missing_capability_groups,
     }
     evidence_ids = expected_legalization_core_evidence_ids(capability_summary)
     capability_summary["legalizationCoreEvidenceIds"] = evidence_ids
@@ -957,7 +984,10 @@ def base_debug_metadata(target="directx"):
 def target_explanation_record(target):
     native = target in {"metal", "vulkan"}
     source_package = target in {"directx", "opengl"}
-    package_mode = "native" if native else "source-package"
+    unsupported = target == "wgsl"
+    package_mode = (
+        "unsupported" if unsupported else ("native" if native else "source-package")
+    )
     required_capabilities = []
     missing_capabilities = []
     if target == "metal":
@@ -984,17 +1014,20 @@ def target_explanation_record(target):
             ]
         )
         missing_capabilities.extend(required_capabilities[1:])
+    elif target == "wgsl":
+        required_capabilities.append("wgsl.backend.wgsl-lowering")
+        missing_capabilities.extend(required_capabilities)
 
     record = {
         "target": target,
         "nativeImplemented": native,
         "sourcePackageSupported": source_package,
-        "packageBuildSupported": True,
+        "packageBuildSupported": not unsupported,
         "packageMode": package_mode,
-        "packageDecisionReason": (
-            "native-package-available" if native else "source-package-available"
-        ),
-        "packageRankScore": 0 if native else 1,
+        "packageDecisionReason": "unsupported"
+        if unsupported
+        else ("native-package-available" if native else "source-package-available"),
+        "packageRankScore": 2 if unsupported else (0 if native else 1),
         "requiredCapabilityCount": len(required_capabilities),
         "missingCapabilityCount": len(missing_capabilities),
         "requiredCapabilities": required_capabilities,
@@ -1042,10 +1075,10 @@ def target_explanation_decision_reason_codes(record):
         f"package-mode:{record['packageMode']}",
         f"package-reason:{record['packageDecisionReason']}",
     ]
-    if record["missingCapabilities"]:
-        codes.append("optional-native-tool:missing")
     if not record["packageBuildSupported"]:
-        codes.append("target:unsupported")
+        codes.append("unsupported:missing-capabilities")
+    elif record["missingCapabilities"]:
+        codes.append("optional-native-tool:missing")
     return codes
 
 
@@ -1058,6 +1091,16 @@ def target_explanation_report_links(record):
 
 
 def target_explanation_remediation(record):
+    if not record["packageBuildSupported"]:
+        missing = ", ".join(sorted(record["missingCapabilities"]))
+        if missing:
+            return (
+                f"Select a buildable target or satisfy missing capabilities: {missing}"
+            )
+        return (
+            "Select a buildable target; package builds are not available in "
+            "this compiler version."
+        )
     if record["missingCapabilities"]:
         missing = ", ".join(sorted(record["missingCapabilities"]))
         return (
@@ -1071,7 +1114,7 @@ def target_explanation_remediation(record):
 def base_target_explanation(target="directx"):
     targets = [
         target_explanation_record(name)
-        for name in ("metal", "vulkan", "directx", "opengl")
+        for name in ("metal", "vulkan", "directx", "opengl", "wgsl")
     ]
     recommended = targets[0]
     for record in targets[1:]:
@@ -1085,7 +1128,9 @@ def base_target_explanation(target="directx"):
         "schemaVersion": 1,
         "module": MODULE_NAME,
         "defaultTarget": target,
-        "buildableTargetCount": len(targets),
+        "buildableTargetCount": sum(
+            1 for record in targets if record["packageBuildSupported"]
+        ),
         "recommendedTarget": recommended["target"],
         "recommendedPackageMode": recommended["packageMode"],
         "targets": targets,

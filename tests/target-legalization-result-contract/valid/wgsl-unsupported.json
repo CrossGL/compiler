@@ -1,0 +1,92 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "wgsl",
+    "targetProfile": {
+      "target": "wgsl",
+      "requestedTarget": "wgsl",
+      "preferredTarget": "wgsl",
+      "resolvedTarget": "wgsl",
+      "selectedTarget": "wgsl",
+      "selectionReason": "explicit-target",
+      "autoRequested": false,
+      "selectedTargetBuildable": false,
+      "profile": "wgsl.v0.unsupported",
+      "packageMode": "unsupported"
+    },
+    "packageMode": "unsupported",
+    "packageDecisionProvenance": "unsupported",
+    "supportStatus": "unsupported",
+    "moduleSupported": false,
+    "requiredCapabilities": [
+      "wgsl.backend.wgsl-lowering"
+    ],
+    "missingCapabilities": [
+      "wgsl.backend.wgsl-lowering"
+    ],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "records": [],
+      "optionalNativeToolMissing": false,
+      "optionalNativeToolStatus": "not-required",
+      "evidenceIds": [
+        "target-legalization.v1.wgsl.tool-requirements.empty"
+      ]
+    },
+    "diagnostics": [
+      {
+        "code": "target.unsupported",
+        "severity": "error",
+        "message": "WGSL/WebGPU package builds are not implemented yet.",
+        "target": "wgsl",
+        "missingCapabilities": [
+          "wgsl.backend.wgsl-lowering"
+        ],
+        "evidenceIds": [
+          "target-legalization.v1.wgsl.diagnostic.target.unsupported"
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "id": "wgsl-package-lowering",
+        "order": 0,
+        "status": "blocked",
+        "description": "No WGSL package lowering exists in v0.",
+        "evidenceIds": [
+          "target-legalization.v1.wgsl.rewrite.blocked.unsupported-target"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "unsupported",
+      "facts": [],
+      "evidenceIds": [
+        "target-legalization.v1.wgsl.abi.unsupported"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.wgsl.resource-bindings.empty"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.wgsl.abi.unsupported",
+      "target-legalization.v1.wgsl.decision",
+      "target-legalization.v1.wgsl.diagnostic.target.unsupported",
+      "target-legalization.v1.wgsl.package-mode.unsupported",
+      "target-legalization.v1.wgsl.package-provenance.unsupported",
+      "target-legalization.v1.wgsl.resource-bindings.empty",
+      "target-legalization.v1.wgsl.rewrite.blocked.unsupported-target",
+      "target-legalization.v1.wgsl.state.rejected",
+      "target-legalization.v1.wgsl.support.unsupported",
+      "target-legalization.v1.wgsl.tool-requirements.empty"
+    ]
+  }
+}

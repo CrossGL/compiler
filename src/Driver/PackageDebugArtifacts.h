@@ -43,6 +43,8 @@ struct PackageBackendSourceMapChecks {
   std::optional<bool> moduleMatchesPackage;
   std::optional<bool> backendLanguagePresent;
   std::optional<bool> backendLineCountPresent;
+  std::optional<bool> backendLineCountMatchesSource;
+  std::optional<bool> backendSpansWithinSource;
   std::optional<bool> mappingCountMatchesMappings;
 };
 
@@ -57,8 +59,10 @@ struct PackageBackendSourceMapHealth {
   std::optional<std::string> module;
   std::optional<std::string> backendLanguage;
   std::optional<std::uintmax_t> backendLineCount;
+  std::optional<std::uintmax_t> backendSourceLineCount;
   std::optional<std::uintmax_t> mappingCount;
   std::optional<std::uintmax_t> mappingRecordCount;
+  std::optional<std::uintmax_t> backendMaxMappedLine;
   PackageBackendSourceMapChecks checks;
 };
 

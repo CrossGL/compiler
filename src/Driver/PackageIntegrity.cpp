@@ -2602,10 +2602,14 @@ void writeBackendSourceMapSummary(
   writeNullableString(out, health.backendLanguage);
   out << ",\n" << indent << "  \"backendLineCount\": ";
   writeNullableUnsigned(out, health.backendLineCount);
+  out << ",\n" << indent << "  \"backendSourceLineCount\": ";
+  writeNullableUnsigned(out, health.backendSourceLineCount);
   out << ",\n" << indent << "  \"mappingCount\": ";
   writeNullableUnsigned(out, health.mappingCount);
   out << ",\n" << indent << "  \"mappingRecordCount\": ";
   writeNullableUnsigned(out, health.mappingRecordCount);
+  out << ",\n" << indent << "  \"backendMaxMappedLine\": ";
+  writeNullableUnsigned(out, health.backendMaxMappedLine);
   out << ",\n"
       << indent << "  \"checks\": {\n"
       << indent << "    \"identityMatchesContract\": ";
@@ -2618,6 +2622,10 @@ void writeBackendSourceMapSummary(
   writeNullableBool(out, health.checks.backendLanguagePresent);
   out << ",\n" << indent << "    \"backendLineCountPresent\": ";
   writeNullableBool(out, health.checks.backendLineCountPresent);
+  out << ",\n" << indent << "    \"backendLineCountMatchesSource\": ";
+  writeNullableBool(out, health.checks.backendLineCountMatchesSource);
+  out << ",\n" << indent << "    \"backendSpansWithinSource\": ";
+  writeNullableBool(out, health.checks.backendSpansWithinSource);
   out << ",\n" << indent << "    \"mappingCountMatchesMappings\": ";
   writeNullableBool(out, health.checks.mappingCountMatchesMappings);
   out << "\n" << indent << "  }\n" << indent << "}";

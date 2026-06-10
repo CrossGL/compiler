@@ -1110,6 +1110,8 @@
         "moduleMatchesPackage",
         "backendLanguagePresent",
         "backendLineCountPresent",
+        "backendLineCountMatchesSource",
+        "backendSpansWithinSource",
         "mappingCountMatchesMappings"
       ],
       "properties": {
@@ -1126,6 +1128,12 @@
           "$ref": "#/$defs/nullableBoolean"
         },
         "backendLineCountPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLineCountMatchesSource": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendSpansWithinSource": {
           "$ref": "#/$defs/nullableBoolean"
         },
         "mappingCountMatchesMappings": {
@@ -1147,8 +1155,10 @@
         "module",
         "backendLanguage",
         "backendLineCount",
+        "backendSourceLineCount",
         "mappingCount",
         "mappingRecordCount",
+        "backendMaxMappedLine",
         "checks"
       ],
       "properties": {
@@ -1188,10 +1198,16 @@
         "backendLineCount": {
           "$ref": "#/$defs/nullableInteger"
         },
+        "backendSourceLineCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
         "mappingCount": {
           "$ref": "#/$defs/nullableInteger"
         },
         "mappingRecordCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "backendMaxMappedLine": {
           "$ref": "#/$defs/nullableInteger"
         },
         "checks": {

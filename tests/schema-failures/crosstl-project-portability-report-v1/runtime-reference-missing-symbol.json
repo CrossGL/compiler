@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "summary": {
+    "artifactCount": 0,
+    "sourceRemapCount": 0,
+    "sourceRemapMappingCount": 0
+  },
+  "artifacts": [],
+  "migration": {
+    "actions": [
+      {
+        "kind": "manual-runtime-integration",
+        "severity": "note",
+        "message": "Review host runtime API and backend framework integration separately.",
+        "targets": [
+          "cgl"
+        ],
+        "runtimeReferences": [
+          {
+            "path": "host.cpp",
+            "line": 4,
+            "column": 3,
+            "backend": "cuda",
+            "kind": "runtime-api"
+          }
+        ]
+      }
+    ]
+  }
+}

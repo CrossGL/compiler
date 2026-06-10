@@ -3488,6 +3488,176 @@ def check_source_remap_granularity_drift(_package, payload):
     return errors
 
 
+def physical_line_count(text):
+    if not text:
+        return 0
+    return text.count("\n") + (0 if text.endswith("\n") else 1)
+
+
+def backend_source_map_document(manifest, backend_line_count, mapping_end_line):
+    return {
+        "schemaVersion": 1,
+        "kind": "crossgl.backendSourceMap",
+        "target": manifest["target"],
+        "module": manifest["module"],
+        "backend": {
+            "language": "hlsl",
+            "lineCount": backend_line_count,
+        },
+        "mappingCount": 1,
+        "mappings": [
+            {
+                "index": 0,
+                "stage": "compute",
+                "entryPoint": "compute_main",
+                "function": "compute_main",
+                "statementKind": "declaration",
+                "name": "fixture",
+                "backend": {
+                    "startLine": 1,
+                    "endLine": mapping_end_line,
+                },
+                "location": {
+                    "file": "StorageBufferComputeShader.cgl",
+                    "line": 1,
+                    "column": 1,
+                    "offset": 0,
+                    "length": 6,
+                    "endLine": 1,
+                    "endColumn": 7,
+                    "endOffset": 6,
+                },
+            }
+        ],
+    }
+
+
+def add_backend_source_map(
+    package,
+    manifest,
+    *,
+    backend_line_count=None,
+    mapping_end_line=None,
+):
+    backend_source_text = "line one\nline two\n"
+    write_text(
+        package_path(package, manifest["artifacts"]["backendSource"]),
+        backend_source_text,
+    )
+    source_line_count = physical_line_count(backend_source_text)
+    if backend_line_count is None:
+        backend_line_count = source_line_count
+    if mapping_end_line is None:
+        mapping_end_line = source_line_count
+    manifest["artifacts"]["backendSourceMap"] = (
+        "backend/directx/StorageBufferComputeShader.backend-source-map.json"
+    )
+    write_json(
+        package_path(package, manifest["artifacts"]["backendSourceMap"]),
+        backend_source_map_document(manifest, backend_line_count, mapping_end_line),
+    )
+    rewrite_manifest(package, manifest)
+    return source_line_count
+
+
+def check_backend_source_map_line_count_drift(_package, payload):
+    errors = []
+    backend_source_map = payload["debugArtifacts"]["backendSourceMap"]
+    checks = backend_source_map["checks"]
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.health",
+        payload["debugArtifacts"]["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.health",
+        backend_source_map["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.backendSourceLineCount",
+        backend_source_map["backendSourceLineCount"],
+        2,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.backendMaxMappedLine",
+        backend_source_map["backendMaxMappedLine"],
+        2,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.checks.backendLineCountMatchesSource",
+        checks["backendLineCountMatchesSource"],
+        False,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.checks.backendSpansWithinSource",
+        checks["backendSpansWithinSource"],
+        True,
+    )
+    return errors
+
+
+def check_backend_source_map_span_outside_source(_package, payload):
+    errors = []
+    backend_source_map = payload["debugArtifacts"]["backendSourceMap"]
+    checks = backend_source_map["checks"]
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.health",
+        payload["debugArtifacts"]["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.health",
+        backend_source_map["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.backendSourceLineCount",
+        backend_source_map["backendSourceLineCount"],
+        2,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.backendMaxMappedLine",
+        backend_source_map["backendMaxMappedLine"],
+        3,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.checks.backendLineCountMatchesSource",
+        checks["backendLineCountMatchesSource"],
+        True,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.checks.backendSpansWithinSource",
+        checks["backendSpansWithinSource"],
+        False,
+    )
+    return errors
+
+
 def source_remap_provenance(manifest, *, mapping_granularity="source-span"):
     return {
         "schemaVersion": 1,
@@ -4348,6 +4518,38 @@ def run_cases(root, cglc, jobs=1):
                 "source-remap-granularity-drift",
                 package,
                 check_source_remap_granularity_drift,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir,
+            "backend-source-map-line-count-drift",
+        )
+        add_backend_source_map(package, manifest, backend_line_count=3)
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-line-count-drift",
+                package,
+                check_backend_source_map_line_count_drift,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir,
+            "backend-source-map-span-outside-source",
+        )
+        add_backend_source_map(package, manifest, mapping_end_line=3)
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-span-outside-source",
+                package,
+                check_backend_source_map_span_outside_source,
             )
         )
 

@@ -20,6 +20,10 @@ namespace {
 
 using NameCounts = std::map<std::string, std::uintmax_t>;
 
+struct BackendMappedLineSummary {
+  std::uintmax_t maxMappedLine = 0;
+};
+
 bool isLowercaseSha256(std::string_view value) {
   if (value.size() != 64) {
     return false;
@@ -153,6 +157,74 @@ std::optional<std::uintmax_t> countJsonArrayElements(std::string_view arrayText)
       skipWhitespace(arrayText, position);
       return position == arrayText.size()
                  ? std::optional<std::uintmax_t>(count)
+                 : std::nullopt;
+    }
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+std::uintmax_t countPhysicalLines(std::string_view text) {
+  if (text.empty()) {
+    return 0;
+  }
+  const std::uintmax_t newlineCount = static_cast<std::uintmax_t>(
+      std::count(text.begin(), text.end(), '\n'));
+  return newlineCount + (text.back() == '\n' ? 0 : 1);
+}
+
+std::optional<BackendMappedLineSummary>
+summarizeBackendMappedLines(std::string_view arrayText) {
+  std::size_t position = 0;
+  skipWhitespace(arrayText, position);
+  if (position >= arrayText.size() || arrayText[position] != '[') {
+    return std::nullopt;
+  }
+  ++position;
+  skipWhitespace(arrayText, position);
+  BackendMappedLineSummary summary;
+  if (position < arrayText.size() && arrayText[position] == ']') {
+    ++position;
+    skipWhitespace(arrayText, position);
+    return position == arrayText.size()
+               ? std::optional<BackendMappedLineSummary>(summary)
+               : std::nullopt;
+  }
+  while (position < arrayText.size()) {
+    const std::size_t objectBegin = position;
+    if (!skipJsonObject(arrayText, position)) {
+      return std::nullopt;
+    }
+    const std::string_view object =
+        arrayText.substr(objectBegin, position - objectBegin);
+    const std::optional<std::string_view> backend =
+        findObjectMemberValue(object, "backend");
+    if (!backend) {
+      return std::nullopt;
+    }
+    const std::optional<std::uintmax_t> startLine =
+        objectUnsignedMember(*backend, "startLine");
+    const std::optional<std::uintmax_t> endLine =
+        objectUnsignedMember(*backend, "endLine");
+    if (!startLine || !endLine) {
+      return std::nullopt;
+    }
+    if (*startLine == 0 || *endLine == 0 || *endLine < *startLine) {
+      return std::nullopt;
+    }
+    summary.maxMappedLine = std::max(summary.maxMappedLine, *startLine);
+    summary.maxMappedLine = std::max(summary.maxMappedLine, *endLine);
+    skipWhitespace(arrayText, position);
+    if (position < arrayText.size() && arrayText[position] == ',') {
+      ++position;
+      skipWhitespace(arrayText, position);
+      continue;
+    }
+    if (position < arrayText.size() && arrayText[position] == ']') {
+      ++position;
+      skipWhitespace(arrayText, position);
+      return position == arrayText.size()
+                 ? std::optional<BackendMappedLineSummary>(summary)
                  : std::nullopt;
     }
     return std::nullopt;
@@ -474,7 +546,10 @@ PackageBackendSourceMapHealth
 collectBackendSourceMapHealth(const PackageMetadata &metadata) {
   PackageBackendSourceMapHealth health;
   health.artifactPresent = metadata.backendSourceMapArtifactPresent;
-  const PackageArtifactRecord *artifact = findArtifact(metadata, "backendSourceMap");
+  const PackageArtifactRecord *artifact =
+      findArtifact(metadata, "backendSourceMap");
+  const PackageArtifactRecord *backendSource =
+      findArtifact(metadata, "backendSource");
   if (artifact != nullptr) {
     health.path = artifact->path;
   }
@@ -494,6 +569,11 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
     health.health = "incomplete";
     return health;
   }
+  const std::optional<std::string> backendSourceDocument =
+      readArtifactDocument(metadata, backendSource);
+  if (backendSourceDocument) {
+    health.backendSourceLineCount = countPhysicalLines(*backendSourceDocument);
+  }
 
   health.schemaVersion = objectUnsignedMember(*document, "schemaVersion");
   health.kind = objectStringMember(*document, "kind");
@@ -510,6 +590,14 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
       findObjectMemberValue(*document, "mappings");
   if (mappings) {
     health.mappingRecordCount = countJsonArrayElements(*mappings);
+    if (const std::optional<BackendMappedLineSummary> mappedLines =
+            summarizeBackendMappedLines(*mappings)) {
+      health.backendMaxMappedLine = mappedLines->maxMappedLine;
+      if (health.backendSourceLineCount) {
+        health.checks.backendSpansWithinSource =
+            mappedLines->maxMappedLine <= *health.backendSourceLineCount;
+      }
+    }
   }
 
   health.checks.identityMatchesContract =
@@ -522,11 +610,15 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
   health.checks.backendLanguagePresent =
       health.backendLanguage && !health.backendLanguage->empty();
   health.checks.backendLineCountPresent = health.backendLineCount.has_value();
+  if (health.backendLineCount && health.backendSourceLineCount) {
+    health.checks.backendLineCountMatchesSource =
+        *health.backendLineCount == *health.backendSourceLineCount;
+  }
   health.checks.mappingCountMatchesMappings =
       health.mappingCount && health.mappingRecordCount &&
       *health.mappingCount == *health.mappingRecordCount;
 
-  const std::vector<std::optional<bool>> checks = {
+  const std::vector<std::optional<bool>> requiredChecks = {
       health.checks.identityMatchesContract,
       health.checks.targetMatchesPackage,
       health.checks.moduleMatchesPackage,
@@ -534,10 +626,19 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
       health.checks.backendLineCountPresent,
       health.checks.mappingCountMatchesMappings,
   };
-  const bool allTrue = std::all_of(checks.begin(), checks.end(), [](auto value) {
-    return value.has_value() && *value;
-  });
-  health.health = allTrue ? "ok" : "drift";
+  const bool requiredChecksOk =
+      std::all_of(requiredChecks.begin(), requiredChecks.end(), [](auto value) {
+        return value.has_value() && *value;
+      });
+  const std::vector<std::optional<bool>> sourceComparisonChecks = {
+      health.checks.backendLineCountMatchesSource,
+      health.checks.backendSpansWithinSource,
+  };
+  const bool sourceComparisonChecksOk =
+      std::all_of(sourceComparisonChecks.begin(),
+                  sourceComparisonChecks.end(),
+                  [](auto value) { return !value.has_value() || *value; });
+  health.health = requiredChecksOk && sourceComparisonChecksOk ? "ok" : "drift";
   return health;
 }
 

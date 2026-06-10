@@ -24,6 +24,7 @@ TARGET_EXPLANATION_TARGET_ORDER = {
     "vulkan": 1,
     "directx": 2,
     "opengl": 3,
+    "wgsl": 4,
 }
 
 TARGET_EXPLANATION_PACKAGE_MODE_EVIDENCE = {
@@ -40,9 +41,9 @@ TARGET_EXPLANATION_PACKAGE_MODE_EVIDENCE = {
 TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
 TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE = re.compile(
     r"^target-legalization\.v1\."
-    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"(?P<target>metal|vulkan|directx|opengl|wgsl)\."
     r"(?:(?:capability\.(?:required|missing)\."
-    r"(?P<capability_target>metal|vulkan|directx|opengl)\.[A-Za-z0-9_.-]+)"
+    r"(?P<capability_target>metal|vulkan|directx|opengl|wgsl)\.[A-Za-z0-9_.-]+)"
     r"|(?:abi\.(?:required|missing)\.[A-Za-z0-9_.-]+))$"
 )
 

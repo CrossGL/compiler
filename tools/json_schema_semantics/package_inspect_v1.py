@@ -83,6 +83,8 @@ BACKEND_SOURCE_MAP_CHECKS = (
     "moduleMatchesPackage",
     "backendLanguagePresent",
     "backendLineCountPresent",
+    "backendLineCountMatchesSource",
+    "backendSpansWithinSource",
     "mappingCountMatchesMappings",
 )
 
@@ -93,8 +95,10 @@ BACKEND_SOURCE_MAP_CONTENT_FIELDS = (
     "module",
     "backendLanguage",
     "backendLineCount",
+    "backendSourceLineCount",
     "mappingCount",
     "mappingRecordCount",
+    "backendMaxMappedLine",
 )
 
 OPTIMIZED_VULKAN_EVIDENCE = {
@@ -1012,6 +1016,41 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
                 backend_source_map["backendLineCount"] is not None,
                 "backendSourceMap backend line count presence",
             )
+            if (
+                backend_source_map["backendLineCount"] is not None
+                and backend_source_map["backendSourceLineCount"] is not None
+            ):
+                expected_line_count_matches_source = (
+                    backend_source_map["backendLineCount"]
+                    == backend_source_map["backendSourceLineCount"]
+                )
+            else:
+                expected_line_count_matches_source = None
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks."
+                "backendLineCountMatchesSource",
+                backend_source_map_checks["backendLineCountMatchesSource"],
+                expected_line_count_matches_source,
+                "backendSourceMap backend line count matches source",
+            )
+            if (
+                backend_source_map["backendSourceLineCount"] is not None
+                and backend_source_map["backendMaxMappedLine"] is not None
+            ):
+                expected_spans_within_source = (
+                    backend_source_map["backendMaxMappedLine"]
+                    <= backend_source_map["backendSourceLineCount"]
+                )
+            else:
+                expected_spans_within_source = None
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks.backendSpansWithinSource",
+                backend_source_map_checks["backendSpansWithinSource"],
+                expected_spans_within_source,
+                "backendSourceMap backend spans within source",
+            )
             add_equal_error(
                 errors,
                 "$.debugArtifacts.backendSourceMap.checks.mappingCountMatchesMappings",
@@ -1022,7 +1061,22 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
                 == backend_source_map["mappingRecordCount"],
                 "backendSourceMap mapping count agreement",
             )
-            if all(value is True for value in backend_source_map_check_values):
+            required_backend_source_map_checks = [
+                backend_source_map_checks[name]
+                for name in BACKEND_SOURCE_MAP_CHECKS
+                if name
+                not in (
+                    "backendLineCountMatchesSource",
+                    "backendSpansWithinSource",
+                )
+            ]
+            source_comparison_checks = [
+                backend_source_map_checks["backendLineCountMatchesSource"],
+                backend_source_map_checks["backendSpansWithinSource"],
+            ]
+            if all(
+                value is True for value in required_backend_source_map_checks
+            ) and all(value in (True, None) for value in source_comparison_checks):
                 expected_backend_source_map_health = "ok"
             else:
                 expected_backend_source_map_health = "drift"

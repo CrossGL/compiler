@@ -4,6 +4,7 @@ from .common import add_equal_error, validate_source_location_span
 
 
 CROSSGL_TARGETS = frozenset(("cgl", "crossgl"))
+RUNTIME_REFERENCE_KINDS = frozenset(("runtime-api", "kernel-launch", "build-system"))
 
 
 def _increment(counter, key):
@@ -81,6 +82,22 @@ def _diagnostic_counts_by_missing_capability(diagnostics):
         for capability in diagnostic.get("missingCapabilities", []):
             _increment(counts, capability)
     return dict(sorted(counts.items()))
+
+
+def _runtime_reference_rollups(actions):
+    count = 0
+    by_kind = {}
+    by_backend = {}
+    for action in actions:
+        if not isinstance(action, dict):
+            continue
+        for reference in action.get("runtimeReferences", []):
+            if not isinstance(reference, dict):
+                continue
+            count += 1
+            _increment(by_kind, reference.get("kind", "unknown"))
+            _increment(by_backend, reference.get("backend", "unknown"))
+    return count, dict(sorted(by_kind.items())), dict(sorted(by_backend.items()))
 
 
 def _span_identity(span):
@@ -217,6 +234,10 @@ def validate_semantics(instance):
     artifacts = instance["artifacts"]
     summary = instance["summary"]
     diagnostics = instance.get("diagnostics", [])
+    migration = instance.get("migration", {})
+    migration_actions = (
+        migration.get("actions", []) if isinstance(migration, dict) else []
+    )
     artifact_paths = {
         artifact.get("path")
         for artifact in artifacts
@@ -466,6 +487,31 @@ def validate_semantics(instance):
                 "declared in $.project.targets"
             )
 
+    if "runtimeReferences" in instance:
+        errors.append(
+            "$.runtimeReferences: expected runtimeReferences under "
+            "$.migration.actions[]"
+        )
+
+    for action_index, action in enumerate(migration_actions):
+        action_path = f"$.migration.actions[{action_index}]"
+        runtime_references = action.get("runtimeReferences")
+        if runtime_references is None:
+            continue
+        if action.get("kind") != "manual-runtime-integration":
+            errors.append(
+                f"{action_path}.runtimeReferences: expected only on "
+                "manual-runtime-integration actions"
+            )
+        for reference_index, reference in enumerate(runtime_references):
+            reference_path = f"{action_path}.runtimeReferences[{reference_index}]"
+            kind = reference["kind"]
+            if kind not in RUNTIME_REFERENCE_KINDS:
+                errors.append(
+                    f"{reference_path}.kind: expected runtime-api, kernel-launch, "
+                    "or build-system"
+                )
+
     diagnostic_counts = _diagnostic_counts(diagnostics)
     diagnostics_by_code = _diagnostic_counts_by_field(diagnostics, "code")
     diagnostics_by_target = _diagnostic_counts_by_field(diagnostics, "target")
@@ -474,6 +520,11 @@ def validate_semantics(instance):
     )
     diagnostics_by_variant = _diagnostic_counts_by_field(diagnostics, "variant")
     missing_capability_counts = _diagnostic_counts_by_missing_capability(diagnostics)
+    (
+        runtime_reference_count,
+        runtime_references_by_kind,
+        runtime_references_by_backend,
+    ) = _runtime_reference_rollups(migration_actions)
 
     if "diagnosticCounts" in instance:
         _validate_summary_count_map(
@@ -694,6 +745,31 @@ def validate_semantics(instance):
             summary["sourceRemapsByVariant"],
             source_remaps_by_variant,
             "sourceRemap",
+        )
+
+    if "runtimeReferenceCount" in summary:
+        add_equal_error(
+            errors,
+            "$.summary.runtimeReferenceCount",
+            summary["runtimeReferenceCount"],
+            runtime_reference_count,
+            "runtimeReferences length",
+        )
+    if "runtimeReferencesByKind" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.runtimeReferencesByKind",
+            summary["runtimeReferencesByKind"],
+            runtime_references_by_kind,
+            "runtimeReference",
+        )
+    if "runtimeReferencesByBackend" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.runtimeReferencesByBackend",
+            summary["runtimeReferencesByBackend"],
+            runtime_references_by_backend,
+            "runtimeReference",
         )
 
     return errors

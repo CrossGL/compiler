@@ -552,6 +552,8 @@ HIRFunctionParameterArrayTargetSupport functionParameterArrayTargetSupport(
                : HIRFunctionParameterArrayTargetSupport::Supported;
   case TargetKind::Vulkan:
     return HIRFunctionParameterArrayTargetSupport::UnsupportedTarget;
+  case TargetKind::WGSL:
+    return HIRFunctionParameterArrayTargetSupport::UnsupportedTarget;
   case TargetKind::Auto:
     break;
   }

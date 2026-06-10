@@ -45,6 +45,9 @@
       "items": {
         "$ref": "#/$defs/projectDiagnostic"
       }
+    },
+    "migration": {
+      "$ref": "#/$defs/migration"
     }
   },
   "$defs": {
@@ -204,6 +207,15 @@
         },
         "sourceRemapsByVariant": {
           "$ref": "#/$defs/countMap"
+        },
+        "runtimeReferenceCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "runtimeReferencesByKind": {
+          "$ref": "#/$defs/countMap"
+        },
+        "runtimeReferencesByBackend": {
+          "$ref": "#/$defs/countMap"
         }
       }
     },
@@ -360,6 +372,88 @@
         },
         "sourceRemap": {
           "$ref": "#/$defs/sourceRemapMetadata"
+        }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/migrationAction"
+          }
+        }
+      }
+    },
+    "migrationAction": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "message": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "targets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/targetName"
+          }
+        },
+        "runtimeReferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeReference"
+          }
+        }
+      }
+    },
+    "runtimeReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "line",
+        "column",
+        "backend",
+        "kind",
+        "symbol"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "line": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "backend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "runtime-api",
+            "kernel-launch",
+            "build-system"
+          ]
+        },
+        "symbol": {
+          "$ref": "#/$defs/nonEmptyString"
         }
       }
     },

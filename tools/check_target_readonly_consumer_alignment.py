@@ -43,6 +43,7 @@ TARGET_KIND_NAMES = {
     "Vulkan": "vulkan",
     "DirectX": "directx",
     "OpenGL": "opengl",
+    "WGSL": "wgsl",
 }
 TOOL_REQUIREMENT_KINDS = {"toolchain", "validation", "native-tool", "nativeTool"}
 
@@ -444,19 +445,24 @@ def check_registry_static_contract_alignment(errors: list[str], root: Path) -> N
         list(registry_records),
         expected_target_order,
     )
+    expected_package_contract_targets = [
+        target
+        for target in expected_target_order
+        if cpp_contracts[target].package_build_supported
+    ]
     expect_equal(
         errors,
         case_name,
         "tools.package_target_contracts targets",
         list(tool_contracts),
-        expected_target_order,
+        expected_package_contract_targets,
     )
     expect_equal(
         errors,
         case_name,
         "runtime.package_target_contracts targets",
         list(runtime_contracts),
-        expected_target_order,
+        expected_package_contract_targets,
     )
     expect_equal(
         errors,
@@ -470,7 +476,7 @@ def check_registry_static_contract_alignment(errors: list[str], root: Path) -> N
         registry_record = registry_records.get(target)
         cpp_contract = cpp_contracts[target]
         package_contract = tool_contracts.get(target)
-        if registry_record is None or package_contract is None:
+        if registry_record is None:
             continue
 
         package_admission = registry_record.get("packageAdmission", {})
@@ -525,26 +531,41 @@ def check_registry_static_contract_alignment(errors: list[str], root: Path) -> N
             native_artifact.get("capability"),
             cpp_contract.native_artifact_capability,
         )
+        expected_path_artifacts = (
+            package_contract["requiredPathArtifacts"]
+            if package_contract is not None
+            else []
+        )
+        expected_requires_native_binary_status = (
+            package_contract["requiresNativeBinaryStatus"]
+            if package_contract is not None
+            else False
+        )
+        expected_allows_planned_native_binary = (
+            package_contract["allowsPlannedNativeBinary"]
+            if package_contract is not None
+            else False
+        )
         expect_equal(
             errors,
             case_name,
             f"registry {target}.nativeArtifact.pathArtifacts",
             native_artifact.get("pathArtifacts"),
-            package_contract["requiredPathArtifacts"],
+            expected_path_artifacts,
         )
         expect_equal(
             errors,
             case_name,
             f"registry {target}.nativeArtifact.requiresNativeBinaryStatus",
             native_artifact.get("requiresNativeBinaryStatus"),
-            package_contract["requiresNativeBinaryStatus"],
+            expected_requires_native_binary_status,
         )
         expect_equal(
             errors,
             case_name,
             f"registry {target}.nativeArtifact.allowsPlannedNativeBinary",
             native_artifact.get("allowsPlannedNativeBinary"),
-            package_contract["allowsPlannedNativeBinary"],
+            expected_allows_planned_native_binary,
         )
         expect_equal(
             errors,
@@ -621,17 +642,32 @@ def check_registry_static_contract_alignment(errors: list[str], root: Path) -> N
             case_name,
             f"registry {target}.packageAdmission.packageArtifactRequirementsSource",
             package_admission.get("packageArtifactRequirementsSource"),
-            PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE,
+            PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE
+            if package_contract is not None
+            else "src/Backend/TargetLegalization.cpp",
         )
 
-        expected_requirements = {
-            "packageMode": cpp_contract.package_mode,
-            **package_contract,
-            "evidenceIds": expected_package_artifact_evidence_ids(
-                target, cpp_contract.package_mode, package_contract
-            ),
-        }
-        expected_requirements.pop("target")
+        expected_requirements = (
+            {
+                "packageMode": cpp_contract.package_mode,
+                **package_contract,
+                "evidenceIds": expected_package_artifact_evidence_ids(
+                    target, cpp_contract.package_mode, package_contract
+                ),
+            }
+            if package_contract is not None
+            else {
+                "packageMode": "unsupported",
+                "requiredPathArtifacts": [],
+                "requiresNativeBinaryStatus": False,
+                "allowsPlannedNativeBinary": False,
+                "allowsPlannedNativeSourceEvidence": False,
+                "evidenceIds": [
+                    f"target-legalization.v1.{target}.package-artifacts.unsupported"
+                ],
+            }
+        )
+        expected_requirements.pop("target", None)
         for field, expected in expected_requirements.items():
             expect_equal(
                 errors,
