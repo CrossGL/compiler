@@ -497,6 +497,26 @@ void sourceBatchManifestError(crossgl::DiagnosticEngine &diagnostics,
                     std::move(message), cliSourceLocation(path));
 }
 
+bool replayCrossTLProjectReportSourceRemapDiagnostics(
+    const crossgl::DiagnosticEngine &sourceRemapDiagnostics,
+    crossgl::DiagnosticEngine &diagnostics,
+    const std::filesystem::path &manifestPath) {
+  bool hasError = false;
+  for (const crossgl::Diagnostic &diagnostic :
+       sourceRemapDiagnostics.diagnostics()) {
+    if (diagnostic.severity == crossgl::DiagnosticSeverity::Error) {
+      hasError = true;
+    }
+    if (diagnostic.code == "io.read-failed" ||
+        diagnostic.severity != crossgl::DiagnosticSeverity::Error) {
+      diagnostics.report(diagnostic);
+      continue;
+    }
+    sourceBatchManifestError(diagnostics, manifestPath, diagnostic.message);
+  }
+  return !hasError;
+}
+
 struct SourceBatchJsonMember {
   std::string key;
 };
@@ -1137,82 +1157,6 @@ std::string uniqueCrossTLProjectReportEntryId(const SourceBatchManifest &manifes
   return candidate;
 }
 
-bool isLowercaseSha256Digest(std::string_view value) {
-  if (value.size() != 64) {
-    return false;
-  }
-  for (const char c : value) {
-    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool parseCrossTLProjectReportSourceRemapHash(
-    std::string_view sourceRemap, const std::string &context,
-    const std::filesystem::path &manifestPath,
-    crossgl::DiagnosticEngine &diagnostics, std::string &digest) {
-  const std::optional<std::string_view> hash =
-      crossgl::findObjectMemberValue(sourceRemap, "hash");
-  const std::string hashContext = context + ".hash";
-  const std::string hashError =
-      hashContext +
-      " must contain sha256 algorithm and 64 lowercase hexadecimal value";
-  if (!hash || !crossgl::isJsonObjectDocument(*hash)) {
-    sourceBatchManifestError(diagnostics, manifestPath, hashError);
-    return false;
-  }
-
-  std::optional<std::string> algorithm;
-  if (!parseOptionalSourceBatchStringMember(*hash, "algorithm", hashContext,
-                                            manifestPath, diagnostics,
-                                            algorithm)) {
-    return false;
-  }
-  std::optional<std::string> value;
-  if (!parseOptionalSourceBatchStringMember(*hash, "value", hashContext,
-                                            manifestPath, diagnostics, value)) {
-    return false;
-  }
-  if (!algorithm || *algorithm != "sha256" || !value ||
-      !isLowercaseSha256Digest(*value)) {
-    sourceBatchManifestError(diagnostics, manifestPath, hashError);
-    return false;
-  }
-
-  digest = *value;
-  return true;
-}
-
-bool validateCrossTLProjectReportSourceRemapSidecarIntegrity(
-    const std::filesystem::path &sidecarPath, std::uintmax_t expectedSizeBytes,
-    std::string_view expectedSha256, const std::string &context,
-    const std::filesystem::path &manifestPath,
-    crossgl::DiagnosticEngine &diagnostics) {
-  std::optional<std::string> sidecarText = readTextDocument(sidecarPath, diagnostics);
-  if (!sidecarText) {
-    return false;
-  }
-
-  if (sidecarText->size() != expectedSizeBytes) {
-    sourceBatchManifestError(
-        diagnostics, manifestPath,
-        context + ".sizeBytes does not match referenced sidecar '" +
-            sidecarPath.generic_string() + "'");
-    return false;
-  }
-  const std::string actualSha256 = crossgl::sha256(*sidecarText);
-  if (actualSha256 != expectedSha256) {
-    sourceBatchManifestError(
-        diagnostics, manifestPath,
-        context + ".hash.value does not match referenced sidecar '" +
-            sidecarPath.generic_string() + "'");
-    return false;
-  }
-  return true;
-}
-
 bool parseCrossTLProjectReportArtifact(
     std::string_view artifactText, std::size_t artifactIndex,
     const std::filesystem::path &projectRoot, SourceBatchManifest &manifest,
@@ -1352,17 +1296,28 @@ bool parseCrossTLProjectReportArtifact(
     return false;
   }
 
-  std::string sourceRemapSha256;
-  if (!parseCrossTLProjectReportSourceRemapHash(
-          *sourceRemap, context + ".sourceRemap", manifest.path, diagnostics,
-          sourceRemapSha256)) {
+  if (!crossgl::findObjectMemberValue(*sourceRemap, "hash")) {
+    sourceBatchManifestError(
+        diagnostics, manifest.path,
+        context + ".sourceRemap.hash must contain sha256 algorithm and 64 "
+                  "lowercase hexadecimal value");
     return false;
   }
-  const std::filesystem::path resolvedSourceRemapPath =
-      resolveManifestPath(projectRoot, *sourceRemapPath);
-  if (!validateCrossTLProjectReportSourceRemapSidecarIntegrity(
-          resolvedSourceRemapPath, *sourceRemapSizeBytes, sourceRemapSha256,
-          context + ".sourceRemap", manifest.path, diagnostics)) {
+
+  crossgl::DiagnosticEngine sourceRemapDiagnostics;
+  std::optional<crossgl::SourceRemap> loadedSourceRemap =
+      crossgl::loadSourceRemapMetadata(*sourceRemap, projectRoot,
+                                       cliSourceLocation(manifest.path),
+                                       sourceRemapDiagnostics);
+  const bool validSourceRemapDiagnostics =
+      replayCrossTLProjectReportSourceRemapDiagnostics(
+          sourceRemapDiagnostics, diagnostics, manifest.path);
+  if (!validSourceRemapDiagnostics || !loadedSourceRemap) {
+    if (sourceRemapDiagnostics.empty()) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceRemap failed to load referenced sidecar");
+    }
     return false;
   }
 
@@ -1371,7 +1326,11 @@ bool parseCrossTLProjectReportArtifact(
       uniqueCrossTLProjectReportEntryId(manifest, std::move(source), artifactIndex);
   entry.path = resolveManifestPath(projectRoot, *path);
   entry.logicalInput = std::filesystem::path(*logicalInput);
-  entry.sourceRemap = resolvedSourceRemapPath;
+  if (loadedSourceRemap->documentPath) {
+    entry.sourceRemap = std::filesystem::path(*loadedSourceRemap->documentPath);
+  } else {
+    entry.sourceRemap = resolveManifestPath(projectRoot, *sourceRemapPath);
+  }
   manifest.sources.push_back(std::move(entry));
   return true;
 }

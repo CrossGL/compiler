@@ -231,6 +231,8 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ZERO_MAPPING_COUNT
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-zero-mapping-count.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_STALE_REMAP_HASH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-stale-remap-hash.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_MAPPING_COUNT_MISMATCH
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-mapping-count-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE_SOURCE_REMAP
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/out/cgl/simple.source-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_FILE_SOURCE_REMAP
@@ -239,12 +241,12 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_MISSING_REMAP}"
 "{
   \"schemaVersion\": 1,
   \"kind\": \"crosstl-project-portability-report\",
-  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\" },
+  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
   \"artifacts\": [
     {
       \"source\": \"simple.cgl\",
       \"target\": \"cgl\",
-      \"path\": \"tests/fixtures/out/cgl/simple.cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
       \"status\": \"translated\"
     }
   ]
@@ -254,18 +256,18 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_MISMATCH}"
 "{
   \"schemaVersion\": 1,
   \"kind\": \"crosstl-project-portability-report\",
-  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\" },
+  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
   \"artifacts\": [
     {
       \"source\": \"simple.cgl\",
       \"target\": \"cgl\",
-      \"path\": \"tests/fixtures/out/cgl/simple.cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
       \"status\": \"translated\",
       \"sourceRemap\": {
         \"schemaVersion\": 1,
-        \"path\": \"tests/fixtures/out/cgl/simple.source-remap.json\",
+        \"path\": \"out/cgl/simple.source-remap.json\",
         \"target\": \"metal\",
-        \"generatedFile\": \"tests/fixtures/out/cgl/simple.cgl\",
+        \"generatedFile\": \"out/cgl/simple.cgl\",
         \"mappingGranularity\": \"line\",
         \"mappingCount\": 2,
         \"sizeBytes\": 982,
@@ -282,18 +284,18 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_GENERATED_MISMATCH}"
 "{
   \"schemaVersion\": 1,
   \"kind\": \"crosstl-project-portability-report\",
-  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\" },
+  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
   \"artifacts\": [
     {
       \"source\": \"simple.cgl\",
       \"target\": \"cgl\",
-      \"path\": \"tests/fixtures/out/cgl/simple.cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
       \"status\": \"translated\",
       \"sourceRemap\": {
         \"schemaVersion\": 1,
-        \"path\": \"tests/fixtures/out/cgl/simple.source-remap.json\",
+        \"path\": \"out/cgl/simple.source-remap.json\",
         \"target\": \"cgl\",
-        \"generatedFile\": \"tests/fixtures/SimpleShader.cgl\",
+        \"generatedFile\": \"SimpleShader.cgl\",
         \"mappingGranularity\": \"line\",
         \"mappingCount\": 2,
         \"sizeBytes\": 982,
@@ -310,18 +312,18 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SELF_REMAP_PATH}"
 "{
   \"schemaVersion\": 1,
   \"kind\": \"crosstl-project-portability-report\",
-  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\" },
+  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
   \"artifacts\": [
     {
       \"source\": \"simple.cgl\",
       \"target\": \"cgl\",
-      \"path\": \"tests/fixtures/out/cgl/simple.cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
       \"status\": \"translated\",
       \"sourceRemap\": {
         \"schemaVersion\": 1,
-        \"path\": \"tests/fixtures/out/cgl/simple.cgl\",
+        \"path\": \"out/cgl/simple.cgl\",
         \"target\": \"cgl\",
-        \"generatedFile\": \"tests/fixtures/out/cgl/simple.cgl\",
+        \"generatedFile\": \"out/cgl/simple.cgl\",
         \"mappingGranularity\": \"line\",
         \"mappingCount\": 2,
         \"sizeBytes\": 982,
@@ -338,18 +340,18 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ZERO_MAPPING_COUNT}"
 "{
   \"schemaVersion\": 1,
   \"kind\": \"crosstl-project-portability-report\",
-  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\" },
+  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
   \"artifacts\": [
     {
       \"source\": \"simple.cgl\",
       \"target\": \"cgl\",
-      \"path\": \"tests/fixtures/out/cgl/simple.cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
       \"status\": \"translated\",
       \"sourceRemap\": {
         \"schemaVersion\": 1,
-        \"path\": \"tests/fixtures/out/cgl/simple.source-remap.json\",
+        \"path\": \"out/cgl/simple.source-remap.json\",
         \"target\": \"cgl\",
-        \"generatedFile\": \"tests/fixtures/out/cgl/simple.cgl\",
+        \"generatedFile\": \"out/cgl/simple.cgl\",
         \"mappingGranularity\": \"line\",
         \"mappingCount\": 0,
         \"sizeBytes\": 982,
@@ -366,24 +368,52 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_STALE_REMAP_HASH}"
 "{
   \"schemaVersion\": 1,
   \"kind\": \"crosstl-project-portability-report\",
-  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\" },
+  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
   \"artifacts\": [
     {
       \"source\": \"simple.cgl\",
       \"target\": \"cgl\",
-      \"path\": \"tests/fixtures/out/cgl/simple.cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
       \"status\": \"translated\",
       \"sourceRemap\": {
         \"schemaVersion\": 1,
-        \"path\": \"tests/fixtures/out/cgl/simple.source-remap.json\",
+        \"path\": \"out/cgl/simple.source-remap.json\",
         \"target\": \"cgl\",
-        \"generatedFile\": \"tests/fixtures/out/cgl/simple.cgl\",
+        \"generatedFile\": \"out/cgl/simple.cgl\",
         \"mappingGranularity\": \"line\",
         \"mappingCount\": 2,
         \"sizeBytes\": 982,
         \"hash\": {
           \"algorithm\": \"sha256\",
           \"value\": \"0000000000000000000000000000000000000000000000000000000000000000\"
+        }
+      }
+    }
+  ]
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_MAPPING_COUNT_MISMATCH}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
+  \"artifacts\": [
+    {
+      \"source\": \"simple.cgl\",
+      \"target\": \"cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
+      \"status\": \"translated\",
+      \"sourceRemap\": {
+        \"schemaVersion\": 1,
+        \"path\": \"out/cgl/simple.source-remap.json\",
+        \"target\": \"cgl\",
+        \"generatedFile\": \"out/cgl/simple.cgl\",
+        \"mappingGranularity\": \"line\",
+        \"mappingCount\": 1,
+        \"sizeBytes\": 982,
+        \"hash\": {
+          \"algorithm\": \"sha256\",
+          \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
         }
       }
     }
@@ -849,6 +879,14 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_stale_remap_h
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
     "sourceRemap.hash.value does not match referenced sidecar")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_mapping_count_mismatch_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_MAPPING_COUNT_MISMATCH}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "sourceRemap.mappingCount must match referenced sidecar mappings")
 
 crossgl_add_cli_surface_test(cglc_cli_build_crosstl_project_report_requires_output_fails
   EXPECTED_RESULT 1

@@ -251,105 +251,6 @@ parseLoadedSourceRemap(std::string text, const std::filesystem::path &path,
   return remap;
 }
 
-std::optional<SourceRemap>
-loadSourceRemapFromProjectMetadata(std::string_view metadata,
-                                   const std::filesystem::path &metadataPath,
-                                   DiagnosticEngine &diagnostics) {
-  const SourceLocation metadataLocation = documentStartLocation(metadataPath);
-  const std::optional<std::string> sidecarPath =
-      objectStringMember(metadata, "path");
-  if (!sidecarPath || !isStableRelativePath(*sidecarPath)) {
-    reportInvalidRemap(diagnostics,
-                       "sourceRemap.path must be a stable relative POSIX path",
-                       metadataLocation);
-    return std::nullopt;
-  }
-
-  const std::filesystem::path resolvedSidecarPath =
-      (metadataPath.parent_path() / *sidecarPath).lexically_normal();
-  std::optional<std::string> sidecarText =
-      readSourceRemapFileText(resolvedSidecarPath, diagnostics);
-  if (!sidecarText) {
-    return std::nullopt;
-  }
-
-  const bool hasSizeBytes = findObjectMemberValue(metadata, "sizeBytes").has_value();
-  const std::optional<std::uintmax_t> expectedSize =
-      sourceRemapMetadataSizeBytes(metadata, diagnostics, metadataLocation);
-  if (hasSizeBytes && !expectedSize) {
-    return std::nullopt;
-  }
-  if (expectedSize) {
-    if (*expectedSize != sidecarText->size()) {
-      reportInvalidRemap(
-          diagnostics,
-          "sourceRemap.sizeBytes does not match referenced sidecar '" +
-              resolvedSidecarPath.generic_string() + "'",
-          metadataLocation);
-      return std::nullopt;
-    }
-  }
-  const bool hasHash = findObjectMemberValue(metadata, "hash").has_value();
-  const std::optional<std::string> expectedHash =
-      sourceRemapMetadataHash(metadata, diagnostics, metadataLocation);
-  if (hasHash && !expectedHash) {
-    return std::nullopt;
-  }
-  if (expectedHash) {
-    const std::string actualHash = sha256(*sidecarText);
-    if (*expectedHash != actualHash) {
-      reportInvalidRemap(
-          diagnostics,
-          "sourceRemap.hash.value does not match referenced sidecar '" +
-              resolvedSidecarPath.generic_string() + "'",
-          metadataLocation);
-      return std::nullopt;
-    }
-  }
-
-  std::optional<SourceRemap> remap =
-      parseLoadedSourceRemap(std::move(*sidecarText), resolvedSidecarPath,
-                             diagnostics);
-  if (!remap) {
-    return std::nullopt;
-  }
-  const bool hasGeneratedFile =
-      findObjectMemberValue(metadata, "generatedFile").has_value();
-  const std::optional<std::string> generatedFile =
-      objectStringMember(metadata, "generatedFile");
-  if (hasGeneratedFile && !generatedFile) {
-    reportInvalidRemap(diagnostics,
-                       "sourceRemap.generatedFile must be a string",
-                       metadataLocation);
-    return std::nullopt;
-  }
-  if (generatedFile && *generatedFile != remap->generatedFile) {
-    reportInvalidRemap(
-        diagnostics,
-        "sourceRemap.generatedFile must match referenced sidecar generatedFile",
-        metadataLocation);
-    return std::nullopt;
-  }
-  const bool hasMappingCount =
-      findObjectMemberValue(metadata, "mappingCount").has_value();
-  const std::optional<std::uintmax_t> mappingCount =
-      objectUnsignedMember(metadata, "mappingCount");
-  if (hasMappingCount && !mappingCount) {
-    reportInvalidRemap(diagnostics,
-                       "sourceRemap.mappingCount must be a non-negative integer",
-                       metadataLocation);
-    return std::nullopt;
-  }
-  if (mappingCount && *mappingCount != remap->mappings.size()) {
-    reportInvalidRemap(
-        diagnostics,
-        "sourceRemap.mappingCount must match referenced sidecar mappings",
-        metadataLocation);
-    return std::nullopt;
-  }
-  return remap;
-}
-
 std::optional<SourceLocation>
 parseSourceRemapLocation(std::string_view object, std::string_view path,
                          DiagnosticEngine &diagnostics,
@@ -544,6 +445,104 @@ SourceLocation remapInsideEntry(const SourceRemapEntry &entry,
 }
 
 } // namespace
+
+std::optional<SourceRemap> loadSourceRemapMetadata(
+    std::string_view metadata, const std::filesystem::path &baseDirectory,
+    SourceLocation metadataLocation, DiagnosticEngine &diagnostics) {
+  const std::optional<std::string> sidecarPath =
+      objectStringMember(metadata, "path");
+  if (!sidecarPath || !isStableRelativePath(*sidecarPath)) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.path must be a stable relative POSIX path",
+                       std::move(metadataLocation));
+    return std::nullopt;
+  }
+
+  const std::filesystem::path resolvedSidecarPath =
+      (baseDirectory / *sidecarPath).lexically_normal();
+  std::optional<std::string> sidecarText =
+      readSourceRemapFileText(resolvedSidecarPath, diagnostics);
+  if (!sidecarText) {
+    return std::nullopt;
+  }
+
+  const bool hasSizeBytes =
+      findObjectMemberValue(metadata, "sizeBytes").has_value();
+  const std::optional<std::uintmax_t> expectedSize =
+      sourceRemapMetadataSizeBytes(metadata, diagnostics, metadataLocation);
+  if (hasSizeBytes && !expectedSize) {
+    return std::nullopt;
+  }
+  if (expectedSize) {
+    if (*expectedSize != sidecarText->size()) {
+      reportInvalidRemap(
+          diagnostics,
+          "sourceRemap.sizeBytes does not match referenced sidecar '" +
+              resolvedSidecarPath.generic_string() + "'",
+          metadataLocation);
+      return std::nullopt;
+    }
+  }
+  const bool hasHash = findObjectMemberValue(metadata, "hash").has_value();
+  const std::optional<std::string> expectedHash =
+      sourceRemapMetadataHash(metadata, diagnostics, metadataLocation);
+  if (hasHash && !expectedHash) {
+    return std::nullopt;
+  }
+  if (expectedHash) {
+    const std::string actualHash = sha256(*sidecarText);
+    if (*expectedHash != actualHash) {
+      reportInvalidRemap(
+          diagnostics,
+          "sourceRemap.hash.value does not match referenced sidecar '" +
+              resolvedSidecarPath.generic_string() + "'",
+          metadataLocation);
+      return std::nullopt;
+    }
+  }
+
+  std::optional<SourceRemap> remap =
+      parseLoadedSourceRemap(std::move(*sidecarText), resolvedSidecarPath,
+                             diagnostics);
+  if (!remap) {
+    return std::nullopt;
+  }
+  const bool hasGeneratedFile =
+      findObjectMemberValue(metadata, "generatedFile").has_value();
+  const std::optional<std::string> generatedFile =
+      objectStringMember(metadata, "generatedFile");
+  if (hasGeneratedFile && !generatedFile) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.generatedFile must be a string",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  if (generatedFile && *generatedFile != remap->generatedFile) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.generatedFile must match referenced sidecar generatedFile",
+        metadataLocation);
+    return std::nullopt;
+  }
+  const bool hasMappingCount =
+      findObjectMemberValue(metadata, "mappingCount").has_value();
+  const std::optional<std::uintmax_t> mappingCount =
+      objectUnsignedMember(metadata, "mappingCount");
+  if (hasMappingCount && !mappingCount) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.mappingCount must be a non-negative integer",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  if (mappingCount && *mappingCount != remap->mappings.size()) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.mappingCount must match referenced sidecar mappings",
+        metadataLocation);
+    return std::nullopt;
+  }
+  return remap;
+}
 
 std::optional<SourceRemap> parseSourceRemap(std::string_view text,
                                             DiagnosticEngine &diagnostics,
@@ -749,7 +748,12 @@ std::optional<SourceRemap> loadSourceRemap(const std::filesystem::path &path,
   }
   if (isJsonObjectDocument(*text) && !findDuplicateJsonKey(*text) &&
       looksLikeProjectReportSourceRemapMetadata(*text)) {
-    return loadSourceRemapFromProjectMetadata(*text, path, diagnostics);
+    std::filesystem::path baseDirectory = path.parent_path();
+    if (baseDirectory.empty()) {
+      baseDirectory = ".";
+    }
+    return loadSourceRemapMetadata(*text, baseDirectory,
+                                   documentStartLocation(path), diagnostics);
   }
   return parseLoadedSourceRemap(std::move(*text), path, diagnostics);
 }
