@@ -640,6 +640,28 @@ def validate_target_resource_binding_metadata_reflection_parity(
         )
 
 
+def host_loader_required_tools(instance):
+    summary = instance["targetLegalizationEvidenceSummary"]
+    if summary is None:
+        return []
+    return list(summary["requiredToolIds"])
+
+
+def host_loader_responsibilities(load_unit, required_tools):
+    responsibilities = [
+        "load-package-artifact",
+        "bind-reflected-entry-points",
+        "bind-reflected-resources",
+    ]
+    if load_unit["sourceRemap"] is not None:
+        responsibilities.insert(1, "load-source-remap")
+    if load_unit["hostInterface"]["workgroupSizeCount"] > 0:
+        responsibilities.append("bind-workgroup-shape")
+    if required_tools:
+        responsibilities.append("review-target-tool-requirements")
+    return responsibilities
+
+
 def validate_host_loader_integration(errors, instance):
     integration = instance["hostLoaderIntegration"]
     summary = integration["summary"]
@@ -792,6 +814,44 @@ def validate_host_loader_integration(errors, instance):
         selected_artifact["path"],
         "$.selectedArtifact.path",
     )
+    expected_id = (
+        f"runtime-loader.{load_unit['target'] or 'unselected'}."
+        f"{selected_artifact['name']}"
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].id",
+        load_unit["id"],
+        expected_id,
+        "stable host-loader load-unit id",
+    )
+    expected_adapter_kind = (
+        "native-binary-loader"
+        if selected_artifact["name"] == "nativeBinary"
+        else "backend-source-loader"
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].adapterKind",
+        load_unit["adapterKind"],
+        expected_adapter_kind,
+        "selected artifact adapter kind",
+    )
+    expected_required_tools = host_loader_required_tools(instance)
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].requiredTools",
+        load_unit["requiredTools"],
+        expected_required_tools,
+        "$.targetLegalizationEvidenceSummary.requiredToolIds",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].hostResponsibilities",
+        load_unit["hostResponsibilities"],
+        host_loader_responsibilities(load_unit, expected_required_tools),
+        "stable host-loader responsibilities",
+    )
     add_equal_error(
         errors,
         "$.hostLoaderIntegration.loadUnits[0].validation.loadReady",
@@ -851,6 +911,59 @@ def validate_host_loader_integration(errors, instance):
         expected_interface_status,
         "host interface readiness",
     )
+    source_remap = load_unit["sourceRemap"]
+    expected_step_kinds = ["load-package-artifact"]
+    if source_remap is not None:
+        expected_step_kinds.append("load-source-remap")
+    if host_interface_ready:
+        expected_step_kinds.append("bind-host-interface")
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].loadSteps[].kind",
+        [step["kind"] for step in load_unit["loadSteps"]],
+        expected_step_kinds,
+        "stable host-loader step order",
+    )
+    expected_messages = {
+        "load-package-artifact": "Load the selected runtime package artifact.",
+        "load-source-remap": "Load source remap provenance for diagnostics.",
+        "bind-host-interface": "Bind reflected host interface metadata.",
+    }
+    for index, step in enumerate(load_unit["loadSteps"]):
+        kind = step["kind"]
+        add_equal_error(
+            errors,
+            f"$.hostLoaderIntegration.loadUnits[0].loadSteps[{index}].message",
+            step["message"],
+            expected_messages[kind],
+            f"stable {kind} message",
+        )
+        add_equal_error(
+            errors,
+            f"$.hostLoaderIntegration.loadUnits[0].loadSteps[{index}].target",
+            step["target"],
+            load_unit["target"],
+            "$.hostLoaderIntegration.loadUnits[0].target",
+        )
+        add_equal_error(
+            errors,
+            f"$.hostLoaderIntegration.loadUnits[0].loadSteps[{index}].hostInterfaceStatus",
+            step["hostInterfaceStatus"],
+            load_unit["hostInterface"]["status"],
+            "$.hostLoaderIntegration.loadUnits[0].hostInterface.status",
+        )
+        expected_package_path = (
+            source_remap["packagePath"]
+            if kind == "load-source-remap" and source_remap is not None
+            else selected_artifact["path"]
+        )
+        add_equal_error(
+            errors,
+            f"$.hostLoaderIntegration.loadUnits[0].loadSteps[{index}].packagePath",
+            step["packagePath"],
+            expected_package_path,
+            f"stable {kind} package path",
+        )
     if host_interface_ready:
         if load_unit["blockers"] != []:
             errors.append(

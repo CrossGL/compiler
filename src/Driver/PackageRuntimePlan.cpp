@@ -880,6 +880,13 @@ std::string_view artifactFormatForHostLoader(
   return artifact->name;
 }
 
+std::string_view adapterKindForHostLoader(const PackageArtifactRecord &artifact) {
+  if (artifact.name == kNativeBinaryArtifact) {
+    return "native-binary-loader";
+  }
+  return "backend-source-loader";
+}
+
 void writeHostLoaderLoadStepMetadataSource(std::ostream &out,
                                            std::string_view field,
                                            const std::string *path,
@@ -891,9 +898,86 @@ void writeHostLoaderLoadStepMetadataSource(std::ostream &out,
   out << "\n" << indent << "}";
 }
 
+const PackageArtifactRecord *
+findExistingSourceRemapArtifact(const PackageMetadata *metadata) {
+  if (metadata == nullptr) {
+    return nullptr;
+  }
+  const PackageArtifactRecord *artifact = findArtifact(*metadata, "sourceRemap");
+  if (artifact == nullptr || !artifact->exists) {
+    return nullptr;
+  }
+  return artifact;
+}
+
+std::vector<std::string>
+hostLoaderRequiredTools(const PackageMetadata *metadata) {
+  if (metadata == nullptr || !metadata->targetLegalizationToolRequirements) {
+    return {};
+  }
+  return metadata->targetLegalizationToolRequirements->requiredToolIds;
+}
+
+std::vector<std::string>
+hostLoaderResponsibilities(const PackageArtifactRecord *sourceRemapArtifact,
+                           const std::vector<std::string> &requiredTools,
+                           std::size_t workgroupSizeCount) {
+  std::vector<std::string> responsibilities = {
+      "load-package-artifact",
+      "bind-reflected-entry-points",
+      "bind-reflected-resources",
+  };
+  if (sourceRemapArtifact != nullptr) {
+    responsibilities.insert(responsibilities.begin() + 1, "load-source-remap");
+  }
+  if (workgroupSizeCount > 0) {
+    responsibilities.push_back("bind-workgroup-shape");
+  }
+  if (!requiredTools.empty()) {
+    responsibilities.push_back("review-target-tool-requirements");
+  }
+  return responsibilities;
+}
+
+void writeHostLoaderSourceRemap(std::ostream &out,
+                                const PackageArtifactRecord *artifact,
+                                std::string_view indent) {
+  if (artifact == nullptr) {
+    out << "null";
+    return;
+  }
+  out << "{\n"
+      << indent << "  \"source\": \"manifest.artifacts.sourceRemap\",\n"
+      << indent << "  \"packagePath\": \"" << escapeJson(artifact->path)
+      << "\",\n"
+      << indent << "  \"exists\": true\n"
+      << indent << "}";
+}
+
+void writeHostLoaderLoadStepHeader(
+    std::ostream &out, std::string_view kind, std::string_view message,
+    const std::optional<std::string> &selectedTarget,
+    std::string_view packagePath, bool hostInterfaceReady,
+    std::string_view indent) {
+  out << indent << "  {\n"
+      << indent << "    \"kind\": \"" << escapeJson(kind) << "\",\n"
+      << indent << "    \"message\": \"" << escapeJson(message) << "\",\n"
+      << indent << "    \"target\": ";
+  writeNullableString(out, selectedTarget);
+  out << ",\n"
+      << indent << "    \"packagePath\": \"" << escapeJson(packagePath)
+      << "\",\n"
+      << indent << "    \"hostInterfaceStatus\": \""
+      << (hostInterfaceReady ? "ready" : "unavailable") << "\",\n"
+      << indent << "    \"command\": null,\n"
+      << indent << "    \"tools\": [],\n";
+}
+
 void writeHostLoaderLoadSteps(std::ostream &out,
                               const PackageArtifactRecord &artifact,
+                              const PackageArtifactRecord *sourceRemapArtifact,
                               const std::optional<std::string> &mode,
+                              const std::optional<std::string> &selectedTarget,
                               bool hostInterfaceReady,
                               std::size_t entryPointCount,
                               std::size_t resourceBindingCount,
@@ -901,12 +985,12 @@ void writeHostLoaderLoadSteps(std::ostream &out,
                               std::size_t functionConstantCount,
                               std::size_t specializationConstantCount,
                               std::string_view indent) {
-  out << "[\n"
-      << indent << "  {\n"
-      << indent << "    \"kind\": \"load-package-artifact\",\n"
-      << indent << "    \"command\": null,\n"
-      << indent << "    \"tools\": [],\n"
-      << indent << "    \"metadata\": {\n"
+  out << "[\n";
+  writeHostLoaderLoadStepHeader(
+      out, "load-package-artifact",
+      "Load the selected runtime package artifact.", selectedTarget,
+      artifact.path, hostInterfaceReady, indent);
+  out << indent << "    \"metadata\": {\n"
       << indent << "      \"source\": ";
   writeHostLoaderLoadStepMetadataSource(out, "selectedArtifact.path",
                                         &artifact.path,
@@ -922,13 +1006,26 @@ void writeHostLoaderLoadSteps(std::ostream &out,
       << indent << "    }\n"
       << indent << "  }";
 
+  if (sourceRemapArtifact != nullptr) {
+    out << ",\n";
+    writeHostLoaderLoadStepHeader(
+        out, "load-source-remap",
+        "Load source remap provenance for diagnostics.", selectedTarget,
+        sourceRemapArtifact->path, hostInterfaceReady, indent);
+    out << indent << "    \"metadata\": {\n"
+        << indent << "      \"source\": ";
+    writeHostLoaderLoadStepMetadataSource(
+        out, "manifest.artifacts.sourceRemap", &sourceRemapArtifact->path,
+        std::string(indent) + "      ");
+    out << "\n" << indent << "    }\n" << indent << "  }";
+  }
+
   if (hostInterfaceReady) {
-    out << ",\n"
-        << indent << "  {\n"
-        << indent << "    \"kind\": \"bind-host-interface\",\n"
-        << indent << "    \"command\": null,\n"
-        << indent << "    \"tools\": [],\n"
-        << indent << "    \"metadata\": {\n"
+    out << ",\n";
+    writeHostLoaderLoadStepHeader(
+        out, "bind-host-interface", "Bind reflected host interface metadata.",
+        selectedTarget, artifact.path, hostInterfaceReady, indent);
+    out << indent << "    \"metadata\": {\n"
         << indent << "      \"source\": ";
     writeHostLoaderLoadStepMetadataSource(out, "reflectionInputs", nullptr,
                                           std::string(indent) + "      ");
@@ -970,14 +1067,23 @@ void writeHostLoaderBlockers(std::ostream &out, bool hostInterfaceReady,
 
 void writeHostLoaderLoadUnit(
     std::ostream &out, const PackageArtifactRecord &artifact,
+    const PackageArtifactRecord *sourceRemapArtifact,
     const std::optional<std::string> &mode,
     const std::optional<std::string> &selectedTarget,
+    const std::vector<std::string> &requiredTools,
     bool hostInterfaceReady, std::size_t entryPointCount,
     std::size_t resourceBindingCount, std::size_t workgroupSizeCount,
     std::size_t functionConstantCount,
     std::size_t specializationConstantCount,
     std::string_view indent) {
   out << "{\n"
+      << indent << "  \"id\": \"runtime-loader.";
+  if (selectedTarget) {
+    out << escapeJson(*selectedTarget);
+  } else {
+    out << "unselected";
+  }
+  out << "." << escapeJson(artifact.name) << "\",\n"
       << indent << "  \"target\": ";
   writeNullableString(out, selectedTarget);
   out << ",\n"
@@ -991,8 +1097,22 @@ void writeHostLoaderLoadUnit(
       << "\",\n"
       << indent << "  \"artifactFormat\": \""
       << escapeJson(artifactFormatForHostLoader(&artifact)) << "\",\n"
+      << indent << "  \"adapterKind\": \""
+      << escapeJson(adapterKindForHostLoader(artifact)) << "\",\n"
       << indent << "  \"status\": \""
       << (hostInterfaceReady ? "ready" : "blocked") << "\",\n"
+      << indent << "  \"sourceRemap\": ";
+  writeHostLoaderSourceRemap(out, sourceRemapArtifact,
+                             std::string(indent) + "  ");
+  out << ",\n"
+      << indent << "  \"requiredTools\": ";
+  writeStringArray(out, requiredTools);
+  out << ",\n"
+      << indent << "  \"hostResponsibilities\": ";
+  writeStringArray(out, hostLoaderResponsibilities(sourceRemapArtifact,
+                                                   requiredTools,
+                                                   workgroupSizeCount));
+  out << ",\n"
       << indent << "  \"hostInterface\": {\n"
       << indent << "    \"status\": \""
       << (hostInterfaceReady ? "ready" : "unavailable") << "\",\n"
@@ -1017,7 +1137,8 @@ void writeHostLoaderLoadUnit(
       << indent << "    \"deviceExecutionRequired\": false\n"
       << indent << "  },\n"
       << indent << "  \"loadSteps\": ";
-  writeHostLoaderLoadSteps(out, artifact, mode, hostInterfaceReady,
+  writeHostLoaderLoadSteps(out, artifact, sourceRemapArtifact, mode,
+                           selectedTarget, hostInterfaceReady,
                            entryPointCount, resourceBindingCount,
                            workgroupSizeCount, functionConstantCount,
                            specializationConstantCount,
@@ -1060,6 +1181,10 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
           : 0;
   const bool hostInterfaceReady =
       success && hasLoadUnit && entryPointCount != 0;
+  const PackageArtifactRecord *sourceRemapArtifact =
+      findExistingSourceRemapArtifact(metadata);
+  const std::vector<std::string> requiredTools =
+      hostLoaderRequiredTools(metadata);
   const std::size_t readyLoadUnitCount = hostInterfaceReady ? 1 : 0;
   const std::size_t blockedLoadUnitCount =
       hasLoadUnit && !hostInterfaceReady ? 1 : 0;
@@ -1100,8 +1225,9 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
     out << "[]";
   } else {
     out << "[\n" << indent << "    ";
-    writeHostLoaderLoadUnit(out, *selection.artifact, selection.mode,
-                            selectedTarget, hostInterfaceReady,
+    writeHostLoaderLoadUnit(out, *selection.artifact, sourceRemapArtifact,
+                            selection.mode, selectedTarget, requiredTools,
+                            hostInterfaceReady,
                             entryPointCount, resourceBindingCount,
                             workgroupSizeCount, functionConstantCount,
                             specializationConstantCount,

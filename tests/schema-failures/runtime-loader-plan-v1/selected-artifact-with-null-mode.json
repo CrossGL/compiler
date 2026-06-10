@@ -66,7 +66,11 @@
                 "path": "backend/directx/StorageBufferComputeShader.hlsl"
               }
             },
-            "tools": []
+            "tools": [],
+            "message": "Load the selected runtime package artifact.",
+            "target": null,
+            "packagePath": "backend/directx/StorageBufferComputeShader.hlsl",
+            "hostInterfaceStatus": "unavailable"
           }
         ],
         "packageMode": null,
@@ -79,7 +83,21 @@
           "loadReady": false,
           "metadataOnly": true,
           "sourceParsingRequired": false
-        }
+        },
+        "id": "runtime-loader.unselected.backendSource",
+        "adapterKind": "backend-source-loader",
+        "sourceRemap": null,
+        "requiredTools": [
+          "directx.toolchain.dxc",
+          "directx.validation.dxil-validator"
+        ],
+        "hostResponsibilities": [
+          "load-package-artifact",
+          "bind-reflected-entry-points",
+          "bind-reflected-resources",
+          "bind-workgroup-shape",
+          "review-target-tool-requirements"
+        ]
       }
     ],
     "nonGoals": [

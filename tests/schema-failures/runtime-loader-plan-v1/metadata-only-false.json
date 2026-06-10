@@ -43,7 +43,11 @@
                 "path": "backend/directx/Shader.hlsl"
               }
             },
-            "tools": []
+            "tools": [],
+            "message": "Load the selected runtime package artifact.",
+            "target": "directx",
+            "packagePath": "backend/directx/Shader.hlsl",
+            "hostInterfaceStatus": "ready"
           },
           {
             "command": null,
@@ -58,7 +62,11 @@
               "functionConstantCount": 0,
               "specializationConstantCount": 0
             },
-            "tools": []
+            "tools": [],
+            "message": "Bind reflected host interface metadata.",
+            "target": "directx",
+            "packagePath": "backend/directx/Shader.hlsl",
+            "hostInterfaceStatus": "ready"
           }
         ],
         "packageMode": "source-package",
@@ -71,7 +79,17 @@
           "loadReady": true,
           "metadataOnly": true,
           "sourceParsingRequired": false
-        }
+        },
+        "id": "runtime-loader.directx.backendSource",
+        "adapterKind": "backend-source-loader",
+        "sourceRemap": null,
+        "requiredTools": [],
+        "hostResponsibilities": [
+          "load-package-artifact",
+          "bind-reflected-entry-points",
+          "bind-reflected-resources",
+          "bind-workgroup-shape"
+        ]
       }
     ],
     "nonGoals": [

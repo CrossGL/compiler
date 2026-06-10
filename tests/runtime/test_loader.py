@@ -240,16 +240,55 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 },
             )
             load_unit = host_loader_integration["loadUnits"][0]
+            self.assertEqual(load_unit["id"], "runtime-loader.directx.backendSource")
             self.assertEqual(load_unit["target"], "directx")
             self.assertEqual(
                 load_unit["packagePath"], contract["selectedArtifact"]["path"]
             )
             self.assertEqual(load_unit["artifact"], contract["selectedArtifact"])
+            self.assertEqual(load_unit["artifactFormat"], "backend-source")
+            self.assertEqual(load_unit["adapterKind"], "backend-source-loader")
+            self.assertIsNone(load_unit["sourceRemap"])
+            self.assertEqual(load_unit["requiredTools"], [])
+            self.assertEqual(
+                load_unit["hostResponsibilities"],
+                [
+                    "load-package-artifact",
+                    "bind-reflected-entry-points",
+                    "bind-reflected-resources",
+                ],
+            )
             self.assertEqual(load_unit["hostInterface"]["status"], "ready")
             self.assertEqual(load_unit["validation"]["loadReady"], True)
             self.assertEqual(
                 [step["kind"] for step in load_unit["loadSteps"]],
                 ["load-package-artifact", "bind-host-interface"],
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][0]["message"],
+                "Load the selected runtime package artifact.",
+            )
+            self.assertEqual(load_unit["loadSteps"][0]["target"], "directx")
+            self.assertEqual(
+                load_unit["loadSteps"][0]["packagePath"],
+                "backend/directx/RuntimeLoaderFixture.hlsl",
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][0]["hostInterfaceStatus"],
+                "ready",
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][1]["message"],
+                "Bind reflected host interface metadata.",
+            )
+            self.assertEqual(load_unit["loadSteps"][1]["target"], "directx")
+            self.assertEqual(
+                load_unit["loadSteps"][1]["packagePath"],
+                "backend/directx/RuntimeLoaderFixture.hlsl",
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][1]["hostInterfaceStatus"],
+                "ready",
             )
             self.assertEqual(load_unit["blockers"], [])
             self.assertEqual(
@@ -360,6 +399,85 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             self.assertEqual(
                 summary["compatibilityReport"]["sourceParsingRequired"],
                 False,
+            )
+
+    def test_source_remap_artifact_is_exposed_as_host_loader_load_step(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            source_remap_path = "ir/source-remap-provenance.json"
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["sourceRemap"] = source_remap_path
+            self._write_json(manifest_path, manifest)
+            (package_dir / "ir").mkdir()
+            self._write_json(
+                package_dir / source_remap_path,
+                {
+                    "schemaVersion": 1,
+                    "kind": "crossgl.sourceRemapProvenance",
+                    "contractVersion": "source-remap-provenance-v1",
+                    "target": "directx",
+                    "generatedFile": "generated/from-translator.cgl",
+                    "mappingGranularity": "source-span",
+                    "mappingCount": 1,
+                    "sourceRemap": {
+                        "path": "source/original.crossgl",
+                        "sha256": {
+                            "algorithm": "sha256",
+                            "value": "0" * 64,
+                        },
+                        "sizeBytes": 0,
+                    },
+                },
+            )
+
+            contract = read_runtime_loader_plan_contract(package_dir, "directx")
+
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            load_unit = contract["hostLoaderIntegration"]["loadUnits"][0]
+            self.assertEqual(
+                load_unit["sourceRemap"],
+                {
+                    "source": "manifest.artifacts.sourceRemap",
+                    "packagePath": source_remap_path,
+                    "exists": True,
+                },
+            )
+            self.assertEqual(
+                load_unit["hostResponsibilities"],
+                [
+                    "load-package-artifact",
+                    "load-source-remap",
+                    "bind-reflected-entry-points",
+                    "bind-reflected-resources",
+                ],
+            )
+            self.assertEqual(
+                [step["kind"] for step in load_unit["loadSteps"]],
+                [
+                    "load-package-artifact",
+                    "load-source-remap",
+                    "bind-host-interface",
+                ],
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][1],
+                {
+                    "kind": "load-source-remap",
+                    "message": "Load source remap provenance for diagnostics.",
+                    "target": "directx",
+                    "packagePath": source_remap_path,
+                    "hostInterfaceStatus": "ready",
+                    "command": None,
+                    "tools": [],
+                    "metadata": {
+                        "source": {
+                            "field": "manifest.artifacts.sourceRemap",
+                            "path": source_remap_path,
+                        }
+                    },
+                },
             )
 
     def test_workgroup_size_metadata_handoff_uses_reflection_only(self) -> None:

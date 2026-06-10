@@ -1035,18 +1035,27 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "id",
         "target",
         "packageMode",
         "artifact",
         "packagePath",
         "artifactFormat",
+        "adapterKind",
         "status",
+        "sourceRemap",
+        "requiredTools",
+        "hostResponsibilities",
         "hostInterface",
         "validation",
         "loadSteps",
         "blockers"
       ],
       "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^runtime-loader\\.[a-z0-9-]+\\.[A-Za-z][A-Za-z0-9]*$"
+        },
         "target": {
           "$ref": "#/$defs/packageTargetOrNull"
         },
@@ -1066,12 +1075,35 @@
             "native-binary"
           ]
         },
+        "adapterKind": {
+          "type": "string",
+          "enum": [
+            "backend-source-loader",
+            "native-binary-loader"
+          ]
+        },
         "status": {
           "type": "string",
           "enum": [
             "ready",
             "blocked"
           ]
+        },
+        "sourceRemap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/hostLoaderSourceRemap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requiredTools": {
+          "$ref": "#/$defs/stringList"
+        },
+        "hostResponsibilities": {
+          "$ref": "#/$defs/stringList"
         },
         "hostInterface": {
           "$ref": "#/$defs/hostLoaderInterface"
@@ -1091,6 +1123,28 @@
           "items": {
             "$ref": "#/$defs/hostLoaderBlocker"
           }
+        }
+      }
+    },
+    "hostLoaderSourceRemap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "packagePath",
+        "exists"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "const": "manifest.artifacts.sourceRemap"
+        },
+        "packagePath": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "exists": {
+          "type": "boolean",
+          "const": true
         }
       }
     },
@@ -1172,6 +1226,10 @@
       "additionalProperties": false,
       "required": [
         "kind",
+        "message",
+        "target",
+        "packagePath",
+        "hostInterfaceStatus",
         "command",
         "tools",
         "metadata"
@@ -1181,7 +1239,25 @@
           "type": "string",
           "enum": [
             "load-package-artifact",
+            "load-source-remap",
             "bind-host-interface"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "$ref": "#/$defs/packageTargetOrNull"
+        },
+        "packagePath": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "hostInterfaceStatus": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "unavailable"
           ]
         },
         "command": {

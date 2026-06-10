@@ -1490,9 +1490,22 @@ def _runtime_loader_plan_host_loader_load_unit(
     function_constant_count: int,
     specialization_constant_count: int,
 ) -> dict[str, Any]:
+    selected_target = _runtime_loader_plan_target_or_null(plan.selected_target)
+    source_remap = _runtime_loader_plan_source_remap(plan)
+    required_tools = _runtime_loader_plan_required_tools(plan)
+    host_responsibilities = _runtime_loader_plan_host_responsibilities(
+        source_remap=source_remap,
+        required_tools=required_tools,
+        workgroup_size_count=workgroup_size_count,
+    )
+    host_interface_status = "ready" if host_interface_ready else "unavailable"
     load_steps = [
         {
             "kind": "load-package-artifact",
+            "message": "Load the selected runtime package artifact.",
+            "target": selected_target,
+            "packagePath": selected_artifact["path"],
+            "hostInterfaceStatus": host_interface_status,
             "command": None,
             "tools": [],
             "metadata": {
@@ -1507,11 +1520,33 @@ def _runtime_loader_plan_host_loader_load_unit(
             },
         }
     ]
+    if source_remap is not None:
+        load_steps.append(
+            {
+                "kind": "load-source-remap",
+                "message": "Load source remap provenance for diagnostics.",
+                "target": selected_target,
+                "packagePath": source_remap["packagePath"],
+                "hostInterfaceStatus": host_interface_status,
+                "command": None,
+                "tools": [],
+                "metadata": {
+                    "source": {
+                        "field": "manifest.artifacts.sourceRemap",
+                        "path": source_remap["packagePath"],
+                    }
+                },
+            }
+        )
     blockers = []
     if host_interface_ready:
         load_steps.append(
             {
                 "kind": "bind-host-interface",
+                "message": "Bind reflected host interface metadata.",
+                "target": selected_target,
+                "packagePath": selected_artifact["path"],
+                "hostInterfaceStatus": host_interface_status,
                 "command": None,
                 "tools": [],
                 "metadata": {
@@ -1539,7 +1574,8 @@ def _runtime_loader_plan_host_loader_load_unit(
 
     status = "ready" if host_interface_ready else "blocked"
     return {
-        "target": _runtime_loader_plan_target_or_null(plan.selected_target),
+        "id": _runtime_loader_plan_load_unit_id(selected_target, selected_artifact),
+        "target": selected_target,
         "packageMode": selected_artifact["packageMode"],
         "artifact": selected_artifact,
         "packagePath": selected_artifact["path"],
@@ -1548,9 +1584,17 @@ def _runtime_loader_plan_host_loader_load_unit(
             if selected_artifact["name"] == "nativeBinary"
             else "backend-source"
         ),
+        "adapterKind": (
+            "native-binary-loader"
+            if selected_artifact["name"] == "nativeBinary"
+            else "backend-source-loader"
+        ),
         "status": status,
+        "sourceRemap": source_remap,
+        "requiredTools": required_tools,
+        "hostResponsibilities": host_responsibilities,
         "hostInterface": {
-            "status": "ready" if host_interface_ready else "unavailable",
+            "status": host_interface_status,
             "source": "reflectionInputs",
             "entryPointCount": entry_point_count,
             "resourceBindingCount": resource_binding_count,
@@ -1568,6 +1612,60 @@ def _runtime_loader_plan_host_loader_load_unit(
         "loadSteps": load_steps,
         "blockers": blockers,
     }
+
+
+def _runtime_loader_plan_load_unit_id(
+    selected_target: str | None, selected_artifact: dict[str, Any]
+) -> str:
+    target = selected_target if selected_target is not None else "unselected"
+    return f"runtime-loader.{target}.{selected_artifact['name']}"
+
+
+def _runtime_loader_plan_source_remap(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any] | None:
+    artifact = next(
+        (
+            artifact
+            for artifact in plan.compatibility_report.available_artifacts
+            if artifact.name == "sourceRemap"
+        ),
+        None,
+    )
+    if artifact is None or not artifact.exists:
+        return None
+    return {
+        "source": "manifest.artifacts.sourceRemap",
+        "packagePath": artifact.package_path,
+        "exists": artifact.exists,
+    }
+
+
+def _runtime_loader_plan_required_tools(plan: RuntimeLoaderPlan) -> list[str]:
+    summary = _runtime_loader_plan_target_legalization_summary(
+        plan.compatibility_report
+    )
+    return list(summary["requiredToolIds"])
+
+
+def _runtime_loader_plan_host_responsibilities(
+    *,
+    source_remap: dict[str, Any] | None,
+    required_tools: list[str],
+    workgroup_size_count: int,
+) -> list[str]:
+    responsibilities = [
+        "load-package-artifact",
+        "bind-reflected-entry-points",
+        "bind-reflected-resources",
+    ]
+    if source_remap is not None:
+        responsibilities.insert(1, "load-source-remap")
+    if workgroup_size_count > 0:
+        responsibilities.append("bind-workgroup-shape")
+    if required_tools:
+        responsibilities.append("review-target-tool-requirements")
+    return responsibilities
 
 
 def _runtime_loader_plan_contract_diagnostics(
