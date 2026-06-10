@@ -211,6 +211,10 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-basic.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_FILE
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-file.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_OUTPUT_DIR
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-crosstl-project-report-build")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_JSON_OUTPUT_DIR
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-crosstl-project-report-build-json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NO_TRANSLATED
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-no-translated.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_MISSING_REMAP
@@ -849,7 +853,35 @@ crossgl_add_cli_surface_test(cglc_cli_build_crosstl_project_report_requires_outp
   ARGS build --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE}
   STDERR_CONTAINS
     "error project.source-batch.invalid-manifest"
-    "source batch manifest sources[0] requires output for build")
+    "source batch manifest sources[0] requires output for build"
+    "set sources[].output or pass --output-dir")
+
+crossgl_add_cli_surface_test(cglc_cli_build_crosstl_project_report_output_dir_success_contract
+  EXPECTED_RESULT 0
+  ARGS
+    build --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE}
+    --target directx
+    --output-dir ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_OUTPUT_DIR}
+  STDOUT_CONTAINS
+    "built "
+    "cglc-cli-crosstl-project-report-build"
+    "simple.cglb"
+    "for directx"
+    "batch build passed: 1 sources")
+
+crossgl_add_python_expect_test(
+  NAME cglc_cli_build_crosstl_project_report_output_dir_result_json_schema
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DMODE=source-batch-build-json
+    -DMANIFEST=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE}
+    -DTARGET=directx
+    -DOUTPUT_DIR=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_JSON_OUTPUT_DIR}
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=1|entries.0.id=simple.cgl|entries.0.logicalInput=out/cgl/simple.cgl|entries.0.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE_SOURCE_REMAP}|entries.0.output=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_JSON_OUTPUT_DIR}/out/cgl/simple.cglb|entries.0.artifact=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_JSON_OUTPUT_DIR}/out/cgl/simple.cglb|entries.0.target=directx|entries.0.success=true|diagnosticReport.schemaVersion=1"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=1"
+    "-DEXPECTED_SOURCE_BATCH_PACKAGE=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_JSON_OUTPUT_DIR}/out/cgl/simple.cglb")
 
 crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_missing_path_fails
   EXPECTED_RESULT 2

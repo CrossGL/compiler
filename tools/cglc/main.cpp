@@ -14,6 +14,7 @@
 #include "crossgl/Driver/SourceRemap.h"
 
 #include <charconv>
+#include <cctype>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -82,7 +83,8 @@ void printUsage() {
          "[--diagnostics-json]\n"
       << "  cglc build --source-manifest <sources.json> "
          "[--target auto|metal|vulkan|directx|opengl] "
-         "[--opt-level O0|O1|O2] [--debug-ir] [--diagnostics-json]\n"
+         "[--output-dir <dir>] [--opt-level O0|O1|O2] [--debug-ir] "
+         "[--diagnostics-json]\n"
       << "  cglc package inspect <out.cglb> --json\n"
       << "  cglc package verify <out.cglb> [--source <input.cgl>] [--json]\n"
       << "  cglc package recover <package-or-sidecar.cglb> --list [--json]\n"
@@ -722,6 +724,66 @@ std::filesystem::path resolveManifestPath(const std::filesystem::path &base,
     return path.lexically_normal();
   }
   return (base / path).lexically_normal();
+}
+
+bool isStableRelativeFilesystemPath(const std::filesystem::path &path) {
+  return isSourceBatchStableRelativePath(path.generic_string());
+}
+
+std::string sanitizeSourceBatchOutputStem(std::string_view value) {
+  std::string sanitized;
+  sanitized.reserve(value.size());
+  for (const unsigned char byte : value) {
+    const char ch = static_cast<char>(byte);
+    if (std::isalnum(byte) != 0 || ch == '.' || ch == '_' || ch == '-') {
+      sanitized.push_back(ch);
+    } else {
+      sanitized.push_back('_');
+    }
+  }
+  if (sanitized.empty() || sanitized == "." || sanitized == "..") {
+    return "source";
+  }
+  return sanitized;
+}
+
+std::filesystem::path deriveSourceBatchOutputRelativePath(
+    const SourceBatchEntry &entry, std::size_t sourceIndex) {
+  std::filesystem::path relative;
+  if (entry.logicalInput && isStableRelativeFilesystemPath(*entry.logicalInput)) {
+    relative = *entry.logicalInput;
+  } else {
+    const std::string fallback =
+        entry.id.empty()
+            ? "source-" + std::to_string(sourceIndex)
+            : sanitizeSourceBatchOutputStem(entry.id);
+    relative = std::filesystem::path(fallback);
+  }
+  relative.replace_extension(".cglb");
+  return relative;
+}
+
+std::optional<std::filesystem::path>
+sourceBatchOutputDirectoryArg(const std::vector<std::string> &args) {
+  const std::string value = argValue(args, "--output-dir");
+  if (value.empty()) {
+    return std::nullopt;
+  }
+  return std::filesystem::path(value);
+}
+
+std::optional<std::filesystem::path> resolveSourceBatchOutputPath(
+    const SourceBatchEntry &entry,
+    const std::optional<std::filesystem::path> &outputDirectory,
+    std::size_t sourceIndex) {
+  if (entry.output) {
+    return *entry.output;
+  }
+  if (!outputDirectory) {
+    return std::nullopt;
+  }
+  return (*outputDirectory / deriveSourceBatchOutputRelativePath(entry, sourceIndex))
+      .lexically_normal();
 }
 
 std::optional<crossgl::TargetKind>
@@ -1615,6 +1677,20 @@ int validateSourceBatchCommandArgs(const std::vector<std::string> &args,
     if (command == "build" && arg == "--debug-ir") {
       continue;
     }
+    if (arg == "--output-dir") {
+      if (command != "build") {
+        std::cerr << "error: --output-dir is only supported for build source "
+                     "manifest mode\n";
+        return 2;
+      }
+      if (index + 1 >= args.size() || args[index + 1].empty() ||
+          args[index + 1][0] == '-') {
+        std::cerr << "error: --output-dir requires a directory\n";
+        return 2;
+      }
+      ++index;
+      continue;
+    }
     if (arg == "--logical-input" || arg == "--source-remap" ||
         arg == "--output") {
       std::cerr << "error: " << arg
@@ -1782,6 +1858,8 @@ int commandBuildSourceBatch(const std::vector<std::string> &args,
   const bool diagnosticsJson = hasArg(args, "--diagnostics-json");
   std::optional<crossgl::OptimizationLevel> optimizationOverride;
   std::optional<crossgl::TargetKind> targetOverride;
+  const std::optional<std::filesystem::path> outputDirectory =
+      sourceBatchOutputDirectoryArg(args);
   try {
     optimizationOverride = sourceBatchOptimizationOverride(args);
     targetOverride = sourceBatchTargetOverride(args);
@@ -1810,16 +1888,19 @@ int commandBuildSourceBatch(const std::vector<std::string> &args,
     entryResult.inputPath = entry.path;
     entryResult.logicalInputPath = entry.logicalInput;
     entryResult.sourceRemapPath = entry.sourceRemap;
-    entryResult.outputPath = entry.output;
+    std::optional<std::filesystem::path> outputPath =
+        resolveSourceBatchOutputPath(entry, outputDirectory, index);
+    entryResult.outputPath = outputPath;
     entryResult.target =
         resolveSourceBatchTarget(entry, targetOverride, manifest->defaults);
 
-    if (!entry.output) {
+    if (!outputPath) {
       crossgl::DiagnosticEngine diagnostics;
       sourceBatchManifestError(
           diagnostics, manifest->path,
           "source batch manifest sources[" + std::to_string(index) +
-              "] requires output for build");
+              "] requires output for build; set sources[].output or pass "
+              "--output-dir");
       appendDiagnostics(allDiagnostics, diagnostics.diagnostics());
       entryResults.push_back(std::move(entryResult));
       continue;
@@ -1827,7 +1908,7 @@ int commandBuildSourceBatch(const std::vector<std::string> &args,
 
     crossgl::CompileRequest request;
     request.inputPath = entry.path;
-    request.outputPath = *entry.output;
+    request.outputPath = *outputPath;
     request.target = entryResult.target;
     request.optimizationLevel = resolveSourceBatchOptimizationLevel(
         entry, optimizationOverride, manifest->defaults);
