@@ -1179,6 +1179,11 @@ struct CrossTLProjectReportSummary {
     std::uintmax_t warning = 0;
     std::uintmax_t error = 0;
   };
+  std::optional<std::uintmax_t> unitCount;
+  std::optional<std::uintmax_t> skippedCount;
+  std::optional<std::uintmax_t> targetCount;
+  std::optional<CountMap> artifactsByTarget;
+  std::optional<CountMap> unitsBySourceBackend;
   std::optional<std::uintmax_t> translatedCount;
   std::optional<std::uintmax_t> failedCount;
   std::optional<DiagnosticCounts> diagnosticCounts;
@@ -1202,9 +1207,15 @@ struct CrossTLProjectReportSummary {
   std::optional<CountMap> sourceRemapsByTarget;
   std::optional<CountMap> sourceRemapsBySourceBackend;
   std::optional<CountMap> sourceRemapsByVariant;
+  std::optional<std::uintmax_t> runtimeReferenceCount;
+  std::optional<CountMap> runtimeReferencesByKind;
+  std::optional<CountMap> runtimeReferencesByBackend;
+  std::optional<CountMap> runtimeReferencesByPath;
 };
 
 struct CrossTLProjectReportStats {
+  std::uintmax_t unitCount = 0;
+  std::uintmax_t skippedCount = 0;
   std::uintmax_t artifactCount = 0;
   std::uintmax_t translatedCount = 0;
   std::uintmax_t failedCount = 0;
@@ -1226,6 +1237,8 @@ struct CrossTLProjectReportStats {
       artifactProvenanceIntermediateByTarget;
   CrossTLProjectReportSummary::NestedCountMap
       artifactProvenanceIntermediateByVariant;
+  CrossTLProjectReportSummary::CountMap artifactsByTarget;
+  CrossTLProjectReportSummary::CountMap unitsBySourceBackend;
   CrossTLProjectReportSummary::CountMap sourceMapsByGranularity;
   CrossTLProjectReportSummary::CountMap sourceMapsByTarget;
   CrossTLProjectReportSummary::CountMap sourceMapsBySourceBackend;
@@ -1234,7 +1247,19 @@ struct CrossTLProjectReportStats {
   CrossTLProjectReportSummary::CountMap sourceRemapsByTarget;
   CrossTLProjectReportSummary::CountMap sourceRemapsBySourceBackend;
   CrossTLProjectReportSummary::CountMap sourceRemapsByVariant;
+  std::uintmax_t runtimeReferenceCount = 0;
+  CrossTLProjectReportSummary::CountMap runtimeReferencesByKind;
+  CrossTLProjectReportSummary::CountMap runtimeReferencesByBackend;
+  CrossTLProjectReportSummary::CountMap runtimeReferencesByPath;
   std::vector<std::string> sourceRemapPaths;
+};
+
+struct CrossTLProjectReportRuntimeReferenceRollups {
+  std::optional<std::uintmax_t> runtimeReferenceCount;
+  std::optional<CrossTLProjectReportSummary::CountMap> runtimeReferencesByKind;
+  std::optional<CrossTLProjectReportSummary::CountMap>
+      runtimeReferencesByBackend;
+  std::optional<CrossTLProjectReportSummary::CountMap> runtimeReferencesByPath;
 };
 
 struct CrossTLProjectReportSourceMapSpan {
@@ -2202,6 +2227,21 @@ bool parseCrossTLProjectReportSummary(
              *summaryText, "sourceRemapMappingCount", manifestPath, diagnostics,
              summary.sourceRemapMappingCount) &&
          parseOptionalCrossTLProjectReportSummaryUnsignedMember(
+             *summaryText, "unitCount", manifestPath, diagnostics,
+             summary.unitCount) &&
+         parseOptionalCrossTLProjectReportSummaryUnsignedMember(
+             *summaryText, "skippedCount", manifestPath, diagnostics,
+             summary.skippedCount) &&
+         parseOptionalCrossTLProjectReportSummaryUnsignedMember(
+             *summaryText, "targetCount", manifestPath, diagnostics,
+             summary.targetCount) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "artifactsByTarget", manifestPath, diagnostics,
+             summary.artifactsByTarget) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "unitsBySourceBackend", manifestPath, diagnostics,
+             summary.unitsBySourceBackend) &&
+         parseOptionalCrossTLProjectReportSummaryUnsignedMember(
              *summaryText, "translatedCount", manifestPath, diagnostics,
              summary.translatedCount) &&
          parseOptionalCrossTLProjectReportSummaryUnsignedMember(
@@ -2273,7 +2313,19 @@ bool parseCrossTLProjectReportSummary(
              diagnostics, summary.sourceRemapsBySourceBackend) &&
          parseOptionalCrossTLProjectReportSummaryCountMap(
              *summaryText, "sourceRemapsByVariant", manifestPath, diagnostics,
-             summary.sourceRemapsByVariant);
+             summary.sourceRemapsByVariant) &&
+         parseOptionalCrossTLProjectReportSummaryUnsignedMember(
+             *summaryText, "runtimeReferenceCount", manifestPath, diagnostics,
+             summary.runtimeReferenceCount) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "runtimeReferencesByKind", manifestPath, diagnostics,
+             summary.runtimeReferencesByKind) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "runtimeReferencesByBackend", manifestPath,
+             diagnostics, summary.runtimeReferencesByBackend) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "runtimeReferencesByPath", manifestPath, diagnostics,
+             summary.runtimeReferencesByPath);
 }
 
 void incrementCrossTLProjectReportCountMap(
@@ -2451,6 +2503,7 @@ bool validateCrossTLProjectReportDiagnosticCounts(
 bool validateCrossTLProjectReportSummary(
     const CrossTLProjectReportSummary &summary,
     const CrossTLProjectReportStats &stats,
+    const std::optional<std::vector<std::string>> &declaredTargets,
     const std::filesystem::path &manifestPath,
     crossgl::DiagnosticEngine &diagnostics) {
   if (summary.artifactCount != stats.artifactCount) {
@@ -2475,6 +2528,23 @@ bool validateCrossTLProjectReportSummary(
         "CrossTL project report summary.sourceRemapMappingCount must match "
         "sourceRemap mapping total " +
             std::to_string(stats.sourceRemapMappingCount));
+    return false;
+  }
+  if (!validateCrossTLProjectReportSummaryOptionalCount(
+          summary.unitCount, stats.unitCount, "unitCount", "units length",
+          manifestPath, diagnostics) ||
+      !validateCrossTLProjectReportSummaryOptionalCount(
+          summary.skippedCount, stats.skippedCount, "skippedCount",
+          "skipped length", manifestPath, diagnostics)) {
+    return false;
+  }
+  if (summary.targetCount && declaredTargets &&
+      *summary.targetCount != declaredTargets->size()) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        "CrossTL project report summary.targetCount must match project target "
+        "count " +
+            std::to_string(declaredTargets->size()));
     return false;
   }
   return validateCrossTLProjectReportSummaryOptionalCount(
@@ -2506,6 +2576,14 @@ bool validateCrossTLProjectReportSummary(
              summary.missingCapabilityCounts, stats.missingCapabilityCounts,
              "missingCapabilityCounts", "diagnostic", "missing capability",
              manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.artifactsByTarget, stats.artifactsByTarget,
+             "artifactsByTarget", "artifact", "target", manifestPath,
+             diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.unitsBySourceBackend, stats.unitsBySourceBackend,
+             "unitsBySourceBackend", "unit", "source backend", manifestPath,
+             diagnostics) &&
          validateCrossTLProjectReportSummaryCountMap(
              summary.artifactProvenanceByPipeline,
              stats.artifactProvenanceByPipeline,
@@ -2571,7 +2649,23 @@ bool validateCrossTLProjectReportSummary(
          validateCrossTLProjectReportSummaryCountMap(
              summary.sourceRemapsByVariant, stats.sourceRemapsByVariant,
              "sourceRemapsByVariant", "sourceRemap", "variant", manifestPath,
-             diagnostics);
+             diagnostics) &&
+         validateCrossTLProjectReportSummaryOptionalCount(
+             summary.runtimeReferenceCount, stats.runtimeReferenceCount,
+             "runtimeReferenceCount", "runtimeReference count", manifestPath,
+             diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.runtimeReferencesByKind, stats.runtimeReferencesByKind,
+             "runtimeReferencesByKind", "runtimeReference", "kind",
+             manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.runtimeReferencesByBackend,
+             stats.runtimeReferencesByBackend, "runtimeReferencesByBackend",
+             "runtimeReference", "backend", manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.runtimeReferencesByPath, stats.runtimeReferencesByPath,
+             "runtimeReferencesByPath", "runtimeReference", "path",
+             manifestPath, diagnostics);
 }
 
 std::string uniqueCrossTLProjectReportEntryId(const SourceBatchManifest &manifest,
@@ -2765,6 +2859,9 @@ bool validateCrossTLProjectReportSummaryDeclaredTargetKeys(
              summary.diagnosticsByTarget, "diagnosticsByTarget",
              declaredTargets, /*allowUnknownTarget=*/false, manifestPath,
              diagnostics) &&
+         validateCrossTLProjectReportSummaryTargetKeyMap(
+             summary.artifactsByTarget, "artifactsByTarget", declaredTargets,
+             /*allowUnknownTarget=*/true, manifestPath, diagnostics) &&
          validateCrossTLProjectReportSummaryNestedTargetKeyMap(
              summary.artifactProvenanceIntermediateByTarget,
              "artifactProvenanceIntermediateByTarget", declaredTargets,
@@ -2776,6 +2873,334 @@ bool validateCrossTLProjectReportSummaryDeclaredTargetKeys(
              summary.sourceRemapsByTarget, "sourceRemapsByTarget",
              declaredTargets, /*allowUnknownTarget=*/false, manifestPath,
              diagnostics);
+}
+
+bool parseCrossTLProjectReportUnits(
+    std::string_view document, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLProjectReportStats &stats) {
+  const std::optional<std::string_view> unitsText =
+      crossgl::findObjectMemberValue(document, "units");
+  if (!unitsText) {
+    return true;
+  }
+  bool valid = true;
+  const bool parsedUnits = forEachSourceBatchJsonArrayElement(
+      *unitsText, [&](std::size_t unitIndex, std::string_view unitText) {
+        if (!valid) {
+          return false;
+        }
+        const std::string context =
+            "CrossTL project report units[" + std::to_string(unitIndex) + "]";
+        if (!crossgl::isJsonObjectDocument(unitText)) {
+          sourceBatchManifestError(diagnostics, manifestPath,
+                                   context + " must be a JSON object");
+          valid = false;
+          return false;
+        }
+        std::optional<std::string> sourceBackend;
+        if (!parseOptionalSourceBatchStringMember(
+                unitText, "sourceBackend", context, manifestPath, diagnostics,
+                sourceBackend)) {
+          valid = false;
+          return false;
+        }
+        ++stats.unitCount;
+        incrementCrossTLProjectReportCountMap(
+            stats.unitsBySourceBackend,
+            sourceBackend ? *sourceBackend : std::string("unknown"));
+        return true;
+      });
+  if (!parsedUnits && valid) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             "CrossTL project report units must be a JSON array");
+    return false;
+  }
+  return parsedUnits && valid;
+}
+
+bool parseCrossTLProjectReportSkipped(
+    std::string_view document, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLProjectReportStats &stats) {
+  const std::optional<std::string_view> skippedText =
+      crossgl::findObjectMemberValue(document, "skipped");
+  if (!skippedText) {
+    return true;
+  }
+  bool valid = true;
+  const bool parsedSkipped = forEachSourceBatchJsonArrayElement(
+      *skippedText, [&](std::size_t skippedIndex, std::string_view skippedUnit) {
+        if (!valid) {
+          return false;
+        }
+        if (!crossgl::isJsonObjectDocument(skippedUnit)) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              "CrossTL project report skipped[" +
+                  std::to_string(skippedIndex) + "] must be a JSON object");
+          valid = false;
+          return false;
+        }
+        ++stats.skippedCount;
+        return true;
+      });
+  if (!parsedSkipped && valid) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        "CrossTL project report skipped must be a JSON array");
+    return false;
+  }
+  return parsedSkipped && valid;
+}
+
+bool crossTLProjectReportRuntimeReferenceKindKnown(std::string_view kind) {
+  return kind == "runtime-api" || kind == "kernel-launch" ||
+         kind == "build-system" || kind == "runtime-loader-plan" ||
+         kind == "host-integration-handoff" ||
+         kind == "host-integration-handoff-inspection";
+}
+
+bool validateCrossTLProjectReportRuntimeRollupCountMap(
+    const std::optional<CrossTLProjectReportSummary::CountMap> &declaredCounts,
+    const CrossTLProjectReportSummary::CountMap &statsCounts,
+    std::string_view context, std::string_view key,
+    std::string_view countLabel, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  if (!declaredCounts ||
+      crossTLProjectReportCountMapsMatch(*declaredCounts, statsCounts)) {
+    return true;
+  }
+  sourceBatchManifestError(
+      diagnostics, manifestPath,
+      "CrossTL project report " + std::string(context) + "." +
+          std::string(key) + " must match runtimeReference counts by " +
+          std::string(countLabel));
+  return false;
+}
+
+bool validateCrossTLProjectReportRuntimeRollups(
+    const CrossTLProjectReportRuntimeReferenceRollups &rollups,
+    const CrossTLProjectReportStats &stats, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  if (rollups.runtimeReferenceCount &&
+      *rollups.runtimeReferenceCount != stats.runtimeReferenceCount) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        "CrossTL project report " + std::string(context) +
+            ".runtimeReferenceCount must match runtimeReference count " +
+            std::to_string(stats.runtimeReferenceCount));
+    return false;
+  }
+  return validateCrossTLProjectReportRuntimeRollupCountMap(
+             rollups.runtimeReferencesByKind, stats.runtimeReferencesByKind,
+             context, "runtimeReferencesByKind", "kind", manifestPath,
+             diagnostics) &&
+         validateCrossTLProjectReportRuntimeRollupCountMap(
+             rollups.runtimeReferencesByBackend,
+             stats.runtimeReferencesByBackend, context,
+             "runtimeReferencesByBackend", "backend", manifestPath,
+             diagnostics) &&
+         validateCrossTLProjectReportRuntimeRollupCountMap(
+             rollups.runtimeReferencesByPath, stats.runtimeReferencesByPath,
+             context, "runtimeReferencesByPath", "path", manifestPath,
+             diagnostics);
+}
+
+bool parseOptionalCrossTLProjectReportRuntimeCountMap(
+    std::string_view objectText, std::string_view key, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    std::optional<CrossTLProjectReportSummary::CountMap> &counts) {
+  const std::optional<std::string_view> mapText =
+      crossgl::findObjectMemberValue(objectText, key);
+  if (!mapText) {
+    return true;
+  }
+  CrossTLProjectReportSummary::CountMap parsed;
+  if (!parseCrossTLProjectReportSummaryCountMap(
+          *mapText, "CrossTL project report " + std::string(context) + "." +
+                        std::string(key),
+          manifestPath, diagnostics, parsed)) {
+    return false;
+  }
+  counts = std::move(parsed);
+  return true;
+}
+
+bool parseCrossTLProjectReportRuntimeReference(
+    std::string_view referenceText, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLProjectReportStats &stats) {
+  if (!crossgl::isJsonObjectDocument(referenceText)) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + " must be a JSON object");
+    return false;
+  }
+  if (!validateSourceBatchAllowedMembers(
+          referenceText, {"path", "line", "column", "backend", "kind", "symbol"},
+          context, manifestPath, diagnostics)) {
+    return false;
+  }
+  std::string path;
+  std::uintmax_t line = 0;
+  std::uintmax_t column = 0;
+  std::string backend;
+  std::string kind;
+  std::string symbol;
+  if (!parseRequiredSourceBatchStableRelativePathMember(
+          referenceText, "path", context, manifestPath, diagnostics, path) ||
+      !parseRequiredSourceBatchUnsignedMember(referenceText, "line", context,
+                                              manifestPath, diagnostics, line) ||
+      !parseRequiredSourceBatchUnsignedMember(referenceText, "column", context,
+                                              manifestPath, diagnostics,
+                                              column) ||
+      !parseRequiredSourceBatchStringMember(referenceText, "backend", context,
+                                            manifestPath, diagnostics,
+                                            backend) ||
+      !parseRequiredSourceBatchStringMember(referenceText, "kind", context,
+                                            manifestPath, diagnostics, kind) ||
+      !parseRequiredSourceBatchStringMember(referenceText, "symbol", context,
+                                            manifestPath, diagnostics,
+                                            symbol)) {
+    return false;
+  }
+  if (line == 0 || column == 0) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) +
+                                 ".line and .column must be positive");
+    return false;
+  }
+  if (!crossTLProjectReportRuntimeReferenceKindKnown(kind)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".kind must be runtime-api, kernel-launch, build-system, "
+            "runtime-loader-plan, host-integration-handoff, or "
+            "host-integration-handoff-inspection");
+    return false;
+  }
+
+  ++stats.runtimeReferenceCount;
+  incrementCrossTLProjectReportCountMap(stats.runtimeReferencesByKind, kind);
+  incrementCrossTLProjectReportCountMap(stats.runtimeReferencesByBackend,
+                                        backend);
+  incrementCrossTLProjectReportCountMap(stats.runtimeReferencesByPath, path);
+  return true;
+}
+
+bool parseCrossTLProjectReportMigration(
+    std::string_view document, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLProjectReportStats &stats) {
+  const std::optional<std::string_view> migrationText =
+      crossgl::findObjectMemberValue(document, "migration");
+  if (!migrationText) {
+    return true;
+  }
+  if (!crossgl::isJsonObjectDocument(*migrationText)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        "CrossTL project report migration must be a JSON object");
+    return false;
+  }
+
+  CrossTLProjectReportRuntimeReferenceRollups declaredRollups;
+  if (!parseOptionalSourceBatchUnsignedMember(
+          *migrationText, "runtimeReferenceCount",
+          "CrossTL project report migration", manifestPath, diagnostics,
+          declaredRollups.runtimeReferenceCount) ||
+      !parseOptionalCrossTLProjectReportRuntimeCountMap(
+          *migrationText, "runtimeReferencesByKind", "migration",
+          manifestPath, diagnostics, declaredRollups.runtimeReferencesByKind) ||
+      !parseOptionalCrossTLProjectReportRuntimeCountMap(
+          *migrationText, "runtimeReferencesByBackend", "migration",
+          manifestPath, diagnostics,
+          declaredRollups.runtimeReferencesByBackend) ||
+      !parseOptionalCrossTLProjectReportRuntimeCountMap(
+          *migrationText, "runtimeReferencesByPath", "migration", manifestPath,
+          diagnostics, declaredRollups.runtimeReferencesByPath)) {
+    return false;
+  }
+
+  const std::optional<std::string_view> actionsText =
+      crossgl::findObjectMemberValue(*migrationText, "actions");
+  if (actionsText) {
+    bool valid = true;
+    const bool parsedActions = forEachSourceBatchJsonArrayElement(
+        *actionsText, [&](std::size_t actionIndex, std::string_view actionText) {
+          if (!valid) {
+            return false;
+          }
+          const std::string actionContext =
+              "CrossTL project report migration.actions[" +
+              std::to_string(actionIndex) + "]";
+          if (!crossgl::isJsonObjectDocument(actionText)) {
+            sourceBatchManifestError(diagnostics, manifestPath,
+                                     actionContext + " must be a JSON object");
+            valid = false;
+            return false;
+          }
+          std::optional<std::string> actionKind;
+          if (!parseOptionalSourceBatchStringMember(
+                  actionText, "kind", actionContext, manifestPath, diagnostics,
+                  actionKind)) {
+            valid = false;
+            return false;
+          }
+          const std::optional<std::string_view> runtimeReferencesText =
+              crossgl::findObjectMemberValue(actionText, "runtimeReferences");
+          if (!runtimeReferencesText) {
+            return true;
+          }
+          if (!actionKind || *actionKind != "manual-runtime-integration") {
+            sourceBatchManifestError(
+                diagnostics, manifestPath,
+                actionContext +
+                    ".runtimeReferences expected only on "
+                    "manual-runtime-integration actions");
+            valid = false;
+            return false;
+          }
+          const bool parsedReferences = forEachSourceBatchJsonArrayElement(
+              *runtimeReferencesText,
+              [&](std::size_t referenceIndex, std::string_view referenceText) {
+                if (!valid) {
+                  return false;
+                }
+                const std::string referenceContext =
+                    actionContext + ".runtimeReferences[" +
+                    std::to_string(referenceIndex) + "]";
+                valid = parseCrossTLProjectReportRuntimeReference(
+                    referenceText, referenceContext, manifestPath, diagnostics,
+                    stats);
+                return valid;
+              });
+          if (!parsedReferences && valid) {
+            sourceBatchManifestError(
+                diagnostics, manifestPath,
+                actionContext +
+                    ".runtimeReferences must be a JSON array");
+            valid = false;
+            return false;
+          }
+          return parsedReferences && valid;
+        });
+    if (!parsedActions && valid) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          "CrossTL project report migration.actions must be a JSON array");
+      return false;
+    }
+    if (!parsedActions || !valid) {
+      return false;
+    }
+  }
+
+  return validateCrossTLProjectReportRuntimeRollups(
+      declaredRollups, stats, "migration", manifestPath, diagnostics);
 }
 
 bool parseCrossTLProjectReportArtifact(
@@ -2818,6 +3243,9 @@ bool parseCrossTLProjectReportArtifact(
         context + ".target must be declared by project.targets");
     return false;
   }
+  incrementCrossTLProjectReportCountMap(stats.artifactsByTarget,
+                                        target ? *target
+                                               : std::string("unknown"));
   std::optional<std::string> path;
   if (!parseOptionalSourceBatchStableRelativePathMember(
           artifactText, "path", context, manifest.path, diagnostics, path)) {
@@ -3568,6 +3996,13 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
           summary, declaredTargets, manifestPath, diagnostics)) {
     return std::nullopt;
   }
+  CrossTLProjectReportStats stats;
+  if (!parseCrossTLProjectReportUnits(document, manifestPath, diagnostics,
+                                      stats) ||
+      !parseCrossTLProjectReportSkipped(document, manifestPath, diagnostics,
+                                        stats)) {
+    return std::nullopt;
+  }
 
   const std::optional<std::string_view> artifacts =
       crossgl::findObjectMemberValue(document, "artifacts");
@@ -3578,7 +4013,6 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
   }
 
   bool valid = true;
-  CrossTLProjectReportStats stats;
   const bool parsedArtifacts = forEachSourceBatchJsonArrayElement(
       *artifacts, [&](std::size_t index, std::string_view artifactText) {
         if (!valid) {
@@ -3599,13 +4033,15 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
   }
   if (!parseCrossTLProjectReportDiagnostics(document, manifestPath, diagnostics,
                                             stats, declaredTargets) ||
+      !parseCrossTLProjectReportMigration(document, manifestPath, diagnostics,
+                                          stats) ||
       !validateCrossTLProjectReportRootDiagnosticCounts(
           rootDiagnosticCounts, stats.diagnosticCounts, manifestPath,
           diagnostics)) {
     return std::nullopt;
   }
-  if (!validateCrossTLProjectReportSummary(summary, stats, manifestPath,
-                                           diagnostics)) {
+  if (!validateCrossTLProjectReportSummary(summary, stats, declaredTargets,
+                                           manifestPath, diagnostics)) {
     return std::nullopt;
   }
   if (manifest.sources.empty()) {

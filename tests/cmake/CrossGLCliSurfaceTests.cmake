@@ -285,6 +285,14 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SUMMARY_REMAP_COUNT_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-summary-remap-count-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SUMMARY_REMAP_MAPPING_COUNT_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-summary-remap-mapping-count-mismatch.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNIT_COUNT_MISMATCH
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-unit-count-mismatch.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_COUNT_MISMATCH
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-target-count-mismatch.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ARTIFACTS_BY_TARGET_MISMATCH
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-artifacts-by-target-mismatch.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_RUNTIME_REFERENCE_PATH_MISMATCH
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-runtime-reference-path-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-non-cgl-source-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DUPLICATE_SOURCE_REMAP_PATH
@@ -1093,6 +1101,42 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_REMAP_VARIANT_MISMATCH}"
 }
 ")
 file(READ "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_JSON)
+string(REPLACE "\"root\": \".\""
+  "\"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\""
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_JSON}")
+string(REPLACE "\"unitCount\": 0"
+  "\"unitCount\": 1"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNIT_COUNT_MISMATCH_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNIT_COUNT_MISMATCH}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNIT_COUNT_MISMATCH_JSON}")
+string(REPLACE "\"targetCount\": 1"
+  "\"targetCount\": 2"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_COUNT_MISMATCH_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_COUNT_MISMATCH}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_COUNT_MISMATCH_JSON}")
+string(REPLACE "\"artifactsByTarget\": {
+      \"cgl\": 1
+    }" "\"artifactsByTarget\": {
+      \"cgl\": 2
+    }"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ARTIFACTS_BY_TARGET_MISMATCH_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ARTIFACTS_BY_TARGET_MISMATCH}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ARTIFACTS_BY_TARGET_MISMATCH_JSON}")
+string(REPLACE "\"runtimeReferencesByPath\": {
+      \"host.cpp\": 1
+    }" "\"runtimeReferencesByPath\": {
+      \"other.cpp\": 1
+    }"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_RUNTIME_REFERENCE_PATH_MISMATCH_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_RUNTIME_REFERENCE_PATH_MISMATCH}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_RUNTIME_REFERENCE_PATH_MISMATCH_JSON}")
+file(READ "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE}"
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON)
 string(REPLACE "\"root\": \".\""
   "\"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\""
@@ -1112,6 +1156,13 @@ string(REPLACE "\"target\": \"cgl\""
 string(REPLACE "\"sourceMapsByTarget\": {
       \"cgl\": 1
     }" "\"sourceMapsByTarget\": {
+      \"crossgl\": 1
+    }"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON}")
+string(REPLACE "\"artifactsByTarget\": {
+      \"cgl\": 1
+    }" "\"artifactsByTarget\": {
       \"crossgl\": 1
     }"
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CROSSGL_TARGET_JSON
@@ -4535,6 +4586,38 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_summary_remap
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
     "summary.sourceRemapMappingCount must match sourceRemap mapping total 2")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_unit_count_mismatch_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNIT_COUNT_MISMATCH}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "summary.unitCount must match units length 0")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_target_count_mismatch_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_COUNT_MISMATCH}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "summary.targetCount must match project target count 1")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_artifacts_by_target_mismatch_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ARTIFACTS_BY_TARGET_MISMATCH}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "summary.artifactsByTarget must match artifact counts by target")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_runtime_reference_path_mismatch_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_RUNTIME_REFERENCE_PATH_MISMATCH}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "migration.runtimeReferencesByPath must match runtimeReference counts by path")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_non_cgl_source_remap_fails
   EXPECTED_RESULT 1

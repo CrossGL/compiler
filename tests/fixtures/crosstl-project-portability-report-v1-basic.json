@@ -15,7 +15,14 @@
     "outputDir": "out"
   },
   "summary": {
+    "unitCount": 0,
+    "skippedCount": 0,
+    "targetCount": 1,
     "artifactCount": 1,
+    "artifactsByTarget": {
+      "cgl": 1
+    },
+    "unitsBySourceBackend": {},
     "translatedCount": 1,
     "failedCount": 0,
     "diagnosticCounts": {
@@ -75,6 +82,9 @@
     },
     "runtimeReferencesByBackend": {
       "cuda": 1
+    },
+    "runtimeReferencesByPath": {
+      "host.cpp": 1
     }
   },
   "units": [],
@@ -195,6 +205,16 @@
   "diagnostics": [],
   "validation": {},
   "migration": {
+    "runtimeReferenceCount": 1,
+    "runtimeReferencesByKind": {
+      "runtime-api": 1
+    },
+    "runtimeReferencesByBackend": {
+      "cuda": 1
+    },
+    "runtimeReferencesByPath": {
+      "host.cpp": 1
+    },
     "actions": [
       {
         "kind": "manual-runtime-integration",
