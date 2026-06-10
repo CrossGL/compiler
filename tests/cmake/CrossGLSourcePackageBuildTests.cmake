@@ -36,6 +36,10 @@ endfunction()
 
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_SUCCESS_DIR dxc success)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_FAILURE_DIR dxc failure)
+crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_NO_OUTPUT_DIR dxc
+                                   no-output)
+crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_EMPTY_OUTPUT_DIR dxc
+                                   empty-output)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_O0_SUCCESS_DIR dxc
                                    success o0)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_O2_SUCCESS_DIR dxc
@@ -204,6 +208,50 @@ add_test(NAME cglc_build_directx_source_package_fake_dxc_tool_failure
     -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_FAILURE_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/StorageBufferComputeShader.hlsl"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_source_package_fake_dxc_no_output
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-fake-dxc-no-output.cglb
+    -DMODE=source-package-build
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_NO_OUTPUT_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    -DEXPECTED_SOURCE=backend/directx/StorageBufferComputeShader.hlsl
+    -DEXPECTED_NATIVE_BINARY_ABSENT=backend/directx/StorageBufferComputeShader.dxil
+    -DEXPECTED_NATIVE_BINARY_STATUS=planned
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=warning|diagnostics.1.code=directx.dxc-failed|diagnostics.2.severity=warning|diagnostics.2.code=directx.source-package-only"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.1.message=DXIL output status: missing|diagnostics.1.message=partial DXIL output was discarded|diagnostics.2.message=planned native binary artifact: backend/directx/StorageBufferComputeShader.dxil"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=3"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=not-run|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|nativeBinaryStatus=planned|toolchainProvenance.tools.1.provenanceStatus=failed"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_ORDERED_CONTAINS=\"provenanceDetail\": \"dxc exited 0 but did not produce a usable DXIL output|output was missing\""
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_NO_OUTPUT_DIR}/dxc.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T cs_6_0 -E compute_main -Fo|backend/directx/StorageBufferComputeShader.dxil|backend/directx/StorageBufferComputeShader.hlsl"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_source_package_fake_dxc_empty_output
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-fake-dxc-empty-output.cglb
+    -DMODE=source-package-build
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_EMPTY_OUTPUT_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    -DEXPECTED_SOURCE=backend/directx/StorageBufferComputeShader.hlsl
+    -DEXPECTED_NATIVE_BINARY_ABSENT=backend/directx/StorageBufferComputeShader.dxil
+    -DEXPECTED_NATIVE_BINARY_STATUS=planned
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=warning|diagnostics.1.code=directx.dxc-failed|diagnostics.2.severity=warning|diagnostics.2.code=directx.source-package-only"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.1.message=DXIL output status: empty|diagnostics.1.message=partial DXIL output was discarded|diagnostics.2.message=planned native binary artifact: backend/directx/StorageBufferComputeShader.dxil"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=3"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=not-run|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=unavailable|nativeBinaryStatus=planned|toolchainProvenance.tools.1.provenanceStatus=failed"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=0"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_ORDERED_CONTAINS=\"provenanceDetail\": \"dxc exited 0 but did not produce a usable DXIL output|output was empty\""
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_EMPTY_OUTPUT_DIR}/dxc.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T cs_6_0 -E compute_main -Fo|backend/directx/StorageBufferComputeShader.dxil|backend/directx/StorageBufferComputeShader.hlsl"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_source_package_fake_dxc_unavailable
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -225,6 +273,10 @@ add_test(NAME cglc_build_directx_source_package_fake_dxc_unavailable
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_label_optional_native_policy_test(
   cglc_build_directx_source_package_fake_dxc_tool_failure directx)
+crossgl_label_optional_native_policy_test(
+  cglc_build_directx_source_package_fake_dxc_no_output directx)
+crossgl_label_optional_native_policy_test(
+  cglc_build_directx_source_package_fake_dxc_empty_output directx)
 crossgl_label_optional_native_policy_test(
   cglc_build_directx_source_package_fake_dxc_unavailable directx)
 set(CROSSGL_DIRECTX_COMPUTE_INVOCATION_BUILTIN_SOURCE_SNIPPET [=[RWStructuredBuffer<uint3> ids : register(u0, space0);

@@ -1008,7 +1008,8 @@ std::string toolchainOptimizationPolicyDetail(std::string_view toolName) {
   }
   if (toolName == "dxc") {
     return "DirectX DXIL policy: O0 invokes dxc -O0; O1/O2 invoke dxc -O3; "
-           "missing or failing dxc keeps nativeBinaryStatus planned";
+           "missing, failing, or non-producing dxc keeps nativeBinaryStatus "
+           "planned";
   }
   if (toolName == "metal" || toolName == "xcrun metal") {
     return "Metal compiler policy: O0 invokes xcrun -sdk macosx metal -O0 "

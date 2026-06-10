@@ -6095,6 +6095,38 @@ std::string directxDxcDiagnostics(const ProcessCaptureResult &result) {
   return out.str();
 }
 
+std::string directxDxilArtifactStatus(const std::filesystem::path &path) {
+  std::error_code error;
+  if (!std::filesystem::exists(path, error)) {
+    if (error) {
+      return "unavailable: " + error.message();
+    }
+    return "missing";
+  }
+  if (!std::filesystem::is_regular_file(path, error)) {
+    if (error) {
+      return "unavailable: " + error.message();
+    }
+    return "not a regular file";
+  }
+  const std::uintmax_t size = std::filesystem::file_size(path, error);
+  if (error) {
+    return "unavailable: " + error.message();
+  }
+  if (size == 0) {
+    return "empty";
+  }
+  return "ready";
+}
+
+void markDirectXDxcOutputRejected(ToolInvocationProvenance &provenance,
+                                  const std::string &detail) {
+  if (provenance.provenanceStatus == "succeeded") {
+    provenance.provenanceStatus = "failed";
+  }
+  provenance.provenanceDetail = detail;
+}
+
 DirectXSourcePackageResult
 buildDirectXSourcePackage(const HIRModule &module,
                           const std::filesystem::path &packageDir,
@@ -6219,10 +6251,13 @@ buildDirectXSourcePackage(const HIRModule &module,
     result.dxcProvenance = combineDirectXGraphicsDxcProvenance(
         std::move(vertexProvenance), fragmentProvenance,
         result.nativeBinaryPath);
+    const std::string vertexDxilStatus =
+        directxDxilArtifactStatus(vertexDxil);
+    const std::string fragmentDxilStatus =
+        directxDxilArtifactStatus(fragmentDxil);
     if (vertexResult.started && vertexResult.exitCode == 0 &&
         fragmentResult.started && fragmentResult.exitCode == 0 &&
-        std::filesystem::exists(vertexDxil) &&
-        std::filesystem::exists(fragmentDxil)) {
+        vertexDxilStatus == "ready" && fragmentDxilStatus == "ready") {
       if (!writeDirectXGraphicsDxilBundle(result.nativeBinaryPath, vertexDxil,
                                           fragmentDxil, diagnostics)) {
         return result;
@@ -6241,11 +6276,21 @@ buildDirectXSourcePackage(const HIRModule &module,
       result.success = !diagnostics.hasErrors();
       return result;
     }
+    if (vertexResult.started && vertexResult.exitCode == 0 &&
+        fragmentResult.started && fragmentResult.exitCode == 0 &&
+        result.dxcProvenance) {
+      markDirectXDxcOutputRejected(
+          *result.dxcProvenance,
+          "dxc exited 0 but did not produce usable graphics DXIL outputs; "
+          "vertex output was " +
+              vertexDxilStatus + "; fragment output was " +
+              fragmentDxilStatus);
+    }
     std::filesystem::remove(vertexDxil, error);
     std::filesystem::remove(fragmentDxil, error);
     diagnostics.warning("directx.dxc-failed",
-                        "dxc was found but failed to validate generated HLSL "
-                        "graphics source with shader profile(s): " +
+                        "dxc was found but failed to emit usable DXIL for "
+                        "generated HLSL graphics source with shader profile(s): " +
                             profileSummary + "; vertex exit status: " +
                             directxDxcExitStatus(vertexResult) +
                             "; fragment exit status: " +
@@ -6259,6 +6304,10 @@ buildDirectXSourcePackage(const HIRModule &module,
                             directxDxcDiagnostics(vertexResult) +
                             "; fragment dxc diagnostics: " +
                             directxDxcDiagnostics(fragmentResult) +
+                            "; vertex DXIL output status: " +
+                            vertexDxilStatus +
+                            "; fragment DXIL output status: " +
+                            fragmentDxilStatus +
                             "; partial DXIL outputs were discarded");
     diagnostics.warning(
         "directx.source-package-only",
@@ -6284,8 +6333,10 @@ buildDirectXSourcePackage(const HIRModule &module,
       "dxc", command, result.nativeBinaryPath.string());
   const ProcessCaptureResult dxcResult = runProcessCapture(command);
   completeToolInvocationProvenance(*result.dxcProvenance, dxcResult);
+  const std::string dxilStatus =
+      directxDxilArtifactStatus(result.nativeBinaryPath);
   if (dxcResult.started && dxcResult.exitCode == 0 &&
-      std::filesystem::exists(result.nativeBinaryPath)) {
+      dxilStatus == "ready") {
     diagnostics.note("directx.dxil-emitted",
                      "compiled HLSL source to DXIL with dxc; shader "
                      "profile(s): " +
@@ -6298,6 +6349,12 @@ buildDirectXSourcePackage(const HIRModule &module,
     result.success = !diagnostics.hasErrors();
     return result;
   }
+  if (dxcResult.started && dxcResult.exitCode == 0 && result.dxcProvenance) {
+    markDirectXDxcOutputRejected(
+        *result.dxcProvenance,
+        "dxc exited 0 but did not produce a usable DXIL output; output was " +
+            dxilStatus);
+  }
 
   diagnostics.warning("directx.dxc-failed",
                       "dxc was found but failed to emit DXIL for generated "
@@ -6308,6 +6365,7 @@ buildDirectXSourcePackage(const HIRModule &module,
                           "; command profile: " + commandProfile +
                           "; dxc diagnostics: " +
                           directxDxcDiagnostics(dxcResult) +
+                          "; DXIL output status: " + dxilStatus +
                           "; partial DXIL output was discarded");
   std::filesystem::remove(result.nativeBinaryPath, error);
   diagnostics.warning("directx.source-package-only",
