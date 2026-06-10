@@ -193,7 +193,6 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
     def test_source_package_plan_returns_explicit_glsl_handoff_without_crossgl_parse(
         self,
     ) -> None:
-        expected_bytes = b"// generated GLSL\n"
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
             self._write_valid_opengl_package(
@@ -201,6 +200,12 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
                 native_binary_status="validated",
                 emit_native_artifact_descriptor=True,
             )
+            expected_bytes = (
+                package_dir
+                / "backend"
+                / "opengl"
+                / "RuntimeOpenGLLoaderFixture.comp.glsl"
+            ).read_bytes()
             source_path = package_dir / "source" / "invalid.cgl"
             source_path.parent.mkdir()
             source_path.write_text(
@@ -747,7 +752,6 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
     def test_zip_validated_source_package_admits_backend_source_without_source_reads(
         self,
     ) -> None:
-        expected_bytes = b"// generated GLSL\n"
         for package_mode in ("auto", "source-package"):
             with self.subTest(package_mode=package_mode):
                 with tempfile.TemporaryDirectory() as temp_dir:
@@ -759,6 +763,12 @@ class OpenGLNativeLoaderPlanTests(unittest.TestCase):
                         native_binary_status="validated",
                         emit_native_artifact_descriptor=True,
                     )
+                    expected_bytes = (
+                        package_dir
+                        / "backend"
+                        / "opengl"
+                        / "RuntimeOpenGLLoaderFixture.comp.glsl"
+                    ).read_bytes()
                     source_path = package_dir / "source" / "invalid.cgl"
                     source_path.parent.mkdir()
                     source_path.write_text(
