@@ -65,7 +65,8 @@
         "nativeBinaryStatus",
         "artifactCount",
         "debugArtifactsPresent",
-        "nativeArtifactDescriptor"
+        "nativeArtifactDescriptor",
+        "vulkanNativeProfile"
       ],
       "properties": {
         "module": {
@@ -101,6 +102,9 @@
         },
         "nativeArtifactDescriptor": {
           "$ref": "#/$defs/nativeArtifactDescriptorSummary"
+        },
+        "vulkanNativeProfile": {
+          "$ref": "#/$defs/vulkanNativeProfileSummary"
         },
         "reflection": {
           "$ref": "#/$defs/reflectionSummary"
@@ -637,6 +641,143 @@
         },
         "checks": {
           "$ref": "#/$defs/backendSourceMapChecks"
+        }
+      }
+    },
+    "vulkanNativeProfileChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetMatchesPackage",
+        "moduleMatchesPackage",
+        "nativeBinaryMatchesManifest",
+        "backendAssemblyMatchesManifest",
+        "emittedDisassemblyExists",
+        "spirvProfilePresent"
+      ],
+      "properties": {
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "moduleMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "nativeBinaryMatchesManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendAssemblyMatchesManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "emittedDisassemblyExists": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "spirvProfilePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "vulkanNativeProfileSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applicable",
+        "nativeProfileArtifactPresent",
+        "nativeProfileExists",
+        "health",
+        "schemaVersion",
+        "api",
+        "profileName",
+        "vulkanVersion",
+        "spirvVersion",
+        "generator",
+        "nativeBinary",
+        "backendAssembly",
+        "disassemblyStatus",
+        "disassemblyPath",
+        "disassemblyExists",
+        "checks"
+      ],
+      "properties": {
+        "applicable": {
+          "type": "boolean"
+        },
+        "nativeProfileArtifactPresent": {
+          "type": "boolean"
+        },
+        "nativeProfileExists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "not-applicable",
+            "incomplete",
+            "drift",
+            "ok"
+          ]
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "api": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profileName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vulkanVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "spirvVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nativeBinary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "backendAssembly": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disassemblyStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disassemblyPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disassemblyExists": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "checks": {
+          "$ref": "#/$defs/vulkanNativeProfileChecks"
         }
       }
     },

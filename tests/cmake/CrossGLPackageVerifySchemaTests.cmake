@@ -1039,7 +1039,7 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
     INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-package-verify-schema.cglb
     EXPECTED_JSON_FIELDS
-      "schemaVersion=1|success=true|summary.module=StorageBufferComputeShader|summary.target=vulkan|summary.nativeBinaryStatus=null|summary.artifactCount=7|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.nativeArtifactDescriptor.path=backend/vulkan/StorageBufferComputeShader.native-artifact.json|diagnosticCounts.error=0"
+      "schemaVersion=1|success=true|summary.module=StorageBufferComputeShader|summary.target=vulkan|summary.nativeBinaryStatus=null|summary.artifactCount=7|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.nativeArtifactDescriptor.path=backend/vulkan/StorageBufferComputeShader.native-artifact.json|summary.vulkanNativeProfile.applicable=true|summary.vulkanNativeProfile.nativeProfileArtifactPresent=true|summary.vulkanNativeProfile.nativeProfileExists=true|summary.vulkanNativeProfile.health=ok|summary.vulkanNativeProfile.api=vulkan|summary.vulkanNativeProfile.profileName=vulkan-prototype|summary.vulkanNativeProfile.nativeBinary=backend/vulkan/StorageBufferComputeShader.spv|summary.vulkanNativeProfile.backendAssembly=backend/vulkan/StorageBufferComputeShader.spvasm|summary.vulkanNativeProfile.checks.targetMatchesPackage=true|summary.vulkanNativeProfile.checks.moduleMatchesPackage=true|summary.vulkanNativeProfile.checks.nativeBinaryMatchesManifest=true|summary.vulkanNativeProfile.checks.backendAssemblyMatchesManifest=true|summary.vulkanNativeProfile.checks.spirvProfilePresent=true|diagnosticCounts.error=0"
     EXPECTED_MANIFEST_JSON_FIELDS
       "schemaVersion=1|target=vulkan|module=StorageBufferComputeShader|targetLegalizationToolRequirements.target=vulkan|targetLegalizationToolRequirements.packageMode=native|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=0|targetLegalizationToolRequirements.optionalNativeToolMissing=false|targetLegalizationToolRequirements.optionalNativeToolStatus=not-required|artifacts.backendAssembly=backend/vulkan/StorageBufferComputeShader.spvasm|artifacts.nativeBinary=backend/vulkan/StorageBufferComputeShader.spv|artifacts.nativeProfile=backend/vulkan/StorageBufferComputeShader.profile.json|artifacts.nativeArtifactDescriptor=backend/vulkan/StorageBufferComputeShader.native-artifact.json"
     EXPECTED_MANIFEST_JSON_ARRAY_CONTAINS
@@ -1048,6 +1048,110 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=0|targetLegalizationToolRequirements.toolRequirementEvidenceIds=3")
   crossgl_label_optional_native_test(
     cglc_package_verify_json_schema_vulkan_native vulkan)
+
+  set(vulkan_native_profile_drift_script
+      "${CMAKE_CURRENT_BINARY_DIR}/cglc-package-verify-vulkan-native-profile-drift.cmake")
+  file(WRITE "${vulkan_native_profile_drift_script}" [=[
+if(NOT DEFINED CGLC)
+  message(FATAL_ERROR "CGLC is required")
+endif()
+if(NOT DEFINED INPUT)
+  message(FATAL_ERROR "INPUT is required")
+endif()
+if(NOT DEFINED OUTPUT)
+  message(FATAL_ERROR "OUTPUT is required")
+endif()
+if(NOT DEFINED JSON_SCHEMA)
+  message(FATAL_ERROR "JSON_SCHEMA is required")
+endif()
+if(NOT DEFINED JSON_SCHEMA_VALIDATOR)
+  message(FATAL_ERROR "JSON_SCHEMA_VALIDATOR is required")
+endif()
+if(NOT DEFINED PYTHON3_EXECUTABLE)
+  message(FATAL_ERROR "PYTHON3_EXECUTABLE is required")
+endif()
+
+file(REMOVE_RECURSE "${OUTPUT}")
+execute_process(
+  COMMAND "${CGLC}" build "${INPUT}" --target vulkan --output "${OUTPUT}" --debug-ir
+  RESULT_VARIABLE build_result
+  OUTPUT_VARIABLE build_stdout
+  ERROR_VARIABLE build_stderr)
+if(NOT build_result EQUAL 0)
+  message(FATAL_ERROR "vulkan package build failed: ${build_stderr}${build_stdout}")
+endif()
+
+file(READ "${OUTPUT}/manifest.json" manifest)
+string(JSON native_profile ERROR_VARIABLE profile_error GET
+       "${manifest}" artifacts nativeProfile)
+if(NOT profile_error STREQUAL "NOTFOUND")
+  message(FATAL_ERROR "expected manifest artifacts.nativeProfile, got: ${profile_error}")
+endif()
+set(profile_path "${OUTPUT}/${native_profile}")
+file(READ "${profile_path}" profile)
+string(REPLACE
+       "\"module\": \"StorageBufferComputeShader\""
+       "\"module\": \"TamperedStorageBufferComputeShader\""
+       profile "${profile}")
+file(WRITE "${profile_path}" "${profile}")
+
+execute_process(
+  COMMAND "${CGLC}" package verify "${OUTPUT}" --json --source "${INPUT}"
+  RESULT_VARIABLE verify_result
+  OUTPUT_VARIABLE verify_stdout
+  ERROR_VARIABLE verify_stderr)
+if(verify_result EQUAL 0)
+  message(FATAL_ERROR "expected package verify --json to reject drifted nativeProfile")
+endif()
+
+string(JSON success GET "${verify_stdout}" success)
+if(NOT success STREQUAL "OFF")
+  message(FATAL_ERROR "expected success=false, got: ${verify_stdout}")
+endif()
+string(JSON error_count GET "${verify_stdout}" diagnosticCounts error)
+if(NOT error_count STREQUAL "1")
+  message(FATAL_ERROR "expected one error, got: ${verify_stdout}")
+endif()
+string(JSON diagnostic_code GET "${verify_stdout}" diagnostics 0 code)
+if(NOT diagnostic_code STREQUAL "package.verify.vulkan-native-profile-drift")
+  message(FATAL_ERROR "unexpected diagnostic code: ${verify_stdout}")
+endif()
+string(JSON profile_health GET "${verify_stdout}" summary vulkanNativeProfile health)
+if(NOT profile_health STREQUAL "drift")
+  message(FATAL_ERROR "expected summary.vulkanNativeProfile.health=drift, got: ${verify_stdout}")
+endif()
+string(JSON module_check GET
+       "${verify_stdout}" summary vulkanNativeProfile checks moduleMatchesPackage)
+if(NOT module_check STREQUAL "OFF")
+  message(FATAL_ERROR "expected moduleMatchesPackage=false, got: ${verify_stdout}")
+endif()
+
+string(RANDOM LENGTH 8 ALPHABET 0123456789abcdef schema_nonce)
+set(instance_path
+    "${CMAKE_CURRENT_BINARY_DIR}/crossgl-vulkan-native-profile-drift-${schema_nonce}.json")
+file(WRITE "${instance_path}" "${verify_stdout}")
+execute_process(
+  COMMAND "${PYTHON3_EXECUTABLE}" "${JSON_SCHEMA_VALIDATOR}"
+          --schema "${JSON_SCHEMA}"
+          --instance "${instance_path}"
+  RESULT_VARIABLE schema_result
+  OUTPUT_VARIABLE schema_stdout
+  ERROR_VARIABLE schema_stderr)
+if(NOT schema_result EQUAL 0)
+  message(FATAL_ERROR "JSON schema validation failed: ${schema_stderr}${schema_stdout}")
+endif()
+]=])
+  add_test(NAME cglc_package_verify_json_schema_vulkan_native_profile_drift_failure
+    COMMAND "${CMAKE_COMMAND}"
+      "-DCGLC=$<TARGET_FILE:cglc>"
+      "-DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}"
+      "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-native-profile-drift-package-verify-schema.cglb"
+      "-DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-verify-v1.schema.json"
+      "-DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+      "-DPYTHON3_EXECUTABLE=${CROSSGL_PYTHON3}"
+      -P "${vulkan_native_profile_drift_script}")
+  crossgl_label_optional_native_test(
+    cglc_package_verify_json_schema_vulkan_native_profile_drift_failure vulkan)
 
   function(crossgl_add_vulkan_native_descriptor_array_package_verify_schema_test)
     set(one_value_args NAME INPUT OUTPUT MODULE)

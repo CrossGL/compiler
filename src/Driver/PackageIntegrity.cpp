@@ -1471,6 +1471,37 @@ void verifyDebugArtifactHealth(const PackageMetadata &metadata,
   }
 }
 
+void verifyVulkanNativeProfileHealth(const PackageMetadata &metadata,
+                                     DiagnosticEngine &diagnostics) {
+  const PackageVulkanNativeProfileHealth health =
+      collectPackageVulkanNativeProfileHealth(metadata);
+  if (!health.applicable || health.health == "ok") {
+    return;
+  }
+
+  const PackageArtifactRecord *nativeProfile =
+      findArtifact(metadata, "nativeProfile");
+  const SourceLocation location =
+      nativeProfile ? artifactLocation(metadata, *nativeProfile)
+                    : artifactsLocation(metadata);
+  const std::string label = artifactLabel("nativeProfile", nativeProfile);
+
+  if (!health.nativeProfileArtifactPresent) {
+    diagnostics.error(diagnosticCode("vulkan-native-profile-required"),
+                      "vulkan package verification requires nativeProfile "
+                      "artifact evidence",
+                      location);
+    return;
+  }
+  if (!health.nativeProfileExists) {
+    diagnostics.error(diagnosticCode("vulkan-native-profile-missing"),
+                      label + " artifact does not exist", location);
+    return;
+  }
+  diagnostics.error(diagnosticCode("vulkan-native-profile-drift"),
+                    label + " health must be ok", location);
+}
+
 void verifyNativeArtifactDescriptor(
     const PackageMetadata &metadata,
     const PackageArtifactRequirementsRecord &requirements,
@@ -2617,6 +2648,58 @@ void writeNativeArtifactDescriptorSummary(
       << "    }";
 }
 
+void writeVulkanNativeProfileSummary(
+    std::ostream &out, const PackageVulkanNativeProfileHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent
+      << "  \"applicable\": " << (health.applicable ? "true" : "false")
+      << ",\n"
+      << indent << "  \"nativeProfileArtifactPresent\": "
+      << (health.nativeProfileArtifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"nativeProfileExists\": "
+      << (health.nativeProfileExists ? "true" : "false") << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health)
+      << "\",\n"
+      << indent << "  \"schemaVersion\": ";
+  writeNullableUnsigned(out, health.schemaVersion);
+  out << ",\n" << indent << "  \"api\": ";
+  writeNullableString(out, health.api);
+  out << ",\n" << indent << "  \"profileName\": ";
+  writeNullableString(out, health.profileName);
+  out << ",\n" << indent << "  \"vulkanVersion\": ";
+  writeNullableString(out, health.vulkanVersion);
+  out << ",\n" << indent << "  \"spirvVersion\": ";
+  writeNullableString(out, health.spirvVersion);
+  out << ",\n" << indent << "  \"generator\": ";
+  writeNullableString(out, health.generator);
+  out << ",\n" << indent << "  \"nativeBinary\": ";
+  writeNullableString(out, health.nativeBinary);
+  out << ",\n" << indent << "  \"backendAssembly\": ";
+  writeNullableString(out, health.backendAssembly);
+  out << ",\n" << indent << "  \"disassemblyStatus\": ";
+  writeNullableString(out, health.disassemblyStatus);
+  out << ",\n" << indent << "  \"disassemblyPath\": ";
+  writeNullableString(out, health.disassemblyPath);
+  out << ",\n" << indent << "  \"disassemblyExists\": ";
+  writeNullableBool(out, health.disassemblyExists);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"targetMatchesPackage\": ";
+  writeNullableBool(out, health.targetMatchesPackage);
+  out << ",\n" << indent << "    \"moduleMatchesPackage\": ";
+  writeNullableBool(out, health.moduleMatchesPackage);
+  out << ",\n" << indent << "    \"nativeBinaryMatchesManifest\": ";
+  writeNullableBool(out, health.nativeBinaryMatchesManifest);
+  out << ",\n" << indent << "    \"backendAssemblyMatchesManifest\": ";
+  writeNullableBool(out, health.backendAssemblyMatchesManifest);
+  out << ",\n" << indent << "    \"emittedDisassemblyExists\": ";
+  writeNullableBool(out, health.emittedDisassemblyExists);
+  out << ",\n" << indent << "    \"spirvProfilePresent\": ";
+  writeNullableBool(out, health.spirvProfilePresent);
+  out << "\n" << indent << "  }\n" << indent << "}";
+}
+
 void writeGraphicsAbiSummary(std::ostream &out,
                              const PackageGraphicsAbiSummary &summary,
                              std::string_view indent) {
@@ -2892,6 +2975,7 @@ void verifyPackageMetadata(
   verifyDebugArtifacts(metadata, diagnostics);
   verifyArtifacts(metadata, requirements, diagnostics);
   verifyDebugArtifactHealth(metadata, diagnostics);
+  verifyVulkanNativeProfileHealth(metadata, diagnostics);
   verifyNativeArtifactDescriptor(metadata, requirements, diagnostics);
   verifyTargetLegalizationEvidence(metadata, diagnostics);
   verifyReflectionNativeBinary(metadata, diagnostics);
@@ -2911,6 +2995,8 @@ void writeSummary(std::ostream &out, const PackageMetadata &metadata) {
       collectPackageNativeArtifactDescriptorHealth(metadata);
   const PackageDebugArtifactHealth debugArtifactHealth =
       collectPackageDebugArtifactHealth(metadata);
+  const PackageVulkanNativeProfileHealth vulkanNativeProfile =
+      collectPackageVulkanNativeProfileHealth(metadata);
   const PackageTargetLegalizationEvidence targetLegalizationEvidence =
       collectPackageTargetLegalizationEvidence(metadata);
   out << "{\n"
@@ -2935,6 +3021,9 @@ void writeSummary(std::ostream &out, const PackageMetadata &metadata) {
   out << ",\n"
       << "    \"nativeArtifactDescriptor\": ";
   writeNativeArtifactDescriptorSummary(out, nativeArtifactDescriptor);
+  out << ",\n"
+      << "    \"vulkanNativeProfile\": ";
+  writeVulkanNativeProfileSummary(out, vulkanNativeProfile, "    ");
   out << ",\n"
       << "    \"reflection\": ";
   writeReflectionSummary(out, metadata, "    ");
