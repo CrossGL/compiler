@@ -117,8 +117,9 @@ bool isUnsupportedExtendedStageName(std::string_view text) {
   return text == "geometry" || text == "tessellation" ||
          text == "tessellation_control" ||
          text == "tessellation_evaluation" || text == "hull" ||
-         text == "domain" || text == "mesh" || text == "task" ||
-         text == "ray_generation" || text == "ray_intersection" ||
+         text == "domain" || text == "amplification" || text == "object" ||
+         text == "mesh" || text == "task" || text == "ray_generation" ||
+         text == "ray_intersection" ||
          text == "ray_closest_hit" || text == "ray_miss" ||
          text == "ray_any_hit" || text == "ray_callable" ||
          text == "raygen" || text == "raygeneration" ||

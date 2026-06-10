@@ -1845,6 +1845,18 @@ crossgl_add_native_v0_unsupported_failure(
   3
   "message=stage 'geometry'|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_amplification_stage_failure
+  ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_AMPLIFICATION_STAGE_SHADER}
+  2
+  3
+  "message=stage 'amplification'|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_object_stage_failure
+  ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_OBJECT_STAGE_SHADER}
+  2
+  3
+  "message=stage 'object'|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_enum_failure
   ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_ENUM_SHADER}
   2
@@ -1881,6 +1893,18 @@ crossgl_add_native_v0_unsupported_failure(
   1
   "message=source import declarations|message=native v0")
 crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_use_import_failure
+  ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_USE_IMPORT_SHADER}
+  1
+  1
+  "message=source import declarations|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_from_import_failure
+  ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_FROM_IMPORT_SHADER}
+  1
+  1
+  "message=source import declarations|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_colon_var_failure
   ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_COLON_VAR_SHADER}
   3
@@ -1889,6 +1913,12 @@ crossgl_add_native_v0_unsupported_failure(
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_match_failure
   ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_MATCH_SHADER}
+  5
+  7
+  "message=match/pattern control statements|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_crosstl_match_failure
+  ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_CROSSTL_MATCH_SHADER}
   5
   7
   "message=match/pattern control statements|message=native v0")
