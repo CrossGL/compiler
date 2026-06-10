@@ -315,6 +315,14 @@ def validate_semantics(instance):
                     f"{artifact_path}.sourceMap.target: expected to match artifact "
                     f"target {target!r}"
                 )
+            if (
+                declared_targets is not None
+                and source_map["target"] not in declared_targets
+            ):
+                errors.append(
+                    f"{artifact_path}.sourceMap.target: expected to be declared "
+                    "in $.project.targets"
+                )
             source_span = source_map["source"]
             if source is not None and source_span["file"] != source:
                 errors.append(
@@ -364,6 +372,14 @@ def validate_semantics(instance):
             errors.append(
                 f"{artifact_path}.sourceRemap.target: expected to match artifact "
                 f"target {target!r}"
+            )
+        if (
+            declared_targets is not None
+            and source_remap["target"] not in declared_targets
+        ):
+            errors.append(
+                f"{artifact_path}.sourceRemap.target: expected to be declared "
+                "in $.project.targets"
             )
         if generated_path is not None:
             if source_remap["generatedFile"] != generated_path:

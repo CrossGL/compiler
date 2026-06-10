@@ -2657,6 +2657,12 @@ bool parseCrossTLProjectReportArtifact(
                                context + ".sourceMap.target must be recorded");
       return false;
     }
+    if (!crossTLProjectReportTargetDeclared(declaredTargets, *sourceMapTarget)) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceMap.target must be declared by project.targets");
+      return false;
+    }
     if (target && sourceMapTarget && *sourceMapTarget != *target) {
       sourceBatchManifestError(
           diagnostics, manifest.path,
@@ -2722,6 +2728,13 @@ bool parseCrossTLProjectReportArtifact(
     if (!sourceRemapTarget) {
       sourceBatchManifestError(diagnostics, manifest.path,
                                context + ".sourceRemap.target must be recorded");
+      return false;
+    }
+    if (!crossTLProjectReportTargetDeclared(declaredTargets,
+                                            *sourceRemapTarget)) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceRemap.target must be declared by project.targets");
       return false;
     }
     if (target && *sourceRemapTarget != *target) {
