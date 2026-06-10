@@ -3500,6 +3500,9 @@ def backend_source_map_document(manifest, backend_line_count, mapping_end_line):
         "kind": "crossgl.backendSourceMap",
         "target": manifest["target"],
         "module": manifest["module"],
+        "mappingGranularity": "statement",
+        "sourceBackend": "crossgl-hir",
+        "targetBackend": "hlsl",
         "backend": {
             "language": "hlsl",
             "lineCount": backend_line_count,

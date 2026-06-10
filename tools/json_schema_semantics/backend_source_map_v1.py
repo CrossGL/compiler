@@ -84,6 +84,13 @@ def validate_semantics(instance):
     )
     if instance["target"] == "directx" and backend["language"] != "hlsl":
         errors.append("$.backend.language: expected 'hlsl' for directx target")
+    if instance["mappingGranularity"] != "statement":
+        errors.append("$.mappingGranularity: expected 'statement'")
+    if instance["targetBackend"] != backend["language"]:
+        errors.append(
+            "$.targetBackend: expected to match $.backend.language "
+            f"{backend['language']!r}, got {instance['targetBackend']!r}"
+        )
 
     line_count = backend["lineCount"]
     backend_spans = []

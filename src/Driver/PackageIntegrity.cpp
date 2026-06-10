@@ -2598,6 +2598,12 @@ void writeBackendSourceMapSummary(
   writeNullableString(out, health.target);
   out << ",\n" << indent << "  \"module\": ";
   writeNullableString(out, health.module);
+  out << ",\n" << indent << "  \"mappingGranularity\": ";
+  writeNullableString(out, health.mappingGranularity);
+  out << ",\n" << indent << "  \"sourceBackend\": ";
+  writeNullableString(out, health.sourceBackend);
+  out << ",\n" << indent << "  \"targetBackend\": ";
+  writeNullableString(out, health.targetBackend);
   out << ",\n" << indent << "  \"backendLanguage\": ";
   writeNullableString(out, health.backendLanguage);
   out << ",\n" << indent << "  \"backendLineCount\": ";
@@ -2618,6 +2624,12 @@ void writeBackendSourceMapSummary(
   writeNullableBool(out, health.checks.targetMatchesPackage);
   out << ",\n" << indent << "    \"moduleMatchesPackage\": ";
   writeNullableBool(out, health.checks.moduleMatchesPackage);
+  out << ",\n" << indent << "    \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(out, health.checks.mappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"sourceBackendPresent\": ";
+  writeNullableBool(out, health.checks.sourceBackendPresent);
+  out << ",\n" << indent << "    \"targetBackendMatchesBackendLanguage\": ";
+  writeNullableBool(out, health.checks.targetBackendMatchesBackendLanguage);
   out << ",\n" << indent << "    \"backendLanguagePresent\": ";
   writeNullableBool(out, health.checks.backendLanguagePresent);
   out << ",\n" << indent << "    \"backendLineCountPresent\": ";

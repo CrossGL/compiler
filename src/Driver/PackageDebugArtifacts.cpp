@@ -579,6 +579,10 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
   health.kind = objectStringMember(*document, "kind");
   health.target = objectStringMember(*document, "target");
   health.module = objectStringMember(*document, "module");
+  health.mappingGranularity =
+      objectStringMember(*document, "mappingGranularity");
+  health.sourceBackend = objectStringMember(*document, "sourceBackend");
+  health.targetBackend = objectStringMember(*document, "targetBackend");
   health.mappingCount = objectUnsignedMember(*document, "mappingCount");
   const std::optional<std::string_view> backend =
       findObjectMemberValue(*document, "backend");
@@ -607,6 +611,13 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
       health.target && *health.target == metadata.target;
   health.checks.moduleMatchesPackage =
       health.module && *health.module == metadata.module;
+  health.checks.mappingGranularityMatchesContract =
+      health.mappingGranularity && *health.mappingGranularity == "statement";
+  health.checks.sourceBackendPresent =
+      health.sourceBackend && !health.sourceBackend->empty();
+  health.checks.targetBackendMatchesBackendLanguage =
+      health.targetBackend && health.backendLanguage &&
+      *health.targetBackend == *health.backendLanguage;
   health.checks.backendLanguagePresent =
       health.backendLanguage && !health.backendLanguage->empty();
   health.checks.backendLineCountPresent = health.backendLineCount.has_value();
@@ -622,6 +633,9 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
       health.checks.identityMatchesContract,
       health.checks.targetMatchesPackage,
       health.checks.moduleMatchesPackage,
+      health.checks.mappingGranularityMatchesContract,
+      health.checks.sourceBackendPresent,
+      health.checks.targetBackendMatchesBackendLanguage,
       health.checks.backendLanguagePresent,
       health.checks.backendLineCountPresent,
       health.checks.mappingCountMatchesMappings,

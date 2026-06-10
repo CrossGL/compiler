@@ -552,6 +552,9 @@
         "identityMatchesContract",
         "targetMatchesPackage",
         "moduleMatchesPackage",
+        "mappingGranularityMatchesContract",
+        "sourceBackendPresent",
+        "targetBackendMatchesBackendLanguage",
         "backendLanguagePresent",
         "backendLineCountPresent",
         "backendLineCountMatchesSource",
@@ -566,6 +569,15 @@
           "$ref": "#/$defs/nullableBoolean"
         },
         "moduleMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceBackendPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetBackendMatchesBackendLanguage": {
           "$ref": "#/$defs/nullableBoolean"
         },
         "backendLanguagePresent": {
@@ -595,6 +607,9 @@
         "path",
         "target",
         "module",
+        "mappingGranularity",
+        "sourceBackend",
+        "targetBackend",
         "backendLanguage",
         "backendLineCount",
         "backendSourceLineCount",
@@ -629,6 +644,24 @@
           "$ref": "#/$defs/nullableSourceRemapTarget"
         },
         "module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mappingGranularity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceBackend": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targetBackend": {
           "type": [
             "string",
             "null"

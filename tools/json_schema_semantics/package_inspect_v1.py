@@ -81,6 +81,9 @@ BACKEND_SOURCE_MAP_CHECKS = (
     "identityMatchesContract",
     "targetMatchesPackage",
     "moduleMatchesPackage",
+    "mappingGranularityMatchesContract",
+    "sourceBackendPresent",
+    "targetBackendMatchesBackendLanguage",
     "backendLanguagePresent",
     "backendLineCountPresent",
     "backendLineCountMatchesSource",
@@ -93,6 +96,9 @@ BACKEND_SOURCE_MAP_CONTENT_FIELDS = (
     "kind",
     "target",
     "module",
+    "mappingGranularity",
+    "sourceBackend",
+    "targetBackend",
     "backendLanguage",
     "backendLineCount",
     "backendSourceLineCount",
@@ -1000,6 +1006,33 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
                 backend_source_map_checks["moduleMatchesPackage"],
                 backend_source_map["module"] == summary["module"],
                 "backendSourceMap module matches package",
+            )
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks."
+                "mappingGranularityMatchesContract",
+                backend_source_map_checks["mappingGranularityMatchesContract"],
+                backend_source_map["mappingGranularity"] == "statement",
+                "backendSourceMap mapping granularity contract",
+            )
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks.sourceBackendPresent",
+                backend_source_map_checks["sourceBackendPresent"],
+                isinstance(backend_source_map["sourceBackend"], str)
+                and bool(backend_source_map["sourceBackend"]),
+                "backendSourceMap source backend presence",
+            )
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks."
+                "targetBackendMatchesBackendLanguage",
+                backend_source_map_checks["targetBackendMatchesBackendLanguage"],
+                isinstance(backend_source_map["targetBackend"], str)
+                and isinstance(backend_source_map["backendLanguage"], str)
+                and backend_source_map["targetBackend"]
+                == backend_source_map["backendLanguage"],
+                "backendSourceMap target backend language agreement",
             )
             add_equal_error(
                 errors,

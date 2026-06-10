@@ -7,7 +7,7 @@
   "sourceBackend": "crossgl-hir",
   "targetBackend": "msl",
   "backend": {
-    "language": "msl",
+    "language": "hlsl",
     "lineCount": 12
   },
   "mappingCount": 0,

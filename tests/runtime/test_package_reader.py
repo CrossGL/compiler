@@ -903,6 +903,9 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "kind": "crossgl.backendSourceMap",
                     "target": "metal",
                     "module": "RuntimeReaderFixture",
+                    "mappingGranularity": "statement",
+                    "sourceBackend": "crossgl-hir",
+                    "targetBackend": "metal",
                     "backend": {
                         "language": "metal",
                         "lineCount": 1,

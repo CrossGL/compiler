@@ -62,6 +62,32 @@ SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS = (
     "sourceSha256",
     "sourceSizeBytes",
 )
+BACKEND_SOURCE_MAP_CHECKS = (
+    "identityMatchesContract",
+    "targetMatchesPackage",
+    "moduleMatchesPackage",
+    "mappingGranularityMatchesContract",
+    "sourceBackendPresent",
+    "targetBackendMatchesBackendLanguage",
+    "backendLanguagePresent",
+    "backendLineCountPresent",
+    "backendLineCountMatchesSource",
+    "backendSpansWithinSource",
+    "mappingCountMatchesMappings",
+)
+BACKEND_SOURCE_MAP_CONTENT_FIELDS = (
+    "target",
+    "module",
+    "mappingGranularity",
+    "sourceBackend",
+    "targetBackend",
+    "backendLanguage",
+    "backendLineCount",
+    "backendSourceLineCount",
+    "mappingCount",
+    "mappingRecordCount",
+    "backendMaxMappedLine",
+)
 VULKAN_NATIVE_PROFILE_CHECKS = (
     "targetMatchesPackage",
     "moduleMatchesPackage",
@@ -112,6 +138,7 @@ def validate_summary(errors, success, summary):
         enforce_target_native_status=not has_recorded_native_package_mode(summary),
     )
     validate_source_remap_summary(errors, summary)
+    validate_backend_source_map_summary(errors, summary)
     validate_native_artifact_descriptor_summary(errors, summary)
     validate_vulkan_native_profile_summary(errors, summary)
     validate_reflection_summary(errors, summary)
@@ -395,6 +422,173 @@ def validate_source_remap_summary(errors, summary):
     if expected_checks is not None and check_values != expected_checks:
         errors.append(
             "$.summary.sourceRemap.checks: expected null checks when absent "
+            "or incomplete"
+        )
+
+
+def validate_backend_source_map_summary(errors, summary):
+    backend_source_map = summary.get("backendSourceMap")
+    if not isinstance(backend_source_map, dict):
+        return
+
+    artifact_present = backend_source_map["artifactPresent"]
+    exists = backend_source_map["exists"]
+    checks = backend_source_map["checks"]
+    check_values = [checks[name] for name in BACKEND_SOURCE_MAP_CHECKS]
+
+    if artifact_present and not summary["debugArtifactsPresent"]:
+        errors.append(
+            "$.summary.backendSourceMap.artifactPresent: backendSourceMap "
+            "requires debug artifacts"
+        )
+
+    if not artifact_present:
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.exists",
+            exists,
+            False,
+            "absent backendSourceMap artifact file existence",
+        )
+        expected_health = "not-present"
+        expected_checks = [None] * len(check_values)
+        for field in ("path", *BACKEND_SOURCE_MAP_CONTENT_FIELDS):
+            if backend_source_map[field] is not None:
+                errors.append(
+                    f"$.summary.backendSourceMap.{field}: expected null when absent"
+                )
+    elif not exists:
+        expected_health = "incomplete"
+        expected_checks = [None] * len(check_values)
+        for field in BACKEND_SOURCE_MAP_CONTENT_FIELDS:
+            if backend_source_map[field] is not None:
+                errors.append(
+                    f"$.summary.backendSourceMap.{field}: expected null when unreadable"
+                )
+    else:
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.targetMatchesPackage",
+            checks["targetMatchesPackage"],
+            backend_source_map["target"] == summary["target"],
+            "backendSourceMap target matches package",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.moduleMatchesPackage",
+            checks["moduleMatchesPackage"],
+            backend_source_map["module"] == summary["module"],
+            "backendSourceMap module matches package",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.mappingGranularityMatchesContract",
+            checks["mappingGranularityMatchesContract"],
+            backend_source_map["mappingGranularity"] == "statement",
+            "backendSourceMap mapping granularity contract",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.sourceBackendPresent",
+            checks["sourceBackendPresent"],
+            bool(backend_source_map["sourceBackend"]),
+            "backendSourceMap source backend presence",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.targetBackendMatchesBackendLanguage",
+            checks["targetBackendMatchesBackendLanguage"],
+            isinstance(backend_source_map["targetBackend"], str)
+            and isinstance(backend_source_map["backendLanguage"], str)
+            and backend_source_map["targetBackend"]
+            == backend_source_map["backendLanguage"],
+            "backendSourceMap target backend language agreement",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.backendLanguagePresent",
+            checks["backendLanguagePresent"],
+            bool(backend_source_map["backendLanguage"]),
+            "backendSourceMap backend language presence",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.backendLineCountPresent",
+            checks["backendLineCountPresent"],
+            backend_source_map["backendLineCount"] is not None,
+            "backendSourceMap backend line count presence",
+        )
+        if (
+            backend_source_map["backendLineCount"] is not None
+            and backend_source_map["backendSourceLineCount"] is not None
+        ):
+            expected_line_count_matches_source = (
+                backend_source_map["backendLineCount"]
+                == backend_source_map["backendSourceLineCount"]
+            )
+        else:
+            expected_line_count_matches_source = None
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.backendLineCountMatchesSource",
+            checks["backendLineCountMatchesSource"],
+            expected_line_count_matches_source,
+            "backendSourceMap backend line count matches source",
+        )
+        if (
+            backend_source_map["backendSourceLineCount"] is not None
+            and backend_source_map["backendMaxMappedLine"] is not None
+        ):
+            expected_spans_within_source = (
+                backend_source_map["backendMaxMappedLine"]
+                <= backend_source_map["backendSourceLineCount"]
+            )
+        else:
+            expected_spans_within_source = None
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.backendSpansWithinSource",
+            checks["backendSpansWithinSource"],
+            expected_spans_within_source,
+            "backendSourceMap backend spans within source",
+        )
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMap.checks.mappingCountMatchesMappings",
+            checks["mappingCountMatchesMappings"],
+            backend_source_map["mappingCount"] is not None
+            and backend_source_map["mappingRecordCount"] is not None
+            and backend_source_map["mappingCount"]
+            == backend_source_map["mappingRecordCount"],
+            "backendSourceMap mapping count agreement",
+        )
+        required_checks = [
+            checks[name]
+            for name in BACKEND_SOURCE_MAP_CHECKS
+            if name not in ("backendLineCountMatchesSource", "backendSpansWithinSource")
+        ]
+        source_comparison_checks = [
+            checks["backendLineCountMatchesSource"],
+            checks["backendSpansWithinSource"],
+        ]
+        expected_health = (
+            "ok"
+            if all(value is True for value in required_checks)
+            and all(value in (True, None) for value in source_comparison_checks)
+            else "drift"
+        )
+        expected_checks = None
+
+    add_equal_error(
+        errors,
+        "$.summary.backendSourceMap.health",
+        backend_source_map["health"],
+        expected_health,
+        "backendSourceMap health from checks",
+    )
+    if expected_checks is not None and check_values != expected_checks:
+        errors.append(
+            "$.summary.backendSourceMap.checks: expected null checks when absent "
             "or incomplete"
         )
 

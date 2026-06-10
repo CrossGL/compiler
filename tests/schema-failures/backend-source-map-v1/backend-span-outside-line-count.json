@@ -3,6 +3,9 @@
   "kind": "crossgl.backendSourceMap",
   "target": "directx",
   "module": "SemanticFixture",
+  "mappingGranularity": "statement",
+  "sourceBackend": "crossgl-hir",
+  "targetBackend": "hlsl",
   "backend": {
     "language": "hlsl",
     "lineCount": 4

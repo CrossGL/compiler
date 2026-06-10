@@ -41,6 +41,9 @@ struct PackageBackendSourceMapChecks {
   std::optional<bool> identityMatchesContract;
   std::optional<bool> targetMatchesPackage;
   std::optional<bool> moduleMatchesPackage;
+  std::optional<bool> mappingGranularityMatchesContract;
+  std::optional<bool> sourceBackendPresent;
+  std::optional<bool> targetBackendMatchesBackendLanguage;
   std::optional<bool> backendLanguagePresent;
   std::optional<bool> backendLineCountPresent;
   std::optional<bool> backendLineCountMatchesSource;
@@ -57,6 +60,9 @@ struct PackageBackendSourceMapHealth {
   std::optional<std::string> kind;
   std::optional<std::string> target;
   std::optional<std::string> module;
+  std::optional<std::string> mappingGranularity;
+  std::optional<std::string> sourceBackend;
+  std::optional<std::string> targetBackend;
   std::optional<std::string> backendLanguage;
   std::optional<std::uintmax_t> backendLineCount;
   std::optional<std::uintmax_t> backendSourceLineCount;

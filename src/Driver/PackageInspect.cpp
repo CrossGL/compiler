@@ -1011,6 +1011,12 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableString(out, backendSourceMap.target);
   out << ",\n" << indent << "    \"module\": ";
   writeNullableString(out, backendSourceMap.module);
+  out << ",\n" << indent << "    \"mappingGranularity\": ";
+  writeNullableString(out, backendSourceMap.mappingGranularity);
+  out << ",\n" << indent << "    \"sourceBackend\": ";
+  writeNullableString(out, backendSourceMap.sourceBackend);
+  out << ",\n" << indent << "    \"targetBackend\": ";
+  writeNullableString(out, backendSourceMap.targetBackend);
   out << ",\n" << indent << "    \"backendLanguage\": ";
   writeNullableString(out, backendSourceMap.backendLanguage);
   out << ",\n" << indent << "    \"backendLineCount\": ";
@@ -1031,6 +1037,15 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableBool(out, backendSourceMap.checks.targetMatchesPackage);
   out << ",\n" << indent << "      \"moduleMatchesPackage\": ";
   writeNullableBool(out, backendSourceMap.checks.moduleMatchesPackage);
+  out << ",\n" << indent << "      \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(
+      out, backendSourceMap.checks.mappingGranularityMatchesContract);
+  out << ",\n" << indent << "      \"sourceBackendPresent\": ";
+  writeNullableBool(out, backendSourceMap.checks.sourceBackendPresent);
+  out << ",\n"
+      << indent << "      \"targetBackendMatchesBackendLanguage\": ";
+  writeNullableBool(
+      out, backendSourceMap.checks.targetBackendMatchesBackendLanguage);
   out << ",\n" << indent << "      \"backendLanguagePresent\": ";
   writeNullableBool(out, backendSourceMap.checks.backendLanguagePresent);
   out << ",\n" << indent << "      \"backendLineCountPresent\": ";
