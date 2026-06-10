@@ -237,6 +237,10 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_REMAP_SCHEMA_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-remap-schema-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_REMAP_GRANULARITY_INVALID
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-remap-granularity-invalid.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_REMAP_FILE_GRANULARITY_MULTIMAP
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-remap-file-granularity-multimap.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_REMAP_LINE_GRANULARITY_MULTILINE
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-remap-line-granularity-multiline.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_MISSING_SUMMARY
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-missing-summary.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SUMMARY_ARTIFACT_COUNT_MISMATCH
@@ -932,6 +936,72 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_REMAP_GRANULARITY_INVALID}"
         \"hash\": {
           \"algorithm\": \"sha256\",
           \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
+        }
+      }
+    }
+  ]
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_REMAP_FILE_GRANULARITY_MULTIMAP}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
+  \"summary\": {
+    \"artifactCount\": 1,
+    \"sourceRemapCount\": 1,
+    \"sourceRemapMappingCount\": 2
+  },
+  \"artifacts\": [
+    {
+      \"source\": \"simple.cgl\",
+      \"target\": \"cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
+      \"status\": \"translated\",
+      \"sourceRemap\": {
+        \"schemaVersion\": 1,
+        \"path\": \"out/cgl/simple.source-remap.json\",
+        \"target\": \"cgl\",
+        \"generatedFile\": \"out/cgl/simple.cgl\",
+        \"mappingGranularity\": \"file\",
+        \"mappingCount\": 2,
+        \"sizeBytes\": 982,
+        \"hash\": {
+          \"algorithm\": \"sha256\",
+          \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
+        }
+      }
+    }
+  ]
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_REMAP_LINE_GRANULARITY_MULTILINE}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
+  \"summary\": {
+    \"artifactCount\": 1,
+    \"sourceRemapCount\": 1,
+    \"sourceRemapMappingCount\": 1
+  },
+  \"artifacts\": [
+    {
+      \"source\": \"simple.cgl\",
+      \"target\": \"cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
+      \"status\": \"translated\",
+      \"sourceRemap\": {
+        \"schemaVersion\": 1,
+        \"path\": \"out/cgl/simple-file.source-remap.json\",
+        \"target\": \"cgl\",
+        \"generatedFile\": \"out/cgl/simple.cgl\",
+        \"mappingGranularity\": \"line\",
+        \"mappingCount\": 1,
+        \"sizeBytes\": 533,
+        \"hash\": {
+          \"algorithm\": \"sha256\",
+          \"value\": \"4407a5c48b300fddf048c5b20c1a3527518da4ffdc7caa9eea0457e6ef1036b9\"
         }
       }
     }
@@ -3184,6 +3254,22 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_remap_granula
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
     "sourceRemap.mappingGranularity must be file, line, statement, or token")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_remap_file_granularity_multimap_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_REMAP_FILE_GRANULARITY_MULTIMAP}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "sourceRemap.mappingGranularity file requires exactly one referenced sidecar mapping")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_remap_line_granularity_multiline_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_REMAP_LINE_GRANULARITY_MULTILINE}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "sourceRemap.mappings[0] must stay within one generated and original line for line granularity")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_missing_summary_fails
   EXPECTED_RESULT 1

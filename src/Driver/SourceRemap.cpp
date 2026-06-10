@@ -277,6 +277,51 @@ bool validateSourceRemapMetadataGranularity(
   return true;
 }
 
+bool sourceRemapSpanIsSingleLine(const SourceLocation &location) {
+  return location.line == location.endLine;
+}
+
+bool validateSourceRemapMetadataGranularityContract(
+    std::string_view metadata, const SourceRemap &remap,
+    DiagnosticEngine &diagnostics, const SourceLocation &metadataLocation) {
+  const std::optional<std::string> granularity =
+      objectStringMember(metadata, "mappingGranularity");
+  if (!granularity) {
+    return true;
+  }
+
+  if (*granularity == "file") {
+    if (remap.mappings.size() == 1) {
+      return true;
+    }
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.mappingGranularity file requires exactly one referenced "
+        "sidecar mapping",
+        metadataLocation);
+    return false;
+  }
+
+  if (*granularity == "line") {
+    for (std::size_t index = 0; index < remap.mappings.size(); ++index) {
+      const SourceRemapEntry &mapping = remap.mappings[index];
+      if (sourceRemapSpanIsSingleLine(mapping.generated) &&
+          sourceRemapSpanIsSingleLine(mapping.original)) {
+        continue;
+      }
+      reportInvalidRemap(
+          diagnostics,
+          "sourceRemap.mappings[" + std::to_string(index) +
+              "] must stay within one generated and original line for line "
+              "granularity",
+          metadataLocation);
+      return false;
+    }
+  }
+
+  return true;
+}
+
 std::optional<std::string>
 readSourceRemapFileText(const std::filesystem::path &path,
                         DiagnosticEngine &diagnostics) {
@@ -598,6 +643,10 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
         diagnostics,
         "sourceRemap.mappingCount must match referenced sidecar mappings",
         metadataLocation);
+    return std::nullopt;
+  }
+  if (!validateSourceRemapMetadataGranularityContract(
+          metadata, *remap, diagnostics, metadataLocation)) {
     return std::nullopt;
   }
   return remap;
