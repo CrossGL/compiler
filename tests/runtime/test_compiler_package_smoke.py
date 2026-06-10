@@ -48,6 +48,7 @@ from runtime.opengl_loader import (  # noqa: E402
     plan_opengl_loader,
     plan_opengl_native_loader,
 )
+from runtime.loader import read_runtime_loader_plan_contract  # noqa: E402
 from runtime.package_reader import (  # noqa: E402
     read_compatibility_report,
     read_package,
@@ -170,6 +171,15 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
                 )
                 loader_plan = plan_opengl_loader(package_dir)
                 native_loader_plan = plan_opengl_native_loader(package_dir)
+                python_runtime_plan_contract = read_runtime_loader_plan_contract(
+                    package_dir,
+                    "opengl",
+                )
+            cli_runtime_plan_contract = self._run_cglc_runtime_plan(
+                cglc,
+                package_dir=package_dir,
+                target="opengl",
+            )
 
             report_summary = report.to_summary()
             loader_summary = loader_plan.to_summary()
@@ -241,6 +251,31 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
             self.assertEqual(
                 loader_summary["deviceExecutionRequired"],
                 False,
+            )
+            self.assertEqual(
+                set(cli_runtime_plan_contract),
+                set(python_runtime_plan_contract),
+            )
+            self._assert_runtime_plan_contracts_align(
+                cli_runtime_plan_contract,
+                python_runtime_plan_contract,
+            )
+            self.assertEqual(
+                cli_runtime_plan_contract["kind"],
+                "crossgl-runtime-loader-plan",
+            )
+            self.assertEqual(cli_runtime_plan_contract["metadataOnly"], True)
+            self.assertEqual(
+                cli_runtime_plan_contract["compilerInvocationRequired"],
+                False,
+            )
+            self.assertEqual(
+                cli_runtime_plan_contract["deviceExecutionRequired"],
+                False,
+            )
+            self.assertEqual(
+                cli_runtime_plan_contract["selectedArtifact"]["path"],
+                artifacts[cli_runtime_plan_contract["selectedArtifact"]["name"]],
             )
             self.assertFalse(native_loader_plan.ready)
             self.assertIsNone(native_loader_plan.native_artifact)
@@ -595,6 +630,164 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
                 f"stdout:\n{result.stdout}\n"
                 f"stderr:\n{result.stderr}"
             )
+
+    def _run_cglc_runtime_plan(
+        self,
+        cglc: Path,
+        *,
+        package_dir: Path,
+        target: str,
+    ) -> dict[str, object]:
+        result = subprocess.run(
+            [
+                str(cglc),
+                "package",
+                "plan-runtime",
+                str(package_dir),
+                "--target",
+                target,
+                "--json",
+            ],
+            cwd=REPO_ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if result.returncode != 0:
+            self.fail(
+                "cglc package plan-runtime failed\n"
+                f"command: {cglc} package plan-runtime {package_dir} "
+                f"--target {target} --json\n"
+                f"stdout:\n{result.stdout}\n"
+                f"stderr:\n{result.stderr}"
+            )
+        if result.stderr:
+            self.fail(
+                "cglc package plan-runtime --json wrote to stderr\n"
+                f"stderr:\n{result.stderr}"
+            )
+        return json.loads(result.stdout)
+
+    def _assert_runtime_plan_contracts_align(
+        self,
+        cli_contract: dict[str, object],
+        python_contract: dict[str, object],
+    ) -> None:
+        exact_fields = (
+            "schemaVersion",
+            "kind",
+            "success",
+            "metadataOnly",
+            "sourceParsingRequired",
+            "compilerInvocationRequired",
+            "deviceExecutionRequired",
+            "packageFormat",
+            "packageVersion",
+            "packageTarget",
+            "requestedLoaderTarget",
+            "selectedTarget",
+            "targetMatchesPackage",
+            "loadable",
+            "requestedPackageMode",
+            "selectedPackageMode",
+            "selectedArtifact",
+            "requiredArtifacts",
+            "requiredArtifactPaths",
+            "runtimeArtifactPath",
+            "runtimeArtifactSelection",
+            "requiredMetadataInputs",
+            "packageArtifactRequirementsSource",
+            "packageArtifactRequirements",
+            "targetLegalizationEvidenceSummary",
+            "reflectionSummary",
+            "diagnosticCounts",
+            "diagnostics",
+        )
+        for field in exact_fields:
+            self.assertEqual(cli_contract[field], python_contract[field], field)
+
+        cli_reflection = cli_contract["reflectionInputs"]
+        python_reflection = python_contract["reflectionInputs"]
+        for field in (
+            "schemaVersion",
+            "selectedTarget",
+            "resourceCount",
+            "targetResourceBindingCount",
+            "targetFeatureCount",
+            "entryPointCount",
+            "workgroupSizeCount",
+            "threadgroupShapeSource",
+            "targetFeatures",
+            "workgroupSizes",
+        ):
+            self.assertEqual(
+                cli_reflection.get(field),
+                python_reflection.get(field),
+                field,
+            )
+        self.assertEqual(
+            [
+                self._runtime_binding_metadata_projection(binding)
+                for binding in cli_reflection["targetResourceBindings"]
+            ],
+            [
+                self._runtime_binding_metadata_projection(binding)
+                for binding in python_reflection["targetResourceBindings"]
+            ],
+        )
+
+        cli_binding_metadata = cli_contract["targetResourceBindingMetadata"]
+        python_binding_metadata = python_contract["targetResourceBindingMetadata"]
+        for field in (
+            "schemaVersion",
+            "selectedTarget",
+            "loaderTarget",
+            "packageTarget",
+            "bindingCount",
+            "skippedBindingCount",
+        ):
+            self.assertEqual(
+                cli_binding_metadata[field],
+                python_binding_metadata[field],
+                field,
+            )
+        self.assertEqual(
+            [
+                self._runtime_binding_metadata_projection(binding)
+                for binding in cli_binding_metadata["bindings"]
+            ],
+            [
+                self._runtime_binding_metadata_projection(binding)
+                for binding in python_binding_metadata["bindings"]
+            ],
+        )
+
+    def _runtime_binding_metadata_projection(
+        self,
+        binding: dict[str, object],
+    ) -> dict[str, object]:
+        projection = {
+            "target": binding.get("target"),
+            "stage": binding.get("stage"),
+            "entryPoint": binding.get("entryPoint"),
+            "name": binding.get("name"),
+            "kind": binding.get("kind"),
+            "bindingClass": binding.get("bindingClass"),
+            "descriptorType": binding.get("descriptorType"),
+            "set": binding.get("set"),
+            "binding": binding.get("binding"),
+            "argumentIndex": binding.get("argumentIndex"),
+            "abi": binding.get("abi"),
+            "identity": binding.get("identity"),
+            "arrayDimensions": binding.get("arrayDimensions", []),
+            "arrayElementCount": binding.get("arrayElementCount"),
+            "storageImageFormat": binding.get("storageImageFormat"),
+            "storageImageAccess": binding.get("storageImageAccess"),
+        }
+        if "evidenceId" in binding:
+            projection["evidenceId"] = binding["evidenceId"]
+        return projection
 
     def _write_fake_glslang_validator(self, tool_dir: Path) -> None:
         tool_dir.mkdir()
