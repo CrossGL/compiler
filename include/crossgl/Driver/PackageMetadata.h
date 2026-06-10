@@ -155,6 +155,7 @@ struct PackageReflectionResourceRecord {
   std::optional<std::string> addressSpace;
   std::optional<std::string> storageImageFormat;
   std::optional<std::string> storageImageAccess;
+  std::optional<std::uintmax_t> arrayElementCount;
   std::string arrayDimensionsJson = "[]";
 };
 
@@ -166,14 +167,18 @@ struct PackageReflectionTargetResourceBindingRecord {
   std::string name;
   std::string kind;
   std::string sourceType;
+  std::optional<std::string> bindingClass;
+  std::optional<std::string> descriptorType;
   std::optional<std::uintmax_t> set;
   std::optional<std::uintmax_t> binding;
+  std::optional<std::uintmax_t> argumentIndex;
   std::optional<std::string> addressSpace;
   std::optional<std::string> storageImageFormat;
   std::optional<std::string> storageImageAccess;
   std::optional<std::uintmax_t> arrayElementCount;
   std::optional<SourceLocation> evidenceIdLocation;
   std::optional<std::string> evidenceId;
+  std::string abiJson = "null";
   std::string arrayDimensionsJson = "[]";
 };
 

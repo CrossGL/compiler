@@ -1009,6 +1009,8 @@ void collectReflectionResources(
         optionalStringMemberValue(resourceObject, "storageImageFormat");
     record.storageImageAccess =
         optionalStringMemberValue(resourceObject, "storageImageAccess");
+    record.arrayElementCount =
+        objectUnsignedMember(resourceObject, "arrayElementCount");
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(resourceObject, "arrayDimensions", "[]");
     resourcesOut.push_back(std::move(record));
@@ -1049,8 +1051,14 @@ void collectReflectionTargetResourceBindings(
     record.name = stringMemberValueOrEmpty(bindingObject, "name");
     record.kind = stringMemberValueOrEmpty(bindingObject, "kind");
     record.sourceType = stringMemberValueOrEmpty(bindingObject, "sourceType");
+    record.bindingClass =
+        optionalStringMemberValue(bindingObject, "bindingClass");
+    record.descriptorType =
+        optionalStringMemberValue(bindingObject, "descriptorType");
     record.set = objectUnsignedMember(bindingObject, "set");
     record.binding = objectUnsignedMember(bindingObject, "binding");
+    record.argumentIndex =
+        objectUnsignedMember(bindingObject, "argumentIndex");
     record.addressSpace =
         optionalStringMemberValue(bindingObject, "addressSpace");
     record.storageImageFormat =
@@ -1067,6 +1075,7 @@ void collectReflectionTargetResourceBindings(
                     absoluteRange.begin + evidenceIdRange->end});
     }
     record.evidenceId = optionalStringMemberValue(bindingObject, "evidenceId");
+    record.abiJson = canonicalMemberJsonOrDefault(bindingObject, "abi", "null");
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(bindingObject, "arrayDimensions", "[]");
     bindingsOut.push_back(std::move(record));

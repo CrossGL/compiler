@@ -419,6 +419,10 @@ class RuntimeLoaderPlan:
                 )
             ),
             "reflectionSummary": _runtime_loader_plan_reflection_summary(self),
+            "reflectionInputs": self.reflection_resource_summary,
+            "targetResourceBindingMetadata": (
+                self.target_resource_binding_metadata_summary
+            ),
             "diagnosticCounts": diagnostic_counts,
             "diagnostics": diagnostics,
         }

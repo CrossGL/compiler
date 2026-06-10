@@ -80,5 +80,109 @@
     "warning": 0,
     "error": 0
   },
-  "diagnostics": []
+  "diagnostics": [],
+  "reflectionInputs": {
+    "schemaVersion": 1,
+    "selectedTarget": "directx",
+    "entryPointCount": 1,
+    "resourceCount": 1,
+    "targetResourceBindingCount": 1,
+    "targetFeatureCount": 1,
+    "workgroupSizeCount": 1,
+    "workgroupSizesAvailable": true,
+    "skippedTargetResourceBindingCount": 0,
+    "skippedTargetFeatureCount": 0,
+    "entryPoints": [
+      {
+        "stage": "compute",
+        "sourceName": "main",
+        "backendName": "main"
+      }
+    ],
+    "resources": [
+      {
+        "stage": "compute",
+        "name": "Resource0",
+        "kind": "storageBuffer",
+        "type": "float4",
+        "storageImageFormat": null,
+        "storageImageAccess": null,
+        "arrayDimensions": [],
+        "arrayElementCount": null,
+        "set": 0,
+        "binding": 0
+      }
+    ],
+    "targetResourceBindings": [
+      {
+        "target": "directx",
+        "stage": "compute",
+        "entryPoint": "main",
+        "name": "Resource0",
+        "kind": "storageBuffer",
+        "bindingClass": "uav",
+        "descriptorType": "UAV",
+        "abi": {
+          "space": 0,
+          "register": "u0"
+        },
+        "evidenceId": "target-legalization.v1.directx.resource-binding.compute.main.Resource0"
+      }
+    ],
+    "targetFeatures": [
+      {
+        "target": "directx",
+        "kind": "package",
+        "name": "source-package",
+        "evidenceIds": []
+      }
+    ],
+    "workgroupSizes": [
+      {
+        "stage": "compute",
+        "entryPoint": "main",
+        "x": "1",
+        "y": "1",
+        "z": "1"
+      }
+    ]
+  },
+  "targetResourceBindingMetadata": {
+    "schemaVersion": 1,
+    "selectedTarget": "directx",
+    "loaderTarget": "directx",
+    "packageTarget": "directx",
+    "bindingCount": 1,
+    "skippedBindingCount": 0,
+    "bindings": [
+      {
+        "target": "directx",
+        "stage": "compute",
+        "entryPoint": "main",
+        "name": "Resource0",
+        "kind": "storageBuffer",
+        "bindingClass": "uav",
+        "descriptorType": "UAV",
+        "set": 0,
+        "binding": 0,
+        "argumentIndex": null,
+        "abi": {
+          "space": 0,
+          "register": "u0"
+        },
+        "identity": {
+          "target": "directx",
+          "stage": "compute",
+          "entryPoint": "main",
+          "name": "Resource0",
+          "kind": "storageBuffer"
+        },
+        "evidenceId": "target-legalization.v1.directx.resource-binding.compute.main.Resource0",
+        "arrayDimensions": [],
+        "arrayElementCount": null,
+        "storageImageFormat": null,
+        "storageImageAccess": null
+      }
+    ]
+  }
 }

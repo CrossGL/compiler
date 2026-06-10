@@ -180,6 +180,41 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 contract["runtimeArtifactPath"],
                 "backend/directx/RuntimeLoaderFixture.hlsl",
             )
+            self.assertEqual(contract["reflectionInputs"]["schemaVersion"], 1)
+            self.assertEqual(contract["reflectionInputs"]["selectedTarget"], "directx")
+            self.assertEqual(contract["reflectionInputs"]["resourceCount"], 1)
+            self.assertEqual(
+                contract["reflectionInputs"]["targetResourceBindingCount"],
+                1,
+            )
+            self.assertEqual(
+                contract["reflectionInputs"]["targetResourceBindings"][0]["target"],
+                "directx",
+            )
+            self.assertEqual(
+                contract["reflectionInputs"]["targetResourceBindings"][0][
+                    "descriptorType"
+                ],
+                "UAV",
+            )
+            binding_metadata = contract["targetResourceBindingMetadata"]
+            self.assertEqual(binding_metadata["schemaVersion"], 1)
+            self.assertEqual(binding_metadata["selectedTarget"], "directx")
+            self.assertEqual(binding_metadata["loaderTarget"], "directx")
+            self.assertEqual(binding_metadata["packageTarget"], "directx")
+            self.assertEqual(binding_metadata["bindingCount"], 1)
+            self.assertEqual(binding_metadata["skippedBindingCount"], 0)
+            self.assertEqual(
+                binding_metadata["bindings"][0]["identity"],
+                {
+                    "target": "directx",
+                    "stage": "compute",
+                    "entryPoint": "runtime_loader_main",
+                    "name": "OutputBuffer",
+                    "kind": "storageBuffer",
+                },
+            )
+            self.assertEqual(binding_metadata["bindings"][0]["descriptorType"], "UAV")
             self.assertEqual(
                 contract["runtimeArtifactSelection"],
                 {

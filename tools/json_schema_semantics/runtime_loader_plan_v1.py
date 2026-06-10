@@ -344,6 +344,190 @@ def validate_reflection_summary(errors, instance):
         )
 
 
+def validate_reflection_inputs(errors, instance):
+    inputs = instance["reflectionInputs"]
+    summary = instance["reflectionSummary"]
+    if inputs is None:
+        if instance["success"]:
+            errors.append("$.reflectionInputs: successful plan requires inputs")
+        return
+
+    add_equal_error(
+        errors,
+        "$.reflectionInputs.selectedTarget",
+        inputs["selectedTarget"],
+        instance["selectedTarget"],
+        "$.selectedTarget",
+    )
+    add_equal_error(
+        errors,
+        "$.reflectionInputs.entryPointCount",
+        inputs["entryPointCount"],
+        len(inputs["entryPoints"]),
+        "entryPoints length",
+    )
+    add_equal_error(
+        errors,
+        "$.reflectionInputs.resourceCount",
+        inputs["resourceCount"],
+        len(inputs["resources"]),
+        "resources length",
+    )
+    add_equal_error(
+        errors,
+        "$.reflectionInputs.targetResourceBindingCount",
+        inputs["targetResourceBindingCount"],
+        len(inputs["targetResourceBindings"]),
+        "targetResourceBindings length",
+    )
+    add_equal_error(
+        errors,
+        "$.reflectionInputs.targetFeatureCount",
+        inputs["targetFeatureCount"],
+        len(inputs["targetFeatures"]),
+        "targetFeatures length",
+    )
+    add_equal_error(
+        errors,
+        "$.reflectionInputs.workgroupSizeCount",
+        inputs["workgroupSizeCount"],
+        len(inputs["workgroupSizes"]),
+        "workgroupSizes length",
+    )
+    add_equal_error(
+        errors,
+        "$.reflectionInputs.workgroupSizesAvailable",
+        inputs["workgroupSizesAvailable"],
+        inputs["workgroupSizeCount"] > 0,
+        "workgroup size availability",
+    )
+
+    if summary is not None:
+        for field in (
+            "resourceCount",
+            "targetResourceBindingCount",
+            "targetFeatureCount",
+        ):
+            add_equal_error(
+                errors,
+                f"$.reflectionInputs.{field}",
+                inputs[field],
+                summary[field],
+                f"$.reflectionSummary.{field}",
+            )
+        if summary["entryPointCount"] is not None:
+            add_equal_error(
+                errors,
+                "$.reflectionInputs.entryPointCount",
+                inputs["entryPointCount"],
+                summary["entryPointCount"],
+                "$.reflectionSummary.entryPointCount",
+            )
+        if summary["workgroupSizeCount"] is not None:
+            add_equal_error(
+                errors,
+                "$.reflectionInputs.workgroupSizeCount",
+                inputs["workgroupSizeCount"],
+                summary["workgroupSizeCount"],
+                "$.reflectionSummary.workgroupSizeCount",
+            )
+
+    selected_target = inputs["selectedTarget"] or instance["requestedLoaderTarget"]
+    if selected_target is not None:
+        for index, binding in enumerate(inputs["targetResourceBindings"]):
+            add_equal_error(
+                errors,
+                f"$.reflectionInputs.targetResourceBindings[{index}].target",
+                binding["target"],
+                selected_target,
+                "selected reflection target",
+            )
+        for index, feature in enumerate(inputs["targetFeatures"]):
+            add_equal_error(
+                errors,
+                f"$.reflectionInputs.targetFeatures[{index}].target",
+                feature["target"],
+                selected_target,
+                "selected reflection target",
+            )
+
+
+def validate_target_resource_binding_metadata(errors, instance):
+    metadata = instance["targetResourceBindingMetadata"]
+    summary = instance["reflectionSummary"]
+    reflection_inputs = instance["reflectionInputs"]
+    if metadata is None:
+        if instance["success"]:
+            errors.append(
+                "$.targetResourceBindingMetadata: successful plan requires metadata"
+            )
+        return
+
+    add_equal_error(
+        errors,
+        "$.targetResourceBindingMetadata.selectedTarget",
+        metadata["selectedTarget"],
+        instance["selectedTarget"],
+        "$.selectedTarget",
+    )
+    add_equal_error(
+        errors,
+        "$.targetResourceBindingMetadata.loaderTarget",
+        metadata["loaderTarget"],
+        instance["requestedLoaderTarget"],
+        "$.requestedLoaderTarget",
+    )
+    add_equal_error(
+        errors,
+        "$.targetResourceBindingMetadata.packageTarget",
+        metadata["packageTarget"],
+        instance["packageTarget"],
+        "$.packageTarget",
+    )
+    add_equal_error(
+        errors,
+        "$.targetResourceBindingMetadata.bindingCount",
+        metadata["bindingCount"],
+        len(metadata["bindings"]),
+        "bindings length",
+    )
+    if summary is not None:
+        add_equal_error(
+            errors,
+            "$.targetResourceBindingMetadata.bindingCount",
+            metadata["bindingCount"],
+            summary["targetResourceBindingCount"],
+            "$.reflectionSummary.targetResourceBindingCount",
+        )
+    if reflection_inputs is not None:
+        add_equal_error(
+            errors,
+            "$.targetResourceBindingMetadata.bindingCount",
+            metadata["bindingCount"],
+            reflection_inputs["targetResourceBindingCount"],
+            "$.reflectionInputs.targetResourceBindingCount",
+        )
+
+    selected_target = metadata["selectedTarget"] or metadata["loaderTarget"]
+    for index, binding in enumerate(metadata["bindings"]):
+        if selected_target is not None:
+            add_equal_error(
+                errors,
+                f"$.targetResourceBindingMetadata.bindings[{index}].target",
+                binding["target"],
+                selected_target,
+                "selected binding target",
+            )
+        for field in ("target", "stage", "entryPoint", "name", "kind"):
+            add_equal_error(
+                errors,
+                f"$.targetResourceBindingMetadata.bindings[{index}].identity.{field}",
+                binding["identity"][field],
+                binding[field],
+                f"$.targetResourceBindingMetadata.bindings[{index}].{field}",
+            )
+
+
 def validate_semantics(instance):
     errors = []
     counts = validate_diagnostic_counts(errors, instance)
@@ -352,6 +536,8 @@ def validate_semantics(instance):
     validate_artifact_requirements(errors, instance)
     validate_target_legalization_summary(errors, instance)
     validate_reflection_summary(errors, instance)
+    validate_reflection_inputs(errors, instance)
+    validate_target_resource_binding_metadata(errors, instance)
 
     add_equal_error(
         errors,

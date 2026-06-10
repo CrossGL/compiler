@@ -31,6 +31,8 @@
     "packageArtifactRequirements",
     "targetLegalizationEvidenceSummary",
     "reflectionSummary",
+    "reflectionInputs",
+    "targetResourceBindingMetadata",
     "diagnosticCounts",
     "diagnostics"
   ],
@@ -166,6 +168,26 @@
       "anyOf": [
         {
           "$ref": "#/$defs/reflectionSummary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reflectionInputs": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/reflectionInputs"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "targetResourceBindingMetadata": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/targetResourceBindingMetadata"
         },
         {
           "type": "null"
@@ -490,6 +512,384 @@
         }
       }
     },
+    "reflectionInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "selectedTarget",
+        "entryPointCount",
+        "resourceCount",
+        "targetResourceBindingCount",
+        "targetFeatureCount",
+        "workgroupSizeCount",
+        "workgroupSizesAvailable",
+        "skippedTargetResourceBindingCount",
+        "skippedTargetFeatureCount",
+        "entryPoints",
+        "resources",
+        "targetResourceBindings",
+        "targetFeatures",
+        "workgroupSizes"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "selectedTarget": {
+          "$ref": "#/$defs/packageTargetOrNull"
+        },
+        "entryPointCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "resourceCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "targetResourceBindingCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "targetFeatureCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "workgroupSizeCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "workgroupSizesAvailable": {
+          "type": "boolean"
+        },
+        "skippedTargetResourceBindingCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "skippedTargetFeatureCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "entryPoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reflectionEntryPoint"
+          }
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reflectionResource"
+          }
+        },
+        "targetResourceBindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reflectionTargetResourceBinding"
+          }
+        },
+        "targetFeatures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reflectionTargetFeature"
+          }
+        },
+        "workgroupSizes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reflectionWorkgroupSize"
+          }
+        }
+      }
+    },
+    "targetResourceBindingMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "selectedTarget",
+        "loaderTarget",
+        "packageTarget",
+        "bindingCount",
+        "skippedBindingCount",
+        "bindings"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "selectedTarget": {
+          "$ref": "#/$defs/packageTargetOrNull"
+        },
+        "loaderTarget": {
+          "$ref": "#/$defs/packageTargetOrNull"
+        },
+        "packageTarget": {
+          "$ref": "#/$defs/packageTargetOrNull"
+        },
+        "bindingCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "skippedBindingCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetResourceBindingMetadataRecord"
+          }
+        }
+      }
+    },
+    "reflectionEntryPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "sourceName": {
+          "type": "string"
+        },
+        "backendName": {
+          "type": "string"
+        },
+        "returnType": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "reflectionResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "storageImageFormat": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "storageImageAccess": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "arrayDimensions": {
+          "$ref": "#/$defs/arrayDimensions"
+        },
+        "arrayElementCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "set": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "binding": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        }
+      }
+    },
+    "reflectionTargetResourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/packageTargetName"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bindingClass": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "descriptorType": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "storageImageFormat": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "storageImageAccess": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "arrayDimensions": {
+          "$ref": "#/$defs/arrayDimensions"
+        },
+        "arrayElementCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "abi": {
+          "$ref": "#/$defs/abiValue"
+        },
+        "evidenceId": {
+          "type": "string"
+        }
+      }
+    },
+    "reflectionTargetFeature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/packageTargetName"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "reflectionWorkgroupSize": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "targetResourceBindingMetadataRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "stage",
+        "entryPoint",
+        "name",
+        "kind",
+        "bindingClass",
+        "descriptorType",
+        "set",
+        "binding",
+        "argumentIndex",
+        "abi",
+        "identity"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/packageTargetName"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "bindingClass": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "descriptorType": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "set": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "binding": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "argumentIndex": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "abi": {
+          "$ref": "#/$defs/abiValue"
+        },
+        "identity": {
+          "$ref": "#/$defs/targetResourceBindingIdentity"
+        },
+        "evidenceId": {
+          "type": "string"
+        },
+        "arrayDimensions": {
+          "$ref": "#/$defs/arrayDimensions"
+        },
+        "arrayElementCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "storageImageFormat": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "storageImageAccess": {
+          "$ref": "#/$defs/stringOrNull"
+        }
+      }
+    },
+    "targetResourceBindingIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "stage",
+        "entryPoint",
+        "name",
+        "kind"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/packageTargetName"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        }
+      }
+    },
+    "arrayDimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "abiValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": true
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "diagnosticCounts": {
       "type": "object",
       "additionalProperties": false,
@@ -593,6 +993,12 @@
       "items": {
         "type": "string"
       }
+    },
+    "stringOrNull": {
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "nonNegativeInteger": {
       "type": "integer",

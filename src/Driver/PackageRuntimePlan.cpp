@@ -38,6 +38,15 @@ void writeNullableString(std::ostream &out, const std::string *value) {
   }
 }
 
+void writeNullableUnsigned(std::ostream &out,
+                           const std::optional<std::uintmax_t> &value) {
+  if (value) {
+    out << *value;
+  } else {
+    out << "null";
+  }
+}
+
 void writeStringArray(std::ostream &out,
                       const std::vector<std::string> &values) {
   out << "[";
@@ -48,6 +57,16 @@ void writeStringArray(std::ostream &out,
     out << "\"" << escapeJson(values[index]) << "\"";
   }
   out << "]";
+}
+
+void writeJsonArrayMemberOrEmpty(std::ostream &out, std::string_view object,
+                                 std::string_view key) {
+  const std::optional<std::string_view> value = findObjectMemberValue(object, key);
+  if (value && !value->empty() && value->front() == '[') {
+    out << *value;
+  } else {
+    out << "[]";
+  }
 }
 
 void writeSourceLocation(std::ostream &out, const SourceLocation &location,
@@ -439,26 +458,222 @@ void writeTargetLegalizationEvidenceSummary(std::ostream &out,
   out << "\n" << indent << "}";
 }
 
-std::size_t selectedTargetBindingCount(const PackageMetadata &metadata) {
+std::size_t selectedTargetBindingCount(const PackageMetadata &metadata,
+                                       std::string_view target) {
   return std::count_if(metadata.reflectionTargetResourceBindings.begin(),
                        metadata.reflectionTargetResourceBindings.end(),
                        [&](const PackageReflectionTargetResourceBindingRecord
                                &binding) {
-                         return binding.target == metadata.target;
+                         return binding.target == target;
                        });
 }
 
-std::size_t selectedTargetFeatureCount(const PackageMetadata &metadata) {
+std::size_t selectedTargetFeatureCount(const PackageMetadata &metadata,
+                                       std::string_view target) {
   return std::count_if(
       metadata.reflectionTargetFeatures.begin(),
       metadata.reflectionTargetFeatures.end(),
       [&](const PackageReflectionTargetFeatureRecord &feature) {
-        return feature.target == metadata.target;
+        return feature.target == target;
       });
 }
 
+void writeReflectionResourceRecord(
+    std::ostream &out, const PackageReflectionResourceRecord &resource,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"stage\": \"" << escapeJson(resource.stage) << "\",\n"
+      << indent << "  \"name\": \"" << escapeJson(resource.name) << "\",\n"
+      << indent << "  \"kind\": \"" << escapeJson(resource.kind) << "\",\n"
+      << indent << "  \"type\": \"" << escapeJson(resource.type) << "\",\n"
+      << indent << "  \"storageImageFormat\": ";
+  writeNullableString(out, resource.storageImageFormat);
+  out << ",\n" << indent << "  \"storageImageAccess\": ";
+  writeNullableString(out, resource.storageImageAccess);
+  out << ",\n" << indent << "  \"arrayDimensions\": "
+      << resource.arrayDimensionsJson << ",\n"
+      << indent << "  \"arrayElementCount\": ";
+  writeNullableUnsigned(out, resource.arrayElementCount);
+  out << ",\n" << indent << "  \"set\": ";
+  writeNullableUnsigned(out, resource.set);
+  out << ",\n" << indent << "  \"binding\": ";
+  writeNullableUnsigned(out, resource.binding);
+  out << "\n" << indent << "}";
+}
+
+void writeReflectionResourceRecords(
+    std::ostream &out,
+    const std::vector<PackageReflectionResourceRecord> &resources,
+    std::string_view indent) {
+  out << "[";
+  for (std::size_t index = 0; index < resources.size(); ++index) {
+    out << (index == 0 ? "\n" : ",\n");
+    writeReflectionResourceRecord(out, resources[index],
+                                  std::string(indent) + "  ");
+  }
+  if (!resources.empty()) {
+    out << "\n" << indent;
+  }
+  out << "]";
+}
+
+void writeReflectionInputTargetBindingRecord(
+    std::ostream &out,
+    const PackageReflectionTargetResourceBindingRecord &binding,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"target\": \"" << escapeJson(binding.target) << "\",\n"
+      << indent << "  \"stage\": \"" << escapeJson(binding.stage) << "\",\n"
+      << indent << "  \"entryPoint\": \"" << escapeJson(binding.entryPoint)
+      << "\",\n"
+      << indent << "  \"name\": \"" << escapeJson(binding.name) << "\",\n"
+      << indent << "  \"kind\": \"" << escapeJson(binding.kind) << "\",\n"
+      << indent << "  \"bindingClass\": ";
+  writeNullableString(out, binding.bindingClass);
+  out << ",\n" << indent << "  \"descriptorType\": ";
+  writeNullableString(out, binding.descriptorType);
+  out << ",\n" << indent << "  \"storageImageFormat\": ";
+  writeNullableString(out, binding.storageImageFormat);
+  out << ",\n" << indent << "  \"storageImageAccess\": ";
+  writeNullableString(out, binding.storageImageAccess);
+  out << ",\n" << indent << "  \"arrayDimensions\": "
+      << binding.arrayDimensionsJson << ",\n"
+      << indent << "  \"arrayElementCount\": ";
+  writeNullableUnsigned(out, binding.arrayElementCount);
+  out << ",\n" << indent << "  \"abi\": " << binding.abiJson;
+  if (binding.evidenceId) {
+    out << ",\n" << indent << "  \"evidenceId\": \""
+        << escapeJson(*binding.evidenceId) << "\"";
+  }
+  out << "\n" << indent << "}";
+}
+
+void writeSelectedTargetBindingRecords(
+    std::ostream &out,
+    const std::vector<PackageReflectionTargetResourceBindingRecord> &bindings,
+    std::string_view target, std::string_view indent) {
+  out << "[";
+  std::size_t emitted = 0;
+  for (const PackageReflectionTargetResourceBindingRecord &binding : bindings) {
+    if (binding.target != target) {
+      continue;
+    }
+    out << (emitted == 0 ? "\n" : ",\n");
+    writeReflectionInputTargetBindingRecord(out, binding,
+                                            std::string(indent) + "  ");
+    ++emitted;
+  }
+  if (emitted != 0) {
+    out << "\n" << indent;
+  }
+  out << "]";
+}
+
+void writeSelectedTargetFeatures(
+    std::ostream &out,
+    const std::vector<PackageReflectionTargetFeatureRecord> &features,
+    std::string_view target, std::string_view indent) {
+  out << "[";
+  std::size_t emitted = 0;
+  for (const PackageReflectionTargetFeatureRecord &feature : features) {
+    if (feature.target != target) {
+      continue;
+    }
+    out << (emitted == 0 ? "\n" : ",\n")
+        << std::string(indent) + "  " << "{\n"
+        << std::string(indent) + "  " << "  \"target\": \""
+        << escapeJson(feature.target) << "\",\n"
+        << std::string(indent) + "  " << "  \"kind\": \""
+        << escapeJson(feature.kind) << "\",\n"
+        << std::string(indent) + "  " << "  \"name\": \""
+        << escapeJson(feature.name) << "\",\n"
+        << std::string(indent) + "  " << "  \"evidenceIds\": ";
+    writeStringArray(out, feature.evidenceIds);
+    out << "\n" << std::string(indent) + "  " << "}";
+    ++emitted;
+  }
+  if (emitted != 0) {
+    out << "\n" << indent;
+  }
+  out << "]";
+}
+
+void writeTargetResourceBindingMetadataRecord(
+    std::ostream &out,
+    const PackageReflectionTargetResourceBindingRecord &binding,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"target\": \"" << escapeJson(binding.target) << "\",\n"
+      << indent << "  \"stage\": \"" << escapeJson(binding.stage) << "\",\n"
+      << indent << "  \"entryPoint\": \"" << escapeJson(binding.entryPoint)
+      << "\",\n"
+      << indent << "  \"name\": \"" << escapeJson(binding.name) << "\",\n"
+      << indent << "  \"kind\": \"" << escapeJson(binding.kind) << "\",\n"
+      << indent << "  \"bindingClass\": ";
+  writeNullableString(out, binding.bindingClass);
+  out << ",\n" << indent << "  \"descriptorType\": ";
+  writeNullableString(out, binding.descriptorType);
+  out << ",\n" << indent << "  \"set\": ";
+  writeNullableUnsigned(out, binding.set);
+  out << ",\n" << indent << "  \"binding\": ";
+  writeNullableUnsigned(out, binding.binding);
+  out << ",\n" << indent << "  \"argumentIndex\": ";
+  writeNullableUnsigned(out, binding.argumentIndex);
+  out << ",\n" << indent << "  \"abi\": " << binding.abiJson << ",\n"
+      << indent << "  \"identity\": {\n"
+      << indent << "    \"target\": \"" << escapeJson(binding.target) << "\",\n"
+      << indent << "    \"stage\": \"" << escapeJson(binding.stage) << "\",\n"
+      << indent << "    \"entryPoint\": \"" << escapeJson(binding.entryPoint)
+      << "\",\n"
+      << indent << "    \"name\": \"" << escapeJson(binding.name) << "\",\n"
+      << indent << "    \"kind\": \"" << escapeJson(binding.kind) << "\"\n"
+      << indent << "  }";
+  if (binding.evidenceId) {
+    out << ",\n" << indent << "  \"evidenceId\": \""
+        << escapeJson(*binding.evidenceId) << "\"";
+  }
+  out << ",\n" << indent << "  \"arrayDimensions\": "
+      << binding.arrayDimensionsJson << ",\n"
+      << indent << "  \"arrayElementCount\": ";
+  writeNullableUnsigned(out, binding.arrayElementCount);
+  out << ",\n" << indent << "  \"storageImageFormat\": ";
+  writeNullableString(out, binding.storageImageFormat);
+  out << ",\n" << indent << "  \"storageImageAccess\": ";
+  writeNullableString(out, binding.storageImageAccess);
+  out << "\n" << indent << "}";
+}
+
+void writeTargetResourceBindingMetadataRecords(
+    std::ostream &out,
+    const std::vector<PackageReflectionTargetResourceBindingRecord> &bindings,
+    std::string_view target, std::string_view indent) {
+  out << "[";
+  std::size_t emitted = 0;
+  for (const PackageReflectionTargetResourceBindingRecord &binding : bindings) {
+    if (binding.target != target) {
+      continue;
+    }
+    out << (emitted == 0 ? "\n" : ",\n");
+    writeTargetResourceBindingMetadataRecord(out, binding,
+                                             std::string(indent) + "  ");
+    ++emitted;
+  }
+  if (emitted != 0) {
+    out << "\n" << indent;
+  }
+  out << "]";
+}
+
+std::string loaderReflectionTarget(const PackageMetadata &metadata,
+                                   const std::string *requestedLoaderTarget) {
+  if (requestedLoaderTarget != nullptr) {
+    return *requestedLoaderTarget;
+  }
+  return metadata.target;
+}
+
 void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
-                            std::string_view indent) {
+                            std::string_view target, std::string_view indent) {
   const std::optional<std::size_t> workgroupSizeCount =
       jsonArraySize(metadata.documents.reflection, "workgroupSizes");
   const std::optional<std::size_t> entryPointCount =
@@ -467,9 +682,9 @@ void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
       << indent << "  \"resourceCount\": "
       << metadata.reflectionResources.size() << ",\n"
       << indent << "  \"targetResourceBindingCount\": "
-      << selectedTargetBindingCount(metadata) << ",\n"
+      << selectedTargetBindingCount(metadata, target) << ",\n"
       << indent << "  \"targetFeatureCount\": "
-      << selectedTargetFeatureCount(metadata) << ",\n"
+      << selectedTargetFeatureCount(metadata, target) << ",\n"
       << indent << "  \"entryPointCount\": ";
   if (entryPointCount) {
     out << *entryPointCount;
@@ -486,6 +701,88 @@ void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
       << indent << "  \"threadgroupShapeSource\": \"reflection.workgroupSizes\""
       << "\n"
       << indent << "}";
+}
+
+void writeReflectionInputs(std::ostream &out, const PackageMetadata &metadata,
+                           const std::optional<std::string> &selectedTarget,
+                           std::string_view filterTarget,
+                           std::string_view indent) {
+  const std::optional<std::size_t> workgroupSizeCount =
+      jsonArraySize(metadata.documents.reflection, "workgroupSizes");
+  const std::optional<std::size_t> entryPointCount =
+      jsonArraySize(metadata.documents.reflection, "entryPoints");
+  const std::size_t targetBindingCount =
+      selectedTargetBindingCount(metadata, filterTarget);
+  const std::size_t targetFeatureCount =
+      selectedTargetFeatureCount(metadata, filterTarget);
+
+  out << "{\n"
+      << indent << "  \"schemaVersion\": 1,\n"
+      << indent << "  \"selectedTarget\": ";
+  writeNullableString(out, selectedTarget);
+  out << ",\n"
+      << indent << "  \"entryPointCount\": " << entryPointCount.value_or(0)
+      << ",\n"
+      << indent << "  \"resourceCount\": "
+      << metadata.reflectionResources.size() << ",\n"
+      << indent << "  \"targetResourceBindingCount\": " << targetBindingCount
+      << ",\n"
+      << indent << "  \"targetFeatureCount\": " << targetFeatureCount << ",\n"
+      << indent << "  \"workgroupSizeCount\": "
+      << workgroupSizeCount.value_or(0) << ",\n"
+      << indent << "  \"workgroupSizesAvailable\": "
+      << (workgroupSizeCount.value_or(0) != 0 ? "true" : "false") << ",\n"
+      << indent << "  \"skippedTargetResourceBindingCount\": "
+      << (metadata.reflectionTargetResourceBindings.size() - targetBindingCount)
+      << ",\n"
+      << indent << "  \"skippedTargetFeatureCount\": "
+      << (metadata.reflectionTargetFeatures.size() - targetFeatureCount)
+      << ",\n"
+      << indent << "  \"entryPoints\": ";
+  writeJsonArrayMemberOrEmpty(out, metadata.documents.reflection, "entryPoints");
+  out << ",\n" << indent << "  \"resources\": ";
+  writeReflectionResourceRecords(out, metadata.reflectionResources,
+                                 std::string(indent) + "  ");
+  out << ",\n" << indent << "  \"targetResourceBindings\": ";
+  writeSelectedTargetBindingRecords(
+      out, metadata.reflectionTargetResourceBindings, filterTarget,
+      std::string(indent) + "  ");
+  out << ",\n" << indent << "  \"targetFeatures\": ";
+  writeSelectedTargetFeatures(out, metadata.reflectionTargetFeatures,
+                              filterTarget, std::string(indent) + "  ");
+  out << ",\n" << indent << "  \"workgroupSizes\": ";
+  writeJsonArrayMemberOrEmpty(out, metadata.documents.reflection,
+                              "workgroupSizes");
+  out << "\n" << indent << "}";
+}
+
+void writeTargetResourceBindingMetadata(
+    std::ostream &out, const PackageMetadata &metadata,
+    const std::string *requestedLoaderTarget,
+    const std::optional<std::string> &selectedTarget, std::string_view indent) {
+  const std::string filterTarget =
+      loaderReflectionTarget(metadata, requestedLoaderTarget);
+  const std::size_t bindingCount =
+      selectedTargetBindingCount(metadata, filterTarget);
+
+  out << "{\n"
+      << indent << "  \"schemaVersion\": 1,\n"
+      << indent << "  \"selectedTarget\": ";
+  writeNullableString(out, selectedTarget);
+  out << ",\n" << indent << "  \"loaderTarget\": ";
+  writeNullableString(out, requestedLoaderTarget);
+  out << ",\n"
+      << indent << "  \"packageTarget\": \"" << escapeJson(metadata.target)
+      << "\",\n"
+      << indent << "  \"bindingCount\": " << bindingCount << ",\n"
+      << indent << "  \"skippedBindingCount\": "
+      << (metadata.reflectionTargetResourceBindings.size() - bindingCount)
+      << ",\n"
+      << indent << "  \"bindings\": ";
+  writeTargetResourceBindingMetadataRecords(
+      out, metadata.reflectionTargetResourceBindings, filterTarget,
+      std::string(indent) + "  ");
+  out << "\n" << indent << "}";
 }
 
 void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
@@ -506,6 +803,11 @@ void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
   const std::optional<std::string> selectedTarget =
       success && requestedLoaderTarget != nullptr
           ? std::optional<std::string>(*requestedLoaderTarget)
+          : std::nullopt;
+  const std::optional<std::string> reflectionFilterTarget =
+      metadata != nullptr
+          ? std::optional<std::string>(
+                loaderReflectionTarget(*metadata, requestedLoaderTarget))
           : std::nullopt;
   const std::vector<std::string> requiredArtifacts =
       requiredArtifactNames(metadata, contract);
@@ -592,7 +894,23 @@ void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
   out << ",\n"
       << "  \"reflectionSummary\": ";
   if (metadata) {
-    writeReflectionSummary(out, *metadata, "  ");
+    writeReflectionSummary(out, *metadata, *reflectionFilterTarget, "  ");
+  } else {
+    out << "null";
+  }
+  out << ",\n"
+      << "  \"reflectionInputs\": ";
+  if (metadata) {
+    writeReflectionInputs(out, *metadata, selectedTarget, *reflectionFilterTarget,
+                          "  ");
+  } else {
+    out << "null";
+  }
+  out << ",\n"
+      << "  \"targetResourceBindingMetadata\": ";
+  if (metadata) {
+    writeTargetResourceBindingMetadata(out, *metadata, requestedLoaderTarget,
+                                       selectedTarget, "  ");
   } else {
     out << "null";
   }
