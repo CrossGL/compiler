@@ -110,6 +110,7 @@ struct ReflectionFunctionConstant {
   std::string name;
   std::string type;
   std::optional<std::string> value;
+  std::optional<std::size_t> specializationId;
 };
 
 struct ReflectionVertexAttribute {

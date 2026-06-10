@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -97,7 +98,9 @@ struct ConstantDecl {
   TypeRef type;
   std::string name;
   std::vector<Token> valueTokens;
+  std::optional<std::size_t> specializationId;
   SourceLocation location;
+  SourceLocation specializationIdSpan;
 };
 
 struct ShaderModule {

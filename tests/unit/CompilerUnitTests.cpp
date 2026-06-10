@@ -8568,6 +8568,107 @@ std::vector<crossgl::Diagnostic> collectDiagnostics(std::string_view source) {
   return diagnostics.diagnostics();
 }
 
+void testSpecializationConstantsFrontendAndHIR() {
+  constexpr std::string_view source = R"(
+shader SpecializationConstantsShader {
+  layout(constant_id = 7) const int WORKGROUP_SCALE = 4;
+  const float BASE_GAIN = 1.0;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    void main() {
+      int scaled = WORKGROUP_SCALE;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "specialization constant source builds HIR");
+  if (!hir.has_value()) {
+    return;
+  }
+
+  const auto findConstant = [&hir](std::string_view name) {
+    for (const crossgl::HIRConstant &constant : hir->constants) {
+      if (constant.name == name) {
+        return &constant;
+      }
+    }
+    return static_cast<const crossgl::HIRConstant *>(nullptr);
+  };
+
+  const crossgl::HIRConstant *workgroupScale =
+      findConstant("WORKGROUP_SCALE");
+  const crossgl::HIRConstant *baseGain = findConstant("BASE_GAIN");
+  expect(workgroupScale != nullptr &&
+             workgroupScale->specializationId.has_value() &&
+             *workgroupScale->specializationId == 7 &&
+             workgroupScale->foldedValue == std::optional<std::string>("4"),
+         "HIR preserves specialization constant id and default value");
+  expect(baseGain != nullptr && !baseGain->specializationId.has_value(),
+         "ordinary module constants do not become specialization constants");
+
+  const std::string hirText = crossgl::printHIR(*hir);
+  expect(hirText.find("const int WORKGROUP_SCALE = 4 folded 4 "
+                      "specialization_id 7") != std::string::npos,
+         "HIR printer exposes specialization constant ids");
+}
+
+void testSpecializationConstantsDiagnostics() {
+  const std::vector<crossgl::Diagnostic> negativeIdDiagnostics =
+      collectDiagnostics(R"(
+shader NegativeSpecializationConstantIdShader {
+  layout(constant_id = -1) const int BAD = 1;
+}
+)");
+  expect(hasDiagnosticCode(negativeIdDiagnostics,
+                           "parse.invalid-specialization-constant-id"),
+         "parser rejects negative specialization constant ids");
+
+  const std::vector<crossgl::Diagnostic> missingIdDiagnostics =
+      collectDiagnostics(R"(
+shader MissingSpecializationConstantIdShader {
+  layout(binding = 1) const int BAD = 1;
+}
+)");
+  expect(hasDiagnosticCode(missingIdDiagnostics,
+                           "parse.missing-specialization-constant-id"),
+         "parser requires a constant_id specialization layout key");
+
+  const std::vector<crossgl::Diagnostic> missingConstDiagnostics =
+      collectDiagnostics(R"(
+shader SpecializationLayoutWithoutConstShader {
+  layout(constant_id = 2) int BAD = 1;
+}
+)");
+  expect(hasDiagnosticCode(missingConstDiagnostics,
+                           "parse.specialization-layout-requires-const"),
+         "parser rejects specialization constant layouts without const");
+
+  const std::vector<crossgl::Diagnostic> duplicateIdDiagnostics =
+      collectDiagnostics(R"(
+shader DuplicateSpecializationConstantIdShader {
+  layout(constant_id = 0) const int FIRST = 1;
+  layout(constant_id = 0) const int SECOND = 2;
+}
+)");
+  expect(hasDiagnosticCode(duplicateIdDiagnostics,
+                           "sema.duplicate-specialization-constant-id"),
+         "HIR builder rejects duplicate specialization constant ids");
+
+  const std::vector<crossgl::Diagnostic> vectorTypeDiagnostics =
+      collectDiagnostics(R"(
+shader VectorSpecializationConstantShader {
+  layout(constant_id = 3) const vec2 BAD = vec2(1.0, 2.0);
+}
+)");
+  expect(hasDiagnosticCode(vectorTypeDiagnostics,
+                           "sema.unsupported-specialization-constant-type"),
+         "HIR builder rejects non-scalar specialization constant types");
+}
+
 void testDebugSourceLocationsUseGenericPathSeparators() {
   constexpr std::string_view source = R"(
 shader WindowsPathSourceLocationShader {
@@ -43473,6 +43574,60 @@ shader ReflectionShader {
          "Vulkan reflection JSON prints storage buffer layout metadata");
 }
 
+void testReflectionFunctionConstantSpecializationIds() {
+  constexpr std::string_view source = R"(
+shader ReflectionSpecializationConstantsShader {
+  layout(constant_id = 11) const int TILE_SIZE = 16;
+  const bool USE_FAST_PATH = true;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    void main() {
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "reflection specialization constant source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  const crossgl::ReflectionDocument document =
+      crossgl::buildReflectionDocument(
+          *hir, crossgl::TargetKind::Vulkan,
+          "/tmp/ReflectionSpecializationConstantsShader.spv");
+  expect(document.functionConstants.size() == 2,
+         "reflection records module function constants");
+  if (document.functionConstants.size() < 2) {
+    return;
+  }
+
+  const crossgl::ReflectionFunctionConstant &tileSize =
+      document.functionConstants[0];
+  const crossgl::ReflectionFunctionConstant &useFastPath =
+      document.functionConstants[1];
+  expect(tileSize.name == "TILE_SIZE" && tileSize.type == "int" &&
+             tileSize.value == std::optional<std::string>("16") &&
+             tileSize.specializationId == std::optional<std::size_t>(11),
+         "reflection records specialization IDs for specialized constants");
+  expect(useFastPath.name == "USE_FAST_PATH" &&
+             useFastPath.type == "bool" &&
+             useFastPath.value == std::optional<std::string>("true") &&
+             !useFastPath.specializationId.has_value(),
+         "reflection leaves ordinary function constants without "
+         "specialization IDs");
+
+  const std::string json = crossgl::reflectionJson(document);
+  expect(json.find("\"name\":\"TILE_SIZE\"") != std::string::npos &&
+             json.find("\"specializationId\":11") != std::string::npos &&
+             json.find("\"name\":\"USE_FAST_PATH\"") != std::string::npos,
+         "reflection JSON serializes specialization IDs");
+}
+
 void testStorageImageReflectionDocumentModel() {
   constexpr std::string_view source = R"(
 shader StorageImageReflectionShader {
@@ -51970,6 +52125,83 @@ shader ForConstantStrideComputeShader {
          "for-constant-stride Vulkan prototype SPIR-V binary exists");
 }
 
+void testVulkanSpecializationConstantsPrototypeAssembly() {
+  constexpr std::string_view source = R"(
+shader VulkanSpecializationConstantsComputeShader {
+  layout(constant_id = 3) const int A = 2;
+  layout(constant_id = 4) const int B = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      values[0] = A + B;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "Vulkan specialization constant source builds HIR");
+  if (!hir) {
+    return;
+  }
+  expect(hir->constants.size() == 2 &&
+             hir->constants[0].specializationId == std::optional<std::size_t>(3) &&
+             hir->constants[1].specializationId == std::optional<std::size_t>(4),
+         "HIR keeps distinct specialization ids for same-default constants");
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assembly.empty() && !assemblyDiagnostics.hasErrors(),
+         "Vulkan specialization constant assembly has no diagnostics");
+  expect(assembly.find("OpDecorate %spec_A SpecId 3") != std::string::npos &&
+             assembly.find("OpDecorate %spec_B SpecId 4") != std::string::npos,
+         "Vulkan assembly decorates specialization constants with SpecId");
+  expect(assembly.find("%spec_A = OpSpecConstant %int 2") !=
+             std::string::npos &&
+             assembly.find("%spec_B = OpSpecConstant %int 2") !=
+                 std::string::npos,
+         "Vulkan assembly emits same-default specialization constants as "
+         "distinct ids");
+  expect(assembly.find("OpIAdd %int %spec_A %spec_B") != std::string::npos,
+         "Vulkan assembly uses specialization constants in expressions");
+  expect(assembly.find("%const_int__2 = OpConstant %int 2") ==
+             std::string::npos,
+         "Vulkan assembly does not collapse specialization constants into a "
+         "pooled literal constant");
+
+  if (!crossgl::findExecutable("spirv-as") ||
+      !crossgl::findExecutable("spirv-val")) {
+    return;
+  }
+
+  const std::filesystem::path packageDir =
+      unitTestTempDirectoryPath() /
+      "crossgl-vulkan-specialization-constants-prototype-test";
+  std::error_code error;
+  std::filesystem::remove_all(packageDir, error);
+
+  crossgl::DiagnosticEngine buildDiagnostics;
+  const crossgl::VulkanBuildResult result =
+      crossgl::buildVulkanPrototypeBinary(*hir, packageDir, buildDiagnostics);
+  expect(result.success,
+         "Vulkan specialization constant prototype binary assembles and "
+         "validates");
+  expect(!buildDiagnostics.hasErrors(),
+         "Vulkan specialization constant prototype binary build has no "
+         "diagnostics");
+  expect(std::filesystem::exists(result.assemblyPath),
+         "Vulkan specialization constant prototype assembly file exists");
+  expect(std::filesystem::exists(result.spvPath),
+         "Vulkan specialization constant prototype SPIR-V binary exists");
+
+  std::filesystem::remove_all(packageDir, error);
+}
+
 void testVulkanPrototypeForFoldedUpdateAssembly() {
   constexpr std::string_view source = R"(
 shader ForFoldedUpdateComputeShader {
@@ -54517,6 +54749,8 @@ int main() {
   testTypedFunctionBodyHIR();
   testStageResourceHIR();
   testHIRParameterAndFieldNameSpans();
+  testSpecializationConstantsFrontendAndHIR();
+  testSpecializationConstantsDiagnostics();
   testHIRGraphicsStageAndEntryFunctionSpans();
   testResourceSpanPlumbing();
   testHIRSourceMapSchemaV8ResourceAccessRecords();
@@ -54612,6 +54846,7 @@ int main() {
   testOpenGLStructStorageBufferSource();
   testDirectXMixedSamplerArrayUsageDiagnostic();
   testReflectionDocumentModel();
+  testReflectionFunctionConstantSpecializationIds();
   testStorageImageReflectionDocumentModel();
   testMetalResourceArgumentPacking();
   testMetalArgumentSlotCollisionRepair();
@@ -54673,6 +54908,7 @@ int main() {
   testVulkanPrototypeNestedForAssembly();
   testVulkanPrototypeForDynamicStrideAssembly();
   testVulkanPrototypeForConstantStrideAssembly();
+  testVulkanSpecializationConstantsPrototypeAssembly();
   testVulkanPrototypeForFoldedUpdateAssembly();
   testVulkanPrototypeVectorLocalAssembly();
   testVulkanPrototypeIntrinsicAssembly();

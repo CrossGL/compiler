@@ -828,6 +828,16 @@ def validate_semantics(instance):
         [constant["name"] for constant in instance["functionConstants"]],
         "function constant name",
     )
+    validate_unique_values(
+        errors,
+        "$.functionConstants",
+        [
+            constant["specializationId"]
+            for constant in instance["functionConstants"]
+            if "specializationId" in constant
+        ],
+        "function constant specializationId",
+    )
     for index, layout in enumerate(instance["vertexLayouts"]):
         path = f"$.vertexLayouts[{index}]"
         entry = entry_points.get(layout["entryPoint"])

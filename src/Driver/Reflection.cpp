@@ -806,6 +806,9 @@ void writeReflectionJson(std::ostringstream &out,
     if (constant.value.has_value()) {
       out << ",\"value\":\"" << escapeJson(*constant.value) << "\"";
     }
+    if (constant.specializationId.has_value()) {
+      out << ",\"specializationId\":" << *constant.specializationId;
+    }
     out << "}";
   }
   if (!document.functionConstants.empty()) {
@@ -1135,7 +1138,8 @@ buildReflectionDocument(const HIRModule &module,
 
   for (const HIRConstant &constant : module.constants) {
     document.functionConstants.push_back(ReflectionFunctionConstant{
-        constant.name, formatType(constant.type), constant.foldedValue});
+        constant.name, formatType(constant.type), constant.foldedValue,
+        constant.specializationId});
   }
 
   for (const HIRStage &stage : module.stages) {

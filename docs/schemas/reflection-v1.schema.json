@@ -511,6 +511,10 @@
         },
         "value": {
           "type": "string"
+        },
+        "specializationId": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

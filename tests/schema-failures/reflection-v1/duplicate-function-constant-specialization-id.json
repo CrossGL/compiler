@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "vulkan",
+  "nativeBinary": "",
+  "entryPoints": [],
+  "structs": [],
+  "resources": [],
+  "targetResourceBindings": [],
+  "pushConstants": [],
+  "functionConstants": [
+    {
+      "name": "TILE_SIZE",
+      "type": "int",
+      "value": "16",
+      "specializationId": 3
+    },
+    {
+      "name": "USE_TILE_SIZE",
+      "type": "int",
+      "value": "8",
+      "specializationId": 3
+    }
+  ],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

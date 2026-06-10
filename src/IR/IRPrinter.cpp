@@ -396,6 +396,9 @@ std::string printHIR(const HIRModule &module) {
     if (constant.foldedValue.has_value()) {
       out << " folded " << *constant.foldedValue;
     }
+    if (constant.specializationId.has_value()) {
+      out << " specialization_id " << *constant.specializationId;
+    }
     out << "\n";
   }
   for (const HIRStage &stage : module.stages) {

@@ -7282,6 +7282,48 @@ private:
     return id;
   }
 
+  std::string ensureModuleConstant(const HIRConstant &constant) {
+    if (!constant.specializationId.has_value()) {
+      if (constant.type.name == "bool") {
+        return ensureBoolConstant(*constant.foldedValue == "true");
+      }
+      std::string literal = *constant.foldedValue;
+      if (constant.type.name == "float") {
+        literal = prototypeNumericConstantLiteral(constant.type,
+                                                  std::move(literal));
+      }
+      return ensureNumericConstant(constant.type, literal);
+    }
+
+    if (auto existing = moduleConstantIds_.find(constant.name);
+        existing != moduleConstantIds_.end()) {
+      return existing->second;
+    }
+
+    const std::string typeId = ensureType(constant.type);
+    const std::string id = "%spec_" + sanitizeIdFragment(constant.name);
+    moduleConstantIds_[constant.name] = id;
+    module_.addName(SPIRVModule::id(id), constant.name);
+    module_.addDecoration(SPIRVModule::id(id), "SpecId",
+                          {std::to_string(*constant.specializationId)});
+    if (constant.type.name == "bool") {
+      module_.addConstantInstruction(
+          id + std::string(*constant.foldedValue == "true"
+                               ? " = OpSpecConstantTrue "
+                               : " = OpSpecConstantFalse ") +
+          typeId);
+      return id;
+    }
+    std::string literal = *constant.foldedValue;
+    if (constant.type.name == "float") {
+      literal = prototypeNumericConstantLiteral(constant.type,
+                                                std::move(literal));
+    }
+    module_.addConstantInstruction(id + " = OpSpecConstant " + typeId + " " +
+                                   literal);
+    return id;
+  }
+
   std::string ensureIvec2Constant(const PrototypeTextureOffset &offset) {
     const std::string key = "ivec2:" + std::to_string(offset[0]) + "," +
                             std::to_string(offset[1]);
@@ -9780,16 +9822,8 @@ private:
                              "folded scalar constants");
           return std::nullopt;
         }
-        if (constant->second.type.name == "bool") {
-          return PrototypeSPIRVValue{
-              constant->second.type,
-              ensureBoolConstant(*constant->second.foldedValue == "true")};
-        }
-        const std::string literal = prototypeNumericConstantLiteral(
-            constant->second.type, *constant->second.foldedValue);
-        return PrototypeSPIRVValue{
-            constant->second.type,
-            ensureNumericConstant(constant->second.type, literal)};
+        return PrototypeSPIRVValue{constant->second.type,
+                                   ensureModuleConstant(constant->second)};
       }
       diagnostics_.error("vulkan.prototype-unsupported-expression",
                          "Vulkan prototype binary emission cannot resolve local "
@@ -10801,6 +10835,7 @@ private:
   std::unordered_map<std::string, std::string> uniformConstantPointerTypeIds_;
   std::unordered_map<std::string, std::string> sampledImageTypeIds_;
   std::unordered_map<std::string, std::string> constantIds_;
+  std::unordered_map<std::string, std::string> moduleConstantIds_;
   std::unordered_map<std::string, PrototypeSPIRVLocal> locals_;
   std::vector<PrototypeLoopLabels> loopLabels_;
   std::unordered_map<std::string, PrototypeSPIRVFunctionInfo> functions_;
@@ -13139,6 +13174,36 @@ private:
   }
 
   std::string constantForModuleConstant(const HIRConstant &constant) {
+    if (constant.specializationId.has_value()) {
+      if (const auto found = moduleConstantIds_.find(constant.name);
+          found != moduleConstantIds_.end()) {
+        return found->second;
+      }
+
+      std::string value = *constant.foldedValue;
+      if (constant.type.name == "float") {
+        value = prototypeNumericConstantLiteral(constant.type,
+                                                std::move(value));
+      }
+
+      const std::string id = "%spec_" + sanitizeIdFragment(constant.name);
+      moduleConstantIds_[constant.name] = id;
+      const std::string constantType = typeId(constant.type);
+      names_ << "OpName " << id << " \"" << constant.name << "\"\n";
+      decorations_ << "OpDecorate " << id << " SpecId "
+                   << *constant.specializationId << "\n";
+      if (constant.type.name == "bool") {
+        types_ << id << " = "
+               << (value == "true" ? "OpSpecConstantTrue "
+                                    : "OpSpecConstantFalse ")
+               << constantType << "\n";
+      } else {
+        types_ << id << " = OpSpecConstant " << constantType << " " << value
+               << "\n";
+      }
+      return id;
+    }
+
     std::string value = *constant.foldedValue;
     if (constant.type.name == "float") {
       value = prototypeNumericConstantLiteral(constant.type, std::move(value));
@@ -15054,6 +15119,7 @@ private:
   std::unordered_map<std::string, std::string> intConstants_;
   std::unordered_map<std::string, std::string> uintConstants_;
   std::unordered_map<std::string, std::string> literalConstants_;
+  std::unordered_map<std::string, std::string> moduleConstantIds_;
   std::unordered_map<std::string, PointerInfo> vertexInputs_;
   std::unordered_map<std::string, PointerInfo> vertexOutputs_;
   std::unordered_map<std::string, PointerInfo> fragmentInputs_;
