@@ -368,6 +368,8 @@ class GraphicsAbiRecord:
     entry_points: tuple[dict[str, Any], ...]
     resources: tuple[dict[str, Any], ...]
     abi_records: tuple[dict[str, Any], ...]
+    canonical_binding_records: tuple[dict[str, Any], ...]
+    canonical_binding_collection: str
     descriptor_bindings: tuple[dict[str, Any], ...]
     stage_count: int
     stage_record_counts: dict[str, int]
@@ -4108,7 +4110,9 @@ def _append_graphics_abi_binding_diagnostics(
         return
 
     seen: dict[tuple[str, str, str, str | None], int] = {}
-    for index, record in enumerate(graphics_abi.abi_records):
+    binding_path_prefix = graphics_abi.canonical_binding_collection
+    for index, record in enumerate(graphics_abi.canonical_binding_records):
+        record_path = f"{binding_path_prefix}[{index}]"
         if record.get("target") != target:
             diagnostics.append(
                 CompatibilityDiagnostic(
@@ -4116,7 +4120,7 @@ def _append_graphics_abi_binding_diagnostics(
                     message="graphics ABI resource binding target must match package target",
                     document="graphicsAbi",
                     artifact="graphicsAbi",
-                    path=f"abiRecords[{index}].target",
+                    path=f"{record_path}.target",
                     expected=target,
                     actual=record.get("target"),
                 )
@@ -4130,7 +4134,7 @@ def _append_graphics_abi_binding_diagnostics(
                     message="graphics ABI resource binding ABI metadata does not match package target",
                     document="graphicsAbi",
                     artifact="graphicsAbi",
-                    path=f"abiRecords[{index}].abi",
+                    path=f"{record_path}.abi",
                     expected=TARGET_RESOURCE_BINDING_ABI_EXPECTATIONS.get(target),
                     actual=_target_resource_binding_abi_actual(record),
                 )
@@ -4148,7 +4152,7 @@ def _append_graphics_abi_binding_diagnostics(
                 message="graphics ABI resource binding records must be unique",
                 document="graphicsAbi",
                 artifact="graphicsAbi",
-                path=f"abiRecords[{index}]",
+                path=record_path,
                 expected={
                     "uniqueGraphicsBinding": {
                         "target": target,
@@ -4158,7 +4162,7 @@ def _append_graphics_abi_binding_diagnostics(
                         "kind": key[3],
                     }
                 },
-                actual={"duplicateOf": f"abiRecords[{seen[key]}]"},
+                actual={"duplicateOf": f"{binding_path_prefix}[{seen[key]}]"},
             )
         )
 
@@ -4170,7 +4174,7 @@ def _append_graphics_abi_binding_diagnostics(
     }
     graphics_abi_keys = {
         key
-        for record in graphics_abi.abi_records
+        for record in graphics_abi.canonical_binding_records
         if record.get("target") == target
         if (key := _target_resource_binding_identity(record)) is not None
     }
@@ -4181,7 +4185,7 @@ def _append_graphics_abi_binding_diagnostics(
                 message="graphics ABI sidecar is missing a reflected target resource binding",
                 document="graphicsAbi",
                 artifact="graphicsAbi",
-                path="abiRecords",
+                path=binding_path_prefix,
                 expected={
                     "target": target,
                     "stage": stage,
@@ -4199,7 +4203,7 @@ def _append_graphics_abi_binding_diagnostics(
                 message="graphics ABI resource binding does not match reflection targetResourceBindings",
                 document="graphicsAbi",
                 artifact="graphicsAbi",
-                path="abiRecords",
+                path=binding_path_prefix,
                 expected={
                     "targetResourceBindings": {
                         "target": target,
@@ -4219,7 +4223,7 @@ def _graphics_abi_has_canonical_binding_records(
 ) -> bool:
     return any(
         isinstance(record.get("target"), str) or isinstance(record.get("abi"), str)
-        for record in graphics_abi.abi_records
+        for record in graphics_abi.canonical_binding_records
     )
 
 
@@ -9478,6 +9482,15 @@ def _graphics_abi_record(
     if document is None:
         return None
     abi_records = _json_object_records(document.get("abiRecords"))
+    canonical_binding_collection = "abiRecords"
+    canonical_binding_records = abi_records
+    if not canonical_binding_records:
+        target_resource_bindings = _json_object_records(
+            document.get("targetResourceBindings")
+        )
+        if target_resource_bindings:
+            canonical_binding_collection = "targetResourceBindings"
+            canonical_binding_records = target_resource_bindings
     descriptor_bindings = _graphics_descriptor_bindings_from_graphics_abi(
         document,
         target=target,
@@ -9521,6 +9534,14 @@ def _graphics_abi_record(
             )
             for record in abi_records
         ),
+        canonical_binding_records=tuple(
+            _summarize_reflection_like_record(
+                record,
+                _GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS,
+            )
+            for record in canonical_binding_records
+        ),
+        canonical_binding_collection=canonical_binding_collection,
         descriptor_bindings=descriptor_bindings,
         stage_count=len(stage_record_counts),
         stage_record_counts=stage_record_counts,

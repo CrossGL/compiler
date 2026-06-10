@@ -397,6 +397,18 @@ def validate_semantics(instance):
                 f"{artifact_path}.sourceRemap.target: expected to match artifact "
                 f"target {target!r}"
             )
+        source_remap_source_backend = source_remap.get("sourceBackend")
+        if source_remap_source_backend is not None:
+            if source_backend is None:
+                errors.append(
+                    f"{artifact_path}.sourceRemap.sourceBackend: expected artifact "
+                    "sourceBackend to be recorded"
+                )
+            elif source_remap_source_backend != source_backend:
+                errors.append(
+                    f"{artifact_path}.sourceRemap.sourceBackend: expected to match "
+                    f"artifact sourceBackend {source_backend!r}"
+                )
         if (
             declared_targets is not None
             and source_remap["target"] not in declared_targets

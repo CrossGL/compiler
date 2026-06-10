@@ -1384,6 +1384,62 @@ class RuntimePackageReaderTests(unittest.TestCase):
             ):
                 read_package(package_dir)
 
+    def test_graphics_abi_target_resource_binding_abi_mismatch_rejects_package(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            graphics_abi_path = "backend/metal/RuntimeReaderFixture.graphics-abi.json"
+            binding = self._graphics_abi_binding_record(target="vulkan")
+            binding["target"] = "metal"
+            self._write_json(
+                package_dir / graphics_abi_path,
+                {
+                    "schemaVersion": 1,
+                    "module": "RuntimeReaderFixture",
+                    "target": "metal",
+                    "targetResourceBindings": [binding],
+                },
+            )
+            manifest["artifacts"]["graphicsAbi"] = graphics_abi_path
+            self._write_json(manifest_path, manifest)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for graphics ABI fallback bindings\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="metal",
+                )
+
+            summary = report.to_summary()
+            diagnostic = next(
+                diagnostic
+                for diagnostic in summary["rejectReasons"]
+                if diagnostic["code"] == "package.graphicsAbi.binding_abi_invalid"
+            )
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(diagnostic["document"], "graphicsAbi")
+            self.assertEqual(diagnostic["path"], "targetResourceBindings[0].abi")
+            self.assertIn("Metal argument ABI", diagnostic["expected"])
+            self.assertEqual(diagnostic["actual"]["abi"], "descriptor")
+            self.assertFalse(summary["sourceParsingRequired"])
+            with self._guard_crossgl_source_reads():
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "graphics ABI is not compatible",
+                ):
+                    read_package(package_dir)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_runtime_artifact_auto_uses_native_only_when_status_is_ready(
         self,
     ) -> None:
