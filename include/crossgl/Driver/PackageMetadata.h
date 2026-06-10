@@ -187,6 +187,7 @@ struct PackageReflectionTargetFeatureRecord {
 
 struct PackageMetadata {
   std::filesystem::path packagePath;
+  std::string packageFormat = "directory";
   PackageDocuments documents;
   SourceLocation manifestLocation;
   SourceLocation reflectionLocation;
@@ -224,6 +225,7 @@ struct PackageMetadata {
 struct PackageMetadataLoadOptions {
   std::string diagnosticCodePrefix = "package.metadata";
   std::string commandName = "package metadata";
+  bool allowStoredZipPackages = false;
 };
 
 PackagePathIssue packagePathIssue(std::string_view path);
@@ -235,6 +237,8 @@ bool packageNativeBinaryStatusMatchesRequirements(
     const std::optional<std::string> &nativeBinaryStatus);
 std::optional<std::string>
 effectivePackageNativeBinaryStatus(const PackageMetadata &metadata);
+std::optional<std::string>
+detectPackageMetadataFormat(const std::filesystem::path &packagePath);
 
 PackageNativeArtifactDescriptorHealth
 collectPackageNativeArtifactDescriptorHealth(const PackageMetadata &metadata);

@@ -41,6 +41,7 @@ function(crossgl_add_runtime_loader_plan_schema_test)
       -DMODE=package-runtime-plan
       -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/runtime-loader-plan-v1.schema.json
       -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+      -DSTORED_ZIP_PACKAGE_CREATOR=${CMAKE_CURRENT_FUNCTION_LIST_DIR}/CreateStoredZipPackage.py
       "-DEXPECTED_JSON_FIELDS=${CROSSGL_RUNTIME_PLAN_EXPECTED_JSON_FIELDS}"
       "-DEXPECTED_JSON_ARRAY_CONTAINS=${CROSSGL_RUNTIME_PLAN_EXPECTED_JSON_ARRAY_CONTAINS}"
       "-DEXPECTED_JSON_ARRAY_LENGTHS=${CROSSGL_RUNTIME_PLAN_EXPECTED_JSON_ARRAY_LENGTHS}")
@@ -143,7 +144,7 @@ crossgl_add_runtime_loader_plan_schema_test(
     "requiredMetadataInputs=3|diagnostics=1")
 
 crossgl_add_runtime_loader_plan_schema_test(
-  NAME cglc_package_runtime_plan_zip_unsupported_schema
+  NAME cglc_package_runtime_plan_deflated_zip_unsupported_schema
   TARGET directx
   INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/runtime-plan-directx-archive.cglb
@@ -151,6 +152,21 @@ crossgl_add_runtime_loader_plan_schema_test(
   PACKAGE_MODE auto
   EXPECTED_RESULT 1
   EXPECTED_JSON_FIELDS
-    "schemaVersion=1|kind=crossgl-runtime-loader-plan|success=false|metadataOnly=true|compilerInvocationRequired=false|deviceExecutionRequired=false|packageFormat=zip|packageTarget=null|requestedLoaderTarget=directx|targetMatchesPackage=false|requestedPackageMode=auto|selectedPackageMode=null|selectedArtifact=null|packageArtifactRequirementsSource=null|packageArtifactRequirements=null|targetLegalizationEvidenceSummary=null|reflectionSummary=null|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.runtime-plan.unsupported-format"
+    "schemaVersion=1|kind=crossgl-runtime-loader-plan|success=false|metadataOnly=true|compilerInvocationRequired=false|deviceExecutionRequired=false|packageFormat=zip|packageTarget=null|requestedLoaderTarget=directx|targetMatchesPackage=false|requestedPackageMode=auto|selectedPackageMode=null|selectedArtifact=null|packageArtifactRequirementsSource=null|packageArtifactRequirements=null|targetLegalizationEvidenceSummary=null|reflectionSummary=null|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.runtime-plan.unsupported-compression"
   EXPECTED_JSON_ARRAY_LENGTHS
     "requiredMetadataInputs=3|diagnostics=1")
+
+crossgl_add_runtime_loader_plan_schema_test(
+  NAME cglc_package_runtime_plan_stored_zip_source_package_auto_schema
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/runtime-plan-directx-stored-archive.cglb
+  PACKAGE_FORMAT stored-zip
+  PACKAGE_MODE auto
+  EXPECTED_RESULT 0
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|kind=crossgl-runtime-loader-plan|success=true|metadataOnly=true|compilerInvocationRequired=false|deviceExecutionRequired=false|packageFormat=zip|packageTarget=directx|requestedLoaderTarget=directx|targetMatchesPackage=true|requestedPackageMode=auto|selectedPackageMode=source-package|selectedArtifact.name=backendSource|selectedArtifact.path=backend/directx/StorageBufferComputeShader.hlsl|selectedArtifact.packageMode=source-package|selectedArtifact.packageRelative=true|selectedArtifact.exists=true|requiredMetadataInputs.0=manifest.json|requiredMetadataInputs.1=reflection.json|requiredMetadataInputs.2=diagnostics.json|packageArtifactRequirementsSource=manifest.packageArtifactRequirements|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|targetLegalizationEvidenceSummary.toolRequirementsPresent=true|targetLegalizationEvidenceSummary.target=directx|targetLegalizationEvidenceSummary.packageMode=source-package|targetLegalizationEvidenceSummary.requiredToolCount=2|reflectionSummary.resourceCount=1|reflectionSummary.targetResourceBindingCount=1|reflectionSummary.entryPointCount=1|reflectionSummary.workgroupSizeCount=1|reflectionSummary.threadgroupShapeSource=reflection.workgroupSizes|diagnosticCounts.error=0"
+  EXPECTED_JSON_ARRAY_CONTAINS
+    "targetLegalizationEvidenceSummary.requiredToolIds=directx.toolchain.dxc|targetLegalizationEvidenceSummary.requiredToolIds=directx.validation.dxil-validator"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "requiredMetadataInputs=3|packageArtifactRequirements.requiredPathArtifacts=2|diagnostics=0")

@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <optional>
 #include <ostream>
 #include <sstream>
@@ -130,41 +129,6 @@ bool artifactUsable(const PackageArtifactRecord *artifact) {
 bool targetSupportsSourcePackage(const PackageTargetContract &contract) {
   return contract.allowsPlannedNativeBinary ||
          contract.allowsPlannedNativeSourceEvidence;
-}
-
-bool fileHasZipSignature(const std::filesystem::path &path) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input) {
-    return false;
-  }
-  char signature[4] = {};
-  input.read(signature, sizeof(signature));
-  if (input.gcount() != sizeof(signature)) {
-    return false;
-  }
-  const auto third = static_cast<unsigned char>(signature[2]);
-  const auto fourth = static_cast<unsigned char>(signature[3]);
-  return signature[0] == 'P' && signature[1] == 'K' &&
-         ((third == 0x03 && fourth == 0x04) ||
-          (third == 0x05 && fourth == 0x06) ||
-          (third == 0x07 && fourth == 0x08));
-}
-
-std::optional<std::string>
-detectRuntimePlanPackageFormat(const std::filesystem::path &packagePath) {
-  std::error_code error;
-  if (!std::filesystem::exists(packagePath, error) || error) {
-    return std::nullopt;
-  }
-  if (std::filesystem::is_directory(packagePath, error) && !error) {
-    return "directory";
-  }
-  error.clear();
-  if (std::filesystem::is_regular_file(packagePath, error) && !error &&
-      fileHasZipSignature(packagePath)) {
-    return "zip";
-  }
-  return std::nullopt;
 }
 
 bool nativeArtifactReady(const PackageMetadata &metadata,
@@ -556,10 +520,11 @@ PackageRuntimePlanResult
 planPackageRuntimeLoader(const PackageRuntimePlanOptions &options) {
   DiagnosticEngine diagnostics;
   std::optional<std::string> packageFormat =
-      detectRuntimePlanPackageFormat(options.packagePath);
+      detectPackageMetadataFormat(options.packagePath);
   PackageMetadataLoadOptions metadataOptions;
   metadataOptions.diagnosticCodePrefix = "package.runtime-plan";
   metadataOptions.commandName = "package plan-runtime";
+  metadataOptions.allowStoredZipPackages = true;
   std::optional<PackageMetadata> metadata =
       loadPackageMetadata(options.packagePath, diagnostics, metadataOptions);
 

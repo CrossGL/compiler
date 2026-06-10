@@ -2940,6 +2940,26 @@ elseif(MODE STREQUAL "package-runtime-plan")
         "failed to create package runtime plan zip archive: "
         "${runtime_plan_archive_stderr}${runtime_plan_archive_stdout}")
     endif()
+  elseif(PACKAGE_FORMAT STREQUAL "stored-zip")
+    if(NOT DEFINED STORED_ZIP_PACKAGE_CREATOR)
+      message(FATAL_ERROR
+        "STORED_ZIP_PACKAGE_CREATOR is required for PACKAGE_FORMAT=stored-zip")
+    endif()
+    set(package_path "${OUTPUT}.stored-archive.cglb")
+    file(REMOVE "${package_path}")
+    execute_process(
+      COMMAND "${PYTHON3_EXECUTABLE}" "${STORED_ZIP_PACKAGE_CREATOR}"
+              --package-dir "${OUTPUT}"
+              --output "${package_path}"
+      RESULT_VARIABLE runtime_plan_archive_result
+      OUTPUT_VARIABLE runtime_plan_archive_stdout
+      ERROR_VARIABLE runtime_plan_archive_stderr
+    )
+    if(NOT runtime_plan_archive_result EQUAL 0)
+      message(FATAL_ERROR
+        "failed to create package runtime plan stored zip archive: "
+        "${runtime_plan_archive_stderr}${runtime_plan_archive_stdout}")
+    endif()
   elseif(NOT PACKAGE_FORMAT STREQUAL "directory")
     message(FATAL_ERROR "unsupported PACKAGE_FORMAT: ${PACKAGE_FORMAT}")
   endif()
