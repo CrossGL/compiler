@@ -19,6 +19,23 @@ add_test(NAME cglc_dump_legacy_mlir_alias_emits_pseudo_mlir
     "-DMUST_CONTAIN=crossgl.real_mlir = \"false\""
     "-DEXPECTED_STDERR_FRAGMENT=--stage mlir is a compatibility alias for --stage pseudo-mlir"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_SPECIALIZATION_CONSTANTS_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/SpecializationConstantsComputeShader.cgl)
+add_test(NAME cglc_dump_crossgl_specialization_constants
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SPECIALIZATION_CONSTANTS_COMPUTE_SHADER}
+    -DSTAGE=crossgl
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=crossgl.constant @TILE_SIZE : !crossgl.i32 = \"16\" attributes \\{folded = \"16\", specialization_id = 7\\}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_pseudo_mlir_specialization_constants
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SPECIALIZATION_CONSTANTS_COMPUTE_SHADER}
+    -DSTAGE=pseudo-mlir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=// crossgl.constant @TILE_SIZE : !crossgl.i32 = \"16\" attributes \\{folded = \"16\", specialization_id = 7\\}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_WHILE_CONTROL_FLOW_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/WhileControlFlowHIRShader.cgl)
 set(CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForIncrementDecrementHIRShader.cgl)
 set(CROSSGL_WORKGROUP_SHARED_MEMORY_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/WorkgroupSharedMemoryHIRShader.cgl)

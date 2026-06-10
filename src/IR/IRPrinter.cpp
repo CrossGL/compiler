@@ -381,6 +381,40 @@ bool isLegacyMLIRDumpStageName(std::string_view value) {
   return value == "mlir";
 }
 
+void printCrossGLConstantAttributes(std::ostream &out,
+                                    const HIRConstant &constant) {
+  if (!constant.foldedValue.has_value() &&
+      !constant.specializationId.has_value()) {
+    return;
+  }
+
+  out << " attributes {";
+  bool first = true;
+  const auto separator = [&]() {
+    if (!first) {
+      out << ", ";
+    }
+    first = false;
+  };
+  if (constant.foldedValue.has_value()) {
+    separator();
+    out << "folded = \"" << *constant.foldedValue << "\"";
+  }
+  if (constant.specializationId.has_value()) {
+    separator();
+    out << "specialization_id = " << *constant.specializationId;
+  }
+  out << "}";
+}
+
+void printCrossGLConstantOperation(std::ostream &out,
+                                   const HIRConstant &constant) {
+  out << "crossgl.constant @" << constant.name << " : "
+      << typeToIR(constant.type) << " = \""
+      << formatHIRExpression(constant.value) << "\"";
+  printCrossGLConstantAttributes(out, constant);
+}
+
 std::string printHIR(const HIRModule &module) {
   std::ostringstream out;
   out << "module " << module.name << "\n";
@@ -464,12 +498,8 @@ std::string printCrossGLIR(const HIRModule &module) {
     out << "  }\n";
   }
   for (const HIRConstant &constant : module.constants) {
-    out << "  crossgl.constant @" << constant.name << " : "
-        << typeToIR(constant.type) << " = \""
-        << formatHIRExpression(constant.value) << "\"";
-    if (constant.foldedValue.has_value()) {
-      out << " attributes {folded = \"" << *constant.foldedValue << "\"}";
-    }
+    out << "  ";
+    printCrossGLConstantOperation(out, constant);
     out << "\n";
   }
   for (const HIRStage &stage : module.stages) {
@@ -540,6 +570,11 @@ std::string printPseudoMLIR(const HIRModule &module) {
          "\"false\"} {\n";
   for (const HIRStruct &structure : module.structs) {
     out << "  // crossgl.struct @" << structure.name << "\n";
+  }
+  for (const HIRConstant &constant : module.constants) {
+    out << "  // ";
+    printCrossGLConstantOperation(out, constant);
+    out << "\n";
   }
   for (const HIRStage &stage : module.stages) {
     for (const HIRFunction &function : stage.functions) {

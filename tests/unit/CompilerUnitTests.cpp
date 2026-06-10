@@ -8614,6 +8614,23 @@ shader SpecializationConstantsShader {
   expect(hirText.find("const int WORKGROUP_SCALE = 4 folded 4 "
                       "specialization_id 7") != std::string::npos,
          "HIR printer exposes specialization constant ids");
+
+  const std::string crossglText = crossgl::printCrossGLIR(*hir);
+  expect(crossglText.find("crossgl.constant @WORKGROUP_SCALE") !=
+             std::string::npos,
+         "CrossGL debug IR prints specialization constants");
+  expect(crossglText.find("attributes {folded = \"4\", "
+                          "specialization_id = 7}") != std::string::npos,
+         "CrossGL debug IR preserves specialization constant ids");
+  expect(crossglText.find("crossgl.constant @BASE_GAIN") != std::string::npos,
+         "CrossGL debug IR keeps ordinary constants");
+
+  const std::string pseudoMLIRText = crossgl::printPseudoMLIR(*hir);
+  expect(pseudoMLIRText.find("// crossgl.constant @WORKGROUP_SCALE") !=
+             std::string::npos,
+         "pseudo-MLIR debug projection carries specialization constants");
+  expect(pseudoMLIRText.find("specialization_id = 7") != std::string::npos,
+         "pseudo-MLIR debug projection preserves specialization ids");
 }
 
 void testSpecializationConstantsDiagnostics() {
