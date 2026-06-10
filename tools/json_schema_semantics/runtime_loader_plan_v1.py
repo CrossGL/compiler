@@ -173,7 +173,10 @@ def validate_target_legalization_summary(errors, instance):
             instance["packageTarget"],
             "$.packageTarget",
         )
-        if summary["packageMode"] is not None and instance["packageArtifactRequirements"]:
+        if (
+            summary["packageMode"] is not None
+            and instance["packageArtifactRequirements"]
+        ):
             add_equal_error(
                 errors,
                 "$.targetLegalizationEvidenceSummary.packageMode",
