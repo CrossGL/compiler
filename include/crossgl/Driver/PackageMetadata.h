@@ -155,6 +155,7 @@ struct PackageReflectionResourceRecord {
   std::optional<std::string> addressSpace;
   std::optional<std::string> storageImageFormat;
   std::optional<std::string> storageImageAccess;
+  std::optional<std::uintmax_t> arrayElementCount;
   std::string arrayDimensionsJson = "[]";
 };
 
@@ -166,17 +167,32 @@ struct PackageReflectionTargetResourceBindingRecord {
   std::string name;
   std::string kind;
   std::string sourceType;
+  std::optional<std::string> bindingClass;
+  std::optional<std::string> descriptorType;
   std::optional<std::uintmax_t> set;
   std::optional<std::uintmax_t> binding;
+  std::optional<std::uintmax_t> argumentIndex;
   std::optional<std::string> addressSpace;
   std::optional<std::string> storageImageFormat;
   std::optional<std::string> storageImageAccess;
   std::optional<std::uintmax_t> arrayElementCount;
+  std::optional<SourceLocation> evidenceIdLocation;
+  std::optional<std::string> evidenceId;
+  std::string abiJson = "null";
   std::string arrayDimensionsJson = "[]";
+};
+
+struct PackageReflectionTargetFeatureRecord {
+  SourceLocation location;
+  std::string target;
+  std::string kind;
+  std::string name;
+  std::vector<std::string> evidenceIds;
 };
 
 struct PackageMetadata {
   std::filesystem::path packagePath;
+  std::string packageFormat = "directory";
   PackageDocuments documents;
   SourceLocation manifestLocation;
   SourceLocation reflectionLocation;
@@ -187,6 +203,7 @@ struct PackageMetadata {
   std::vector<PackageReflectionResourceRecord> reflectionResources;
   std::vector<PackageReflectionTargetResourceBindingRecord>
       reflectionTargetResourceBindings;
+  std::vector<PackageReflectionTargetFeatureRecord> reflectionTargetFeatures;
   std::optional<PackageArtifactRequirementsRecord> artifactRequirements;
   std::optional<PackageTargetLegalizationToolRequirementsRecord>
       targetLegalizationToolRequirements;
@@ -205,6 +222,7 @@ struct PackageMetadata {
   bool hirSourceMapArtifactPresent = false;
   bool debugArtifactsPresent = false;
   bool sourceRemapArtifactPresent = false;
+  bool backendSourceMapArtifactPresent = false;
   bool nativeProfileArtifactPresent = false;
   bool nativeArtifactDescriptorArtifactPresent = false;
 };
@@ -212,6 +230,7 @@ struct PackageMetadata {
 struct PackageMetadataLoadOptions {
   std::string diagnosticCodePrefix = "package.metadata";
   std::string commandName = "package metadata";
+  bool allowStoredZipPackages = false;
 };
 
 PackagePathIssue packagePathIssue(std::string_view path);
@@ -223,6 +242,8 @@ bool packageNativeBinaryStatusMatchesRequirements(
     const std::optional<std::string> &nativeBinaryStatus);
 std::optional<std::string>
 effectivePackageNativeBinaryStatus(const PackageMetadata &metadata);
+std::optional<std::string>
+detectPackageMetadataFormat(const std::filesystem::path &packagePath);
 
 PackageNativeArtifactDescriptorHealth
 collectPackageNativeArtifactDescriptorHealth(const PackageMetadata &metadata);

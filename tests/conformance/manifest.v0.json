@@ -1876,6 +1876,40 @@
       "notes": "Covers nonuniform storage-image descriptor-array HIR load/store paths."
     },
     {
+      "id": "storage-images.nonuniform-descriptor-arrays-metal-2d-array-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "metal",
+      "fixture": "tests/metal/fixtures/MetalStorageImage2DArrayNonUniformDescriptorArrayShader.cgl",
+      "fixture_sha256": "ca3b0d7413cf0b56310acb6ff928716a9081b91fc2acdd4547c084fa67aad885",
+      "evidence_tests": [
+        "cglc_build_metal_storage_image_2d_array_nonuniform_descriptor_array_native"
+      ],
+      "auxiliary_evidence_tests": [
+        "cglc_dump_backend_metal_storage_image_2d_array_nonuniform_descriptor_array"
+      ],
+      "notes": "Covers Metal native-package lowering and backend dump evidence for nonuniform 2D-array storage-image descriptor arrays."
+    },
+    {
+      "id": "storage-images.nonuniform-descriptor-arrays-metal-2d-native",
+      "feature_group": "storage-images",
+      "language_category": "image-operations",
+      "status": "accepted",
+      "command_profile": "native-package-build",
+      "target": "metal",
+      "fixture": "tests/metal/fixtures/MetalStorageImage2DNonUniformDescriptorArrayShader.cgl",
+      "fixture_sha256": "fa09483c90a4d8e3f27f062050a2342b98113cec1b950f32602c3d05045adf3d",
+      "evidence_tests": [
+        "cglc_build_metal_storage_image_2d_nonuniform_descriptor_array_native"
+      ],
+      "auxiliary_evidence_tests": [
+        "cglc_dump_backend_metal_storage_image_2d_nonuniform_descriptor_array"
+      ],
+      "notes": "Covers Metal native-package lowering and backend dump evidence for nonuniform 2D storage-image descriptor arrays."
+    },
+    {
       "id": "texture-sampling.array-compare-descriptor-array-lod-opengl-source-package",
       "feature_group": "texture-sampling",
       "language_category": "texture-operations",

@@ -7,6 +7,10 @@ from package_target_contracts import (
     PACKAGE_TARGETS_REQUIRING_NATIVE_STATUS,
     TARGET_REQUIRED_PATH_ARTIFACTS,
 )
+from .common import (
+    NATIVE_ARTIFACT_DESCRIPTOR,
+    is_source_free_native_requirements,
+)
 
 
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -121,7 +125,9 @@ def validate_package_artifact_requirements(errors, target, manifest):
             "requires allowsPlannedNativeBinary"
         )
     contract = package_target_contract(target)
-    if contract is not None:
+    if contract is not None and not is_source_free_native_requirements(
+        target, requirements
+    ):
         expected_mode = (
             "source-package" if contract.allows_planned_native_binary else "native"
         )
@@ -295,6 +301,19 @@ def validate_target_artifacts(errors, target, artifacts, requirements):
     for name in requirements["requiredPathArtifacts"]:
         if name not in artifacts:
             errors.append(f"$.artifacts.{name}: {target} packages require {name}")
+
+    if is_source_free_native_requirements(target, requirements):
+        if NATIVE_ARTIFACT_DESCRIPTOR not in artifacts:
+            errors.append(
+                "$.artifacts.nativeArtifactDescriptor: source-free native "
+                "requirements require descriptor artifact evidence"
+            )
+        for name in ("backendSource", "backendAssembly", "intermediate"):
+            if name in artifacts:
+                errors.append(
+                    f"$.artifacts.{name}: source-free native requirements must "
+                    "not declare generated source artifacts"
+                )
 
     if (
         "nativeBinaryStatus" in artifacts

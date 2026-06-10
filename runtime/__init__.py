@@ -3,7 +3,9 @@
 from .loader import (
     LoaderArtifactPlan,
     RuntimeLoaderPlan,
+    SourceFreeRuntimeArtifactHandoff,
     read_loader_plan,
+    read_runtime_loader_plan_contract,
 )
 from .package_reader import (
     Artifact,
@@ -29,9 +31,11 @@ __all__ = [
     "RuntimeArtifactSelection",
     "RuntimeLoaderPlan",
     "RuntimePackage",
+    "SourceFreeRuntimeArtifactHandoff",
     "TargetArtifactContract",
     "read_compatibility_report",
     "read_loader_plan",
+    "read_runtime_loader_plan_contract",
     "read_package",
     "select_runtime_artifact",
 ]

@@ -30,6 +30,16 @@ bool containsString(const std::vector<std::string> &values,
   return std::find(values.begin(), values.end(), value) != values.end();
 }
 
+bool isSourceFreeNativePackageArtifactRequirements(
+    const TargetPackageArtifactRequirements &requirements) {
+  return requirements.packageMode == TargetLegalizationPackageMode::Native &&
+         requirements.requiredPathArtifactKeys.size() == 1 &&
+         requirements.requiredPathArtifactKeys.front() == "nativeBinary" &&
+         !requirements.requiresNativeBinaryStatus &&
+         !requirements.allowsPlannedNativeBinary &&
+         !requirements.allowsPlannedNativeSourceEvidence;
+}
+
 bool sameStringVector(const std::vector<std::string> &lhs,
                       const std::vector<std::string> &rhs) {
   return lhs.size() == rhs.size() &&
@@ -750,7 +760,8 @@ v0ResourceBindingEvidenceIds(const TargetLegalizationContract &contract) {
 bool isABIFactKind(std::string_view kind) {
   return kind == "addressingModel" || kind == "backend" ||
          kind == "binaryFormat" || kind == "capability" ||
-         kind == "memoryModel" || kind == "sourceLanguage" ||
+         kind == "extension" || kind == "memoryModel" ||
+         kind == "sourceLanguage" ||
          kind == "targetEnv" || kind == "toolchain" || kind == "validation";
 }
 
@@ -770,6 +781,7 @@ bool isNativePackageToolRequirementId(TargetKind target,
            toolId == "vulkan.validation.spirv-val";
   case TargetKind::DirectX:
   case TargetKind::OpenGL:
+  case TargetKind::WGSL:
   case TargetKind::Auto:
     return false;
   }
@@ -867,6 +879,8 @@ predicateDiagnosticsForDecision(const HIRModule &module,
     if (!decision.sourcePackageSupported) {
       (void)openGLSourcePackageSupported(module, diagnostics);
     }
+    break;
+  case TargetKind::WGSL:
     break;
   case TargetKind::Metal:
     if (decision.nativeImplemented) {
@@ -1316,6 +1330,8 @@ packageArtifactRequirementsForDecision(const TargetPackageDecision &decision,
     requirements.allowsPlannedNativeBinary = true;
     requirements.allowsPlannedNativeSourceEvidence = true;
     break;
+  case TargetKind::WGSL:
+    break;
   case TargetKind::Auto:
     break;
   }
@@ -1452,6 +1468,7 @@ void appendNativePackageToolRequirements(
     return;
   case TargetKind::OpenGL:
   case TargetKind::Auto:
+  case TargetKind::WGSL:
     return;
   }
 }
@@ -2069,6 +2086,8 @@ expectedPackageArtifactKeys(TargetKind target,
     return {"backendSource", "nativeBinary"};
   case TargetKind::OpenGL:
     return {"backendSource", "nativeBinary"};
+  case TargetKind::WGSL:
+    return {};
   case TargetKind::Auto:
     return {};
   }
@@ -2533,6 +2552,7 @@ TargetSourcePackageDescriptorPolicy targetSourcePackageDescriptorPolicy(
   case TargetKind::Auto:
   case TargetKind::Metal:
   case TargetKind::Vulkan:
+  case TargetKind::WGSL:
     break;
   }
 
@@ -2623,18 +2643,21 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
       !containsString(requirements.requiredPathArtifactKeys, "nativeBinary")) {
     return policy;
   }
+  const bool sourceFreeNativePackage =
+      isSourceFreeNativePackageArtifactRequirements(requirements);
 
   switch (resolvedTarget) {
   case TargetKind::Metal:
-    if (!containsString(requirements.requiredPathArtifactKeys,
-                        "backendSource") ||
-        !containsString(requirements.requiredPathArtifactKeys,
-                        "intermediate")) {
+    if (!sourceFreeNativePackage &&
+        (!containsString(requirements.requiredPathArtifactKeys,
+                         "backendSource") ||
+         !containsString(requirements.requiredPathArtifactKeys,
+                         "intermediate"))) {
       return policy;
     }
     policy.supported = true;
     policy.binaryKind = "metal.metallib";
-    policy.sourceArtifactKey = "backendSource";
+    policy.sourceArtifactKey = sourceFreeNativePackage ? "" : "backendSource";
     policy.nativeBinaryArtifactKey = "nativeBinary";
     policy.descriptorArtifactKey = "nativeArtifactDescriptor";
     policy.profileArtifactKey = "nativeProfile";
@@ -2654,13 +2677,14 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
                                       "xcrun", "metallib", "xcrun-metallib"}};
     break;
   case TargetKind::Vulkan:
-    if (!containsString(requirements.requiredPathArtifactKeys,
+    if (!sourceFreeNativePackage &&
+        !containsString(requirements.requiredPathArtifactKeys,
                         "backendAssembly")) {
       return policy;
     }
     policy.supported = true;
     policy.binaryKind = "vulkan.spirv-module";
-    policy.sourceArtifactKey = "backendAssembly";
+    policy.sourceArtifactKey = sourceFreeNativePackage ? "" : "backendAssembly";
     policy.nativeBinaryArtifactKey = "nativeBinary";
     policy.descriptorArtifactKey = "nativeArtifactDescriptor";
     policy.profileArtifactKey = "nativeProfile";
@@ -2673,7 +2697,7 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
     policy.profileApi = "vulkan";
     policy.profileName = "vulkan-prototype";
     policy.vulkanVersion = "1.2";
-    policy.spirvVersion = "1.0";
+    policy.spirvVersion = kVulkanNativeSpirvVersion;
     policy.generatorName = "CrossGL Vulkan prototype backend";
     policy.binaryFormat = "SPIR-V";
     policy.assemblyFormat = "SPIR-V assembly";
@@ -2686,7 +2710,7 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
   case TargetKind::DirectX:
     policy.supported = true;
     policy.binaryKind = "directx.dxil";
-    policy.sourceArtifactKey = "backendSource";
+    policy.sourceArtifactKey = sourceFreeNativePackage ? "" : "backendSource";
     policy.nativeBinaryArtifactKey = "nativeBinary";
     policy.descriptorArtifactKey = "nativeArtifactDescriptor";
     policy.validationStatus = "not-run";
@@ -2703,6 +2727,7 @@ TargetNativePackageDescriptorPolicy targetNativePackageDescriptorPolicy(
     break;
   case TargetKind::OpenGL:
   case TargetKind::Auto:
+  case TargetKind::WGSL:
     return policy;
   }
   policy.optimizationEvidenceModeName =

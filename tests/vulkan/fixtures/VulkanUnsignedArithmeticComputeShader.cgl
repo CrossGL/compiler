@@ -1,0 +1,21 @@
+shader VulkanUnsignedArithmeticComputeShader {
+    compute {
+        layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+        layout(set = 0, binding = 0) buffer uint* values;
+
+        void main() {
+            uint inputValue = values[0];
+            uint bias = uint(3.0);
+            uint sum = inputValue + bias;
+            uint difference = sum - uint(1.0);
+            uint product = difference * uint(2.0);
+            uint quotient = product / uint(2.0);
+            uint remainder = quotient % uint(5.0);
+            bool belowBias = remainder < bias;
+            bool atLeastRemainder = quotient >= remainder;
+            values[1] = belowBias ? quotient : remainder;
+            values[2] = atLeastRemainder ? sum : difference;
+            return;
+        }
+    }
+}

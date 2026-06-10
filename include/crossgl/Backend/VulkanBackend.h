@@ -15,6 +15,7 @@ namespace crossgl {
 struct TargetLegalizationResourceBindingFacts;
 
 inline constexpr char kVulkanNativeTargetEnv[] = "vulkan1.2";
+inline constexpr char kVulkanNativeSpirvVersion[] = "1.5";
 
 struct VulkanSPIRVImport {
   std::string resultId;

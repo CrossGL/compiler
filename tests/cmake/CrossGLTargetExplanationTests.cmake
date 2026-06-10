@@ -87,7 +87,7 @@ add_test(NAME cglc_explain_targets_raw_hir_backend_input_rejected
     -P ${CROSSGL_EXPECT_EXPLAIN_TARGETS_RAW_HIR_FAILURE})
 
 foreach(CROSSGL_TARGET_RAW_HIR_BACKEND_INPUT_TARGET
-        metal vulkan directx opengl)
+        metal vulkan directx opengl wgsl)
   add_test(
     NAME cglc_raw_hir_backend_input_${CROSSGL_TARGET_RAW_HIR_BACKEND_INPUT_TARGET}_no_package_planned_failure
     COMMAND ${CMAKE_COMMAND}
@@ -111,7 +111,22 @@ add_test(NAME cglc_explain_targets_graphics_package_decisions
     -DMODE=explain-targets
     "-DEXPECTED_JSON_FIELDS=schemaVersion=1|module=SimpleShader|defaultTarget=${CROSSGL_GRAPHICS_DEFAULT_TARGET}|buildableTargetCount=4|recommendedTarget=${CROSSGL_GRAPHICS_AUTO_SELECTED_TARGET}|recommendedPackageMode=native"
     "-DEXPECTED_TARGET_FIELDS=metal.nativeImplemented=true|metal.sourcePackageSupported=false|metal.packageBuildSupported=true|metal.supportStatus=native|metal.legalizationState=legalized|metal.packageMode=native|metal.packageDecisionProvenance=native-package-available|metal.packageDecisionReason=native-package-available|metal.packageRankScore=0|metal.missingCapabilityCount=0|metal.requiredToolCount=2|metal.missingToolCount=0|metal.optionalNativeToolMissing=false|metal.optionalNativeToolStatus=not-required|vulkan.nativeImplemented=true|vulkan.sourcePackageSupported=false|vulkan.packageBuildSupported=true|vulkan.supportStatus=native|vulkan.legalizationState=legalized|vulkan.packageMode=native|vulkan.packageDecisionProvenance=native-package-available|vulkan.packageDecisionReason=native-package-available|vulkan.packageRankScore=0|vulkan.missingCapabilityCount=0|vulkan.requiredToolCount=2|vulkan.missingToolCount=0|vulkan.optionalNativeToolMissing=false|vulkan.optionalNativeToolStatus=not-required|directx.nativeImplemented=true|directx.sourcePackageSupported=true|directx.packageBuildSupported=true|directx.supportStatus=source-package|directx.legalizationState=legalized|directx.packageMode=source-package|directx.packageDecisionProvenance=source-package-only|directx.packageDecisionReason=source-package-available|directx.packageRankScore=1|directx.missingCapabilityCount=3|directx.requiredToolCount=2|directx.missingToolCount=2|directx.optionalNativeToolMissing=true|directx.optionalNativeToolStatus=missing|opengl.nativeImplemented=false|opengl.sourcePackageSupported=true|opengl.packageBuildSupported=true|opengl.supportStatus=source-package|opengl.legalizationState=legalized|opengl.packageMode=source-package|opengl.packageDecisionProvenance=source-package-only|opengl.packageDecisionReason=source-package-available|opengl.packageRankScore=1|opengl.missingCapabilityCount=3|opengl.requiredToolCount=2|opengl.missingToolCount=2|opengl.optionalNativeToolMissing=true|opengl.optionalNativeToolStatus=missing"
-    "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.stage.vertex-shader|metal.requiredCapabilities=metal.stage.fragment-shader|metal.requiredToolIds=metal.toolchain.xcrun-metal|metal.toolRequirementEvidenceIds=target-legalization.v1.metal.tool-requirements.present|vulkan.requiredCapabilities=vulkan.stage.vertex-shader|vulkan.requiredCapabilities=vulkan.stage.fragment-shader|vulkan.requiredToolIds=vulkan.validation.spirv-val|directx.requiredCapabilities=directx.stage.vertex-shader|directx.requiredCapabilities=directx.stage.fragment-shader|directx.missingCapabilities=directx.backend.native-dxil-package|directx.legalizationCoreEvidenceIds=target-legalization.v1.directx.package-mode.source-package|directx.requiredToolIds=directx.toolchain.dxc|directx.missingToolIds=directx.validation.dxil-validator|directx.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|opengl.requiredCapabilities=opengl.stage.vertex-shader|opengl.requiredCapabilities=opengl.stage.fragment-shader|opengl.missingCapabilities=opengl.backend.native-glsl-package|opengl.requiredToolIds=opengl.toolchain.opengl-driver|opengl.missingToolIds=opengl.validation.glsl-program-validation"
+    "-DEXPECTED_TARGET_ARRAY_CONTAINS=metal.requiredCapabilities=metal.stage.vertex-shader|metal.requiredCapabilities=metal.stage.fragment-shader|metal.requiredToolIds=metal.toolchain.xcrun-metal|metal.toolRequirementEvidenceIds=target-legalization.v1.metal.tool-requirements.present|metal.packageArtifactRequirementEvidenceIds=target-legalization.v1.metal.package-artifact.required.nativeBinary|vulkan.requiredCapabilities=vulkan.stage.vertex-shader|vulkan.requiredCapabilities=vulkan.stage.fragment-shader|vulkan.requiredToolIds=vulkan.validation.spirv-val|vulkan.packageArtifactRequirementEvidenceIds=target-legalization.v1.vulkan.package-artifact.required.backendAssembly|directx.requiredCapabilities=directx.stage.vertex-shader|directx.requiredCapabilities=directx.stage.fragment-shader|directx.missingCapabilities=directx.backend.native-dxil-package|directx.legalizationCoreEvidenceIds=target-legalization.v1.directx.package-mode.source-package|directx.requiredToolIds=directx.toolchain.dxc|directx.missingToolIds=directx.validation.dxil-validator|directx.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|directx.packageArtifactRequirementEvidenceIds=target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed|opengl.requiredCapabilities=opengl.stage.vertex-shader|opengl.requiredCapabilities=opengl.stage.fragment-shader|opengl.missingCapabilities=opengl.backend.native-glsl-package|opengl.requiredToolIds=opengl.toolchain.opengl-driver|opengl.missingToolIds=opengl.validation.glsl-program-validation|opengl.packageArtifactRequirementEvidenceIds=target-legalization.v1.opengl.package-artifact.planned-native-source-evidence.allowed"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+
+add_test(NAME cglc_build_wgsl_no_package_unsupported_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SIMPLE_SHADER}
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-wgsl-unsupported.cglb
+    -DTARGET=wgsl
+    -DEXPECT_NO_OUTPUT_PACKAGE=ON
+    -DMODE=planned-build-failure
+    -DEXPECTED_DIAGNOSTIC=target.unsupported
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=target=wgsl|code=target.unsupported|severity=error"
+    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=wgsl.backend.wgsl-lowering|missingCapabilities=wgsl.sourceLanguage.WGSL"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=target 'wgsl' cannot build a package for this module|message=TargetLegalizationResult: state=rejected|message=provenance=unsupported"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 
 crossgl_add_python_expect_test(
@@ -123,7 +138,7 @@ crossgl_add_python_expect_test(
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/target-explanation-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     "-DEXPECTED_JSON_FIELDS=schemaVersion=1|module=SimpleShader|defaultTarget=${CROSSGL_GRAPHICS_DEFAULT_TARGET}|buildableTargetCount=4|recommendedTarget=${CROSSGL_GRAPHICS_AUTO_SELECTED_TARGET}|recommendedPackageMode=native"
-    "-DEXPECTED_JSON_ARRAY_LENGTHS=targets=4"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=targets=5"
     "-DEXPECTED_TARGET_FIELDS=metal.supportStatus=native|metal.legalizationState=legalized|metal.packageDecisionProvenance=native-package-available|metal.requiredCapabilityCount=9|metal.missingCapabilityCount=0|metal.requiredToolCount=2|metal.missingToolCount=0|metal.optionalNativeToolStatus=not-required|vulkan.supportStatus=native|vulkan.legalizationState=legalized|vulkan.packageDecisionProvenance=native-package-available|vulkan.requiredCapabilityCount=9|vulkan.missingCapabilityCount=0|vulkan.requiredToolCount=2|vulkan.missingToolCount=0|vulkan.optionalNativeToolStatus=not-required|directx.supportStatus=source-package|directx.legalizationState=legalized|directx.packageDecisionProvenance=source-package-only|directx.requiredCapabilityCount=8|directx.missingCapabilityCount=3|directx.requiredToolCount=2|directx.missingToolCount=2|directx.optionalNativeToolStatus=missing|opengl.supportStatus=source-package|opengl.legalizationState=legalized|opengl.packageDecisionProvenance=source-package-only|opengl.requiredCapabilityCount=8|opengl.missingCapabilityCount=3|opengl.requiredToolCount=2|opengl.missingToolCount=2|opengl.optionalNativeToolStatus=missing")
 
 add_test(NAME cglc_target_decision_graphics_auto_recommends_native_default
@@ -134,8 +149,8 @@ add_test(NAME cglc_target_decision_graphics_auto_recommends_native_default
     -DSTAGE=debug
     -DMODE=dump-stage
     "-DEXPECTED_JSON_FIELDS=schemaVersion=11|targetDecision.requestedTarget=auto|targetDecision.selectedTarget=${CROSSGL_GRAPHICS_AUTO_SELECTED_TARGET}|targetDecision.selectionReason=${CROSSGL_GRAPHICS_AUTO_SELECTION_REASON}|targetDecision.selectedTargetNativeImplemented=true|targetDecision.selectedTargetSourcePackageSupported=false|targetDecision.selectedTargetPackageBuildSupported=true|targetDecision.selectedTargetPackageMode=native|targetDecision.selectedTargetMissingCapabilityCount=0|targetDecision.selectedTargetDiagnosticCount=0|targetDecision.fallbackTargetRecordCount=3"
-    "-DEXPECTED_JSON_ARRAY_LENGTHS=targetDecision.diagnostics=0|targetDecision.nonViableTargets=0"
-    "-DEXPECTED_JSON_ARRAY_CONTAINS=targetDecision.viableTargets=metal|targetDecision.viableTargets=vulkan|targetDecision.viableTargets=directx|targetDecision.viableTargets=opengl|targetDecision.fallbackTargets=${CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET}"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=targetDecision.diagnostics=0|targetDecision.nonViableTargets=1"
+    "-DEXPECTED_JSON_ARRAY_CONTAINS=targetDecision.viableTargets=metal|targetDecision.viableTargets=vulkan|targetDecision.viableTargets=directx|targetDecision.viableTargets=opengl|targetDecision.nonViableTargets=wgsl|targetDecision.fallbackTargets=${CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET}"
     -DTARGET_EXPLANATION_ROOT=targetDecision
     -DTARGET_RECORD_ARRAY_FIELD=fallbackTargetRecords
     "-DEXPECTED_TARGET_FIELDS=${CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET}.packageMode=native|${CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET}.packageBuildSupported=true|${CROSSGL_GRAPHICS_AUTO_FALLBACK_NATIVE_TARGET}.missingCapabilityCount=0|directx.packageMode=source-package|directx.packageBuildSupported=true|directx.missingCapabilityCount=3|opengl.packageMode=source-package|opengl.packageBuildSupported=true|opengl.missingCapabilityCount=3"
@@ -153,7 +168,7 @@ crossgl_add_python_expect_test(
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/debug-metadata-v11.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     "-DEXPECTED_JSON_FIELDS=schemaVersion=11|targetCapabilities.defaultTarget=${CROSSGL_GRAPHICS_DEFAULT_TARGET}|targetDecision.requestedTarget=auto|targetDecision.selectedTarget=${CROSSGL_GRAPHICS_AUTO_SELECTED_TARGET}|targetDecision.selectionReason=${CROSSGL_GRAPHICS_AUTO_SELECTION_REASON}|targetDecision.selectedTargetMissingCapabilityCount=0|targetDecision.selectedTargetDiagnosticCount=0"
-    "-DEXPECTED_JSON_ARRAY_LENGTHS=targetCapabilities.summaries=4|targetDecision.selectedTargetMissingCapabilityGroups=0|targetDecision.diagnostics=0"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=targetCapabilities.summaries=5|targetDecision.selectedTargetMissingCapabilityGroups=0|targetDecision.diagnostics=0"
     "-DEXPECTED_JSON_ARRAY_CONTAINS=targetDecision.selectedTargetLegalizationCoreEvidenceIds=target-legalization.v1.${CROSSGL_GRAPHICS_AUTO_SELECTED_TARGET}.decision"
     -DTARGET_EXPLANATION_ROOT=targetCapabilities
     -DTARGET_RECORD_ARRAY_FIELD=summaries
@@ -168,8 +183,8 @@ add_test(NAME cglc_target_decision_graphics_source_package_targets
     -DSTAGE=debug
     -DMODE=dump-stage
     "-DEXPECTED_JSON_FIELDS=schemaVersion=11|targetDecision.requestedTarget=opengl|targetDecision.selectedTarget=opengl|targetDecision.selectionReason=explicit-target|targetDecision.selectedTargetNativeImplemented=false|targetDecision.selectedTargetSourcePackageSupported=true|targetDecision.selectedTargetPackageBuildSupported=true|targetDecision.selectedTargetPackageMode=source-package|targetDecision.selectedTargetMissingCapabilityCount=3|targetDecision.selectedTargetDiagnosticCount=0|targetDecision.fallbackTargetRecordCount=3"
-    "-DEXPECTED_JSON_ARRAY_LENGTHS=targetDecision.diagnostics=0|targetDecision.nonViableTargets=0"
-    "-DEXPECTED_JSON_ARRAY_CONTAINS=targetDecision.viableTargets=metal|targetDecision.viableTargets=vulkan|targetDecision.viableTargets=directx|targetDecision.viableTargets=opengl|targetDecision.selectedTargetMissingCapabilities=opengl.backend.native-glsl-package|targetDecision.selectedTargetMissingCapabilities=opengl.toolchain.opengl-driver|targetDecision.selectedTargetMissingCapabilities=opengl.validation.glsl-program-validation"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=targetDecision.diagnostics=0|targetDecision.nonViableTargets=1"
+    "-DEXPECTED_JSON_ARRAY_CONTAINS=targetDecision.viableTargets=metal|targetDecision.viableTargets=vulkan|targetDecision.viableTargets=directx|targetDecision.viableTargets=opengl|targetDecision.nonViableTargets=wgsl|targetDecision.selectedTargetMissingCapabilities=opengl.backend.native-glsl-package|targetDecision.selectedTargetMissingCapabilities=opengl.toolchain.opengl-driver|targetDecision.selectedTargetMissingCapabilities=opengl.validation.glsl-program-validation"
     -DTARGET_EXPLANATION_ROOT=targetDecision
     -DTARGET_RECORD_ARRAY_FIELD=fallbackTargetRecords
     "-DEXPECTED_TARGET_FIELDS=metal.packageMode=native|metal.packageBuildSupported=true|vulkan.packageMode=native|vulkan.packageBuildSupported=true|directx.packageMode=source-package|directx.packageBuildSupported=true|directx.missingCapabilityCount=3"

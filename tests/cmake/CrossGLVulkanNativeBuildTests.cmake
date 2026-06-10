@@ -1757,7 +1757,7 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       -DTARGET=vulkan
       -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-package-inspect.cglb
       -DMODE=package-inspect-source-package
-      "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=StorageBufferComputeShader|summary.target=vulkan|summary.artifactCount=7|summary.debugArtifactsPresent=true|vulkanNativeProfile.health=ok|vulkanNativeProfile.spirvVersion=1.0|vulkanNativeProfile.nativeProfileExists=true|rootFiles.0.name=manifest|rootFiles.0.exists=true|rootFiles.1.name=reflection|rootFiles.1.exists=true|rootFiles.2.name=diagnostics|rootFiles.2.exists=true|artifacts.0.name=backendAssembly|artifacts.0.path=backend/vulkan/StorageBufferComputeShader.spvasm|artifacts.0.exists=true|artifacts.1.name=nativeBinary|artifacts.1.path=backend/vulkan/StorageBufferComputeShader.spv|artifacts.1.exists=true|artifacts.2.name=nativeProfile|artifacts.2.path=backend/vulkan/StorageBufferComputeShader.profile.json|artifacts.2.exists=true|artifacts.3.name=debugMetadata|artifacts.3.exists=true|artifacts.4.name=hirSourceMap|artifacts.4.exists=true|artifacts.5.name=nativeArtifactDescriptor|artifacts.5.path=backend/vulkan/StorageBufferComputeShader.native-artifact.json|artifacts.5.exists=true|manifest.target=vulkan|manifest.module=StorageBufferComputeShader|manifest.artifacts.nativeArtifactDescriptor=backend/vulkan/StorageBufferComputeShader.native-artifact.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=vulkan|nativeArtifactDescriptor.binaryKind=vulkan.spirv-module|nativeArtifactDescriptor.sourcePath=backend/vulkan/StorageBufferComputeShader.spvasm|nativeArtifactDescriptor.artifactPath=backend/vulkan/StorageBufferComputeShader.spv|nativeArtifactDescriptor.validationStatus=validated|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|reflection.target=vulkan|reflection.module=StorageBufferComputeShader|reflection.nativeBinary=backend/vulkan/StorageBufferComputeShader.spv|diagnostics.schemaVersion=1"
+      "-DEXPECTED_JSON_FIELDS=schemaVersion=1|packageFormat=directory|summary.module=StorageBufferComputeShader|summary.target=vulkan|summary.artifactCount=7|summary.debugArtifactsPresent=true|vulkanNativeProfile.health=ok|vulkanNativeProfile.spirvVersion=1.5|vulkanNativeProfile.nativeProfileExists=true|rootFiles.0.name=manifest|rootFiles.0.exists=true|rootFiles.1.name=reflection|rootFiles.1.exists=true|rootFiles.2.name=diagnostics|rootFiles.2.exists=true|artifacts.0.name=backendAssembly|artifacts.0.path=backend/vulkan/StorageBufferComputeShader.spvasm|artifacts.0.exists=true|artifacts.1.name=nativeBinary|artifacts.1.path=backend/vulkan/StorageBufferComputeShader.spv|artifacts.1.exists=true|artifacts.2.name=nativeProfile|artifacts.2.path=backend/vulkan/StorageBufferComputeShader.profile.json|artifacts.2.exists=true|artifacts.3.name=debugMetadata|artifacts.3.exists=true|artifacts.4.name=hirSourceMap|artifacts.4.exists=true|artifacts.5.name=nativeArtifactDescriptor|artifacts.5.path=backend/vulkan/StorageBufferComputeShader.native-artifact.json|artifacts.5.exists=true|manifest.target=vulkan|manifest.module=StorageBufferComputeShader|manifest.artifacts.nativeArtifactDescriptor=backend/vulkan/StorageBufferComputeShader.native-artifact.json|nativeArtifactDescriptor.health=ok|nativeArtifactDescriptor.target=vulkan|nativeArtifactDescriptor.binaryKind=vulkan.spirv-module|nativeArtifactDescriptor.sourcePath=backend/vulkan/StorageBufferComputeShader.spvasm|nativeArtifactDescriptor.artifactPath=backend/vulkan/StorageBufferComputeShader.spv|nativeArtifactDescriptor.validationStatus=validated|nativeArtifactDescriptor.checks.sourceHashMatchesFile=true|nativeArtifactDescriptor.checks.artifactHashMatchesFile=true|nativeArtifactDescriptor.checks.sizeBytesMatchesFile=true|reflection.target=vulkan|reflection.module=StorageBufferComputeShader|reflection.nativeBinary=backend/vulkan/StorageBufferComputeShader.spv|diagnostics.schemaVersion=1"
       "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=vulkan|binaryKind=vulkan.spirv-module|sourcePath=backend/vulkan/StorageBufferComputeShader.spvasm|artifactPath=backend/vulkan/StorageBufferComputeShader.spv|validationStatus=validated"
       "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=0"
       -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
@@ -1995,6 +1995,58 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       "-DEXPECTED_SPVASM_SNIPPET=OpDecorate %resource_values Binding 0"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_boolean_logic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_BOOLEAN_LOGIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-boolean-logic.cglb
+      -DEXPECTED_MODULE=VulkanBooleanLogicComputeShader
+      -DEXPECTED_STORAGE_ELEMENT=int
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanBooleanLogicComputeShader|artifacts.backendAssembly=backend/vulkan/VulkanBooleanLogicComputeShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanBooleanLogicComputeShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanBooleanLogicComputeShader|nativeBinary=backend/vulkan/VulkanBooleanLogicComputeShader.spv|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=2|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1|manualTextureCompareKernels=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=int*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|values.set=0|values.binding=0|values.storageBufferLayout.elementType=int|values.storageBufferLayout.layout=std430|values.storageBufferLayout.arrayStrideBytes=4"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-comparison.kind=operation|scalar-logical.kind=operation|select-expression.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      "-DEXPECTED_SPVASM_SNIPPET=OpLogicalAnd %bool"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_boolean_logic_spvasm_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_BOOLEAN_LOGIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-boolean-logic-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanBooleanLogicComputeShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpLogicalNot|OpLogicalOr|OpLogicalAnd|OpLogicalEqual|OpLogicalNotEqual|OpSGreaterThan|OpSLessThan|OpIEqual|OpSelect %int"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpTypeImage|OpTypeSampler|NonUniformEXT|vulkan.prototype-unsupported-expression"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
+  add_test(NAME cglc_build_vulkan_unsigned_arithmetic_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_UNSIGNED_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-unsigned-arithmetic.cglb
+      -DEXPECTED_MODULE=VulkanUnsignedArithmeticComputeShader
+      -DEXPECTED_STORAGE_ELEMENT=uint
+      -DEXPECTED_STORAGE_STRIDE=4
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanUnsignedArithmeticComputeShader|artifacts.backendAssembly=backend/vulkan/VulkanUnsignedArithmeticComputeShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanUnsignedArithmeticComputeShader.spv"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanUnsignedArithmeticComputeShader|nativeBinary=backend/vulkan/VulkanUnsignedArithmeticComputeShader.spv|workgroupSizes.0.entryPoint=compute_main|workgroupSizes.0.x=1|workgroupSizes.0.y=1|workgroupSizes.0.z=1"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=1|targetResourceBindings=1|workgroupSizes=1|manualTextureCompareKernels=0"
+      "-DEXPECTED_REFLECTION_TARGET_FIELDS=values.sourceType=uint*|values.bindingClass=storageBuffer|values.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|values.storageClass=StorageBuffer|values.set=0|values.binding=0|values.storageBufferLayout.elementType=uint|values.storageBufferLayout.layout=std430|values.storageBufferLayout.arrayStrideBytes=4"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=vulkan-prototype-package.kind=backend|compute-kernel.kind=stage|workgroup-size.kind=execution|storage-buffer.kind=resource|local-declaration.kind=operation|storage-buffer-read.kind=operation|index-access.kind=operation|scalar-constructor.kind=operation|scalar-arithmetic.kind=operation|scalar-comparison.kind=operation|select-expression.kind=operation|storage-buffer-write.kind=operation"
+      "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+      "-DEXPECTED_SPVASM_SNIPPET=OpUDiv %uint"
+      -DMODE=vulkan-build
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  add_test(NAME cglc_build_vulkan_unsigned_arithmetic_spvasm_native
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_VULKAN_UNSIGNED_ARITHMETIC_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-unsigned-arithmetic-spvasm.cglb
+      -DEXPECTED_MODULE=VulkanUnsignedArithmeticComputeShader
+      "-DEXPECTED_SPVASM_CONTAINS=OpIAdd %uint|OpISub %uint|OpIMul %uint|OpUDiv %uint|OpUMod %uint|OpULessThan %bool|OpUGreaterThanEqual %bool|OpSelect %uint"
+      "-DUNEXPECTED_SPVASM_CONTAINS=OpSDiv %uint|OpSRem %uint|vulkan.prototype-unsupported-expression"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectVulkanSpvasmSnippets.cmake)
   add_test(NAME cglc_build_vulkan_float_equality_negation_native
     COMMAND ${CMAKE_COMMAND}
       -DCGLC=$<TARGET_FILE:cglc>

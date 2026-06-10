@@ -203,6 +203,19 @@ void writeNullableString(std::ostream &out,
   }
 }
 
+void writeStringArray(std::ostream &out, const std::vector<std::string> &values,
+                      std::string_view indent) {
+  out << "[";
+  for (std::size_t index = 0; index < values.size(); ++index) {
+    out << (index == 0 ? "\n" : ",\n") << indent << "  \""
+        << escapeJson(values[index]) << "\"";
+  }
+  if (!values.empty()) {
+    out << "\n" << indent;
+  }
+  out << "]";
+}
+
 void writeNullableUnsigned(std::ostream &out,
                            const std::optional<std::uint64_t> &value) {
   if (value) {
@@ -1488,6 +1501,96 @@ bool isReleaseNativeReadyStatus(std::string_view status) {
   return status == "emitted" || status == "validated";
 }
 
+bool isReleaseTargetFeatureEvidenceSuffixChar(char ch) {
+  return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+         (ch >= '0' && ch <= '9') || ch == '_' || ch == '.' || ch == '-';
+}
+
+bool hasValidReleaseTargetFeatureEvidenceSuffix(std::string_view suffix) {
+  return !suffix.empty() &&
+         std::all_of(suffix.begin(), suffix.end(),
+                     isReleaseTargetFeatureEvidenceSuffixChar);
+}
+
+bool releaseTargetFeatureEvidenceIdMatchesTarget(std::string_view evidenceId,
+                                                 std::string_view target) {
+  constexpr std::string_view rootPrefix = "target-legalization.v1.";
+  if (!evidenceId.starts_with(rootPrefix)) {
+    return false;
+  }
+  std::string_view remainder = evidenceId.substr(rootPrefix.size());
+  const std::size_t targetDelimiter = remainder.find('.');
+  if (targetDelimiter == std::string_view::npos || targetDelimiter == 0 ||
+      targetDelimiter + 1 == remainder.size()) {
+    return false;
+  }
+  const std::string_view evidenceTarget =
+      remainder.substr(0, targetDelimiter);
+  if (evidenceTarget != target || !isReleaseBundleTarget(evidenceTarget)) {
+    return false;
+  }
+
+  const std::string_view suffix = remainder.substr(targetDelimiter + 1);
+  constexpr std::string_view capabilityRequired = "capability.required.";
+  constexpr std::string_view capabilityMissing = "capability.missing.";
+  constexpr std::string_view abiRequired = "abi.required.";
+  constexpr std::string_view abiMissing = "abi.missing.";
+  if (suffix.starts_with(capabilityRequired) ||
+      suffix.starts_with(capabilityMissing)) {
+    const std::string_view capabilityRest =
+        suffix.starts_with(capabilityRequired)
+            ? suffix.substr(capabilityRequired.size())
+            : suffix.substr(capabilityMissing.size());
+    const std::size_t capabilityTargetDelimiter = capabilityRest.find('.');
+    if (capabilityTargetDelimiter == std::string_view::npos ||
+        capabilityTargetDelimiter == 0 ||
+        capabilityTargetDelimiter + 1 == capabilityRest.size()) {
+      return false;
+    }
+    const std::string_view capabilityTarget =
+        capabilityRest.substr(0, capabilityTargetDelimiter);
+    return capabilityTarget == target && isReleaseBundleTarget(capabilityTarget) &&
+           hasValidReleaseTargetFeatureEvidenceSuffix(
+               capabilityRest.substr(capabilityTargetDelimiter + 1));
+  }
+
+  if (suffix.starts_with(abiRequired)) {
+    return hasValidReleaseTargetFeatureEvidenceSuffix(
+        suffix.substr(abiRequired.size()));
+  }
+  if (suffix.starts_with(abiMissing)) {
+    return hasValidReleaseTargetFeatureEvidenceSuffix(
+        suffix.substr(abiMissing.size()));
+  }
+  return false;
+}
+
+void appendReleaseUniqueString(std::vector<std::string> &values,
+                               const std::string &value) {
+  if (std::find(values.begin(), values.end(), value) == values.end()) {
+    values.push_back(value);
+  }
+}
+
+PackageReleaseReflectionSummary
+packageReleaseReflectionSummaryRecord(const PackageMetadata &metadata) {
+  PackageReleaseReflectionSummary summary;
+  for (const PackageReflectionTargetFeatureRecord &feature :
+       metadata.reflectionTargetFeatures) {
+    if (feature.target != metadata.target) {
+      continue;
+    }
+    ++summary.targetFeatureCount;
+    for (const std::string &evidenceId : feature.evidenceIds) {
+      if (releaseTargetFeatureEvidenceIdMatchesTarget(evidenceId,
+                                                      metadata.target)) {
+        appendReleaseUniqueString(summary.targetFeatureEvidenceIds, evidenceId);
+      }
+    }
+  }
+  return summary;
+}
+
 std::optional<std::vector<std::string>>
 parseRequiredStringArrayMember(std::string_view object, std::string_view key,
                                const std::filesystem::path &documentPath,
@@ -2281,6 +2384,12 @@ parseReleasePublishArtifactRequirements(
     std::string_view packageObject, std::string_view packageTarget,
     const std::filesystem::path &planPath, DiagnosticEngine &diagnostics);
 
+std::optional<PackageReleaseReflectionSummary>
+parseReleasePublishReflectionSummary(std::string_view packageObject,
+                                     std::string_view packageTarget,
+                                     const std::filesystem::path &planPath,
+                                     DiagnosticEngine &diagnostics);
+
 std::optional<PackageReleasePublishPlanPackage>
 parseReleasePublishPlanPackage(std::string_view packageObject,
                                const std::filesystem::path &planPath,
@@ -2309,8 +2418,11 @@ parseReleasePublishPlanPackage(std::string_view packageObject,
       packageObject, planPath, diagnostics, nativeBinaryStatus);
   std::optional<PackageReleasePackageArtifactRequirements>
       artifactRequirements;
+  std::optional<PackageReleaseReflectionSummary> reflection;
   if (target) {
     artifactRequirements = parseReleasePublishArtifactRequirements(
+        packageObject, *target, planPath, diagnostics);
+    reflection = parseReleasePublishReflectionSummary(
         packageObject, *target, planPath, diagnostics);
   }
   const std::optional<std::vector<std::string_view>> artifacts =
@@ -2318,7 +2430,7 @@ parseReleasePublishPlanPackage(std::string_view packageObject,
                                                    planPath, diagnostics);
   if (!packagePath || !module || !target || !artifactCount ||
       !totalArtifactBytes || !sourceHashOk || !nativeStatusOk ||
-      !artifactRequirements || !artifacts) {
+      !artifactRequirements || !reflection || !artifacts) {
     return std::nullopt;
   }
   if (packagePath->empty() || module->empty()) {
@@ -2343,6 +2455,7 @@ parseReleasePublishPlanPackage(std::string_view packageObject,
   package.sourceHash = sourceHash;
   package.nativeBinaryStatus = nativeBinaryStatus;
   package.artifactRequirements = std::move(*artifactRequirements);
+  package.reflection = std::move(*reflection);
   package.totalArtifactBytes = *totalArtifactBytes;
   for (std::string_view artifactObject : *artifacts) {
     std::optional<PackageReleasePublishPlanArtifact> artifact =
@@ -2564,6 +2677,37 @@ bool parseReleaseBundleNativeBinaryStatus(
   return true;
 }
 
+std::string releasePackageArtifactEvidenceId(std::string_view target,
+                                             std::string_view suffix) {
+  return "target-legalization.v1." + std::string(target) + "." +
+         std::string(suffix);
+}
+
+std::vector<std::string> expectedReleasePackageArtifactRequirementEvidenceIds(
+    const PackageReleasePackageArtifactRequirements &requirements) {
+  std::vector<std::string> evidenceIds;
+  evidenceIds.push_back(releasePackageArtifactEvidenceId(
+      requirements.target, "package-artifacts." + requirements.packageMode));
+  for (const std::string &artifact : requirements.requiredPathArtifacts) {
+    evidenceIds.push_back(releasePackageArtifactEvidenceId(
+        requirements.target, "package-artifact.required." + artifact));
+  }
+  if (requirements.requiresNativeBinaryStatus) {
+    evidenceIds.push_back(releasePackageArtifactEvidenceId(
+        requirements.target, "package-artifact.native-binary-status.required"));
+  }
+  if (requirements.allowsPlannedNativeBinary) {
+    evidenceIds.push_back(releasePackageArtifactEvidenceId(
+        requirements.target, "package-artifact.planned-native-binary.allowed"));
+  }
+  if (requirements.allowsPlannedNativeSourceEvidence) {
+    evidenceIds.push_back(releasePackageArtifactEvidenceId(
+        requirements.target,
+        "package-artifact.planned-native-source-evidence.allowed"));
+  }
+  return evidenceIds;
+}
+
 bool validateReleasePackageArtifactRequirements(
     const PackageReleasePackageArtifactRequirements &requirements,
     std::string_view packageTarget, const std::filesystem::path &documentPath,
@@ -2672,6 +2816,17 @@ bool validateReleasePackageArtifactRequirements(
       valid = false;
     }
   }
+  if (!requirements.evidenceIds.empty() &&
+      requirements.evidenceIds !=
+          expectedReleasePackageArtifactRequirementEvidenceIds(requirements)) {
+    diagnostics.error(std::string(invalidCode),
+                      std::string(label) +
+                          " packageArtifactRequirements.evidenceIds must "
+                          "match target legalization package artifact "
+                          "evidence",
+                      pathLocation(documentPath));
+    valid = false;
+  }
   return valid;
 }
 
@@ -2708,6 +2863,16 @@ parseReleaseBundleArtifactRequirements(
           releaseBundleDiagnosticCode("missing-field"),
           releaseBundleDiagnosticCode("invalid-field"),
           "package release bundle packageArtifactRequirements");
+  const bool hasEvidenceIds = findObjectMemberValue(*valueText, "evidenceIds")
+                                  .has_value();
+  std::optional<std::vector<std::string>> evidenceIds;
+  if (hasEvidenceIds) {
+    evidenceIds = parseRequiredStringArrayMember(
+        *valueText, "evidenceIds", bundlePath, diagnostics,
+        releaseBundleDiagnosticCode("missing-field"),
+        releaseBundleDiagnosticCode("invalid-field"),
+        "package release bundle packageArtifactRequirements");
+  }
   const std::optional<bool> requiresNativeBinaryStatus =
       parseRequiredReleaseBundleBoolMember(
           *valueText, "requiresNativeBinaryStatus", bundlePath, diagnostics);
@@ -2719,6 +2884,7 @@ parseReleaseBundleArtifactRequirements(
           *valueText, "allowsPlannedNativeSourceEvidence", bundlePath,
           diagnostics);
   if (!target || !packageMode || !requiredPathArtifacts ||
+      (hasEvidenceIds && !evidenceIds) ||
       !requiresNativeBinaryStatus || !allowsPlannedNativeBinary ||
       !allowsPlannedNativeSourceEvidence) {
     return std::nullopt;
@@ -2728,6 +2894,9 @@ parseReleaseBundleArtifactRequirements(
   requirements.target = *target;
   requirements.packageMode = *packageMode;
   requirements.requiredPathArtifacts = *requiredPathArtifacts;
+  if (evidenceIds) {
+    requirements.evidenceIds = *evidenceIds;
+  }
   requirements.requiresNativeBinaryStatus = *requiresNativeBinaryStatus;
   requirements.allowsPlannedNativeBinary = *allowsPlannedNativeBinary;
   requirements.allowsPlannedNativeSourceEvidence =
@@ -2774,6 +2943,16 @@ parseReleasePublishArtifactRequirements(
           releasePublishDiagnosticCode("missing-field"),
           releasePublishDiagnosticCode("invalid-field"),
           "package release publish plan packageArtifactRequirements");
+  const bool hasEvidenceIds = findObjectMemberValue(*valueText, "evidenceIds")
+                                  .has_value();
+  std::optional<std::vector<std::string>> evidenceIds;
+  if (hasEvidenceIds) {
+    evidenceIds = parseRequiredStringArrayMember(
+        *valueText, "evidenceIds", planPath, diagnostics,
+        releasePublishDiagnosticCode("missing-field"),
+        releasePublishDiagnosticCode("invalid-field"),
+        "package release publish plan packageArtifactRequirements");
+  }
   const std::optional<bool> requiresNativeBinaryStatus =
       parseRequiredReleasePublishBoolMember(
           *valueText, "requiresNativeBinaryStatus", planPath, diagnostics);
@@ -2785,6 +2964,7 @@ parseReleasePublishArtifactRequirements(
           *valueText, "allowsPlannedNativeSourceEvidence", planPath,
           diagnostics);
   if (!target || !packageMode || !requiredPathArtifacts ||
+      (hasEvidenceIds && !evidenceIds) ||
       !requiresNativeBinaryStatus || !allowsPlannedNativeBinary ||
       !allowsPlannedNativeSourceEvidence) {
     return std::nullopt;
@@ -2794,6 +2974,9 @@ parseReleasePublishArtifactRequirements(
   requirements.target = *target;
   requirements.packageMode = *packageMode;
   requirements.requiredPathArtifacts = *requiredPathArtifacts;
+  if (evidenceIds) {
+    requirements.evidenceIds = *evidenceIds;
+  }
   requirements.requiresNativeBinaryStatus = *requiresNativeBinaryStatus;
   requirements.allowsPlannedNativeBinary = *allowsPlannedNativeBinary;
   requirements.allowsPlannedNativeSourceEvidence =
@@ -2805,6 +2988,134 @@ parseReleasePublishArtifactRequirements(
     return std::nullopt;
   }
   return requirements;
+}
+
+bool validateReleaseReflectionSummary(
+    const PackageReleaseReflectionSummary &reflection,
+    std::string_view packageTarget, const std::filesystem::path &documentPath,
+    DiagnosticEngine &diagnostics, std::string_view invalidCode,
+    std::string_view label) {
+  bool valid = true;
+  std::vector<std::string> sortedEvidenceIds =
+      reflection.targetFeatureEvidenceIds;
+  std::sort(sortedEvidenceIds.begin(), sortedEvidenceIds.end());
+  for (std::size_t index = 1; index < sortedEvidenceIds.size(); ++index) {
+    if (sortedEvidenceIds[index - 1] == sortedEvidenceIds[index]) {
+      diagnostics.error(std::string(invalidCode),
+                        std::string(label) +
+                            " reflection targetFeatureEvidenceIds must be "
+                            "unique",
+                        pathLocation(documentPath));
+      valid = false;
+      break;
+    }
+  }
+  for (const std::string &evidenceId : reflection.targetFeatureEvidenceIds) {
+    if (!releaseTargetFeatureEvidenceIdMatchesTarget(evidenceId,
+                                                     packageTarget)) {
+      diagnostics.error(
+          std::string(invalidCode),
+          std::string(label) +
+              " reflection targetFeatureEvidenceIds must contain target "
+              "legalization evidence for the package target",
+          pathLocation(documentPath));
+      valid = false;
+      break;
+    }
+  }
+  return valid;
+}
+
+std::optional<PackageReleaseReflectionSummary>
+parseReleaseBundleReflectionSummary(std::string_view packageObject,
+                                    std::string_view packageTarget,
+                                    const std::filesystem::path &bundlePath,
+                                    DiagnosticEngine &diagnostics) {
+  const std::optional<std::string_view> valueText =
+      findObjectMemberValue(packageObject, "reflection");
+  if (!valueText) {
+    diagnostics.error(releaseBundleDiagnosticCode("missing-field"),
+                      "package release bundle package requires reflection",
+                      pathLocation(bundlePath));
+    return std::nullopt;
+  }
+  if (!isJsonObjectDocument(*valueText)) {
+    diagnostics.error(releaseBundleDiagnosticCode("invalid-field"),
+                      "package release bundle reflection must be an object",
+                      pathLocation(bundlePath));
+    return std::nullopt;
+  }
+
+  const std::optional<std::size_t> targetFeatureCount =
+      parseRequiredReleaseBundleCountMember(
+          *valueText, "targetFeatureCount", bundlePath, diagnostics);
+  const std::optional<std::vector<std::string>> targetFeatureEvidenceIds =
+      parseRequiredStringArrayMember(
+          *valueText, "targetFeatureEvidenceIds", bundlePath, diagnostics,
+          releaseBundleDiagnosticCode("missing-field"),
+          releaseBundleDiagnosticCode("invalid-field"),
+          "package release bundle reflection");
+  if (!targetFeatureCount || !targetFeatureEvidenceIds) {
+    return std::nullopt;
+  }
+
+  PackageReleaseReflectionSummary reflection;
+  reflection.targetFeatureCount = *targetFeatureCount;
+  reflection.targetFeatureEvidenceIds = *targetFeatureEvidenceIds;
+  if (!validateReleaseReflectionSummary(
+          reflection, packageTarget, bundlePath, diagnostics,
+          releaseBundleDiagnosticCode("invalid-field"),
+          "package release bundle")) {
+    return std::nullopt;
+  }
+  return reflection;
+}
+
+std::optional<PackageReleaseReflectionSummary>
+parseReleasePublishReflectionSummary(std::string_view packageObject,
+                                     std::string_view packageTarget,
+                                     const std::filesystem::path &planPath,
+                                     DiagnosticEngine &diagnostics) {
+  const std::optional<std::string_view> valueText =
+      findObjectMemberValue(packageObject, "reflection");
+  if (!valueText) {
+    diagnostics.error(releasePublishDiagnosticCode("missing-field"),
+                      "package release publish plan package requires "
+                      "reflection",
+                      pathLocation(planPath));
+    return std::nullopt;
+  }
+  if (!isJsonObjectDocument(*valueText)) {
+    diagnostics.error(releasePublishDiagnosticCode("invalid-field"),
+                      "package release publish plan reflection must be an "
+                      "object",
+                      pathLocation(planPath));
+    return std::nullopt;
+  }
+
+  const std::optional<std::size_t> targetFeatureCount =
+      parseRequiredReleasePublishCountMember(
+          *valueText, "targetFeatureCount", planPath, diagnostics);
+  const std::optional<std::vector<std::string>> targetFeatureEvidenceIds =
+      parseRequiredStringArrayMember(
+          *valueText, "targetFeatureEvidenceIds", planPath, diagnostics,
+          releasePublishDiagnosticCode("missing-field"),
+          releasePublishDiagnosticCode("invalid-field"),
+          "package release publish plan reflection");
+  if (!targetFeatureCount || !targetFeatureEvidenceIds) {
+    return std::nullopt;
+  }
+
+  PackageReleaseReflectionSummary reflection;
+  reflection.targetFeatureCount = *targetFeatureCount;
+  reflection.targetFeatureEvidenceIds = *targetFeatureEvidenceIds;
+  if (!validateReleaseReflectionSummary(
+          reflection, packageTarget, planPath, diagnostics,
+          releasePublishDiagnosticCode("invalid-field"),
+          "package release publish plan")) {
+    return std::nullopt;
+  }
+  return reflection;
 }
 
 std::optional<PackageReleasePromotionBlocker>
@@ -2942,16 +3253,20 @@ parseReleaseBundlePackage(std::string_view packageObject,
       packageObject, bundlePath, diagnostics, nativeBinaryStatus);
   std::optional<PackageReleasePackageArtifactRequirements>
       artifactRequirements;
+  std::optional<PackageReleaseReflectionSummary> reflection;
   if (target) {
     artifactRequirements = parseReleaseBundleArtifactRequirements(
         packageObject, *target, bundlePath, diagnostics);
+    reflection = parseReleaseBundleReflectionSummary(packageObject, *target,
+                                                     bundlePath, diagnostics);
   }
   const std::optional<std::vector<std::string_view>> artifacts =
       parseRequiredReleaseBundleObjectArrayMember(packageObject, "artifacts",
                                                   bundlePath, diagnostics);
   if (!packagePath || !module || !target || !artifactCount ||
       !existingArtifactCount || !missingArtifactCount || !totalArtifactBytes ||
-      !sourceHashOk || !nativeStatusOk || !artifactRequirements || !artifacts) {
+      !sourceHashOk || !nativeStatusOk || !artifactRequirements ||
+      !reflection || !artifacts) {
     return std::nullopt;
   }
   if (packagePath->empty() || module->empty()) {
@@ -2974,6 +3289,7 @@ parseReleaseBundlePackage(std::string_view packageObject,
   parsed.package.sourceHash = sourceHash;
   parsed.package.nativeBinaryStatus = nativeBinaryStatus;
   parsed.package.artifactRequirements = std::move(*artifactRequirements);
+  parsed.package.reflection = std::move(*reflection);
   parsed.artifactCount = *artifactCount;
   parsed.existingArtifactCount = *existingArtifactCount;
   parsed.missingArtifactCount = *missingArtifactCount;
@@ -5847,6 +6163,7 @@ packageReleaseArtifactRequirementsRecord(
       metadataRequirements.allowsPlannedNativeBinary;
   requirements.allowsPlannedNativeSourceEvidence =
       metadataRequirements.allowsPlannedNativeSourceEvidence;
+  requirements.evidenceIds = metadataRequirements.evidenceIds;
   for (const PackageRequiredPathArtifactRecord &artifact :
        metadataRequirements.requiredPathArtifacts) {
     requirements.requiredPathArtifacts.push_back(artifact.name);
@@ -5938,6 +6255,7 @@ packageReleasePromotionPackageRecord(const std::filesystem::path &packagePath,
   record.nativeBinaryStatus = metadata.nativeBinaryStatus;
   record.artifactRequirements =
       packageReleaseArtifactRequirementsRecord(metadata, diagnostics);
+  record.reflection = packageReleaseReflectionSummaryRecord(metadata);
   for (const PackageArtifactRecord &artifact : metadata.artifacts) {
     record.artifacts.push_back(
         packageReleasePromotionArtifactRecord(metadata, artifact, diagnostics));
@@ -6682,6 +7000,7 @@ exportPackageReleasePublishPlan(const std::filesystem::path &bundlePath,
     plannedPackage.sourceHash = package.sourceHash;
     plannedPackage.nativeBinaryStatus = package.nativeBinaryStatus;
     plannedPackage.artifactRequirements = package.artifactRequirements;
+    plannedPackage.reflection = package.reflection;
 
     for (const PackageReleasePromotionArtifact &artifact : package.artifacts) {
       if (!artifact.exists) {
@@ -8947,9 +9266,25 @@ void writePackageReleaseArtifactRequirements(
       << (requirements->allowsPlannedNativeBinary ? "true" : "false")
       << ",\n"
       << childIndent << "\"allowsPlannedNativeSourceEvidence\": "
-      << (requirements->allowsPlannedNativeSourceEvidence ? "true" : "false")
-      << "\n"
+      << (requirements->allowsPlannedNativeSourceEvidence ? "true" : "false");
+  if (!requirements->evidenceIds.empty()) {
+    out << ",\n" << childIndent << "\"evidenceIds\": ";
+    writeStringArray(out, requirements->evidenceIds, childIndent);
+  }
+  out << "\n"
       << indent << "}";
+}
+
+void writePackageReleaseReflectionSummary(
+    std::ostream &out, const PackageReleaseReflectionSummary &reflection,
+    std::string_view indent) {
+  const std::string childIndent = std::string(indent) + "  ";
+  out << "{\n"
+      << childIndent << "\"targetFeatureCount\": "
+      << reflection.targetFeatureCount << ",\n"
+      << childIndent << "\"targetFeatureEvidenceIds\": ";
+  writeStringArray(out, reflection.targetFeatureEvidenceIds, childIndent);
+  out << "\n" << indent << "}";
 }
 
 void writePackageReleasePromotionPackage(
@@ -8971,6 +9306,9 @@ void writePackageReleasePromotionPackage(
   out << ",\n" << childIndent << "\"packageArtifactRequirements\": ";
   writePackageReleaseArtifactRequirements(out, package.artifactRequirements,
                                           childIndent);
+  out << ",\n"
+      << childIndent << "\"reflection\": ";
+  writePackageReleaseReflectionSummary(out, package.reflection, childIndent);
   out << ",\n"
       << childIndent << "\"artifactCount\": " << package.artifacts.size()
       << ",\n"
@@ -9056,6 +9394,9 @@ void writePackageReleaseBundlePackage(
   out << ",\n" << childIndent << "\"packageArtifactRequirements\": ";
   writePackageReleaseArtifactRequirements(out, package.artifactRequirements,
                                           childIndent);
+  out << ",\n"
+      << childIndent << "\"reflection\": ";
+  writePackageReleaseReflectionSummary(out, package.reflection, childIndent);
   out << ",\n"
       << childIndent << "\"artifactCount\": " << package.artifacts.size()
       << ",\n"
@@ -9348,6 +9689,9 @@ void writePackageReleasePublishPlanPackage(
   out << ",\n" << childIndent << "\"packageArtifactRequirements\": ";
   writePackageReleaseArtifactRequirements(out, package.artifactRequirements,
                                           childIndent);
+  out << ",\n"
+      << childIndent << "\"reflection\": ";
+  writePackageReleaseReflectionSummary(out, package.reflection, childIndent);
   out << ",\n"
       << childIndent << "\"artifactCount\": " << package.artifacts.size()
       << ",\n"

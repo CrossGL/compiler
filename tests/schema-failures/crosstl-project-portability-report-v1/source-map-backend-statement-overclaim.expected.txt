@@ -1,0 +1,1 @@
+$.artifacts[0].sourceMap.mappingGranularity: expected file or line for backend-generated artifacts until compiler backend-lowering source maps are available

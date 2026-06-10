@@ -4,6 +4,7 @@
 import argparse
 import copy
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -43,6 +44,8 @@ from package_target_contracts import TARGET_REQUIRED_ARTIFACTS
 
 
 SEVERITIES = ("note", "warning", "error")
+CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS = "CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS"
+CROSSGL_CI_JOBS = "CROSSGL_CI_JOBS"
 VERIFY_DIAGNOSTIC_CODE_PREFIX = "package.verify."
 LEGACY_REQUIREMENTS_FALLBACK_CODE = (
     "package.verify.legacy-artifact-requirements-fallback"
@@ -51,6 +54,48 @@ SYNTHETIC_STORAGE_IMAGE_ARRAY_SOURCE_COORDINATES = {
     "maskAtlases": {"stage": "compute", "set": 0, "binding": 1},
     "unsignedAtlases": {"stage": "compute", "set": 0, "binding": 1},
 }
+
+
+def positive_jobs(value):
+    try:
+        jobs = int(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if jobs < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return jobs
+
+
+def jobs_from_environment(parser):
+    for name in (CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS, CROSSGL_CI_JOBS):
+        value = os.environ.get(name)
+        if value is None or not value.strip():
+            continue
+        try:
+            return positive_jobs(value)
+        except argparse.ArgumentTypeError:
+            parser.error(f"{name} must be a positive integer")
+    return 1
+
+
+def ordered_unique_strings(values):
+    ordered = []
+    seen = set()
+    for value in values:
+        if not isinstance(value, str) or not value or value in seen:
+            continue
+        ordered.append(value)
+        seen.add(value)
+    return ordered
+
+
+def target_feature_evidence_ids(features):
+    evidence_ids = []
+    for feature in features:
+        values = feature.get("evidenceIds", [])
+        if isinstance(values, list):
+            evidence_ids.extend(values)
+    return ordered_unique_strings(evidence_ids)
 
 
 def package_artifact_requirement_evidence_ids(requirements):
@@ -161,6 +206,28 @@ def read_artifact_json(package, manifest, artifact_name):
     if not path.is_file():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def source_remap_provenance(manifest, *, mapping_granularity="source-span"):
+    return {
+        "schemaVersion": 1,
+        "kind": "crossgl.sourceRemapProvenance",
+        "contractVersion": "source-remap-provenance-v1",
+        "target": manifest["target"],
+        "generatedFile": "generated/from-translator.cgl",
+        "mappingGranularity": mapping_granularity,
+        "mappingCount": 1,
+        "sourceRemap": {
+            "path": "tests/fixtures/source-remap-v1-full-file.json",
+            "sha256": {
+                "algorithm": "sha256",
+                "value": (
+                    "7ebc4d584f4b6f19b8eef3c47c1fe799361dd44e397d969df7899f9e05b6041b"
+                ),
+            },
+            "sizeBytes": 592,
+        },
+    }
 
 
 def target_record(records, target):
@@ -1025,6 +1092,43 @@ def expect_reflection_binding_failure(
     return errors
 
 
+def expect_reflection_feature_failure(
+    root,
+    cglc,
+    tmp_dir,
+    case_name,
+    package,
+    source,
+    manifest,
+    expected,
+    expected_code,
+):
+    errors = []
+    errors.extend(
+        expect_failure(
+            cglc,
+            case_name,
+            package,
+            expected,
+            source=source,
+        )
+    )
+    errors.extend(
+        expect_json_failure(
+            root,
+            cglc,
+            tmp_dir,
+            f"{case_name}-json",
+            package,
+            expected,
+            source=source,
+            manifest=manifest,
+            expected_code=expected_code,
+        )
+    )
+    return errors
+
+
 def shared_address_space_reflection(manifest, binding_address_space):
     target = manifest["target"]
     abi = {
@@ -1060,9 +1164,77 @@ def shared_address_space_reflection(manifest, binding_address_space):
             "addressSpace": binding_address_space,
             "abi": abi,
             "bindingClass": binding_class,
+            "evidenceId": (
+                f"target-legalization.v1.{target}.resource-binding."
+                "compute.compute_main.tile"
+            ),
         }
     ]
     return reflection
+
+
+def expect_reflection_summary(errors, case_name, summary, package, manifest):
+    reflection_summary = expect_object(
+        errors,
+        case_name,
+        "summary.reflection",
+        summary.get("reflection"),
+    )
+    reflection = read_reflection_fixture(errors, case_name, package)
+    selected_target = manifest.get("target")
+    expected_bindings = []
+    for binding in reflection.get("targetResourceBindings", []):
+        if not isinstance(binding, dict) or binding.get("target") != selected_target:
+            continue
+        if not all(
+            binding.get(field) for field in ("stage", "entryPoint", "name", "kind")
+        ):
+            continue
+        expected_bindings.append(
+            {
+                "target": binding.get("target"),
+                "stage": binding.get("stage"),
+                "entryPoint": binding.get("entryPoint"),
+                "name": binding.get("name"),
+                "kind": binding.get("kind"),
+                "evidenceId": binding.get("evidenceId"),
+            }
+        )
+    expect_equal(
+        errors,
+        case_name,
+        "summary.reflection.selectedTargetResourceBindingCount",
+        reflection_summary.get("selectedTargetResourceBindingCount"),
+        len(expected_bindings),
+    )
+    expect_equal(
+        errors,
+        case_name,
+        "summary.reflection.selectedTargetResourceBindings",
+        reflection_summary.get("selectedTargetResourceBindings"),
+        expected_bindings,
+    )
+    expected_target_features = [
+        feature
+        for feature in reflection.get("targetFeatures", [])
+        if isinstance(feature, dict) and feature.get("target") == selected_target
+    ]
+    if "targetFeatureCount" in reflection_summary:
+        expect_equal(
+            errors,
+            case_name,
+            "summary.reflection.targetFeatureCount",
+            reflection_summary.get("targetFeatureCount"),
+            len(expected_target_features),
+        )
+    if "targetFeatureEvidenceIds" in reflection_summary:
+        expect_equal(
+            errors,
+            case_name,
+            "summary.reflection.targetFeatureEvidenceIds",
+            reflection_summary.get("targetFeatureEvidenceIds"),
+            target_feature_evidence_ids(expected_target_features),
+        )
 
 
 def expect_native_artifact_descriptor_summary(
@@ -1254,6 +1426,13 @@ def expect_json_success(
         package,
         manifest,
     )
+    expect_reflection_summary(
+        errors,
+        case_name,
+        payload.get("summary"),
+        package,
+        manifest,
+    )
     if "graphicsAbi" not in manifest.get("artifacts", {}) and "graphicsAbi" in payload:
         errors.append(
             f"{case_name}: verify report must omit graphicsAbi when "
@@ -1293,6 +1472,13 @@ def expect_json_legacy_fallback_success(
     errors.extend(validate_schema(root, tmp_dir, case_name, result.stdout))
     expect_json_contract(errors, case_name, payload, package=package, manifest=manifest)
     expect_native_artifact_descriptor_summary(
+        errors,
+        case_name,
+        payload.get("summary"),
+        package,
+        manifest,
+    )
+    expect_reflection_summary(
         errors,
         case_name,
         payload.get("summary"),
@@ -1471,7 +1657,7 @@ def expect_args_failure(cglc, case_name, args, expected):
     return errors
 
 
-def run_cases(root, cglc):
+def run_cases(root, cglc, jobs=1):
     errors = []
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
@@ -2060,6 +2246,7 @@ def run_cases(root, cglc):
             errors,
             native_artifact_descriptor_cases,
             check_native_artifact_descriptor_case,
+            jobs=jobs,
         )
 
         package, source, manifest = make_package(
@@ -2466,6 +2653,7 @@ def run_cases(root, cglc):
             errors,
             valid_target_cases,
             check_valid_target_case,
+            jobs=jobs,
         )
 
         nonuniform_feature_cases = []
@@ -2500,6 +2688,7 @@ def run_cases(root, cglc):
             errors,
             nonuniform_feature_cases,
             check_nonuniform_feature_case,
+            jobs=jobs,
         )
 
         storage_image_cases = []
@@ -2567,6 +2756,7 @@ def run_cases(root, cglc):
             errors,
             storage_image_cases,
             check_storage_image_case,
+            jobs=jobs,
         )
 
         unexpected_native_status_cases = []
@@ -2614,6 +2804,7 @@ def run_cases(root, cglc):
             errors,
             unexpected_native_status_cases,
             check_unexpected_native_status_case,
+            jobs=jobs,
         )
 
         package, _source, manifest = make_package(tmp_dir, "duplicate-artifact-key")
@@ -2697,6 +2888,7 @@ def run_cases(root, cglc):
             errors,
             missing_required_artifact_cases,
             check_missing_required_artifact_case,
+            jobs=jobs,
         )
 
         package, source, manifest = make_package(
@@ -3041,6 +3233,45 @@ def run_cases(root, cglc):
                 "ir/hir-source-map.json",
                 manifest=manifest,
                 expected_code="package.verify.missing-artifact",
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir, "source-remap-granularity-drift"
+        )
+        source_remap_manifest = copy.deepcopy(manifest)
+        source_remap_manifest["artifacts"]["sourceRemap"] = (
+            "ir/source-remap-provenance.json"
+        )
+        write_json(
+            package_path(package, source_remap_manifest["artifacts"]["sourceRemap"]),
+            source_remap_provenance(source_remap_manifest, mapping_granularity="line"),
+        )
+        rewrite_manifest(package, source_remap_manifest)
+        expected = (
+            "sourceRemap 'ir/source-remap-provenance.json' "
+            "mappingGranularity must be source-span"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "source-remap-granularity-drift",
+                package,
+                expected,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "source-remap-granularity-drift-json",
+                package,
+                expected,
+                manifest=source_remap_manifest,
+                expected_code=(
+                    "package.verify.source-remap-provenance-granularity-mismatch"
+                ),
             )
         )
 
@@ -3533,6 +3764,177 @@ def run_cases(root, cglc):
             )
 
         package, source, manifest = make_package(
+            tmp_dir, "reflection-target-binding-evidence-missing"
+        )
+        reflection_evidence_missing = shared_address_space_reflection(
+            manifest, "groupshared"
+        )
+        del reflection_evidence_missing["targetResourceBindings"][0]["evidenceId"]
+        write_json(package / "reflection.json", reflection_evidence_missing)
+        errors.extend(
+            expect_reflection_binding_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-binding-evidence-missing",
+                package,
+                source,
+                manifest,
+                "must record target legalization resource binding evidenceId",
+                ("package.verify.reflection-target-resource-binding-evidence-missing"),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-binding-evidence-invalid"
+        )
+        reflection_evidence_invalid = shared_address_space_reflection(
+            manifest, "groupshared"
+        )
+        reflection_evidence_invalid["targetResourceBindings"][0]["evidenceId"] = (
+            "target-legalization.v1.metal.resource-binding.compute.compute_main.tile"
+        )
+        write_json(package / "reflection.json", reflection_evidence_invalid)
+        errors.extend(
+            expect_reflection_binding_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-binding-evidence-invalid",
+                package,
+                source,
+                manifest,
+                (
+                    "evidenceId must use target legalization resource binding "
+                    "prefix 'target-legalization.v1.directx.resource-binding.'"
+                ),
+                ("package.verify.reflection-target-resource-binding-evidence-invalid"),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-binding-evidence-duplicate"
+        )
+        reflection_evidence_duplicate = write_storage_image_reflection(
+            package, manifest
+        )
+        reflection_evidence_duplicate["targetResourceBindings"][1]["evidenceId"] = (
+            reflection_evidence_duplicate["targetResourceBindings"][0]["evidenceId"]
+        )
+        write_json(package / "reflection.json", reflection_evidence_duplicate)
+        errors.extend(
+            expect_reflection_binding_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-binding-evidence-duplicate",
+                package,
+                source,
+                manifest,
+                "duplicates target legalization resource binding evidenceId",
+                (
+                    "package.verify.reflection-target-resource-binding-"
+                    "evidence-duplicate"
+                ),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-feature-evidence-invalid"
+        )
+        reflection_feature_invalid = write_storage_image_reflection(package, manifest)
+        reflection_feature_invalid["targetFeatures"][0]["evidenceIds"] = [
+            "target-legalization.v1.metal.capability.required."
+            "metal.resource.storage-image"
+        ]
+        write_json(package / "reflection.json", reflection_feature_invalid)
+        errors.extend(
+            expect_reflection_feature_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-feature-evidence-invalid",
+                package,
+                source,
+                manifest,
+                (
+                    "evidenceId must use target legalization feature prefix "
+                    "'target-legalization.v1.directx.'"
+                ),
+                "package.verify.reflection-target-feature-evidence-invalid",
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-feature-evidence-capability-target"
+        )
+        reflection_feature_capability_target = write_storage_image_reflection(
+            package, manifest
+        )
+        reflection_feature_capability_target["targetFeatures"][0]["evidenceIds"] = [
+            "target-legalization.v1.directx.capability.required."
+            "metal.resource.storage-image"
+        ]
+        write_json(package / "reflection.json", reflection_feature_capability_target)
+        errors.extend(
+            expect_reflection_feature_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-feature-evidence-capability-target",
+                package,
+                source,
+                manifest,
+                "evidenceId capability target must be 'directx', got 'metal'",
+                ("package.verify.reflection-target-feature-evidence-capability-target"),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-feature-evidence-malformed"
+        )
+        reflection_feature_malformed = write_storage_image_reflection(package, manifest)
+        reflection_feature_malformed["targetFeatures"][0]["evidenceIds"] = [
+            "target-legalization.v1.directx.capability.required.directx"
+        ]
+        write_json(package / "reflection.json", reflection_feature_malformed)
+        errors.extend(
+            expect_reflection_feature_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-feature-evidence-malformed",
+                package,
+                source,
+                manifest,
+                "evidenceId must be target legalization capability or ABI evidence",
+                "package.verify.reflection-target-feature-evidence-invalid",
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "reflection-target-feature-evidence-duplicate"
+        )
+        reflection_feature_duplicate = write_storage_image_reflection(package, manifest)
+        reflection_feature_duplicate["targetFeatures"][1]["evidenceIds"] = list(
+            reflection_feature_duplicate["targetFeatures"][0]["evidenceIds"]
+        )
+        write_json(package / "reflection.json", reflection_feature_duplicate)
+        errors.extend(
+            expect_reflection_feature_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "reflection-target-feature-evidence-duplicate",
+                package,
+                source,
+                manifest,
+                "duplicates target legalization feature evidenceId",
+                "package.verify.reflection-target-feature-evidence-duplicate",
+            )
+        )
+
+        package, source, manifest = make_package(
             tmp_dir, "reflection-target-binding-address-space-mismatch"
         )
         write_json(
@@ -3696,13 +4098,24 @@ def main():
         help="CrossGL-Compiler repository root",
     )
     parser.add_argument("--cglc", required=True, help="Path to cglc executable")
+    parser.add_argument(
+        "--jobs",
+        type=positive_jobs,
+        help=(
+            "Run independent fixture cases in parallel; defaults to "
+            f"${CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS}, then ${CROSSGL_CI_JOBS}, "
+            "then 1."
+        ),
+    )
     args = parser.parse_args()
+    if args.jobs is None:
+        args.jobs = jobs_from_environment(parser)
 
     root = Path(args.root).resolve()
     if str(root / "tools") not in sys.path:
         sys.path.insert(0, str(root / "tools"))
 
-    errors = run_cases(root, Path(args.cglc))
+    errors = run_cases(root, Path(args.cglc), jobs=args.jobs)
     if errors:
         for error in errors:
             print(f"package verify fixture check failed: {error}", file=sys.stderr)

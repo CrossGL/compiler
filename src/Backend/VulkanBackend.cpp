@@ -11,6 +11,7 @@
 #include "crossgl/Driver/StorageCapabilities.h"
 #include "crossgl/Driver/StorageLayout.h"
 #include "crossgl/HIR/Intrinsics.h"
+#include "crossgl/HIR/SideEffects.h"
 #include "crossgl/HIR/TypeSemantics.h"
 
 #include <algorithm>
@@ -896,12 +897,24 @@ bool isPrototypeArithmeticType(const HIRType &type) {
 }
 
 bool isPrototypeArithmeticOperator(std::string_view op) {
-  return op == "+" || op == "-" || op == "*" || op == "/";
+  return op == "+" || op == "-" || op == "*" || op == "/" || op == "%";
 }
 
 bool isPrototypeComparisonOperator(std::string_view op) {
   return op == "<" || op == "<=" || op == ">" || op == ">=" ||
          op == "==" || op == "!=";
+}
+
+bool isPrototypeLogicalOperator(std::string_view op) {
+  return op == "&&" || op == "||";
+}
+
+bool isPrototypeBoolEqualityOperator(std::string_view op) {
+  return op == "==" || op == "!=";
+}
+
+bool isPrototypeScalarBoolType(const HIRType &type) {
+  return !type.arraySize.has_value() && type.name == "bool";
 }
 
 bool isPrototypeExplicitLodTextureSample(const HIRExpression &expression) {
@@ -4279,10 +4292,11 @@ bool prototypeExpressionSupported(
                                         diagnostics);
   case HIRExpressionKind::Unary: {
     if (expression.children.empty() ||
-        (expression.value != "+" && expression.value != "-")) {
+        (expression.value != "+" && expression.value != "-" &&
+         expression.value != "!")) {
       diagnostics.error("vulkan.prototype-unsupported-expression",
                         "Vulkan prototype binary emission supports only unary "
-                        "+ and -");
+                        "+, -, and !");
       return false;
     }
     if (!prototypeExpressionSupported(expression.children.front(), locals,
@@ -4293,6 +4307,16 @@ bool prototypeExpressionSupported(
     const HIRType operandType =
         prototypeExpressionType(expression.children.front(), locals, resources,
                                 constants);
+    if (expression.value == "!") {
+      if (!isPrototypeScalarBoolType(operandType) ||
+          !isPrototypeScalarBoolType(expression.type)) {
+        diagnostics.error("vulkan.prototype-unsupported-expression",
+                          "Vulkan prototype logical not supports only scalar "
+                          "bool values");
+        return false;
+      }
+      return true;
+    }
     if (!isPrototypeArithmeticType(operandType)) {
       diagnostics.error("vulkan.prototype-unsupported-expression",
                         "Vulkan prototype binary emission supports unary "
@@ -4302,12 +4326,14 @@ bool prototypeExpressionSupported(
     return true;
   }
   case HIRExpressionKind::Binary: {
-    if (expression.children.size() < 2 ||
+    if (expression.children.size() != 2 ||
         (!isPrototypeArithmeticOperator(expression.value) &&
-         !isPrototypeComparisonOperator(expression.value))) {
+         !isPrototypeComparisonOperator(expression.value) &&
+         !isPrototypeLogicalOperator(expression.value))) {
       diagnostics.error("vulkan.prototype-unsupported-expression",
-                        "Vulkan prototype binary emission supports only scalar/vector "
-                        "arithmetic and comparison expressions");
+                        "Vulkan prototype binary emission supports only "
+                        "scalar/vector arithmetic, comparison, and logical "
+                        "expressions");
       return false;
     }
     if (!prototypeExpressionSupported(expression.children[0], locals, resources,
@@ -4322,6 +4348,31 @@ bool prototypeExpressionSupported(
     const HIRType rightType =
         prototypeExpressionType(expression.children[1], locals, resources,
                                 constants);
+    if (isPrototypeLogicalOperator(expression.value)) {
+      if (!isPrototypeScalarBoolType(leftType) ||
+          !isPrototypeScalarBoolType(rightType) ||
+          !isPrototypeScalarBoolType(expression.type)) {
+        diagnostics.error("vulkan.prototype-unsupported-expression",
+                          "Vulkan prototype logical binary operations require "
+                          "scalar bool operands and result");
+        return false;
+      }
+      if (!isKnownPureHIRExpression(expression.children[0]) ||
+          !isKnownPureHIRExpression(expression.children[1])) {
+        diagnostics.error("vulkan.prototype-unsupported-expression",
+                          "Vulkan prototype logical && and || lowering "
+                          "requires known-pure operands to preserve "
+                          "short-circuit semantics");
+        return false;
+      }
+      return true;
+    }
+    if (isPrototypeBoolEqualityOperator(expression.value) &&
+        isPrototypeScalarBoolType(leftType) &&
+        isPrototypeScalarBoolType(rightType) &&
+        isPrototypeScalarBoolType(expression.type)) {
+      return true;
+    }
     const std::optional<PrototypeMatrixMultiplyLowering> matrixMultiply =
         expression.value == "*"
             ? prototypeMatrixMultiplyLowering(leftType, rightType,
@@ -4337,6 +4388,18 @@ bool prototypeExpressionSupported(
     }
     if (isPrototypeArithmeticOperator(expression.value)) {
       if (matrixMultiply.has_value()) {
+        return true;
+      }
+      if (expression.value == "%") {
+        if (!(leftType.name == "int" || leftType.name == "uint") ||
+            !samePrototypeType(leftType, rightType) ||
+            !samePrototypeType(leftType, expression.type)) {
+          diagnostics.error(
+              "vulkan.prototype-unsupported-expression",
+              "Vulkan prototype modulo lowering supports only scalar int "
+              "or uint operands with matching result type");
+          return false;
+        }
         return true;
       }
       if (samePrototypeType(leftType, rightType)) {
@@ -5965,7 +6028,9 @@ public:
     module_.addExecutionMode(entryId, "LocalSize",
                              {workgroup.x, workgroup.y, workgroup.z});
     (void)module;
-    return module_.render();
+    SPIRVRenderOptions renderOptions;
+    renderOptions.version = kVulkanNativeSpirvVersion;
+    return module_.render(renderOptions);
   }
 
   std::vector<VulkanSPIRVImport> extendedInstructionImports() const {
@@ -7214,6 +7279,48 @@ private:
     module_.addConstantInstruction(id + std::string(value ? " = OpConstantTrue "
                                                    : " = OpConstantFalse ") +
                              typeId);
+    return id;
+  }
+
+  std::string ensureModuleConstant(const HIRConstant &constant) {
+    if (!constant.specializationId.has_value()) {
+      if (constant.type.name == "bool") {
+        return ensureBoolConstant(*constant.foldedValue == "true");
+      }
+      std::string literal = *constant.foldedValue;
+      if (constant.type.name == "float") {
+        literal = prototypeNumericConstantLiteral(constant.type,
+                                                  std::move(literal));
+      }
+      return ensureNumericConstant(constant.type, literal);
+    }
+
+    if (auto existing = moduleConstantIds_.find(constant.name);
+        existing != moduleConstantIds_.end()) {
+      return existing->second;
+    }
+
+    const std::string typeId = ensureType(constant.type);
+    const std::string id = "%spec_" + sanitizeIdFragment(constant.name);
+    moduleConstantIds_[constant.name] = id;
+    module_.addName(SPIRVModule::id(id), constant.name);
+    module_.addDecoration(SPIRVModule::id(id), "SpecId",
+                          {std::to_string(*constant.specializationId)});
+    if (constant.type.name == "bool") {
+      module_.addConstantInstruction(
+          id + std::string(*constant.foldedValue == "true"
+                               ? " = OpSpecConstantTrue "
+                               : " = OpSpecConstantFalse ") +
+          typeId);
+      return id;
+    }
+    std::string literal = *constant.foldedValue;
+    if (constant.type.name == "float") {
+      literal = prototypeNumericConstantLiteral(constant.type,
+                                                std::move(literal));
+    }
+    module_.addConstantInstruction(id + " = OpSpecConstant " + typeId + " " +
+                                   literal);
     return id;
   }
 
@@ -9715,16 +9822,8 @@ private:
                              "folded scalar constants");
           return std::nullopt;
         }
-        if (constant->second.type.name == "bool") {
-          return PrototypeSPIRVValue{
-              constant->second.type,
-              ensureBoolConstant(*constant->second.foldedValue == "true")};
-        }
-        const std::string literal = prototypeNumericConstantLiteral(
-            constant->second.type, *constant->second.foldedValue);
-        return PrototypeSPIRVValue{
-            constant->second.type,
-            ensureNumericConstant(constant->second.type, literal)};
+        return PrototypeSPIRVValue{constant->second.type,
+                                   ensureModuleConstant(constant->second)};
       }
       diagnostics_.error("vulkan.prototype-unsupported-expression",
                          "Vulkan prototype binary emission cannot resolve local "
@@ -9750,6 +9849,13 @@ private:
       }
       if (expression.value == "+") {
         return operand;
+      }
+      if (expression.value == "!") {
+        const std::string resultId = nextTemp();
+        const std::string typeId = ensureType(expression.type);
+        instructionLines_.push_back(resultId + " = OpLogicalNot " + typeId +
+                                    " " + operand->id);
+        return PrototypeSPIRVValue{expression.type, resultId};
       }
 
       const std::string resultId = nextTemp();
@@ -9980,6 +10086,42 @@ private:
       if (op == "/") {
         return "OpSDiv";
       }
+      if (op == "%") {
+        return "OpSRem";
+      }
+    }
+
+    if (operandType.name == "uint" && resultType.name == "uint") {
+      if (op == "+") {
+        return "OpIAdd";
+      }
+      if (op == "-") {
+        return "OpISub";
+      }
+      if (op == "*") {
+        return "OpIMul";
+      }
+      if (op == "/") {
+        return "OpUDiv";
+      }
+      if (op == "%") {
+        return "OpUMod";
+      }
+    }
+
+    if (operandType.name == "bool" && resultType.name == "bool") {
+      if (op == "&&") {
+        return "OpLogicalAnd";
+      }
+      if (op == "||") {
+        return "OpLogicalOr";
+      }
+      if (op == "==") {
+        return "OpLogicalEqual";
+      }
+      if (op == "!=") {
+        return "OpLogicalNotEqual";
+      }
     }
 
     if (operandType.name == "float" && resultType.name == "bool") {
@@ -10015,6 +10157,27 @@ private:
       }
       if (op == ">=") {
         return "OpSGreaterThanEqual";
+      }
+      if (op == "==") {
+        return "OpIEqual";
+      }
+      if (op == "!=") {
+        return "OpINotEqual";
+      }
+    }
+
+    if (operandType.name == "uint" && resultType.name == "bool") {
+      if (op == "<") {
+        return "OpULessThan";
+      }
+      if (op == "<=") {
+        return "OpULessThanEqual";
+      }
+      if (op == ">") {
+        return "OpUGreaterThan";
+      }
+      if (op == ">=") {
+        return "OpUGreaterThanEqual";
       }
       if (op == "==") {
         return "OpIEqual";
@@ -10672,6 +10835,7 @@ private:
   std::unordered_map<std::string, std::string> uniformConstantPointerTypeIds_;
   std::unordered_map<std::string, std::string> sampledImageTypeIds_;
   std::unordered_map<std::string, std::string> constantIds_;
+  std::unordered_map<std::string, std::string> moduleConstantIds_;
   std::unordered_map<std::string, PrototypeSPIRVLocal> locals_;
   std::vector<PrototypeLoopLabels> loopLabels_;
   std::unordered_map<std::string, PrototypeSPIRVFunctionInfo> functions_;
@@ -11671,11 +11835,28 @@ bool vulkanGraphicsExpressionSupported(const HIRModule &module,
   case HIRExpressionKind::Literal:
     return true;
   case HIRExpressionKind::Group:
-  case HIRExpressionKind::Unary:
     return expression.children.size() == 1 &&
            vulkanGraphicsExpressionSupported(module, stage,
                                              expression.children.front(),
                                              allowStageHelpers);
+  case HIRExpressionKind::Unary:
+    if (expression.children.size() != 1 ||
+        !vulkanGraphicsExpressionSupported(module, stage,
+                                           expression.children.front(),
+                                           allowStageHelpers)) {
+      return false;
+    }
+    if (expression.value == "!" && isPrototypeScalarBoolType(expression.type) &&
+        isPrototypeScalarBoolType(expression.children.front().type)) {
+      return true;
+    }
+    if ((expression.value == "+" || expression.value == "-") &&
+        vulkanGraphicsTypeEquals(expression.type,
+                                 expression.children.front().type) &&
+        isPrototypeArithmeticType(expression.type)) {
+      return true;
+    }
+    return false;
   case HIRExpressionKind::MemberAccess:
     if (vulkanGraphicsStructStorageBufferMemberAccessSupported(
             module, stage, expression, allowStageHelpers)) {
@@ -11700,14 +11881,35 @@ bool vulkanGraphicsExpressionSupported(const HIRModule &module,
   case HIRExpressionKind::Constructor:
     return vulkanGraphicsConstructorSupported(module, stage, expression,
                                               allowStageHelpers);
-  case HIRExpressionKind::Binary:
-    return expression.children.size() == 2 &&
-           vulkanGraphicsExpressionSupported(module, stage,
-                                             expression.children[0],
-                                             allowStageHelpers) &&
-           vulkanGraphicsExpressionSupported(module, stage,
-                                             expression.children[1],
-                                             allowStageHelpers);
+  case HIRExpressionKind::Binary: {
+    if (expression.children.size() != 2 ||
+        !vulkanGraphicsExpressionSupported(module, stage,
+                                           expression.children[0],
+                                           allowStageHelpers) ||
+        !vulkanGraphicsExpressionSupported(module, stage,
+                                           expression.children[1],
+                                           allowStageHelpers)) {
+      return false;
+    }
+    const HIRType &leftType = expression.children[0].type;
+    const HIRType &rightType = expression.children[1].type;
+    if (isPrototypeLogicalOperator(expression.value)) {
+      return isPrototypeScalarBoolType(expression.type) &&
+             isPrototypeScalarBoolType(leftType) &&
+             isPrototypeScalarBoolType(rightType) &&
+             isKnownPureHIRExpression(expression.children[0]) &&
+             isKnownPureHIRExpression(expression.children[1]);
+    }
+    if (isPrototypeBoolEqualityOperator(expression.value) &&
+        isPrototypeScalarBoolType(expression.type) &&
+        isPrototypeScalarBoolType(leftType) &&
+        isPrototypeScalarBoolType(rightType)) {
+      return true;
+    }
+    return (isPrototypeArithmeticOperator(expression.value) ||
+            isPrototypeComparisonOperator(expression.value)) &&
+           vulkanGraphicsValueTypeSupported(module, expression.type);
+  }
   case HIRExpressionKind::Select:
     return expression.children.size() == 3 &&
            expression.children[0].type.name == "bool" &&
@@ -12252,7 +12454,7 @@ public:
 
     std::ostringstream out;
     out << "; SPIR-V\n";
-    out << "; Version: 1.0\n";
+    out << "; Version: " << kVulkanNativeSpirvVersion << "\n";
     out << "; Generator: CrossGL Vulkan graphics prototype\n";
     out << "; Bound: " << (nextId_ + 1) << "\n";
     out << "; Schema: 0\n";
@@ -12972,6 +13174,36 @@ private:
   }
 
   std::string constantForModuleConstant(const HIRConstant &constant) {
+    if (constant.specializationId.has_value()) {
+      if (const auto found = moduleConstantIds_.find(constant.name);
+          found != moduleConstantIds_.end()) {
+        return found->second;
+      }
+
+      std::string value = *constant.foldedValue;
+      if (constant.type.name == "float") {
+        value = prototypeNumericConstantLiteral(constant.type,
+                                                std::move(value));
+      }
+
+      const std::string id = "%spec_" + sanitizeIdFragment(constant.name);
+      moduleConstantIds_[constant.name] = id;
+      const std::string constantType = typeId(constant.type);
+      names_ << "OpName " << id << " \"" << constant.name << "\"\n";
+      decorations_ << "OpDecorate " << id << " SpecId "
+                   << *constant.specializationId << "\n";
+      if (constant.type.name == "bool") {
+        types_ << id << " = "
+               << (value == "true" ? "OpSpecConstantTrue "
+                                    : "OpSpecConstantFalse ")
+               << constantType << "\n";
+      } else {
+        types_ << id << " = OpSpecConstant " << constantType << " " << value
+               << "\n";
+      }
+      return id;
+    }
+
     std::string value = *constant.foldedValue;
     if (constant.type.name == "float") {
       value = prototypeNumericConstantLiteral(constant.type, std::move(value));
@@ -14061,6 +14293,12 @@ private:
       if (expression.value == "+") {
         return child;
       }
+      if (expression.value == "!") {
+        const std::string id = freshId();
+        functions_ << id << " = OpLogicalNot " << typeId(expression.type) << " "
+                   << child.id << "\n";
+        return EmitValue{expression.type, id};
+      }
       if (expression.value == "-") {
         const std::string id = freshId();
         const bool floatLike =
@@ -14423,7 +14661,17 @@ private:
     const std::string operandScalar =
         vulkanGraphicsScalarTypeName(lhs.type.name);
     if (resultScalar == "bool") {
-      if (operandScalar == "float") {
+      if (operandScalar == "bool") {
+        if (expression.value == "&&") {
+          opcode = "OpLogicalAnd";
+        } else if (expression.value == "||") {
+          opcode = "OpLogicalOr";
+        } else if (expression.value == "==") {
+          opcode = "OpLogicalEqual";
+        } else if (expression.value == "!=") {
+          opcode = "OpLogicalNotEqual";
+        }
+      } else if (operandScalar == "float") {
         if (expression.value == "<") {
           opcode = "OpFOrdLessThan";
         } else if (expression.value == "<=") {
@@ -14871,6 +15119,7 @@ private:
   std::unordered_map<std::string, std::string> intConstants_;
   std::unordered_map<std::string, std::string> uintConstants_;
   std::unordered_map<std::string, std::string> literalConstants_;
+  std::unordered_map<std::string, std::string> moduleConstantIds_;
   std::unordered_map<std::string, PointerInfo> vertexInputs_;
   std::unordered_map<std::string, PointerInfo> vertexOutputs_;
   std::unordered_map<std::string, PointerInfo> fragmentInputs_;

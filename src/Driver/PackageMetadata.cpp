@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <map>
+#include <set>
 #include <sstream>
 #include <system_error>
 #include <utility>
@@ -34,6 +36,22 @@ struct NativeArtifactToolRecord {
   std::string role;
 };
 
+struct ZipMemberRecord {
+  std::string path;
+  std::string normalizedPath;
+  std::uint16_t compressionMethod = 0;
+  std::uint32_t compressedSize = 0;
+  std::uint32_t uncompressedSize = 0;
+  std::uint32_t localHeaderOffset = 0;
+  bool directory = false;
+};
+
+struct PackageSource {
+  std::filesystem::path packagePath;
+  std::string format = "directory";
+  std::map<std::string, ZipMemberRecord> zipMembers;
+};
+
 std::string diagnosticCode(const PackageMetadataLoadOptions &options,
                            std::string_view suffix) {
   return options.diagnosticCodePrefix + "." + std::string(suffix);
@@ -43,6 +61,22 @@ SourceLocation fileStartLocation(const std::filesystem::path &path) {
   SourceLocation location;
   location.file = path.lexically_normal().generic_string();
   return location;
+}
+
+SourceLocation archiveMemberStartLocation(const std::filesystem::path &archivePath,
+                                          std::string_view memberPath) {
+  SourceLocation location;
+  location.file = archivePath.lexically_normal().generic_string() + "!/" +
+                  std::string(memberPath);
+  return location;
+}
+
+SourceLocation sourceStartLocation(const PackageSource &source,
+                                   std::string_view relativePath) {
+  if (source.format == "zip") {
+    return archiveMemberStartLocation(source.packagePath, relativePath);
+  }
+  return fileStartLocation(source.packagePath / std::string(relativePath));
 }
 
 SourceLocation sourceLocationForRange(const std::filesystem::path &path,
@@ -89,6 +123,479 @@ JsonRange offsetRange(JsonRange range, std::size_t offset) {
   return JsonRange{range.begin + offset, range.end + offset};
 }
 
+std::uint16_t readLe16(std::string_view data, std::size_t offset) {
+  return static_cast<std::uint16_t>(
+      static_cast<unsigned char>(data[offset]) |
+      (static_cast<unsigned char>(data[offset + 1]) << 8));
+}
+
+std::uint32_t readLe32(std::string_view data, std::size_t offset) {
+  return static_cast<std::uint32_t>(static_cast<unsigned char>(data[offset])) |
+         (static_cast<std::uint32_t>(
+              static_cast<unsigned char>(data[offset + 1]))
+          << 8) |
+         (static_cast<std::uint32_t>(
+              static_cast<unsigned char>(data[offset + 2]))
+          << 16) |
+         (static_cast<std::uint32_t>(
+              static_cast<unsigned char>(data[offset + 3]))
+          << 24);
+}
+
+bool fileHasZipSignature(const std::filesystem::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return false;
+  }
+  char signature[4] = {};
+  input.read(signature, sizeof(signature));
+  if (input.gcount() != sizeof(signature)) {
+    return false;
+  }
+  const auto third = static_cast<unsigned char>(signature[2]);
+  const auto fourth = static_cast<unsigned char>(signature[3]);
+  return signature[0] == 'P' && signature[1] == 'K' &&
+         ((third == 0x03 && fourth == 0x04) ||
+          (third == 0x05 && fourth == 0x06) ||
+          (third == 0x07 && fourth == 0x08));
+}
+
+std::optional<std::string> readFileSlice(const std::filesystem::path &path,
+                                         std::uintmax_t offset,
+                                         std::size_t size) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return std::nullopt;
+  }
+  input.seekg(static_cast<std::streamoff>(offset), std::ios::beg);
+  if (!input) {
+    return std::nullopt;
+  }
+  std::string data(size, '\0');
+  input.read(data.data(), static_cast<std::streamsize>(data.size()));
+  if (input.gcount() != static_cast<std::streamsize>(data.size())) {
+    return std::nullopt;
+  }
+  return data;
+}
+
+bool isPackageRootMetadataFile(std::string_view path) {
+  return path == "manifest.json" || path == "reflection.json" ||
+         path == "diagnostics.json";
+}
+
+std::optional<std::string> normalizeZipMemberName(std::string_view path) {
+  if (path.empty() || path.find('\\') != std::string_view::npos ||
+      path.front() == '/') {
+    return std::nullopt;
+  }
+  if (path.size() >= 2 && std::isalpha(static_cast<unsigned char>(path[0])) &&
+      path[1] == ':') {
+    return std::nullopt;
+  }
+
+  std::vector<std::string> parts;
+  std::size_t start = 0;
+  while (start <= path.size()) {
+    const std::size_t slash = path.find('/', start);
+    const std::size_t end =
+        slash == std::string_view::npos ? path.size() : slash;
+    const std::string_view part = path.substr(start, end - start);
+    if (part == "..") {
+      return std::nullopt;
+    }
+    if (!part.empty() && part != ".") {
+      parts.emplace_back(part);
+    }
+    if (slash == std::string_view::npos) {
+      break;
+    }
+    start = slash + 1;
+  }
+  if (parts.empty()) {
+    return std::nullopt;
+  }
+
+  std::ostringstream normalized;
+  for (std::size_t index = 0; index < parts.size(); ++index) {
+    if (index > 0) {
+      normalized << '/';
+    }
+    normalized << parts[index];
+  }
+  return normalized.str();
+}
+
+std::string zipMetadataRootLabel(std::string_view root) {
+  if (root.empty()) {
+    return "archive root";
+  }
+  std::string label(root);
+  if (!label.empty() && label.back() == '/') {
+    label.pop_back();
+  }
+  return label;
+}
+
+std::optional<std::string>
+detectZipPackagePrefix(const std::vector<std::string> &paths,
+                       const std::filesystem::path &archivePath,
+                       DiagnosticEngine &diagnostics,
+                       const PackageMetadataLoadOptions &options) {
+  std::map<std::string, std::set<std::string>> metadataByRoot;
+  std::set<std::string> topLevelDirectories;
+  for (const std::string &path : paths) {
+    if (isPackageRootMetadataFile(path)) {
+      metadataByRoot[""].insert(path);
+    }
+    const std::size_t slash = path.find('/');
+    if (slash == std::string::npos || slash == 0) {
+      continue;
+    }
+    topLevelDirectories.insert(path.substr(0, slash));
+    const std::string stripped = path.substr(slash + 1);
+    if (isPackageRootMetadataFile(stripped)) {
+      metadataByRoot[path.substr(0, slash + 1)].insert(stripped);
+    }
+  }
+
+  std::vector<std::string> completeRoots;
+  for (const auto &[root, names] : metadataByRoot) {
+    if (names.count("manifest.json") != 0 &&
+        names.count("reflection.json") != 0 &&
+        names.count("diagnostics.json") != 0) {
+      completeRoots.push_back(root);
+    }
+  }
+  if (completeRoots.size() > 1) {
+    std::ostringstream roots;
+    for (std::size_t index = 0; index < completeRoots.size(); ++index) {
+      if (index > 0) {
+        roots << ", ";
+      }
+      roots << zipMetadataRootLabel(completeRoots[index]);
+    }
+    diagnostics.error(diagnosticCode(options, "archive-ambiguous-root"),
+                      "package archive contains ambiguous package metadata "
+                      "roots: " +
+                          roots.str(),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+  if (completeRoots.empty()) {
+    return "";
+  }
+
+  const std::string prefix = completeRoots.front();
+  if (prefix.empty()) {
+    return prefix;
+  }
+  const std::string topLevel = prefix.substr(0, prefix.size() - 1);
+  if (topLevelDirectories != std::set<std::string>{topLevel}) {
+    return "";
+  }
+  if (metadataByRoot.count("") != 0) {
+    diagnostics.error(diagnosticCode(options, "archive-ambiguous-root"),
+                      "package archive contains ambiguous package metadata "
+                      "roots: archive root, " +
+                          zipMetadataRootLabel(prefix),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+  return prefix;
+}
+
+std::optional<std::map<std::string, ZipMemberRecord>>
+readStoredZipMemberIndex(const std::filesystem::path &archivePath,
+                         DiagnosticEngine &diagnostics,
+                         const PackageMetadataLoadOptions &options) {
+  std::error_code error;
+  const std::uintmax_t archiveSize = std::filesystem::file_size(archivePath, error);
+  if (error) {
+    diagnostics.error(diagnosticCode(options, "archive-read-failed"),
+                      "failed to inspect package archive: " + archivePath.string(),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+
+  constexpr std::uint32_t eocdSignature = 0x06054b50;
+  constexpr std::uint32_t centralDirectorySignature = 0x02014b50;
+  constexpr std::size_t eocdMinimumSize = 22;
+  constexpr std::size_t eocdMaximumCommentSize = 0xffff;
+  const std::size_t tailSize = static_cast<std::size_t>(
+      std::min<std::uintmax_t>(archiveSize, eocdMinimumSize + eocdMaximumCommentSize));
+  const std::uintmax_t tailOffset = archiveSize - tailSize;
+  std::optional<std::string> tail = readFileSlice(archivePath, tailOffset, tailSize);
+  if (!tail) {
+    diagnostics.error(diagnosticCode(options, "archive-read-failed"),
+                      "failed to read package archive directory: " +
+                          archivePath.string(),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+  if (tail->size() < eocdMinimumSize) {
+    diagnostics.error(diagnosticCode(options, "archive-invalid"),
+                      "package archive is missing a ZIP central directory: " +
+                          archivePath.string(),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+
+  std::optional<std::size_t> eocdOffsetInTail;
+  for (std::size_t offset = tail->size() - eocdMinimumSize;
+       offset != static_cast<std::size_t>(-1); --offset) {
+    if (readLe32(*tail, offset) == eocdSignature) {
+      eocdOffsetInTail = offset;
+      break;
+    }
+    if (offset == 0) {
+      break;
+    }
+  }
+  if (!eocdOffsetInTail) {
+    diagnostics.error(diagnosticCode(options, "archive-invalid"),
+                      "package archive is missing a ZIP central directory: " +
+                          archivePath.string(),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+
+  const std::size_t eocd = *eocdOffsetInTail;
+  const std::uint16_t diskNumber = readLe16(*tail, eocd + 4);
+  const std::uint16_t centralDirectoryDisk = readLe16(*tail, eocd + 6);
+  const std::uint16_t entryCount = readLe16(*tail, eocd + 10);
+  const std::uint32_t centralDirectorySize = readLe32(*tail, eocd + 12);
+  const std::uint32_t centralDirectoryOffset = readLe32(*tail, eocd + 16);
+  if (diskNumber != 0 || centralDirectoryDisk != 0 ||
+      centralDirectoryOffset == 0xffffffff ||
+      centralDirectorySize == 0xffffffff) {
+    diagnostics.error(diagnosticCode(options, "archive-unsupported"),
+                      "package archive uses unsupported ZIP64 or multi-disk layout: " +
+                          archivePath.string(),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+  if (static_cast<std::uintmax_t>(centralDirectoryOffset) +
+          centralDirectorySize >
+      archiveSize) {
+    diagnostics.error(diagnosticCode(options, "archive-invalid"),
+                      "package archive central directory is out of bounds: " +
+                          archivePath.string(),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+
+  std::optional<std::string> centralDirectory =
+      readFileSlice(archivePath, centralDirectoryOffset, centralDirectorySize);
+  if (!centralDirectory) {
+    diagnostics.error(diagnosticCode(options, "archive-read-failed"),
+                      "failed to read package archive central directory: " +
+                          archivePath.string(),
+                      fileStartLocation(archivePath));
+    return std::nullopt;
+  }
+
+  std::vector<ZipMemberRecord> members;
+  std::vector<std::string> memberPaths;
+  std::size_t cursor = 0;
+  for (std::uint16_t index = 0; index < entryCount; ++index) {
+    if (cursor + 46 > centralDirectory->size() ||
+        readLe32(*centralDirectory, cursor) != centralDirectorySignature) {
+      diagnostics.error(diagnosticCode(options, "archive-invalid"),
+                        "package archive has a malformed central directory entry: " +
+                            archivePath.string(),
+                        fileStartLocation(archivePath));
+      return std::nullopt;
+    }
+    const std::uint16_t method = readLe16(*centralDirectory, cursor + 10);
+    const std::uint32_t compressedSize = readLe32(*centralDirectory, cursor + 20);
+    const std::uint32_t uncompressedSize = readLe32(*centralDirectory, cursor + 24);
+    const std::uint16_t nameLength = readLe16(*centralDirectory, cursor + 28);
+    const std::uint16_t extraLength = readLe16(*centralDirectory, cursor + 30);
+    const std::uint16_t commentLength = readLe16(*centralDirectory, cursor + 32);
+    const std::uint32_t localHeaderOffset =
+        readLe32(*centralDirectory, cursor + 42);
+    const std::size_t recordSize =
+        46u + nameLength + extraLength + commentLength;
+    if (cursor + recordSize > centralDirectory->size()) {
+      diagnostics.error(diagnosticCode(options, "archive-invalid"),
+                        "package archive has a truncated central directory entry: " +
+                            archivePath.string(),
+                        fileStartLocation(archivePath));
+      return std::nullopt;
+    }
+    std::string path(centralDirectory->data() + cursor + 46, nameLength);
+    cursor += recordSize;
+    if (path.empty()) {
+      continue;
+    }
+    ZipMemberRecord member;
+    member.path = path;
+    member.compressionMethod = method;
+    member.compressedSize = compressedSize;
+    member.uncompressedSize = uncompressedSize;
+    member.localHeaderOffset = localHeaderOffset;
+    member.directory = !path.empty() && path.back() == '/';
+    if (!member.directory) {
+      std::optional<std::string> normalized = normalizeZipMemberName(member.path);
+      if (!normalized) {
+        diagnostics.error(diagnosticCode(options, "archive-invalid-member"),
+                          "package archive member is not package-relative: " +
+                              member.path,
+                          archiveMemberStartLocation(archivePath, member.path));
+        return std::nullopt;
+      }
+      member.normalizedPath = std::move(*normalized);
+      if (member.compressionMethod != 0) {
+        diagnostics.error(diagnosticCode(options, "unsupported-compression"),
+                          "package archive member uses unsupported compression "
+                          "method " +
+                              std::to_string(member.compressionMethod) + ": " +
+                              member.path,
+                          archiveMemberStartLocation(archivePath, member.path));
+        return std::nullopt;
+      }
+      memberPaths.push_back(member.normalizedPath);
+    }
+    members.push_back(std::move(member));
+  }
+
+  std::optional<std::string> prefix =
+      detectZipPackagePrefix(memberPaths, archivePath, diagnostics, options);
+  if (!prefix) {
+    return std::nullopt;
+  }
+  std::map<std::string, ZipMemberRecord> index;
+  for (ZipMemberRecord member : members) {
+    std::string normalized = member.normalizedPath;
+    if (!prefix->empty()) {
+      if (!normalized.starts_with(*prefix)) {
+        continue;
+      }
+      normalized.erase(0, prefix->size());
+    }
+    if (normalized.empty() || normalized.ends_with('/')) {
+      continue;
+    }
+    if (packagePathIssue(normalized) != PackagePathIssue::None) {
+      diagnostics.error(diagnosticCode(options, "archive-invalid-member"),
+                        "package archive member is not package-relative: " +
+                            member.path,
+                        archiveMemberStartLocation(archivePath, member.path));
+      return std::nullopt;
+    }
+    if (!index.emplace(normalized, member).second) {
+      diagnostics.error(diagnosticCode(options, "duplicate-archive-member"),
+                        "package archive contains duplicate normalized member: " +
+                            normalized,
+                        archiveMemberStartLocation(archivePath, normalized));
+      return std::nullopt;
+    }
+  }
+  return index;
+}
+
+std::optional<std::string>
+readStoredZipMember(const PackageSource &source, const ZipMemberRecord &member,
+                    DiagnosticEngine &diagnostics,
+                    const PackageMetadataLoadOptions &options) {
+  if (member.compressionMethod != 0) {
+    diagnostics.error(diagnosticCode(options, "unsupported-compression"),
+                      "package archive member uses unsupported compression method " +
+                          std::to_string(member.compressionMethod) + ": " +
+                          member.path,
+                      archiveMemberStartLocation(source.packagePath, member.path));
+    return std::nullopt;
+  }
+
+  std::optional<std::string> localHeader =
+      readFileSlice(source.packagePath, member.localHeaderOffset, 30);
+  if (!localHeader || readLe32(*localHeader, 0) != 0x04034b50) {
+    diagnostics.error(diagnosticCode(options, "archive-invalid"),
+                      "package archive member has a malformed local header: " +
+                          member.path,
+                      archiveMemberStartLocation(source.packagePath, member.path));
+    return std::nullopt;
+  }
+  const std::uint16_t nameLength = readLe16(*localHeader, 26);
+  const std::uint16_t extraLength = readLe16(*localHeader, 28);
+  const std::uintmax_t dataOffset =
+      static_cast<std::uintmax_t>(member.localHeaderOffset) + 30u + nameLength +
+      extraLength;
+  std::optional<std::string> data =
+      readFileSlice(source.packagePath, dataOffset, member.compressedSize);
+  if (!data || data->size() != member.uncompressedSize) {
+    diagnostics.error(diagnosticCode(options, "archive-read-failed"),
+                      "failed to read package archive member: " + member.path,
+                      archiveMemberStartLocation(source.packagePath, member.path));
+    return std::nullopt;
+  }
+  return data;
+}
+
+std::optional<PackageSource>
+loadPackageSource(const std::filesystem::path &packagePath,
+                  DiagnosticEngine &diagnostics,
+                  const PackageMetadataLoadOptions &options) {
+  std::error_code error;
+  if (!std::filesystem::exists(packagePath, error) || error) {
+    diagnostics.error(diagnosticCode(options, "missing-package"),
+                      "package path does not exist: " + packagePath.string());
+    return std::nullopt;
+  }
+  if (std::filesystem::is_directory(packagePath, error) && !error) {
+    PackageSource source;
+    source.packagePath = packagePath;
+    source.format = "directory";
+    return source;
+  }
+  error.clear();
+  if (options.allowStoredZipPackages &&
+      std::filesystem::is_regular_file(packagePath, error) && !error &&
+      fileHasZipSignature(packagePath)) {
+    PackageSource source;
+    source.packagePath = packagePath;
+    source.format = "zip";
+    std::optional<std::map<std::string, ZipMemberRecord>> members =
+        readStoredZipMemberIndex(packagePath, diagnostics, options);
+    if (!members) {
+      return std::nullopt;
+    }
+    source.zipMembers = std::move(*members);
+    return source;
+  }
+
+  diagnostics.error(
+      diagnosticCode(options, "unsupported-format"),
+      options.commandName +
+          " currently expects a .cglb directory: " + packagePath.string());
+  return std::nullopt;
+}
+
+std::optional<std::string>
+validateJsonObjectText(std::string text, const SourceLocation &location,
+                       std::string_view label, DiagnosticEngine &diagnostics,
+                       const PackageMetadataLoadOptions &options) {
+  if (!isJsonObjectDocument(text)) {
+    diagnostics.error(diagnosticCode(options, "invalid-json"),
+                      "package " + std::string(label) +
+                          " is not a valid JSON object: " + location.file,
+                      location);
+    return std::nullopt;
+  }
+  if (const std::optional<DuplicateJsonKey> duplicate =
+          findDuplicateJsonKey(text)) {
+    diagnostics.error(
+        diagnosticCode(options, "duplicate-key"),
+        "package " + std::string(label) +
+            " contains duplicate JSON object key: " + duplicate->path,
+        sourceLocationForRange(std::filesystem::path(location.file), text,
+                               duplicate->keyRange));
+    return std::nullopt;
+  }
+  return text;
+}
+
 std::optional<std::string>
 readJsonObjectFile(const std::filesystem::path &path, std::string_view label,
                    DiagnosticEngine &diagnostics,
@@ -114,23 +621,35 @@ readJsonObjectFile(const std::filesystem::path &path, std::string_view label,
   std::ostringstream buffer;
   buffer << input.rdbuf();
   std::string text = buffer.str();
-  if (!isJsonObjectDocument(text)) {
-    diagnostics.error(diagnosticCode(options, "invalid-json"),
-                      "package " + std::string(label) +
-                          " is not a valid JSON object: " + path.string(),
-                      fileStartLocation(path));
+  return validateJsonObjectText(std::move(text), fileStartLocation(path), label,
+                                diagnostics, options);
+}
+
+std::optional<std::string>
+readJsonObjectFromSource(const PackageSource &source, std::string_view path,
+                         std::string_view label, DiagnosticEngine &diagnostics,
+                         const PackageMetadataLoadOptions &options) {
+  if (source.format == "directory") {
+    return readJsonObjectFile(source.packagePath / std::string(path), label,
+                              diagnostics, options);
+  }
+
+  const auto member = source.zipMembers.find(std::string(path));
+  if (member == source.zipMembers.end()) {
+    diagnostics.error(diagnosticCode(options, "read-failed"),
+                      "failed to read package " + std::string(label) + " at '" +
+                          source.packagePath.string() + "!/" + std::string(path) +
+                          "'",
+                      sourceStartLocation(source, path));
     return std::nullopt;
   }
-  if (const std::optional<DuplicateJsonKey> duplicate =
-          findDuplicateJsonKey(text)) {
-    diagnostics.error(
-        diagnosticCode(options, "duplicate-key"),
-        "package " + std::string(label) +
-            " contains duplicate JSON object key: " + duplicate->path,
-        sourceLocationForRange(path, text, duplicate->keyRange));
+  std::optional<std::string> text =
+      readStoredZipMember(source, member->second, diagnostics, options);
+  if (!text) {
     return std::nullopt;
   }
-  return text;
+  return validateJsonObjectText(std::move(*text), sourceStartLocation(source, path),
+                                label, diagnostics, options);
 }
 
 std::optional<std::uintmax_t>
@@ -181,6 +700,24 @@ PackageRootFileRecord rootFileRecord(const std::filesystem::path &packagePath,
   return record;
 }
 
+PackageRootFileRecord rootFileRecord(const PackageSource &source,
+                                     std::string name, std::string path) {
+  if (source.format == "directory") {
+    return rootFileRecord(source.packagePath, std::move(name), std::move(path));
+  }
+  PackageRootFileRecord record;
+  record.name = std::move(name);
+  record.path = std::move(path);
+  record.location = sourceStartLocation(source, record.path);
+  const auto member = source.zipMembers.find(record.path);
+  record.pathExists = member != source.zipMembers.end();
+  record.exists = record.pathExists && !member->second.directory;
+  if (record.exists) {
+    record.sizeBytes = member->second.uncompressedSize;
+  }
+  return record;
+}
+
 PackageArtifactRecord artifactRecord(const std::filesystem::path &packagePath,
                                      std::string name, std::string path,
                                      std::optional<SourceLocation> location) {
@@ -197,6 +734,30 @@ PackageArtifactRecord artifactRecord(const std::filesystem::path &packagePath,
     record.exists = std::filesystem::is_regular_file(fullPath, error) && !error;
     if (record.exists) {
       record.sizeBytes = fileSizeIfRegular(fullPath);
+    }
+  }
+  return record;
+}
+
+PackageArtifactRecord artifactRecord(const PackageSource &source,
+                                     std::string name, std::string path,
+                                     std::optional<SourceLocation> location) {
+  if (source.format == "directory") {
+    return artifactRecord(source.packagePath, std::move(name), std::move(path),
+                          std::move(location));
+  }
+  PackageArtifactRecord record;
+  record.name = std::move(name);
+  record.path = std::move(path);
+  record.location = std::move(location);
+  record.pathIssue = packagePathIssue(record.path);
+  record.packageRelative = record.pathIssue == PackagePathIssue::None;
+  if (record.packageRelative) {
+    const auto member = source.zipMembers.find(record.path);
+    record.pathExists = member != source.zipMembers.end();
+    record.exists = record.pathExists && !member->second.directory;
+    if (record.exists) {
+      record.sizeBytes = member->second.uncompressedSize;
     }
   }
   return record;
@@ -376,6 +937,38 @@ std::string canonicalMemberJsonOrDefault(std::string_view object,
   return canonicalJson(*value);
 }
 
+std::vector<std::string> stringArrayMemberValues(std::string_view object,
+                                                 std::string_view key) {
+  const std::optional<std::string_view> value =
+      findObjectMemberValue(object, key);
+  if (!value) {
+    return {};
+  }
+
+  const std::optional<std::vector<JsonRange>> elementRanges =
+      collectArrayElementRanges(*value);
+  if (!elementRanges) {
+    return {};
+  }
+
+  std::vector<std::string> values;
+  for (const JsonRange &elementRange : *elementRanges) {
+    const std::string_view element(
+        value->data() + elementRange.begin,
+        elementRange.end - elementRange.begin);
+    std::string parsed;
+    std::size_t position = 0;
+    if (!parseJsonString(element, position, parsed)) {
+      continue;
+    }
+    skipWhitespace(element, position);
+    if (position == element.size()) {
+      values.push_back(std::move(parsed));
+    }
+  }
+  return values;
+}
+
 void collectReflectionResources(
     const std::filesystem::path &reflectionPath, std::string_view reflection,
     std::vector<PackageReflectionResourceRecord> &resourcesOut) {
@@ -416,6 +1009,8 @@ void collectReflectionResources(
         optionalStringMemberValue(resourceObject, "storageImageFormat");
     record.storageImageAccess =
         optionalStringMemberValue(resourceObject, "storageImageAccess");
+    record.arrayElementCount =
+        objectUnsignedMember(resourceObject, "arrayElementCount");
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(resourceObject, "arrayDimensions", "[]");
     resourcesOut.push_back(std::move(record));
@@ -456,8 +1051,14 @@ void collectReflectionTargetResourceBindings(
     record.name = stringMemberValueOrEmpty(bindingObject, "name");
     record.kind = stringMemberValueOrEmpty(bindingObject, "kind");
     record.sourceType = stringMemberValueOrEmpty(bindingObject, "sourceType");
+    record.bindingClass =
+        optionalStringMemberValue(bindingObject, "bindingClass");
+    record.descriptorType =
+        optionalStringMemberValue(bindingObject, "descriptorType");
     record.set = objectUnsignedMember(bindingObject, "set");
     record.binding = objectUnsignedMember(bindingObject, "binding");
+    record.argumentIndex =
+        objectUnsignedMember(bindingObject, "argumentIndex");
     record.addressSpace =
         optionalStringMemberValue(bindingObject, "addressSpace");
     record.storageImageFormat =
@@ -466,9 +1067,54 @@ void collectReflectionTargetResourceBindings(
         optionalStringMemberValue(bindingObject, "storageImageAccess");
     record.arrayElementCount =
         objectUnsignedMember(bindingObject, "arrayElementCount");
+    if (const std::optional<JsonRange> evidenceIdRange =
+            findObjectMember(bindingObject, "evidenceId")) {
+      record.evidenceIdLocation = sourceLocationForRange(
+          reflectionPath, reflection,
+          JsonRange{absoluteRange.begin + evidenceIdRange->begin,
+                    absoluteRange.begin + evidenceIdRange->end});
+    }
+    record.evidenceId = optionalStringMemberValue(bindingObject, "evidenceId");
+    record.abiJson = canonicalMemberJsonOrDefault(bindingObject, "abi", "null");
     record.arrayDimensionsJson =
         canonicalMemberJsonOrDefault(bindingObject, "arrayDimensions", "[]");
     bindingsOut.push_back(std::move(record));
+  }
+}
+
+void collectReflectionTargetFeatures(
+    const std::filesystem::path &reflectionPath, std::string_view reflection,
+    std::vector<PackageReflectionTargetFeatureRecord> &featuresOut) {
+  const std::optional<JsonRange> featuresRange =
+      findObjectMember(reflection, "targetFeatures");
+  if (!featuresRange) {
+    return;
+  }
+  const std::string_view featuresArray(
+      reflection.data() + featuresRange->begin,
+      featuresRange->end - featuresRange->begin);
+  const std::optional<std::vector<JsonRange>> elementRanges =
+      collectArrayElementRanges(featuresArray);
+  if (!elementRanges) {
+    return;
+  }
+
+  for (const JsonRange &elementRange : *elementRanges) {
+    const JsonRange absoluteRange{
+        featuresRange->begin + elementRange.begin,
+        featuresRange->begin + elementRange.end};
+    const std::string_view featureObject(
+        reflection.data() + absoluteRange.begin,
+        absoluteRange.end - absoluteRange.begin);
+
+    PackageReflectionTargetFeatureRecord record;
+    record.location =
+        sourceLocationForRange(reflectionPath, reflection, absoluteRange);
+    record.target = stringMemberValueOrEmpty(featureObject, "target");
+    record.kind = stringMemberValueOrEmpty(featureObject, "kind");
+    record.name = stringMemberValueOrEmpty(featureObject, "name");
+    record.evidenceIds = stringArrayMemberValues(featureObject, "evidenceIds");
+    featuresOut.push_back(std::move(record));
   }
 }
 
@@ -2110,6 +2756,23 @@ effectivePackageNativeBinaryStatus(const PackageMetadata &metadata) {
   return std::nullopt;
 }
 
+std::optional<std::string>
+detectPackageMetadataFormat(const std::filesystem::path &packagePath) {
+  std::error_code error;
+  if (!std::filesystem::exists(packagePath, error) || error) {
+    return std::nullopt;
+  }
+  if (std::filesystem::is_directory(packagePath, error) && !error) {
+    return "directory";
+  }
+  error.clear();
+  if (std::filesystem::is_regular_file(packagePath, error) && !error &&
+      fileHasZipSignature(packagePath)) {
+    return "zip";
+  }
+  return std::nullopt;
+}
+
 PackageNativeArtifactDescriptorHealth
 collectPackageNativeArtifactDescriptorHealth(const PackageMetadata &metadata) {
   PackageNativeArtifactDescriptorHealth health;
@@ -2386,42 +3049,44 @@ std::optional<PackageMetadata>
 loadPackageMetadata(const std::filesystem::path &packagePath,
                     DiagnosticEngine &diagnostics,
                     const PackageMetadataLoadOptions &options) {
-  std::error_code error;
-  if (!std::filesystem::exists(packagePath, error) || error) {
-    diagnostics.error(diagnosticCode(options, "missing-package"),
-                      "package path does not exist: " + packagePath.string());
-    return std::nullopt;
-  }
-  if (!std::filesystem::is_directory(packagePath, error) || error) {
-    diagnostics.error(
-        diagnosticCode(options, "unsupported-format"),
-        options.commandName +
-            " currently expects a .cglb directory: " + packagePath.string());
+  std::optional<PackageSource> source =
+      loadPackageSource(packagePath, diagnostics, options);
+  if (!source) {
     return std::nullopt;
   }
 
   PackageMetadata metadata;
   metadata.packagePath = packagePath;
-  const std::filesystem::path manifestPath = packagePath / "manifest.json";
-  const std::filesystem::path reflectionPath = packagePath / "reflection.json";
+  metadata.packageFormat = source->format;
+  const std::filesystem::path manifestPath =
+      source->format == "directory"
+          ? packagePath / "manifest.json"
+          : std::filesystem::path(packagePath.string() + "!/manifest.json");
+  const std::filesystem::path reflectionPath =
+      source->format == "directory"
+          ? packagePath / "reflection.json"
+          : std::filesystem::path(packagePath.string() + "!/reflection.json");
   const std::filesystem::path diagnosticsPath =
-      packagePath / "diagnostics.json";
-  metadata.manifestLocation = fileStartLocation(manifestPath);
-  metadata.reflectionLocation = fileStartLocation(reflectionPath);
-  metadata.diagnosticsLocation = fileStartLocation(diagnosticsPath);
+      source->format == "directory"
+          ? packagePath / "diagnostics.json"
+          : std::filesystem::path(packagePath.string() + "!/diagnostics.json");
+  metadata.manifestLocation = sourceStartLocation(*source, "manifest.json");
+  metadata.reflectionLocation = sourceStartLocation(*source, "reflection.json");
+  metadata.diagnosticsLocation =
+      sourceStartLocation(*source, "diagnostics.json");
   metadata.rootFiles.push_back(
-      rootFileRecord(packagePath, "manifest", "manifest.json"));
+      rootFileRecord(*source, "manifest", "manifest.json"));
   metadata.rootFiles.push_back(
-      rootFileRecord(packagePath, "reflection", "reflection.json"));
+      rootFileRecord(*source, "reflection", "reflection.json"));
   metadata.rootFiles.push_back(
-      rootFileRecord(packagePath, "diagnostics", "diagnostics.json"));
+      rootFileRecord(*source, "diagnostics", "diagnostics.json"));
 
-  auto manifest =
-      readJsonObjectFile(manifestPath, "manifest", diagnostics, options);
-  auto reflection =
-      readJsonObjectFile(reflectionPath, "reflection", diagnostics, options);
-  auto packageDiagnostics =
-      readJsonObjectFile(diagnosticsPath, "diagnostics", diagnostics, options);
+  auto manifest = readJsonObjectFromSource(*source, "manifest.json", "manifest",
+                                           diagnostics, options);
+  auto reflection = readJsonObjectFromSource(
+      *source, "reflection.json", "reflection", diagnostics, options);
+  auto packageDiagnostics = readJsonObjectFromSource(
+      *source, "diagnostics.json", "diagnostics", diagnostics, options);
   if (!manifest || !reflection || !packageDiagnostics) {
     return std::nullopt;
   }
@@ -2487,6 +3152,9 @@ loadPackageMetadata(const std::filesystem::path &packagePath,
     if (member.name == "sourceRemap") {
       metadata.sourceRemapArtifactPresent = true;
     }
+    if (member.name == "backendSourceMap") {
+      metadata.backendSourceMapArtifactPresent = true;
+    }
     if (member.name == "nativeProfile") {
       metadata.nativeProfileArtifactPresent = true;
     }
@@ -2494,7 +3162,7 @@ loadPackageMetadata(const std::filesystem::path &packagePath,
       metadata.nativeArtifactDescriptorArtifactPresent = true;
     }
     metadata.artifacts.push_back(artifactRecord(
-        packagePath, member.name, member.value, std::move(memberLocation)));
+        *source, member.name, member.value, std::move(memberLocation)));
   }
   metadata.debugArtifactsPresent = metadata.debugMetadataArtifactPresent &&
                                    metadata.hirSourceMapArtifactPresent;
@@ -2578,6 +3246,8 @@ loadPackageMetadata(const std::filesystem::path &packagePath,
   collectReflectionTargetResourceBindings(
       reflectionPath, metadata.documents.reflection,
       metadata.reflectionTargetResourceBindings);
+  collectReflectionTargetFeatures(reflectionPath, metadata.documents.reflection,
+                                  metadata.reflectionTargetFeatures);
   return metadata;
 }
 

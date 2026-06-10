@@ -9,6 +9,16 @@
         "metal",
         "vulkan",
         "directx",
+        "opengl",
+        "wgsl"
+      ]
+    },
+    "packageTargetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
         "opengl"
       ]
     },
@@ -24,7 +34,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+$"
+        "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl|wgsl)\\.[A-Za-z0-9_.-]+$"
       }
     },
     "diagnosticEvidenceIdList": {
@@ -32,7 +42,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.diagnostic\\.[A-Za-z0-9_.-]+$"
+        "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl|wgsl)\\.diagnostic\\.[A-Za-z0-9_.-]+$"
       }
     },
     "toolIdList": {
@@ -40,7 +50,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^(metal|vulkan|directx|opengl)\\.(native-tool|toolchain|validation)\\.[A-Za-z0-9_.-]+$"
+        "pattern": "^(metal|vulkan|directx|opengl|wgsl)\\.(native-tool|toolchain|validation)\\.[A-Za-z0-9_.-]+$"
       }
     },
     "optionalNativeToolStatus": {
@@ -196,6 +206,9 @@
           "$ref": "#/$defs/optionalNativeToolStatus"
         },
         "toolRequirementEvidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        },
+        "packageArtifactRequirementEvidenceIds": {
           "$ref": "#/$defs/evidenceIdList"
         },
         "requiredToolIds": {

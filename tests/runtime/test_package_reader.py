@@ -559,6 +559,13 @@ class RuntimePackageReaderTests(unittest.TestCase):
             self.assertEqual(summary["reflection"]["entryPointCount"], 1)
             self.assertEqual(summary["reflection"]["resourceBindingCount"], 1)
             self.assertEqual(summary["reflection"]["targetResourceBindingCount"], 1)
+            self.assertEqual(
+                summary["reflection"]["targetResourceBindingEvidenceIds"],
+                [
+                    "target-legalization.v1.directx.resource-binding.compute."
+                    "runtime_reader_main.OutputBuffer"
+                ],
+            )
 
             backend_source = package.require_existing_artifact("backendSource")
             native_binary = package.require_artifact("nativeBinary")
@@ -597,6 +604,13 @@ class RuntimePackageReaderTests(unittest.TestCase):
             )
             self.assertEqual(target_resource["hlslType"], "RWStructuredBuffer<float4>")
             self.assertEqual(target_resource["bindingClass"], "uav")
+            self.assertEqual(
+                target_resource["evidenceId"],
+                (
+                    "target-legalization.v1.directx.resource-binding.compute."
+                    "runtime_reader_main.OutputBuffer"
+                ),
+            )
 
     def test_reads_descriptor_array_binding_metadata_without_source_parse(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
@@ -746,6 +760,120 @@ class RuntimePackageReaderTests(unittest.TestCase):
             ):
                 package.require_workgroup_size("compute", "main")
 
+    def test_reads_function_constant_metadata_without_source_parse(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            function_constants = [
+                {
+                    "name": "TILE_SIZE",
+                    "type": "int",
+                    "value": "16",
+                    "specializationId": 7,
+                },
+                {
+                    "name": "USE_FAST_PATH",
+                    "type": "bool",
+                    "value": "true",
+                },
+            ]
+            reflection["functionConstants"] = function_constants
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "function constant reflection lookup must not parse source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="metal")
+
+            summary = report.to_summary()
+
+            self.assertEqual(package.function_constants, tuple(function_constants))
+            self.assertEqual(
+                package.function_constant("TILE_SIZE"), function_constants[0]
+            )
+            self.assertEqual(
+                report.require_function_constant("USE_FAST_PATH"),
+                function_constants[1],
+            )
+            self.assertEqual(summary["reflection"]["functionConstantCount"], 2)
+            self.assertEqual(summary["reflection"]["specializationConstantCount"], 1)
+            self.assertTrue(summary["reflection"]["functionConstantsAvailable"])
+            self.assertEqual(
+                summary["functionConstants"],
+                {
+                    "schemaVersion": 1,
+                    "metadataOnly": True,
+                    "declared": True,
+                    "available": True,
+                    "recordCount": 2,
+                    "specializationRecordCount": 1,
+                    "malformedRecordCount": 0,
+                    "records": function_constants,
+                },
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_function_constant_metadata_falls_back_for_legacy_reflection(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+
+            package = read_package(package_dir)
+            report = package.compatibility_report(loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertEqual(package.function_constants, ())
+            self.assertIsNone(package.function_constant("TILE_SIZE"))
+            self.assertEqual(report.function_constants, ())
+            self.assertIsNone(report.function_constant("TILE_SIZE"))
+            self.assertEqual(summary["reflection"]["functionConstantCount"], 0)
+            self.assertEqual(summary["reflection"]["specializationConstantCount"], 0)
+            self.assertFalse(summary["reflection"]["functionConstantsAvailable"])
+            self.assertEqual(summary["functionConstants"]["declared"], False)
+            self.assertFalse(summary["functionConstants"]["available"])
+            with self.assertRaisesRegex(
+                PackageReadError,
+                "missing reflection function constant",
+            ):
+                package.require_function_constant("TILE_SIZE")
+
+    def test_malformed_function_constant_metadata_reports_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            reflection["functionConstants"] = [
+                {"name": "TILE_SIZE", "type": "int", "value": 16},
+                {"name": "USE_FAST_PATH", "type": "bool", "specializationId": True},
+                {"name": "MODE", "type": "int", "specializationId": -1},
+            ]
+            self._write_json(reflection_path, reflection)
+
+            report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertEqual(report.function_constants, ())
+            self.assertEqual(summary["functionConstants"]["malformedRecordCount"], 3)
+            diagnostic_codes = [
+                diagnostic["code"] for diagnostic in summary["diagnostics"]
+            ]
+            self.assertIn(
+                "package.reflection.function_constants_value_invalid",
+                diagnostic_codes,
+            )
+            self.assertIn(
+                "package.reflection.function_constants_specialization_id_invalid",
+                diagnostic_codes,
+            )
+
     def test_reads_metadata_and_artifacts_without_source_parse(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
@@ -870,6 +998,203 @@ class RuntimePackageReaderTests(unittest.TestCase):
             self.assertNotIn("graphicsAbi", package.required_target_artifacts())
             self.assertNotIn("graphicsAbi", report.required_artifacts)
 
+    def test_accepts_optional_debug_sidecar_manifest_artifacts_without_requiring_them(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            backend_source_map_path = (
+                "backend/metal/RuntimeReaderFixture.backend-source-map.json"
+            )
+            (package_dir / "ir").mkdir()
+            self._write_json(
+                package_dir / backend_source_map_path,
+                {
+                    "schemaVersion": 1,
+                    "kind": "crossgl.backendSourceMap",
+                    "target": "metal",
+                    "module": "RuntimeReaderFixture",
+                    "mappingGranularity": "statement",
+                    "sourceBackend": "crossgl-hir",
+                    "targetBackend": "metal",
+                    "backend": {
+                        "language": "metal",
+                        "lineCount": 1,
+                    },
+                    "mappingCount": 0,
+                    "mappings": [],
+                },
+            )
+            source_remap_path = self._write_source_remap_provenance(package_dir)
+            manifest["artifacts"]["backendSourceMap"] = backend_source_map_path
+            manifest["artifacts"]["sourceRemap"] = source_remap_path
+            self._write_json(manifest_path, manifest)
+
+            package = read_package(package_dir)
+            report = package.compatibility_report(loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertEqual(
+                package.artifact("backendSourceMap").package_path,
+                backend_source_map_path,
+            )
+            self.assertEqual(
+                package.artifact("sourceRemap").package_path,
+                source_remap_path,
+            )
+            self.assertNotIn("backendSourceMap", package.required_target_artifacts())
+            self.assertNotIn("sourceRemap", package.required_target_artifacts())
+            self.assertNotIn("backendSourceMap", report.required_artifacts)
+            self.assertNotIn("sourceRemap", report.required_artifacts)
+            skipped = {
+                (artifact["name"], artifact["reason"])
+                for artifact in summary["artifactCompatibility"]["skipped"]
+            }
+            self.assertIn(
+                ("backendSourceMap", "package.artifact.not_required"), skipped
+            )
+            self.assertIn(("sourceRemap", "package.artifact.not_required"), skipped)
+
+    def test_compatibility_report_accepts_valid_source_remap_provenance(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_remap_path = self._write_source_remap_provenance(package_dir)
+            provenance = json.loads(
+                (package_dir / source_remap_path).read_text(encoding="utf-8")
+            )
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertEqual(provenance["mappingCount"], 1)
+            self.assertEqual(summary["rejectReasons"], [])
+            artifact_record = next(
+                artifact
+                for artifact in summary["artifactCompatibility"]["artifacts"]
+                if artifact["name"] == "sourceRemap"
+            )
+            self.assertEqual(artifact_record["decision"], "skipped")
+            self.assertEqual(artifact_record["reason"], "package.artifact.not_required")
+            self.assertEqual(artifact_record["diagnostics"], [])
+
+    def test_compatibility_report_rejects_source_remap_provenance_health_drift(
+        self,
+    ) -> None:
+        cases = (
+            (
+                "mappingCount zero",
+                lambda document: document.update({"mappingCount": 0}),
+                "package.source_remap_provenance.mapping_count_invalid",
+                "mappingCount",
+                "positive integer",
+                0,
+            ),
+            (
+                "target mismatch",
+                lambda document: document.update({"target": "directx"}),
+                "package.source_remap_provenance.target_mismatch",
+                "target",
+                "metal",
+                "directx",
+            ),
+        )
+        for (
+            name,
+            mutate,
+            expected_code,
+            expected_path,
+            expected_value,
+            actual_value,
+        ) in cases:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+                    package_dir = Path(temp_dir)
+                    self._write_valid_package(package_dir)
+                    self._write_source_remap_provenance(
+                        package_dir,
+                        mutate=mutate,
+                    )
+
+                    with self._guard_crossgl_source_reads():
+                        report = read_compatibility_report(
+                            package_dir,
+                            loader_target="metal",
+                        )
+                    summary = report.to_summary()
+
+                    self.assertFalse(report.compatible)
+                    self.assertEqual(report.status, "incompatible")
+                    self.assertIn(
+                        expected_code,
+                        [diagnostic.code for diagnostic in report.reject_reasons],
+                    )
+                    diagnostic = next(
+                        diagnostic
+                        for diagnostic in summary["rejectReasons"]
+                        if diagnostic["code"] == expected_code
+                    )
+                    self.assertEqual(diagnostic["document"], "sourceRemap")
+                    self.assertEqual(diagnostic["artifact"], "sourceRemap")
+                    self.assertEqual(diagnostic["path"], expected_path)
+                    self.assertEqual(diagnostic["expected"], expected_value)
+                    self.assertEqual(diagnostic["actual"], actual_value)
+                    artifact_record = next(
+                        artifact
+                        for artifact in summary["artifactCompatibility"]["artifacts"]
+                        if artifact["name"] == "sourceRemap"
+                    )
+                    self.assertEqual(artifact_record["decision"], "rejected")
+                    self.assertEqual(artifact_record["reason"], expected_code)
+
+    def test_compatibility_report_rejects_missing_source_remap_provenance_file(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["sourceRemap"] = "ir/missing-source-remap.json"
+            self._write_json(manifest_path, manifest)
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            expected_code = "package.source_remap_provenance.file_missing"
+            self.assertFalse(report.compatible)
+            self.assertEqual(report.status, "incompatible")
+            self.assertIn(
+                expected_code,
+                [diagnostic.code for diagnostic in report.reject_reasons],
+            )
+            diagnostic = next(
+                diagnostic
+                for diagnostic in summary["rejectReasons"]
+                if diagnostic["code"] == expected_code
+            )
+            self.assertEqual(diagnostic["document"], "sourceRemap")
+            self.assertEqual(diagnostic["artifact"], "sourceRemap")
+            self.assertEqual(diagnostic["path"], "ir/missing-source-remap.json")
+            self.assertEqual(diagnostic["expected"], "regular file")
+            self.assertEqual(diagnostic["actual"], "missing")
+            artifact_record = next(
+                artifact
+                for artifact in summary["artifactCompatibility"]["artifacts"]
+                if artifact["name"] == "sourceRemap"
+            )
+            self.assertEqual(artifact_record["decision"], "rejected")
+            self.assertEqual(artifact_record["reason"], expected_code)
+
     def test_reports_absent_optional_graphics_abi(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
@@ -986,6 +1311,123 @@ class RuntimePackageReaderTests(unittest.TestCase):
             self.assertEqual(binding["binding"], 0)
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_reflection_descriptor_binding_evidence_is_exposed_for_runtime(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for reflection binding evidence\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="metal")
+
+            package_bindings = package.graphics_descriptor_bindings
+            report_summary = report.to_summary()
+            report_bindings = report_summary["graphicsDescriptorBindings"]
+            binding = package_bindings["bindings"][0]
+            evidence_id = (
+                "target-legalization.v1.metal.resource-binding.compute."
+                "runtime_reader_main.OutputBuffer"
+            )
+
+            self.assertTrue(report.compatible, report_summary["diagnostics"])
+            self.assertEqual(
+                package_bindings["source"],
+                "reflection.targetResourceBindings",
+            )
+            self.assertEqual(package_bindings["bindingCount"], 1)
+            self.assertEqual(package_bindings, report_bindings)
+            self.assertEqual(binding["evidenceId"], evidence_id)
+            self.assertEqual(
+                report_summary["reflection"]["targetResourceBindingEvidenceIds"],
+                [evidence_id],
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_reflection_target_feature_evidence_is_exposed_for_runtime(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for target feature evidence\n",
+                encoding="utf-8",
+            )
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            evidence_ids = [
+                "target-legalization.v1.metal.capability.required.metal.package.fixture",
+                "target-legalization.v1.metal.capability.required.metal.texture.write",
+            ]
+            reflection["targetFeatures"][0]["evidenceIds"] = [evidence_ids[0]]
+            reflection["targetFeatures"].append(
+                {
+                    "target": "metal",
+                    "kind": "capability",
+                    "name": "texture-write",
+                    "evidenceIds": [evidence_ids[1]],
+                }
+            )
+            self._write_json(reflection_path, reflection)
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="metal")
+
+            summary = report.to_summary()
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertEqual(
+                summary["reflection"]["targetFeatureEvidenceIds"],
+                evidence_ids,
+            )
+            self.assertEqual(
+                summary["targetAvailability"]["targetFeatureEvidenceIds"],
+                evidence_ids,
+            )
+            self.assertEqual(
+                report.availability_summary["targets"]["targetFeatureEvidenceIds"],
+                evidence_ids,
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_reflection_target_feature_evidence_is_optional_for_runtime(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for legacy target features\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="metal")
+
+            summary = report.to_summary()
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertEqual(summary["reflection"]["targetFeatureEvidenceIds"], [])
+            self.assertEqual(
+                summary["targetAvailability"]["targetFeatureEvidenceIds"],
+                [],
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_graphics_abi_target_drift_rejects_package_without_source_parse(
         self,
     ) -> None:
@@ -1058,6 +1500,62 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 "graphics ABI is not compatible",
             ):
                 read_package(package_dir)
+
+    def test_graphics_abi_target_resource_binding_abi_mismatch_rejects_package(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="metal")
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            graphics_abi_path = "backend/metal/RuntimeReaderFixture.graphics-abi.json"
+            binding = self._graphics_abi_binding_record(target="vulkan")
+            binding["target"] = "metal"
+            self._write_json(
+                package_dir / graphics_abi_path,
+                {
+                    "schemaVersion": 1,
+                    "module": "RuntimeReaderFixture",
+                    "target": "metal",
+                    "targetResourceBindings": [binding],
+                },
+            )
+            manifest["artifacts"]["graphicsAbi"] = graphics_abi_path
+            self._write_json(manifest_path, manifest)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse source for graphics ABI fallback bindings\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="metal",
+                )
+
+            summary = report.to_summary()
+            diagnostic = next(
+                diagnostic
+                for diagnostic in summary["rejectReasons"]
+                if diagnostic["code"] == "package.graphicsAbi.binding_abi_invalid"
+            )
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(diagnostic["document"], "graphicsAbi")
+            self.assertEqual(diagnostic["path"], "targetResourceBindings[0].abi")
+            self.assertIn("Metal argument ABI", diagnostic["expected"])
+            self.assertEqual(diagnostic["actual"]["abi"], "descriptor")
+            self.assertFalse(summary["sourceParsingRequired"])
+            with self._guard_crossgl_source_reads():
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "graphics ABI is not compatible",
+                ):
+                    read_package(package_dir)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_runtime_artifact_auto_uses_native_only_when_status_is_ready(
         self,
@@ -1342,6 +1840,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "reflectionTarget": "metal",
                     "targetResourceBindingTargets": ["metal"],
                     "targetFeatureTargets": ["metal"],
+                    "targetFeatureEvidenceIds": [],
                     "availableTargets": ["metal"],
                 },
             )
@@ -5384,6 +5883,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "reflectionTarget": "directx",
                     "targetResourceBindingTargets": ["directx"],
                     "targetFeatureTargets": ["directx"],
+                    "targetFeatureEvidenceIds": [],
                     "availableTargets": ["directx"],
                 },
             )
@@ -7077,6 +7577,148 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 [package_dir / "source" / "invalid.cgl"],
             )
 
+    def test_compatibility_report_rejects_duplicate_reflection_target_feature_evidence_ids(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime compatibility must not infer target feature evidence\n",
+                encoding="utf-8",
+            )
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            evidence_id = "target-legalization.v1.metal.abi.required.argument-buffer"
+            reflection["targetFeatures"][0]["evidenceIds"] = [evidence_id]
+            reflection["targetFeatures"].append(
+                {
+                    "target": "metal",
+                    "kind": "abi",
+                    "name": "argument-buffer",
+                    "evidenceIds": [evidence_id],
+                }
+            )
+            self._write_json(reflection_path, reflection)
+
+            report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertFalse(report.compatible)
+            self.assertFalse(report.source_parsing_required)
+            self.assertEqual(report.status, "incompatible")
+            self.assertEqual(
+                [diagnostic.code for diagnostic in report.reject_reasons],
+                ["package.reflection.target_feature_evidence_id_duplicate"],
+            )
+            self.assertEqual(
+                summary["rejectReasons"][0],
+                {
+                    "severity": "error",
+                    "code": "package.reflection.target_feature_evidence_id_duplicate",
+                    "message": (
+                        "reflection.targetFeatures evidenceIds must be unique "
+                        "across targetFeatures"
+                    ),
+                    "document": "reflection",
+                    "path": "targetFeatures[1].evidenceIds[0]",
+                    "expected": "unique target feature evidence id",
+                    "actual": {
+                        "duplicateOf": "targetFeatures[0].evidenceIds[0]",
+                        "evidenceId": evidence_id,
+                    },
+                },
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_compatibility_report_rejects_reflection_target_feature_evidence_prefix_mismatch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            evidence_id = "target-legalization.v1.vulkan.abi.required.push-constants"
+            reflection["targetFeatures"][0]["evidenceIds"] = [evidence_id]
+            self._write_json(reflection_path, reflection)
+
+            report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(report.status, "incompatible")
+            self.assertEqual(
+                [diagnostic.code for diagnostic in report.reject_reasons],
+                [("package.reflection.target_feature_evidence_id_target_mismatch")],
+            )
+            self.assertEqual(
+                summary["rejectReasons"][0],
+                {
+                    "severity": "error",
+                    "code": (
+                        "package.reflection.target_feature_evidence_id_target_mismatch"
+                    ),
+                    "message": (
+                        "reflection.targetFeatures evidenceIds must start with "
+                        "the feature target legalization prefix"
+                    ),
+                    "document": "reflection",
+                    "path": "targetFeatures[0].evidenceIds[0]",
+                    "expected": "target-legalization.v1.metal.",
+                    "actual": evidence_id,
+                },
+            )
+
+    def test_compatibility_report_rejects_reflection_target_feature_capability_evidence_target_mismatch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            reflection["targetFeatures"][0]["evidenceIds"] = [
+                "target-legalization.v1.metal.capability.required.vulkan."
+                "descriptor-indexing"
+            ]
+            self._write_json(reflection_path, reflection)
+
+            report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertFalse(report.compatible)
+            self.assertEqual(report.status, "incompatible")
+            self.assertEqual(
+                [diagnostic.code for diagnostic in report.reject_reasons],
+                [
+                    (
+                        "package.reflection."
+                        "target_feature_evidence_id_capability_target_mismatch"
+                    )
+                ],
+            )
+            self.assertEqual(
+                summary["rejectReasons"][0],
+                {
+                    "severity": "error",
+                    "code": (
+                        "package.reflection."
+                        "target_feature_evidence_id_capability_target_mismatch"
+                    ),
+                    "message": (
+                        "reflection.targetFeatures capability evidence target "
+                        "must match the feature target"
+                    ),
+                    "document": "reflection",
+                    "path": "targetFeatures[0].evidenceIds[0]",
+                    "expected": "metal",
+                    "actual": "vulkan",
+                },
+            )
+
     def test_compatibility_report_does_not_advertise_target_incompatible_reflection_sidecars(
         self,
     ) -> None:
@@ -7117,6 +7759,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "reflectionTarget": "directx",
                     "targetResourceBindingTargets": [],
                     "targetFeatureTargets": [],
+                    "targetFeatureEvidenceIds": [],
                     "availableTargets": ["directx"],
                 },
             )
@@ -7478,6 +8121,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "expected": [
                         "backendAssembly",
                         "backendSource",
+                        "backendSourceMap",
                         "debugMetadata",
                         "graphicsAbi",
                         "hirSourceMap",
@@ -7486,6 +8130,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                         "nativeBinary",
                         "nativeBinaryStatus",
                         "nativeProfile",
+                        "sourceRemap",
                         "targetExplanation",
                     ],
                     "actual": "shaderBlob",
@@ -7633,7 +8278,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
             ):
                 read_package(package_dir)
 
-    def test_compatibility_report_rejects_normalized_duplicate_manifest_artifact_paths(
+    def test_compatibility_report_rejects_non_normalized_manifest_artifact_paths(
         self,
     ) -> None:
         for package_format in ("directory", "zip"):
@@ -7675,28 +8320,28 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     summary = report.to_summary()
 
                     self.assertFalse(report.compatible)
-                    self.assertEqual(report.status, "incompatible")
+                    self.assertEqual(report.status, "missing-artifact")
                     self.assertFalse(report.source_parsing_required)
                     self.assertEqual(
                         [diagnostic.code for diagnostic in report.reject_reasons],
                         [
-                            "package.artifact.path_duplicate",
+                            "package.artifact.path_invalid",
                             "package.artifacts.contract_invalid",
+                            "package.artifact.required_missing",
                         ],
                     )
                     self.assertEqual(
                         summary["rejectReasons"][0]["message"],
                         (
-                            "manifest.artifacts.intermediate reuses path declared by "
-                            "backendSource: "
-                            "backend/metal/./RuntimeReaderFixture.metal"
+                            "manifest.artifacts.intermediate must be a normalized "
+                            "package-relative path"
                         ),
                     )
                     with self.assertRaisesRegex(
                         PackageReadError,
                         (
-                            "manifest.artifacts.intermediate reuses path declared by "
-                            "backendSource"
+                            "manifest.artifacts.intermediate must be a normalized "
+                            "package-relative path"
                         ),
                     ):
                         read_package(package_path)
@@ -8454,6 +9099,83 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     )
                     self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_compatibility_report_accepts_generated_native_profile_artifact_map_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="vulkan")
+            backend_dir = package_dir / "backend" / "vulkan"
+            assembly_path = backend_dir / "RuntimeReaderFixture.spvasm"
+            assembly_path.write_bytes(b"spvasm")
+            profile_path = backend_dir / "native-profile.json"
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["backendAssembly"] = (
+                "backend/vulkan/RuntimeReaderFixture.spvasm"
+            )
+            manifest["artifacts"]["nativeProfile"] = (
+                "backend/vulkan/native-profile.json"
+            )
+            self._write_json(manifest_path, manifest)
+            self._write_json(
+                profile_path,
+                {
+                    "schemaVersion": 1,
+                    "target": "vulkan",
+                    "artifacts": {
+                        "backendAssembly": (
+                            "backend/vulkan/RuntimeReaderFixture.spvasm"
+                        ),
+                        "nativeBinary": "backend/vulkan/RuntimeReaderFixture.bin",
+                    },
+                },
+            )
+            source_path = package_dir / "source" / "generated-profile.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse CrossGL source for generated native "
+                "profile metadata\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="vulkan",
+                )
+                selection = select_runtime_artifact(report, target="vulkan")
+
+            summary = report.to_summary()
+            artifact_records = {
+                artifact["name"]: artifact
+                for artifact in summary["artifactCompatibility"]["artifacts"]
+            }
+
+            self.assertTrue(report.compatible, summary["rejectReasons"])
+            self.assertEqual(report.status, "compatible")
+            self.assertFalse(report.source_parsing_required)
+            self.assertTrue(selection.selected)
+            self.assertEqual(selection.artifact.name, "nativeBinary")
+            self.assertNotIn(
+                "package.native_profile.backend_assembly_missing",
+                [diagnostic["code"] for diagnostic in summary["rejectReasons"]],
+            )
+            self.assertNotIn(
+                "package.native_profile.native_binary_missing",
+                [diagnostic["code"] for diagnostic in summary["rejectReasons"]],
+            )
+            self.assertEqual(
+                artifact_records["nativeProfile"]["decision"],
+                "skipped",
+            )
+            self.assertEqual(
+                artifact_records["nativeProfile"]["reason"],
+                "package.artifact.not_required",
+            )
+            self.assertEqual(artifact_records["nativeProfile"]["diagnostics"], [])
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_compatibility_report_rejects_native_profile_artifact_link_drift_without_source_parse(
         self,
     ) -> None:
@@ -8642,6 +9364,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "debugMetadata",
                     "diagnosticCount",
                     "entryPoints",
+                    "functionConstants",
                     "graphicsAbi",
                     "graphicsDescriptorBindings",
                     "module",
@@ -8904,6 +9627,10 @@ class RuntimePackageReaderTests(unittest.TestCase):
                         "bindingClass": "uav",
                         "descriptorType": "UAV",
                         "hlslType": "RWStructuredBuffer<float4>",
+                        "evidenceId": (
+                            f"target-legalization.v1.{target}.resource-binding."
+                            "compute.runtime_reader_main.OutputBuffer"
+                        ),
                     }
                 ],
                 "targetFeatures": [
@@ -9006,6 +9733,42 @@ class RuntimePackageReaderTests(unittest.TestCase):
         self._write_json(package_dir / descriptor_path, descriptor)
         self._write_json(manifest_path, manifest)
         return descriptor
+
+    def _write_source_remap_provenance(
+        self,
+        package_dir: Path,
+        *,
+        mutate: object | None = None,
+    ) -> str:
+        manifest_path = package_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        target = manifest["target"]
+        source_remap_path = "ir/source-remap-provenance.json"
+        provenance: dict[str, object] = {
+            "schemaVersion": 1,
+            "kind": "crossgl.sourceRemapProvenance",
+            "contractVersion": "source-remap-provenance-v1",
+            "target": target,
+            "generatedFile": "generated/from-translator.cgl",
+            "mappingGranularity": "source-span",
+            "mappingCount": 1,
+            "sourceRemap": {
+                "path": "source/original.crossgl",
+                "sha256": {
+                    "algorithm": "sha256",
+                    "value": "0" * 64,
+                },
+                "sizeBytes": 0,
+            },
+        }
+        if mutate is not None:
+            mutate(provenance)
+        manifest["artifacts"]["sourceRemap"] = source_remap_path
+        source_remap_file = package_dir / source_remap_path
+        source_remap_file.parent.mkdir(parents=True, exist_ok=True)
+        self._write_json(source_remap_file, provenance)
+        self._write_json(manifest_path, manifest)
+        return source_remap_path
 
     @staticmethod
     def _target_resource_binding_abi(target: str) -> dict[str, object]:

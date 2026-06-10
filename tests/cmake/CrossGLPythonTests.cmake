@@ -58,6 +58,23 @@ function(crossgl_add_python_expect_test)
       -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/ExpectCommand.cmake")
 endfunction()
 
+set(CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS_DEFAULT "1")
+if(DEFINED ENV{CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS}
+    AND NOT "$ENV{CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS}" STREQUAL "")
+  set(CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS_DEFAULT
+    "$ENV{CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS}")
+elseif(DEFINED ENV{CROSSGL_CI_JOBS}
+    AND NOT "$ENV{CROSSGL_CI_JOBS}" STREQUAL "")
+  set(CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS_DEFAULT "$ENV{CROSSGL_CI_JOBS}")
+endif()
+set(CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS
+  "${CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS_DEFAULT}"
+  CACHE STRING "Worker count for cglc_package_integrity_fixtures")
+if(NOT CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS MATCHES "^[1-9][0-9]*$")
+  message(FATAL_ERROR
+    "CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS must be a positive integer")
+endif()
+
 set(CROSSGL_PACKAGE_INSPECT_FIXTURE_JOBS_DEFAULT "1")
 if(DEFINED ENV{CROSSGL_PACKAGE_INSPECT_FIXTURE_JOBS}
     AND NOT "$ENV{CROSSGL_PACKAGE_INSPECT_FIXTURE_JOBS}" STREQUAL "")
@@ -88,6 +105,23 @@ set(CROSSGL_PACKAGE_ARTIFACT_INVENTORY_RUNTIME_JOBS
 if(NOT CROSSGL_PACKAGE_ARTIFACT_INVENTORY_RUNTIME_JOBS MATCHES "^[1-9][0-9]*$")
   message(FATAL_ERROR
     "CROSSGL_PACKAGE_ARTIFACT_INVENTORY_RUNTIME_JOBS must be a positive integer")
+endif()
+
+set(CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS_DEFAULT "1")
+if(DEFINED ENV{CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS}
+    AND NOT "$ENV{CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS}" STREQUAL "")
+  set(CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS_DEFAULT
+    "$ENV{CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS}")
+elseif(DEFINED ENV{CROSSGL_CI_JOBS}
+    AND NOT "$ENV{CROSSGL_CI_JOBS}" STREQUAL "")
+  set(CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS_DEFAULT "$ENV{CROSSGL_CI_JOBS}")
+endif()
+set(CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS
+  "${CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS_DEFAULT}"
+  CACHE STRING "Worker count for cglc_package_verify_fixtures")
+if(NOT CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS MATCHES "^[1-9][0-9]*$")
+  message(FATAL_ERROR
+    "CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS must be a positive integer")
 endif()
 
 set(CROSSGL_PACKAGE_REPRODUCIBILITY_JOBS_DEFAULT "1")
@@ -139,6 +173,60 @@ crossgl_add_required_python_test(
     --instance
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-basic.json")
 crossgl_add_required_python_test(
+  NAME cglc_source_remap_v1_crosstl_project_line_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-crosstl-project-line.json")
+crossgl_add_required_python_test(
+  NAME cglc_source_remap_v1_crosstl_project_file_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-crosstl-project-file.json")
+crossgl_add_required_python_test(
+  NAME cglc_crosstl_project_portability_report_v1_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/crosstl-project-portability-report-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-basic.json")
+crossgl_add_required_python_test(
+  NAME cglc_crosstl_project_portability_report_v1_file_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/crosstl-project-portability-report-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-file.json")
+crossgl_add_required_python_test(
+  NAME cglc_crosstl_project_portability_report_v1_source_remap_metadata_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/crosstl-project-portability-report-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-source-remap-metadata.json")
+crossgl_add_required_python_test(
+  NAME cglc_manifest_v1_source_free_native_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/manifest-v1.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/manifest-v1-source-free-native.json")
+crossgl_add_required_python_test(
   NAME cglc_source_remap_provenance_v1_json_schema
   COMMAND
     "${CROSSGL_PYTHON3}"
@@ -165,6 +253,15 @@ crossgl_add_required_python_test(
     "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json"
     --instance
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-batch-result-v1-basic.json")
+crossgl_add_required_python_test(
+  NAME cglc_conformance_report_v0_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/conformance-report-v0.schema.json"
+    --instance
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/conformance-report-v0-basic.json")
 crossgl_add_required_python_test(
   NAME cglc_diagnostics_v1_project_json_schema
   COMMAND
@@ -313,6 +410,20 @@ crossgl_add_python_script_test(
     --report-text
       ${CROSSGL_V0_CONFORMANCE_EXECUTION_REPORT_DIR}/manifest.v0.execution.txt
     --skip-native-package-builds)
+crossgl_add_required_python_test(
+  NAME cglc_v0_conformance_manifest_execution_report_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/conformance-report-v0.schema.json"
+    --instance
+    "${CROSSGL_V0_CONFORMANCE_EXECUTION_REPORT_DIR}/manifest.v0.execution.json")
+if(CROSSGL_PYTHON3)
+  set_tests_properties(
+    cglc_v0_conformance_manifest_execution_report_json_schema PROPERTIES
+    DEPENDS cglc_v0_conformance_manifest_execution)
+endif()
 crossgl_add_python_script_test(
   NAME cglc_v0_conformance_manifest_self_test
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_conformance_manifest.py
@@ -407,7 +518,12 @@ crossgl_add_python_script_test(
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_package_integrity_fixtures.py
   ARGS
     --root ${CMAKE_CURRENT_SOURCE_DIR}
-    --cglc $<TARGET_FILE:cglc>)
+    --cglc $<TARGET_FILE:cglc>
+    --jobs ${CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS})
+if(CROSSGL_PYTHON3)
+  set_tests_properties(cglc_package_integrity_fixtures PROPERTIES
+    PROCESSORS "${CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS}")
+endif()
 crossgl_add_python_script_test(
   NAME cglc_package_inspect_fixtures
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_package_inspect_fixtures.py
@@ -458,7 +574,12 @@ crossgl_add_python_script_test(
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_package_verify_fixtures.py
   ARGS
     --root ${CMAKE_CURRENT_SOURCE_DIR}
-    --cglc $<TARGET_FILE:cglc>)
+    --cglc $<TARGET_FILE:cglc>
+    --jobs ${CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS})
+if(CROSSGL_PYTHON3)
+  set_tests_properties(cglc_package_verify_fixtures PROPERTIES
+    PROCESSORS "${CROSSGL_PACKAGE_VERIFY_FIXTURE_JOBS}")
+endif()
 crossgl_add_python_script_test(
   NAME cglc_package_reproducibility
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_package_reproducibility.py

@@ -80,6 +80,10 @@
         "opengl"
       ]
     },
+    "targetLegalizationResourceBindingEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.resource-binding\\.[A-Za-z0-9_.-]+$"
+    },
     "stageName": {
       "type": "string",
       "enum": [
@@ -496,6 +500,9 @@
         },
         "bindingClass": {
           "type": "string"
+        },
+        "evidenceId": {
+          "$ref": "#/$defs/targetLegalizationResourceBindingEvidenceId"
         },
         "argumentIndex": {
           "type": "integer",

@@ -1,0 +1,1 @@
+$.targetResourceBindingMetadata.bindings[0]: expected matching $.reflectionInputs.targetResourceBindings record for identity ('vulkan', 'compute', 'main', 'StaleResource', 'storageBuffer')

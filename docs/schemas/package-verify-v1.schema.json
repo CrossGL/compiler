@@ -65,7 +65,8 @@
         "nativeBinaryStatus",
         "artifactCount",
         "debugArtifactsPresent",
-        "nativeArtifactDescriptor"
+        "nativeArtifactDescriptor",
+        "vulkanNativeProfile"
       ],
       "properties": {
         "module": {
@@ -93,8 +94,20 @@
         "debugArtifactsPresent": {
           "type": "boolean"
         },
+        "sourceRemap": {
+          "$ref": "#/$defs/sourceRemapSummary"
+        },
+        "backendSourceMap": {
+          "$ref": "#/$defs/backendSourceMapSummary"
+        },
         "nativeArtifactDescriptor": {
           "$ref": "#/$defs/nativeArtifactDescriptorSummary"
+        },
+        "vulkanNativeProfile": {
+          "$ref": "#/$defs/vulkanNativeProfileSummary"
+        },
+        "reflection": {
+          "$ref": "#/$defs/reflectionSummary"
         },
         "targetLegalizationEvidence": {
           "$ref": "#/$defs/targetLegalizationEvidence"
@@ -158,6 +171,84 @@
             "object",
             "null"
           ]
+        }
+      }
+    },
+    "targetLegalizationResourceBindingEvidenceId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.resource-binding\\.[A-Za-z0-9_.-]+$"
+    },
+    "targetLegalizationTargetFeatureEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.(capability\\.(required|missing)\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+|abi\\.(required|missing)\\.[A-Za-z0-9_.-]+)$"
+    },
+    "reflectionSelectedTargetResourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "stage",
+        "entryPoint",
+        "name",
+        "kind",
+        "evidenceId"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "stage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entryPoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceId": {
+          "$ref": "#/$defs/targetLegalizationResourceBindingEvidenceId"
+        }
+      }
+    },
+    "reflectionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selectedTargetResourceBindingCount",
+        "selectedTargetResourceBindings"
+      ],
+      "properties": {
+        "selectedTargetResourceBindingCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selectedTargetResourceBindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reflectionSelectedTargetResourceBinding"
+          }
+        },
+        "targetFeatureCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "targetFeatureEvidenceIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/targetLegalizationTargetFeatureEvidenceId"
+          }
         }
       }
     },
@@ -303,6 +394,441 @@
         "boolean",
         "null"
       ]
+    },
+    "nullableSourceRemapTarget": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl",
+        null
+      ]
+    },
+    "nullableSourceRemapGranularity": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "source-span",
+        null
+      ]
+    },
+    "nullableSha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sourceRemapChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityMatchesContract",
+        "targetMatchesPackage",
+        "generatedFilePresent",
+        "mappingGranularityMatchesContract",
+        "mappingCountPositive",
+        "sourcePathPresent",
+        "sourceHashPresent",
+        "sourceSizeBytesPresent"
+      ],
+      "properties": {
+        "identityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "generatedFilePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingCountPositive": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourcePathPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceHashPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceSizeBytesPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "sourceRemapSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "exists",
+        "health",
+        "path",
+        "target",
+        "generatedFile",
+        "mappingGranularity",
+        "mappingCount",
+        "sourcePath",
+        "sourceSha256",
+        "sourceSizeBytes",
+        "checks"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "not-present",
+            "incomplete",
+            "drift",
+            "ok"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generatedFile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mappingGranularity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "sourcePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceSha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceSizeBytes": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "checks": {
+          "$ref": "#/$defs/sourceRemapChecks"
+        }
+      }
+    },
+    "backendSourceMapChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityMatchesContract",
+        "targetMatchesPackage",
+        "moduleMatchesPackage",
+        "mappingGranularityMatchesContract",
+        "sourceBackendPresent",
+        "targetBackendMatchesBackendLanguage",
+        "backendLanguagePresent",
+        "backendLineCountPresent",
+        "backendLineCountMatchesSource",
+        "backendSpansWithinSource",
+        "mappingCountMatchesMappings"
+      ],
+      "properties": {
+        "identityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "moduleMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceBackendPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetBackendMatchesBackendLanguage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLanguagePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLineCountPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLineCountMatchesSource": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendSpansWithinSource": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingCountMatchesMappings": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "backendSourceMapSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "exists",
+        "health",
+        "path",
+        "target",
+        "module",
+        "mappingGranularity",
+        "sourceBackend",
+        "targetBackend",
+        "backendLanguage",
+        "backendLineCount",
+        "backendSourceLineCount",
+        "mappingCount",
+        "mappingRecordCount",
+        "backendMaxMappedLine",
+        "checks"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "not-present",
+            "incomplete",
+            "drift",
+            "ok"
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/nullableSourceRemapTarget"
+        },
+        "module": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mappingGranularity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceBackend": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targetBackend": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "backendLanguage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "backendLineCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "backendSourceLineCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "mappingRecordCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "backendMaxMappedLine": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "checks": {
+          "$ref": "#/$defs/backendSourceMapChecks"
+        }
+      }
+    },
+    "vulkanNativeProfileChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetMatchesPackage",
+        "moduleMatchesPackage",
+        "nativeBinaryMatchesManifest",
+        "backendAssemblyMatchesManifest",
+        "emittedDisassemblyExists",
+        "spirvProfilePresent"
+      ],
+      "properties": {
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "moduleMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "nativeBinaryMatchesManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendAssemblyMatchesManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "emittedDisassemblyExists": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "spirvProfilePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "vulkanNativeProfileSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applicable",
+        "nativeProfileArtifactPresent",
+        "nativeProfileExists",
+        "health",
+        "schemaVersion",
+        "api",
+        "profileName",
+        "vulkanVersion",
+        "spirvVersion",
+        "generator",
+        "nativeBinary",
+        "backendAssembly",
+        "disassemblyStatus",
+        "disassemblyPath",
+        "disassemblyExists",
+        "checks"
+      ],
+      "properties": {
+        "applicable": {
+          "type": "boolean"
+        },
+        "nativeProfileArtifactPresent": {
+          "type": "boolean"
+        },
+        "nativeProfileExists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "not-applicable",
+            "incomplete",
+            "drift",
+            "ok"
+          ]
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "api": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "profileName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vulkanVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "spirvVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nativeBinary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "backendAssembly": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disassemblyStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disassemblyPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "disassemblyExists": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "checks": {
+          "$ref": "#/$defs/vulkanNativeProfileChecks"
+        }
+      }
     },
     "targetLegalizationPackageMode": {
       "type": [

@@ -1,0 +1,1 @@
+$.resourceBindingEvidence[0].sourceResourceIndex: successful reports require linked source resource evidence

@@ -34,6 +34,9 @@ TargetKind targetFromString(std::string_view name) {
   if (value == "opengl" || value == "glsl" || value == "ogl") {
     return TargetKind::OpenGL;
   }
+  if (value == "wgsl" || value == "webgpu" || value == "wgpu") {
+    return TargetKind::WGSL;
+  }
   throw std::invalid_argument("unknown target '" + std::string(name) + "'");
 }
 
@@ -49,6 +52,8 @@ std::string targetName(TargetKind target) {
     return "directx";
   case TargetKind::OpenGL:
     return "opengl";
+  case TargetKind::WGSL:
+    return "wgsl";
   }
   return "unknown";
 }
@@ -77,6 +82,9 @@ TargetInfo targetInfo(TargetKind target) {
     return TargetInfo{TargetKind::DirectX, "directx", ".dxil", "windows", false};
   case TargetKind::OpenGL:
     return TargetInfo{TargetKind::OpenGL, "opengl", ".glsl", "cross-platform", false};
+  case TargetKind::WGSL:
+    return TargetInfo{TargetKind::WGSL, "wgsl", ".wgsl", "webgpu/cross-platform",
+                      false};
   case TargetKind::Auto:
     break;
   }
@@ -85,7 +93,8 @@ TargetInfo targetInfo(TargetKind target) {
 
 std::vector<TargetInfo> allTargets() {
   return {targetInfo(TargetKind::Metal), targetInfo(TargetKind::Vulkan),
-          targetInfo(TargetKind::DirectX), targetInfo(TargetKind::OpenGL)};
+          targetInfo(TargetKind::DirectX), targetInfo(TargetKind::OpenGL),
+          targetInfo(TargetKind::WGSL)};
 }
 
 } // namespace crossgl

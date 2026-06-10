@@ -349,6 +349,23 @@ std::optional<ShaderModule> Parser::parseModule() {
       }
       continue;
     }
+    if (check(TokenKind::KeywordLayout)) {
+      if (layoutIntroducesConstant()) {
+        auto layout = parseSpecializationConstantLayout();
+        if (auto constant = parseConstant(std::move(layout))) {
+          module.constants.push_back(std::move(*constant));
+        }
+        continue;
+      }
+      if (layoutContainsKey("constant_id")) {
+        diagnostics_.error(
+            "parse.specialization-layout-requires-const",
+            "specialization constant layout must be followed by const",
+            current().location);
+        skipDeclarationOrBlock();
+        continue;
+      }
+    }
     if (diagnoseAndSkipUnsupportedShaderItem()) {
       continue;
     }
@@ -656,7 +673,8 @@ void Parser::skipGenericClause() {
   } while (!atEnd() && depth > 0);
 }
 
-std::optional<ConstantDecl> Parser::parseConstant() {
+std::optional<ConstantDecl>
+Parser::parseConstant(std::optional<ConstantDecl> layout) {
   const SourceLocation loc = current().location;
   expect(TokenKind::KeywordConst, "expected 'const'");
   auto type = parseType();
@@ -666,6 +684,9 @@ std::optional<ConstantDecl> Parser::parseConstant() {
   }
 
   ConstantDecl constant;
+  if (layout.has_value()) {
+    constant = std::move(*layout);
+  }
   constant.type = std::move(*type);
   constant.name = current().text;
   constant.location = loc;
@@ -678,6 +699,80 @@ std::optional<ConstantDecl> Parser::parseConstant() {
   }
   expect(TokenKind::Semicolon, "expected ';' after constant declaration");
   return constant;
+}
+
+std::optional<ConstantDecl> Parser::parseSpecializationConstantLayout() {
+  ConstantDecl layout;
+  layout.location = current().location;
+  expect(TokenKind::KeywordLayout, "expected 'layout'");
+  if (!expect(TokenKind::LParen, "expected '(' after layout")) {
+    synchronize();
+    return std::nullopt;
+  }
+
+  while (!atEnd() && !check(TokenKind::RParen)) {
+    if (!check(TokenKind::Identifier)) {
+      diagnostics_.warning("parse.unsupported-specialization-layout-item",
+                           "skipping unsupported specialization layout item",
+                           current().location);
+      advance();
+      match(TokenKind::Comma);
+      continue;
+    }
+
+    const std::string key = current().text;
+    const SourceLocation keyLocation = current().location;
+    advance();
+    expect(TokenKind::Equal, "expected '=' in specialization layout item");
+    std::vector<Token> valueTokens;
+    int parenDepth = 0;
+    int bracketDepth = 0;
+    while (!atEnd() && !(parenDepth == 0 && bracketDepth == 0 &&
+                         (check(TokenKind::Comma) || check(TokenKind::RParen)))) {
+      if (check(TokenKind::LParen)) {
+        ++parenDepth;
+      } else if (check(TokenKind::RParen)) {
+        --parenDepth;
+      } else if (check(TokenKind::LBracket)) {
+        ++bracketDepth;
+      } else if (check(TokenKind::RBracket)) {
+        --bracketDepth;
+      }
+      valueTokens.push_back(current());
+      advance();
+    }
+
+    const std::string value = joinTokenText(valueTokens);
+    const std::optional<std::size_t> parsedValue = parseSizeLiteral(value);
+    if (key == "constant_id") {
+      if (parsedValue.has_value()) {
+        layout.specializationId = *parsedValue;
+        if (!valueTokens.empty()) {
+          layout.specializationIdSpan =
+              sourceSpan(keyLocation, valueTokens.back().location);
+        }
+      } else {
+        diagnostics_.error("parse.invalid-specialization-constant-id",
+                           "specialization constant_id must be a non-negative "
+                           "integer",
+                           keyLocation);
+      }
+    } else {
+      diagnostics_.warning("parse.unsupported-specialization-layout-key",
+                           "ignoring unsupported specialization layout key '" +
+                               key + "'",
+                           keyLocation);
+    }
+    match(TokenKind::Comma);
+  }
+
+  if (!layout.specializationId.has_value()) {
+    diagnostics_.error("parse.missing-specialization-constant-id",
+                       "specialization constant layout requires constant_id",
+                       layout.location);
+  }
+  expect(TokenKind::RParen, "expected ')' after specialization layout items");
+  return layout;
 }
 
 std::optional<FunctionDecl> Parser::parseFunction() {
@@ -1355,6 +1450,54 @@ bool Parser::looksLikeDeclaration() const {
           current().kind == TokenKind::KeywordBuffer ||
           current().kind == TokenKind::KeywordShared) &&
          peek().kind == TokenKind::Identifier;
+}
+
+bool Parser::layoutIntroducesConstant() const {
+  if (!check(TokenKind::KeywordLayout) || peek().kind != TokenKind::LParen) {
+    return false;
+  }
+
+  int depth = 0;
+  for (std::size_t lookahead = 1; index_ + lookahead < tokens_.size(); ++lookahead) {
+    const Token &token = peek(lookahead);
+    if (token.kind == TokenKind::LParen) {
+      ++depth;
+    } else if (token.kind == TokenKind::RParen) {
+      --depth;
+      if (depth == 0) {
+        return peek(lookahead + 1).kind == TokenKind::KeywordConst;
+      }
+    }
+  }
+  return false;
+}
+
+bool Parser::layoutContainsKey(std::string_view key) const {
+  if (!check(TokenKind::KeywordLayout) || peek().kind != TokenKind::LParen) {
+    return false;
+  }
+
+  int depth = 0;
+  for (std::size_t lookahead = 1; index_ + lookahead < tokens_.size();
+       ++lookahead) {
+    const Token &token = peek(lookahead);
+    if (token.kind == TokenKind::LParen) {
+      ++depth;
+      continue;
+    }
+    if (token.kind == TokenKind::RParen) {
+      --depth;
+      if (depth == 0) {
+        return false;
+      }
+      continue;
+    }
+    if (depth == 1 && token.kind == TokenKind::Identifier &&
+        token.text == key) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool Parser::layoutIntroducesResource() const {

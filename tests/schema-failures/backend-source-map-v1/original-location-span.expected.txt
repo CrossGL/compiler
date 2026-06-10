@@ -1,0 +1,1 @@
+$.mappings[0].originalLocation.endOffset: expected offset + length

@@ -11,10 +11,15 @@ from .backend_loader import NATIVE_ARTIFACT_DESCRIPTOR
 from .backend_loader import NativeArtifactDescriptorPlan
 from .backend_loader import SourceFreeNativeBackendLoaderPlan
 from .backend_loader import plan_source_free_native_backend_loader
-from .loader import LoaderArtifactPlan, RuntimeLoaderPlan
+from .loader import (
+    LoaderArtifactPlan,
+    RuntimeLoaderPlan,
+    SourceFreeRuntimeArtifactHandoff,
+)
 from .package_reader import (
     CompatibilityDiagnostic,
     NATIVE_ARTIFACT_DESCRIPTOR_CONTRACT_VERSION,
+    PackageReadError,
     SUPPORTED_NATIVE_ARTIFACT_DESCRIPTOR_SCHEMA_VERSION,
 )
 
@@ -36,6 +41,19 @@ class MetalNativeLoaderPlan(SourceFreeNativeBackendLoaderPlan):
     @property
     def metal_native_api_boundary(self) -> dict[str, Any]:
         return _metal_native_api_boundary(self)
+
+    def require_metallib_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        handoff = self.require_runtime_artifact_handoff(byte_limit=byte_limit)
+        if handoff.artifact_name != METAL_NATIVE_ARTIFACT:
+            raise PackageReadError(
+                "metal-native loader selected non-metallib runtime artifact: "
+                f"{handoff.artifact_name}"
+            )
+        return handoff
 
     def to_summary(self) -> dict[str, Any]:
         summary = super().to_summary()
@@ -71,6 +89,7 @@ def plan_metal_native_loader(
         entry_points=base_plan.entry_points,
         resources=base_plan.resources,
         target_resource_bindings=base_plan.target_resource_bindings,
+        target_resource_binding_metadata=base_plan.target_resource_binding_metadata,
         workgroup_sizes=base_plan.workgroup_sizes,
         diagnostics=diagnostics,
     )
@@ -1024,6 +1043,9 @@ def _summarize_metal_resource_binding(record: dict[str, Any]) -> dict[str, Any]:
         "abi": abi_summary,
         "bufferIndex": abi_summary.get("buffer"),
     }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     _copy_descriptor_array_metadata(summary, record)
     return summary
 

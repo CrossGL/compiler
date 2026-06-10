@@ -70,6 +70,7 @@ struct DebugMetadataTargetCapabilitySummary {
   bool optionalNativeToolMissing = false;
   std::string optionalNativeToolStatus;
   std::vector<std::string> toolRequirementEvidenceIds;
+  std::vector<std::string> packageArtifactRequirementEvidenceIds;
   std::vector<DebugMetadataTargetCapabilityGroup> requiredCapabilityGroups;
   std::vector<DebugMetadataTargetCapabilityGroup> missingCapabilityGroups;
 };
@@ -107,6 +108,7 @@ struct DebugMetadataTargetFallback {
   bool optionalNativeToolMissing = false;
   std::string optionalNativeToolStatus;
   std::vector<std::string> toolRequirementEvidenceIds;
+  std::vector<std::string> packageArtifactRequirementEvidenceIds;
   std::vector<DebugMetadataTargetCapabilityGroup> missingCapabilityGroups;
 };
 
@@ -128,6 +130,7 @@ struct DebugMetadataTargetDecision {
   bool selectedTargetOptionalNativeToolMissing = false;
   std::string selectedTargetOptionalNativeToolStatus;
   std::vector<std::string> selectedTargetToolRequirementEvidenceIds;
+  std::vector<std::string> packageArtifactRequirementEvidenceIds;
   std::vector<DebugMetadataTargetCapabilityGroup>
       selectedTargetMissingCapabilityGroups;
   std::size_t selectedTargetDiagnosticCount = 0;
@@ -198,9 +201,17 @@ struct DebugMetadataHIRResourceSourceLocation {
   std::string resourceRecordKind;
   std::string stage;
   std::string entryPoint;
+  std::string function;
+  std::string ownerKind;
+  std::string ownerName;
   std::string resourceName;
   std::string resourceKind;
   std::string type;
+  std::string accessKind;
+  std::string accessPath;
+  std::string operation;
+  std::string memberName;
+  std::string indexExpression;
   std::optional<std::size_t> bindingSet;
   std::optional<std::size_t> binding;
   DebugMetadataSourceLocation location;

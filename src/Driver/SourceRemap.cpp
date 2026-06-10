@@ -133,6 +133,36 @@ bool objectHasOnlyMembers(std::string_view object,
   return false;
 }
 
+bool looksLikeProjectReportSourceRemapMetadata(std::string_view object) {
+  return findObjectMemberValue(object, "path").has_value() &&
+         findObjectMemberValue(object, "target").has_value() &&
+         findObjectMemberValue(object, "mappingGranularity").has_value() &&
+         findObjectMemberValue(object, "mappingCount").has_value();
+}
+
+bool looksLikeCrossTLProjectPortabilityReport(std::string_view object) {
+  return objectStringMember(object, "kind") ==
+         "crosstl-project-portability-report";
+}
+
+bool looksLikeCrossTLArtifactSourceMap(std::string_view object) {
+  return objectStringMember(object, "kind") == "crosstl-artifact-source-map";
+}
+
+bool isLowercaseSha256(std::string_view value) {
+  if (value.size() != 64) {
+    return false;
+  }
+  for (char ch : value) {
+    const bool digit = ch >= '0' && ch <= '9';
+    const bool lowerHex = ch >= 'a' && ch <= 'f';
+    if (!digit && !lowerHex) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::optional<std::size_t> sourceRemapSizeMember(std::string_view object,
                                                  std::string_view field) {
   const std::optional<std::uintmax_t> value = objectUnsignedMember(object, field);
@@ -141,6 +171,193 @@ std::optional<std::size_t> sourceRemapSizeMember(std::string_view object,
     return std::nullopt;
   }
   return static_cast<std::size_t>(*value);
+}
+
+std::optional<std::string>
+sourceRemapMetadataHash(std::string_view metadata,
+                        DiagnosticEngine &diagnostics,
+                        const SourceLocation &metadataLocation) {
+  const std::optional<std::string_view> hash =
+      findObjectMemberValue(metadata, "hash");
+  if (!hash) {
+    return std::nullopt;
+  }
+  if (!isJsonObjectDocument(*hash)) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.hash must be a JSON object",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  const std::optional<std::string> algorithm =
+      objectStringMember(*hash, "algorithm");
+  const std::optional<std::string> value = objectStringMember(*hash, "value");
+  if (!algorithm || *algorithm != "sha256" || !value ||
+      !isLowercaseSha256(*value)) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.hash must contain sha256 algorithm and 64 lowercase "
+        "hexadecimal value",
+        metadataLocation);
+    return std::nullopt;
+  }
+  return value;
+}
+
+std::optional<std::string>
+requiredSourceRemapMetadataHash(std::string_view metadata,
+                                DiagnosticEngine &diagnostics,
+                                const SourceLocation &metadataLocation) {
+  if (!findObjectMemberValue(metadata, "hash")) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.hash must contain sha256 algorithm and 64 lowercase "
+        "hexadecimal value",
+        metadataLocation);
+    return std::nullopt;
+  }
+  return sourceRemapMetadataHash(metadata, diagnostics, metadataLocation);
+}
+
+std::optional<std::uintmax_t>
+sourceRemapMetadataSizeBytes(std::string_view metadata,
+                             DiagnosticEngine &diagnostics,
+                             const SourceLocation &metadataLocation) {
+  if (!findObjectMemberValue(metadata, "sizeBytes")) {
+    return std::nullopt;
+  }
+  const std::optional<std::uintmax_t> sizeBytes =
+      objectUnsignedMember(metadata, "sizeBytes");
+  if (!sizeBytes) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.sizeBytes must be a non-negative integer",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  return sizeBytes;
+}
+
+std::optional<std::uintmax_t>
+requiredSourceRemapMetadataSizeBytes(std::string_view metadata,
+                                     DiagnosticEngine &diagnostics,
+                                     const SourceLocation &metadataLocation) {
+  if (!findObjectMemberValue(metadata, "sizeBytes")) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.sizeBytes must be recorded",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  return sourceRemapMetadataSizeBytes(metadata, diagnostics, metadataLocation);
+}
+
+bool validateSourceRemapMetadataSchemaVersion(
+    std::string_view metadata, DiagnosticEngine &diagnostics,
+    const SourceLocation &metadataLocation) {
+  const std::optional<std::uintmax_t> schemaVersion =
+      objectUnsignedMember(metadata, "schemaVersion");
+  if (!schemaVersion || *schemaVersion != 1) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.schemaVersion must be 1",
+                       metadataLocation);
+    return false;
+  }
+  return true;
+}
+
+bool validateSourceRemapMetadataGranularity(
+    std::string_view metadata, DiagnosticEngine &diagnostics,
+    const SourceLocation &metadataLocation) {
+  const std::optional<std::string> granularity =
+      objectStringMember(metadata, "mappingGranularity");
+  if (!granularity ||
+      (*granularity != "file" && *granularity != "line" &&
+       *granularity != "statement" && *granularity != "token")) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.mappingGranularity must be file, line, statement, or "
+        "token",
+        metadataLocation);
+    return false;
+  }
+  return true;
+}
+
+bool sourceRemapSpanIsSingleLine(const SourceLocation &location) {
+  return location.line == location.endLine;
+}
+
+bool validateSourceRemapMetadataGranularityContract(
+    std::string_view metadata, const SourceRemap &remap,
+    DiagnosticEngine &diagnostics, const SourceLocation &metadataLocation) {
+  const std::optional<std::string> granularity =
+      objectStringMember(metadata, "mappingGranularity");
+  if (!granularity) {
+    return true;
+  }
+
+  if (*granularity == "file") {
+    if (remap.mappings.size() == 1) {
+      return true;
+    }
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.mappingGranularity file requires exactly one referenced "
+        "sidecar mapping",
+        metadataLocation);
+    return false;
+  }
+
+  if (*granularity == "line") {
+    for (std::size_t index = 0; index < remap.mappings.size(); ++index) {
+      const SourceRemapEntry &mapping = remap.mappings[index];
+      if (sourceRemapSpanIsSingleLine(mapping.generated) &&
+          sourceRemapSpanIsSingleLine(mapping.original)) {
+        continue;
+      }
+      reportInvalidRemap(
+          diagnostics,
+          "sourceRemap.mappings[" + std::to_string(index) +
+              "] must stay within one generated and original line for line "
+              "granularity",
+          metadataLocation);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+std::optional<std::string>
+readSourceRemapFileText(const std::filesystem::path &path,
+                        DiagnosticEngine &diagnostics) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    diagnostics.error("io.read-failed",
+                      "failed to read source remap '" + path.string() + "'",
+                      documentStartLocation(path));
+    return std::nullopt;
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  if (input.bad()) {
+    diagnostics.error("io.read-failed",
+                      "failed to read source remap '" + path.string() + "'",
+                      documentStartLocation(path));
+    return std::nullopt;
+  }
+  return buffer.str();
+}
+
+std::optional<SourceRemap>
+parseLoadedSourceRemap(std::string text, const std::filesystem::path &path,
+                       DiagnosticEngine &diagnostics) {
+  std::optional<SourceRemap> remap =
+      parseSourceRemap(text, diagnostics, documentStartLocation(path));
+  if (remap) {
+    remap->documentPath = path.lexically_normal().generic_string();
+    remap->documentSha256 = sha256(text);
+    remap->documentSizeBytes = text.size();
+  }
+  return remap;
 }
 
 std::optional<SourceLocation>
@@ -293,6 +510,14 @@ bool generatedSpanContains(const SourceLocation &range,
                            range.endColumn);
 }
 
+bool generatedSpansOverlap(const SourceLocation &left,
+                           const SourceLocation &right) {
+  if (left.file != right.file) {
+    return false;
+  }
+  return left.offset < right.endOffset && right.offset < left.endOffset;
+}
+
 std::size_t translateLine(const SourceLocation &generated,
                           const SourceLocation &original, std::size_t line) {
   return original.line + (line - generated.line);
@@ -330,6 +555,107 @@ SourceLocation remapInsideEntry(const SourceRemapEntry &entry,
 
 } // namespace
 
+std::optional<SourceRemap> loadSourceRemapMetadata(
+    std::string_view metadata, const std::filesystem::path &baseDirectory,
+    SourceLocation metadataLocation, DiagnosticEngine &diagnostics) {
+  if (!validateSourceRemapMetadataSchemaVersion(metadata, diagnostics,
+                                                metadataLocation) ||
+      !validateSourceRemapMetadataGranularity(metadata, diagnostics,
+                                              metadataLocation)) {
+    return std::nullopt;
+  }
+
+  const std::optional<std::string> sidecarPath =
+      objectStringMember(metadata, "path");
+  if (!sidecarPath || !isStableRelativePath(*sidecarPath)) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.path must be a stable relative POSIX path",
+                       std::move(metadataLocation));
+    return std::nullopt;
+  }
+
+  const std::optional<std::uintmax_t> expectedSize =
+      requiredSourceRemapMetadataSizeBytes(metadata, diagnostics,
+                                           metadataLocation);
+  const std::optional<std::string> expectedHash =
+      requiredSourceRemapMetadataHash(metadata, diagnostics, metadataLocation);
+  if (!expectedSize || !expectedHash) {
+    return std::nullopt;
+  }
+
+  const std::filesystem::path resolvedSidecarPath =
+      (baseDirectory / *sidecarPath).lexically_normal();
+  std::optional<std::string> sidecarText =
+      readSourceRemapFileText(resolvedSidecarPath, diagnostics);
+  if (!sidecarText) {
+    return std::nullopt;
+  }
+
+  if (*expectedSize != sidecarText->size()) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.sizeBytes does not match referenced sidecar '" +
+            resolvedSidecarPath.generic_string() + "'",
+        metadataLocation);
+    return std::nullopt;
+  }
+  const std::string actualHash = sha256(*sidecarText);
+  if (*expectedHash != actualHash) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.hash.value does not match referenced sidecar '" +
+            resolvedSidecarPath.generic_string() + "'",
+        metadataLocation);
+    return std::nullopt;
+  }
+
+  std::optional<SourceRemap> remap =
+      parseLoadedSourceRemap(std::move(*sidecarText), resolvedSidecarPath,
+                             diagnostics);
+  if (!remap) {
+    return std::nullopt;
+  }
+  const bool hasGeneratedFile =
+      findObjectMemberValue(metadata, "generatedFile").has_value();
+  const std::optional<std::string> generatedFile =
+      objectStringMember(metadata, "generatedFile");
+  if (hasGeneratedFile && !generatedFile) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.generatedFile must be a string",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  if (generatedFile && *generatedFile != remap->generatedFile) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.generatedFile must match referenced sidecar generatedFile",
+        metadataLocation);
+    return std::nullopt;
+  }
+  const bool hasMappingCount =
+      findObjectMemberValue(metadata, "mappingCount").has_value();
+  const std::optional<std::uintmax_t> mappingCount =
+      objectUnsignedMember(metadata, "mappingCount");
+  if (hasMappingCount && !mappingCount) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.mappingCount must be a non-negative integer",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  if (mappingCount && *mappingCount != remap->mappings.size()) {
+    reportInvalidRemap(
+        diagnostics,
+        "sourceRemap.mappingCount must match referenced sidecar mappings",
+        metadataLocation);
+    return std::nullopt;
+  }
+  if (!validateSourceRemapMetadataGranularityContract(
+          metadata, *remap, diagnostics, metadataLocation)) {
+    return std::nullopt;
+  }
+  return remap;
+}
+
 std::optional<SourceRemap> parseSourceRemap(std::string_view text,
                                             DiagnosticEngine &diagnostics,
                                             SourceLocation documentLocation) {
@@ -349,6 +675,33 @@ std::optional<SourceRemap> parseSourceRemap(std::string_view text,
   std::string unexpectedKey;
   if (!objectHasOnlyMembers(text, {"schemaVersion", "generatedFile", "mappings"},
                             unexpectedKey)) {
+    if (looksLikeCrossTLProjectPortabilityReport(text)) {
+      reportInvalidRemap(
+          diagnostics,
+          "source remap document appears to be a CrossTL project portability "
+          "report; pass the compiler sidecar JSON referenced by "
+          "artifacts[].sourceRemap.path instead",
+          documentLocation);
+      return std::nullopt;
+    }
+    if (looksLikeCrossTLArtifactSourceMap(text)) {
+      reportInvalidRemap(
+          diagnostics,
+          "source remap document appears to be a CrossTL artifact source map; "
+          "pass the compiler sidecar JSON referenced by "
+          "artifacts[].sourceRemap.path instead",
+          documentLocation);
+      return std::nullopt;
+    }
+    if (looksLikeProjectReportSourceRemapMetadata(text)) {
+      reportInvalidRemap(
+          diagnostics,
+          "source remap document appears to be CrossTL project report "
+          "sourceRemap metadata; pass the compiler sidecar JSON referenced by "
+          "sourceRemap.path instead",
+          documentLocation);
+      return std::nullopt;
+    }
     reportInvalidRemap(
         diagnostics,
         unexpectedKey.empty()
@@ -469,6 +822,23 @@ std::optional<SourceRemap> parseSourceRemap(std::string_view text,
                                       documentLocation);
                                   return;
                                 }
+                                for (std::size_t priorIndex = 0;
+                                     priorIndex < remap.mappings.size();
+                                     ++priorIndex) {
+                                  if (generatedSpansOverlap(
+                                          remap.mappings[priorIndex].generated,
+                                          *generated)) {
+                                    validMappings = false;
+                                    reportInvalidRemap(
+                                        diagnostics,
+                                        "source remap " + path +
+                                            ".generated overlaps mappings[" +
+                                            std::to_string(priorIndex) +
+                                            "].generated",
+                                        documentLocation);
+                                    return;
+                                  }
+                                }
                                 remap.mappings.push_back(
                                     SourceRemapEntry{std::move(*generated),
                                                      std::move(*original)});
@@ -493,30 +863,20 @@ std::optional<SourceRemap> parseSourceRemap(std::string_view text,
 
 std::optional<SourceRemap> loadSourceRemap(const std::filesystem::path &path,
                                            DiagnosticEngine &diagnostics) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input) {
-    diagnostics.error("io.read-failed",
-                      "failed to read source remap '" + path.string() + "'",
-                      documentStartLocation(path));
+  std::optional<std::string> text = readSourceRemapFileText(path, diagnostics);
+  if (!text) {
     return std::nullopt;
   }
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
-  if (input.bad()) {
-    diagnostics.error("io.read-failed",
-                      "failed to read source remap '" + path.string() + "'",
-                      documentStartLocation(path));
-    return std::nullopt;
+  if (isJsonObjectDocument(*text) && !findDuplicateJsonKey(*text) &&
+      looksLikeProjectReportSourceRemapMetadata(*text)) {
+    std::filesystem::path baseDirectory = path.parent_path();
+    if (baseDirectory.empty()) {
+      baseDirectory = ".";
+    }
+    return loadSourceRemapMetadata(*text, baseDirectory,
+                                   documentStartLocation(path), diagnostics);
   }
-  const std::string text = buffer.str();
-  std::optional<SourceRemap> remap =
-      parseSourceRemap(text, diagnostics, documentStartLocation(path));
-  if (remap) {
-    remap->documentPath = path.lexically_normal().generic_string();
-    remap->documentSha256 = sha256(text);
-    remap->documentSizeBytes = text.size();
-  }
-  return remap;
+  return parseLoadedSourceRemap(std::move(*text), path, diagnostics);
 }
 
 bool validateSourceRemapGeneratedFile(const SourceRemap &remap,

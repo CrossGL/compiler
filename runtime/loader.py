@@ -30,6 +30,26 @@ from .package_reader import (
 
 _CROSSGL_SOURCE_INPUT_SUFFIXES = frozenset((".cgl",))
 _ARTIFACT_SELECTION_MODES = ("auto", "native", "source-package")
+_RUNTIME_LOADER_PLAN_KIND = "crossgl-runtime-loader-plan"
+_RUNTIME_LOADER_PLAN_REQUIRED_METADATA_INPUTS = [
+    "manifest.json",
+    "reflection.json",
+    "diagnostics.json",
+]
+_RUNTIME_LOADER_PLAN_KNOWN_TARGETS = frozenset(("metal", "vulkan", "directx", "opengl"))
+_RUNTIME_HOST_LOADER_INTEGRATION_KIND = "crossgl-runtime-host-loader-integration"
+_RUNTIME_HOST_LOADER_INTEGRATION_SCOPE = "host-loader-scaffold-generation"
+_RUNTIME_HOST_LOADER_INTEGRATION_NON_GOALS = [
+    "host-code-rewriting",
+    "device-execution",
+    "runtime-framework-generation",
+    "target-sdk-installation",
+]
+_RUNTIME_LOADER_PLAN_SCHEMA_REQUIREMENT_SOURCES = {
+    "manifest.packageArtifactRequirements": "manifest.packageArtifactRequirements",
+    "generated-package-target-contract": "generated-package-target-contract",
+    "legacy-v0-target-contract": "generated-package-target-contract",
+}
 _VERSION_COMPATIBILITY_DIAGNOSTIC_CODES = frozenset(
     (
         "package.compiler.missing",
@@ -172,6 +192,50 @@ class LoaderArtifactPlan:
 
 
 @dataclass(frozen=True)
+class SourceFreeRuntimeArtifactHandoff:
+    """Bytes and identity metadata for a selected source-free runtime artifact."""
+
+    plan: "RuntimeLoaderPlan"
+    artifact: LoaderArtifactPlan
+    metadata: dict[str, Any]
+    package_format: str
+    artifact_name: str
+    package_path: str
+    absolute_path: str
+    selected_package_mode: str | None
+    size: int | None
+    bytes: bytes
+    archive_path: Path | None = None
+    archive_member: str | None = None
+
+    @property
+    def byte_length(self) -> int:
+        return len(self.bytes)
+
+    def to_summary(self) -> dict[str, Any]:
+        return {
+            "schemaVersion": 1,
+            "packageFormat": self.package_format,
+            "selectedPackageMode": self.selected_package_mode,
+            "sourceParsingRequired": False,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "byteLength": self.byte_length,
+            "metadata": self.metadata,
+            "artifact": {
+                "name": self.artifact_name,
+                "path": self.package_path,
+                "absolutePath": self.absolute_path,
+                "size": self.size,
+                "archivePath": (
+                    str(self.archive_path) if self.archive_path is not None else None
+                ),
+                "archiveMember": self.archive_member,
+            },
+        }
+
+
+@dataclass(frozen=True)
 class RuntimeLoaderPlan:
     """Structured runtime handoff for a target-specific loader implementation."""
 
@@ -289,6 +353,92 @@ class RuntimeLoaderPlan:
                 self.target_resource_binding_metadata_summary
             ),
             "sourceInputs": [],
+        }
+
+    def to_runtime_loader_plan_contract(self) -> dict[str, Any]:
+        """Return the published metadata-only runtime loader plan contract."""
+        diagnostics = _runtime_loader_plan_contract_diagnostics(self)
+        selected_artifact = _runtime_loader_plan_contract_selected_artifact(self)
+        diagnostic_counts = _runtime_loader_plan_contract_diagnostic_counts(diagnostics)
+        package_target = _runtime_loader_plan_target_or_null(self.package_target)
+        requested_target = _runtime_loader_plan_target_or_null(self.loader_target)
+        target_matches_package = (
+            package_target is not None
+            and requested_target is not None
+            and package_target == requested_target
+        )
+        success = (
+            selected_artifact is not None
+            and diagnostic_counts["error"] == 0
+            and target_matches_package
+        )
+
+        return {
+            "schemaVersion": 1,
+            "kind": _RUNTIME_LOADER_PLAN_KIND,
+            "success": success,
+            "metadataOnly": True,
+            "sourceParsingRequired": self.source_parsing_required,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "packageFormat": _runtime_loader_plan_package_format(
+                self.compatibility_report.package_format
+            ),
+            "packageVersion": self.compatibility_report.manifest_schema_version,
+            "packageTarget": package_target,
+            "requestedLoaderTarget": requested_target,
+            "selectedTarget": self.selected_target,
+            "targetMatchesPackage": target_matches_package,
+            "loadable": self.loadable,
+            "requestedPackageMode": (
+                self.runtime_artifact_selection.requested_package_mode
+            ),
+            "selectedPackageMode": (
+                selected_artifact["packageMode"] if selected_artifact else None
+            ),
+            "selectedArtifact": selected_artifact,
+            "requiredArtifacts": list(self.required_artifacts),
+            "requiredArtifactPaths": self.required_artifact_paths,
+            "runtimeArtifactPath": self.runtime_artifact_path,
+            "runtimeArtifactSelection": (
+                _runtime_loader_plan_contract_runtime_artifact_selection(
+                    self,
+                    selected_artifact=selected_artifact,
+                    success=success,
+                )
+            ),
+            "requiredMetadataInputs": list(
+                _RUNTIME_LOADER_PLAN_REQUIRED_METADATA_INPUTS
+            ),
+            "packageArtifactRequirementsSource": (
+                _runtime_loader_plan_requirements_source(
+                    self.package_artifact_requirements_source
+                )
+            ),
+            "packageArtifactRequirements": (
+                _runtime_loader_plan_package_artifact_requirements(
+                    self.compatibility_report
+                )
+            ),
+            "targetLegalizationEvidenceSummary": (
+                _runtime_loader_plan_target_legalization_summary(
+                    self.compatibility_report
+                )
+            ),
+            "reflectionSummary": _runtime_loader_plan_reflection_summary(self),
+            "reflectionInputs": self.reflection_resource_summary,
+            "targetResourceBindingMetadata": (
+                self.target_resource_binding_metadata_summary
+            ),
+            "hostLoaderIntegration": (
+                _runtime_loader_plan_host_loader_integration(
+                    self,
+                    selected_artifact=selected_artifact,
+                    success=success,
+                )
+            ),
+            "diagnosticCounts": diagnostic_counts,
+            "diagnostics": diagnostics,
         }
 
     @property
@@ -581,6 +731,7 @@ class RuntimeLoaderPlan:
         target_bindings = self._reflection_records("targetResourceBindings")
         target_features = self._reflection_records("targetFeatures")
         workgroup_sizes = self.workgroup_sizes
+        function_constants = self.function_constants
         selected_target = self.selected_target
         if selected_target is None:
             selected_target = self.loader_target
@@ -604,7 +755,12 @@ class RuntimeLoaderPlan:
             "targetResourceBindingCount": len(selected_bindings),
             "targetFeatureCount": len(selected_features),
             "workgroupSizeCount": len(workgroup_sizes),
+            "functionConstantCount": len(function_constants),
+            "specializationConstantCount": sum(
+                1 for record in function_constants if "specializationId" in record
+            ),
             "workgroupSizesAvailable": bool(workgroup_sizes),
+            "functionConstantsAvailable": bool(function_constants),
             "skippedTargetResourceBindingCount": (
                 len(target_bindings) - len(selected_bindings)
             ),
@@ -645,11 +801,15 @@ class RuntimeLoaderPlan:
                         "kind",
                         "bindingClass",
                         "descriptorType",
+                        "set",
+                        "binding",
+                        "argumentIndex",
                         "storageImageFormat",
                         "storageImageAccess",
                         "arrayDimensions",
                         "arrayElementCount",
                         "abi",
+                        "evidenceId",
                     ),
                 )
                 for record in selected_bindings
@@ -657,11 +817,12 @@ class RuntimeLoaderPlan:
             "targetFeatures": [
                 _summarize_reflection_record(
                     record,
-                    ("target", "kind", "name"),
+                    ("target", "kind", "name", "evidenceIds"),
                 )
                 for record in selected_features
             ],
             "workgroupSizes": list(workgroup_sizes),
+            "functionConstants": list(function_constants),
         }
 
     @property
@@ -701,6 +862,53 @@ class RuntimeLoaderPlan:
             self.runtime_artifact_selection.require_selected()
             raise PackageReadError("loader plan did not select a runtime artifact")
         return artifact
+
+    def runtime_artifact_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff | None:
+        if not self.loadable:
+            return None
+        artifact = self.runtime_artifact
+        if artifact is None:
+            return None
+        return self._runtime_artifact_handoff(artifact, byte_limit=byte_limit)
+
+    def require_runtime_artifact_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        self.require_loadable()
+        return self._runtime_artifact_handoff(
+            self.require_runtime_artifact(),
+            byte_limit=byte_limit,
+        )
+
+    def _runtime_artifact_handoff(
+        self,
+        artifact: LoaderArtifactPlan,
+        *,
+        byte_limit: int | None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        payload = artifact.read_bytes(byte_limit=byte_limit)
+        return SourceFreeRuntimeArtifactHandoff(
+            plan=self,
+            artifact=artifact,
+            metadata=self.metadata_contract_summary,
+            package_format=self.compatibility_report.package_format,
+            artifact_name=artifact.name,
+            package_path=artifact.package_path,
+            absolute_path=artifact.absolute_path or str(artifact.path),
+            selected_package_mode=(
+                self.runtime_artifact_selection.selected_package_mode
+            ),
+            size=artifact.size if artifact.size is not None else len(payload),
+            bytes=payload,
+            archive_path=artifact.archive_path,
+            archive_member=artifact.archive_member,
+        )
 
     def artifact(self, name: str) -> LoaderArtifactPlan | None:
         for artifact in self.selected_artifacts:
@@ -788,10 +996,80 @@ class RuntimeLoaderPlan:
             )
         return resource
 
+    def target_resource_binding_metadata_records(
+        self,
+        *,
+        target: str | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        """Return loader-facing binding metadata records for a selected target."""
+        expected_target = self.loader_target if target is None else target
+        bindings = self.target_resource_binding_metadata_summary.get("bindings")
+        if not isinstance(bindings, list):
+            return ()
+        return tuple(
+            record
+            for record in bindings
+            if isinstance(record, dict) and record.get("target") == expected_target
+        )
+
+    def target_resource_binding_metadata(
+        self,
+        stage: str,
+        name: str,
+        *,
+        target: str | None = None,
+        entry_point: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Find loader-facing target binding metadata by stage and resource name."""
+        for record in self.target_resource_binding_metadata_records(target=target):
+            if record.get("stage") != stage or record.get("name") != name:
+                continue
+            if entry_point is not None and record.get("entryPoint") != entry_point:
+                continue
+            return record
+        return None
+
+    def require_target_resource_binding_metadata(
+        self,
+        stage: str,
+        name: str,
+        *,
+        target: str | None = None,
+        entry_point: str | None = None,
+    ) -> dict[str, Any]:
+        record = self.target_resource_binding_metadata(
+            stage,
+            name,
+            target=target,
+            entry_point=entry_point,
+        )
+        if record is None:
+            expected_target = self.loader_target if target is None else target
+            raise PackageReadError(
+                "missing reflection target resource binding metadata: "
+                f"target={expected_target} stage={stage} name={name}"
+            )
+        return record
+
     @property
     def workgroup_sizes(self) -> tuple[dict[str, Any], ...]:
         """Return reflected compute workgroup sizes from package metadata."""
         return self.compatibility_report.workgroup_sizes
+
+    @property
+    def function_constants(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected function constants from package metadata."""
+        return self.compatibility_report.function_constants
+
+    def function_constant(self, name: str) -> dict[str, Any] | None:
+        """Find reflected function constant metadata by name."""
+        return self.compatibility_report.function_constant(name)
+
+    def require_function_constant(self, name: str) -> dict[str, Any]:
+        function_constant = self.function_constant(name)
+        if function_constant is None:
+            raise PackageReadError(f"missing reflection function constant: name={name}")
+        return function_constant
 
     def workgroup_size(self, stage: str, entry_point: str) -> dict[str, Any] | None:
         """Find reflected workgroup size by stage and source/backend entry name."""
@@ -984,6 +1262,556 @@ def read_loader_plan(
         runtime_artifact_selection=runtime_artifact_selection,
         selected_artifacts=selected_artifacts,
     )
+
+
+def read_runtime_loader_plan_contract(
+    package_path: Path | str,
+    loader_target: str,
+    *,
+    package_mode: str = "auto",
+) -> dict[str, Any]:
+    """Read a `.cglb` package and return the published loader-plan contract."""
+    return read_loader_plan(
+        package_path,
+        loader_target,
+        package_mode=package_mode,
+    ).to_runtime_loader_plan_contract()
+
+
+def _runtime_loader_plan_target_or_null(target: str | None) -> str | None:
+    if target in _RUNTIME_LOADER_PLAN_KNOWN_TARGETS:
+        return target
+    return None
+
+
+def _runtime_loader_plan_package_format(package_format: str) -> str | None:
+    if package_format in {"directory", "zip"}:
+        return package_format
+    return None
+
+
+def _runtime_loader_plan_requirements_source(source: str | None) -> str | None:
+    if source is None:
+        return None
+    return _RUNTIME_LOADER_PLAN_SCHEMA_REQUIREMENT_SOURCES.get(source)
+
+
+def _runtime_loader_plan_package_artifact_requirements(
+    report: PackageCompatibilityReport,
+) -> dict[str, Any] | None:
+    contract = report.target_contract
+    if contract is None:
+        return None
+
+    evidence_ids = report.target_legalization_evidence.get(
+        "packageArtifactRequirementEvidenceIds"
+    )
+    if not isinstance(evidence_ids, list):
+        evidence_ids = []
+
+    return {
+        "target": contract.target,
+        "packageMode": contract.package_mode,
+        "requiredPathArtifacts": list(contract.required_artifacts),
+        "requiresNativeBinaryStatus": contract.native_binary_status_required,
+        "allowsPlannedNativeBinary": contract.planned_native_binary_may_be_absent,
+        "allowsPlannedNativeSourceEvidence": (
+            contract.allows_planned_native_source_evidence
+        ),
+        "evidenceIds": [item for item in evidence_ids if isinstance(item, str)],
+    }
+
+
+def _runtime_loader_plan_target_legalization_summary(
+    report: PackageCompatibilityReport,
+) -> dict[str, Any]:
+    requirements = report.target_legalization_tool_requirements
+    present = bool(requirements.get("present"))
+    required_tool_ids = _runtime_loader_plan_string_list(
+        requirements.get("requiredToolIds")
+    )
+    missing_tool_ids = _runtime_loader_plan_string_list(
+        requirements.get("missingToolIds")
+    )
+    evidence_ids = _runtime_loader_plan_string_list(
+        requirements.get("toolRequirementEvidenceIds")
+    )
+    package_mode = requirements.get("packageMode")
+
+    return {
+        "toolRequirementsPresent": present,
+        "target": (
+            _runtime_loader_plan_target_or_null(requirements.get("target"))
+            if present
+            else None
+        ),
+        "packageMode": (
+            package_mode if package_mode in {"native", "source-package"} else None
+        ),
+        "requiredToolCount": len(required_tool_ids),
+        "missingToolCount": len(missing_tool_ids),
+        "requiredToolIds": required_tool_ids,
+        "missingToolIds": missing_tool_ids,
+        "toolRequirementEvidenceIds": evidence_ids,
+    }
+
+
+def _runtime_loader_plan_reflection_summary(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any]:
+    reflection = plan.reflection_resource_summary
+    return {
+        "resourceCount": reflection["resourceCount"],
+        "targetResourceBindingCount": reflection["targetResourceBindingCount"],
+        "targetFeatureCount": reflection["targetFeatureCount"],
+        "entryPointCount": reflection["entryPointCount"],
+        "workgroupSizeCount": reflection["workgroupSizeCount"],
+        "functionConstantCount": reflection["functionConstantCount"],
+        "specializationConstantCount": reflection["specializationConstantCount"],
+        "threadgroupShapeSource": "reflection.workgroupSizes",
+    }
+
+
+def _runtime_loader_plan_contract_selected_artifact(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any] | None:
+    artifact = plan.runtime_artifact
+    package_mode = plan.runtime_artifact_selection.selected_package_mode
+    if artifact is None or package_mode is None:
+        return None
+    package_path = artifact.package_path
+    return {
+        "name": artifact.name,
+        "path": package_path,
+        "packageMode": package_mode,
+        "packageRelative": (
+            not PurePosixPath(package_path).is_absolute() and "\\" not in package_path
+        ),
+        "exists": artifact.exists,
+    }
+
+
+def _runtime_loader_plan_contract_runtime_artifact_selection(
+    plan: RuntimeLoaderPlan,
+    *,
+    selected_artifact: dict[str, Any] | None,
+    success: bool,
+) -> dict[str, Any]:
+    return {
+        "schemaVersion": 1,
+        "requestedTarget": _runtime_loader_plan_target_or_null(plan.loader_target),
+        "requestedPackageMode": (
+            plan.runtime_artifact_selection.requested_package_mode
+        ),
+        "packageTarget": _runtime_loader_plan_target_or_null(plan.package_target),
+        "selectedTarget": plan.selected_target if success else None,
+        "selected": success,
+        "selectedPackageMode": (
+            selected_artifact["packageMode"] if selected_artifact else None
+        ),
+        "sourceParsingRequired": plan.source_parsing_required,
+        "compilerInvocationRequired": False,
+        "deviceExecutionRequired": False,
+        "sourceInputs": [],
+        "artifact": selected_artifact,
+    }
+
+
+def _runtime_loader_plan_host_loader_integration(
+    plan: RuntimeLoaderPlan,
+    *,
+    selected_artifact: dict[str, Any] | None,
+    success: bool,
+) -> dict[str, Any]:
+    reflection = plan.reflection_resource_summary
+    entry_point_count = int(reflection.get("entryPointCount") or 0)
+    resource_binding_count = int(reflection.get("targetResourceBindingCount") or 0)
+    workgroup_size_count = int(reflection.get("workgroupSizeCount") or 0)
+    function_constant_count = int(reflection.get("functionConstantCount") or 0)
+    specialization_constant_count = int(
+        reflection.get("specializationConstantCount") or 0
+    )
+    has_load_unit = selected_artifact is not None
+    host_interface_ready = bool(success and has_load_unit and entry_point_count > 0)
+    blocked_load_unit_count = 1 if has_load_unit and not host_interface_ready else 0
+    ready_load_unit_count = 1 if host_interface_ready else 0
+
+    load_units = []
+    if selected_artifact is not None:
+        load_units.append(
+            _runtime_loader_plan_host_loader_load_unit(
+                plan,
+                selected_artifact=selected_artifact,
+                host_interface_ready=host_interface_ready,
+                entry_point_count=entry_point_count,
+                resource_binding_count=resource_binding_count,
+                workgroup_size_count=workgroup_size_count,
+                function_constant_count=function_constant_count,
+                specialization_constant_count=specialization_constant_count,
+            )
+        )
+
+    if host_interface_ready:
+        status = "ready"
+    elif has_load_unit:
+        status = "blocked"
+    else:
+        status = "unavailable"
+
+    return {
+        "schemaVersion": 1,
+        "kind": _RUNTIME_HOST_LOADER_INTEGRATION_KIND,
+        "status": status,
+        "scope": _RUNTIME_HOST_LOADER_INTEGRATION_SCOPE,
+        "nonGoals": list(_RUNTIME_HOST_LOADER_INTEGRATION_NON_GOALS),
+        "summary": {
+            "targetCount": 1 if has_load_unit else 0,
+            "loadUnitCount": len(load_units),
+            "readyLoadUnitCount": ready_load_unit_count,
+            "blockedLoadUnitCount": blocked_load_unit_count,
+            "entryPointCount": entry_point_count,
+            "resourceBindingCount": resource_binding_count,
+            "workgroupSizeCount": workgroup_size_count,
+            "functionConstantCount": function_constant_count,
+            "specializationConstantCount": specialization_constant_count,
+        },
+        "loadUnits": load_units,
+    }
+
+
+def _runtime_loader_plan_host_loader_load_unit(
+    plan: RuntimeLoaderPlan,
+    *,
+    selected_artifact: dict[str, Any],
+    host_interface_ready: bool,
+    entry_point_count: int,
+    resource_binding_count: int,
+    workgroup_size_count: int,
+    function_constant_count: int,
+    specialization_constant_count: int,
+) -> dict[str, Any]:
+    selected_target = _runtime_loader_plan_target_or_null(plan.selected_target)
+    source_remap = _runtime_loader_plan_source_remap(plan)
+    required_tools = _runtime_loader_plan_required_tools(plan)
+    host_responsibilities = _runtime_loader_plan_host_responsibilities(
+        source_remap=source_remap,
+        required_tools=required_tools,
+        workgroup_size_count=workgroup_size_count,
+    )
+    host_interface_status = "ready" if host_interface_ready else "unavailable"
+    load_steps = [
+        {
+            "kind": "load-package-artifact",
+            "message": "Load the selected runtime package artifact.",
+            "target": selected_target,
+            "packagePath": selected_artifact["path"],
+            "hostInterfaceStatus": host_interface_status,
+            "command": None,
+            "tools": [],
+            "metadata": {
+                "source": {
+                    "field": "selectedArtifact.path",
+                    "path": selected_artifact["path"],
+                },
+                "artifact": {
+                    "name": selected_artifact["name"],
+                    "packageMode": selected_artifact["packageMode"],
+                },
+            },
+        }
+    ]
+    if source_remap is not None:
+        load_steps.append(
+            {
+                "kind": "load-source-remap",
+                "message": "Load source remap provenance for diagnostics.",
+                "target": selected_target,
+                "packagePath": source_remap["packagePath"],
+                "hostInterfaceStatus": host_interface_status,
+                "command": None,
+                "tools": [],
+                "metadata": {
+                    "source": {
+                        "field": "manifest.artifacts.sourceRemap",
+                        "path": source_remap["packagePath"],
+                    }
+                },
+            }
+        )
+    blockers = []
+    if host_interface_ready:
+        load_steps.append(
+            {
+                "kind": "bind-host-interface",
+                "message": "Bind reflected host interface metadata.",
+                "target": selected_target,
+                "packagePath": selected_artifact["path"],
+                "hostInterfaceStatus": host_interface_status,
+                "command": None,
+                "tools": [],
+                "metadata": {
+                    "source": {"field": "reflectionInputs"},
+                    "entryPointCount": entry_point_count,
+                    "resourceBindingCount": resource_binding_count,
+                    "workgroupSizeCount": workgroup_size_count,
+                    "functionConstantCount": function_constant_count,
+                    "specializationConstantCount": specialization_constant_count,
+                },
+            }
+        )
+    else:
+        blockers.append(
+            {
+                "kind": "resolve-host-interface-metadata",
+                "severity": "warning",
+                "source": "reflectionInputs.entryPoints",
+                "message": (
+                    "runtime loader plan requires reflection entry point metadata "
+                    "before host loader scaffolding"
+                ),
+            }
+        )
+
+    status = "ready" if host_interface_ready else "blocked"
+    return {
+        "id": _runtime_loader_plan_load_unit_id(selected_target, selected_artifact),
+        "target": selected_target,
+        "packageMode": selected_artifact["packageMode"],
+        "artifact": selected_artifact,
+        "packagePath": selected_artifact["path"],
+        "artifactFormat": (
+            "native-binary"
+            if selected_artifact["name"] == "nativeBinary"
+            else "backend-source"
+        ),
+        "adapterKind": (
+            "native-binary-loader"
+            if selected_artifact["name"] == "nativeBinary"
+            else "backend-source-loader"
+        ),
+        "status": status,
+        "sourceRemap": source_remap,
+        "requiredTools": required_tools,
+        "hostResponsibilities": host_responsibilities,
+        "hostInterface": {
+            "status": host_interface_status,
+            "source": "reflectionInputs",
+            "entryPointCount": entry_point_count,
+            "resourceBindingCount": resource_binding_count,
+            "workgroupSizeCount": workgroup_size_count,
+            "functionConstantCount": function_constant_count,
+            "specializationConstantCount": specialization_constant_count,
+        },
+        "validation": {
+            "loadReady": host_interface_ready,
+            "metadataOnly": True,
+            "sourceParsingRequired": False,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+        },
+        "loadSteps": load_steps,
+        "blockers": blockers,
+    }
+
+
+def _runtime_loader_plan_load_unit_id(
+    selected_target: str | None, selected_artifact: dict[str, Any]
+) -> str:
+    target = selected_target if selected_target is not None else "unselected"
+    return f"runtime-loader.{target}.{selected_artifact['name']}"
+
+
+def _runtime_loader_plan_source_remap(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any] | None:
+    artifact = next(
+        (
+            artifact
+            for artifact in plan.compatibility_report.available_artifacts
+            if artifact.name == "sourceRemap"
+        ),
+        None,
+    )
+    if artifact is None or not artifact.exists:
+        return None
+    return {
+        "source": "manifest.artifacts.sourceRemap",
+        "packagePath": artifact.package_path,
+        "exists": artifact.exists,
+    }
+
+
+def _runtime_loader_plan_required_tools(plan: RuntimeLoaderPlan) -> list[str]:
+    summary = _runtime_loader_plan_target_legalization_summary(
+        plan.compatibility_report
+    )
+    return list(summary["requiredToolIds"])
+
+
+def _runtime_loader_plan_host_responsibilities(
+    *,
+    source_remap: dict[str, Any] | None,
+    required_tools: list[str],
+    workgroup_size_count: int,
+) -> list[str]:
+    responsibilities = [
+        "load-package-artifact",
+        "bind-reflected-entry-points",
+        "bind-reflected-resources",
+    ]
+    if source_remap is not None:
+        responsibilities.insert(1, "load-source-remap")
+    if workgroup_size_count > 0:
+        responsibilities.append("bind-workgroup-shape")
+    if required_tools:
+        responsibilities.append("review-target-tool-requirements")
+    return responsibilities
+
+
+def _runtime_loader_plan_contract_diagnostics(
+    plan: RuntimeLoaderPlan,
+) -> list[dict[str, Any]]:
+    return [
+        _runtime_loader_plan_contract_diagnostic(
+            diagnostic,
+            requested_package_mode=plan.runtime_artifact_selection.requested_package_mode,
+        )
+        for diagnostic in plan.runtime_artifact_selection.diagnostics
+    ]
+
+
+def _runtime_loader_plan_contract_diagnostic(
+    diagnostic: CompatibilityDiagnostic,
+    *,
+    requested_package_mode: str,
+) -> dict[str, Any]:
+    severity = diagnostic.severity
+    if severity == "skip":
+        severity = "error"
+    if severity not in {"note", "warning", "error"}:
+        severity = "error"
+
+    summary: dict[str, Any] = {
+        "severity": severity,
+        "code": _runtime_loader_plan_contract_diagnostic_code(
+            diagnostic,
+            requested_package_mode=requested_package_mode,
+        ),
+        "message": diagnostic.message,
+        "location": _runtime_loader_plan_diagnostic_location(diagnostic),
+    }
+    target = _runtime_loader_plan_diagnostic_target(diagnostic)
+    if target is not None:
+        summary["target"] = target
+    return summary
+
+
+def _runtime_loader_plan_contract_diagnostic_code(
+    diagnostic: CompatibilityDiagnostic,
+    *,
+    requested_package_mode: str,
+) -> str:
+    if diagnostic.code == "package.target.loader_mismatch":
+        return "package.runtime-plan.target-mismatch"
+    if diagnostic.code == "package.target.unsupported":
+        return "package.runtime-plan.unsupported-target"
+    native_artifact_failure = (
+        diagnostic.artifact
+        in {
+            "nativeArtifactDescriptor",
+            "nativeBinary",
+            "nativeBinaryStatus",
+            "nativeProfile",
+        }
+        or diagnostic.code == "package.mode.unsupported"
+    )
+    source_artifact_failure = (
+        diagnostic.artifact == "backendSource"
+        or diagnostic.code == "package.mode.unsupported"
+    )
+    if requested_package_mode == "native" and (
+        diagnostic.code
+        in {
+            "package.artifact.required_file_missing",
+            "package.artifact.required_missing",
+            "package.artifact.selection_missing",
+            "package.artifact.selection_file_missing",
+            "package.native_artifact_descriptor.required_missing",
+            "package.native_binary_status.not_ready",
+            "package.native_profile.required_missing",
+        }
+        and native_artifact_failure
+    ):
+        return "package.runtime-plan.native-artifact-unavailable"
+    if requested_package_mode == "source-package" and (
+        diagnostic.code
+        in {
+            "package.artifact.required_file_missing",
+            "package.artifact.required_missing",
+            "package.artifact.selection_missing",
+            "package.artifact.selection_file_missing",
+            "package.mode.unsupported",
+        }
+        and source_artifact_failure
+    ):
+        return "package.runtime-plan.source-artifact-unavailable"
+    if requested_package_mode == "auto" and (
+        diagnostic.code
+        in {
+            "package.artifact.required_file_missing",
+            "package.artifact.required_missing",
+            "package.artifact.selection_missing",
+            "package.artifact.selection_file_missing",
+            "package.mode.unsupported",
+            "package.native_artifact_descriptor.required_missing",
+            "package.native_binary_status.not_ready",
+            "package.native_profile.required_missing",
+        }
+        and (native_artifact_failure or source_artifact_failure)
+    ):
+        return "package.runtime-plan.artifact-unavailable"
+    return diagnostic.code
+
+
+def _runtime_loader_plan_diagnostic_location(
+    diagnostic: CompatibilityDiagnostic,
+) -> dict[str, int | str]:
+    return {
+        "file": diagnostic.document or "package",
+        "line": 0,
+        "column": 0,
+        "offset": 0,
+        "length": 0,
+        "endLine": 0,
+        "endColumn": 0,
+        "endOffset": 0,
+    }
+
+
+def _runtime_loader_plan_diagnostic_target(
+    diagnostic: CompatibilityDiagnostic,
+) -> str | None:
+    for value in (diagnostic.actual, diagnostic.expected):
+        if isinstance(value, str) and value in _RUNTIME_LOADER_PLAN_KNOWN_TARGETS:
+            return value
+    return None
+
+
+def _runtime_loader_plan_contract_diagnostic_counts(
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, int]:
+    counts = {"note": 0, "warning": 0, "error": 0}
+    for diagnostic in diagnostics:
+        severity = diagnostic["severity"]
+        if severity in counts:
+            counts[severity] += 1
+    return counts
+
+
+def _runtime_loader_plan_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 def _select_loader_artifacts(
@@ -1303,6 +2131,9 @@ def _target_resource_binding_metadata_record(
             "kind": record.get("kind"),
         },
     }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     for field_name in (
         "arrayDimensions",
         "arrayElementCount",

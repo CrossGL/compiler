@@ -1,0 +1,1 @@
+$.summary.vulkanNativeProfile.checks: expected null checks when inactive

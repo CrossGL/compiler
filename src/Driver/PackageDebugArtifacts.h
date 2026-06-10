@@ -12,6 +12,7 @@ struct PackageSourceRemapProvenanceChecks {
   std::optional<bool> identityMatchesContract;
   std::optional<bool> targetMatchesPackage;
   std::optional<bool> generatedFilePresent;
+  std::optional<bool> mappingGranularityMatchesContract;
   std::optional<bool> mappingCountPositive;
   std::optional<bool> sourcePathPresent;
   std::optional<bool> sourceHashPresent;
@@ -36,6 +37,41 @@ struct PackageSourceRemapProvenanceHealth {
   PackageSourceRemapProvenanceChecks checks;
 };
 
+struct PackageBackendSourceMapChecks {
+  std::optional<bool> identityMatchesContract;
+  std::optional<bool> targetMatchesPackage;
+  std::optional<bool> moduleMatchesPackage;
+  std::optional<bool> mappingGranularityMatchesContract;
+  std::optional<bool> sourceBackendPresent;
+  std::optional<bool> targetBackendMatchesBackendLanguage;
+  std::optional<bool> backendLanguagePresent;
+  std::optional<bool> backendLineCountPresent;
+  std::optional<bool> backendLineCountMatchesSource;
+  std::optional<bool> backendSpansWithinSource;
+  std::optional<bool> mappingCountMatchesMappings;
+};
+
+struct PackageBackendSourceMapHealth {
+  bool artifactPresent = false;
+  bool exists = false;
+  std::string health = "not-present";
+  std::optional<std::string> path;
+  std::optional<std::uintmax_t> schemaVersion;
+  std::optional<std::string> kind;
+  std::optional<std::string> target;
+  std::optional<std::string> module;
+  std::optional<std::string> mappingGranularity;
+  std::optional<std::string> sourceBackend;
+  std::optional<std::string> targetBackend;
+  std::optional<std::string> backendLanguage;
+  std::optional<std::uintmax_t> backendLineCount;
+  std::optional<std::uintmax_t> backendSourceLineCount;
+  std::optional<std::uintmax_t> mappingCount;
+  std::optional<std::uintmax_t> mappingRecordCount;
+  std::optional<std::uintmax_t> backendMaxMappedLine;
+  PackageBackendSourceMapChecks checks;
+};
+
 struct PackageDebugArtifactHealth {
   bool debugMetadataArtifactPresent = false;
   bool hirSourceMapArtifactPresent = false;
@@ -43,6 +79,7 @@ struct PackageDebugArtifactHealth {
   bool hirSourceMapExists = false;
   std::string health = "incomplete";
   PackageSourceRemapProvenanceHealth sourceRemap;
+  PackageBackendSourceMapHealth backendSourceMap;
   std::optional<bool> hirSourceLocationsMatch;
   std::optional<bool> sourceMapUnfiltered;
   std::optional<bool> sourceMapUnpaged;

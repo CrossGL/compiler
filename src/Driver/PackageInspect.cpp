@@ -7,6 +7,7 @@
 #include "crossgl/Driver/PackageMetadata.h"
 #include "crossgl/Driver/PackagePublication.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -777,6 +778,15 @@ void writeStringArray(std::ostream &out,
   out << "]";
 }
 
+void appendUniqueString(std::vector<std::string> &values,
+                        const std::string &value) {
+  if (value.empty() ||
+      std::find(values.begin(), values.end(), value) != values.end()) {
+    return;
+  }
+  values.push_back(value);
+}
+
 void writeNullableStringArray(
     std::ostream &out,
     const std::optional<std::vector<std::string>> &values) {
@@ -923,6 +933,8 @@ void writeDebugArtifactHealth(std::ostream &out,
                               const PackageDebugArtifactHealth &health,
                               std::string_view indent) {
   const PackageSourceRemapProvenanceHealth &sourceRemap = health.sourceRemap;
+  const PackageBackendSourceMapHealth &backendSourceMap =
+      health.backendSourceMap;
   out << "{\n"
       << indent << "  \"debugMetadataArtifactPresent\": "
       << (health.debugMetadataArtifactPresent ? "true" : "false") << ",\n"
@@ -970,6 +982,9 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableBool(out, sourceRemap.checks.targetMatchesPackage);
   out << ",\n" << indent << "      \"generatedFilePresent\": ";
   writeNullableBool(out, sourceRemap.checks.generatedFilePresent);
+  out << ",\n" << indent << "      \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(out,
+                    sourceRemap.checks.mappingGranularityMatchesContract);
   out << ",\n" << indent << "      \"mappingCountPositive\": ";
   writeNullableBool(out, sourceRemap.checks.mappingCountPositive);
   out << ",\n" << indent << "      \"sourcePathPresent\": ";
@@ -978,6 +993,70 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableBool(out, sourceRemap.checks.sourceHashPresent);
   out << ",\n" << indent << "      \"sourceSizeBytesPresent\": ";
   writeNullableBool(out, sourceRemap.checks.sourceSizeBytesPresent);
+  out << "\n" << indent << "    }\n" << indent << "  },\n"
+      << indent << "  \"backendSourceMap\": {\n"
+      << indent << "    \"artifactPresent\": "
+      << (backendSourceMap.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "    \"exists\": "
+      << (backendSourceMap.exists ? "true" : "false") << ",\n"
+      << indent << "    \"health\": \""
+      << escapeJson(backendSourceMap.health) << "\",\n"
+      << indent << "    \"path\": ";
+  writeNullableString(out, backendSourceMap.path);
+  out << ",\n" << indent << "    \"schemaVersion\": ";
+  writeNullableUnsigned(out, backendSourceMap.schemaVersion);
+  out << ",\n" << indent << "    \"kind\": ";
+  writeNullableString(out, backendSourceMap.kind);
+  out << ",\n" << indent << "    \"target\": ";
+  writeNullableString(out, backendSourceMap.target);
+  out << ",\n" << indent << "    \"module\": ";
+  writeNullableString(out, backendSourceMap.module);
+  out << ",\n" << indent << "    \"mappingGranularity\": ";
+  writeNullableString(out, backendSourceMap.mappingGranularity);
+  out << ",\n" << indent << "    \"sourceBackend\": ";
+  writeNullableString(out, backendSourceMap.sourceBackend);
+  out << ",\n" << indent << "    \"targetBackend\": ";
+  writeNullableString(out, backendSourceMap.targetBackend);
+  out << ",\n" << indent << "    \"backendLanguage\": ";
+  writeNullableString(out, backendSourceMap.backendLanguage);
+  out << ",\n" << indent << "    \"backendLineCount\": ";
+  writeNullableUnsigned(out, backendSourceMap.backendLineCount);
+  out << ",\n" << indent << "    \"backendSourceLineCount\": ";
+  writeNullableUnsigned(out, backendSourceMap.backendSourceLineCount);
+  out << ",\n" << indent << "    \"mappingCount\": ";
+  writeNullableUnsigned(out, backendSourceMap.mappingCount);
+  out << ",\n" << indent << "    \"mappingRecordCount\": ";
+  writeNullableUnsigned(out, backendSourceMap.mappingRecordCount);
+  out << ",\n" << indent << "    \"backendMaxMappedLine\": ";
+  writeNullableUnsigned(out, backendSourceMap.backendMaxMappedLine);
+  out << ",\n"
+      << indent << "    \"checks\": {\n"
+      << indent << "      \"identityMatchesContract\": ";
+  writeNullableBool(out, backendSourceMap.checks.identityMatchesContract);
+  out << ",\n" << indent << "      \"targetMatchesPackage\": ";
+  writeNullableBool(out, backendSourceMap.checks.targetMatchesPackage);
+  out << ",\n" << indent << "      \"moduleMatchesPackage\": ";
+  writeNullableBool(out, backendSourceMap.checks.moduleMatchesPackage);
+  out << ",\n" << indent << "      \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(
+      out, backendSourceMap.checks.mappingGranularityMatchesContract);
+  out << ",\n" << indent << "      \"sourceBackendPresent\": ";
+  writeNullableBool(out, backendSourceMap.checks.sourceBackendPresent);
+  out << ",\n"
+      << indent << "      \"targetBackendMatchesBackendLanguage\": ";
+  writeNullableBool(
+      out, backendSourceMap.checks.targetBackendMatchesBackendLanguage);
+  out << ",\n" << indent << "      \"backendLanguagePresent\": ";
+  writeNullableBool(out, backendSourceMap.checks.backendLanguagePresent);
+  out << ",\n" << indent << "      \"backendLineCountPresent\": ";
+  writeNullableBool(out, backendSourceMap.checks.backendLineCountPresent);
+  out << ",\n" << indent << "      \"backendLineCountMatchesSource\": ";
+  writeNullableBool(out,
+                    backendSourceMap.checks.backendLineCountMatchesSource);
+  out << ",\n" << indent << "      \"backendSpansWithinSource\": ";
+  writeNullableBool(out, backendSourceMap.checks.backendSpansWithinSource);
+  out << ",\n" << indent << "      \"mappingCountMatchesMappings\": ";
+  writeNullableBool(out, backendSourceMap.checks.mappingCountMatchesMappings);
   out << "\n" << indent << "    }\n" << indent << "  },\n"
       << indent << "  \"checks\": {\n"
       << indent << "    \"hirSourceLocationsMatch\": ";
@@ -1119,6 +1198,40 @@ void writeArtifactRequirementsProjection(
       << escapeJson(nativeArtifactDescriptor.health) << "\",\n"
       << indent << "  \"nativeArtifactDescriptorPath\": ";
   writeNullableString(out, nativeArtifactDescriptor.path);
+  out << "\n" << indent << "}";
+}
+
+std::vector<std::string>
+selectedTargetFeatureEvidenceIds(const PackageMetadata &metadata) {
+  std::vector<std::string> evidenceIds;
+  for (const PackageReflectionTargetFeatureRecord &feature :
+       metadata.reflectionTargetFeatures) {
+    if (feature.target != metadata.target) {
+      continue;
+    }
+    for (const std::string &evidenceId : feature.evidenceIds) {
+      appendUniqueString(evidenceIds, evidenceId);
+    }
+  }
+  return evidenceIds;
+}
+
+std::size_t selectedTargetFeatureCount(const PackageMetadata &metadata) {
+  return std::count_if(
+      metadata.reflectionTargetFeatures.begin(),
+      metadata.reflectionTargetFeatures.end(),
+      [&](const PackageReflectionTargetFeatureRecord &feature) {
+        return feature.target == metadata.target;
+      });
+}
+
+void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
+                            std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"targetFeatureCount\": "
+      << selectedTargetFeatureCount(metadata) << ",\n"
+      << indent << "  \"targetFeatureEvidenceIds\": ";
+  writeStringArray(out, selectedTargetFeatureEvidenceIds(metadata));
   out << "\n" << indent << "}";
 }
 
@@ -1422,7 +1535,10 @@ std::string packageInspectJson(const PackageMetadata &metadata) {
   out << ",\n"
       << "    \"artifactCount\": " << metadata.artifacts.size() << ",\n"
       << "    \"debugArtifactsPresent\": "
-      << (metadata.debugArtifactsPresent ? "true" : "false") << "\n"
+      << (metadata.debugArtifactsPresent ? "true" : "false") << ",\n"
+      << "    \"reflection\": ";
+  writeReflectionSummary(out, metadata, "    ");
+  out << "\n"
       << "  },\n"
       << "  \"debugArtifacts\": ";
   writeDebugArtifactHealth(out, debugArtifactHealth, "  ");

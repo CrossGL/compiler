@@ -31,7 +31,8 @@ function(crossgl_add_package_inspect_json_failure_schema_test)
       "-DEXPECTED_JSON_FIELDS=${CROSSGL_INSPECT_FAILURE_SCHEMA_EXPECTED_JSON_FIELDS}"
       "-DEXPECTED_JSON_ARRAY_LENGTHS=${CROSSGL_INSPECT_FAILURE_SCHEMA_EXPECTED_JSON_ARRAY_LENGTHS}"
       -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
-      -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+      -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+      -DSTORED_ZIP_PACKAGE_CREATOR=${CMAKE_CURRENT_FUNCTION_LIST_DIR}/CreateStoredZipPackage.py)
   if(CROSSGL_INSPECT_FAILURE_SCHEMA_MANIFEST_MUTATION_KIND)
     list(APPEND inspect_failure_definitions
       "-DMANIFEST_MUTATION_KIND=${CROSSGL_INSPECT_FAILURE_SCHEMA_MANIFEST_MUTATION_KIND}")
@@ -55,6 +56,17 @@ crossgl_add_package_inspect_json_failure_schema_test(
   NAME cglc_package_inspect_json_schema_non_directory_package_failure
   FAILURE_KIND non-directory-package
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/non-directory-package-inspect-schema.cglb
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|success=false|packageFormat=null|summary=null|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.inspect.unsupported-format"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "diagnostics=1")
+
+crossgl_add_package_inspect_json_failure_schema_test(
+  NAME cglc_package_inspect_json_schema_stored_zip_package_failure
+  FAILURE_KIND stored-zip-package
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/stored-zip-package-inspect-schema.cglb
   EXPECTED_JSON_FIELDS
     "schemaVersion=1|success=false|packageFormat=null|summary=null|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.inspect.unsupported-format"
   EXPECTED_JSON_ARRAY_LENGTHS

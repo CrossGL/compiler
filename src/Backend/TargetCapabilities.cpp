@@ -7,7 +7,6 @@
 #include "crossgl/Backend/OpenGLBackend.h"
 #include "crossgl/Backend/ResourceArrays.h"
 #include "crossgl/Backend/TargetCapabilityInventory.h"
-#include "crossgl/Backend/Toolchain.h"
 #include "crossgl/Backend/VulkanBackend.h"
 #include "crossgl/HIR/Intrinsics.h"
 #include "crossgl/HIR/TypeSemantics.h"
@@ -25,7 +24,7 @@ namespace {
 constexpr std::string_view kRawStatementBackendInputDiagnostic =
     "opt.hir-raw-statement-backend-input";
 
-static constexpr std::array<TargetCapabilityRegistryContract, 4>
+static constexpr std::array<TargetCapabilityRegistryContract, 5>
     kTargetCapabilityRegistryContracts = {{
         TargetCapabilityRegistryContract{
             TargetKind::Metal, "native", "native", "native-metal-package",
@@ -40,6 +39,9 @@ static constexpr std::array<TargetCapabilityRegistryContract, 4>
         TargetCapabilityRegistryContract{
             TargetKind::OpenGL, "source-package", "planned-native",
             "glsl-lowering", "opengl.native-artifact.glsl-source", false, true},
+        TargetCapabilityRegistryContract{
+            TargetKind::WGSL, "unsupported", "planned-native",
+            "wgsl-lowering", "wgsl.native-artifact.wgsl-source", false, false},
     }};
 
 const TargetCapabilityRegistryContract *registryContractFor(TargetKind target) {
@@ -229,6 +231,8 @@ bool isComparisonOperator(std::string_view op) {
          op == "!=";
 }
 
+bool isLogicalOperator(std::string_view op) { return op == "&&" || op == "||"; }
+
 bool containsNonUniformIndex(const HIRExpression &expression) {
   if (expression.kind == HIRExpressionKind::NonUniform) {
     return true;
@@ -345,6 +349,10 @@ void addBaselineCapabilities(CapabilityCollector &collector) {
     collector.add("backend", "native-glsl-package");
     collector.add("toolchain", "opengl-driver");
     collector.add("validation", "glsl-program-validation");
+    return;
+  case TargetKind::WGSL:
+    collector.add("backend", "wgsl-lowering");
+    collector.add("sourceLanguage", "WGSL");
     return;
   case TargetKind::Auto:
     break;
@@ -542,6 +550,11 @@ void addExpressionCapabilities(
       collector.add("operation", "scalar-constructor");
     }
     break;
+  case HIRExpressionKind::Unary:
+    if (expression.value == "!") {
+      collector.add("operation", "scalar-logical");
+    }
+    break;
   case HIRExpressionKind::Binary:
     // Preserve the original binary-operation feature ABI: every binary
     // expression is classified as scalar/vector arithmetic by result type.
@@ -557,6 +570,8 @@ void addExpressionCapabilities(
            isVectorTypeName(expression.children[1].type.name));
       collector.add("operation",
                     vectorOperand ? "vector-comparison" : "scalar-comparison");
+    } else if (isLogicalOperator(expression.value)) {
+      collector.add("operation", "scalar-logical");
     }
     break;
   case HIRExpressionKind::Select:
@@ -776,6 +791,7 @@ bool capabilitySatisfiedByTextualScaffold(const HIRModule &module,
            capability.name == "vector-arithmetic" ||
            capability.name == "scalar-comparison" ||
            capability.name == "vector-comparison" ||
+           capability.name == "scalar-logical" ||
            capability.name == "select-expression" ||
            capability.name == "scalar-constructor" ||
            capability.name == "vector-constructor" ||
@@ -852,6 +868,7 @@ bool sourcePackageSupported(const HIRModule &module, TargetKind target,
   case TargetKind::Auto:
   case TargetKind::Metal:
   case TargetKind::Vulkan:
+  case TargetKind::WGSL:
     return false;
   }
   return false;
@@ -876,15 +893,12 @@ bool nativePackageSupported(const HIRModule &module, TargetKind target,
   case TargetKind::Vulkan:
     return vulkanPrototypeBinarySupported(module, nativeDiagnostics);
   case TargetKind::DirectX:
-    if (!directxSourcePackageSupported(module, nativeDiagnostics)) {
-      return false;
-    }
-    if (findExecutable("dxc").has_value()) {
-      return true;
-    }
+    directxSourcePackageSupported(module, nativeDiagnostics);
     return false;
   case TargetKind::OpenGL:
     return true;
+  case TargetKind::WGSL:
+    return false;
   case TargetKind::Auto:
     break;
   }

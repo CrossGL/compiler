@@ -195,9 +195,15 @@ struct PackageReleasePackageArtifactRequirements {
   std::string target;
   std::string packageMode;
   std::vector<std::string> requiredPathArtifacts;
+  std::vector<std::string> evidenceIds;
   bool requiresNativeBinaryStatus = false;
   bool allowsPlannedNativeBinary = false;
   bool allowsPlannedNativeSourceEvidence = false;
+};
+
+struct PackageReleaseReflectionSummary {
+  std::size_t targetFeatureCount = 0;
+  std::vector<std::string> targetFeatureEvidenceIds;
 };
 
 struct PackageReleasePromotionPackage {
@@ -208,6 +214,7 @@ struct PackageReleasePromotionPackage {
   std::optional<std::string> nativeBinaryStatus;
   std::optional<PackageReleasePackageArtifactRequirements>
       artifactRequirements;
+  PackageReleaseReflectionSummary reflection;
   std::vector<PackageReleasePromotionArtifact> artifacts;
 };
 
@@ -268,6 +275,7 @@ struct PackageReleasePublishPlanPackage {
   std::optional<std::string> nativeBinaryStatus;
   std::optional<PackageReleasePackageArtifactRequirements>
       artifactRequirements;
+  PackageReleaseReflectionSummary reflection;
   std::uintmax_t totalArtifactBytes = 0;
   std::vector<PackageReleasePublishPlanArtifact> artifacts;
 };

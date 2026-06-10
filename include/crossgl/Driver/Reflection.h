@@ -88,6 +88,7 @@ struct ReflectionTargetResourceBinding {
   std::string addressSpace;
   std::string abi;
   std::string bindingClass;
+  std::string evidenceId;
   std::optional<std::string> metalType;
   std::optional<std::string> hlslType;
   std::optional<std::string> descriptorType;
@@ -109,6 +110,7 @@ struct ReflectionFunctionConstant {
   std::string name;
   std::string type;
   std::optional<std::string> value;
+  std::optional<std::size_t> specializationId;
 };
 
 struct ReflectionVertexAttribute {
@@ -161,6 +163,7 @@ struct ReflectionTargetFeature {
   std::string target;
   std::string kind;
   std::string name;
+  std::vector<std::string> evidenceIds;
 };
 
 struct ReflectionDocument {

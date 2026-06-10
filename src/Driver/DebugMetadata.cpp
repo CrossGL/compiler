@@ -3,6 +3,7 @@
 #include "crossgl/Backend/TargetCapabilities.h"
 #include "crossgl/Backend/TargetLegalization.h"
 #include "crossgl/Basic/Json.h"
+#include "crossgl/HIR/BuiltinEffects.h"
 
 #include <algorithm>
 #include <map>
@@ -239,6 +240,9 @@ void appendFallbackTargetRecords(
         << escapeJson(fallback.optionalNativeToolStatus) << "\""
         << ",\"toolRequirementEvidenceIds\":";
     appendInlineStringArray(out, fallback.toolRequirementEvidenceIds);
+    out << ",\"packageArtifactRequirementEvidenceIds\":";
+    appendInlineStringArray(out,
+                            fallback.packageArtifactRequirementEvidenceIds);
     out << ",\"missingCapabilityGroups\":";
     appendCapabilityGroups(out, fallback.missingCapabilityGroups);
     out << "}";
@@ -376,6 +380,31 @@ void appendHIRResourceSourceLocation(
       << ",\"resourceName\":\"" << escapeJson(resource.resourceName) << "\""
       << ",\"resourceKind\":\"" << escapeJson(resource.resourceKind) << "\""
       << ",\"type\":\"" << escapeJson(resource.type) << "\"";
+  if (!resource.function.empty()) {
+    out << ",\"function\":\"" << escapeJson(resource.function) << "\"";
+  }
+  if (!resource.ownerKind.empty()) {
+    out << ",\"ownerKind\":\"" << escapeJson(resource.ownerKind) << "\"";
+  }
+  if (!resource.ownerName.empty()) {
+    out << ",\"ownerName\":\"" << escapeJson(resource.ownerName) << "\"";
+  }
+  if (!resource.accessKind.empty()) {
+    out << ",\"accessKind\":\"" << escapeJson(resource.accessKind) << "\"";
+  }
+  if (!resource.accessPath.empty()) {
+    out << ",\"accessPath\":\"" << escapeJson(resource.accessPath) << "\"";
+  }
+  if (!resource.operation.empty()) {
+    out << ",\"operation\":\"" << escapeJson(resource.operation) << "\"";
+  }
+  if (!resource.memberName.empty()) {
+    out << ",\"memberName\":\"" << escapeJson(resource.memberName) << "\"";
+  }
+  if (!resource.indexExpression.empty()) {
+    out << ",\"indexExpression\":\""
+        << escapeJson(resource.indexExpression) << "\"";
+  }
   if (resource.bindingSet) {
     out << ",\"bindingSet\":" << *resource.bindingSet;
   }
@@ -1092,6 +1121,8 @@ DebugMetadataTargetCapabilitySummary targetCapabilitySummaryFromProjection(
   summary.optionalNativeToolMissing = projection.optionalNativeToolMissing;
   summary.optionalNativeToolStatus = projection.optionalNativeToolStatusName;
   summary.toolRequirementEvidenceIds = projection.toolRequirementEvidenceIds;
+  summary.packageArtifactRequirementEvidenceIds =
+      projection.packageArtifactRequirementEvidenceIds;
   summary.requiredCapabilityGroups =
       capabilityGroupsFromIds(projection.requiredCapabilityIds);
   summary.missingCapabilityGroups =
@@ -1149,6 +1180,12 @@ struct HIRSourceLocationContext {
   std::string entryPoint;
   std::string function;
   std::string statementKind;
+  std::string statementName;
+  std::string resourceAccessKind;
+  std::string resourceAccessPath;
+  std::string resourceAccessOperation;
+  std::string resourceAccessMemberName;
+  std::string resourceAccessIndexExpression;
   const HIRResourceLookup *resources = nullptr;
   std::set<std::string> hiddenResourceNames;
 };
@@ -1201,9 +1238,25 @@ void recordHIRResourceSourceLocation(DebugMetadataHIRSourceLocations &locations,
   record.resourceRecordKind = resourceRecordKind;
   record.stage = context.stage;
   record.entryPoint = context.entryPoint;
+  record.function = context.function;
   record.resourceName = resource.name;
   record.resourceKind = resourceKindName(resource.kind);
   record.type = formatType(resource.type);
+  if (resourceRecordKind == "access") {
+    record.ownerKind = context.statementKind.empty() ? "" : "statement";
+    record.ownerName = context.statementName;
+    record.accessKind = context.resourceAccessKind.empty()
+                            ? "unknown"
+                            : context.resourceAccessKind;
+    record.accessPath = context.resourceAccessPath.empty()
+                            ? resource.name
+                            : context.resourceAccessPath;
+    record.operation = context.resourceAccessOperation.empty()
+                           ? "identifier"
+                           : context.resourceAccessOperation;
+    record.memberName = context.resourceAccessMemberName;
+    record.indexExpression = context.resourceAccessIndexExpression;
+  }
   if (resource.explicitSet) {
     record.bindingSet = resource.set;
   }
@@ -1266,6 +1319,78 @@ void recordHIRResourceAccessSourceLocation(
                                   expression.location);
 }
 
+std::string expressionSourceName(const HIRExpression &expression) {
+  if (!expression.value.empty()) {
+    return expression.value;
+  }
+  for (const HIRExpression &child : expression.children) {
+    std::string name = expressionSourceName(child);
+    if (!name.empty()) {
+      return name;
+    }
+  }
+  return {};
+}
+
+std::string resourceAccessKindForCall(std::string_view operation) {
+  if (operation == "imageStore") {
+    return "store";
+  }
+  if (operation == "imageLoad") {
+    return "load";
+  }
+  if (operation.starts_with("imageAtomic")) {
+    return "atomic";
+  }
+  if (isHIRResourceWriteBuiltinCall(operation)) {
+    return "write";
+  }
+  if (isHIRResourceReadBuiltinCall(operation)) {
+    return "read";
+  }
+  return "call";
+}
+
+HIRSourceLocationContext resourceAccessChildContext(
+    const HIRExpression &parent, std::size_t childIndex,
+    HIRSourceLocationContext context) {
+  if (parent.kind == HIRExpressionKind::IndexAccess && childIndex == 0) {
+    context.resourceAccessKind =
+        context.resourceAccessKind.empty() ? "read" : context.resourceAccessKind;
+    context.resourceAccessOperation = "index";
+    if (parent.children.size() > 1) {
+      context.resourceAccessIndexExpression =
+          expressionSourceName(parent.children[1]);
+    }
+    return context;
+  }
+
+  if (parent.kind == HIRExpressionKind::MemberAccess && childIndex == 0) {
+    context.resourceAccessKind =
+        context.resourceAccessKind.empty() ? "read" : context.resourceAccessKind;
+    context.resourceAccessOperation = "member";
+    context.resourceAccessMemberName = parent.value;
+    return context;
+  }
+
+  if (parent.kind == HIRExpressionKind::Call && childIndex == 0) {
+    context.resourceAccessKind = resourceAccessKindForCall(parent.value);
+    context.resourceAccessOperation = parent.value;
+    return context;
+  }
+
+  if ((parent.kind == HIRExpressionKind::TextureSample ||
+       parent.kind == HIRExpressionKind::TextureCompare ||
+       parent.kind == HIRExpressionKind::TextureCompareLodManual) &&
+      childIndex <= 1) {
+    context.resourceAccessKind = "sample";
+    context.resourceAccessOperation = expressionKindName(parent.kind);
+    return context;
+  }
+
+  return context;
+}
+
 void recordHIRExpressionSourceLocations(
     DebugMetadataHIRSourceLocations &locations, const HIRExpression &expression,
     const HIRSourceLocationContext &context) {
@@ -1296,8 +1421,11 @@ void recordHIRExpressionSourceLocations(
   }
   recordHIRResourceAccessSourceLocation(locations, expression, context);
 
-  for (const HIRExpression &child : expression.children) {
-    recordHIRExpressionSourceLocations(locations, child, context);
+  for (std::size_t childIndex = 0; childIndex < expression.children.size();
+       ++childIndex) {
+    recordHIRExpressionSourceLocations(
+        locations, expression.children[childIndex],
+        resourceAccessChildContext(expression, childIndex, context));
   }
 }
 
@@ -1310,6 +1438,21 @@ std::string statementSourceName(const HIRStatement &statement) {
   }
   if (!statement.value.value.empty()) {
     return statement.value.value;
+  }
+  return {};
+}
+
+std::string statementAccessOwnerName(const HIRStatement &statement) {
+  if (!statement.name.empty()) {
+    return statement.name;
+  }
+  std::string targetName = expressionSourceName(statement.target);
+  if (!targetName.empty()) {
+    return targetName;
+  }
+  std::string valueName = expressionSourceName(statement.value);
+  if (!valueName.empty()) {
+    return valueName;
   }
   return {};
 }
@@ -1356,6 +1499,7 @@ void recordHIRStatementSourceLocations(
     const HIRSourceLocationContext &context) {
   HIRSourceLocationContext statementContext = context;
   statementContext.statementKind = statementKindName(statement.kind);
+  statementContext.statementName = statementAccessOwnerName(statement);
   recordHIRStatementSelfSourceLocation(locations, statement, statementContext);
   recordHIRTypeSourceLocation(locations, statement.declaredType,
                               statementContext, "statement-declared-type",
@@ -1363,10 +1507,16 @@ void recordHIRStatementSourceLocations(
 
   if (statement.kind == HIRStatementKind::For) {
     HIRSourceLocationContext loopContext = statementContext;
+    HIRSourceLocationContext targetContext = loopContext;
+    targetContext.resourceAccessKind = "write";
+    targetContext.resourceAccessOperation = "for-target";
     recordHIRExpressionSourceLocations(locations, statement.target,
-                                       loopContext);
+                                       targetContext);
+    HIRSourceLocationContext conditionContext = loopContext;
+    conditionContext.resourceAccessKind = "read";
+    conditionContext.resourceAccessOperation = "for-condition";
     recordHIRExpressionSourceLocations(locations, statement.value,
-                                       loopContext);
+                                       conditionContext);
     recordHIRStatementBlockSourceLocations(locations, statement.initializer,
                                            loopContext);
     for (const HIRStatement &initializer : statement.initializer) {
@@ -1383,10 +1533,19 @@ void recordHIRStatementSourceLocations(
     return;
   }
 
+  HIRSourceLocationContext targetContext = statementContext;
+  targetContext.resourceAccessKind = "write";
+  targetContext.resourceAccessOperation = "assignment-target";
   recordHIRExpressionSourceLocations(locations, statement.target,
-                                     statementContext);
-  recordHIRExpressionSourceLocations(locations, statement.value,
-                                     statementContext);
+                                     targetContext);
+  HIRSourceLocationContext valueContext = statementContext;
+  valueContext.resourceAccessKind = "read";
+  valueContext.resourceAccessOperation =
+      statement.kind == HIRStatementKind::Declaration ? "initializer"
+      : statement.kind == HIRStatementKind::Return    ? "return"
+      : statement.kind == HIRStatementKind::If        ? "condition"
+                                                     : "value";
+  recordHIRExpressionSourceLocations(locations, statement.value, valueContext);
 
   recordHIRStatementBlockSourceLocations(locations, statement.initializer,
                                          statementContext);
@@ -1531,6 +1690,8 @@ DebugMetadataTargetFallback fallbackTargetRecord(
   fallback.optionalNativeToolMissing = summary.optionalNativeToolMissing;
   fallback.optionalNativeToolStatus = summary.optionalNativeToolStatus;
   fallback.toolRequirementEvidenceIds = summary.toolRequirementEvidenceIds;
+  fallback.packageArtifactRequirementEvidenceIds =
+      summary.packageArtifactRequirementEvidenceIds;
   fallback.missingCapabilityGroups = summary.missingCapabilityGroups;
   return fallback;
 }
@@ -1678,6 +1839,8 @@ DebugMetadataTargetDecision buildTargetDecision(
         selectedSummary->optionalNativeToolStatus;
     decision.selectedTargetToolRequirementEvidenceIds =
         selectedSummary->toolRequirementEvidenceIds;
+    decision.packageArtifactRequirementEvidenceIds =
+        selectedSummary->packageArtifactRequirementEvidenceIds;
     decision.selectedTargetMissingCapabilityGroups =
         selectedSummary->missingCapabilityGroups;
     if (selectedRecord != nullptr) {
@@ -1934,6 +2097,9 @@ std::string debugMetadataJson(const DebugMetadataDocument &document) {
       << ",\"selectedTargetToolRequirementEvidenceIds\":";
   appendInlineStringArray(
       out, document.targetDecision.selectedTargetToolRequirementEvidenceIds);
+  out << ",\"packageArtifactRequirementEvidenceIds\":";
+  appendInlineStringArray(
+      out, document.targetDecision.packageArtifactRequirementEvidenceIds);
   out << ",\"selectedTargetMissingCapabilityGroups\":";
   appendCapabilityGroups(
       out, document.targetDecision.selectedTargetMissingCapabilityGroups);
@@ -1997,6 +2163,9 @@ std::string debugMetadataJson(const DebugMetadataDocument &document) {
         << escapeJson(summary.optionalNativeToolStatus) << "\""
         << ",\"toolRequirementEvidenceIds\":";
     appendInlineStringArray(out, summary.toolRequirementEvidenceIds);
+    out << ",\"packageArtifactRequirementEvidenceIds\":";
+    appendInlineStringArray(out,
+                            summary.packageArtifactRequirementEvidenceIds);
     out << ",\"requiredCapabilityGroups\":";
     appendCapabilityGroups(out, summary.requiredCapabilityGroups);
     out << ",\"missingCapabilityGroups\":";

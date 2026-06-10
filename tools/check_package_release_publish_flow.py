@@ -803,6 +803,52 @@ def check_package_artifact_requirements_propagate(paths):
                 )
 
 
+def check_package_reflection_summary_propagates(paths):
+    promotion = load_json(paths["promotion"])
+    bundle = load_json(paths["bundle"])
+    plan = load_json(paths["plan"])
+
+    promotion_reflections = {
+        package["packagePath"]: package.get("reflection")
+        for package in promotion.get("packages", [])
+    }
+    if not promotion_reflections:
+        raise CheckError("promotion manifest did not record package reflection")
+
+    saw_target_feature_evidence = False
+    for package_path, reflection in promotion_reflections.items():
+        if not isinstance(reflection, dict):
+            raise CheckError(
+                f"promotion package {package_path!r} is missing reflection"
+            )
+        target_feature_count = reflection.get("targetFeatureCount")
+        if not isinstance(target_feature_count, int) or target_feature_count < 0:
+            raise CheckError(
+                f"promotion package {package_path!r} has invalid "
+                "reflection.targetFeatureCount"
+            )
+        evidence_ids = reflection.get("targetFeatureEvidenceIds")
+        if not isinstance(evidence_ids, list):
+            raise CheckError(
+                f"promotion package {package_path!r} has invalid "
+                "reflection.targetFeatureEvidenceIds"
+            )
+        if evidence_ids:
+            saw_target_feature_evidence = True
+
+    if not saw_target_feature_evidence:
+        raise CheckError("promotion manifest did not record target feature evidence")
+
+    for payload_name, payload in (("bundle", bundle), ("publish plan", plan)):
+        for package in payload.get("packages", []):
+            package_path = package.get("packagePath")
+            if package.get("reflection") != promotion_reflections.get(package_path):
+                raise CheckError(
+                    f"{payload_name} package {package_path!r} reflection "
+                    "does not match promotion manifest"
+                )
+
+
 def windows_stage_path_text(stage_root, destination_path):
     return str(PureWindowsPath(stage_root, *destination_path.split("/")))
 
@@ -973,6 +1019,15 @@ def graphics_package_expectations(package_root):
                     f"{manifest_path}: source-package row must require "
                     "nativeBinaryStatus"
                 )
+        expected_evidence_ids = expected_package_artifact_requirement_evidence_ids(
+            requirements
+        )
+        if requirements.get("evidenceIds") != expected_evidence_ids:
+            raise CheckError(
+                f"{manifest_path}: packageArtifactRequirements.evidenceIds "
+                f"expected {expected_evidence_ids!r}, "
+                f"got {requirements.get('evidenceIds')!r}"
+            )
 
         expected_artifacts = {}
         for name, relative_path in artifacts.items():
@@ -1020,12 +1075,41 @@ def graphics_package_expectations(package_root):
                         "requiresNativeBinaryStatus",
                         "allowsPlannedNativeBinary",
                         "allowsPlannedNativeSourceEvidence",
+                        "evidenceIds",
                     )
                 },
                 "artifacts": expected_artifacts,
             }
         )
     return expectations
+
+
+def expected_package_artifact_requirement_evidence_ids(requirements):
+    target = requirements["target"]
+    evidence_ids = [
+        f"target-legalization.v1.{target}.package-artifacts."
+        f"{requirements['packageMode']}"
+    ]
+    evidence_ids.extend(
+        f"target-legalization.v1.{target}.package-artifact.required.{name}"
+        for name in requirements["requiredPathArtifacts"]
+    )
+    if requirements["requiresNativeBinaryStatus"]:
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.native-binary-status.required"
+        )
+    if requirements["allowsPlannedNativeBinary"]:
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-binary.allowed"
+        )
+    if requirements["allowsPlannedNativeSourceEvidence"]:
+        evidence_ids.append(
+            f"target-legalization.v1.{target}."
+            "package-artifact.planned-native-source-evidence.allowed"
+        )
+    return evidence_ids
 
 
 def artifact_path_from_record(record):
@@ -2206,6 +2290,7 @@ def check_flow(root, cglc, work_dir, *, allow_live_cloud_upload=False):
         paths["plan_stdout"],
     )
     check_package_artifact_requirements_propagate(paths)
+    check_package_reflection_summary_propagates(paths)
     check_publish_plan_windows_stage_path_budget(paths)
     check_native_publish_plan_gate(root, cglc, paths, work_dir)
 

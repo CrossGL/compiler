@@ -1461,14 +1461,39 @@ function(crossgl_expect_source_remap_provenance manifest)
     "${source_remap_provenance}")
 endfunction()
 
+function(crossgl_insert_optional_artifact_order manifest expected_order artifact
+         anchor output_variable)
+  set(updated_order "${expected_order}")
+  string(JSON artifact_value ERROR_VARIABLE artifact_error GET
+         "${manifest}" artifacts ${artifact})
+  if(artifact_error STREQUAL "NOTFOUND")
+    string(FIND ",${updated_order}," ",${artifact}," artifact_order_position)
+    if(artifact_order_position EQUAL -1)
+      string(FIND ",${updated_order}," ",${anchor}," anchor_order_position)
+      if(anchor_order_position EQUAL -1)
+        set(updated_order "${updated_order},${artifact}")
+      else()
+        string(REPLACE "${anchor}" "${anchor},${artifact}" updated_order
+               "${updated_order}")
+      endif()
+    endif()
+  endif()
+  set(${output_variable} "${updated_order}" PARENT_SCOPE)
+endfunction()
+
 function(crossgl_expect_manifest_artifact_order manifest expected_order)
   set(expected_order_with_optional "${expected_order}")
+  crossgl_insert_optional_artifact_order(
+    "${manifest}" "${expected_order_with_optional}" backendSourceMap
+    hirSourceMap expected_order_with_optional)
   string(JSON graphics_abi ERROR_VARIABLE graphics_abi_error GET
          "${manifest}" artifacts graphicsAbi)
   if(graphics_abi_error STREQUAL "NOTFOUND")
-    string(FIND ",${expected_order}," ",graphicsAbi," graphics_abi_order_position)
+    string(FIND ",${expected_order_with_optional}," ",graphicsAbi,"
+           graphics_abi_order_position)
     if(graphics_abi_order_position EQUAL -1)
-      set(expected_order_with_optional "${expected_order},graphicsAbi")
+      set(expected_order_with_optional
+          "${expected_order_with_optional},graphicsAbi")
     endif()
   endif()
   crossgl_expect_json_object_member_order("${manifest}" "artifacts" "${expected_order_with_optional}")
@@ -1553,6 +1578,25 @@ function(crossgl_expect_manifest_debug_artifacts manifest)
     if(NOT original_location_position EQUAL -1)
       message(FATAL_ERROR "package HIR source-map must not include originalLocation by default. Output: ${hir_source_map}")
     endif()
+  endif()
+
+  string(JSON backend_source_map ERROR_VARIABLE backend_source_map_error GET
+         "${manifest}" artifacts backendSourceMap)
+  if(backend_source_map_error STREQUAL "NOTFOUND")
+    crossgl_manifest_artifact_path("${manifest}" backendSourceMap
+                                   backend_source_map_path)
+    if(NOT EXISTS "${backend_source_map_path}")
+      message(FATAL_ERROR "expected backend source-map artifact at ${backend_source_map_path}")
+    endif()
+    file(READ "${backend_source_map_path}" backend_source_map)
+    if(DEFINED JSON_SCHEMA_VALIDATOR)
+      crossgl_validate_json_schema_file(
+        "${backend_source_map}"
+        "${CROSSGL_EXPECT_REPO_ROOT}/docs/schemas/backend-source-map-v1.schema.json")
+    endif()
+    crossgl_expect_json_field("${backend_source_map}" "schemaVersion" "1")
+    crossgl_expect_json_field("${backend_source_map}" "kind" "crossgl.backendSourceMap")
+    crossgl_expect_json_field("${backend_source_map}" "target" "directx")
   endif()
 
   crossgl_manifest_artifact_path("${manifest}" targetExplanation
@@ -1747,6 +1791,15 @@ elseif(MODE STREQUAL "source-batch-build-json")
     message(FATAL_ERROR "MANIFEST is required")
   endif()
   list(APPEND command build --source-batch "${MANIFEST}" --diagnostics-json)
+  if(DEFINED TARGET)
+    list(APPEND command --target "${TARGET}")
+  endif()
+  if(DEFINED OUTPUT_DIR)
+    list(APPEND command --output-dir "${OUTPUT_DIR}")
+  endif()
+  if(DEBUG_IR)
+    list(APPEND command --debug-ir)
+  endif()
 elseif(MODE STREQUAL "doctor-input")
   list(APPEND command doctor "${INPUT}")
 elseif(MODE STREQUAL "doctor-json")
@@ -1864,6 +1917,26 @@ elseif(MODE STREQUAL "package-verify-text")
   endif()
   if(NOT DEFINED OUTPUT)
     set(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}-verify-text.cglb")
+  endif()
+  list(APPEND command build "${INPUT}" --target "${TARGET}" --output "${OUTPUT}" --debug-ir)
+elseif(MODE STREQUAL "package-runtime-plan")
+  if(NOT DEFINED TARGET)
+    message(FATAL_ERROR "TARGET is required")
+  endif()
+  if(NOT DEFINED OUTPUT)
+    set(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}-runtime-plan.cglb")
+  endif()
+  if(NOT DEFINED PACKAGE_RUNTIME_TARGET)
+    set(PACKAGE_RUNTIME_TARGET "${TARGET}")
+  endif()
+  if(NOT DEFINED PACKAGE_MODE)
+    set(PACKAGE_MODE "auto")
+  endif()
+  if(NOT DEFINED PACKAGE_FORMAT)
+    set(PACKAGE_FORMAT "directory")
+  endif()
+  if(NOT DEFINED EXPECTED_RESULT)
+    set(EXPECTED_RESULT 0)
   endif()
   list(APPEND command build "${INPUT}" --target "${TARGET}" --output "${OUTPUT}" --debug-ir)
 elseif(MODE STREQUAL "package-verify-json-failure")
@@ -2129,6 +2202,41 @@ elseif(MODE STREQUAL "source-batch-check-json" OR
   endif()
   crossgl_apply_json_expectations("${stdout}")
   crossgl_validate_json_schema("${stdout}")
+  if(MODE STREQUAL "source-batch-build-json" AND
+     DEFINED EXPECTED_SOURCE_BATCH_PACKAGE)
+    if(NOT EXISTS "${EXPECTED_SOURCE_BATCH_PACKAGE}/manifest.json")
+      message(FATAL_ERROR
+              "expected source-batch package at ${EXPECTED_SOURCE_BATCH_PACKAGE}")
+    endif()
+    set(OUTPUT "${EXPECTED_SOURCE_BATCH_PACKAGE}")
+    file(READ "${EXPECTED_SOURCE_BATCH_PACKAGE}/manifest.json" manifest)
+    crossgl_expect_source_remap_provenance("${manifest}")
+    if(DEFINED EXPECTED_PACKAGE_INSPECT_JSON_FIELDS OR
+       DEFINED PACKAGE_INSPECT_JSON_SCHEMA)
+      execute_process(
+        COMMAND "${CGLC}" package inspect "${EXPECTED_SOURCE_BATCH_PACKAGE}" --json
+        RESULT_VARIABLE package_inspect_result
+        OUTPUT_VARIABLE package_inspect_stdout
+        ERROR_VARIABLE package_inspect_stderr
+      )
+      if(NOT package_inspect_result EQUAL 0)
+        message(FATAL_ERROR "package inspect failed: ${package_inspect_stderr}${package_inspect_stdout}")
+      endif()
+      if(DEFINED EXPECTED_PACKAGE_INSPECT_JSON_FIELDS)
+        string(REPLACE "|" ";" package_inspect_expectations
+               "${EXPECTED_PACKAGE_INSPECT_JSON_FIELDS}")
+        foreach(expectation IN LISTS package_inspect_expectations)
+          crossgl_split_json_expectation("${expectation}" path expected)
+          crossgl_expect_json_field("${package_inspect_stdout}" "${path}"
+                                    "${expected}")
+        endforeach()
+      endif()
+      if(DEFINED PACKAGE_INSPECT_JSON_SCHEMA)
+        crossgl_validate_json_schema_file("${package_inspect_stdout}"
+                                          "${PACKAGE_INSPECT_JSON_SCHEMA}")
+      endif()
+    endif()
+  endif()
 elseif(MODE STREQUAL "doctor-input")
   if(NOT result EQUAL 0)
     message(FATAL_ERROR "doctor input check failed: ${stderr}")
@@ -2808,13 +2916,95 @@ elseif(MODE STREQUAL "package-verify-text")
   if(DEFINED MUST_CONTAIN AND NOT verify_stdout MATCHES "${MUST_CONTAIN}")
     message(FATAL_ERROR "package verify text did not contain '${MUST_CONTAIN}'. Output: ${verify_stdout}")
   endif()
+elseif(MODE STREQUAL "package-runtime-plan")
+  if(NOT result EQUAL 0)
+    message(FATAL_ERROR "${TARGET} package runtime plan build failed: ${stderr}")
+  endif()
+
+  set(package_path "${OUTPUT}")
+  if(PACKAGE_FORMAT STREQUAL "zip")
+    get_filename_component(package_parent "${OUTPUT}" DIRECTORY)
+    get_filename_component(package_name "${OUTPUT}" NAME)
+    set(package_path "${OUTPUT}.archive.cglb")
+    file(REMOVE "${package_path}")
+    execute_process(
+      COMMAND "${CMAKE_COMMAND}" -E tar cf "${package_path}" --format=zip
+              "${package_name}"
+      WORKING_DIRECTORY "${package_parent}"
+      RESULT_VARIABLE runtime_plan_archive_result
+      OUTPUT_VARIABLE runtime_plan_archive_stdout
+      ERROR_VARIABLE runtime_plan_archive_stderr
+    )
+    if(NOT runtime_plan_archive_result EQUAL 0)
+      message(FATAL_ERROR
+        "failed to create package runtime plan zip archive: "
+        "${runtime_plan_archive_stderr}${runtime_plan_archive_stdout}")
+    endif()
+  elseif(PACKAGE_FORMAT STREQUAL "stored-zip"
+      OR PACKAGE_FORMAT STREQUAL "stored-zip-root"
+      OR PACKAGE_FORMAT STREQUAL "stored-zip-extra-root")
+    if(NOT DEFINED STORED_ZIP_PACKAGE_CREATOR)
+      message(FATAL_ERROR
+        "STORED_ZIP_PACKAGE_CREATOR is required for stored ZIP PACKAGE_FORMAT")
+    endif()
+    set(package_path "${OUTPUT}.stored-archive.cglb")
+    file(REMOVE "${package_path}")
+    set(stored_zip_command
+      "${PYTHON3_EXECUTABLE}" "${STORED_ZIP_PACKAGE_CREATOR}"
+      --package-dir "${OUTPUT}"
+      --output "${package_path}")
+    if(PACKAGE_FORMAT STREQUAL "stored-zip-root")
+      list(APPEND stored_zip_command --no-prefix)
+    elseif(PACKAGE_FORMAT STREQUAL "stored-zip-extra-root")
+      list(APPEND stored_zip_command
+        --root-file "README.txt=not package metadata")
+    endif()
+    execute_process(
+      COMMAND ${stored_zip_command}
+      RESULT_VARIABLE runtime_plan_archive_result
+      OUTPUT_VARIABLE runtime_plan_archive_stdout
+      ERROR_VARIABLE runtime_plan_archive_stderr
+    )
+    if(NOT runtime_plan_archive_result EQUAL 0)
+      message(FATAL_ERROR
+        "failed to create package runtime plan stored zip archive: "
+        "${runtime_plan_archive_stderr}${runtime_plan_archive_stdout}")
+    endif()
+  elseif(NOT PACKAGE_FORMAT STREQUAL "directory")
+    message(FATAL_ERROR "unsupported PACKAGE_FORMAT: ${PACKAGE_FORMAT}")
+  endif()
+
+  set(runtime_plan_command
+      "${CGLC}" package plan-runtime "${package_path}"
+      --target "${PACKAGE_RUNTIME_TARGET}"
+      --package-mode "${PACKAGE_MODE}"
+      --json)
+  execute_process(
+    COMMAND ${runtime_plan_command}
+    RESULT_VARIABLE runtime_plan_result
+    OUTPUT_VARIABLE runtime_plan_stdout
+    ERROR_VARIABLE runtime_plan_stderr
+  )
+  if(NOT runtime_plan_result EQUAL EXPECTED_RESULT)
+    message(FATAL_ERROR
+      "expected package plan-runtime exit code ${EXPECTED_RESULT}, "
+      "got ${runtime_plan_result}. Stderr: ${runtime_plan_stderr} "
+      "Stdout: ${runtime_plan_stdout}")
+  endif()
+  if(NOT runtime_plan_stderr STREQUAL "")
+    message(FATAL_ERROR
+      "package plan-runtime --json must not emit human diagnostics on stderr: "
+      "${runtime_plan_stderr}")
+  endif()
+  crossgl_apply_json_expectations("${runtime_plan_stdout}")
+  crossgl_validate_json_schema("${runtime_plan_stdout}")
 elseif(MODE STREQUAL "package-verify-json-failure")
   if(NOT result EQUAL 0)
     message(FATAL_ERROR "${FAILURE_KIND} package verify fixture setup failed: ${stderr}")
   endif()
 
   set(package_path "${OUTPUT}")
-  set(verify_command "${CGLC}" package verify "${package_path}" --json)
+  set(verify_args)
   if(DEFINED MANIFEST_MUTATION_KIND)
     crossgl_mutate_package_manifest("${package_path}" "${MANIFEST_MUTATION_KIND}")
   endif()
@@ -2823,15 +3013,36 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL "invalid-package-dir")
     file(REMOVE_RECURSE "${package_path}")
     file(MAKE_DIRECTORY "${package_path}")
+  elseif(FAILURE_KIND STREQUAL "stored-zip-package")
+    if(NOT DEFINED STORED_ZIP_PACKAGE_CREATOR)
+      message(FATAL_ERROR
+        "STORED_ZIP_PACKAGE_CREATOR is required for stored ZIP verify tests")
+    endif()
+    set(stored_package_path "${OUTPUT}.stored-archive.cglb")
+    file(REMOVE "${stored_package_path}")
+    execute_process(
+      COMMAND "${PYTHON3_EXECUTABLE}" "${STORED_ZIP_PACKAGE_CREATOR}"
+              --package-dir "${OUTPUT}"
+              --output "${stored_package_path}"
+      RESULT_VARIABLE stored_package_result
+      OUTPUT_VARIABLE stored_package_stdout
+      ERROR_VARIABLE stored_package_stderr
+    )
+    if(NOT stored_package_result EQUAL 0)
+      message(FATAL_ERROR
+        "failed to create stored ZIP package for verify failure test: "
+        "${stored_package_stderr}${stored_package_stdout}")
+    endif()
+    set(package_path "${stored_package_path}")
   elseif(FAILURE_KIND STREQUAL "invalid-json-metadata")
     file(WRITE "${package_path}/manifest.json" "{ invalid json\n")
   elseif(FAILURE_KIND STREQUAL "source-mismatch")
     if(DEFINED VERIFY_SOURCE)
-      list(APPEND verify_command --source "${VERIFY_SOURCE}")
+      list(APPEND verify_args --source "${VERIFY_SOURCE}")
     else()
       set(mismatched_source "${package_path}-source-mismatch.cgl")
       file(WRITE "${mismatched_source}" "shader WrongSource {\n  compute main() {\n  }\n}\n")
-      list(APPEND verify_command --source "${mismatched_source}")
+      list(APPEND verify_args --source "${mismatched_source}")
     endif()
   elseif(FAILURE_KIND STREQUAL "missing-native-binary")
     file(READ "${package_path}/manifest.json" manifest)
@@ -2843,7 +3054,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
     file(REMOVE "${package_path}/${native_binary}")
   elseif(FAILURE_KIND STREQUAL "tampered-native-artifact-descriptor")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     file(READ "${package_path}/manifest.json" manifest)
     string(JSON native_artifact_descriptor ERROR_VARIABLE descriptor_error GET
@@ -2861,7 +3072,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "tampered-planned-native-artifact-optimization-level")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     file(READ "${package_path}/manifest.json" manifest)
     string(JSON native_artifact_descriptor ERROR_VARIABLE descriptor_error GET
@@ -2886,7 +3097,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "tampered-planned-native-artifact-compiler-tool")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     file(READ "${package_path}/manifest.json" manifest)
     string(JSON native_artifact_descriptor ERROR_VARIABLE descriptor_error GET
@@ -2904,7 +3115,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "tampered-unavailable-native-artifact-validator-tool")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     file(READ "${package_path}/manifest.json" manifest)
     string(JSON native_artifact_descriptor ERROR_VARIABLE descriptor_error GET
@@ -2921,14 +3132,14 @@ elseif(MODE STREQUAL "package-verify-json-failure")
     file(WRITE "${descriptor_path}" "${descriptor}")
   elseif(FAILURE_KIND STREQUAL "duplicate-selected-target-resource-binding")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     crossgl_mutate_package_reflection(
       "${package_path}" "duplicate-selected-target-resource-binding")
   elseif(FAILURE_KIND STREQUAL
          "selected-target-resource-binding-array-element-count-mismatch")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     crossgl_mutate_package_reflection(
       "${package_path}"
@@ -2936,7 +3147,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "selected-target-resource-binding-array-element-count-missing")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     crossgl_mutate_package_reflection(
       "${package_path}"
@@ -2944,7 +3155,7 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL
          "selected-target-resource-binding-array-dimensions-mismatch")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
     crossgl_mutate_package_reflection(
       "${package_path}"
@@ -2952,12 +3163,13 @@ elseif(MODE STREQUAL "package-verify-json-failure")
   elseif(FAILURE_KIND STREQUAL "malformed-package-artifact-requirements" OR
          FAILURE_KIND STREQUAL "target-conflicting-package-artifact-requirements")
     if(DEFINED INPUT)
-      list(APPEND verify_command --source "${INPUT}")
+      list(APPEND verify_args --source "${INPUT}")
     endif()
   else()
     message(FATAL_ERROR "unknown FAILURE_KIND: ${FAILURE_KIND}")
   endif()
 
+  set(verify_command "${CGLC}" package verify "${package_path}" --json ${verify_args})
   execute_process(
     COMMAND ${verify_command}
     RESULT_VARIABLE verify_result
@@ -2983,6 +3195,27 @@ elseif(MODE STREQUAL "package-inspect-json-failure")
   elseif(FAILURE_KIND STREQUAL "non-directory-package")
     file(REMOVE_RECURSE "${package_path}")
     file(WRITE "${package_path}" "not a package directory\n")
+  elseif(FAILURE_KIND STREQUAL "stored-zip-package")
+    if(NOT DEFINED STORED_ZIP_PACKAGE_CREATOR)
+      message(FATAL_ERROR
+        "STORED_ZIP_PACKAGE_CREATOR is required for stored ZIP inspect tests")
+    endif()
+    set(stored_package_path "${OUTPUT}.stored-archive.cglb")
+    file(REMOVE "${stored_package_path}")
+    execute_process(
+      COMMAND "${PYTHON3_EXECUTABLE}" "${STORED_ZIP_PACKAGE_CREATOR}"
+              --package-dir "${OUTPUT}"
+              --output "${stored_package_path}"
+      RESULT_VARIABLE stored_package_result
+      OUTPUT_VARIABLE stored_package_stdout
+      ERROR_VARIABLE stored_package_stderr
+    )
+    if(NOT stored_package_result EQUAL 0)
+      message(FATAL_ERROR
+        "failed to create stored ZIP package for inspect failure test: "
+        "${stored_package_stderr}${stored_package_stdout}")
+    endif()
+    set(package_path "${stored_package_path}")
   elseif(FAILURE_KIND STREQUAL "invalid-json-metadata")
     file(WRITE "${package_path}/manifest.json" "{ invalid json\n")
   elseif(FAILURE_KIND STREQUAL "malformed-package-artifact-requirements")

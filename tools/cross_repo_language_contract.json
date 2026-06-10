@@ -5,7 +5,7 @@
     "id": "crosstl-frontend-language-spec-v0",
     "path": "docs/language/crosstl-frontend-language-spec-v0.json",
     "schema_version": 0,
-    "sha256": "7d051f336d92115114f78153adc38e6a189028234475b2a915e7b36b47e03cda",
+    "sha256": "b9c822b640b20f8832285de32977533cf5b4a537d9e021c23effc049ccf2347b",
     "source_authority": {
       "mode": "crosstl-frontend-derived-v0",
       "canonical_until": "shared-spec-package",
@@ -26,7 +26,7 @@
       "source_files": [
         {
           "path": "crosstl/translator/lexer.py",
-          "sha256": "4022b7e23c46538d7a080cd1719773567fc60cc9994ad3ba1bab5f0fcbad8bc4"
+          "sha256": "81820686f072df53de25d5e00d194f48f22899c2dbbe8165d40fe3d76e2541d8"
         },
         {
           "path": "crosstl/translator/parser.py",
@@ -34,11 +34,11 @@
         },
         {
           "path": "crosstl/translator/ast.py",
-          "sha256": "9ce23e8e1612235a46241aa7ebc3bd4ae9912ef38e9a50a5f9384060955701c0"
+          "sha256": "a0185e55a230e1cecc40934a5bd8234f5abff95d08c77e744582d093a814697c"
         },
         {
           "path": "crosstl/translator/validation.py",
-          "sha256": "0e09be9f94e3b94426a559f2fcda6ddc5800ef6237ac6d430f93c54f24d60513"
+          "sha256": "da790d908406aa908a3b83c37a742284ccbcedb194ba64f2ccd382a7ae545cd2"
         }
       ]
     }
@@ -1203,6 +1203,11 @@
       "source_sha256": "f2736779b2831445cf004bd9864e99366bb1298d17457595c8bf286972b84e1c",
       "translator_ast_sha256": "e34fc0c3dd4d15095a76f64c99a0fee0892ffc9c04728393ec9fbb621112e9d3",
       "compiler_hir_sha256": "5b9f3d138bffee9c69c68985b8dffebcaf849b16ce3295379f2096b20268f067"
+    },
+    "compiler/tests/fixtures/SpecializationConstantsComputeShader.cgl": {
+      "source_sha256": "f690ecd3733efcbf13f3ebcda5f9901036fdef48169a84c3bafe5c4f603cd4f9",
+      "translator_ast_sha256": "a14148495bd7d88863b5ff404b75daff4ba1f05e8a607fa2d86ff1713c706afb",
+      "compiler_hir_sha256": "16571abfba6a01b3afd6e5df04dde72620c147c0d9bcceffc6af11632c39a5c4"
     },
     "compiler/tests/fixtures/StorageBufferArrayAccessShader.cgl": {
       "source_sha256": "b723e2b68f881396ad93aeb58edd8f85988eacbee92c6ec852530a94e1509735",

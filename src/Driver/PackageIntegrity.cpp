@@ -11,6 +11,7 @@
 #include <fstream>
 #include <initializer_list>
 #include <limits>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -23,6 +24,137 @@ namespace {
 
 std::string diagnosticCode(std::string_view suffix) {
   return "package.verify." + std::string(suffix);
+}
+
+bool hasPrefix(std::string_view value, std::string_view prefix) {
+  return value.size() >= prefix.size() &&
+         value.substr(0, prefix.size()) == prefix;
+}
+
+bool isTargetLegalizationEvidenceSuffixChar(char ch) {
+  return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+         (ch >= '0' && ch <= '9') || ch == '_' || ch == '.' || ch == '-';
+}
+
+std::string targetResourceBindingEvidencePrefix(std::string_view target) {
+  return "target-legalization.v1." + std::string(target) +
+         ".resource-binding.";
+}
+
+bool targetResourceBindingEvidenceIdMatchesTarget(
+    std::string_view evidenceId, std::string_view target) {
+  const std::string prefix = targetResourceBindingEvidencePrefix(target);
+  if (!hasPrefix(evidenceId, prefix) || evidenceId.size() == prefix.size()) {
+    return false;
+  }
+  return std::all_of(evidenceId.begin() + prefix.size(), evidenceId.end(),
+                     isTargetLegalizationEvidenceSuffixChar);
+}
+
+std::string targetFeatureEvidencePrefix(std::string_view target) {
+  return "target-legalization.v1." + std::string(target) + ".";
+}
+
+bool isKnownTargetName(std::string_view target) {
+  return target == "metal" || target == "vulkan" || target == "directx" ||
+         target == "opengl";
+}
+
+std::optional<std::string_view> parseTargetFeatureCapabilityTarget(
+    std::string_view suffix) {
+  constexpr std::string_view requiredPrefix = "capability.required.";
+  constexpr std::string_view missingPrefix = "capability.missing.";
+  std::string_view rest;
+  if (hasPrefix(suffix, requiredPrefix)) {
+    rest = suffix.substr(requiredPrefix.size());
+  } else if (hasPrefix(suffix, missingPrefix)) {
+    rest = suffix.substr(missingPrefix.size());
+  } else {
+    return std::nullopt;
+  }
+
+  const std::size_t delimiter = rest.find('.');
+  if (delimiter == std::string_view::npos || delimiter == 0 ||
+      delimiter + 1 == rest.size()) {
+    return std::string_view();
+  }
+  return rest.substr(0, delimiter);
+}
+
+bool isTargetFeatureAbiEvidenceSuffix(std::string_view suffix) {
+  constexpr std::string_view requiredPrefix = "abi.required.";
+  constexpr std::string_view missingPrefix = "abi.missing.";
+  if (hasPrefix(suffix, requiredPrefix)) {
+    return suffix.size() > requiredPrefix.size();
+  }
+  if (hasPrefix(suffix, missingPrefix)) {
+    return suffix.size() > missingPrefix.size();
+  }
+  return false;
+}
+
+bool hasValidTargetLegalizationSuffix(std::string_view suffix) {
+  return !suffix.empty() &&
+         std::all_of(suffix.begin(), suffix.end(),
+                     isTargetLegalizationEvidenceSuffixChar);
+}
+
+enum class TargetFeatureEvidenceMatch {
+  Valid,
+  PrefixMismatch,
+  CapabilityTargetMismatch,
+  Malformed,
+};
+
+TargetFeatureEvidenceMatch targetFeatureEvidenceIdMatchesFeature(
+    std::string_view evidenceId, std::string_view target,
+    std::optional<std::string> &capabilityTargetOut) {
+  constexpr std::string_view rootPrefix = "target-legalization.v1.";
+  if (!hasPrefix(evidenceId, rootPrefix)) {
+    return TargetFeatureEvidenceMatch::Malformed;
+  }
+  std::string_view remainder = evidenceId.substr(rootPrefix.size());
+  const std::size_t targetDelimiter = remainder.find('.');
+  if (targetDelimiter == std::string_view::npos || targetDelimiter == 0 ||
+      targetDelimiter + 1 == remainder.size()) {
+    return TargetFeatureEvidenceMatch::Malformed;
+  }
+
+  const std::string_view evidenceTarget = remainder.substr(0, targetDelimiter);
+  const std::string_view suffix = remainder.substr(targetDelimiter + 1);
+  if (!isKnownTargetName(evidenceTarget)) {
+    return TargetFeatureEvidenceMatch::Malformed;
+  }
+  if (evidenceTarget != target) {
+    return TargetFeatureEvidenceMatch::PrefixMismatch;
+  }
+
+  const std::optional<std::string_view> capabilityTarget =
+      parseTargetFeatureCapabilityTarget(suffix);
+  if (capabilityTarget) {
+    if (capabilityTarget->empty() || !isKnownTargetName(*capabilityTarget)) {
+      return TargetFeatureEvidenceMatch::Malformed;
+    }
+    const std::size_t evidenceSuffixBegin =
+        suffix.find('.', suffix.find('.') + 1);
+    if (evidenceSuffixBegin == std::string_view::npos ||
+        evidenceSuffixBegin + 1 == suffix.size() ||
+        !hasValidTargetLegalizationSuffix(
+            suffix.substr(evidenceSuffixBegin + 1))) {
+      return TargetFeatureEvidenceMatch::Malformed;
+    }
+    if (*capabilityTarget != target) {
+      capabilityTargetOut = std::string(*capabilityTarget);
+      return TargetFeatureEvidenceMatch::CapabilityTargetMismatch;
+    }
+    return TargetFeatureEvidenceMatch::Valid;
+  }
+
+  if (isTargetFeatureAbiEvidenceSuffix(suffix) &&
+      hasValidTargetLegalizationSuffix(suffix)) {
+    return TargetFeatureEvidenceMatch::Valid;
+  }
+  return TargetFeatureEvidenceMatch::Malformed;
 }
 
 const PackageArtifactRecord *findArtifact(const PackageMetadata &metadata,
@@ -372,6 +504,43 @@ bool verifyArtifactRequirementsForVerification(
   }
 
   return valid;
+}
+
+bool packageArtifactRequirementsContractIsValid(
+    const PackageMetadata &metadata) {
+  if (!metadata.artifactRequirements) {
+    return false;
+  }
+
+  const PackageArtifactRequirementsRecord &requirements =
+      *metadata.artifactRequirements;
+  if (requirements.target != metadata.target) {
+    return false;
+  }
+
+  const PackageTargetContract *contract =
+      packageTargetContractFor(metadata.target);
+  const bool descriptorBackedNativeRequirements =
+      isDescriptorBackedNativeRequirements(metadata, requirements);
+  if (contract != nullptr && !descriptorBackedNativeRequirements) {
+    if (requirements.packageMode !=
+        expectedPackageArtifactRequirementMode(*contract)) {
+      return false;
+    }
+    if (!requiredPathArtifactsMatchTargetContract(requirements, *contract)) {
+      return false;
+    }
+    if (requirements.requiresNativeBinaryStatus !=
+            contract->requiresNativeBinaryStatus ||
+        requirements.allowsPlannedNativeBinary !=
+            contract->allowsPlannedNativeBinary ||
+        requirements.allowsPlannedNativeSourceEvidence !=
+            contract->allowsPlannedNativeSourceEvidence) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool allowsPlannedNativeBinary(
@@ -958,6 +1127,8 @@ collectPackageTargetLegalizationEvidence(const PackageMetadata &metadata) {
                           evidence.manifestToolRequirements.present ||
                           evidence.debugMetadata.artifactPresent ||
                           evidence.targetExplanation.artifactPresent;
+  const bool artifactRequirementsContractIsValid =
+      packageArtifactRequirementsContractIsValid(metadata);
   const bool incomplete =
       sidecarProjectionIncomplete(evidence.debugMetadata) ||
       sidecarProjectionIncomplete(evidence.targetExplanation);
@@ -974,7 +1145,7 @@ collectPackageTargetLegalizationEvidence(const PackageMetadata &metadata) {
        !*evidence.debugMetadataPackageModeMatchesRequirements) ||
       (evidence.targetExplanationPackageModeMatchesRequirements &&
        !*evidence.targetExplanationPackageModeMatchesRequirements) ||
-      (metadata.artifactRequirements &&
+      (artifactRequirementsContractIsValid &&
        (sidecarRequirementEvidenceIdsDrift(
             evidence.debugMetadata,
             evidence.packageArtifactRequirementEvidenceIds) ||
@@ -1119,6 +1290,17 @@ void verifyDebugArtifacts(const PackageMetadata &metadata,
                       artifactLocation(metadata, *sourceRemap));
   }
 
+  const PackageArtifactRecord *backendSourceMap =
+      findArtifact(metadata, "backendSourceMap");
+  if (backendSourceMap && !(metadata.debugMetadataArtifactPresent &&
+                            metadata.hirSourceMapArtifactPresent)) {
+    diagnostics.error(
+        diagnosticCode("backend-source-map-without-debug-artifacts"),
+        artifactLabel("backendSourceMap", backendSourceMap) +
+            " requires debugMetadata and hirSourceMap",
+        artifactLocation(metadata, *backendSourceMap));
+  }
+
   if (metadata.debugMetadataArtifactPresent !=
       metadata.hirSourceMapArtifactPresent) {
     const PackageArtifactRecord *debugMetadata =
@@ -1144,6 +1326,73 @@ void verifyDebugArtifacts(const PackageMetadata &metadata,
     }
     diagnostics.error(diagnosticCode("debug-artifact-pair"), std::move(message),
                       std::move(location));
+  }
+}
+
+void verifySourceRemapProvenanceHealth(
+    const PackageMetadata &metadata,
+    const PackageSourceRemapProvenanceHealth &health,
+    DiagnosticEngine &diagnostics) {
+  if (!health.artifactPresent || health.health == "ok") {
+    return;
+  }
+
+  const PackageArtifactRecord *sourceRemap =
+      findArtifact(metadata, "sourceRemap");
+  const SourceLocation location =
+      sourceRemap ? artifactLocation(metadata, *sourceRemap)
+                  : artifactsLocation(metadata);
+  const std::string label = artifactLabel("sourceRemap", sourceRemap);
+  if (!health.exists) {
+    diagnostics.error(diagnosticCode("source-remap-provenance-missing"),
+                      label + " provenance artifact does not exist", location);
+    return;
+  }
+
+  const PackageSourceRemapProvenanceChecks &checks = health.checks;
+  if (checks.identityMatchesContract && !*checks.identityMatchesContract) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-contract-invalid"),
+        label + " must use the source-remap-provenance-v1 contract",
+        location);
+  }
+  if (checks.targetMatchesPackage && !*checks.targetMatchesPackage) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-target-mismatch"),
+        label + " target must match package target '" + metadata.target + "'",
+        location);
+  }
+  if (checks.generatedFilePresent && !*checks.generatedFilePresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-generated-file-missing"),
+        label + " generatedFile must be recorded", location);
+  }
+  if (checks.mappingGranularityMatchesContract &&
+      !*checks.mappingGranularityMatchesContract) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-granularity-mismatch"),
+        label + " mappingGranularity must be source-span", location);
+  }
+  if (checks.mappingCountPositive && !*checks.mappingCountPositive) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-mapping-count-invalid"),
+        label + " mappingCount must be positive", location);
+  }
+  if (checks.sourcePathPresent && !*checks.sourcePathPresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-path-missing"),
+        label + " sourceRemap.path must be recorded", location);
+  }
+  if (checks.sourceHashPresent && !*checks.sourceHashPresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-hash-invalid"),
+        label + " sourceRemap.sha256 must record a lowercase sha256 digest",
+        location);
+  }
+  if (checks.sourceSizeBytesPresent && !*checks.sourceSizeBytesPresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-size-missing"),
+        label + " sourceRemap.sizeBytes must be recorded", location);
   }
 }
 
@@ -1208,15 +1457,49 @@ void verifyDebugArtifactHealth(const PackageMetadata &metadata,
             " records.totalCount must match categoryCounts.recordTotalCount",
         sourceMapLocation);
   }
-  if (health.sourceRemap.artifactPresent && health.sourceRemap.health != "ok") {
-    const PackageArtifactRecord *sourceRemap =
-        findArtifact(metadata, "sourceRemap");
-    diagnostics.error(diagnosticCode("source-remap-provenance-invalid"),
-                      artifactLabel("sourceRemap", sourceRemap) +
-                          " provenance health must be ok",
-                      sourceRemap ? artifactLocation(metadata, *sourceRemap)
-                                  : artifactsLocation(metadata));
+  verifySourceRemapProvenanceHealth(metadata, health.sourceRemap, diagnostics);
+  if (health.backendSourceMap.artifactPresent &&
+      health.backendSourceMap.health != "ok") {
+    const PackageArtifactRecord *backendSourceMap =
+        findArtifact(metadata, "backendSourceMap");
+    diagnostics.error(diagnosticCode("backend-source-map-invalid"),
+                      artifactLabel("backendSourceMap", backendSourceMap) +
+                          " health must be ok",
+                      backendSourceMap
+                          ? artifactLocation(metadata, *backendSourceMap)
+                          : artifactsLocation(metadata));
   }
+}
+
+void verifyVulkanNativeProfileHealth(const PackageMetadata &metadata,
+                                     DiagnosticEngine &diagnostics) {
+  const PackageVulkanNativeProfileHealth health =
+      collectPackageVulkanNativeProfileHealth(metadata);
+  if (!health.applicable || health.health == "ok") {
+    return;
+  }
+
+  const PackageArtifactRecord *nativeProfile =
+      findArtifact(metadata, "nativeProfile");
+  const SourceLocation location =
+      nativeProfile ? artifactLocation(metadata, *nativeProfile)
+                    : artifactsLocation(metadata);
+  const std::string label = artifactLabel("nativeProfile", nativeProfile);
+
+  if (!health.nativeProfileArtifactPresent) {
+    diagnostics.error(diagnosticCode("vulkan-native-profile-required"),
+                      "vulkan package verification requires nativeProfile "
+                      "artifact evidence",
+                      location);
+    return;
+  }
+  if (!health.nativeProfileExists) {
+    diagnostics.error(diagnosticCode("vulkan-native-profile-missing"),
+                      label + " artifact does not exist", location);
+    return;
+  }
+  diagnostics.error(diagnosticCode("vulkan-native-profile-drift"),
+                    label + " health must be ok", location);
 }
 
 void verifyNativeArtifactDescriptor(
@@ -1459,7 +1742,7 @@ void verifyTargetLegalizationEvidence(const PackageMetadata &metadata,
                       : artifactsLocation(metadata));
   }
 
-  if (metadata.artifactRequirements &&
+  if (packageArtifactRequirementsContractIsValid(metadata) &&
       sidecarRequirementEvidenceIdsDrift(
           evidence.debugMetadata,
           evidence.packageArtifactRequirementEvidenceIds)) {
@@ -1519,7 +1802,7 @@ void verifyTargetLegalizationEvidence(const PackageMetadata &metadata,
                           : artifactsLocation(metadata));
   }
 
-  if (metadata.artifactRequirements &&
+  if (packageArtifactRequirementsContractIsValid(metadata) &&
       sidecarRequirementEvidenceIdsDrift(
           evidence.targetExplanation,
           evidence.packageArtifactRequirementEvidenceIds)) {
@@ -1619,6 +1902,12 @@ bool hasReflectionTargetResourceBindingDuplicateIdentity(
     const PackageReflectionTargetResourceBindingRecord &binding) {
   return !binding.stage.empty() && !binding.entryPoint.empty() &&
          !binding.name.empty();
+}
+
+bool hasReflectionTargetResourceBindingReportIdentity(
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return !binding.stage.empty() && !binding.entryPoint.empty() &&
+         !binding.name.empty() && !binding.kind.empty();
 }
 
 bool reflectionIdentityMatches(
@@ -1858,6 +2147,121 @@ void verifyReflectionBindingResourceFields(
   }
 }
 
+void verifyReflectionTargetResourceBindingEvidence(
+    const PackageMetadata &metadata, DiagnosticEngine &diagnostics) {
+  std::vector<std::string> selectedEvidenceIds;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target != metadata.target ||
+        !hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      continue;
+    }
+
+    const SourceLocation evidenceLocation =
+        locationOr(binding.evidenceIdLocation, binding.location);
+    if (!binding.evidenceId || binding.evidenceId->empty()) {
+      diagnostics.error(
+          diagnosticCode(
+              "reflection-target-resource-binding-evidence-missing"),
+          "reflection selected-target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " must record target legalization resource binding evidenceId",
+          evidenceLocation);
+      continue;
+    }
+
+    if (!targetResourceBindingEvidenceIdMatchesTarget(*binding.evidenceId,
+                                                      metadata.target)) {
+      diagnostics.error(
+          diagnosticCode(
+              "reflection-target-resource-binding-evidence-invalid"),
+          "reflection selected-target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " evidenceId must use target legalization resource binding "
+              "prefix '" +
+              targetResourceBindingEvidencePrefix(metadata.target) + "'",
+          evidenceLocation);
+    }
+
+    if (std::find(selectedEvidenceIds.begin(), selectedEvidenceIds.end(),
+                  *binding.evidenceId) != selectedEvidenceIds.end()) {
+      diagnostics.error(
+          diagnosticCode(
+              "reflection-target-resource-binding-evidence-duplicate"),
+          "reflection selected-target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " duplicates target legalization resource binding evidenceId '" +
+              *binding.evidenceId + "'",
+          evidenceLocation);
+      continue;
+    }
+    selectedEvidenceIds.push_back(*binding.evidenceId);
+  }
+}
+
+void verifyReflectionTargetFeatureEvidence(const PackageMetadata &metadata,
+                                           DiagnosticEngine &diagnostics) {
+  std::vector<std::string> selectedEvidenceIds;
+  for (const PackageReflectionTargetFeatureRecord &feature :
+       metadata.reflectionTargetFeatures) {
+    if (feature.target != metadata.target) {
+      continue;
+    }
+
+    for (const std::string &evidenceId : feature.evidenceIds) {
+      std::optional<std::string> capabilityTarget;
+      const TargetFeatureEvidenceMatch match =
+          targetFeatureEvidenceIdMatchesFeature(evidenceId, metadata.target,
+                                                capabilityTarget);
+      switch (match) {
+      case TargetFeatureEvidenceMatch::Valid:
+        break;
+      case TargetFeatureEvidenceMatch::PrefixMismatch:
+        diagnostics.error(
+            diagnosticCode("reflection-target-feature-evidence-invalid"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name +
+                "' evidenceId must use target legalization feature prefix '" +
+                targetFeatureEvidencePrefix(metadata.target) + "'",
+            feature.location);
+        break;
+      case TargetFeatureEvidenceMatch::CapabilityTargetMismatch:
+        diagnostics.error(
+            diagnosticCode(
+                "reflection-target-feature-evidence-capability-target"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name + "' evidenceId capability target must be '" +
+                metadata.target + "', got '" +
+                capabilityTarget.value_or(std::string()) + "'",
+            feature.location);
+        break;
+      case TargetFeatureEvidenceMatch::Malformed:
+        diagnostics.error(
+            diagnosticCode("reflection-target-feature-evidence-invalid"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name +
+                "' evidenceId must be target legalization capability or ABI "
+                "evidence",
+            feature.location);
+        break;
+      }
+
+      if (std::find(selectedEvidenceIds.begin(), selectedEvidenceIds.end(),
+                    evidenceId) != selectedEvidenceIds.end()) {
+        diagnostics.error(
+            diagnosticCode("reflection-target-feature-evidence-duplicate"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name +
+                "' duplicates target legalization feature evidenceId '" +
+                evidenceId + "'",
+            feature.location);
+        continue;
+      }
+      selectedEvidenceIds.push_back(evidenceId);
+    }
+  }
+}
+
 void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
                                             DiagnosticEngine &diagnostics) {
   for (auto binding = metadata.reflectionTargetResourceBindings.begin();
@@ -1886,6 +2290,8 @@ void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
             "'",
         binding->location);
   }
+
+  verifyReflectionTargetResourceBindingEvidence(metadata, diagnostics);
 
   for (const PackageReflectionResourceRecord &resource :
        metadata.reflectionResources) {
@@ -2024,6 +2430,15 @@ void writeStringArray(std::ostream &out,
   out << "]";
 }
 
+void appendUniqueString(std::vector<std::string> &values,
+                        const std::string &value) {
+  if (value.empty() ||
+      std::find(values.begin(), values.end(), value) != values.end()) {
+    return;
+  }
+  values.push_back(value);
+}
+
 void writeNullableStringArray(
     std::ostream &out, const std::optional<std::vector<std::string>> &values) {
   if (values) {
@@ -2031,6 +2446,201 @@ void writeNullableStringArray(
   } else {
     out << "null";
   }
+}
+
+std::size_t selectedTargetResourceBindingCount(const PackageMetadata &metadata) {
+  std::size_t count = 0;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target == metadata.target &&
+        hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+std::vector<std::string>
+selectedTargetFeatureEvidenceIds(const PackageMetadata &metadata) {
+  std::vector<std::string> evidenceIds;
+  for (const PackageReflectionTargetFeatureRecord &feature :
+       metadata.reflectionTargetFeatures) {
+    if (feature.target != metadata.target) {
+      continue;
+    }
+    for (const std::string &evidenceId : feature.evidenceIds) {
+      std::optional<std::string> capabilityTarget;
+      if (targetFeatureEvidenceIdMatchesFeature(evidenceId, metadata.target,
+                                                capabilityTarget) !=
+          TargetFeatureEvidenceMatch::Valid) {
+        continue;
+      }
+      appendUniqueString(evidenceIds, evidenceId);
+    }
+  }
+  return evidenceIds;
+}
+
+std::size_t selectedTargetFeatureCount(const PackageMetadata &metadata) {
+  return std::count_if(
+      metadata.reflectionTargetFeatures.begin(),
+      metadata.reflectionTargetFeatures.end(),
+      [&](const PackageReflectionTargetFeatureRecord &feature) {
+        return feature.target == metadata.target;
+      });
+}
+
+void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
+                            std::string_view indent) {
+  const std::size_t bindingCount =
+      selectedTargetResourceBindingCount(metadata);
+  const std::vector<std::string> targetFeatureEvidenceIds =
+      selectedTargetFeatureEvidenceIds(metadata);
+  out << "{\n"
+      << indent << "  \"selectedTargetResourceBindingCount\": "
+      << bindingCount << ",\n"
+      << indent << "  \"selectedTargetResourceBindings\": [";
+  bool wroteBinding = false;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target != metadata.target ||
+        !hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      continue;
+    }
+    out << (wroteBinding ? ",\n" : "\n")
+        << indent << "    {\n"
+        << indent << "      \"target\": \"" << escapeJson(binding.target)
+        << "\",\n"
+        << indent << "      \"stage\": \"" << escapeJson(binding.stage)
+        << "\",\n"
+        << indent << "      \"entryPoint\": \""
+        << escapeJson(binding.entryPoint) << "\",\n"
+        << indent << "      \"name\": \"" << escapeJson(binding.name)
+        << "\",\n"
+        << indent << "      \"kind\": \"" << escapeJson(binding.kind)
+        << "\",\n"
+        << indent << "      \"evidenceId\": ";
+    writeNullableString(out, binding.evidenceId);
+    out << "\n" << indent << "    }";
+    wroteBinding = true;
+  }
+  if (wroteBinding) {
+    out << "\n" << indent << "  ";
+  }
+  out << "],\n"
+      << indent << "  \"targetFeatureCount\": "
+      << selectedTargetFeatureCount(metadata) << ",\n"
+      << indent << "  \"targetFeatureEvidenceIds\": ";
+  writeStringArray(out, targetFeatureEvidenceIds);
+  out << "\n" << indent << "}";
+}
+
+void writeSourceRemapProvenanceSummary(
+    std::ostream &out, const PackageSourceRemapProvenanceHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"artifactPresent\": "
+      << (health.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"exists\": " << (health.exists ? "true" : "false")
+      << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health)
+      << "\",\n"
+      << indent << "  \"path\": ";
+  writeNullableString(out, health.path);
+  out << ",\n" << indent << "  \"target\": ";
+  writeNullableString(out, health.target);
+  out << ",\n" << indent << "  \"generatedFile\": ";
+  writeNullableString(out, health.generatedFile);
+  out << ",\n" << indent << "  \"mappingGranularity\": ";
+  writeNullableString(out, health.mappingGranularity);
+  out << ",\n" << indent << "  \"mappingCount\": ";
+  writeNullableUnsigned(out, health.mappingCount);
+  out << ",\n" << indent << "  \"sourcePath\": ";
+  writeNullableString(out, health.sourcePath);
+  out << ",\n" << indent << "  \"sourceSha256\": ";
+  writeNullableString(out, health.sourceSha256);
+  out << ",\n" << indent << "  \"sourceSizeBytes\": ";
+  writeNullableUnsigned(out, health.sourceSizeBytes);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"identityMatchesContract\": ";
+  writeNullableBool(out, health.checks.identityMatchesContract);
+  out << ",\n" << indent << "    \"targetMatchesPackage\": ";
+  writeNullableBool(out, health.checks.targetMatchesPackage);
+  out << ",\n" << indent << "    \"generatedFilePresent\": ";
+  writeNullableBool(out, health.checks.generatedFilePresent);
+  out << ",\n" << indent << "    \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(out, health.checks.mappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"mappingCountPositive\": ";
+  writeNullableBool(out, health.checks.mappingCountPositive);
+  out << ",\n" << indent << "    \"sourcePathPresent\": ";
+  writeNullableBool(out, health.checks.sourcePathPresent);
+  out << ",\n" << indent << "    \"sourceHashPresent\": ";
+  writeNullableBool(out, health.checks.sourceHashPresent);
+  out << ",\n" << indent << "    \"sourceSizeBytesPresent\": ";
+  writeNullableBool(out, health.checks.sourceSizeBytesPresent);
+  out << "\n" << indent << "  }\n" << indent << "}";
+}
+
+void writeBackendSourceMapSummary(
+    std::ostream &out, const PackageBackendSourceMapHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"artifactPresent\": "
+      << (health.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"exists\": " << (health.exists ? "true" : "false")
+      << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health)
+      << "\",\n"
+      << indent << "  \"path\": ";
+  writeNullableString(out, health.path);
+  out << ",\n" << indent << "  \"target\": ";
+  writeNullableString(out, health.target);
+  out << ",\n" << indent << "  \"module\": ";
+  writeNullableString(out, health.module);
+  out << ",\n" << indent << "  \"mappingGranularity\": ";
+  writeNullableString(out, health.mappingGranularity);
+  out << ",\n" << indent << "  \"sourceBackend\": ";
+  writeNullableString(out, health.sourceBackend);
+  out << ",\n" << indent << "  \"targetBackend\": ";
+  writeNullableString(out, health.targetBackend);
+  out << ",\n" << indent << "  \"backendLanguage\": ";
+  writeNullableString(out, health.backendLanguage);
+  out << ",\n" << indent << "  \"backendLineCount\": ";
+  writeNullableUnsigned(out, health.backendLineCount);
+  out << ",\n" << indent << "  \"backendSourceLineCount\": ";
+  writeNullableUnsigned(out, health.backendSourceLineCount);
+  out << ",\n" << indent << "  \"mappingCount\": ";
+  writeNullableUnsigned(out, health.mappingCount);
+  out << ",\n" << indent << "  \"mappingRecordCount\": ";
+  writeNullableUnsigned(out, health.mappingRecordCount);
+  out << ",\n" << indent << "  \"backendMaxMappedLine\": ";
+  writeNullableUnsigned(out, health.backendMaxMappedLine);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"identityMatchesContract\": ";
+  writeNullableBool(out, health.checks.identityMatchesContract);
+  out << ",\n" << indent << "    \"targetMatchesPackage\": ";
+  writeNullableBool(out, health.checks.targetMatchesPackage);
+  out << ",\n" << indent << "    \"moduleMatchesPackage\": ";
+  writeNullableBool(out, health.checks.moduleMatchesPackage);
+  out << ",\n" << indent << "    \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(out, health.checks.mappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"sourceBackendPresent\": ";
+  writeNullableBool(out, health.checks.sourceBackendPresent);
+  out << ",\n" << indent << "    \"targetBackendMatchesBackendLanguage\": ";
+  writeNullableBool(out, health.checks.targetBackendMatchesBackendLanguage);
+  out << ",\n" << indent << "    \"backendLanguagePresent\": ";
+  writeNullableBool(out, health.checks.backendLanguagePresent);
+  out << ",\n" << indent << "    \"backendLineCountPresent\": ";
+  writeNullableBool(out, health.checks.backendLineCountPresent);
+  out << ",\n" << indent << "    \"backendLineCountMatchesSource\": ";
+  writeNullableBool(out, health.checks.backendLineCountMatchesSource);
+  out << ",\n" << indent << "    \"backendSpansWithinSource\": ";
+  writeNullableBool(out, health.checks.backendSpansWithinSource);
+  out << ",\n" << indent << "    \"mappingCountMatchesMappings\": ";
+  writeNullableBool(out, health.checks.mappingCountMatchesMappings);
+  out << "\n" << indent << "  }\n" << indent << "}";
 }
 
 void writeNativeArtifactDescriptorSummary(
@@ -2056,6 +2666,58 @@ void writeNativeArtifactDescriptorSummary(
   }
   out << "\n"
       << "    }";
+}
+
+void writeVulkanNativeProfileSummary(
+    std::ostream &out, const PackageVulkanNativeProfileHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent
+      << "  \"applicable\": " << (health.applicable ? "true" : "false")
+      << ",\n"
+      << indent << "  \"nativeProfileArtifactPresent\": "
+      << (health.nativeProfileArtifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"nativeProfileExists\": "
+      << (health.nativeProfileExists ? "true" : "false") << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health)
+      << "\",\n"
+      << indent << "  \"schemaVersion\": ";
+  writeNullableUnsigned(out, health.schemaVersion);
+  out << ",\n" << indent << "  \"api\": ";
+  writeNullableString(out, health.api);
+  out << ",\n" << indent << "  \"profileName\": ";
+  writeNullableString(out, health.profileName);
+  out << ",\n" << indent << "  \"vulkanVersion\": ";
+  writeNullableString(out, health.vulkanVersion);
+  out << ",\n" << indent << "  \"spirvVersion\": ";
+  writeNullableString(out, health.spirvVersion);
+  out << ",\n" << indent << "  \"generator\": ";
+  writeNullableString(out, health.generator);
+  out << ",\n" << indent << "  \"nativeBinary\": ";
+  writeNullableString(out, health.nativeBinary);
+  out << ",\n" << indent << "  \"backendAssembly\": ";
+  writeNullableString(out, health.backendAssembly);
+  out << ",\n" << indent << "  \"disassemblyStatus\": ";
+  writeNullableString(out, health.disassemblyStatus);
+  out << ",\n" << indent << "  \"disassemblyPath\": ";
+  writeNullableString(out, health.disassemblyPath);
+  out << ",\n" << indent << "  \"disassemblyExists\": ";
+  writeNullableBool(out, health.disassemblyExists);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"targetMatchesPackage\": ";
+  writeNullableBool(out, health.targetMatchesPackage);
+  out << ",\n" << indent << "    \"moduleMatchesPackage\": ";
+  writeNullableBool(out, health.moduleMatchesPackage);
+  out << ",\n" << indent << "    \"nativeBinaryMatchesManifest\": ";
+  writeNullableBool(out, health.nativeBinaryMatchesManifest);
+  out << ",\n" << indent << "    \"backendAssemblyMatchesManifest\": ";
+  writeNullableBool(out, health.backendAssemblyMatchesManifest);
+  out << ",\n" << indent << "    \"emittedDisassemblyExists\": ";
+  writeNullableBool(out, health.emittedDisassemblyExists);
+  out << ",\n" << indent << "    \"spirvProfilePresent\": ";
+  writeNullableBool(out, health.spirvProfilePresent);
+  out << "\n" << indent << "  }\n" << indent << "}";
 }
 
 void writeGraphicsAbiSummary(std::ostream &out,
@@ -2333,10 +2995,12 @@ void verifyPackageMetadata(
   verifyDebugArtifacts(metadata, diagnostics);
   verifyArtifacts(metadata, requirements, diagnostics);
   verifyDebugArtifactHealth(metadata, diagnostics);
+  verifyVulkanNativeProfileHealth(metadata, diagnostics);
   verifyNativeArtifactDescriptor(metadata, requirements, diagnostics);
   verifyTargetLegalizationEvidence(metadata, diagnostics);
   verifyReflectionNativeBinary(metadata, diagnostics);
   verifyReflectionTargetResourceBindings(metadata, diagnostics);
+  verifyReflectionTargetFeatureEvidence(metadata, diagnostics);
   verifyPlannedNativeSourceEvidence(metadata, requirements, sourcePath,
                                     diagnostics);
   const bool sourceHashMetadataValid =
@@ -2349,6 +3013,10 @@ void verifyPackageMetadata(
 void writeSummary(std::ostream &out, const PackageMetadata &metadata) {
   const PackageNativeArtifactDescriptorHealth nativeArtifactDescriptor =
       collectPackageNativeArtifactDescriptorHealth(metadata);
+  const PackageDebugArtifactHealth debugArtifactHealth =
+      collectPackageDebugArtifactHealth(metadata);
+  const PackageVulkanNativeProfileHealth vulkanNativeProfile =
+      collectPackageVulkanNativeProfileHealth(metadata);
   const PackageTargetLegalizationEvidence targetLegalizationEvidence =
       collectPackageTargetLegalizationEvidence(metadata);
   out << "{\n"
@@ -2365,8 +3033,20 @@ void writeSummary(std::ostream &out, const PackageMetadata &metadata) {
       << "    \"artifactCount\": " << metadata.artifacts.size() << ",\n"
       << "    \"debugArtifactsPresent\": "
       << (metadata.debugArtifactsPresent ? "true" : "false") << ",\n"
+      << "    \"sourceRemap\": ";
+  writeSourceRemapProvenanceSummary(out, debugArtifactHealth.sourceRemap, "    ");
+  out << ",\n"
+      << "    \"backendSourceMap\": ";
+  writeBackendSourceMapSummary(out, debugArtifactHealth.backendSourceMap, "    ");
+  out << ",\n"
       << "    \"nativeArtifactDescriptor\": ";
   writeNativeArtifactDescriptorSummary(out, nativeArtifactDescriptor);
+  out << ",\n"
+      << "    \"vulkanNativeProfile\": ";
+  writeVulkanNativeProfileSummary(out, vulkanNativeProfile, "    ");
+  out << ",\n"
+      << "    \"reflection\": ";
+  writeReflectionSummary(out, metadata, "    ");
   if (targetLegalizationEvidence.health != "not-present") {
     out << ",\n"
         << "    \"targetLegalizationEvidence\": ";

@@ -14,6 +14,7 @@
 namespace crossgl {
 
 struct TargetLegalizationResourceBindingFacts;
+struct SourceRemap;
 
 struct DirectXSourcePackageResult {
   bool success = false;
@@ -79,6 +80,13 @@ std::string generateDirectXBackendIR(const HIRModule &module);
 std::string generateDirectXBackendIR(
     const HIRModule &module,
     const TargetLegalizationResourceBindingFacts &resourceBindings);
+std::string
+generateDirectXBackendSourceMapJson(const HIRModule &module,
+                                    const SourceRemap *sourceRemap = nullptr);
+std::string generateDirectXBackendSourceMapJson(
+    const HIRModule &module,
+    const TargetLegalizationResourceBindingFacts &resourceBindings,
+    const SourceRemap *sourceRemap = nullptr);
 DirectXSourcePackageResult
 buildDirectXSourcePackage(const HIRModule &module,
                           const std::filesystem::path &packageDir,

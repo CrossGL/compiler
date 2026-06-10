@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "summary": {
+    "artifactCount": 1,
+    "sourceRemapCount": 1,
+    "sourceRemapMappingCount": 1,
+    "sourceRemapsByVariant": {
+      "debug": 1
+    }
+  },
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "target": "cgl",
+      "path": "out/cgl/release/simple.cgl",
+      "variant": "release",
+      "status": "translated",
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "out/cgl/release/simple.source-remap.json",
+        "target": "cgl",
+        "generatedFile": "out/cgl/release/simple.cgl",
+        "mappingGranularity": "line",
+        "mappingCount": 1,
+        "sizeBytes": 128,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        }
+      }
+    }
+  ]
+}

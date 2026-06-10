@@ -13,7 +13,7 @@ from .backend_loader import NATIVE_ARTIFACT_DESCRIPTOR
 from .backend_loader import NativeArtifactDescriptorPlan
 from .backend_loader import SourceFreeNativeBackendLoaderPlan
 from .backend_loader import plan_source_free_native_backend_loader
-from .loader import LoaderArtifactPlan
+from .loader import LoaderArtifactPlan, SourceFreeRuntimeArtifactHandoff
 from .package_reader import CompatibilityDiagnostic, PackageReadError
 from .package_reader import RUNTIME_METADATA_JSON_BYTE_LIMIT
 from .package_reader import NATIVE_ARTIFACT_DESCRIPTOR_CONTRACT_VERSION
@@ -26,10 +26,54 @@ VULKAN_BACKEND_ASSEMBLY_ARTIFACT = "backendAssembly"
 VULKAN_NATIVE_PROFILE_ARTIFACT = "nativeProfile"
 VULKAN_NATIVE_BINARY_KIND = "vulkan.spirv-module"
 VULKAN_NATIVE_BINARY_SUFFIX = ".spv"
+VULKAN_NATIVE_PROFILE_API = "vulkan"
+VULKAN_NATIVE_PROFILE_NAME = "vulkan-prototype"
+VULKAN_NATIVE_PROFILE_VULKAN_VERSION = "1.2"
+VULKAN_NATIVE_PROFILE_BINARY_FORMAT = "SPIR-V"
+VULKAN_NATIVE_PROFILE_ASSEMBLY_FORMAT = "SPIR-V assembly"
+VULKAN_NATIVE_PROFILE_VALIDATION_TARGET_ENV = "vulkan1.2"
+VULKAN_NATIVE_PROFILE_OPTIMIZATION_TOOL = "spirv-opt"
+VULKAN_NATIVE_PROFILE_DISASSEMBLY_TOOL = "spirv-dis"
+VULKAN_NATIVE_PROFILE_DISASSEMBLY_POLICY = "use-when-available"
+_VULKAN_NATIVE_PROFILE_OPTIMIZATION_POLICIES = frozenset(
+    ("use-when-available", "disabled-by-opt-level")
+)
+_VULKAN_NATIVE_PROFILE_OPTIMIZATION_LEVELS = frozenset(("-O", "none"))
+_VULKAN_NATIVE_PROFILE_OPTIMIZATION_STATUSES = frozenset(
+    ("applied", "skipped-disabled", "skipped-tool-missing")
+)
+_VULKAN_NATIVE_PROFILE_OPTIMIZATION_TOOL_STATUS_BY_STATUS = {
+    "applied": "available",
+    "skipped-disabled": "not-run",
+    "skipped-tool-missing": "missing",
+}
+_VULKAN_NATIVE_PROFILE_OPTIMIZATION_EXPECTATIONS = {
+    "O0": {
+        "policy": "disabled-by-opt-level",
+        "level": "none",
+        "statuses": frozenset(("skipped-disabled",)),
+    },
+    "O1": {
+        "policy": "disabled-by-opt-level",
+        "level": "none",
+        "statuses": frozenset(("skipped-disabled",)),
+    },
+    "O2": {
+        "policy": "use-when-available",
+        "level": "-O",
+        "statuses": frozenset(("applied", "skipped-tool-missing")),
+    },
+}
+_VULKAN_NATIVE_PROFILE_DISASSEMBLY_STATUSES = frozenset(
+    ("emitted", "failed", "skipped-tool-missing")
+)
 _VULKAN_NATIVE_PROFILE_SUMMARY_FIELDS = (
     "schemaVersion",
+    "api",
     "module",
     "target",
+    "profile",
+    "generator",
     "artifacts",
     "backendAssembly",
     "nativeBinary",
@@ -67,6 +111,19 @@ class VulkanNativeLoaderPlan(SourceFreeNativeBackendLoaderPlan):
     @property
     def vulkan_native_api_boundary(self) -> dict[str, Any]:
         return _vulkan_native_api_boundary(self)
+
+    def require_spirv_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        handoff = self.require_runtime_artifact_handoff(byte_limit=byte_limit)
+        if handoff.artifact_name != VULKAN_NATIVE_ARTIFACT:
+            raise PackageReadError(
+                "vulkan-native loader selected non-SPIR-V runtime artifact: "
+                f"{handoff.artifact_name}"
+            )
+        return handoff
 
     def to_summary(self) -> dict[str, Any]:
         summary = super().to_summary()
@@ -112,6 +169,7 @@ def plan_vulkan_native_loader(
         entry_points=base_plan.entry_points,
         resources=base_plan.resources,
         target_resource_bindings=base_plan.target_resource_bindings,
+        target_resource_binding_metadata=base_plan.target_resource_binding_metadata,
         workgroup_sizes=base_plan.workgroup_sizes,
         diagnostics=diagnostics,
     )
@@ -361,6 +419,8 @@ def _vulkan_native_profile_diagnostics(
             )
         )
 
+    diagnostics.extend(_vulkan_native_profile_schema_field_diagnostics(fields))
+
     module = fields.get("module")
     if plan.runtime_plan.module is not None and not isinstance(module, str):
         diagnostics.append(
@@ -583,6 +643,11 @@ def _vulkan_native_api_boundary(plan: VulkanNativeLoaderPlan) -> dict[str, Any]:
     descriptor = plan.native_artifact_descriptor
     native_profile = plan.native_profile
     fields = descriptor.fields if descriptor is not None else {}
+    native_profile_schema_detail = (
+        _vulkan_native_profile_schema_field_detail(native_profile.fields)
+        if native_profile is not None and native_profile.readable
+        else _vulkan_native_profile_absent_schema_field_detail()
+    )
     blocking_reason = _first_blocking_diagnostic(plan.diagnostics)
 
     return {
@@ -671,6 +736,7 @@ def _vulkan_native_api_boundary(plan: VulkanNativeLoaderPlan) -> dict[str, Any]:
         "nativeProfileCompatibility": {
             "declared": native_profile is not None,
             "readable": native_profile is not None and native_profile.readable,
+            **native_profile_schema_detail,
             "targetMatchesLoader": (
                 native_profile.fields.get("target") == VULKAN_LOADER_TARGET
                 if native_profile is not None and native_profile.readable
@@ -713,7 +779,7 @@ def _vulkan_spirv_artifact_detail(
         runtime_artifact is not None and runtime_artifact.name == VULKAN_NATIVE_ARTIFACT
     )
     native_profile_binary = (
-        native_profile.fields.get("nativeBinary")
+        _vulkan_profile_artifact_path(native_profile.fields, VULKAN_NATIVE_ARTIFACT)
         if native_profile is not None and native_profile.readable
         else None
     )
@@ -871,6 +937,7 @@ def _vulkan_native_profile_detail(
             "readable": False,
             "artifact": None,
             "fields": {},
+            **_vulkan_native_profile_absent_schema_field_detail(),
             "target": None,
             "targetMatchesLoader": None,
             "module": None,
@@ -897,12 +964,14 @@ def _vulkan_native_profile_detail(
     descriptor_profile_path = _descriptor_native_profile_evidence_path(
         plan.native_artifact_descriptor,
     )
+    schema_detail = _vulkan_native_profile_schema_field_detail(fields)
 
     return {
         "declared": True,
         "readable": native_profile.readable,
         "artifact": native_profile.artifact.to_summary(),
         "fields": fields,
+        **schema_detail,
         "target": profile_target if isinstance(profile_target, str) else None,
         "targetMatchesLoader": (
             profile_target == VULKAN_LOADER_TARGET if native_profile.readable else None
@@ -976,6 +1045,26 @@ def _vulkan_native_admission_checks(
         VULKAN_BACKEND_ASSEMBLY_ARTIFACT,
     )
     profile_module = profile_fields.get("module")
+    profile_schema_detail = (
+        _vulkan_native_profile_schema_field_detail(profile_fields)
+        if profile_readable
+        else _vulkan_native_profile_absent_schema_field_detail()
+    )
+    modern_profile_required = (
+        profile_readable
+        and profile_schema_detail["usesLegacySchemaFieldFallback"] is False
+    )
+    optimization_present = profile_schema_detail["debugOptimizationPresent"] is True
+    optimization_requested_level_present = (
+        profile_schema_detail["debugOptimizationRequestedLevel"] is not None
+    )
+    optimization_target_env_present = (
+        profile_schema_detail["debugOptimizationTargetEnv"] is not None
+    )
+    optimization_tool_status_present = (
+        profile_schema_detail["debugOptimizationToolStatus"] is not None
+    )
+    disassembly_present = profile_schema_detail["debugDisassemblyPresent"] is True
     graphics_closure = _vulkan_graphics_stage_closure(plan)
 
     return [
@@ -1244,6 +1333,298 @@ def _vulkan_native_admission_checks(
             required=profile_readable,
         ),
         _admission_check(
+            "nativeProfileUsesLegacySchemaFieldFallback",
+            (
+                profile_schema_detail["usesLegacySchemaFieldFallback"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path=None,
+            expected=False,
+            actual=profile_schema_detail["usesLegacySchemaFieldFallback"],
+            required=False,
+        ),
+        _admission_check(
+            "nativeProfileApiMatchesLoader",
+            profile_schema_detail["apiMatchesLoader"] if profile_readable else None,
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="api",
+            expected=VULKAN_NATIVE_PROFILE_API,
+            actual=profile_schema_detail["api"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileProfileNameMatchesExpected",
+            (
+                profile_schema_detail["profileNameMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="profile.name",
+            expected=VULKAN_NATIVE_PROFILE_NAME,
+            actual=profile_schema_detail["profileName"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileProfileVulkanVersionMatchesExpected",
+            (
+                profile_schema_detail["profileVulkanVersionMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="profile.vulkanVersion",
+            expected=VULKAN_NATIVE_PROFILE_VULKAN_VERSION,
+            actual=profile_schema_detail["profileVulkanVersion"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileProfileSpirvVersionValid",
+            (
+                profile_schema_detail["profileSpirvVersionValid"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="profile.spirvVersion",
+            expected="non-empty SPIR-V version string",
+            actual=profile_schema_detail["profileSpirvVersion"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileDebugBinaryFormatMatchesExpected",
+            (
+                profile_schema_detail["debugBinaryFormatMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.binaryFormat",
+            expected=VULKAN_NATIVE_PROFILE_BINARY_FORMAT,
+            actual=profile_schema_detail["debugBinaryFormat"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileDebugAssemblyFormatMatchesExpected",
+            (
+                profile_schema_detail["debugAssemblyFormatMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.assemblyFormat",
+            expected=VULKAN_NATIVE_PROFILE_ASSEMBLY_FORMAT,
+            actual=profile_schema_detail["debugAssemblyFormat"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileDebugValidationTargetEnvMatchesExpected",
+            (
+                profile_schema_detail["debugValidationTargetEnvMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.validationTargetEnv",
+            expected=VULKAN_NATIVE_PROFILE_VALIDATION_TARGET_ENV,
+            actual=profile_schema_detail["debugValidationTargetEnv"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileGeneratorValid",
+            profile_schema_detail["generatorValid"] if profile_readable else None,
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="generator",
+            expected="non-empty generator string",
+            actual=profile_schema_detail["generator"],
+            required=modern_profile_required,
+        ),
+        _admission_check(
+            "nativeProfileDebugOptimizationToolMatchesExpected",
+            (
+                profile_schema_detail["debugOptimizationToolMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.optimization.tool",
+            expected=VULKAN_NATIVE_PROFILE_OPTIMIZATION_TOOL,
+            actual=profile_schema_detail["debugOptimizationTool"],
+            required=modern_profile_required and optimization_present,
+        ),
+        _admission_check(
+            "nativeProfileDebugOptimizationPolicyValid",
+            (
+                profile_schema_detail["debugOptimizationPolicyValid"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.optimization.policy",
+            expected=sorted(_VULKAN_NATIVE_PROFILE_OPTIMIZATION_POLICIES),
+            actual=profile_schema_detail["debugOptimizationPolicy"],
+            required=modern_profile_required and optimization_present,
+        ),
+        _admission_check(
+            "nativeProfileDebugOptimizationRequestedLevelValid",
+            (
+                profile_schema_detail["debugOptimizationRequestedLevelValid"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.optimization.requestedLevel",
+            expected=sorted(_VULKAN_NATIVE_PROFILE_OPTIMIZATION_EXPECTATIONS),
+            actual=profile_schema_detail["debugOptimizationRequestedLevel"],
+            required=(
+                modern_profile_required
+                and optimization_present
+                and optimization_requested_level_present
+            ),
+        ),
+        _admission_check(
+            "nativeProfileDebugOptimizationLevelValid",
+            (
+                profile_schema_detail["debugOptimizationLevelValid"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.optimization.level",
+            expected=sorted(_VULKAN_NATIVE_PROFILE_OPTIMIZATION_LEVELS),
+            actual=profile_schema_detail["debugOptimizationLevel"],
+            required=modern_profile_required and optimization_present,
+        ),
+        _admission_check(
+            "nativeProfileDebugOptimizationStatusValid",
+            (
+                profile_schema_detail["debugOptimizationStatusValid"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.optimization.status",
+            expected=sorted(_VULKAN_NATIVE_PROFILE_OPTIMIZATION_STATUSES),
+            actual=profile_schema_detail["debugOptimizationStatus"],
+            required=modern_profile_required and optimization_present,
+        ),
+        _admission_check(
+            "nativeProfileDebugOptimizationTargetEnvMatchesValidationTargetEnv",
+            (
+                profile_schema_detail[
+                    "debugOptimizationTargetEnvMatchesValidationTargetEnv"
+                ]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.optimization.targetEnv",
+            expected=profile_schema_detail["debugValidationTargetEnv"],
+            actual=profile_schema_detail["debugOptimizationTargetEnv"],
+            required=(
+                modern_profile_required
+                and optimization_present
+                and (
+                    optimization_requested_level_present
+                    or optimization_target_env_present
+                )
+            ),
+        ),
+        _admission_check(
+            "nativeProfileDebugOptimizationToolStatusMatchesStatus",
+            (
+                profile_schema_detail["debugOptimizationToolStatusMatchesStatus"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.optimization.toolStatus",
+            expected="tool status implied by optimization status",
+            actual=profile_schema_detail["debugOptimizationToolStatus"],
+            required=(
+                modern_profile_required
+                and optimization_present
+                and (
+                    optimization_requested_level_present
+                    or optimization_tool_status_present
+                )
+            ),
+        ),
+        _admission_check(
+            "nativeProfileDebugDisassemblyToolMatchesExpected",
+            (
+                profile_schema_detail["debugDisassemblyToolMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.disassembly.tool",
+            expected=VULKAN_NATIVE_PROFILE_DISASSEMBLY_TOOL,
+            actual=profile_schema_detail["debugDisassemblyTool"],
+            required=modern_profile_required and disassembly_present,
+        ),
+        _admission_check(
+            "nativeProfileDebugDisassemblyPolicyMatchesExpected",
+            (
+                profile_schema_detail["debugDisassemblyPolicyMatchesExpected"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.disassembly.policy",
+            expected=VULKAN_NATIVE_PROFILE_DISASSEMBLY_POLICY,
+            actual=profile_schema_detail["debugDisassemblyPolicy"],
+            required=modern_profile_required and disassembly_present,
+        ),
+        _admission_check(
+            "nativeProfileDebugDisassemblyStatusValid",
+            (
+                profile_schema_detail["debugDisassemblyStatusValid"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.disassembly.status",
+            expected=sorted(_VULKAN_NATIVE_PROFILE_DISASSEMBLY_STATUSES),
+            actual=profile_schema_detail["debugDisassemblyStatus"],
+            required=modern_profile_required and disassembly_present,
+        ),
+        _admission_check(
+            "nativeProfileDebugDisassemblyPathMatchesStatus",
+            (
+                profile_schema_detail["debugDisassemblyPathMatchesStatus"]
+                if profile_readable
+                else None
+            ),
+            document="nativeProfile",
+            artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+            path="debug.disassembly.path",
+            expected=profile_schema_detail["debugDisassemblyExpectedPath"],
+            actual=profile_schema_detail["debugDisassemblyPath"],
+            required=modern_profile_required and disassembly_present,
+        ),
+        _admission_check(
             "nativeProfileTargetMatchesLoader",
             (
                 profile_fields.get("target") == VULKAN_LOADER_TARGET
@@ -1398,7 +1779,10 @@ def _vulkan_api_spirv_input(
             native_artifact,
         ),
         "profileNativeBinary": (
-            native_profile.fields.get("nativeBinary")
+            _vulkan_profile_artifact_path(
+                native_profile.fields,
+                VULKAN_NATIVE_ARTIFACT,
+            )
             if native_profile is not None and native_profile.readable
             else None
         ),
@@ -1489,6 +1873,9 @@ def _vulkan_api_profile_input(
     native_artifact: LoaderArtifactPlan | None,
     native_profile: VulkanNativeProfilePlan | None,
 ) -> dict[str, Any]:
+    descriptor_profile_path = _descriptor_native_profile_evidence_path(
+        plan.native_artifact_descriptor,
+    )
     if native_profile is None:
         return {
             "declared": False,
@@ -1496,6 +1883,7 @@ def _vulkan_api_profile_input(
             "artifact": None,
             "schemaVersion": None,
             "schemaVersionCompatible": None,
+            **_vulkan_native_profile_absent_schema_field_detail(),
             "target": None,
             "targetMatchesLoader": None,
             "module": None,
@@ -1503,6 +1891,8 @@ def _vulkan_api_profile_input(
             "backendAssembly": None,
             "nativeBinary": None,
             "nativeBinaryMatchesSpirv": None,
+            "descriptorEvidenceSourcePath": descriptor_profile_path,
+            "descriptorEvidenceSourcePathMatchesNativeProfile": None,
             "diagnostics": _vulkan_profile_diagnostics(plan),
         }
 
@@ -1511,6 +1901,7 @@ def _vulkan_api_profile_input(
     target = fields.get("target")
     native_binary = _vulkan_profile_artifact_path(fields, VULKAN_NATIVE_ARTIFACT)
     module = fields.get("module")
+    schema_detail = _vulkan_native_profile_schema_field_detail(fields)
 
     return {
         "declared": True,
@@ -1520,6 +1911,7 @@ def _vulkan_api_profile_input(
         "schemaVersionCompatible": (
             schema_version == 1 if native_profile.readable else None
         ),
+        **schema_detail,
         "target": target,
         "targetMatchesLoader": (
             target == VULKAN_LOADER_TARGET if native_profile.readable else None
@@ -1536,6 +1928,12 @@ def _vulkan_api_profile_input(
         "nativeBinaryMatchesSpirv": (
             native_binary == native_artifact.package_path
             if native_profile.readable and native_artifact is not None
+            else None
+        ),
+        "descriptorEvidenceSourcePath": descriptor_profile_path,
+        "descriptorEvidenceSourcePathMatchesNativeProfile": (
+            descriptor_profile_path == native_profile.artifact.package_path
+            if isinstance(descriptor_profile_path, str)
             else None
         ),
         "diagnostics": _vulkan_profile_diagnostics(plan),
@@ -1763,6 +2161,12 @@ def _summarize_vulkan_resource(record: dict[str, Any]) -> dict[str, Any]:
 def _summarize_vulkan_resource_binding(record: dict[str, Any]) -> dict[str, Any]:
     abi = record.get("abi")
     abi_summary = dict(abi) if isinstance(abi, dict) else {}
+    set_value = record.get("set")
+    if set_value is None:
+        set_value = abi_summary.get("set")
+    binding_value = record.get("binding")
+    if binding_value is None:
+        binding_value = abi_summary.get("binding")
     summary = {
         "target": record.get("target"),
         "stage": record.get("stage"),
@@ -1773,12 +2177,17 @@ def _summarize_vulkan_resource_binding(record: dict[str, Any]) -> dict[str, Any]
         "addressSpace": record.get("addressSpace"),
         "bindingClass": record.get("bindingClass"),
         "descriptorType": record.get("descriptorType"),
-        "abi": abi_summary,
-        "set": abi_summary.get("set"),
-        "binding": abi_summary.get("binding"),
+        "abi": abi if isinstance(abi, str) else abi_summary,
+        "set": set_value,
+        "binding": binding_value,
         "storageClass": record.get("storageClass"),
         "spirvType": record.get("spirvType"),
     }
+    if isinstance(abi, str):
+        summary["abiKind"] = abi
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     _copy_descriptor_array_metadata(summary, record)
     return summary
 
@@ -1810,6 +2219,711 @@ def _vulkan_profile_artifact_path(
         if isinstance(value, str):
             return value
     return None
+
+
+def _vulkan_profile_object(fields: dict[str, Any]) -> dict[str, Any] | None:
+    profile = fields.get("profile")
+    return profile if isinstance(profile, dict) else None
+
+
+def _vulkan_profile_debug_field(fields: dict[str, Any], field_name: str) -> Any:
+    debug = fields.get("debug")
+    if not isinstance(debug, dict):
+        return None
+    return debug.get(field_name)
+
+
+def _vulkan_profile_debug_object(fields: dict[str, Any]) -> dict[str, Any] | None:
+    debug = fields.get("debug")
+    return debug if isinstance(debug, dict) else None
+
+
+def _vulkan_profile_debug_dict(
+    fields: dict[str, Any],
+    field_name: str,
+) -> dict[str, Any] | None:
+    debug = _vulkan_profile_debug_object(fields)
+    if debug is None:
+        return None
+    value = debug.get(field_name)
+    return value if isinstance(value, dict) else None
+
+
+def _vulkan_native_profile_uses_legacy_schema_field_fallback(
+    fields: dict[str, Any],
+) -> bool:
+    debug = fields.get("debug")
+    disassembly = debug.get("disassembly") if isinstance(debug, dict) else None
+    has_modern_disassembly_fields = isinstance(disassembly, dict) and (
+        "tool" in disassembly or "policy" in disassembly
+    )
+    return (
+        "api" not in fields
+        and "profile" not in fields
+        and "generator" not in fields
+        and (
+            not isinstance(debug, dict)
+            or (
+                "binaryFormat" not in debug
+                and "assemblyFormat" not in debug
+                and "validationTargetEnv" not in debug
+                and "optimization" not in debug
+                and not has_modern_disassembly_fields
+            )
+        )
+    )
+
+
+def _vulkan_native_profile_absent_schema_field_detail() -> dict[str, Any]:
+    return {
+        "usesLegacySchemaFieldFallback": None,
+        "api": None,
+        "apiMatchesLoader": None,
+        "profile": None,
+        "profileName": None,
+        "profileNameMatchesExpected": None,
+        "profileVulkanVersion": None,
+        "profileVulkanVersionMatchesExpected": None,
+        "profileSpirvVersion": None,
+        "profileSpirvVersionValid": None,
+        "generator": None,
+        "generatorValid": None,
+        "debugBinaryFormat": None,
+        "debugBinaryFormatMatchesExpected": None,
+        "debugAssemblyFormat": None,
+        "debugAssemblyFormatMatchesExpected": None,
+        "debugValidationTargetEnv": None,
+        "debugValidationTargetEnvMatchesExpected": None,
+        "debugOptimization": None,
+        "debugOptimizationPresent": None,
+        "debugOptimizationTool": None,
+        "debugOptimizationToolMatchesExpected": None,
+        "debugOptimizationPolicy": None,
+        "debugOptimizationPolicyValid": None,
+        "debugOptimizationRequestedLevel": None,
+        "debugOptimizationRequestedLevelValid": None,
+        "debugOptimizationLevel": None,
+        "debugOptimizationLevelValid": None,
+        "debugOptimizationStatus": None,
+        "debugOptimizationStatusValid": None,
+        "debugOptimizationTargetEnv": None,
+        "debugOptimizationTargetEnvMatchesValidationTargetEnv": None,
+        "debugOptimizationToolStatus": None,
+        "debugOptimizationToolStatusMatchesStatus": None,
+        "debugDisassembly": None,
+        "debugDisassemblyPresent": None,
+        "debugDisassemblyTool": None,
+        "debugDisassemblyToolMatchesExpected": None,
+        "debugDisassemblyPolicy": None,
+        "debugDisassemblyPolicyMatchesExpected": None,
+        "debugDisassemblyStatus": None,
+        "debugDisassemblyStatusValid": None,
+        "debugDisassemblyPath": None,
+        "debugDisassemblyExpectedPath": None,
+        "debugDisassemblyPathMatchesStatus": None,
+    }
+
+
+def _vulkan_native_profile_schema_field_detail(
+    fields: dict[str, Any],
+) -> dict[str, Any]:
+    profile = _vulkan_profile_object(fields)
+    legacy_fallback = _vulkan_native_profile_uses_legacy_schema_field_fallback(fields)
+    api = fields.get("api")
+    generator = fields.get("generator")
+    profile_name = profile.get("name") if profile is not None else None
+    profile_vulkan_version = (
+        profile.get("vulkanVersion") if profile is not None else None
+    )
+    profile_spirv_version = profile.get("spirvVersion") if profile is not None else None
+    debug_binary_format = _vulkan_profile_debug_field(fields, "binaryFormat")
+    debug_assembly_format = _vulkan_profile_debug_field(fields, "assemblyFormat")
+    debug_validation_target_env = _vulkan_profile_debug_field(
+        fields,
+        "validationTargetEnv",
+    )
+    optimization = _vulkan_profile_debug_dict(fields, "optimization")
+    optimization_tool = optimization.get("tool") if optimization is not None else None
+    optimization_policy = (
+        optimization.get("policy") if optimization is not None else None
+    )
+    optimization_requested_level = (
+        optimization.get("requestedLevel") if optimization is not None else None
+    )
+    optimization_level = optimization.get("level") if optimization is not None else None
+    optimization_status = (
+        optimization.get("status") if optimization is not None else None
+    )
+    optimization_target_env = (
+        optimization.get("targetEnv") if optimization is not None else None
+    )
+    optimization_tool_status = (
+        optimization.get("toolStatus") if optimization is not None else None
+    )
+    optimization_expectation = (
+        _VULKAN_NATIVE_PROFILE_OPTIMIZATION_EXPECTATIONS.get(
+            optimization_requested_level
+        )
+        if isinstance(optimization_requested_level, str)
+        else None
+    )
+    expected_optimization_tool_status = (
+        _VULKAN_NATIVE_PROFILE_OPTIMIZATION_TOOL_STATUS_BY_STATUS.get(
+            optimization_status
+        )
+        if isinstance(optimization_status, str)
+        else None
+    )
+    disassembly = _vulkan_profile_debug_dict(fields, "disassembly")
+    disassembly_tool = disassembly.get("tool") if disassembly is not None else None
+    disassembly_policy = disassembly.get("policy") if disassembly is not None else None
+    disassembly_status = disassembly.get("status") if disassembly is not None else None
+    disassembly_path = disassembly.get("path") if disassembly is not None else None
+    module = fields.get("module")
+    expected_disassembly_path = (
+        f"backend/vulkan/{module}.disassembly.spvasm"
+        if isinstance(module, str) and module
+        else None
+    )
+    expected_disassembly_status_path = (
+        expected_disassembly_path if disassembly_status == "emitted" else None
+    )
+
+    def _modern_match(actual: Any, expected: Any) -> bool | None:
+        if legacy_fallback:
+            return None
+        return actual == expected
+
+    def _modern_optional_match(
+        present: bool,
+        actual: Any,
+        expected: Any,
+    ) -> bool | None:
+        if legacy_fallback or not present:
+            return None
+        return actual == expected
+
+    def _optimization_requested_level_valid() -> bool | None:
+        if legacy_fallback or optimization is None:
+            return None
+        if optimization_requested_level is None:
+            return None
+        return optimization_requested_level in (
+            _VULKAN_NATIVE_PROFILE_OPTIMIZATION_EXPECTATIONS
+        )
+
+    def _optimization_policy_valid() -> bool | None:
+        if legacy_fallback or optimization is None:
+            return None
+        if (
+            not isinstance(optimization_policy, str)
+            or optimization_policy not in _VULKAN_NATIVE_PROFILE_OPTIMIZATION_POLICIES
+        ):
+            return False
+        if optimization_expectation is None:
+            return True
+        return optimization_policy == optimization_expectation["policy"]
+
+    def _optimization_level_valid() -> bool | None:
+        if legacy_fallback or optimization is None:
+            return None
+        if (
+            not isinstance(optimization_level, str)
+            or optimization_level not in _VULKAN_NATIVE_PROFILE_OPTIMIZATION_LEVELS
+        ):
+            return False
+        if optimization_expectation is None:
+            return True
+        return optimization_level == optimization_expectation["level"]
+
+    def _optimization_status_valid() -> bool | None:
+        if legacy_fallback or optimization is None:
+            return None
+        if (
+            not isinstance(optimization_status, str)
+            or optimization_status not in _VULKAN_NATIVE_PROFILE_OPTIMIZATION_STATUSES
+        ):
+            return False
+        if optimization_expectation is None:
+            return True
+        return optimization_status in optimization_expectation["statuses"]
+
+    def _optimization_target_env_matches() -> bool | None:
+        if legacy_fallback or optimization is None:
+            return None
+        if optimization_target_env is None and optimization_requested_level is None:
+            return None
+        return (
+            isinstance(optimization_target_env, str)
+            and optimization_target_env == debug_validation_target_env
+        )
+
+    def _optimization_tool_status_matches() -> bool | None:
+        if legacy_fallback or optimization is None:
+            return None
+        if optimization_tool_status is None and optimization_requested_level is None:
+            return None
+        if expected_optimization_tool_status is None:
+            return None
+        return optimization_tool_status == expected_optimization_tool_status
+
+    def _disassembly_status_valid() -> bool | None:
+        if legacy_fallback or disassembly is None:
+            return None
+        return (
+            isinstance(disassembly_status, str)
+            and disassembly_status in _VULKAN_NATIVE_PROFILE_DISASSEMBLY_STATUSES
+        )
+
+    def _disassembly_path_matches() -> bool | None:
+        if legacy_fallback or disassembly is None:
+            return None
+        if disassembly_status == "emitted":
+            return (
+                isinstance(disassembly_path, str)
+                and expected_disassembly_path is not None
+                and disassembly_path == expected_disassembly_path
+            )
+        if disassembly_status in _VULKAN_NATIVE_PROFILE_DISASSEMBLY_STATUSES:
+            return disassembly_path is None
+        return None
+
+    return {
+        "usesLegacySchemaFieldFallback": legacy_fallback,
+        "api": api,
+        "apiMatchesLoader": _modern_match(api, VULKAN_NATIVE_PROFILE_API),
+        "profile": dict(profile) if profile is not None else None,
+        "profileName": profile_name,
+        "profileNameMatchesExpected": _modern_match(
+            profile_name,
+            VULKAN_NATIVE_PROFILE_NAME,
+        ),
+        "profileVulkanVersion": profile_vulkan_version,
+        "profileVulkanVersionMatchesExpected": _modern_match(
+            profile_vulkan_version,
+            VULKAN_NATIVE_PROFILE_VULKAN_VERSION,
+        ),
+        "profileSpirvVersion": profile_spirv_version,
+        "profileSpirvVersionValid": (
+            None
+            if legacy_fallback
+            else isinstance(profile_spirv_version, str)
+            and bool(profile_spirv_version.strip())
+        ),
+        "generator": generator,
+        "generatorValid": (
+            None
+            if legacy_fallback
+            else isinstance(generator, str) and bool(generator.strip())
+        ),
+        "debugBinaryFormat": debug_binary_format,
+        "debugBinaryFormatMatchesExpected": _modern_match(
+            debug_binary_format,
+            VULKAN_NATIVE_PROFILE_BINARY_FORMAT,
+        ),
+        "debugAssemblyFormat": debug_assembly_format,
+        "debugAssemblyFormatMatchesExpected": _modern_match(
+            debug_assembly_format,
+            VULKAN_NATIVE_PROFILE_ASSEMBLY_FORMAT,
+        ),
+        "debugValidationTargetEnv": debug_validation_target_env,
+        "debugValidationTargetEnvMatchesExpected": _modern_match(
+            debug_validation_target_env,
+            VULKAN_NATIVE_PROFILE_VALIDATION_TARGET_ENV,
+        ),
+        "debugOptimization": (
+            dict(optimization)
+            if optimization is not None and not legacy_fallback
+            else None
+        ),
+        "debugOptimizationPresent": (
+            None if legacy_fallback else optimization is not None
+        ),
+        "debugOptimizationTool": optimization_tool,
+        "debugOptimizationToolMatchesExpected": _modern_optional_match(
+            optimization is not None,
+            optimization_tool,
+            VULKAN_NATIVE_PROFILE_OPTIMIZATION_TOOL,
+        ),
+        "debugOptimizationPolicy": optimization_policy,
+        "debugOptimizationPolicyValid": _optimization_policy_valid(),
+        "debugOptimizationRequestedLevel": optimization_requested_level,
+        "debugOptimizationRequestedLevelValid": (_optimization_requested_level_valid()),
+        "debugOptimizationLevel": optimization_level,
+        "debugOptimizationLevelValid": _optimization_level_valid(),
+        "debugOptimizationStatus": optimization_status,
+        "debugOptimizationStatusValid": _optimization_status_valid(),
+        "debugOptimizationTargetEnv": optimization_target_env,
+        "debugOptimizationTargetEnvMatchesValidationTargetEnv": (
+            _optimization_target_env_matches()
+        ),
+        "debugOptimizationToolStatus": optimization_tool_status,
+        "debugOptimizationToolStatusMatchesStatus": (
+            _optimization_tool_status_matches()
+        ),
+        "debugDisassembly": (
+            dict(disassembly)
+            if disassembly is not None and not legacy_fallback
+            else None
+        ),
+        "debugDisassemblyPresent": (
+            None if legacy_fallback else disassembly is not None
+        ),
+        "debugDisassemblyTool": disassembly_tool,
+        "debugDisassemblyToolMatchesExpected": _modern_optional_match(
+            disassembly is not None,
+            disassembly_tool,
+            VULKAN_NATIVE_PROFILE_DISASSEMBLY_TOOL,
+        ),
+        "debugDisassemblyPolicy": disassembly_policy,
+        "debugDisassemblyPolicyMatchesExpected": _modern_optional_match(
+            disassembly is not None,
+            disassembly_policy,
+            VULKAN_NATIVE_PROFILE_DISASSEMBLY_POLICY,
+        ),
+        "debugDisassemblyStatus": disassembly_status,
+        "debugDisassemblyStatusValid": _disassembly_status_valid(),
+        "debugDisassemblyPath": disassembly_path,
+        "debugDisassemblyExpectedPath": expected_disassembly_status_path,
+        "debugDisassemblyPathMatchesStatus": _disassembly_path_matches(),
+    }
+
+
+def _vulkan_native_profile_schema_field_diagnostics(
+    fields: dict[str, Any],
+) -> tuple[CompatibilityDiagnostic, ...]:
+    detail = _vulkan_native_profile_schema_field_detail(fields)
+    if detail["usesLegacySchemaFieldFallback"]:
+        return ()
+
+    diagnostics: list[CompatibilityDiagnostic] = []
+    if detail["apiMatchesLoader"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_api_mismatch",
+                message=(
+                    "Vulkan native loader requires nativeProfile.api to declare "
+                    "the Vulkan API contract"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="api",
+                expected=VULKAN_NATIVE_PROFILE_API,
+                actual=detail["api"],
+            )
+        )
+    if detail["profileNameMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_profile_name_mismatch",
+                message=(
+                    "Vulkan native loader requires nativeProfile.profile.name "
+                    "to match the expected Vulkan profile contract"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="profile.name",
+                expected=VULKAN_NATIVE_PROFILE_NAME,
+                actual=detail["profileName"],
+            )
+        )
+    if detail["profileVulkanVersionMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_profile_vulkan_version_mismatch",
+                message=(
+                    "Vulkan native loader requires "
+                    "nativeProfile.profile.vulkanVersion to match the loader "
+                    "profile version"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="profile.vulkanVersion",
+                expected=VULKAN_NATIVE_PROFILE_VULKAN_VERSION,
+                actual=detail["profileVulkanVersion"],
+            )
+        )
+    if detail["profileSpirvVersionValid"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_profile_spirv_version_invalid",
+                message=(
+                    "Vulkan native loader requires "
+                    "nativeProfile.profile.spirvVersion to be a non-empty string"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="profile.spirvVersion",
+                expected="non-empty SPIR-V version string",
+                actual=detail["profileSpirvVersion"],
+            )
+        )
+    if detail["debugBinaryFormatMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_debug_binary_format_mismatch",
+                message=(
+                    "Vulkan native loader requires nativeProfile.debug.binaryFormat "
+                    "to identify SPIR-V binary output"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="debug.binaryFormat",
+                expected=VULKAN_NATIVE_PROFILE_BINARY_FORMAT,
+                actual=detail["debugBinaryFormat"],
+            )
+        )
+    if detail["debugAssemblyFormatMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_debug_assembly_format_mismatch",
+                message=(
+                    "Vulkan native loader requires "
+                    "nativeProfile.debug.assemblyFormat to identify SPIR-V "
+                    "assembly output"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="debug.assemblyFormat",
+                expected=VULKAN_NATIVE_PROFILE_ASSEMBLY_FORMAT,
+                actual=detail["debugAssemblyFormat"],
+            )
+        )
+    if detail["debugValidationTargetEnvMatchesExpected"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=(
+                    "vulkan_loader.native_profile_debug_validation_target_env_mismatch"
+                ),
+                message=(
+                    "Vulkan native loader requires "
+                    "nativeProfile.debug.validationTargetEnv to match the "
+                    "runtime validation target"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="debug.validationTargetEnv",
+                expected=VULKAN_NATIVE_PROFILE_VALIDATION_TARGET_ENV,
+                actual=detail["debugValidationTargetEnv"],
+            )
+        )
+    if detail["generatorValid"] is not True:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="vulkan_loader.native_profile_generator_invalid",
+                message=(
+                    "Vulkan native loader requires nativeProfile.generator "
+                    "to be a non-empty string"
+                ),
+                document="nativeProfile",
+                artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                path="generator",
+                expected="non-empty generator string",
+                actual=detail["generator"],
+            )
+        )
+    if detail["debugOptimizationPresent"]:
+        if detail["debugOptimizationToolMatchesExpected"] is not True:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader.native_profile_debug_optimization_tool_mismatch"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.optimization.tool to identify spirv-opt"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.optimization.tool",
+                    expected=VULKAN_NATIVE_PROFILE_OPTIMIZATION_TOOL,
+                    actual=detail["debugOptimizationTool"],
+                )
+            )
+        if detail["debugOptimizationPolicyValid"] is not True:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader.native_profile_debug_optimization_policy_invalid"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.optimization.policy to match the "
+                        "requested optimization profile"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.optimization.policy",
+                    expected=sorted(_VULKAN_NATIVE_PROFILE_OPTIMIZATION_POLICIES),
+                    actual=detail["debugOptimizationPolicy"],
+                )
+            )
+        if detail["debugOptimizationRequestedLevelValid"] is False:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader."
+                        "native_profile_debug_optimization_requested_level_invalid"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.optimization.requestedLevel to be a "
+                        "supported CrossGL optimization level"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.optimization.requestedLevel",
+                    expected=sorted(_VULKAN_NATIVE_PROFILE_OPTIMIZATION_EXPECTATIONS),
+                    actual=detail["debugOptimizationRequestedLevel"],
+                )
+            )
+        if detail["debugOptimizationLevelValid"] is not True:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader.native_profile_debug_optimization_level_invalid"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.optimization.level to match the "
+                        "requested optimization profile"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.optimization.level",
+                    expected=sorted(_VULKAN_NATIVE_PROFILE_OPTIMIZATION_LEVELS),
+                    actual=detail["debugOptimizationLevel"],
+                )
+            )
+        if detail["debugOptimizationStatusValid"] is not True:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader.native_profile_debug_optimization_status_invalid"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.optimization.status to match the "
+                        "requested optimization profile"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.optimization.status",
+                    expected=sorted(_VULKAN_NATIVE_PROFILE_OPTIMIZATION_STATUSES),
+                    actual=detail["debugOptimizationStatus"],
+                )
+            )
+        if detail["debugOptimizationTargetEnvMatchesValidationTargetEnv"] is False:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader."
+                        "native_profile_debug_optimization_target_env_mismatch"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.optimization.targetEnv to match "
+                        "nativeProfile.debug.validationTargetEnv"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.optimization.targetEnv",
+                    expected=detail["debugValidationTargetEnv"],
+                    actual=detail["debugOptimizationTargetEnv"],
+                )
+            )
+        if detail["debugOptimizationToolStatusMatchesStatus"] is False:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader."
+                        "native_profile_debug_optimization_tool_status_mismatch"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.optimization.toolStatus to match "
+                        "nativeProfile.debug.optimization.status"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.optimization.toolStatus",
+                    expected="tool status implied by optimization status",
+                    actual=detail["debugOptimizationToolStatus"],
+                )
+            )
+    if detail["debugDisassemblyPresent"]:
+        if detail["debugDisassemblyToolMatchesExpected"] is not True:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader.native_profile_debug_disassembly_tool_mismatch"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.disassembly.tool to identify spirv-dis"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.disassembly.tool",
+                    expected=VULKAN_NATIVE_PROFILE_DISASSEMBLY_TOOL,
+                    actual=detail["debugDisassemblyTool"],
+                )
+            )
+        if detail["debugDisassemblyPolicyMatchesExpected"] is not True:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader.native_profile_debug_disassembly_policy_mismatch"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.disassembly.policy to use the "
+                        "Vulkan disassembly policy"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.disassembly.policy",
+                    expected=VULKAN_NATIVE_PROFILE_DISASSEMBLY_POLICY,
+                    actual=detail["debugDisassemblyPolicy"],
+                )
+            )
+        if detail["debugDisassemblyStatusValid"] is not True:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader.native_profile_debug_disassembly_status_invalid"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.disassembly.status to be a "
+                        "supported disassembly emission status"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.disassembly.status",
+                    expected=sorted(_VULKAN_NATIVE_PROFILE_DISASSEMBLY_STATUSES),
+                    actual=detail["debugDisassemblyStatus"],
+                )
+            )
+        if detail["debugDisassemblyPathMatchesStatus"] is False:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code=(
+                        "vulkan_loader.native_profile_debug_disassembly_path_mismatch"
+                    ),
+                    message=(
+                        "Vulkan native loader requires "
+                        "nativeProfile.debug.disassembly.path to match the "
+                        "disassembly status and module"
+                    ),
+                    document="nativeProfile",
+                    artifact=VULKAN_NATIVE_PROFILE_ARTIFACT,
+                    path="debug.disassembly.path",
+                    expected=detail["debugDisassemblyExpectedPath"],
+                    actual=detail["debugDisassemblyPath"],
+                )
+            )
+    return tuple(diagnostics)
 
 
 def _vulkan_filtered_base_diagnostics(
@@ -1887,6 +3001,8 @@ def _vulkan_profile_disassembly(fields: dict[str, Any]) -> dict[str, Any] | None
     if not isinstance(disassembly, dict):
         return None
     return {
+        "tool": disassembly.get("tool"),
+        "policy": disassembly.get("policy"),
         "status": disassembly.get("status"),
         "path": disassembly.get("path"),
     }

@@ -1,0 +1,424 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/conformance-report-v0.schema.json",
+  "title": "CrossGL v0 Conformance Report JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "manifestSchemaVersion",
+    "suite",
+    "manifestPath",
+    "summary",
+    "entries"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "crossgl-conformance-report-v0"
+    },
+    "manifestSchemaVersion": {
+      "type": "string",
+      "const": "crossgl-conformance-manifest-v0"
+    },
+    "suite": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manifestPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "entryId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9][a-z0-9.-]*$"
+    },
+    "evidenceTestName": {
+      "type": "string",
+      "pattern": "^cglc_[A-Za-z0-9_]+$"
+    },
+    "target": {
+      "type": "string",
+      "enum": [
+        "directx",
+        "metal",
+        "opengl",
+        "vulkan"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "unsupported"
+      ]
+    },
+    "featureGroup": {
+      "type": "string",
+      "enum": [
+        "atomics",
+        "compute-basics",
+        "control-flow",
+        "graphics-stages",
+        "known-native-v0-unsupported",
+        "resources",
+        "storage-images",
+        "texture-sampling"
+      ]
+    },
+    "languageCategory": {
+      "type": "string",
+      "enum": [
+        "compute",
+        "graphics",
+        "image-operations",
+        "native-v0",
+        "resource-declarations",
+        "statements",
+        "texture-operations"
+      ]
+    },
+    "commandProfile": {
+      "type": "string",
+      "enum": [
+        "frontend-check",
+        "hir-dump",
+        "native-package-build",
+        "source-package-build",
+        "unsupported-native-v0-check"
+      ]
+    },
+    "diagnosticCode": {
+      "type": "string",
+      "enum": [
+        "parse.unsupported-resource-layout-key",
+        "parse.unsupported-var-address-space",
+        "spec.unsupported-for-native-v0"
+      ]
+    },
+    "targetFeatureEvidenceKind": {
+      "type": "string",
+      "enum": [
+        "planned-unsupported",
+        "target-metadata",
+        "target-package-explanation"
+      ]
+    },
+    "countMap": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "evidenceSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entryCount",
+        "testCount",
+        "byFeatureGroup",
+        "byEvidenceKind"
+      ],
+      "properties": {
+        "entryCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "testCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "byFeatureGroup": {
+          "$ref": "#/$defs/countMap"
+        },
+        "byEvidenceKind": {
+          "$ref": "#/$defs/countMap"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "byStatus",
+        "byFeatureGroup",
+        "byLanguageCategory",
+        "byCommandProfile",
+        "auxiliaryEvidence",
+        "targetFeatureEvidence"
+      ],
+      "properties": {
+        "total": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "byStatus": {
+          "$ref": "#/$defs/countMap"
+        },
+        "byFeatureGroup": {
+          "$ref": "#/$defs/countMap"
+        },
+        "byLanguageCategory": {
+          "$ref": "#/$defs/countMap"
+        },
+        "byCommandProfile": {
+          "$ref": "#/$defs/countMap"
+        },
+        "auxiliaryEvidence": {
+          "$ref": "#/$defs/evidenceSummary"
+        },
+        "targetFeatureEvidence": {
+          "$ref": "#/$defs/evidenceSummary"
+        },
+        "execution": {
+          "$ref": "#/$defs/executionSummary"
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "featureGroup",
+        "languageCategory",
+        "fixture",
+        "fixtureSha256",
+        "commandProfile",
+        "command",
+        "evidenceTests"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/entryId"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "featureGroup": {
+          "$ref": "#/$defs/featureGroup"
+        },
+        "languageCategory": {
+          "$ref": "#/$defs/languageCategory"
+        },
+        "fixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fixtureSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "commandProfile": {
+          "$ref": "#/$defs/commandProfile"
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceTests": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidenceTestName"
+          }
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "expectedDiagnostic": {
+          "$ref": "#/$defs/diagnosticCode"
+        },
+        "auxiliaryEvidenceTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceTestName"
+          }
+        },
+        "targetFeatureEvidenceTests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidenceTestName"
+          }
+        },
+        "targetFeatureEvidenceKinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetFeatureEvidenceKind"
+          }
+        },
+        "execution": {
+          "$ref": "#/$defs/execution"
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "exitCode",
+        "status"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exitCode": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "failed",
+            "passed",
+            "skipped"
+          ]
+        },
+        "output": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifactPreExisting": {
+          "type": "boolean"
+        },
+        "artifactExists": {
+          "type": "boolean"
+        },
+        "failure": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "diagnosticCodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnosticCode"
+          }
+        },
+        "diagnosticMatchesExpected": {
+          "type": "boolean"
+        }
+      }
+    },
+    "executionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cglc",
+        "diagnosticMismatchCount",
+        "diagnosticMismatches",
+        "entryCount",
+        "executed",
+        "failed",
+        "failures",
+        "passed",
+        "skipped",
+        "workDir"
+      ],
+      "properties": {
+        "cglc": {
+          "type": "string",
+          "minLength": 1
+        },
+        "diagnosticMismatchCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "diagnosticMismatches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnosticMismatch"
+          }
+        },
+        "entryCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "executed": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "failed": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/executionFailure"
+          }
+        },
+        "passed": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "skipped": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "workDir": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "executionFailure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "failure"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/entryId"
+        },
+        "failure": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "diagnosticMismatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "expected",
+        "actual"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/entryId"
+        },
+        "expected": {
+          "$ref": "#/$defs/diagnosticCode"
+        },
+        "actual": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnosticCode"
+          }
+        }
+      }
+    }
+  }
+}

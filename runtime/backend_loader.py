@@ -13,7 +13,12 @@ import json
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .loader import LoaderArtifactPlan, RuntimeLoaderPlan, read_loader_plan
+from .loader import (
+    LoaderArtifactPlan,
+    RuntimeLoaderPlan,
+    SourceFreeRuntimeArtifactHandoff,
+    read_loader_plan,
+)
 from .package_reader import (
     CompatibilityDiagnostic,
     NATIVE_ARTIFACT_BINARY_KINDS_BY_TARGET,
@@ -50,6 +55,19 @@ _NATIVE_OPTIMIZATION_EVIDENCE_FIELDS = (
     "debugInfo",
     "profile",
     "flags",
+)
+_TARGET_RESOURCE_BINDING_METADATA_PARITY_FIELDS = (
+    "bindingClass",
+    "descriptorType",
+    "set",
+    "binding",
+    "argumentIndex",
+    "abi",
+    "evidenceId",
+    "arrayDimensions",
+    "arrayElementCount",
+    "storageImageFormat",
+    "storageImageAccess",
 )
 
 
@@ -101,6 +119,7 @@ class SourceFreeNativeBackendLoaderPlan:
     entry_points: tuple[dict[str, Any], ...]
     resources: tuple[dict[str, Any], ...]
     target_resource_bindings: tuple[dict[str, Any], ...]
+    target_resource_binding_metadata: tuple[dict[str, Any], ...]
     workgroup_sizes: tuple[dict[str, Any], ...]
     diagnostics: tuple[CompatibilityDiagnostic, ...]
 
@@ -143,6 +162,25 @@ class SourceFreeNativeBackendLoaderPlan:
         if not messages:
             messages = f"{self.loader_name} loader plan is not ready"
         raise PackageReadError(f"{self.loader_name} loader plan rejected: {messages}")
+
+    def require_runtime_artifact_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        self.require_ready()
+        handoff = self.runtime_plan.require_runtime_artifact_handoff(
+            byte_limit=byte_limit,
+        )
+        if (
+            self.native_artifact is not None
+            and handoff.artifact_name != self.native_artifact.name
+        ):
+            raise PackageReadError(
+                f"{self.loader_name} loader selected artifact mismatch: "
+                f"{handoff.artifact_name} != {self.native_artifact.name}"
+            )
+        return handoff
 
     @property
     def native_admission_summary(self) -> dict[str, Any]:
@@ -193,14 +231,28 @@ class SourceFreeNativeBackendLoaderPlan:
                 "entryPointCount": len(self.entry_points),
                 "resourceCount": len(self.resources),
                 "targetResourceBindingCount": len(self.target_resource_bindings),
+                "targetResourceBindingMetadataCount": len(
+                    self.target_resource_binding_metadata
+                ),
                 "workgroupSizeCount": len(self.workgroup_sizes),
                 "entryPoints": list(self.entry_points),
                 "resources": list(self.resources),
                 "targetResourceBindings": list(self.target_resource_bindings),
+                "targetResourceBindingMetadata": list(
+                    self.target_resource_binding_metadata
+                ),
                 "workgroupSizes": list(self.workgroup_sizes),
             },
+            "targetResourceBindingMetadata": (
+                self.runtime_plan.target_resource_binding_metadata_summary
+            ),
             "graphicsDescriptorBindings": (
                 self.runtime_plan.compatibility_report.graphics_descriptor_bindings
+            ),
+            "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
+                self.runtime_plan,
+                target=self.target,
+                target_resource_bindings=self.target_resource_bindings,
             ),
             "sourceInputs": [],
             "runtimePlan": self.runtime_plan.to_summary(),
@@ -237,6 +289,9 @@ def plan_source_free_native_backend_loader(
     entry_points = _reflection_records(runtime_plan, "entryPoints")
     resources = _reflection_records(runtime_plan, "resources")
     target_resource_bindings = _target_resource_bindings(runtime_plan, target)
+    target_resource_binding_metadata = (
+        runtime_plan.target_resource_binding_metadata_records(target=target)
+    )
     workgroup_sizes = runtime_plan.workgroup_sizes
 
     diagnostics.extend(
@@ -248,6 +303,7 @@ def plan_source_free_native_backend_loader(
             entry_points=entry_points,
             resources=resources,
             target_resource_bindings=target_resource_bindings,
+            target_resource_binding_metadata=target_resource_binding_metadata,
         )
     )
 
@@ -264,6 +320,7 @@ def plan_source_free_native_backend_loader(
         entry_points=entry_points,
         resources=resources,
         target_resource_bindings=target_resource_bindings,
+        target_resource_binding_metadata=target_resource_binding_metadata,
         workgroup_sizes=workgroup_sizes,
         diagnostics=tuple(diagnostics),
     )
@@ -278,6 +335,7 @@ def _native_backend_loader_boundary_diagnostics(
     entry_points: tuple[dict[str, Any], ...],
     resources: tuple[dict[str, Any], ...],
     target_resource_bindings: tuple[dict[str, Any], ...],
+    target_resource_binding_metadata: tuple[dict[str, Any], ...],
 ) -> tuple[CompatibilityDiagnostic, ...]:
     diagnostics: list[CompatibilityDiagnostic] = list(
         _native_artifact_descriptor_admission_diagnostics(
@@ -427,6 +485,14 @@ def _native_backend_loader_boundary_diagnostics(
                 target_resource_bindings=target_resource_bindings,
             )
         )
+
+    diagnostics.extend(
+        _target_resource_binding_metadata_drift_diagnostics(
+            target=target,
+            target_resource_bindings=target_resource_bindings,
+            target_resource_binding_metadata=target_resource_binding_metadata,
+        )
+    )
 
     return tuple(diagnostics)
 
@@ -719,6 +785,14 @@ def _native_admission_summary(
         ),
         "nativeArtifact": artifact_admission,
         "nativeArtifactDescriptor": descriptor_admission,
+        "targetResourceBindingMetadata": (
+            _target_resource_binding_metadata_admission_summary(plan)
+        ),
+        "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
+            plan.runtime_plan,
+            target=plan.target,
+            target_resource_bindings=plan.target_resource_bindings,
+        ),
         "runtimeSelection": {
             "requestedPackageMode": (
                 plan.runtime_plan.runtime_artifact_selection.requested_package_mode
@@ -1158,6 +1232,465 @@ def _target_resource_binding_drift_diagnostics(
         )
 
     return tuple(diagnostics)
+
+
+def _target_resource_binding_metadata_admission_summary(
+    plan: SourceFreeNativeBackendLoaderPlan,
+) -> dict[str, Any]:
+    parity = _target_resource_binding_metadata_parity(
+        target=plan.target,
+        target_resource_bindings=plan.target_resource_bindings,
+        target_resource_binding_metadata=plan.target_resource_binding_metadata,
+    )
+    diagnostics = [
+        diagnostic.to_summary()
+        for diagnostic in plan.diagnostics
+        if _diagnostic_matches_target_binding_metadata(diagnostic)
+    ]
+    blocking_diagnostics = [
+        diagnostic
+        for diagnostic in diagnostics
+        if diagnostic.get("severity") in {"error", "skip"}
+    ]
+    identity_matches = parity["identityMatches"]
+    content_matches = parity["contentMatches"]
+    if (
+        identity_matches is True
+        and content_matches is True
+        and not blocking_diagnostics
+    ):
+        decision = "accepted"
+        status = "matched"
+        reason = "runtime.target_resource_binding_metadata.accepted"
+        message = "target resource binding metadata matches selected bindings"
+    else:
+        decision = "rejected"
+        status = (
+            "mismatched"
+            if identity_matches is False or content_matches is False
+            else "not-checkable"
+        )
+        reason = (
+            blocking_diagnostics[0]["code"]
+            if blocking_diagnostics
+            else "runtime.target_resource_binding_metadata.mismatched"
+        )
+        message = (
+            blocking_diagnostics[0]["message"]
+            if blocking_diagnostics
+            else "target resource binding metadata does not match selected bindings"
+        )
+
+    return {
+        "schemaVersion": 1,
+        "decision": decision,
+        "status": status,
+        "reason": reason,
+        "message": message,
+        "target": plan.target,
+        "targetResourceBindingCount": len(plan.target_resource_bindings),
+        "metadataBindingCount": len(plan.target_resource_binding_metadata),
+        "identityMatches": identity_matches,
+        "contentMatches": content_matches,
+        "missingMetadataBindingCount": len(parity["missingMetadataBindings"]),
+        "staleMetadataBindingCount": len(parity["staleMetadataBindings"]),
+        "mismatchedMetadataBindingCount": len(parity["mismatchedMetadataBindings"]),
+        "missingMetadataBindings": parity["missingMetadataBindings"],
+        "staleMetadataBindings": parity["staleMetadataBindings"],
+        "mismatchedMetadataBindings": parity["mismatchedMetadataBindings"],
+        "diagnosticCodes": [
+            diagnostic["code"]
+            for diagnostic in diagnostics
+            if isinstance(diagnostic.get("code"), str)
+        ],
+        "diagnostics": diagnostics,
+    }
+
+
+def _target_resource_binding_metadata_drift_diagnostics(
+    *,
+    target: str,
+    target_resource_bindings: tuple[dict[str, Any], ...],
+    target_resource_binding_metadata: tuple[dict[str, Any], ...],
+) -> tuple[CompatibilityDiagnostic, ...]:
+    parity = _target_resource_binding_metadata_parity(
+        target=target,
+        target_resource_bindings=target_resource_bindings,
+        target_resource_binding_metadata=target_resource_binding_metadata,
+    )
+    diagnostics: list[CompatibilityDiagnostic] = []
+
+    for identity in parity["missingMetadataBindings"]:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=f"{target}_loader.reflection.target_binding_metadata_missing",
+                message=(
+                    f"{target} native loader requires every selected-target "
+                    "resource binding to have loader-facing binding metadata"
+                ),
+                document="reflection",
+                path="targetResourceBindingMetadata.bindings",
+                expected=identity,
+                actual="missing",
+            )
+        )
+
+    for identity in parity["staleMetadataBindings"]:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=f"{target}_loader.reflection.target_binding_metadata_stale",
+                message=(
+                    f"{target} native loader requires loader-facing binding "
+                    "metadata to match a selected-target resource binding"
+                ),
+                document="reflection",
+                path="targetResourceBindings",
+                expected=identity,
+                actual="missing",
+            )
+        )
+
+    for mismatch in parity["mismatchedMetadataBindings"]:
+        identity = mismatch["identity"]
+        fields = mismatch["fields"]
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=f"{target}_loader.reflection.target_binding_metadata_mismatch",
+                message=(
+                    f"{target} native loader requires loader-facing binding "
+                    "metadata coordinates to match selected-target resource "
+                    "bindings"
+                ),
+                document="reflection",
+                path="targetResourceBindingMetadata.bindings",
+                expected={
+                    "identity": identity,
+                    "fields": {field["field"]: field["expected"] for field in fields},
+                },
+                actual={
+                    "identity": identity,
+                    "fields": {field["field"]: field["actual"] for field in fields},
+                },
+            )
+        )
+
+    return tuple(diagnostics)
+
+
+def _target_resource_binding_metadata_parity(
+    *,
+    target: str,
+    target_resource_bindings: tuple[dict[str, Any], ...],
+    target_resource_binding_metadata: tuple[dict[str, Any], ...],
+) -> dict[str, Any]:
+    binding_records = _target_resource_binding_metadata_key_map(
+        target=target,
+        records=target_resource_bindings,
+    )
+    metadata_records = _target_resource_binding_metadata_key_map(
+        target=target,
+        records=target_resource_binding_metadata,
+    )
+    binding_keys = set(binding_records)
+    metadata_keys = set(metadata_records)
+    missing_metadata_keys = tuple(sorted(binding_keys - metadata_keys))
+    stale_metadata_keys = tuple(sorted(metadata_keys - binding_keys))
+    mismatched_metadata_bindings = [
+        {
+            "identity": _target_resource_binding_metadata_identity_summary(key),
+            "fields": mismatches,
+        }
+        for key in sorted(binding_keys & metadata_keys)
+        if (
+            mismatches := _target_resource_binding_metadata_content_mismatches(
+                binding_records[key],
+                metadata_records[key],
+            )
+        )
+    ]
+    identity_matches = not missing_metadata_keys and not stale_metadata_keys
+    content_matches = not mismatched_metadata_bindings
+    return {
+        "identityMatches": identity_matches,
+        "contentMatches": content_matches,
+        "missingMetadataBindings": [
+            _target_resource_binding_metadata_identity_summary(key)
+            for key in missing_metadata_keys
+        ],
+        "staleMetadataBindings": [
+            _target_resource_binding_metadata_identity_summary(key)
+            for key in stale_metadata_keys
+        ],
+        "mismatchedMetadataBindings": mismatched_metadata_bindings,
+    }
+
+
+def _diagnostic_matches_target_binding_metadata(
+    diagnostic: CompatibilityDiagnostic,
+) -> bool:
+    return (
+        diagnostic.path == "targetResourceBindingMetadata.bindings"
+        or diagnostic.code.endswith(".target_binding_metadata_missing")
+        or diagnostic.code.endswith(".target_binding_metadata_stale")
+        or diagnostic.code.endswith(".target_binding_metadata_mismatch")
+    )
+
+
+def _graphics_abi_reflection_parity_summary(
+    runtime_plan: RuntimeLoaderPlan,
+    *,
+    target: str,
+    target_resource_bindings: tuple[dict[str, Any], ...] | None = None,
+) -> dict[str, Any]:
+    graphics_descriptor_bindings = (
+        runtime_plan.compatibility_report.graphics_descriptor_bindings
+    )
+    if target_resource_bindings is None:
+        target_resource_bindings = _target_resource_bindings(runtime_plan, target)
+
+    reflection_bindings = tuple(
+        _graphics_abi_boundary_binding(record, target=target)
+        for record in target_resource_bindings
+    )
+    graphics_abi_declared = bool(
+        graphics_descriptor_bindings.get("graphicsAbiDeclared")
+    )
+    source = graphics_descriptor_bindings.get("source")
+    graphics_abi_bindings = (
+        tuple(
+            _graphics_abi_boundary_binding(record, target=target)
+            for record in _object_records(graphics_descriptor_bindings.get("bindings"))
+        )
+        if graphics_abi_declared and source == "graphicsAbi.abiRecords"
+        else ()
+    )
+    reflection_keys = _graphics_abi_binding_key_map(reflection_bindings)
+    graphics_abi_keys = _graphics_abi_binding_key_map(graphics_abi_bindings)
+    missing_graphics_abi_keys = tuple(
+        sorted(reflection_keys.keys() - graphics_abi_keys.keys())
+    )
+    stale_graphics_abi_keys = tuple(
+        sorted(graphics_abi_keys.keys() - reflection_keys.keys())
+    )
+    parity_checked = graphics_abi_declared and source == "graphicsAbi.abiRecords"
+    identity_matches = (
+        not missing_graphics_abi_keys and not stale_graphics_abi_keys
+        if parity_checked
+        else None
+    )
+    diagnostics = [
+        diagnostic.to_summary()
+        for diagnostic in runtime_plan.diagnostics
+        if diagnostic.document == "graphicsAbi" or diagnostic.artifact == "graphicsAbi"
+    ]
+
+    return {
+        "schemaVersion": 1,
+        "target": target,
+        "source": source,
+        "graphicsAbiDeclared": graphics_abi_declared,
+        "parityChecked": parity_checked,
+        "identityMatches": identity_matches,
+        "status": _graphics_abi_parity_status(
+            graphics_abi_declared=graphics_abi_declared,
+            parity_checked=parity_checked,
+            identity_matches=identity_matches,
+        ),
+        "reflectionBindingCount": len(reflection_bindings),
+        "graphicsAbiBindingCount": len(graphics_abi_bindings),
+        "missingGraphicsAbiBindingCount": len(missing_graphics_abi_keys),
+        "staleGraphicsAbiBindingCount": len(stale_graphics_abi_keys),
+        "missingGraphicsAbiBindings": [
+            _graphics_abi_binding_identity_summary(target, key)
+            for key in missing_graphics_abi_keys
+        ],
+        "staleGraphicsAbiBindings": [
+            _graphics_abi_binding_identity_summary(target, key)
+            for key in stale_graphics_abi_keys
+        ],
+        "diagnosticCodes": [
+            diagnostic["code"]
+            for diagnostic in diagnostics
+            if isinstance(diagnostic.get("code"), str)
+        ],
+        "diagnostics": diagnostics,
+    }
+
+
+def _graphics_abi_parity_status(
+    *,
+    graphics_abi_declared: bool,
+    parity_checked: bool,
+    identity_matches: bool | None,
+) -> str:
+    if not graphics_abi_declared:
+        return "not-declared"
+    if not parity_checked:
+        return "not-checkable"
+    if identity_matches:
+        return "matched"
+    return "mismatched"
+
+
+def _graphics_abi_binding_key_map(
+    records: tuple[dict[str, Any], ...],
+) -> dict[tuple[str, str, str, str | None], dict[str, Any]]:
+    mapping: dict[tuple[str, str, str, str | None], dict[str, Any]] = {}
+    for record in records:
+        key = _graphics_abi_binding_identity(record)
+        if key is not None and key not in mapping:
+            mapping[key] = record
+    return mapping
+
+
+def _graphics_abi_binding_identity(
+    record: dict[str, Any],
+) -> tuple[str, str, str, str | None] | None:
+    stage = record.get("stage")
+    entry_point = record.get("entryPoint")
+    name = record.get("name")
+    kind = record.get("kind")
+    if (
+        not isinstance(stage, str)
+        or not stage
+        or not isinstance(entry_point, str)
+        or not entry_point
+        or not isinstance(name, str)
+        or not name
+    ):
+        return None
+    return stage, entry_point, name, kind if isinstance(kind, str) else None
+
+
+def _graphics_abi_boundary_binding(
+    record: dict[str, Any],
+    *,
+    target: str,
+) -> dict[str, Any]:
+    summary = {
+        field_name: record[field_name]
+        for field_name in (
+            "target",
+            "stage",
+            "entryPoint",
+            "name",
+            "kind",
+            "abi",
+            "evidenceId",
+            "bindingClass",
+            "descriptorType",
+            "set",
+            "binding",
+            "argumentIndex",
+            "space",
+            "register",
+            "program",
+        )
+        if field_name in record
+    }
+    if "target" not in summary:
+        summary["target"] = target
+    return summary
+
+
+def _graphics_abi_binding_identity_summary(
+    target: str,
+    key: tuple[str, str, str, str | None],
+) -> dict[str, Any]:
+    stage, entry_point, name, kind = key
+    return {
+        "target": target,
+        "stage": stage,
+        "entryPoint": entry_point,
+        "name": name,
+        "kind": kind,
+    }
+
+
+def _target_resource_binding_metadata_identity(
+    record: dict[str, Any],
+) -> tuple[str, str, str, str, str | None] | None:
+    target = record.get("target")
+    stage = record.get("stage")
+    entry_point = record.get("entryPoint")
+    name = record.get("name")
+    kind = record.get("kind")
+    if (
+        not isinstance(target, str)
+        or not target
+        or not isinstance(stage, str)
+        or not stage
+        or not isinstance(entry_point, str)
+        or not entry_point
+        or not isinstance(name, str)
+        or not name
+    ):
+        return None
+    return target, stage, entry_point, name, kind if isinstance(kind, str) else None
+
+
+def _target_resource_binding_metadata_key_map(
+    *,
+    target: str,
+    records: tuple[dict[str, Any], ...],
+) -> dict[tuple[str, str, str, str, str | None], dict[str, Any]]:
+    mapping: dict[tuple[str, str, str, str, str | None], dict[str, Any]] = {}
+    for record in records:
+        key = _target_resource_binding_metadata_identity(record)
+        if key is not None and key[0] == target and key not in mapping:
+            mapping[key] = record
+    return mapping
+
+
+def _target_resource_binding_metadata_content_mismatches(
+    binding: dict[str, Any],
+    metadata: dict[str, Any],
+) -> list[dict[str, Any]]:
+    mismatches: list[dict[str, Any]] = []
+    for field_name in _TARGET_RESOURCE_BINDING_METADATA_PARITY_FIELDS:
+        expected = _target_resource_binding_metadata_field_value(binding, field_name)
+        actual = _target_resource_binding_metadata_field_value(metadata, field_name)
+        if expected == actual:
+            continue
+        mismatches.append(
+            {
+                "field": field_name,
+                "expected": expected,
+                "actual": actual,
+            }
+        )
+    return mismatches
+
+
+def _target_resource_binding_metadata_field_value(
+    record: dict[str, Any],
+    field_name: str,
+) -> Any:
+    value = record.get(field_name)
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, list):
+        return list(value)
+    return value
+
+
+def _target_resource_binding_metadata_identity_summary(
+    key: tuple[str, str, str, str, str | None],
+) -> dict[str, Any]:
+    target, stage, entry_point, name, kind = key
+    return {
+        "target": target,
+        "stage": stage,
+        "entryPoint": entry_point,
+        "name": name,
+        "kind": kind,
+    }
+
+
+def _object_records(value: Any) -> tuple[dict[str, Any], ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(record for record in value if isinstance(record, dict))
 
 
 def _reflection_resource_key(

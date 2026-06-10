@@ -14,6 +14,7 @@ import hashlib
 import json
 from pathlib import Path
 from pathlib import PurePosixPath
+import re
 import sys
 from typing import Any
 import zipfile
@@ -87,8 +88,10 @@ MANIFEST_ARTIFACT_KEYS = frozenset(
         "nativeArtifactDescriptor",
         "nativeBinaryStatus",
         "debugMetadata",
+        "backendSourceMap",
         "graphicsAbi",
         "hirSourceMap",
+        "sourceRemap",
         "targetExplanation",
     )
 )
@@ -98,10 +101,14 @@ SUPPORTED_NATIVE_ARTIFACT_DESCRIPTOR_SCHEMA_VERSION = 1
 SUPPORTED_NATIVE_PROFILE_SCHEMA_VERSION = 1
 SUPPORTED_PACKAGE_SCHEMA_VERSION = 1
 SUPPORTED_PACKAGE_TARGET_CONTRACT_SCHEMA_VERSION = 1
+SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION = 1
 SOURCE_ARTIFACT_NAMES = ("backendSource",)
 SOURCE_PACKAGE_MODE = "source-package"
 NATIVE_ARTIFACT_DESCRIPTOR_KIND = "crossgl.nativeArtifact"
 NATIVE_ARTIFACT_DESCRIPTOR_CONTRACT_VERSION = "native-artifact-v0"
+SOURCE_REMAP_PROVENANCE_KIND = "crossgl.sourceRemapProvenance"
+SOURCE_REMAP_PROVENANCE_CONTRACT_VERSION = "source-remap-provenance-v1"
+SOURCE_REMAP_PROVENANCE_MAPPING_GRANULARITY = "source-span"
 NATIVE_ARTIFACT_DESCRIPTOR_FIELDS = frozenset(
     (
         "schemaVersion",
@@ -200,6 +207,7 @@ REFLECTION_RUNTIME_COLLECTIONS = {
     "resources": "resources",
     "targetResourceBindings": "target_resource_bindings",
     "targetFeatures": "target_features",
+    "functionConstants": "function_constants",
 }
 REFLECTION_WORKGROUP_SIZE_FIELDS = (
     "stage",
@@ -216,7 +224,17 @@ REFLECTION_REQUIRED_STRING_FIELDS = {
     "resources": ("stage", "name", "kind"),
     "targetResourceBindings": ("stage", "entryPoint", "name", "kind"),
     "targetFeatures": ("kind", "name"),
+    "functionConstants": ("name", "type"),
 }
+TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
+TARGET_FEATURE_EVIDENCE_TARGETS = frozenset(("metal", "vulkan", "directx", "opengl"))
+TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl)\."
+    r"(?:(?:capability\.(?:required|missing)\."
+    r"(?P<capability_target>metal|vulkan|directx|opengl)\.[A-Za-z0-9_.-]+)"
+    r"|(?:abi\.(?:required|missing)\.[A-Za-z0-9_.-]+))$"
+)
 TARGET_RESOURCE_BINDING_ABI_EXPECTATIONS = {
     "directx": (
         "DirectX register ABI object with integer space and register string, "
@@ -352,6 +370,8 @@ class GraphicsAbiRecord:
     entry_points: tuple[dict[str, Any], ...]
     resources: tuple[dict[str, Any], ...]
     abi_records: tuple[dict[str, Any], ...]
+    canonical_binding_records: tuple[dict[str, Any], ...]
+    canonical_binding_collection: str
     descriptor_bindings: tuple[dict[str, Any], ...]
     stage_count: int
     stage_record_counts: dict[str, int]
@@ -1015,6 +1035,21 @@ class PackageCompatibilityReport:
         """Return reflected compute workgroup sizes from metadata only."""
         return _workgroup_size_records(self.reflection)
 
+    @property
+    def function_constants(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected function constants from metadata only."""
+        return _function_constant_records(self.reflection)
+
+    def function_constant(self, name: str) -> dict[str, Any] | None:
+        """Find reflected function constant metadata by name."""
+        return _find_function_constant(self.reflection, name)
+
+    def require_function_constant(self, name: str) -> dict[str, Any]:
+        function_constant = self.function_constant(name)
+        if function_constant is None:
+            raise PackageReadError(f"missing reflection function constant: name={name}")
+        return function_constant
+
     def workgroup_size(self, stage: str, entry_point: str) -> dict[str, Any] | None:
         """Find reflected workgroup size by stage and source/backend entry name."""
         return _find_workgroup_size(self.reflection, stage, entry_point)
@@ -1031,6 +1066,10 @@ class PackageCompatibilityReport:
     @property
     def workgroup_size_summary(self) -> dict[str, Any]:
         return _workgroup_size_summary(self.reflection)
+
+    @property
+    def function_constant_summary(self) -> dict[str, Any]:
+        return _function_constant_summary(self.reflection)
 
     @property
     def availability_summary(self) -> dict[str, Any]:
@@ -1230,6 +1269,7 @@ class PackageCompatibilityReport:
             ],
             "reflection": self.reflection_availability,
             "workgroupSizes": self.workgroup_size_summary,
+            "functionConstants": self.function_constant_summary,
             "diagnosticsMetadata": self.diagnostics_availability,
             "debugMetadata": self.debug_metadata_availability,
             "graphicsAbi": self.graphics_abi_availability,
@@ -1620,6 +1660,21 @@ class RuntimePackage:
         """Return reflected compute workgroup sizes without artifact decoding."""
         return _workgroup_size_records(self.reflection)
 
+    @property
+    def function_constants(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected function constants without artifact decoding."""
+        return _function_constant_records(self.reflection)
+
+    def function_constant(self, name: str) -> dict[str, Any] | None:
+        """Find reflected function constant metadata by name."""
+        return _find_function_constant(self.reflection, name)
+
+    def require_function_constant(self, name: str) -> dict[str, Any]:
+        function_constant = self.function_constant(name)
+        if function_constant is None:
+            raise PackageReadError(f"missing reflection function constant: name={name}")
+        return function_constant
+
     def workgroup_size(self, stage: str, entry_point: str) -> dict[str, Any] | None:
         """Find reflected workgroup size by stage and source/backend entry name."""
         return _find_workgroup_size(self.reflection, stage, entry_point)
@@ -1718,6 +1773,7 @@ class RuntimePackage:
             "artifacts": [artifact.to_summary() for artifact in self.artifacts],
             "entryPoints": self.reflection.get("entryPoints", []),
             "workgroupSizes": list(self.workgroup_sizes),
+            "functionConstants": list(self.function_constants),
             "diagnosticCount": len(diagnostics) if isinstance(diagnostics, list) else 0,
             "debugMetadata": _debug_metadata_availability_summary(
                 self.debug_metadata_artifact(), debug_metadata_record
@@ -3285,6 +3341,12 @@ def _build_compatibility_report(
         target_contract=contract,
         unreadable_documents=unreadable_documents,
     )
+    _append_source_remap_provenance_diagnostics(
+        diagnostics,
+        target=target,
+        artifacts=artifacts,
+        unreadable_documents=unreadable_documents,
+    )
 
     debug_metadata_record = (
         _debug_metadata_record(debug_metadata) if debug_metadata is not None else None
@@ -3498,6 +3560,14 @@ def _append_reflection_consistency_diagnostics(
     _append_reflection_target_record_diagnostics(
         diagnostics,
         target=target,
+        reflection=reflection,
+    )
+    _append_reflection_target_feature_evidence_diagnostics(
+        diagnostics,
+        reflection=reflection,
+    )
+    _append_reflection_function_constant_diagnostics(
+        diagnostics,
         reflection=reflection,
     )
     _append_reflection_target_binding_duplicate_diagnostics(
@@ -3720,6 +3790,182 @@ def _append_reflection_target_record_diagnostics(
                     actual=record_target,
                 )
             )
+
+
+def _append_reflection_target_feature_evidence_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    reflection: dict[str, Any],
+) -> None:
+    seen: dict[str, str] = {}
+    for feature_index, feature in enumerate(
+        _json_object_list(reflection.get("targetFeatures"))
+    ):
+        feature_target = feature.get("target")
+        if feature_target not in TARGET_FEATURE_EVIDENCE_TARGETS:
+            continue
+        evidence_ids = feature.get("evidenceIds", [])
+        if evidence_ids is None:
+            continue
+        if not isinstance(evidence_ids, list):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.reflection.target_feature_evidence_ids_invalid",
+                    message="reflection.targetFeatures evidenceIds must be an array",
+                    document="reflection",
+                    path=f"targetFeatures[{feature_index}].evidenceIds",
+                    expected="array",
+                    actual=_json_type_name(evidence_ids),
+                )
+            )
+            continue
+        for evidence_index, evidence_id in enumerate(evidence_ids):
+            evidence_path = (
+                f"targetFeatures[{feature_index}].evidenceIds[{evidence_index}]"
+            )
+            if not isinstance(evidence_id, str) or not evidence_id:
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=("package.reflection.target_feature_evidence_id_invalid"),
+                        message=(
+                            "reflection.targetFeatures evidenceIds entries must be "
+                            "non-empty strings"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected="non-empty string",
+                        actual=_contract_actual_value(evidence_id),
+                    )
+                )
+                continue
+            if evidence_id in seen:
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=(
+                            "package.reflection.target_feature_evidence_id_duplicate"
+                        ),
+                        message=(
+                            "reflection.targetFeatures evidenceIds must be unique "
+                            "across targetFeatures"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected="unique target feature evidence id",
+                        actual={
+                            "duplicateOf": seen[evidence_id],
+                            "evidenceId": evidence_id,
+                        },
+                    )
+                )
+            else:
+                seen[evidence_id] = evidence_path
+
+            match = TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE.fullmatch(
+                evidence_id
+            )
+            if match is None:
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=("package.reflection.target_feature_evidence_id_invalid"),
+                        message=(
+                            "reflection.targetFeatures evidenceIds entries must be "
+                            "target legalization target feature evidence ids"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected=(
+                            "target-legalization.v1.<target>."
+                            "{capability.required|capability.missing|"
+                            "abi.required|abi.missing}.*"
+                        ),
+                        actual=evidence_id,
+                    )
+                )
+                continue
+
+            if not isinstance(feature_target, str) or not feature_target:
+                continue
+            expected_prefix = f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{feature_target}."
+            if not evidence_id.startswith(expected_prefix):
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=(
+                            "package.reflection."
+                            "target_feature_evidence_id_target_mismatch"
+                        ),
+                        message=(
+                            "reflection.targetFeatures evidenceIds must start with "
+                            "the feature target legalization prefix"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected=expected_prefix,
+                        actual=evidence_id,
+                    )
+                )
+                continue
+
+            capability_target = match.group("capability_target")
+            if capability_target is not None and capability_target != feature_target:
+                diagnostics.append(
+                    CompatibilityDiagnostic(
+                        code=(
+                            "package.reflection."
+                            "target_feature_evidence_id_capability_target_mismatch"
+                        ),
+                        message=(
+                            "reflection.targetFeatures capability evidence target "
+                            "must match the feature target"
+                        ),
+                        document="reflection",
+                        path=evidence_path,
+                        expected=feature_target,
+                        actual=capability_target,
+                    )
+                )
+
+
+def _append_reflection_function_constant_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    reflection: dict[str, Any],
+) -> None:
+    for index, record in enumerate(
+        _json_object_list(reflection.get("functionConstants"))
+    ):
+        value = record.get("value")
+        if value is not None and not isinstance(value, str):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.reflection.function_constants_value_invalid",
+                    message="reflection.functionConstants value must be a string",
+                    document="reflection",
+                    path=f"functionConstants[{index}].value",
+                    expected="string",
+                    actual=_contract_actual_value(value),
+                )
+            )
+
+        specialization_id = record.get("specializationId")
+        if specialization_id is None:
+            continue
+        if type(specialization_id) is int and specialization_id >= 0:
+            continue
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=(
+                    "package.reflection.function_constants_specialization_id_invalid"
+                ),
+                message=(
+                    "reflection.functionConstants specializationId must be "
+                    "a non-negative integer"
+                ),
+                document="reflection",
+                path=f"functionConstants[{index}].specializationId",
+                expected="non-negative integer",
+                actual=_contract_actual_value(specialization_id),
+            )
+        )
 
 
 def _append_reflection_target_binding_duplicate_diagnostics(
@@ -3949,7 +4195,9 @@ def _append_graphics_abi_binding_diagnostics(
         return
 
     seen: dict[tuple[str, str, str, str | None], int] = {}
-    for index, record in enumerate(graphics_abi.abi_records):
+    binding_path_prefix = graphics_abi.canonical_binding_collection
+    for index, record in enumerate(graphics_abi.canonical_binding_records):
+        record_path = f"{binding_path_prefix}[{index}]"
         if record.get("target") != target:
             diagnostics.append(
                 CompatibilityDiagnostic(
@@ -3957,7 +4205,7 @@ def _append_graphics_abi_binding_diagnostics(
                     message="graphics ABI resource binding target must match package target",
                     document="graphicsAbi",
                     artifact="graphicsAbi",
-                    path=f"abiRecords[{index}].target",
+                    path=f"{record_path}.target",
                     expected=target,
                     actual=record.get("target"),
                 )
@@ -3971,7 +4219,7 @@ def _append_graphics_abi_binding_diagnostics(
                     message="graphics ABI resource binding ABI metadata does not match package target",
                     document="graphicsAbi",
                     artifact="graphicsAbi",
-                    path=f"abiRecords[{index}].abi",
+                    path=f"{record_path}.abi",
                     expected=TARGET_RESOURCE_BINDING_ABI_EXPECTATIONS.get(target),
                     actual=_target_resource_binding_abi_actual(record),
                 )
@@ -3989,7 +4237,7 @@ def _append_graphics_abi_binding_diagnostics(
                 message="graphics ABI resource binding records must be unique",
                 document="graphicsAbi",
                 artifact="graphicsAbi",
-                path=f"abiRecords[{index}]",
+                path=record_path,
                 expected={
                     "uniqueGraphicsBinding": {
                         "target": target,
@@ -3999,7 +4247,7 @@ def _append_graphics_abi_binding_diagnostics(
                         "kind": key[3],
                     }
                 },
-                actual={"duplicateOf": f"abiRecords[{seen[key]}]"},
+                actual={"duplicateOf": f"{binding_path_prefix}[{seen[key]}]"},
             )
         )
 
@@ -4011,7 +4259,7 @@ def _append_graphics_abi_binding_diagnostics(
     }
     graphics_abi_keys = {
         key
-        for record in graphics_abi.abi_records
+        for record in graphics_abi.canonical_binding_records
         if record.get("target") == target
         if (key := _target_resource_binding_identity(record)) is not None
     }
@@ -4022,7 +4270,7 @@ def _append_graphics_abi_binding_diagnostics(
                 message="graphics ABI sidecar is missing a reflected target resource binding",
                 document="graphicsAbi",
                 artifact="graphicsAbi",
-                path="abiRecords",
+                path=binding_path_prefix,
                 expected={
                     "target": target,
                     "stage": stage,
@@ -4040,7 +4288,7 @@ def _append_graphics_abi_binding_diagnostics(
                 message="graphics ABI resource binding does not match reflection targetResourceBindings",
                 document="graphicsAbi",
                 artifact="graphicsAbi",
-                path="abiRecords",
+                path=binding_path_prefix,
                 expected={
                     "targetResourceBindings": {
                         "target": target,
@@ -4060,7 +4308,7 @@ def _graphics_abi_has_canonical_binding_records(
 ) -> bool:
     return any(
         isinstance(record.get("target"), str) or isinstance(record.get("abi"), str)
-        for record in graphics_abi.abi_records
+        for record in graphics_abi.canonical_binding_records
     )
 
 
@@ -4291,6 +4539,290 @@ def _append_native_artifact_descriptor_diagnostics(
         native_binary_artifact=_artifact_by_name(artifacts, "nativeBinary"),
         native_binary_status=native_binary_status,
     )
+
+
+def _append_source_remap_provenance_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    target: str | None,
+    artifacts: tuple[Artifact, ...],
+    unreadable_documents: frozenset[str],
+) -> None:
+    if "manifest" in unreadable_documents:
+        return
+
+    provenance_artifact = _artifact_by_name(artifacts, "sourceRemap")
+    if provenance_artifact is None:
+        return
+
+    provenance = _read_declared_artifact_json_object_for_report(
+        provenance_artifact,
+        root_file_name="source remap provenance",
+        document="sourceRemap",
+        diagnostic_prefix="package.source_remap_provenance",
+        diagnostics=diagnostics,
+    )
+    if provenance is None:
+        return
+
+    _append_source_remap_provenance_identity_diagnostics(
+        diagnostics,
+        provenance=provenance,
+        target=target,
+    )
+    _append_source_remap_provenance_source_diagnostics(
+        diagnostics,
+        provenance=provenance,
+    )
+
+
+def _append_source_remap_provenance_identity_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    provenance: dict[str, Any],
+    target: str | None,
+) -> None:
+    schema_version = provenance.get("schemaVersion")
+    if schema_version is None:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.schema_version_missing",
+                message="sourceRemap provenance schemaVersion is required",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="schemaVersion",
+                expected=SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION,
+                actual="missing",
+            )
+        )
+    elif _schema_version_is_malformed(schema_version):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.schema_version_invalid",
+                message="sourceRemap provenance schemaVersion must be an integer",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="schemaVersion",
+                expected=SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION,
+                actual=_contract_actual_value(schema_version),
+            )
+        )
+    elif schema_version != SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.schema_incompatible",
+                message=(
+                    "sourceRemap provenance schemaVersion is not supported by "
+                    "this runtime"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="schemaVersion",
+                expected=SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION,
+                actual=schema_version,
+            )
+        )
+
+    for field_name, expected in (
+        ("kind", SOURCE_REMAP_PROVENANCE_KIND),
+        ("contractVersion", SOURCE_REMAP_PROVENANCE_CONTRACT_VERSION),
+    ):
+        actual = provenance.get(field_name)
+        if actual == expected:
+            continue
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=(
+                    "package.source_remap_provenance."
+                    f"{_snake_case(field_name)}_mismatch"
+                ),
+                message=(
+                    f"sourceRemap provenance {field_name} does not match the "
+                    "runtime contract"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path=field_name,
+                expected=expected,
+                actual=_contract_actual_value(actual),
+            )
+        )
+
+    provenance_target = provenance.get("target")
+    if target is not None and provenance_target != target:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.target_mismatch",
+                message="sourceRemap provenance target does not match manifest.target",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="target",
+                expected=target,
+                actual=_contract_actual_value(provenance_target),
+            )
+        )
+
+    generated_file = provenance.get("generatedFile")
+    if not _is_stable_relative_posix_path(generated_file):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.generated_file_invalid",
+                message=(
+                    "sourceRemap provenance generatedFile must be a stable "
+                    "relative POSIX path"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="generatedFile",
+                expected="stable relative POSIX path",
+                actual=_contract_actual_value(generated_file),
+            )
+        )
+
+    mapping_granularity = provenance.get("mappingGranularity")
+    if mapping_granularity != SOURCE_REMAP_PROVENANCE_MAPPING_GRANULARITY:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.mapping_granularity_mismatch",
+                message="sourceRemap provenance mappingGranularity must be source-span",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="mappingGranularity",
+                expected=SOURCE_REMAP_PROVENANCE_MAPPING_GRANULARITY,
+                actual=_contract_actual_value(mapping_granularity),
+            )
+        )
+
+    mapping_count = provenance.get("mappingCount")
+    if not isinstance(mapping_count, int) or isinstance(mapping_count, bool):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.mapping_count_invalid",
+                message="sourceRemap provenance mappingCount must be a positive integer",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="mappingCount",
+                expected="positive integer",
+                actual=_contract_actual_value(mapping_count),
+            )
+        )
+    elif mapping_count <= 0:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.mapping_count_invalid",
+                message="sourceRemap provenance mappingCount must be positive",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="mappingCount",
+                expected="positive integer",
+                actual=mapping_count,
+            )
+        )
+
+
+def _append_source_remap_provenance_source_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    provenance: dict[str, Any],
+) -> None:
+    source_remap = provenance.get("sourceRemap")
+    if not isinstance(source_remap, dict):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.source_remap_invalid",
+                message="sourceRemap provenance sourceRemap must be an object",
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="sourceRemap",
+                expected="object",
+                actual=_json_type_name(source_remap),
+            )
+        )
+        return
+
+    source_path = source_remap.get("path")
+    if not _is_stable_relative_posix_path(source_path):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.source_path_invalid",
+                message=(
+                    "sourceRemap provenance sourceRemap.path must be a stable "
+                    "relative POSIX path"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="sourceRemap.path",
+                expected="stable relative POSIX path",
+                actual=_contract_actual_value(source_path),
+            )
+        )
+
+    sha256 = source_remap.get("sha256")
+    if not isinstance(sha256, dict):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.source_hash_invalid",
+                message=(
+                    "sourceRemap provenance sourceRemap.sha256 must be a "
+                    "sha256 hash object"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="sourceRemap.sha256",
+                expected={"algorithm": "sha256", "value": "lowercase sha256"},
+                actual=_json_type_name(sha256),
+            )
+        )
+    else:
+        algorithm = sha256.get("algorithm")
+        digest = sha256.get("value")
+        if algorithm != "sha256" or not _is_lowercase_sha256(digest):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.source_remap_provenance.source_hash_invalid",
+                    message=(
+                        "sourceRemap provenance sourceRemap.sha256 must contain "
+                        "algorithm=sha256 and a lowercase SHA-256 value"
+                    ),
+                    document="sourceRemap",
+                    artifact="sourceRemap",
+                    path="sourceRemap.sha256",
+                    expected={"algorithm": "sha256", "value": "lowercase sha256"},
+                    actual={
+                        "algorithm": _contract_actual_value(algorithm),
+                        "value": _contract_actual_value(digest),
+                    },
+                )
+            )
+
+    size_bytes = source_remap.get("sizeBytes")
+    if (
+        not isinstance(size_bytes, int)
+        or isinstance(size_bytes, bool)
+        or size_bytes < 0
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.source_remap_provenance.source_size_bytes_invalid",
+                message=(
+                    "sourceRemap provenance sourceRemap.sizeBytes must be a "
+                    "non-negative integer"
+                ),
+                document="sourceRemap",
+                artifact="sourceRemap",
+                path="sourceRemap.sizeBytes",
+                expected="non-negative integer",
+                actual=_contract_actual_value(size_bytes),
+            )
+        )
+
+
+def _is_stable_relative_posix_path(value: Any) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    if "\\" in value or value.startswith("/"):
+        return False
+    return all(part not in ("", ".", "..") for part in value.split("/"))
 
 
 def _append_native_artifact_descriptor_key_diagnostics(
@@ -4612,7 +5144,7 @@ def _append_native_profile_artifact_link_diagnostics(
         artifact = _artifact_by_name(artifacts, artifact_name)
         if artifact is None:
             continue
-        profile_path = profile.get(field_name)
+        profile_path = _native_profile_artifact_path(profile, field_name)
         if not isinstance(profile_path, str) or not profile_path:
             diagnostics.append(
                 CompatibilityDiagnostic(
@@ -4645,6 +5177,15 @@ def _append_native_profile_artifact_link_diagnostics(
                 actual=profile_path,
             )
         )
+
+
+def _native_profile_artifact_path(profile: dict[str, Any], field_name: str) -> Any:
+    artifacts = profile.get("artifacts")
+    if isinstance(artifacts, dict):
+        nested = artifacts.get(field_name)
+        if isinstance(nested, str):
+            return nested
+    return profile.get(field_name)
 
 
 def _append_native_artifact_descriptor_identity_diagnostics(
@@ -6671,7 +7212,16 @@ def _reflection_availability_summary(reflection: dict[str, Any]) -> dict[str, An
     target_resource_bindings = _json_object_list(
         reflection.get("targetResourceBindings")
     )
+    target_resource_binding_evidence_ids = [
+        evidence_id
+        for record in target_resource_bindings
+        if isinstance(evidence_id := record.get("evidenceId"), str) and evidence_id
+    ]
+    target_feature_evidence_ids = _target_feature_evidence_ids(
+        reflection.get("targetFeatures")
+    )
     workgroup_sizes = _workgroup_size_records(reflection)
+    function_constants = _function_constant_records(reflection)
     schema_version = reflection.get("schemaVersion")
     return {
         "declared": True,
@@ -6680,10 +7230,17 @@ def _reflection_availability_summary(reflection: dict[str, Any]) -> dict[str, An
         "entryPointCount": len(entry_points),
         "resourceBindingCount": len(resources),
         "targetResourceBindingCount": len(target_resource_bindings),
+        "targetResourceBindingEvidenceIds": target_resource_binding_evidence_ids,
+        "targetFeatureEvidenceIds": list(target_feature_evidence_ids),
         "workgroupSizeCount": len(workgroup_sizes),
+        "functionConstantCount": len(function_constants),
+        "specializationConstantCount": sum(
+            1 for record in function_constants if "specializationId" in record
+        ),
         "entryPointsAvailable": bool(entry_points),
         "resourceBindingsAvailable": bool(resources or target_resource_bindings),
         "workgroupSizesAvailable": bool(workgroup_sizes),
+        "functionConstantsAvailable": bool(function_constants),
     }
 
 
@@ -6710,6 +7267,60 @@ def _workgroup_size_records(reflection: dict[str, Any]) -> tuple[dict[str, Any],
     )
 
 
+def _function_constant_summary(reflection: dict[str, Any]) -> dict[str, Any]:
+    records_value = reflection.get("functionConstants")
+    raw_records = _json_object_list(records_value)
+    records = _function_constant_records(reflection)
+    return {
+        "schemaVersion": 1,
+        "metadataOnly": True,
+        "declared": "functionConstants" in reflection,
+        "available": bool(records),
+        "recordCount": len(records),
+        "specializationRecordCount": sum(
+            1 for record in records if "specializationId" in record
+        ),
+        "malformedRecordCount": len(raw_records) - len(records),
+        "records": list(records),
+    }
+
+
+def _function_constant_records(
+    reflection: dict[str, Any],
+) -> tuple[dict[str, Any], ...]:
+    return tuple(
+        _summarize_function_constant_record(record)
+        for record in _json_object_list(reflection.get("functionConstants"))
+        if _is_function_constant_record(record)
+    )
+
+
+def _is_function_constant_record(record: dict[str, Any]) -> bool:
+    if not isinstance(record.get("name"), str):
+        return False
+    if not isinstance(record.get("type"), str):
+        return False
+    value = record.get("value")
+    if value is not None and not isinstance(value, str):
+        return False
+    specialization_id = record.get("specializationId")
+    return specialization_id is None or (
+        type(specialization_id) is int and specialization_id >= 0
+    )
+
+
+def _summarize_function_constant_record(record: dict[str, Any]) -> dict[str, Any]:
+    summary = {
+        "name": record["name"],
+        "type": record["type"],
+    }
+    if "value" in record:
+        summary["value"] = record["value"]
+    if "specializationId" in record:
+        summary["specializationId"] = record["specializationId"]
+    return summary
+
+
 def _find_workgroup_size(
     reflection: dict[str, Any],
     stage: str,
@@ -6724,6 +7335,18 @@ def _find_workgroup_size(
         if record.get("stage") != stage:
             continue
         if record.get("entryPoint") in candidate_entry_points:
+            return record
+    return None
+
+
+def _find_function_constant(
+    reflection: dict[str, Any],
+    name: str,
+) -> dict[str, Any] | None:
+    if not isinstance(name, str):
+        return None
+    for record in _function_constant_records(reflection):
+        if record.get("name") == name:
             return record
     return None
 
@@ -6838,11 +7461,16 @@ def _target_availability_summary(
         "target",
         expected=manifest_target,
     )
+    target_feature_evidence_ids = _target_feature_evidence_ids(
+        reflection.get("targetFeatures"),
+        expected=manifest_target,
+    )
     return {
         "manifestTarget": manifest_target,
         "reflectionTarget": reflection_target,
         "targetResourceBindingTargets": list(target_resource_binding_targets),
         "targetFeatureTargets": list(target_feature_targets),
+        "targetFeatureEvidenceIds": list(target_feature_evidence_ids),
         "availableTargets": list(_available_targets(manifest_target, reflection)),
     }
 
@@ -6862,6 +7490,26 @@ def _matching_record_string_values(
             if record.get(key) == expected
         )
     )
+
+
+def _target_feature_evidence_ids(
+    value: Any,
+    *,
+    expected: str | None = None,
+) -> tuple[str, ...]:
+    if expected is not None and (not isinstance(expected, str) or not expected):
+        return ()
+    evidence_ids: list[str] = []
+    for record in _json_object_list(value):
+        if expected is not None and record.get("target") != expected:
+            continue
+        record_evidence_ids = record.get("evidenceIds")
+        if not isinstance(record_evidence_ids, list):
+            continue
+        evidence_ids.extend(
+            entry for entry in record_evidence_ids if isinstance(entry, str) and entry
+        )
+    return _ordered_unique_strings(evidence_ids)
 
 
 def _ordered_unique_strings(values: Any) -> tuple[str, ...]:
@@ -7017,9 +7665,25 @@ def _resolve_package_relative_member(value: str, label: str) -> str:
         raise PackageReadError(f"{label} must be package-relative")
     if not path.parts:
         raise PackageReadError(f"{label} must be a non-empty package-relative path")
-    if any(part == ".." for part in path.parts):
-        raise PackageReadError(f"{label} escapes the package archive")
+    _validate_package_relative_path_segments(
+        value,
+        label,
+        escape_container="archive",
+    )
     return path.as_posix()
+
+
+def _validate_package_relative_path_segments(
+    value: str,
+    label: str,
+    *,
+    escape_container: str,
+) -> None:
+    parts = value.split("/")
+    if any(part == ".." for part in parts):
+        raise PackageReadError(f"{label} escapes the package {escape_container}")
+    if any(part in ("", ".") for part in parts):
+        raise PackageReadError(f"{label} must be a normalized package-relative path")
 
 
 def _read_source_json_object(
@@ -8838,6 +9502,7 @@ _GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS = (
     "sourceType",
     "addressSpace",
     "abi",
+    "evidenceId",
     "bindingClass",
     "descriptorType",
     "argumentIndex",
@@ -8983,6 +9648,15 @@ def _graphics_abi_record(
     if document is None:
         return None
     abi_records = _json_object_records(document.get("abiRecords"))
+    canonical_binding_collection = "abiRecords"
+    canonical_binding_records = abi_records
+    if not canonical_binding_records:
+        target_resource_bindings = _json_object_records(
+            document.get("targetResourceBindings")
+        )
+        if target_resource_bindings:
+            canonical_binding_collection = "targetResourceBindings"
+            canonical_binding_records = target_resource_bindings
     descriptor_bindings = _graphics_descriptor_bindings_from_graphics_abi(
         document,
         target=target,
@@ -9026,6 +9700,14 @@ def _graphics_abi_record(
             )
             for record in abi_records
         ),
+        canonical_binding_records=tuple(
+            _summarize_reflection_like_record(
+                record,
+                _GRAPHICS_DESCRIPTOR_BINDING_SUMMARY_FIELDS,
+            )
+            for record in canonical_binding_records
+        ),
+        canonical_binding_collection=canonical_binding_collection,
         descriptor_bindings=descriptor_bindings,
         stage_count=len(stage_record_counts),
         stage_record_counts=stage_record_counts,
@@ -9519,6 +10201,11 @@ def _resolve_package_relative_path(root: Path, value: str, label: str) -> Path:
     artifact_path = Path(value)
     if artifact_path.is_absolute():
         raise PackageReadError(f"{label} must be package-relative")
+    _validate_package_relative_path_segments(
+        value,
+        label,
+        escape_container="directory",
+    )
 
     root_resolved = root.resolve()
     resolved = (root / artifact_path).resolve()

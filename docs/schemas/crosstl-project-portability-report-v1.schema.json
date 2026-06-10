@@ -1,0 +1,642 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/crosstl-project-portability-report-v1.schema.json",
+  "title": "CrossTL Project Portability Report Compatibility Schema v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "summary",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "crosstl-project-portability-report"
+    },
+    "generatedAt": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "generator": {
+      "$ref": "#/$defs/generator"
+    },
+    "project": {
+      "$ref": "#/$defs/project"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "diagnosticCounts": {
+      "$ref": "#/$defs/diagnosticCounts"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/projectDiagnostic"
+      }
+    },
+    "migration": {
+      "$ref": "#/$defs/migration"
+    }
+  },
+  "$defs": {
+    "stableRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?/)(?!.*(?:^|/)\\.\\.?$)[^/]+(?:/[^/]+)*$"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "targetName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(?:[._/-][a-z0-9]+)*$"
+    },
+    "sha256Hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "pipeline": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "packageVersion": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "root": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "targets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/targetName"
+          }
+        },
+        "outputDir": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "artifactCount",
+        "sourceRemapCount",
+        "sourceRemapMappingCount"
+      ],
+      "properties": {
+        "artifactCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "translatedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "failedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "diagnosticCounts": {
+          "$ref": "#/$defs/diagnosticCounts"
+        },
+        "diagnosticsByCode": {
+          "$ref": "#/$defs/countMap"
+        },
+        "diagnosticsByTarget": {
+          "$ref": "#/$defs/countMap"
+        },
+        "diagnosticsBySourceBackend": {
+          "$ref": "#/$defs/countMap"
+        },
+        "diagnosticsByVariant": {
+          "$ref": "#/$defs/countMap"
+        },
+        "missingCapabilityCounts": {
+          "$ref": "#/$defs/countMap"
+        },
+        "artifactProvenanceByPipeline": {
+          "$ref": "#/$defs/countMap"
+        },
+        "artifactProvenanceByIntermediate": {
+          "$ref": "#/$defs/countMap"
+        },
+        "artifactProvenanceIntermediateBySourceBackend": {
+          "$ref": "#/$defs/nestedCountMap"
+        },
+        "artifactProvenanceIntermediateByTarget": {
+          "$ref": "#/$defs/nestedCountMap"
+        },
+        "artifactProvenanceIntermediateByVariant": {
+          "$ref": "#/$defs/nestedCountMap"
+        },
+        "sourceMapCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "fineGrainedSourceMapCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "sourceMapsByGranularity": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceMapsByTarget": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceMapsBySourceBackend": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceMapsByVariant": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceRemapCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "sourceRemapMappingCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "sourceRemapsByGranularity": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceRemapsByTarget": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceRemapsBySourceBackend": {
+          "$ref": "#/$defs/countMap"
+        },
+        "sourceRemapsByVariant": {
+          "$ref": "#/$defs/countMap"
+        },
+        "runtimeReferenceCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "runtimeReferencesByKind": {
+          "$ref": "#/$defs/countMap"
+        },
+        "runtimeReferencesByBackend": {
+          "$ref": "#/$defs/countMap"
+        }
+      }
+    },
+    "countMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      }
+    },
+    "nestedCountMap": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/countMap"
+      }
+    },
+    "diagnosticCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "warning",
+        "error"
+      ],
+      "properties": {
+        "note": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "warning": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "error": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "projectDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$"
+        },
+        "message": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "location": {
+          "$ref": "#/$defs/diagnosticLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/diagnosticLocation"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "variant": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "missingCapabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "diagnosticLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "line": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "path": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "variant": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "status": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "provenance": {
+          "$ref": "#/$defs/artifactProvenance"
+        },
+        "sourceMap": {
+          "$ref": "#/$defs/sourceMapMetadata"
+        },
+        "sourceRemap": {
+          "$ref": "#/$defs/sourceRemapMetadata"
+        }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/migrationAction"
+          }
+        }
+      }
+    },
+    "migrationAction": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "message": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "targets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/targetName"
+          }
+        },
+        "runtimeReferences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtimeReference"
+          }
+        }
+      }
+    },
+    "runtimeReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "line",
+        "column",
+        "backend",
+        "kind",
+        "symbol"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "line": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "backend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "runtime-api",
+            "kernel-launch",
+            "build-system"
+          ]
+        },
+        "symbol": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "artifactProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pipeline",
+        "intermediate"
+      ],
+      "properties": {
+        "pipeline": {
+          "type": "string",
+          "const": "single-file-translate"
+        },
+        "intermediate": {
+          "enum": [
+            null,
+            "crossgl"
+          ]
+        }
+      }
+    },
+    "mappingGranularity": {
+      "type": "string",
+      "enum": [
+        "file",
+        "line",
+        "statement",
+        "token"
+      ]
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sourceMapMetadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "mappingGranularity",
+        "target",
+        "source",
+        "generated",
+        "mappings"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "kind": {
+          "type": "string",
+          "const": "crosstl-artifact-source-map"
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/mappingGranularity"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceMapSpan"
+        },
+        "generated": {
+          "$ref": "#/$defs/sourceMapSpan"
+        },
+        "mappings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceMapMapping"
+          }
+        }
+      }
+    },
+    "sourceRemapMetadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schemaVersion",
+        "path",
+        "target",
+        "generatedFile",
+        "mappingGranularity",
+        "mappingCount",
+        "sizeBytes",
+        "hash"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "path": {
+          "$ref": "#/$defs/stableRelativePath",
+          "description": "Relative path to the compiler source-remap sidecar consumed by cglc --source-remap."
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/targetName",
+          "description": "Optional source backend copied from the artifact so compiler-side checks can bind source-remap sidecars to the originating frontend."
+        },
+        "variant": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Optional artifact variant copied from the artifact so compiler-side checks can bind source-remap sidecars to a named build variant."
+        },
+        "generatedFile": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/mappingGranularity"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "hash": {
+          "$ref": "#/$defs/sha256Hash"
+        }
+      }
+    },
+    "sourceMapMapping": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "source",
+        "generated"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/sourceMapSpan"
+        },
+        "generated": {
+          "$ref": "#/$defs/sourceMapSpan"
+        }
+      }
+    },
+    "sourceMapSpan": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "line": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    }
+  }
+}

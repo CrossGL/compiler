@@ -1808,7 +1808,8 @@ def collect_hir_text_facts(text: str) -> dict[str, Any]:
         r"^stage\s+([A-Za-z_][A-Za-z0-9_]*)\s+entry\s+([A-Za-z_][A-Za-z0-9_]*)$"
     )
     workgroup_pattern = re.compile(
-        r"^workgroup_size\s+([0-9]+),\s*([0-9]+),\s*([0-9]+)$"
+        r"^workgroup_size\s+([0-9]+),\s*([0-9]+),\s*([0-9]+)"
+        r"(?:\s+source\s+.+)?$"
     )
     function_pattern = re.compile(
         r"^fn\s+([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)\s+->\s+"

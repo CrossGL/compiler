@@ -155,7 +155,13 @@
           "reportLinks": [
             "target-explanation-v1#targets/metal"
           ],
-          "remediation": "No remediation required; native package output is available."
+          "remediation": "No remediation required; native package output is available.",
+          "packageArtifactRequirementEvidenceIds": [
+            "target-legalization.v1.metal.package-artifacts.native",
+            "target-legalization.v1.metal.package-artifact.required.backendSource",
+            "target-legalization.v1.metal.package-artifact.required.intermediate",
+            "target-legalization.v1.metal.package-artifact.required.nativeBinary"
+          ]
         },
         {
           "target": "directx",
@@ -219,7 +225,15 @@
           "reportLinks": [
             "target-explanation-v1#targets/directx"
           ],
-          "remediation": "Source package output is available; native artifact remediation requires satisfying: directx.backend.native-dxil-package, directx.toolchain.dxc, directx.validation.dxil-validator."
+          "remediation": "Source package output is available; native artifact remediation requires satisfying: directx.backend.native-dxil-package, directx.toolchain.dxc, directx.validation.dxil-validator.",
+          "packageArtifactRequirementEvidenceIds": [
+            "target-legalization.v1.directx.package-artifacts.source-package",
+            "target-legalization.v1.directx.package-artifact.required.backendSource",
+            "target-legalization.v1.directx.package-artifact.required.nativeBinary",
+            "target-legalization.v1.directx.package-artifact.native-binary-status.required",
+            "target-legalization.v1.directx.package-artifact.planned-native-binary.allowed",
+            "target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
+          ]
         },
         {
           "target": "opengl",
@@ -270,7 +284,10 @@
           "reportLinks": [
             "target-explanation-v1#targets/opengl"
           ],
-          "remediation": "Select a buildable target or satisfy missing target capabilities: opengl.feature.shadow-cube-lod."
+          "remediation": "Select a buildable target or satisfy missing target capabilities: opengl.feature.shadow-cube-lod.",
+          "packageArtifactRequirementEvidenceIds": [
+            "target-legalization.v1.opengl.package-artifacts.unsupported"
+          ]
         }
       ]
     }
@@ -331,7 +348,13 @@
         "reportLinks": [
           "target-explanation-v1#targets/metal"
         ],
-        "remediation": "No remediation required; native package output is available."
+        "remediation": "No remediation required; native package output is available.",
+        "packageArtifactRequirementEvidenceIds": [
+          "target-legalization.v1.metal.package-artifacts.native",
+          "target-legalization.v1.metal.package-artifact.required.backendSource",
+          "target-legalization.v1.metal.package-artifact.required.intermediate",
+          "target-legalization.v1.metal.package-artifact.required.nativeBinary"
+        ]
       },
       {
         "target": "directx",
@@ -395,7 +418,15 @@
         "reportLinks": [
           "target-explanation-v1#targets/directx"
         ],
-        "remediation": "Source package output is available; native artifact remediation requires satisfying: directx.backend.native-dxil-package, directx.toolchain.dxc, directx.validation.dxil-validator."
+        "remediation": "Source package output is available; native artifact remediation requires satisfying: directx.backend.native-dxil-package, directx.toolchain.dxc, directx.validation.dxil-validator.",
+        "packageArtifactRequirementEvidenceIds": [
+          "target-legalization.v1.directx.package-artifacts.source-package",
+          "target-legalization.v1.directx.package-artifact.required.backendSource",
+          "target-legalization.v1.directx.package-artifact.required.nativeBinary",
+          "target-legalization.v1.directx.package-artifact.native-binary-status.required",
+          "target-legalization.v1.directx.package-artifact.planned-native-binary.allowed",
+          "target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
+        ]
       },
       {
         "target": "opengl",
@@ -446,7 +477,10 @@
         "reportLinks": [
           "target-explanation-v1#targets/opengl"
         ],
-        "remediation": "Select a buildable target or satisfy missing target capabilities: opengl.feature.shadow-cube-lod."
+        "remediation": "Select a buildable target or satisfy missing target capabilities: opengl.feature.shadow-cube-lod.",
+        "packageArtifactRequirementEvidenceIds": [
+          "target-legalization.v1.opengl.package-artifacts.unsupported"
+        ]
       }
     ]
   },
@@ -518,7 +552,17 @@
         "target-legalization.v1.metal.capability.required.metal.backend.native-metal-package",
         "target-legalization.v1.metal.tool-requirements.present",
         "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
-        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib"
+        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib",
+        "target-legalization.v1.metal.package-artifacts.native",
+        "target-legalization.v1.metal.package-artifact.required.backendSource",
+        "target-legalization.v1.metal.package-artifact.required.intermediate",
+        "target-legalization.v1.metal.package-artifact.required.nativeBinary"
+      ],
+      "packageArtifactRequirementEvidenceIds": [
+        "target-legalization.v1.metal.package-artifacts.native",
+        "target-legalization.v1.metal.package-artifact.required.backendSource",
+        "target-legalization.v1.metal.package-artifact.required.intermediate",
+        "target-legalization.v1.metal.package-artifact.required.nativeBinary"
       ]
     },
     {
@@ -610,7 +654,21 @@
         "target-legalization.v1.directx.tool-requirement.required.toolchain.dxc",
         "target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator",
         "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc",
-        "target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator"
+        "target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator",
+        "target-legalization.v1.directx.package-artifacts.source-package",
+        "target-legalization.v1.directx.package-artifact.required.backendSource",
+        "target-legalization.v1.directx.package-artifact.required.nativeBinary",
+        "target-legalization.v1.directx.package-artifact.native-binary-status.required",
+        "target-legalization.v1.directx.package-artifact.planned-native-binary.allowed",
+        "target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
+      ],
+      "packageArtifactRequirementEvidenceIds": [
+        "target-legalization.v1.directx.package-artifacts.source-package",
+        "target-legalization.v1.directx.package-artifact.required.backendSource",
+        "target-legalization.v1.directx.package-artifact.required.nativeBinary",
+        "target-legalization.v1.directx.package-artifact.native-binary-status.required",
+        "target-legalization.v1.directx.package-artifact.planned-native-binary.allowed",
+        "target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
       ]
     },
     {
@@ -687,7 +745,11 @@
         "target-legalization.v1.opengl.capability.required.opengl.feature.shadow-cube-lod",
         "target-legalization.v1.opengl.capability.missing.opengl.feature.shadow-cube-lod",
         "target-legalization.v1.opengl.diagnostic.unsupported-shadow-lod",
-        "target-legalization.v1.opengl.tool-requirements.empty"
+        "target-legalization.v1.opengl.tool-requirements.empty",
+        "target-legalization.v1.opengl.package-artifacts.unsupported"
+      ],
+      "packageArtifactRequirementEvidenceIds": [
+        "target-legalization.v1.opengl.package-artifacts.unsupported"
       ]
     }
   ]

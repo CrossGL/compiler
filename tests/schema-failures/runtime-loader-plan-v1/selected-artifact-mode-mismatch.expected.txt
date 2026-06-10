@@ -1,0 +1,1 @@
+$.selectedArtifact.packageMode: expected $.selectedPackageMode 'native', got 'source-package'

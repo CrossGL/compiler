@@ -1,5 +1,7 @@
 """Shared semantic validation helpers for CrossGL JSON schema fixtures."""
 
+import re
+
 from package_target_contracts import (
     PACKAGE_DEBUG_ARTIFACT_COUNT,
     PACKAGE_PATH_ARTIFACTS,
@@ -11,6 +13,7 @@ from package_target_contracts import (
 NATIVE_ARTIFACT_DESCRIPTOR = "nativeArtifactDescriptor"
 NATIVE_BINARY = "nativeBinary"
 NATIVE_PROFILE = "nativeProfile"
+SOURCE_FREE_NATIVE_PACKAGE_TARGETS = frozenset({"directx", "metal", "vulkan"})
 
 PACKAGE_TARGET_NATIVE_SUMMARY_STATUS = {
     "metal": "emitted",
@@ -21,6 +24,7 @@ TARGET_EXPLANATION_TARGET_ORDER = {
     "vulkan": 1,
     "directx": 2,
     "opengl": 3,
+    "wgsl": 4,
 }
 
 TARGET_EXPLANATION_PACKAGE_MODE_EVIDENCE = {
@@ -33,6 +37,15 @@ TARGET_EXPLANATION_PACKAGE_MODE_EVIDENCE = {
         "opengl": "opengl.backend.glsl-lowering",
     },
 }
+
+TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
+TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE = re.compile(
+    r"^target-legalization\.v1\."
+    r"(?P<target>metal|vulkan|directx|opengl|wgsl)\."
+    r"(?:(?:capability\.(?:required|missing)\."
+    r"(?P<capability_target>metal|vulkan|directx|opengl|wgsl)\.[A-Za-z0-9_.-]+)"
+    r"|(?:abi\.(?:required|missing)\.[A-Za-z0-9_.-]+))$"
+)
 
 
 SOURCE_MAP_RECORD_KIND_RANK = {
@@ -142,6 +155,18 @@ def validate_normalized_package_path(errors, path, package_path):
         errors.append(f"{path}: expected normalized '/' path separators")
 
 
+def is_source_free_native_requirements(target, requirements):
+    return (
+        target in SOURCE_FREE_NATIVE_PACKAGE_TARGETS
+        and requirements["target"] == target
+        and requirements["packageMode"] == "native"
+        and requirements["requiredPathArtifacts"] == [NATIVE_BINARY]
+        and not requirements["requiresNativeBinaryStatus"]
+        and not requirements["allowsPlannedNativeBinary"]
+        and not requirements["allowsPlannedNativeSourceEvidence"]
+    )
+
+
 def validate_package_artifact_requirements(
     errors,
     path,
@@ -158,7 +183,9 @@ def validate_package_artifact_requirements(
         ),
         None,
     )
-    if contract is not None:
+    if contract is not None and not is_source_free_native_requirements(
+        target, requirements
+    ):
         expected_mode = (
             "source-package" if contract.allows_planned_native_binary else "native"
         )
@@ -196,6 +223,69 @@ def validate_package_artifact_requirements(
         if name not in PACKAGE_PATH_ARTIFACTS:
             errors.append(
                 f"{path}.requiredPathArtifacts[{index}]: expected known path artifact"
+            )
+    evidence_ids = requirements.get("evidenceIds")
+    if isinstance(evidence_ids, list):
+        expected_evidence_ids = [
+            f"target-legalization.v1.{target}.package-artifacts."
+            f"{requirements['packageMode']}"
+        ]
+        expected_evidence_ids.extend(
+            f"target-legalization.v1.{target}.package-artifact.required.{name}"
+            for name in requirements["requiredPathArtifacts"]
+        )
+        if requirements["requiresNativeBinaryStatus"]:
+            expected_evidence_ids.append(
+                f"target-legalization.v1.{target}."
+                "package-artifact.native-binary-status.required"
+            )
+        if requirements["allowsPlannedNativeBinary"]:
+            expected_evidence_ids.append(
+                f"target-legalization.v1.{target}."
+                "package-artifact.planned-native-binary.allowed"
+            )
+        if requirements["allowsPlannedNativeSourceEvidence"]:
+            expected_evidence_ids.append(
+                f"target-legalization.v1.{target}."
+                "package-artifact.planned-native-source-evidence.allowed"
+            )
+        if evidence_ids != expected_evidence_ids:
+            errors.append(
+                f"{path}.evidenceIds: expected package artifact evidence IDs "
+                f"{expected_evidence_ids!r}"
+            )
+
+
+def validate_target_feature_reflection_summary(errors, path, target, reflection):
+    target_feature_count = reflection["targetFeatureCount"]
+    if target_feature_count < 0:
+        errors.append(f"{path}.targetFeatureCount: expected non-negative count")
+
+    seen_evidence_ids = set()
+    expected_prefix = f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{target}."
+    for index, evidence_id in enumerate(reflection["targetFeatureEvidenceIds"]):
+        evidence_path = f"{path}.targetFeatureEvidenceIds[{index}]"
+        if evidence_id in seen_evidence_ids:
+            errors.append(
+                f"{evidence_path}: duplicate target feature evidence id {evidence_id!r}"
+            )
+        seen_evidence_ids.add(evidence_id)
+
+        match = TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE.fullmatch(evidence_id)
+        if match is None:
+            continue
+        if not evidence_id.startswith(expected_prefix):
+            errors.append(
+                f"{evidence_path}: expected target feature evidence prefix "
+                f"{expected_prefix!r}, got {evidence_id!r}"
+            )
+            continue
+
+        capability_target = match.group("capability_target")
+        if capability_target is not None and capability_target != target:
+            errors.append(
+                f"{evidence_path}: expected target feature capability evidence "
+                f"target {target!r}, got {capability_target!r}"
             )
 
 
@@ -266,12 +356,20 @@ def validate_release_package_artifacts_against_requirements(
         and requirements["allowsPlannedNativeSourceEvidence"]
     )
     descriptor = artifacts.get(NATIVE_ARTIFACT_DESCRIPTOR)
-    if (native_ready or planned_source_evidence) and descriptor is None:
-        descriptor_context = (
-            "planned native source evidence"
-            if planned_source_evidence and not native_ready
-            else "native readiness"
-        )
+    source_free_native = is_source_free_native_requirements(
+        package["target"], requirements
+    )
+    if (
+        native_ready or planned_source_evidence or source_free_native
+    ) and descriptor is None:
+        if source_free_native:
+            descriptor_context = "source-free native requirements"
+        else:
+            descriptor_context = (
+                "planned native source evidence"
+                if planned_source_evidence and not native_ready
+                else "native readiness"
+            )
         errors.append(
             f"{path}.artifacts.{NATIVE_ARTIFACT_DESCRIPTOR}: "
             f"{descriptor_context} requires descriptor artifact evidence"

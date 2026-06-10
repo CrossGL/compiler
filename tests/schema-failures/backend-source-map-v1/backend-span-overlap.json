@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.backendSourceMap",
+  "target": "directx",
+  "module": "SemanticFixture",
+  "mappingGranularity": "statement",
+  "sourceBackend": "crossgl-hir",
+  "targetBackend": "hlsl",
+  "backend": {
+    "language": "hlsl",
+    "lineCount": 12
+  },
+  "mappingCount": 2,
+  "mappings": [
+    {
+      "index": 0,
+      "stage": "compute",
+      "entryPoint": "main",
+      "function": "main",
+      "statementKind": "assignment",
+      "name": "value",
+      "backend": {
+        "startLine": 7,
+        "endLine": 8
+      },
+      "location": {
+        "file": "generated/from-translator.cgl",
+        "line": 7,
+        "column": 3,
+        "offset": 120,
+        "length": 5,
+        "endLine": 7,
+        "endColumn": 8,
+        "endOffset": 125
+      }
+    },
+    {
+      "index": 1,
+      "stage": "compute",
+      "entryPoint": "main",
+      "function": "main",
+      "statementKind": "return",
+      "name": "return",
+      "backend": {
+        "startLine": 8,
+        "endLine": 9
+      },
+      "location": {
+        "file": "generated/from-translator.cgl",
+        "line": 8,
+        "column": 3,
+        "offset": 130,
+        "length": 4,
+        "endLine": 8,
+        "endColumn": 7,
+        "endOffset": 134
+      }
+    }
+  ]
+}

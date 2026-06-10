@@ -43,7 +43,8 @@
         "metal",
         "vulkan",
         "directx",
-        "opengl"
+        "opengl",
+        "wgsl"
       ]
     },
     "packageMode": {
@@ -106,7 +107,7 @@
     },
     "packageArtifactRequirementEvidenceId": {
       "type": "string",
-      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.package-artifact(s)?\\.[A-Za-z0-9_.-]+$"
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl|wgsl)\\.package-artifact(s)?\\.[A-Za-z0-9_.-]+$"
     },
     "emittedBaselineCapabilityId": {
       "type": "string",
@@ -227,12 +228,13 @@
             "metallib",
             "spirv",
             "dxil",
-            "glsl-source"
+            "glsl-source",
+            "wgsl-source"
           ]
         },
         "pathArtifacts": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 0,
           "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/pathArtifact"
@@ -247,7 +249,35 @@
         "evidence": {
           "$ref": "#/$defs/evidenceList"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "unsupported"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pathArtifacts": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "pathArtifacts": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "packageArtifactRequirements": {
       "type": "object",
@@ -266,7 +296,7 @@
         },
         "requiredPathArtifacts": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 0,
           "uniqueItems": true,
           "items": {
             "$ref": "#/$defs/pathArtifact"
@@ -289,7 +319,35 @@
             "$ref": "#/$defs/packageArtifactRequirementEvidenceId"
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "packageMode": {
+                "const": "unsupported"
+              }
+            },
+            "required": [
+              "packageMode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "requiredPathArtifacts": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "requiredPathArtifacts": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "packageAdmissionCapability": {
       "type": "object",
@@ -332,7 +390,7 @@
         },
         "admittedPackageModes": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 0,
           "uniqueItems": true,
           "items": {
             "type": "string",
@@ -358,7 +416,10 @@
         },
         "packageArtifactRequirementsSource": {
           "type": "string",
-          "const": "tools/package_target_contracts.json"
+          "enum": [
+            "tools/package_target_contracts.json",
+            "src/Backend/TargetLegalization.cpp"
+          ]
         },
         "packageArtifactRequirements": {
           "$ref": "#/$defs/packageArtifactRequirements"
@@ -366,7 +427,35 @@
         "evidence": {
           "$ref": "#/$defs/evidenceList"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "packageMode": {
+                "const": "unsupported"
+              }
+            },
+            "required": [
+              "packageMode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "admittedPackageModes": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "admittedPackageModes": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "capabilityRecord": {
       "type": "object",

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 EVIDENCE_PREFIX = "target-legalization.v1"
-TARGETS = {"directx", "metal", "opengl", "vulkan"}
+TARGETS = {"directx", "metal", "opengl", "vulkan", "wgsl"}
 PACKAGE_MODES = {"native", "source-package", "unsupported"}
 SOURCE_PACKAGE_TARGETS = {"directx", "opengl"}
 PACKAGE_DECISION_PROVENANCES = {

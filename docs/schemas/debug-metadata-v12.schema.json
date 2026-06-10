@@ -54,7 +54,8 @@
         "metal",
         "vulkan",
         "directx",
-        "opengl"
+        "opengl",
+        "wgsl"
       ]
     },
     "requestedTargetName": {
@@ -64,7 +65,8 @@
         "metal",
         "vulkan",
         "directx",
-        "opengl"
+        "opengl",
+        "wgsl"
       ]
     },
     "packageMode": {
@@ -104,7 +106,7 @@
       "uniqueItems": true,
       "items": {
         "type": "string",
-        "pattern": "^(metal|vulkan|directx|opengl)\\.(native-tool|toolchain|validation)\\.[A-Za-z0-9_.-]+$"
+        "pattern": "^(metal|vulkan|directx|opengl|wgsl)\\.(native-tool|toolchain|validation)\\.[A-Za-z0-9_.-]+$"
       }
     },
     "optionalNativeToolStatus": {
@@ -293,6 +295,9 @@
         "toolRequirementEvidenceIds": {
           "$ref": "#/$defs/stringList"
         },
+        "packageArtifactRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
         "missingCapabilityGroups": {
           "$ref": "#/$defs/capabilityGroups"
         }
@@ -376,6 +381,9 @@
           "$ref": "#/$defs/optionalNativeToolStatus"
         },
         "selectedTargetToolRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "packageArtifactRequirementEvidenceIds": {
           "$ref": "#/$defs/stringList"
         },
         "selectedTargetMissingCapabilityGroups": {
@@ -485,6 +493,9 @@
           "$ref": "#/$defs/optionalNativeToolStatus"
         },
         "toolRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "packageArtifactRequirementEvidenceIds": {
           "$ref": "#/$defs/stringList"
         },
         "requiredCapabilityGroups": {

@@ -305,17 +305,30 @@ elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator" AND
        fake_glsl_stage STREQUAL "frag")
   fake_glslang_write_partial_native_artifact()
   message(FATAL_ERROR "fake glslangValidator fragment failure")
+elseif((FAKE_TOOL_BEHAVIOR STREQUAL "no-output" OR
+        FAKE_TOOL_BEHAVIOR STREQUAL "empty-output") AND
+       NOT FAKE_TOOL_NAME STREQUAL "dxc")
+  message(FATAL_ERROR
+          "fake ${FAKE_TOOL_NAME} behavior ${FAKE_TOOL_BEHAVIOR} is only supported for dxc")
 elseif(NOT FAKE_TOOL_BEHAVIOR STREQUAL "success" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-failure" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-failure" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-no-output" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-no-output" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "no-output" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "empty-output" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "fragment-failure")
   message(FATAL_ERROR
           "unknown fake ${FAKE_TOOL_NAME} behavior: ${FAKE_TOOL_BEHAVIOR}")
 endif()
 
-if(FAKE_TOOL_NAME STREQUAL "dxc")
+if(FAKE_TOOL_NAME STREQUAL "dxc" AND
+   FAKE_TOOL_BEHAVIOR STREQUAL "no-output")
+  # Exit successfully without writing the requested output.
+elseif(FAKE_TOOL_NAME STREQUAL "dxc" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "empty-output")
+  file(WRITE "${fake_output}" "")
+elseif(FAKE_TOOL_NAME STREQUAL "dxc")
   file(WRITE "${fake_output}" "fake dxil\n")
 elseif(FAKE_TOOL_NAME STREQUAL "xcrun" AND fake_xcrun_tool STREQUAL "metal" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-no-output")

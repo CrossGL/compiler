@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "generatedAt": 0,
+  "generator": {
+    "name": "CrossTL",
+    "pipeline": "project-porting",
+    "packageVersion": "0.0.0"
+  },
+  "project": {
+    "root": ".",
+    "targets": [
+      "cgl"
+    ],
+    "outputDir": "out"
+  },
+  "summary": {
+    "artifactCount": 1,
+    "translatedCount": 1,
+    "failedCount": 0,
+    "diagnosticCounts": {
+      "note": 0,
+      "warning": 0,
+      "error": 0
+    },
+    "diagnosticsByCode": {},
+    "diagnosticsByTarget": {},
+    "diagnosticsBySourceBackend": {},
+    "diagnosticsByVariant": {},
+    "missingCapabilityCounts": {},
+    "sourceMapCount": 1,
+    "fineGrainedSourceMapCount": 1,
+    "artifactProvenanceByPipeline": {
+      "single-file-translate": 1
+    },
+    "artifactProvenanceByIntermediate": {
+      "none": 1
+    },
+    "artifactProvenanceIntermediateBySourceBackend": {
+      "cgl": {
+        "none": 1
+      }
+    },
+    "artifactProvenanceIntermediateByTarget": {
+      "cgl": {
+        "none": 1
+      }
+    },
+    "artifactProvenanceIntermediateByVariant": {},
+    "sourceMapsByGranularity": {
+      "line": 1
+    },
+    "sourceMapsByTarget": {
+      "cgl": 1
+    },
+    "sourceMapsBySourceBackend": {
+      "cgl": 1
+    },
+    "sourceMapsByVariant": {},
+    "sourceRemapCount": 1,
+    "sourceRemapMappingCount": 2,
+    "sourceRemapsByGranularity": {
+      "line": 1
+    },
+    "sourceRemapsByTarget": {
+      "cgl": 1
+    },
+    "sourceRemapsBySourceBackend": {
+      "cgl": 1
+    },
+    "sourceRemapsByVariant": {},
+    "runtimeReferenceCount": 1,
+    "runtimeReferencesByKind": {
+      "runtime-api": 1
+    },
+    "runtimeReferencesByBackend": {
+      "cuda": 1
+    }
+  },
+  "units": [],
+  "skipped": [],
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "target": "cgl",
+      "path": "out/cgl/simple.cgl",
+      "status": "translated",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "sourceSizeBytes": 44,
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      },
+      "generatedHash": {
+        "algorithm": "sha256",
+        "value": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "generatedSizeBytes": 44,
+      "sourceMap": {
+        "schemaVersion": 1,
+        "kind": "crosstl-artifact-source-map",
+        "mappingGranularity": "line",
+        "target": "cgl",
+        "source": {
+          "file": "simple.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 44,
+          "endLine": 2,
+          "endColumn": 14,
+          "endOffset": 44
+        },
+        "generated": {
+          "file": "out/cgl/simple.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 44,
+          "endLine": 2,
+          "endColumn": 14,
+          "endOffset": 44
+        },
+        "mappings": [
+          {
+            "source": {
+              "file": "simple.cgl",
+              "line": 1,
+              "column": 1,
+              "offset": 0,
+              "length": 31,
+              "endLine": 1,
+              "endColumn": 32,
+              "endOffset": 31
+            },
+            "generated": {
+              "file": "out/cgl/simple.cgl",
+              "line": 1,
+              "column": 1,
+              "offset": 0,
+              "length": 31,
+              "endLine": 1,
+              "endColumn": 32,
+              "endOffset": 31
+            }
+          },
+          {
+            "source": {
+              "file": "simple.cgl",
+              "line": 2,
+              "column": 1,
+              "offset": 31,
+              "length": 13,
+              "endLine": 2,
+              "endColumn": 14,
+              "endOffset": 44
+            },
+            "generated": {
+              "file": "out/cgl/simple.cgl",
+              "line": 2,
+              "column": 1,
+              "offset": 31,
+              "length": 13,
+              "endLine": 2,
+              "endColumn": 14,
+              "endOffset": 44
+            }
+          }
+        ]
+      },
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "out/cgl/simple.source-remap.json",
+        "target": "cgl",
+        "generatedFile": "out/cgl/simple.cgl",
+        "mappingGranularity": "line",
+        "mappingCount": 2,
+        "sizeBytes": 982,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92"
+        }
+      }
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": [],
+  "validation": {},
+  "migration": {
+    "actions": [
+      {
+        "kind": "manual-runtime-integration",
+        "severity": "note",
+        "message": "Review host runtime API and backend framework integration separately.",
+        "targets": [
+          "cgl"
+        ],
+        "runtimeReferences": [
+          {
+            "path": "host.cpp",
+            "line": 4,
+            "column": 3,
+            "backend": "cuda",
+            "kind": "runtime-api",
+            "symbol": "cudaMalloc"
+          }
+        ]
+      }
+    ]
+  },
+  "artifactMatrix": {},
+  "externalCorpus": {}
+}

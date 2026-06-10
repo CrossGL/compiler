@@ -30,7 +30,9 @@ private:
   std::optional<StructDecl> parseStruct();
   std::optional<StructDecl> parseCBuffer();
   void skipGenericClause();
-  std::optional<ConstantDecl> parseConstant();
+  std::optional<ConstantDecl>
+  parseConstant(std::optional<ConstantDecl> layout = std::nullopt);
+  std::optional<ConstantDecl> parseSpecializationConstantLayout();
   std::optional<FunctionDecl> parseFunction();
   std::optional<FunctionDecl> parseFnStyleFunction();
   std::optional<ResourceDecl> parseResource(std::optional<ResourceLayoutDecl> layout = std::nullopt);
@@ -44,6 +46,8 @@ private:
 
   bool looksLikeFunction() const;
   bool looksLikeDeclaration() const;
+  bool layoutIntroducesConstant() const;
+  bool layoutContainsKey(std::string_view key) const;
   bool layoutIntroducesResource() const;
   void diagnoseUnsupportedNativeV0(std::string_view form,
                                    SourceLocation location);

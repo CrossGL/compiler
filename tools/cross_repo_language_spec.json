@@ -11,7 +11,7 @@
     "id": "crosstl-frontend-language-spec-v0",
     "path": "docs/language/crosstl-frontend-language-spec-v0.json",
     "schema_version": 0,
-    "sha256": "7d051f336d92115114f78153adc38e6a189028234475b2a915e7b36b47e03cda",
+    "sha256": "b9c822b640b20f8832285de32977533cf5b4a537d9e021c23effc049ccf2347b",
     "authority_references": [
       {
         "id": "authority.pr720-merged-reference",
@@ -26,7 +26,7 @@
     "source_files": [
       {
         "path": "crosstl/translator/lexer.py",
-        "sha256": "4022b7e23c46538d7a080cd1719773567fc60cc9994ad3ba1bab5f0fcbad8bc4"
+        "sha256": "81820686f072df53de25d5e00d194f48f22899c2dbbe8165d40fe3d76e2541d8"
       },
       {
         "path": "crosstl/translator/parser.py",
@@ -34,18 +34,18 @@
       },
       {
         "path": "crosstl/translator/ast.py",
-        "sha256": "9ce23e8e1612235a46241aa7ebc3bd4ae9912ef38e9a50a5f9384060955701c0"
+        "sha256": "a0185e55a230e1cecc40934a5bd8234f5abff95d08c77e744582d093a814697c"
       },
       {
         "path": "crosstl/translator/validation.py",
-        "sha256": "0e09be9f94e3b94426a559f2fcda6ddc5800ef6237ac6d430f93c54f24d60513"
+        "sha256": "da790d908406aa908a3b83c37a742284ccbcedb194ba64f2ccd382a7ae545cd2"
       }
     ]
   },
   "contract_manifest": {
     "path": "tools/cross_repo_language_contract.json",
     "schema": 1,
-    "contract_count": 159,
+    "contract_count": 160,
     "accepted_feature_group_count": 8,
     "negative_case_count": 28,
     "hash_fields": [
@@ -194,7 +194,7 @@
         },
         {
           "ref": "/source/files",
-          "sha256": "ace722d3f2ba95161c22842508fdb9dd2cdf75cd536590a3f8438c22fcf74986"
+          "sha256": "8d928c57c642ba33197214e5802ed3e9cd22313233e1ba04ec400b2f32981590"
         }
       ],
       "fixture_count": 8,

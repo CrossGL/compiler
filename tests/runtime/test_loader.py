@@ -15,6 +15,7 @@ import zipfile
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_ROOT = REPO_ROOT / "runtime" / "examples" / "fixtures"
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 
 def _discard_legacy_cglc_arg() -> None:
@@ -35,7 +36,11 @@ def _discard_legacy_cglc_arg() -> None:
 _discard_legacy_cglc_arg()
 
 
-from runtime.loader import read_loader_plan  # noqa: E402
+from json_schema_semantics import validate_semantics  # noqa: E402
+from runtime.loader import (  # noqa: E402
+    read_loader_plan,
+    read_runtime_loader_plan_contract,
+)
 from runtime.opengl_loader import plan_opengl_loader  # noqa: E402
 from runtime.package_reader import (  # noqa: E402
     PackageReadError,
@@ -43,8 +48,13 @@ from runtime.package_reader import (  # noqa: E402
     select_runtime_artifact,
 )
 import runtime.package_target_contracts as runtime_target_contracts  # noqa: E402
+from validate_json_schema import load_json as load_schema_json  # noqa: E402
+from validate_json_schema import validate as validate_json_schema  # noqa: E402
 
 
+RUNTIME_LOADER_PLAN_SCHEMA = load_schema_json(
+    REPO_ROOT / "docs" / "schemas" / "runtime-loader-plan-v1.schema.json"
+)
 LEGACY_REQUIREMENTS_FALLBACK_CODE = "package.artifact_requirements.legacy_v0_fallback"
 LEGACY_REQUIREMENTS_FALLBACK_DIAGNOSTIC = {
     "severity": "note",
@@ -61,6 +71,17 @@ LEGACY_REQUIREMENTS_FALLBACK_DIAGNOSTIC = {
 
 
 class RuntimeLoaderFacadeTests(unittest.TestCase):
+    def assertRuntimeLoaderPlanContractValid(self, contract: dict[str, object]) -> None:
+        validate_json_schema(
+            contract,
+            RUNTIME_LOADER_PLAN_SCHEMA,
+            RUNTIME_LOADER_PLAN_SCHEMA,
+        )
+        self.assertEqual(
+            validate_semantics(contract, RUNTIME_LOADER_PLAN_SCHEMA),
+            [],
+        )
+
     def assertLegacyRequirementsFallbackOnly(
         self, diagnostics: list[dict[str, object]]
     ) -> None:
@@ -90,6 +111,31 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             [LEGACY_REQUIREMENTS_FALLBACK_DIAGNOSTIC],
         )
 
+    def assertRuntimeArtifactHandoff(
+        self,
+        handoff: object,
+        *,
+        expected_bytes: bytes,
+        expected_metadata: dict[str, object],
+        expected_package_format: str,
+        expected_artifact_name: str,
+        expected_package_path: str,
+        expected_absolute_path: str,
+        expected_selected_package_mode: str,
+        expected_size: int,
+    ) -> None:
+        self.assertEqual(handoff.bytes, expected_bytes)
+        self.assertEqual(handoff.metadata, expected_metadata)
+        self.assertEqual(handoff.package_format, expected_package_format)
+        self.assertEqual(handoff.artifact_name, expected_artifact_name)
+        self.assertEqual(handoff.package_path, expected_package_path)
+        self.assertEqual(handoff.absolute_path, expected_absolute_path)
+        self.assertEqual(
+            handoff.selected_package_mode,
+            expected_selected_package_mode,
+        )
+        self.assertEqual(handoff.size, expected_size)
+
     def test_directx_source_package_plan_selects_contract_and_reflection(
         self,
     ) -> None:
@@ -104,8 +150,185 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
 
             plan = read_loader_plan(package_dir, "directx")
             summary = plan.to_summary()
+            contract = plan.to_runtime_loader_plan_contract()
 
             self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(contract["kind"], "crossgl-runtime-loader-plan")
+            self.assertEqual(contract["success"], True)
+            self.assertEqual(contract["packageFormat"], "directory")
+            self.assertEqual(contract["packageTarget"], "directx")
+            self.assertEqual(contract["requestedLoaderTarget"], "directx")
+            self.assertEqual(contract["selectedPackageMode"], "source-package")
+            self.assertEqual(contract["selectedArtifact"]["name"], "backendSource")
+            self.assertFalse(contract["sourceParsingRequired"])
+            self.assertEqual(contract["packageVersion"], 1)
+            self.assertEqual(contract["selectedTarget"], "directx")
+            self.assertTrue(contract["loadable"])
+            self.assertEqual(
+                contract["requiredArtifacts"],
+                ["backendSource", "nativeBinary"],
+            )
+            self.assertEqual(
+                contract["requiredArtifactPaths"],
+                {
+                    "backendSource": "backend/directx/RuntimeLoaderFixture.hlsl",
+                    "nativeBinary": "backend/directx/RuntimeLoaderFixture.dxil",
+                },
+            )
+            self.assertEqual(
+                contract["runtimeArtifactPath"],
+                "backend/directx/RuntimeLoaderFixture.hlsl",
+            )
+            self.assertEqual(contract["reflectionInputs"]["schemaVersion"], 1)
+            self.assertEqual(contract["reflectionInputs"]["selectedTarget"], "directx")
+            self.assertEqual(contract["reflectionInputs"]["resourceCount"], 1)
+            self.assertEqual(
+                contract["reflectionInputs"]["targetResourceBindingCount"],
+                1,
+            )
+            self.assertEqual(
+                contract["reflectionInputs"]["targetResourceBindings"][0]["target"],
+                "directx",
+            )
+            self.assertEqual(
+                contract["reflectionInputs"]["targetResourceBindings"][0][
+                    "descriptorType"
+                ],
+                "UAV",
+            )
+            binding_metadata = contract["targetResourceBindingMetadata"]
+            self.assertEqual(binding_metadata["schemaVersion"], 1)
+            self.assertEqual(binding_metadata["selectedTarget"], "directx")
+            self.assertEqual(binding_metadata["loaderTarget"], "directx")
+            self.assertEqual(binding_metadata["packageTarget"], "directx")
+            self.assertEqual(binding_metadata["bindingCount"], 1)
+            self.assertEqual(binding_metadata["skippedBindingCount"], 0)
+            self.assertEqual(
+                binding_metadata["bindings"][0]["identity"],
+                {
+                    "target": "directx",
+                    "stage": "compute",
+                    "entryPoint": "runtime_loader_main",
+                    "name": "OutputBuffer",
+                    "kind": "storageBuffer",
+                },
+            )
+            self.assertEqual(binding_metadata["bindings"][0]["descriptorType"], "UAV")
+            host_loader_integration = contract["hostLoaderIntegration"]
+            self.assertEqual(
+                host_loader_integration["kind"],
+                "crossgl-runtime-host-loader-integration",
+            )
+            self.assertEqual(host_loader_integration["status"], "ready")
+            self.assertEqual(
+                host_loader_integration["scope"],
+                "host-loader-scaffold-generation",
+            )
+            self.assertEqual(
+                host_loader_integration["summary"],
+                {
+                    "targetCount": 1,
+                    "loadUnitCount": 1,
+                    "readyLoadUnitCount": 1,
+                    "blockedLoadUnitCount": 0,
+                    "entryPointCount": 1,
+                    "resourceBindingCount": 1,
+                    "workgroupSizeCount": 0,
+                    "functionConstantCount": 0,
+                    "specializationConstantCount": 0,
+                },
+            )
+            load_unit = host_loader_integration["loadUnits"][0]
+            self.assertEqual(load_unit["id"], "runtime-loader.directx.backendSource")
+            self.assertEqual(load_unit["target"], "directx")
+            self.assertEqual(
+                load_unit["packagePath"], contract["selectedArtifact"]["path"]
+            )
+            self.assertEqual(load_unit["artifact"], contract["selectedArtifact"])
+            self.assertEqual(load_unit["artifactFormat"], "backend-source")
+            self.assertEqual(load_unit["adapterKind"], "backend-source-loader")
+            self.assertIsNone(load_unit["sourceRemap"])
+            self.assertEqual(load_unit["requiredTools"], [])
+            self.assertEqual(
+                load_unit["hostResponsibilities"],
+                [
+                    "load-package-artifact",
+                    "bind-reflected-entry-points",
+                    "bind-reflected-resources",
+                ],
+            )
+            self.assertEqual(load_unit["hostInterface"]["status"], "ready")
+            self.assertEqual(load_unit["validation"]["loadReady"], True)
+            self.assertEqual(
+                [step["kind"] for step in load_unit["loadSteps"]],
+                ["load-package-artifact", "bind-host-interface"],
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][0]["message"],
+                "Load the selected runtime package artifact.",
+            )
+            self.assertEqual(load_unit["loadSteps"][0]["target"], "directx")
+            self.assertEqual(
+                load_unit["loadSteps"][0]["packagePath"],
+                "backend/directx/RuntimeLoaderFixture.hlsl",
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][0]["hostInterfaceStatus"],
+                "ready",
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][1]["message"],
+                "Bind reflected host interface metadata.",
+            )
+            self.assertEqual(load_unit["loadSteps"][1]["target"], "directx")
+            self.assertEqual(
+                load_unit["loadSteps"][1]["packagePath"],
+                "backend/directx/RuntimeLoaderFixture.hlsl",
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][1]["hostInterfaceStatus"],
+                "ready",
+            )
+            self.assertEqual(load_unit["blockers"], [])
+            self.assertEqual(
+                contract["runtimeArtifactSelection"],
+                {
+                    "schemaVersion": 1,
+                    "requestedTarget": "directx",
+                    "requestedPackageMode": "auto",
+                    "packageTarget": "directx",
+                    "selectedTarget": "directx",
+                    "selected": True,
+                    "selectedPackageMode": "source-package",
+                    "sourceParsingRequired": False,
+                    "compilerInvocationRequired": False,
+                    "deviceExecutionRequired": False,
+                    "sourceInputs": [],
+                    "artifact": contract["selectedArtifact"],
+                },
+            )
+            self.assertEqual(
+                read_runtime_loader_plan_contract(package_dir, "directx"),
+                contract,
+            )
+            self.assertEqual(
+                contract["packageArtifactRequirementsSource"],
+                "generated-package-target-contract",
+            )
+            self.assertEqual(
+                contract["targetLegalizationEvidenceSummary"],
+                {
+                    "toolRequirementsPresent": False,
+                    "target": None,
+                    "packageMode": None,
+                    "requiredToolCount": 0,
+                    "missingToolCount": 0,
+                    "requiredToolIds": [],
+                    "missingToolIds": [],
+                    "toolRequirementEvidenceIds": [],
+                },
+            )
             self.assertFalse(plan.source_parsing_required)
             self.assertEqual(plan.module, "RuntimeLoaderFixture")
             self.assertEqual(plan.package_target, "directx")
@@ -152,9 +375,109 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             )
             self.assertEqual(target_resource["hlslType"], "RWStructuredBuffer<float4>")
             self.assertEqual(target_resource["descriptorType"], "UAV")
+            metadata_record = plan.require_target_resource_binding_metadata(
+                "compute",
+                "OutputBuffer",
+                entry_point="runtime_loader_main",
+            )
+            self.assertEqual(metadata_record, binding_metadata["bindings"][0])
+            self.assertEqual(
+                plan.target_resource_binding_metadata_records(),
+                (metadata_record,),
+            )
+            self.assertIsNone(
+                plan.target_resource_binding_metadata("compute", "MissingBuffer")
+            )
+            with self.assertRaisesRegex(
+                PackageReadError,
+                "target resource binding metadata",
+            ):
+                plan.require_target_resource_binding_metadata(
+                    "compute",
+                    "MissingBuffer",
+                )
             self.assertEqual(
                 summary["compatibilityReport"]["sourceParsingRequired"],
                 False,
+            )
+
+    def test_source_remap_artifact_is_exposed_as_host_loader_load_step(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            source_remap_path = "ir/source-remap-provenance.json"
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["sourceRemap"] = source_remap_path
+            self._write_json(manifest_path, manifest)
+            (package_dir / "ir").mkdir()
+            self._write_json(
+                package_dir / source_remap_path,
+                {
+                    "schemaVersion": 1,
+                    "kind": "crossgl.sourceRemapProvenance",
+                    "contractVersion": "source-remap-provenance-v1",
+                    "target": "directx",
+                    "generatedFile": "generated/from-translator.cgl",
+                    "mappingGranularity": "source-span",
+                    "mappingCount": 1,
+                    "sourceRemap": {
+                        "path": "source/original.crossgl",
+                        "sha256": {
+                            "algorithm": "sha256",
+                            "value": "0" * 64,
+                        },
+                        "sizeBytes": 0,
+                    },
+                },
+            )
+
+            contract = read_runtime_loader_plan_contract(package_dir, "directx")
+
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            load_unit = contract["hostLoaderIntegration"]["loadUnits"][0]
+            self.assertEqual(
+                load_unit["sourceRemap"],
+                {
+                    "source": "manifest.artifacts.sourceRemap",
+                    "packagePath": source_remap_path,
+                    "exists": True,
+                },
+            )
+            self.assertEqual(
+                load_unit["hostResponsibilities"],
+                [
+                    "load-package-artifact",
+                    "load-source-remap",
+                    "bind-reflected-entry-points",
+                    "bind-reflected-resources",
+                ],
+            )
+            self.assertEqual(
+                [step["kind"] for step in load_unit["loadSteps"]],
+                [
+                    "load-package-artifact",
+                    "load-source-remap",
+                    "bind-host-interface",
+                ],
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][1],
+                {
+                    "kind": "load-source-remap",
+                    "message": "Load source remap provenance for diagnostics.",
+                    "target": "directx",
+                    "packagePath": source_remap_path,
+                    "hostInterfaceStatus": "ready",
+                    "command": None,
+                    "tools": [],
+                    "metadata": {
+                        "source": {
+                            "field": "manifest.artifacts.sourceRemap",
+                            "path": source_remap_path,
+                        }
+                    },
+                },
             )
 
     def test_workgroup_size_metadata_handoff_uses_reflection_only(self) -> None:
@@ -235,6 +558,88 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 "missing reflection workgroup size",
             ):
                 plan.require_workgroup_size("compute", "main")
+
+    def test_function_constant_metadata_handoff_uses_reflection_only(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            function_constants = [
+                {
+                    "name": "TILE_SIZE",
+                    "type": "int",
+                    "value": "16",
+                    "specializationId": 7,
+                },
+                {
+                    "name": "USE_FAST_PATH",
+                    "type": "bool",
+                    "value": "true",
+                },
+            ]
+            reflection["functionConstants"] = function_constants
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "loader function constant handoff must not parse CrossGL source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "directx")
+
+            summary = plan.to_summary()
+            contract = plan.to_runtime_loader_plan_contract()
+            reflection_summary = summary["reflectionResources"]
+            contract_reflection = summary["metadataContract"]["reflectionInputs"]
+            host_loader_integration = contract["hostLoaderIntegration"]
+            load_unit = host_loader_integration["loadUnits"][0]
+            bind_step = load_unit["loadSteps"][1]
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertEqual(plan.function_constants, tuple(function_constants))
+            self.assertEqual(plan.function_constant("TILE_SIZE"), function_constants[0])
+            self.assertEqual(
+                plan.require_function_constant("USE_FAST_PATH"),
+                function_constants[1],
+            )
+            self.assertEqual(reflection_summary["functionConstantCount"], 2)
+            self.assertEqual(reflection_summary["specializationConstantCount"], 1)
+            self.assertTrue(reflection_summary["functionConstantsAvailable"])
+            self.assertEqual(
+                reflection_summary["functionConstants"], function_constants
+            )
+            self.assertEqual(contract_reflection["functionConstantCount"], 2)
+            self.assertEqual(contract_reflection["specializationConstantCount"], 1)
+            self.assertTrue(contract_reflection["functionConstantsAvailable"])
+            self.assertEqual(
+                contract_reflection["functionConstants"], function_constants
+            )
+            self.assertEqual(
+                summary["compatibilityReport"]["functionConstants"]["records"],
+                function_constants,
+            )
+            self.assertEqual(
+                host_loader_integration["summary"]["functionConstantCount"],
+                2,
+            )
+            self.assertEqual(
+                host_loader_integration["summary"]["specializationConstantCount"],
+                1,
+            )
+            self.assertEqual(load_unit["hostInterface"]["functionConstantCount"], 2)
+            self.assertEqual(
+                load_unit["hostInterface"]["specializationConstantCount"],
+                1,
+            )
+            self.assertEqual(bind_step["metadata"]["functionConstantCount"], 2)
+            self.assertEqual(
+                bind_step["metadata"]["specializationConstantCount"],
+                1,
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_metadata_contract_consumes_declared_package_inputs_only(
         self,
@@ -730,6 +1135,33 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 summary["reflectionResources"]["targetResourceBindings"][0]["abi"],
                 {"buffer": 0},
             )
+            self.assertEqual(
+                summary["reflectionResources"]["targetResourceBindings"][0][
+                    "evidenceId"
+                ],
+                (
+                    "target-legalization.v1.metal.resource-binding.compute."
+                    "runtime_loader_main.OutputBuffer"
+                ),
+            )
+            self.assertEqual(
+                summary["reflectionResources"]["targetFeatures"],
+                [
+                    {
+                        "target": "metal",
+                        "kind": "package",
+                        "name": "fixture",
+                        "evidenceIds": [
+                            "target-legalization.v1.metal.capability.required."
+                            "metal.package.fixture"
+                        ],
+                    }
+                ],
+            )
+            self.assertEqual(
+                summary["metadataContract"]["reflectionInputs"]["targetFeatures"],
+                summary["reflectionResources"]["targetFeatures"],
+            )
             binding_metadata = summary["targetResourceBindingMetadata"]
             self.assertEqual(
                 binding_metadata,
@@ -755,6 +1187,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                     "binding": None,
                     "argumentIndex": None,
                     "abi": {"buffer": 0},
+                    "evidenceId": (
+                        "target-legalization.v1.metal.resource-binding.compute."
+                        "runtime_loader_main.OutputBuffer"
+                    ),
                     "identity": {
                         "target": "metal",
                         "stage": "compute",
@@ -1266,6 +1702,187 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 },
             )
             self.assertEqual(summary["missingArtifacts"], [])
+
+    def test_runtime_artifact_handoff_directory_returns_selected_artifact_bytes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime artifact handoff must not parse source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "metal")
+                handoff = plan.require_runtime_artifact_handoff()
+
+            artifact = plan.require_runtime_artifact()
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertRuntimeArtifactHandoff(
+                handoff,
+                expected_bytes=b"bin",
+                expected_metadata=plan.metadata_contract_summary,
+                expected_package_format="directory",
+                expected_artifact_name="nativeBinary",
+                expected_package_path="backend/metal/RuntimeLoaderFixture.metallib",
+                expected_absolute_path=artifact.absolute_path or str(artifact.path),
+                expected_selected_package_mode="native",
+                expected_size=artifact.size,
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_runtime_artifact_handoff_zip_returns_selected_artifact_bytes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            package_dir = temp_root / "package-dir"
+            package_dir.mkdir()
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "zip runtime artifact handoff must not parse source\n",
+                encoding="utf-8",
+            )
+            zip_path = temp_root / "RuntimeLoaderFixture.cglb"
+            self._write_zip_package(package_dir, zip_path)
+
+            with self._guard_crossgl_source_path_reads():
+                with self._guard_crossgl_source_archive_reads():
+                    plan = read_loader_plan(zip_path, "metal")
+                    handoff = plan.require_runtime_artifact_handoff()
+
+            artifact = plan.require_runtime_artifact()
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertRuntimeArtifactHandoff(
+                handoff,
+                expected_bytes=b"bin",
+                expected_metadata=plan.metadata_contract_summary,
+                expected_package_format="zip",
+                expected_artifact_name="nativeBinary",
+                expected_package_path="backend/metal/RuntimeLoaderFixture.metallib",
+                expected_absolute_path=(
+                    f"{zip_path}!/backend/metal/RuntimeLoaderFixture.metallib"
+                ),
+                expected_selected_package_mode="native",
+                expected_size=artifact.size,
+            )
+
+    def test_runtime_artifact_handoff_rejects_not_loadable_plan(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime artifact handoff must not parse source for rejects\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "vulkan")
+                self.assertFalse(plan.loadable)
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "runtime loader cannot load package",
+                ):
+                    plan.require_runtime_artifact_handoff()
+
+            self.assertIsNone(plan.runtime_artifact)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_runtime_artifact_handoff_enforces_byte_limit_for_directory_and_zip(
+        self,
+    ) -> None:
+        payload = b"0123456789abcdef"
+
+        for package_format in ("directory", "zip"):
+            with self.subTest(package_format=package_format):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_root = Path(temp_dir)
+                    package_dir = temp_root / "package-dir"
+                    package_dir.mkdir()
+                    self._write_valid_package(package_dir, target="directx")
+                    source_path = package_dir / "source" / "invalid.cgl"
+                    source_path.parent.mkdir()
+                    source_path.write_text(
+                        "runtime artifact byte limit must not parse source\n",
+                        encoding="utf-8",
+                    )
+                    artifact_path = (
+                        package_dir / "backend/directx/RuntimeLoaderFixture.hlsl"
+                    )
+                    artifact_path.write_bytes(payload)
+
+                    if package_format == "zip":
+                        package_root = temp_root / "RuntimeLoaderFixture.cglb"
+                        self._write_zip_package(package_dir, package_root)
+                    else:
+                        package_root = package_dir
+
+                    with self._guard_crossgl_source_path_reads():
+                        with self._guard_crossgl_source_archive_reads():
+                            plan = read_loader_plan(package_root, "directx")
+                            handoff = plan.require_runtime_artifact_handoff(
+                                byte_limit=len(payload)
+                            )
+                            with self.assertRaisesRegex(
+                                PackageReadError,
+                                "package artifact exceeds runtime byte limit",
+                            ):
+                                plan.require_runtime_artifact_handoff(
+                                    byte_limit=len(payload) - 1
+                                )
+
+                    artifact = plan.require_runtime_artifact()
+                    self.assertRuntimeArtifactHandoff(
+                        handoff,
+                        expected_bytes=payload,
+                        expected_metadata=plan.metadata_contract_summary,
+                        expected_package_format=package_format,
+                        expected_artifact_name="backendSource",
+                        expected_package_path=(
+                            "backend/directx/RuntimeLoaderFixture.hlsl"
+                        ),
+                        expected_absolute_path=(
+                            artifact.absolute_path or str(artifact.path)
+                        ),
+                        expected_selected_package_mode="source-package",
+                        expected_size=len(payload),
+                    )
+                    self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_runtime_artifact_handoff_preserves_archive_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            package_dir = temp_root / "package-dir"
+            package_dir.mkdir()
+            self._write_valid_package(package_dir)
+            zip_path = temp_root / "RuntimeLoaderFixture.cglb"
+            self._write_zip_package(package_dir, zip_path, prefix=zip_path.name)
+
+            plan = read_loader_plan(zip_path, "metal")
+            handoff = plan.require_runtime_artifact_handoff()
+
+            self.assertRuntimeArtifactHandoff(
+                handoff,
+                expected_bytes=b"bin",
+                expected_metadata=plan.metadata_contract_summary,
+                expected_package_format="zip",
+                expected_artifact_name="nativeBinary",
+                expected_package_path="backend/metal/RuntimeLoaderFixture.metallib",
+                expected_absolute_path=(
+                    f"{zip_path}!/{zip_path.name}/backend/metal/"
+                    "RuntimeLoaderFixture.metallib"
+                ),
+                expected_selected_package_mode="native",
+                expected_size=3,
+            )
 
     def test_loader_plan_rejects_recorded_required_artifact_contract_drift(
         self,
@@ -2061,9 +2678,15 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 with self._guard_crossgl_source_archive_reads():
                     plan = read_loader_plan(zip_path, "metal")
                     summary = plan.to_summary()
+                    contract = plan.to_runtime_loader_plan_contract()
 
             self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertRuntimeLoaderPlanContractValid(contract)
             self.assertEqual(summary["packageFormat"], "zip")
+            self.assertEqual(contract["packageFormat"], "zip")
+            self.assertEqual(contract["success"], True)
+            self.assertEqual(contract["selectedPackageMode"], "native")
+            self.assertEqual(contract["selectedArtifact"]["name"], "nativeBinary")
             self.assertEqual(summary["packageVersion"], 1)
             self.assertEqual(summary["status"], "compatible")
             self.assertEqual(
@@ -3362,6 +3985,84 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 [package_dir / "source" / "invalid.cgl"],
             )
 
+    def test_loader_plan_rejects_non_normalized_artifact_paths(
+        self,
+    ) -> None:
+        cases = (
+            ("directory", "backend/metal/./RuntimeLoaderFixture.metal"),
+            ("zip", "backend/metal//RuntimeLoaderFixture.metal"),
+        )
+        for package_format, artifact_path in cases:
+            with self.subTest(
+                package_format=package_format, artifact_path=artifact_path
+            ):
+                with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+                    package_dir = Path(temp_dir) / "package"
+                    package_dir.mkdir()
+                    self._write_valid_package(package_dir)
+                    manifest_path = package_dir / "manifest.json"
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    manifest["artifacts"]["backendSource"] = artifact_path
+                    self._write_json(manifest_path, manifest)
+                    source_path = package_dir / "source" / "invalid.cgl"
+                    source_path.parent.mkdir()
+                    source_path.write_text(
+                        "loader must reject malformed artifact paths from metadata\n",
+                        encoding="utf-8",
+                    )
+
+                    if package_format == "zip":
+                        zip_path = Path(temp_dir) / "package.cglb"
+                        self._write_zip_package(
+                            package_dir,
+                            zip_path,
+                            prefix=zip_path.name,
+                        )
+                        with self._guard_crossgl_source_archive_reads():
+                            plan = read_loader_plan(zip_path, "metal")
+                    else:
+                        with self._guard_crossgl_source_path_reads():
+                            plan = read_loader_plan(package_dir, "metal")
+
+                    summary = plan.to_summary()
+                    reject_codes = [
+                        diagnostic.code for diagnostic in plan.reject_reasons
+                    ]
+
+                    self.assertFalse(plan.loadable)
+                    self.assertEqual(plan.selected_artifacts, ())
+                    self.assertIsNone(plan.runtime_artifact)
+                    self.assertFalse(plan.source_parsing_required)
+                    self.assertIn("package.artifact.path_invalid", reject_codes)
+                    self.assertIn("package.artifacts.contract_invalid", reject_codes)
+                    self.assertIsNone(summary["runtimeArtifactSelection"]["artifact"])
+                    path_reject = next(
+                        diagnostic
+                        for diagnostic in summary["compatibilityReport"][
+                            "rejectReasons"
+                        ]
+                        if diagnostic["code"] == "package.artifact.path_invalid"
+                    )
+                    self.assertEqual(path_reject["path"], "artifacts.backendSource")
+                    self.assertEqual(path_reject["actual"], artifact_path)
+                    self.assertIn(
+                        "must be a normalized package-relative path",
+                        path_reject["message"],
+                    )
+                    contract_reject = next(
+                        diagnostic
+                        for diagnostic in summary["rejectReasons"]
+                        if diagnostic["code"] == "package.artifacts.contract_invalid"
+                    )
+                    self.assertEqual(
+                        [
+                            diagnostic["code"]
+                            for diagnostic in contract_reject["actual"]
+                        ],
+                        ["package.artifact.path_invalid"],
+                    )
+                    self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_runtime_artifact_selection_respects_source_package_and_native_modes(
         self,
     ) -> None:
@@ -3615,8 +4316,26 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 package_mode="native",
             )
             summary = plan.to_summary()
+            contract = plan.to_runtime_loader_plan_contract()
 
             self.assertFalse(plan.loadable)
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(contract["success"], False)
+            self.assertEqual(contract["requestedPackageMode"], "native")
+            self.assertIsNone(contract["selectedPackageMode"])
+            self.assertIsNone(contract["selectedArtifact"])
+            self.assertNotIn(
+                "skip",
+                [diagnostic["severity"] for diagnostic in contract["diagnostics"]],
+            )
+            self.assertIn(
+                "package.runtime-plan.native-artifact-unavailable",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
+            )
+            self.assertNotIn(
+                "package.native_binary_status.not_ready",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
+            )
             self.assertTrue(plan.compatibility_report.compatible)
             self.assertEqual(summary["status"], "source-only")
             self.assertCompatibilityCodesWithLegacyFallback(summary, [])
@@ -3634,6 +4353,67 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                     LEGACY_REQUIREMENTS_FALLBACK_CODE,
                     "package.native_binary_status.not_ready",
                 ],
+            )
+
+    def test_runtime_loader_plan_contract_normalizes_target_mismatch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+
+            plan = read_loader_plan(package_dir, "vulkan")
+            contract = plan.to_runtime_loader_plan_contract()
+
+            self.assertFalse(plan.loadable)
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(contract["success"], False)
+            self.assertEqual(contract["packageTarget"], "directx")
+            self.assertEqual(contract["requestedLoaderTarget"], "vulkan")
+            self.assertEqual(contract["targetMatchesPackage"], False)
+            self.assertEqual(contract["selectedArtifact"], None)
+            self.assertEqual(contract["diagnosticCounts"]["error"], 1)
+            mismatch_diagnostic = next(
+                diagnostic
+                for diagnostic in contract["diagnostics"]
+                if diagnostic["code"] == "package.runtime-plan.target-mismatch"
+            )
+            self.assertEqual(
+                mismatch_diagnostic["severity"],
+                "error",
+            )
+            self.assertNotIn(
+                "package.target.loader_mismatch",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
+            )
+
+    def test_runtime_loader_plan_contract_normalizes_source_artifact_unavailable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            (package_dir / "backend/directx/RuntimeLoaderFixture.hlsl").unlink()
+
+            plan = read_loader_plan(
+                package_dir,
+                "directx",
+                package_mode="source-package",
+            )
+            contract = plan.to_runtime_loader_plan_contract()
+
+            self.assertFalse(plan.loadable)
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(contract["success"], False)
+            self.assertEqual(contract["requestedPackageMode"], "source-package")
+            self.assertIsNone(contract["selectedArtifact"])
+            self.assertIn(
+                "package.runtime-plan.source-artifact-unavailable",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
+            )
+            self.assertNotIn(
+                "package.artifact.required_file_missing",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
             )
 
     def test_unsupported_package_target_rejects_without_loader_policy(self) -> None:
@@ -4421,6 +5201,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                         "bindingClass": "uav",
                         "descriptorType": "UAV",
                         "hlslType": "RWStructuredBuffer<float4>",
+                        "evidenceId": (
+                            f"target-legalization.v1.{target}.resource-binding."
+                            "compute.runtime_loader_main.OutputBuffer"
+                        ),
                     }
                 ],
                 "targetFeatures": [
@@ -4428,6 +5212,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                         "target": target,
                         "kind": "package",
                         "name": "fixture",
+                        "evidenceIds": [
+                            f"target-legalization.v1.{target}.capability.required."
+                            f"{target}.package.fixture"
+                        ],
                     }
                 ],
             },

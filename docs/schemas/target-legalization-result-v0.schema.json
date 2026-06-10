@@ -61,7 +61,8 @@
         "metal",
         "vulkan",
         "directx",
-        "opengl"
+        "opengl",
+        "wgsl"
       ]
     },
     "targetNameOrAuto": {
@@ -71,7 +72,8 @@
         "metal",
         "vulkan",
         "directx",
-        "opengl"
+        "opengl",
+        "wgsl"
       ]
     },
     "targetSelectionReason": {
@@ -194,7 +196,7 @@
     },
     "evidenceId": {
       "type": "string",
-      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+$"
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl|wgsl)\\.[A-Za-z0-9_.-]+$"
     },
     "capabilityIdList": {
       "type": "array",
@@ -246,7 +248,7 @@
         },
         "profile": {
           "type": "string",
-          "pattern": "^(metal|vulkan|directx|opengl)\\.v0\\.(native|source-package|unsupported)$"
+          "pattern": "^(metal|vulkan|directx|opengl|wgsl)\\.v0\\.(native|source-package|unsupported)$"
         },
         "packageMode": {
           "$ref": "#/$defs/packageMode"

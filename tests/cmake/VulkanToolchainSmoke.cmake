@@ -163,7 +163,7 @@ crossgl_vulkan_smoke_expect_json_field("${profile_json}" "module"
 crossgl_vulkan_smoke_expect_json_field("${profile_json}"
                                        "profile.vulkanVersion" "1.2")
 crossgl_vulkan_smoke_expect_json_field("${profile_json}"
-                                       "profile.spirvVersion" "1.0")
+                                       "profile.spirvVersion" "1.5")
 crossgl_vulkan_smoke_expect_json_field("${profile_json}"
                                        "debug.validationTargetEnv"
                                        "vulkan1.2")

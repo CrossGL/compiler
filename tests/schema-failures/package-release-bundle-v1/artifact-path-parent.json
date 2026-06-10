@@ -45,7 +45,13 @@
           "sizeBytes": 4,
           "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         }
-      ]
+      ],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.directx.abi.required.package-release-fixture"
+        ]
+      }
     }
   ]
 }

@@ -10,12 +10,19 @@ from typing import Any
 from .backend_loader import NATIVE_ARTIFACT_DESCRIPTOR
 from .backend_loader import NativeArtifactDescriptorPlan
 from .backend_loader import SourceFreeNativeBackendLoaderPlan
+from .backend_loader import _graphics_abi_reflection_parity_summary
 from .backend_loader import _native_artifact_descriptor_plan
 from .backend_loader import plan_source_free_native_backend_loader
-from .loader import LoaderArtifactPlan, RuntimeLoaderPlan, read_loader_plan
+from .loader import (
+    LoaderArtifactPlan,
+    RuntimeLoaderPlan,
+    SourceFreeRuntimeArtifactHandoff,
+    read_loader_plan,
+)
 from .package_reader import (
     CompatibilityDiagnostic,
     NATIVE_ARTIFACT_DESCRIPTOR_CONTRACT_VERSION,
+    PackageReadError,
     SUPPORTED_NATIVE_ARTIFACT_DESCRIPTOR_SCHEMA_VERSION,
 )
 
@@ -60,6 +67,29 @@ class DirectXNativeLoaderPlan(SourceFreeNativeBackendLoaderPlan):
     def directx_native_api_boundary(self) -> dict[str, Any]:
         return _directx_native_api_boundary(self)
 
+    def require_dxil_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        descriptor = self.native_artifact_descriptor
+        if (
+            descriptor is not None
+            and descriptor.readable
+            and descriptor.binary_kind != DIRECTX_DXIL_BINARY_KIND
+        ):
+            raise PackageReadError(
+                "directx-native DXIL handoff selected non-DXIL native binary kind: "
+                f"{descriptor.binary_kind}"
+            )
+        handoff = self.require_runtime_artifact_handoff(byte_limit=byte_limit)
+        if handoff.artifact_name != DIRECTX_NATIVE_ARTIFACT:
+            raise PackageReadError(
+                "directx-native loader selected non-DXIL runtime artifact: "
+                f"{handoff.artifact_name}"
+            )
+        return handoff
+
     def to_summary(self) -> dict[str, Any]:
         summary = super().to_summary()
         summary["directxNativeApiBoundary"] = self.directx_native_api_boundary
@@ -93,6 +123,7 @@ def plan_directx_native_loader(
         entry_points=base_plan.entry_points,
         resources=base_plan.resources,
         target_resource_bindings=base_plan.target_resource_bindings,
+        target_resource_binding_metadata=base_plan.target_resource_binding_metadata,
         workgroup_sizes=base_plan.workgroup_sizes,
         diagnostics=diagnostics,
     )
@@ -181,6 +212,11 @@ def _directx_native_api_boundary(plan: DirectXNativeLoaderPlan) -> dict[str, Any
                 descriptor=descriptor,
             ),
             "reflection": _directx_api_reflection_input(plan),
+            "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
+                plan.runtime_plan,
+                target=DIRECTX_LOADER_TARGET,
+                target_resource_bindings=plan.target_resource_bindings,
+            ),
             "versionCompatibility": plan.runtime_plan.version_compatibility_summary,
         },
         "descriptorFreshness": {
@@ -502,6 +538,9 @@ def _summarize_directx_resource_binding(record: dict[str, Any]) -> dict[str, Any
         "register": abi_summary.get("register"),
         "space": abi_summary.get("space"),
     }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     _copy_descriptor_array_metadata(summary, record)
     return summary
 
@@ -520,6 +559,9 @@ def _summarize_directx_register_space_binding(
         "descriptorType": record.get("descriptorType"),
         "hlslType": record.get("hlslType"),
     }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     _copy_descriptor_array_metadata(summary, record)
     return summary
 

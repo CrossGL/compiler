@@ -83,6 +83,13 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                 summary["reflection"]["targetResourceBindings"][0]["abi"],
                 {"space": 0, "register": "u0"},
             )
+            self.assertEqual(
+                summary["reflection"]["targetResourceBindings"][0]["evidenceId"],
+                (
+                    "target-legalization.v1.directx.resource-binding.compute."
+                    "runtime_directx_loader_main.OutputBuffer"
+                ),
+            )
             api_boundary = summary["directxNativeApiBoundary"]
             self.assertEqual(
                 api_boundary["boundary"],
@@ -140,9 +147,65 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                     "bindingClass": "uav",
                     "descriptorType": "UAV",
                     "hlslType": "RWStructuredBuffer<float4>",
+                    "evidenceId": (
+                        "target-legalization.v1.directx.resource-binding.compute."
+                        "runtime_directx_loader_main.OutputBuffer"
+                    ),
                 },
             )
             self.assertEqual(summary["rejectReasons"], [])
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_ready_plan_returns_explicit_dxil_handoff_without_source_parse(
+        self,
+    ) -> None:
+        expected_bytes = b"DXIL"
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_directx_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "DXIL handoff must not parse CrossGL source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads():
+                plan = plan_directx_native_loader(package_dir)
+                summary = plan.to_summary()
+                handoff = plan.require_dxil_handoff()
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "package artifact exceeds runtime byte limit",
+                ):
+                    plan.require_dxil_handoff(byte_limit=len(expected_bytes) - 1)
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertNotIn("runtimeArtifactHandoff", summary)
+            self.assertNotIn("dxilHandoff", summary)
+            self.assertEqual(handoff.artifact_name, "nativeBinary")
+            self.assertEqual(
+                handoff.package_path,
+                "backend/directx/RuntimeDirectXLoaderFixture.dxil",
+            )
+            self.assertEqual(handoff.package_format, "directory")
+            self.assertEqual(handoff.selected_package_mode, "native")
+            self.assertEqual(handoff.bytes, expected_bytes)
+            self.assertEqual(handoff.byte_length, len(expected_bytes))
+            self.assertIsNone(handoff.archive_path)
+            self.assertIsNone(handoff.archive_member)
+            self.assertEqual(handoff.metadata["sourceInputs"], [])
+            self.assertFalse(handoff.metadata["sourceParsingRequired"])
+            self.assertFalse(handoff.metadata["compilerInvocationRequired"])
+            self.assertFalse(handoff.metadata["deviceExecutionRequired"])
+            self.assertEqual(
+                handoff.metadata["runtimeArtifact"],
+                {
+                    "name": "nativeBinary",
+                    "path": "backend/directx/RuntimeDirectXLoaderFixture.dxil",
+                    "declaredBy": "manifest.artifacts.nativeBinary",
+                },
+            )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_native_api_boundary_preserves_storage_image_metadata_without_source_parse(
@@ -206,8 +269,80 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             self.assertEqual(resource["storageImageAccess"], "read_write")
             self.assertEqual(target_binding["storageImageFormat"], "rgba8")
             self.assertEqual(target_binding["storageImageAccess"], "read_write")
+            self.assertEqual(
+                register_binding["evidenceId"], target_binding["evidenceId"]
+            )
             self.assertEqual(register_binding["storageImageFormat"], "rgba8")
             self.assertEqual(register_binding["storageImageAccess"], "read_write")
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_native_api_boundary_reports_graphics_abi_reflection_mismatch_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            descriptor_path = (
+                "backend/directx/RuntimeDirectXLoaderFixture.native-artifact.json"
+            )
+            self._write_source_free_directx_package(
+                package_dir,
+                descriptor_path=descriptor_path,
+            )
+            self._write_graphics_abi_sidecar(package_dir, name="StaleBuffer")
+            source_path = package_dir / "source" / "RuntimeDirectXLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "graphics ABI parity must not parse source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                plan = plan_directx_native_loader(package_dir)
+                summary = plan.to_summary()
+
+            api_boundary = summary["directxNativeApiBoundary"]
+            parity = api_boundary["runtimeInputs"]["graphicsAbiReflectionParity"]
+            expected_reflection_binding = {
+                "target": "directx",
+                "stage": "compute",
+                "entryPoint": "runtime_directx_loader_main",
+                "name": "OutputBuffer",
+                "kind": "storageBuffer",
+            }
+            expected_stale_binding = {
+                **expected_reflection_binding,
+                "name": "StaleBuffer",
+            }
+
+            self.assertFalse(plan.ready)
+            self.assertEqual(api_boundary["decision"], "rejected")
+            self.assertEqual(summary["graphicsAbiReflectionParity"], parity)
+            self.assertEqual(
+                summary["nativeAdmission"]["graphicsAbiReflectionParity"],
+                parity,
+            )
+            self.assertTrue(parity["graphicsAbiDeclared"])
+            self.assertTrue(parity["parityChecked"])
+            self.assertFalse(parity["identityMatches"])
+            self.assertEqual(parity["status"], "mismatched")
+            self.assertEqual(parity["reflectionBindingCount"], 1)
+            self.assertEqual(parity["graphicsAbiBindingCount"], 1)
+            self.assertEqual(
+                parity["missingGraphicsAbiBindings"],
+                [expected_reflection_binding],
+            )
+            self.assertEqual(
+                parity["staleGraphicsAbiBindings"],
+                [expected_stale_binding],
+            )
+            self.assertIn(
+                "package.graphicsAbi.binding_missing",
+                parity["diagnosticCodes"],
+            )
+            self.assertIn(
+                "package.graphicsAbi.reflection_binding_missing",
+                parity["diagnosticCodes"],
+            )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_source_free_plan_uses_manifest_dxil_descriptor_and_ignores_legacy_path(
@@ -328,6 +463,8 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             with self._guard_crossgl_source_reads():
                 plan = plan_directx_native_loader(package_dir)
                 summary = plan.to_summary()
+                with self.assertRaisesRegex(PackageReadError, "non-DXIL"):
+                    plan.require_dxil_handoff()
 
             descriptor_summary = summary["nativeArtifactDescriptor"]
             descriptor_admission = summary["nativeAdmission"][
@@ -530,6 +667,7 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             ):
                 plan = plan_directx_native_loader(zip_path)
                 summary = plan.to_summary()
+                handoff = plan.require_dxil_handoff()
 
             descriptor_summary = summary["nativeArtifactDescriptor"]
             self.assertTrue(plan.ready, summary["diagnostics"])
@@ -555,6 +693,19 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                 plan.native_artifact.archive_member,
                 f"{zip_path.name}/{native_path}",
             )
+            self.assertNotIn("runtimeArtifactHandoff", summary)
+            self.assertEqual(handoff.artifact_name, "nativeBinary")
+            self.assertEqual(handoff.package_path, native_path)
+            self.assertEqual(handoff.package_format, "zip")
+            self.assertEqual(handoff.selected_package_mode, "native")
+            self.assertEqual(handoff.bytes, b"DXIL")
+            self.assertEqual(handoff.archive_path, zip_path)
+            self.assertEqual(
+                handoff.archive_member,
+                f"{zip_path.name}/{native_path}",
+            )
+            self.assertEqual(handoff.metadata["sourceInputs"], [])
+            self.assertFalse(handoff.metadata["sourceParsingRequired"])
             self.assertTrue(
                 summary["nativeArtifact"]["absolutePath"].startswith(f"{zip_path}!/")
             )
@@ -789,6 +940,8 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(PackageReadError, "nativeBinary"):
                 plan.require_ready()
+            with self.assertRaisesRegex(PackageReadError, "nativeBinary"):
+                plan.require_dxil_handoff()
 
     def test_rejects_stale_or_malformed_dxil_descriptor_without_source_or_work(
         self,
@@ -2449,6 +2602,10 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                 "bindingClass": "uav",
                 "descriptorType": "UAV",
                 "hlslType": "RWStructuredBuffer<float4>",
+                "evidenceId": (
+                    "target-legalization.v1.directx.resource-binding.compute."
+                    "runtime_directx_loader_main.OutputBuffer"
+                ),
             },
         )
         if descriptor_path is not None:
@@ -2543,6 +2700,62 @@ class DirectXNativeLoaderPlanTests(unittest.TestCase):
                 "descriptorType": "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
             },
         )
+
+    def _write_graphics_abi_sidecar(
+        self,
+        package_dir: Path,
+        *,
+        name: str = "OutputBuffer",
+    ) -> None:
+        manifest_path = package_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        graphics_abi_path = (
+            "backend/directx/RuntimeDirectXLoaderFixture.graphics-abi.json"
+        )
+        self._write_json(
+            package_dir / graphics_abi_path,
+            {
+                "schemaVersion": 1,
+                "module": "RuntimeDirectXLoaderFixture",
+                "target": "directx",
+                "entryPoints": [
+                    {
+                        "stage": "compute",
+                        "sourceName": "main",
+                        "backendName": "runtime_directx_loader_main",
+                    }
+                ],
+                "resources": [
+                    {
+                        "stage": "compute",
+                        "name": name,
+                        "kind": "storageBuffer",
+                        "type": "float4",
+                        "set": 0,
+                        "binding": 0,
+                    }
+                ],
+                "abiRecords": [
+                    {
+                        "target": "directx",
+                        "stage": "compute",
+                        "entryPoint": "runtime_directx_loader_main",
+                        "name": name,
+                        "kind": "storageBuffer",
+                        "sourceType": "float4",
+                        "addressSpace": "uav",
+                        "abi": {"space": 0, "register": "u0"},
+                        "bindingClass": "uav",
+                        "descriptorType": "UAV",
+                        "hlslType": "RWStructuredBuffer<float4>",
+                        "set": 0,
+                        "binding": 0,
+                    }
+                ],
+            },
+        )
+        manifest["artifacts"]["graphicsAbi"] = graphics_abi_path
+        self._write_json(manifest_path, manifest)
 
     def _write_package_json(
         self,

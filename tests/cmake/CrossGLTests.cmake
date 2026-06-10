@@ -34,6 +34,7 @@ if(BUILD_TESTING)
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLCheckTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLOptimizerTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLDumpTests.cmake")
+  include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLHIRSourceMapTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLTargetExplanationTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLBackendDumpTests.cmake")
 
@@ -66,6 +67,7 @@ if(BUILD_TESTING)
     "${CROSSGL_PACKAGE_VERIFY_TESTS_BEFORE}" 2 package-verify-build
     "^cglc_package_verify_.*(_source_package|_native)$")
 
+  include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLRuntimeLoaderPlanTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLRuntimePackageReaderTests.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLPythonTestRegistration.cmake")
 endif()

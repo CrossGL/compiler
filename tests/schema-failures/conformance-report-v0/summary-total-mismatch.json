@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "crossgl-conformance-report-v0",
+  "manifestSchemaVersion": "crossgl-conformance-manifest-v0",
+  "suite": "crossgl-language-1.0-seed",
+  "manifestPath": "tests/conformance/manifest.v0.json",
+  "summary": {
+    "total": 2,
+    "byStatus": {
+      "accepted": 1
+    },
+    "byFeatureGroup": {
+      "compute-basics": 1
+    },
+    "byLanguageCategory": {
+      "compute": 1
+    },
+    "byCommandProfile": {
+      "frontend-check": 1
+    },
+    "auxiliaryEvidence": {
+      "entryCount": 0,
+      "testCount": 0,
+      "byFeatureGroup": {},
+      "byEvidenceKind": {
+        "backend-dump": 0,
+        "debug-dump": 0,
+        "package-inspection": 0,
+        "target-explanation": 0
+      }
+    },
+    "targetFeatureEvidence": {
+      "entryCount": 0,
+      "testCount": 0,
+      "byFeatureGroup": {},
+      "byEvidenceKind": {
+        "planned-unsupported": 0,
+        "target-metadata": 0,
+        "target-package-explanation": 0
+      }
+    }
+  },
+  "entries": [
+    {
+      "id": "compute-basics.atan-intrinsic-calls",
+      "status": "accepted",
+      "featureGroup": "compute-basics",
+      "languageCategory": "compute",
+      "fixture": "tests/fixtures/AtanIntrinsicComputeShader.cgl",
+      "fixtureSha256": "2f7b06c0a6c5d5aa21ec86d5f5788412b3fd6996625dce7d3f358fbae102a5b9",
+      "commandProfile": "frontend-check",
+      "command": "cglc check tests/fixtures/AtanIntrinsicComputeShader.cgl",
+      "evidenceTests": [
+        "cglc_check_atan_intrinsic_compute"
+      ]
+    }
+  ]
+}

@@ -19,6 +19,23 @@ add_test(NAME cglc_dump_legacy_mlir_alias_emits_pseudo_mlir
     "-DMUST_CONTAIN=crossgl.real_mlir = \"false\""
     "-DEXPECTED_STDERR_FRAGMENT=--stage mlir is a compatibility alias for --stage pseudo-mlir"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_SPECIALIZATION_CONSTANTS_COMPUTE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/SpecializationConstantsComputeShader.cgl)
+add_test(NAME cglc_dump_crossgl_specialization_constants
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SPECIALIZATION_CONSTANTS_COMPUTE_SHADER}
+    -DSTAGE=crossgl
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=crossgl.constant @TILE_SIZE : !crossgl.i32 = \"16\" attributes \\{folded = \"16\", specialization_id = 7\\}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_pseudo_mlir_specialization_constants
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SPECIALIZATION_CONSTANTS_COMPUTE_SHADER}
+    -DSTAGE=pseudo-mlir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=// crossgl.constant @TILE_SIZE : !crossgl.i32 = \"16\" attributes \\{folded = \"16\", specialization_id = 7\\}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_WHILE_CONTROL_FLOW_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/WhileControlFlowHIRShader.cgl)
 set(CROSSGL_FOR_INCREMENT_DECREMENT_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForIncrementDecrementHIRShader.cgl)
 set(CROSSGL_WORKGROUP_SHARED_MEMORY_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/WorkgroupSharedMemoryHIRShader.cgl)
@@ -599,7 +616,7 @@ crossgl_add_python_expect_test(
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/debug-metadata-v11.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     "-DEXPECTED_JSON_FIELDS=schemaVersion=11|targetDecision.requestedTarget=directx|targetDecision.selectedTargetPackageMode=source-package|targetDecision.selectedTargetMissingCapabilityCount=3|targetDecision.selectedTargetRequiredToolCount=2|targetDecision.selectedTargetMissingToolCount=2|targetDecision.selectedTargetOptionalNativeToolMissing=true|targetDecision.selectedTargetOptionalNativeToolStatus=missing|targetCapabilities.summaries.2.requiredToolCount=2|targetCapabilities.summaries.2.missingToolCount=2|targetCapabilities.summaries.2.optionalNativeToolMissing=true|targetCapabilities.summaries.2.optionalNativeToolStatus=missing|targetDecision.fallbackTargetRecords.2.requiredToolCount=2|targetDecision.fallbackTargetRecords.2.missingToolCount=2|targetDecision.fallbackTargetRecords.2.optionalNativeToolMissing=true|targetDecision.fallbackTargetRecords.2.optionalNativeToolStatus=missing|manualTextureCompareKernelSummary.totalCount=1|manualTextureCompareKernels.0.weightClass=static-normalized"
-    "-DEXPECTED_JSON_ARRAY_CONTAINS=targetDecision.selectedTargetRequiredToolIds=directx.toolchain.dxc|targetDecision.selectedTargetMissingToolIds=directx.validation.dxil-validator|targetDecision.selectedTargetToolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|targetCapabilities.summaries.2.requiredToolIds=directx.toolchain.dxc|targetCapabilities.summaries.2.missingToolIds=directx.validation.dxil-validator|targetCapabilities.summaries.2.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|targetDecision.fallbackTargetRecords.2.requiredToolIds=opengl.toolchain.opengl-driver|targetDecision.fallbackTargetRecords.2.missingToolIds=opengl.validation.glsl-program-validation|targetDecision.fallbackTargetRecords.2.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirement.missing.validation.glsl-program-validation")
+    "-DEXPECTED_JSON_ARRAY_CONTAINS=targetDecision.selectedTargetRequiredToolIds=directx.toolchain.dxc|targetDecision.selectedTargetMissingToolIds=directx.validation.dxil-validator|targetDecision.selectedTargetToolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|targetDecision.packageArtifactRequirementEvidenceIds=target-legalization.v1.directx.package-artifacts.source-package|targetCapabilities.summaries.2.requiredToolIds=directx.toolchain.dxc|targetCapabilities.summaries.2.missingToolIds=directx.validation.dxil-validator|targetCapabilities.summaries.2.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator|targetCapabilities.summaries.2.packageArtifactRequirementEvidenceIds=target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed|targetDecision.fallbackTargetRecords.2.requiredToolIds=opengl.toolchain.opengl-driver|targetDecision.fallbackTargetRecords.2.missingToolIds=opengl.validation.glsl-program-validation|targetDecision.fallbackTargetRecords.2.toolRequirementEvidenceIds=target-legalization.v1.opengl.tool-requirement.missing.validation.glsl-program-validation|targetDecision.fallbackTargetRecords.2.packageArtifactRequirementEvidenceIds=target-legalization.v1.opengl.package-artifact.planned-native-source-evidence.allowed")
 add_test(NAME cglc_dump_debug_hir_source_locations
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -667,6 +684,19 @@ crossgl_add_python_expect_test(
     "-DEXPECTED_JSON_ARRAY_LENGTHS=hirSourceLocations.expressions=1|hirSourceLocations.types=1|hirSourceLocations.statements=1"
     "-DEXPECTED_JSON_FIELDS=schemaVersion=7|pagination.activeCount=3|hirSourceLocations.expressions.0.location.file=generated/from-translator.cgl|hirSourceLocations.expressions.0.originalLocation.file=shaders/original.crossgl|hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl|hirSourceLocations.statements.0.location.file=generated/from-translator.cgl|hirSourceLocations.statements.0.originalLocation.file=shaders/original.crossgl"
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/hir-source-map-v7.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+crossgl_add_python_expect_test(
+  NAME cglc_dump_backend_source_map_directx_logical_source_remap
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DSTAGE=backend-source-map
+    -DMODE=dump-stage
+    "-DSOURCE_MAP_FILTER_ARGS=--logical-input|generated/from-translator.cgl|--source-remap|${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=mappings=2"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=directx|module=StorageBufferComputeShader|mappingGranularity=statement|sourceBackend=crossgl-hir|targetBackend=hlsl|backend.language=hlsl|backend.lineCount=7|mappingCount=2|mappings.0.stage=compute|mappings.0.entryPoint=main|mappings.0.function=main|mappings.0.statementKind=assign|mappings.0.name=values[0]|mappings.0.backend.startLine=5|mappings.0.backend.endLine=5|mappings.0.location.file=generated/from-translator.cgl|mappings.0.location.line=8|mappings.0.originalLocation.file=shaders/original.crossgl|mappings.0.originalLocation.line=47|mappings.1.statementKind=return|mappings.1.backend.startLine=6|mappings.1.originalLocation.line=48"
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
 add_test(NAME cglc_dump_hir_source_map_while_lowered_for_provenance
   COMMAND ${CMAKE_COMMAND}

@@ -8,7 +8,13 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from .backend_loader import SourceFreeNativeBackendLoaderPlan
-from .loader import LoaderArtifactPlan, RuntimeLoaderPlan, read_loader_plan
+from .backend_loader import _graphics_abi_reflection_parity_summary
+from .loader import (
+    LoaderArtifactPlan,
+    RuntimeLoaderPlan,
+    SourceFreeRuntimeArtifactHandoff,
+    read_loader_plan,
+)
 from .package_reader import CompatibilityDiagnostic, PackageReadError
 
 
@@ -27,6 +33,24 @@ class OpenGLLoaderPlan(RuntimeLoaderPlan):
     @property
     def opengl_source_package_admission_detail(self) -> dict[str, Any]:
         return _opengl_source_package_admission_detail(self)
+
+    def require_glsl_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        handoff = self.require_runtime_artifact_handoff(byte_limit=byte_limit)
+        if handoff.artifact_name != OPENGL_SOURCE_ARTIFACT:
+            raise PackageReadError(
+                "opengl source-package loader selected non-GLSL runtime artifact: "
+                f"{handoff.artifact_name}"
+            )
+        if not _path_has_suffix(handoff.package_path, OPENGL_BACKEND_SOURCE_SUFFIX):
+            raise PackageReadError(
+                "opengl source-package loader selected non-GLSL backend source: "
+                f"{handoff.package_path}"
+            )
+        return handoff
 
     def to_summary(self) -> dict[str, Any]:
         summary = super().to_summary()
@@ -94,6 +118,11 @@ def plan_opengl_native_loader(
         target_resource_bindings=_target_resource_bindings(
             runtime_plan,
             OPENGL_LOADER_TARGET,
+        ),
+        target_resource_binding_metadata=(
+            runtime_plan.target_resource_binding_metadata_records(
+                target=OPENGL_LOADER_TARGET,
+            )
         ),
         workgroup_sizes=runtime_plan.workgroup_sizes,
         diagnostics=runtime_plan.diagnostics,
@@ -356,6 +385,14 @@ def _opengl_source_package_admission_detail(
                 for record in _target_resource_bindings(plan, OPENGL_LOADER_TARGET)
             ],
         },
+        "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
+            plan,
+            target=OPENGL_LOADER_TARGET,
+            target_resource_bindings=_target_resource_bindings(
+                plan,
+                OPENGL_LOADER_TARGET,
+            ),
+        ),
         "blockedByDiagnostics": [
             diagnostic.to_summary()
             for diagnostic in plan.diagnostics
@@ -571,6 +608,9 @@ def _summarize_opengl_resource_binding(record: dict[str, Any]) -> dict[str, Any]
         "program": abi_summary.get("program"),
         "binding": abi_summary.get("binding"),
     }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
     _copy_descriptor_array_metadata(summary, record)
     return summary
 

@@ -5,6 +5,7 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -23,7 +24,9 @@ from package_target_contracts import (
 
 
 MODULE_NAME = "StorageBufferComputeShader"
-DEBUG_TARGET_SUMMARY_TARGETS = ("metal", "vulkan", "directx", "opengl")
+CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS = "CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS"
+CROSSGL_CI_JOBS = "CROSSGL_CI_JOBS"
+DEBUG_TARGET_SUMMARY_TARGETS = ("metal", "vulkan", "directx", "opengl", "wgsl")
 TARGET_EXPLANATION_SCHEMA_PATH = (
     Path(__file__).resolve().parents[1]
     / "docs"
@@ -51,6 +54,29 @@ TARGET_ARTIFACT_PATHS = {
         "nativeBinary": "backend/opengl/StorageBufferComputeShader.glsl",
     },
 }
+
+
+def positive_jobs(value):
+    try:
+        jobs = int(value)
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
+    if jobs < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return jobs
+
+
+def jobs_from_environment(parser):
+    for name in (CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS, CROSSGL_CI_JOBS):
+        value = os.environ.get(name)
+        if value is None or not value.strip():
+            continue
+        try:
+            return positive_jobs(value)
+        except argparse.ArgumentTypeError:
+            parser.error(f"{name} must be a positive integer")
+    return 1
+
 
 SOURCE_PACKAGE_GENERATOR_NAMES = {
     "directx": "CrossGL DirectX backend",
@@ -498,21 +524,39 @@ def base_reflection(manifest):
 
 
 def nonuniform_target_features(target):
-    return copy.deepcopy(NONUNIFORM_TARGET_FEATURES[target])
+    return with_target_feature_evidence_ids(
+        target,
+        copy.deepcopy(NONUNIFORM_TARGET_FEATURES[target]),
+    )
+
+
+def target_feature_evidence_id(target, kind, name):
+    return f"target-legalization.v1.{target}.capability.required.{target}.{kind}.{name}"
+
+
+def with_target_feature_evidence_ids(target, features):
+    for feature in features:
+        feature["evidenceIds"] = [
+            target_feature_evidence_id(target, feature["kind"], feature["name"])
+        ]
+    return features
 
 
 def storage_image_target_features(target, atomic=False):
     specs = (
         STORAGE_IMAGE_ATOMIC_FEATURES if atomic else STORAGE_IMAGE_READ_WRITE_FEATURES
     )
-    return [
-        {
-            "target": target,
-            "kind": kind,
-            "name": name,
-        }
-        for kind, name in specs
-    ]
+    return with_target_feature_evidence_ids(
+        target,
+        [
+            {
+                "target": target,
+                "kind": kind,
+                "name": name,
+            }
+            for kind, name in specs
+        ],
+    )
 
 
 def nonuniform_diagnostics(target):
@@ -619,6 +663,10 @@ def storage_image_target_binding(target, resource):
         "kind": "storage_image",
         "sourceType": resource["type"],
         "storageImageFormat": resource["storageImageFormat"],
+        "evidenceId": (
+            f"target-legalization.v1.{target}.resource-binding."
+            f"compute.compute_main.{resource['name']}"
+        ),
     }
     if "arrayDimensions" in resource:
         binding["arraySize"] = STORAGE_IMAGE_ARRAY_SIZE
@@ -760,7 +808,7 @@ def base_vulkan_native_profile(manifest):
         "profile": {
             "name": "vulkan-prototype",
             "vulkanVersion": "1.2",
-            "spirvVersion": "1.0",
+            "spirvVersion": "1.5",
         },
         "generator": "CrossGL Vulkan prototype backend",
         "artifacts": {
@@ -781,27 +829,54 @@ def base_vulkan_native_profile(manifest):
     }
 
 
+def capability_groups(capabilities):
+    groups = {}
+    group_order = []
+    for capability in capabilities:
+        parts = capability.split(".", 2)
+        kind = parts[1] if len(parts) == 3 else "capability"
+        if kind not in groups:
+            groups[kind] = []
+            group_order.append(kind)
+        groups[kind].append(capability)
+    return [
+        {
+            "kind": kind,
+            "count": len(groups[kind]),
+            "capabilities": groups[kind],
+        }
+        for kind in group_order
+    ]
+
+
 def debug_target_capability_summary(target):
+    unsupported = target == "wgsl"
+    source_package = target in {"directx", "opengl"}
+    native = target in {"metal", "vulkan"}
+    required_capabilities = ["wgsl.backend.wgsl-lowering"] if unsupported else []
+    missing_capabilities = copy.deepcopy(required_capabilities)
+    required_capability_groups = capability_groups(required_capabilities)
+    missing_capability_groups = capability_groups(missing_capabilities)
     capability_summary = {
         "target": target,
-        "nativeImplemented": target in {"metal", "vulkan"},
-        "sourcePackageSupported": target in {"directx", "opengl"},
-        "packageBuildSupported": True,
-        "packageMode": "source-package"
-        if target in {"directx", "opengl"}
-        else "native",
-        "packageDecisionReason": (
-            "source-package-available"
-            if target in {"directx", "opengl"}
-            else "native-package-available"
+        "nativeImplemented": native,
+        "sourcePackageSupported": source_package,
+        "packageBuildSupported": not unsupported,
+        "packageMode": "unsupported"
+        if unsupported
+        else ("source-package" if source_package else "native"),
+        "packageDecisionReason": "unsupported"
+        if unsupported
+        else (
+            "source-package-available" if source_package else "native-package-available"
         ),
-        "packageRankScore": 1 if target in {"directx", "opengl"} else 0,
-        "requiredCapabilityCount": 0,
-        "missingCapabilityCount": 0,
-        "requiredCapabilities": [],
-        "missingCapabilities": [],
-        "requiredCapabilityGroups": [],
-        "missingCapabilityGroups": [],
+        "packageRankScore": 2 if unsupported else (1 if source_package else 0),
+        "requiredCapabilityCount": len(required_capabilities),
+        "missingCapabilityCount": len(missing_capabilities),
+        "requiredCapabilities": required_capabilities,
+        "missingCapabilities": missing_capabilities,
+        "requiredCapabilityGroups": required_capability_groups,
+        "missingCapabilityGroups": missing_capability_groups,
     }
     evidence_ids = expected_legalization_core_evidence_ids(capability_summary)
     capability_summary["legalizationCoreEvidenceIds"] = evidence_ids
@@ -909,7 +984,10 @@ def base_debug_metadata(target="directx"):
 def target_explanation_record(target):
     native = target in {"metal", "vulkan"}
     source_package = target in {"directx", "opengl"}
-    package_mode = "native" if native else "source-package"
+    unsupported = target == "wgsl"
+    package_mode = (
+        "unsupported" if unsupported else ("native" if native else "source-package")
+    )
     required_capabilities = []
     missing_capabilities = []
     if target == "metal":
@@ -936,17 +1014,20 @@ def target_explanation_record(target):
             ]
         )
         missing_capabilities.extend(required_capabilities[1:])
+    elif target == "wgsl":
+        required_capabilities.append("wgsl.backend.wgsl-lowering")
+        missing_capabilities.extend(required_capabilities)
 
     record = {
         "target": target,
         "nativeImplemented": native,
         "sourcePackageSupported": source_package,
-        "packageBuildSupported": True,
+        "packageBuildSupported": not unsupported,
         "packageMode": package_mode,
-        "packageDecisionReason": (
-            "native-package-available" if native else "source-package-available"
-        ),
-        "packageRankScore": 0 if native else 1,
+        "packageDecisionReason": "unsupported"
+        if unsupported
+        else ("native-package-available" if native else "source-package-available"),
+        "packageRankScore": 2 if unsupported else (0 if native else 1),
         "requiredCapabilityCount": len(required_capabilities),
         "missingCapabilityCount": len(missing_capabilities),
         "requiredCapabilities": required_capabilities,
@@ -994,10 +1075,10 @@ def target_explanation_decision_reason_codes(record):
         f"package-mode:{record['packageMode']}",
         f"package-reason:{record['packageDecisionReason']}",
     ]
-    if record["missingCapabilities"]:
-        codes.append("optional-native-tool:missing")
     if not record["packageBuildSupported"]:
-        codes.append("target:unsupported")
+        codes.append("unsupported:missing-capabilities")
+    elif record["missingCapabilities"]:
+        codes.append("optional-native-tool:missing")
     return codes
 
 
@@ -1010,6 +1091,16 @@ def target_explanation_report_links(record):
 
 
 def target_explanation_remediation(record):
+    if not record["packageBuildSupported"]:
+        missing = ", ".join(sorted(record["missingCapabilities"]))
+        if missing:
+            return (
+                f"Select a buildable target or satisfy missing capabilities: {missing}"
+            )
+        return (
+            "Select a buildable target; package builds are not available in "
+            "this compiler version."
+        )
     if record["missingCapabilities"]:
         missing = ", ".join(sorted(record["missingCapabilities"]))
         return (
@@ -1023,7 +1114,7 @@ def target_explanation_remediation(record):
 def base_target_explanation(target="directx"):
     targets = [
         target_explanation_record(name)
-        for name in ("metal", "vulkan", "directx", "opengl")
+        for name in ("metal", "vulkan", "directx", "opengl", "wgsl")
     ]
     recommended = targets[0]
     for record in targets[1:]:
@@ -1037,7 +1128,9 @@ def base_target_explanation(target="directx"):
         "schemaVersion": 1,
         "module": MODULE_NAME,
         "defaultTarget": target,
-        "buildableTargetCount": len(targets),
+        "buildableTargetCount": sum(
+            1 for record in targets if record["packageBuildSupported"]
+        ),
         "recommendedTarget": recommended["target"],
         "recommendedPackageMode": recommended["packageMode"],
         "targets": targets,
@@ -1644,7 +1737,7 @@ def run_native_delegation_cases(root, cglc, tmp_dir):
     return errors
 
 
-def run_cases(root, cglc=None):
+def run_cases(root, cglc=None, jobs=1):
     errors = []
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
@@ -1702,6 +1795,7 @@ def run_cases(root, cglc=None):
             errors,
             valid_target_cases,
             check_valid_target_case,
+            jobs=jobs,
         )
 
         unexpected_native_status_cases = []
@@ -1732,6 +1826,7 @@ def run_cases(root, cglc=None):
             errors,
             unexpected_native_status_cases,
             check_unexpected_native_status_case,
+            jobs=jobs,
         )
 
         package, source, manifest = make_package(tmp_dir, "duplicate-artifact-key")
@@ -1778,6 +1873,7 @@ def run_cases(root, cglc=None):
             errors,
             missing_required_artifact_cases,
             check_missing_required_artifact_case,
+            jobs=jobs,
         )
 
         package, source, manifest = make_package(
@@ -2231,9 +2327,20 @@ def main():
         help="CrossGL-Compiler repository root",
     )
     parser.add_argument("--cglc", type=Path, help="Path to cglc executable")
+    parser.add_argument(
+        "--jobs",
+        type=positive_jobs,
+        help=(
+            "Run independent fixture cases in parallel; defaults to "
+            f"${CROSSGL_PACKAGE_INTEGRITY_FIXTURE_JOBS}, then ${CROSSGL_CI_JOBS}, "
+            "then 1."
+        ),
+    )
     args = parser.parse_args()
+    if args.jobs is None:
+        args.jobs = jobs_from_environment(parser)
 
-    errors = run_cases(Path(args.root).resolve(), args.cglc)
+    errors = run_cases(Path(args.root).resolve(), args.cglc, jobs=args.jobs)
     if errors:
         for error in errors:
             print(f"package integrity fixture check failed: {error}", file=sys.stderr)

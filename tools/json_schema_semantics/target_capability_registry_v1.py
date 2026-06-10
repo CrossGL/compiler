@@ -4,78 +4,90 @@ from .common import add_equal_error
 from .common import validate_unique_values
 
 
-TARGET_ORDER = ("metal", "vulkan", "directx", "opengl")
+TARGET_ORDER = ("metal", "vulkan", "directx", "opengl", "wgsl")
 DISPLAY_NAMES = {
     "metal": "Metal",
     "vulkan": "Vulkan",
     "directx": "DirectX",
     "opengl": "OpenGL",
+    "wgsl": "WGSL / WebGPU",
 }
 PACKAGE_MODES = {
     "metal": "native",
     "vulkan": "native",
     "directx": "source-package",
     "opengl": "source-package",
+    "wgsl": "unsupported",
 }
 NATIVE_ARTIFACT_FORMATS = {
     "metal": "metallib",
     "vulkan": "spirv",
     "directx": "dxil",
     "opengl": "glsl-source",
+    "wgsl": "wgsl-source",
 }
 NATIVE_PATH_ARTIFACTS = {
     "metal": ["backendSource", "intermediate", "nativeBinary"],
     "vulkan": ["backendAssembly", "nativeBinary"],
     "directx": ["backendSource", "nativeBinary"],
     "opengl": ["backendSource", "nativeBinary"],
+    "wgsl": [],
 }
 NATIVE_SUPPORT_CLASSES = {
     "metal": "native",
     "vulkan": "prototype-native",
     "directx": "native",
     "opengl": "planned-native",
+    "wgsl": "planned-native",
 }
 BASELINE_BACKEND_CAPABILITIES = {
     "metal": "metal.backend.native-metal-package",
     "vulkan": "vulkan.backend.vulkan-prototype-package",
     "directx": "directx.backend.native-dxil-package",
     "opengl": "opengl.backend.glsl-lowering",
+    "wgsl": "wgsl.backend.wgsl-lowering",
 }
 NATIVE_IMPLEMENTED = {
     "metal": True,
     "vulkan": True,
     "directx": True,
     "opengl": False,
+    "wgsl": False,
 }
 SOURCE_PACKAGE_SELECTABLE = {
     "metal": False,
     "vulkan": False,
     "directx": True,
     "opengl": True,
+    "wgsl": False,
 }
 ADMITTED_PACKAGE_MODES = {
     "metal": ["native"],
     "vulkan": ["native"],
     "directx": ["source-package"],
     "opengl": ["source-package"],
+    "wgsl": [],
 }
 PACKAGE_DECISION_REASONS = {
     "metal": "native-package-available",
     "vulkan": "native-package-available",
     "directx": "source-package-available",
     "opengl": "source-package-available",
+    "wgsl": "unsupported",
 }
 PACKAGE_RANK_SCORES = {
     "metal": 0,
     "vulkan": 0,
     "directx": 1,
     "opengl": 1,
+    "wgsl": 2,
 }
 NATIVE_BINARY_STATUS_POLICIES = {
     "metal": False,
     "vulkan": False,
     "directx": True,
     "opengl": True,
+    "wgsl": False,
 }
 SOURCE_PACKAGE_OPTIONAL_NATIVE_TOOL_REQUIREMENTS = {
     "directx": ["directx.toolchain.dxc", "directx.validation.dxil-validator"],
@@ -97,6 +109,7 @@ REQUIRED_PACKAGE_ADMISSION_EVIDENCE = (
     "cglc_package_target_contracts",
 )
 PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE = "tools/package_target_contracts.json"
+UNSUPPORTED_PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE = "src/Backend/TargetLegalization.cpp"
 
 
 def capability_area(capability_id):
@@ -114,6 +127,8 @@ def capability_kind(capability_id):
 
 
 def expected_native_status(target, native_artifact):
+    if target == "wgsl":
+        return "unsupported"
     if target == "directx":
         return "supported"
     if native_artifact["allowsPlannedNativeBinary"]:
@@ -348,9 +363,10 @@ def validate_target_record(errors, path, record):
         records_by_id,
         record_paths_by_id,
     )
-    validate_required_package_contract_evidence(
-        errors, f"{path}.optimization", optimization["evidence"]
-    )
+    if record["packageMode"] != "unsupported":
+        validate_required_package_contract_evidence(
+            errors, f"{path}.optimization", optimization["evidence"]
+        )
     add_equal_error(
         errors,
         f"{path}.optimization.levels",
@@ -413,9 +429,10 @@ def validate_target_record(errors, path, record):
         records_by_id,
         record_paths_by_id,
     )
-    validate_required_package_contract_evidence(
-        errors, f"{path}.nativeArtifact", native_artifact["evidence"]
-    )
+    if record["packageMode"] != "unsupported":
+        validate_required_package_contract_evidence(
+            errors, f"{path}.nativeArtifact", native_artifact["evidence"]
+        )
     requires_native_binary_status = NATIVE_BINARY_STATUS_POLICIES[target]
     add_equal_error(
         errors,
@@ -545,14 +562,31 @@ def validate_target_record(errors, path, record):
         records_by_id,
         record_paths_by_id,
     )
-    validate_required_package_admission_evidence(
-        errors, f"{path}.packageAdmission", package_admission["evidence"]
+    if record["packageMode"] != "unsupported":
+        validate_required_package_admission_evidence(
+            errors, f"{path}.packageAdmission", package_admission["evidence"]
+        )
+    else:
+        for required in (
+            "include/crossgl/Backend/TargetCapabilityInventory.h",
+            "src/Backend/TargetCapabilities.cpp",
+            UNSUPPORTED_PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE,
+        ):
+            if required not in package_admission["evidence"]:
+                errors.append(
+                    f"{path}.packageAdmission.evidence: expected unsupported "
+                    f"package admission evidence {required!r}"
+                )
+    expected_requirements_source = (
+        UNSUPPORTED_PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE
+        if record["packageMode"] == "unsupported"
+        else PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE
     )
     add_equal_error(
         errors,
         f"{path}.packageAdmission.packageArtifactRequirementsSource",
         package_admission["packageArtifactRequirementsSource"],
-        PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE,
+        expected_requirements_source,
         "registry v0 package artifact requirements source",
     )
 

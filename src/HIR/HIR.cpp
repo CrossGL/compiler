@@ -480,6 +480,12 @@ bool isScalarNumericType(const HIRType &type) {
           baseTypeName(type) == "uint");
 }
 
+bool isSpecializationConstantTypeSupported(const HIRType &type) {
+  return !type.arraySize.has_value() &&
+         (baseTypeName(type) == "bool" || baseTypeName(type) == "int" ||
+          baseTypeName(type) == "uint" || baseTypeName(type) == "float");
+}
+
 bool isNumericVectorTypeName(std::string_view name) {
   return name == "vec2" || name == "vec3" || name == "vec4" ||
          name == "ivec2" || name == "ivec3" || name == "ivec4" ||
@@ -3430,6 +3436,7 @@ HIRConstant convertConstant(
                                     constantTypes, &diagnostics);
   hir.value.type = hir.type;
   hir.foldedValue = foldExpressionToString(hir.value, constantValues);
+  hir.specializationId = constant.specializationId;
   return hir;
 }
 
@@ -5837,6 +5844,7 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
   std::unordered_map<std::string, HIRType> constantTypes;
   HIRScalarConstantMap constantValues;
   std::set<std::string> constantNames;
+  std::set<std::size_t> specializationConstantIds;
   for (const ConstantDecl &constant : module.constants) {
     if (!constantNames.insert(constant.name).second) {
       diagnostics.error("sema.duplicate-constant",
@@ -5853,6 +5861,22 @@ std::optional<HIRModule> buildHIR(const ShaderModule &module,
                           "unknown type '" + hirConstant.type.name +
                               "' for constant '" + constant.name + "'",
                           constant.type.location);
+    }
+    if (hirConstant.specializationId.has_value()) {
+      if (!specializationConstantIds.insert(*hirConstant.specializationId)
+               .second) {
+        diagnostics.error("sema.duplicate-specialization-constant-id",
+                          "duplicate specialization constant_id " +
+                              std::to_string(*hirConstant.specializationId),
+                          constant.specializationIdSpan);
+      }
+      if (!isSpecializationConstantTypeSupported(hirConstant.type)) {
+        diagnostics.error(
+            "sema.unsupported-specialization-constant-type",
+            "specialization constants support only scalar bool, int, uint, "
+            "and float types",
+            constant.type.location);
+      }
     }
     if (std::optional<FoldedHIRScalar> folded =
             foldExpression(hirConstant.value, constantValues)) {

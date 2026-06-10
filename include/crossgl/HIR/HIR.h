@@ -177,6 +177,7 @@ struct HIRConstant {
   std::string name;
   HIRExpression value;
   std::optional<std::string> foldedValue;
+  std::optional<std::size_t> specializationId;
 };
 
 enum class HIRStatementKind {

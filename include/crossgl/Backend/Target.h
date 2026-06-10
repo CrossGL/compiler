@@ -12,6 +12,7 @@ enum class TargetKind {
   Vulkan,
   DirectX,
   OpenGL,
+  WGSL,
 };
 
 struct TargetInfo {

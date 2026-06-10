@@ -44,7 +44,13 @@
           "sizeBytes": null,
           "sha256": null
         }
-      ]
+      ],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.directx.abi.required.package-release-fixture"
+        ]
+      }
     }
   ],
   "summary": {

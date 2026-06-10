@@ -28,6 +28,8 @@ TOOL_REQUIREMENT_FIELDS = {
     "toolRequirementEvidenceIds",
 }
 
+PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD = "packageArtifactRequirementEvidenceIds"
+
 NORMALIZED_LEGALIZATION_FIELDS = {
     "supportStatus",
     "legalizationState",
@@ -147,6 +149,45 @@ def expected_tool_requirement_evidence_ids(record, required_ids, missing_ids):
                     f"tool-requirement.{role}.{suffix}",
                 )
             )
+    return evidence_ids
+
+
+def expected_package_artifact_requirement_evidence_ids(record):
+    target = record["target"]
+    mode = record["packageMode"]
+    evidence_ids = [
+        target_legalization_evidence_id(target, f"package-artifacts.{mode}")
+    ]
+    if mode == "unsupported" or not record["packageBuildSupported"]:
+        return evidence_ids
+
+    required_artifacts = {
+        "metal": ("backendSource", "intermediate", "nativeBinary"),
+        "vulkan": ("backendAssembly", "nativeBinary"),
+        "directx": ("backendSource", "nativeBinary"),
+        "opengl": ("backendSource", "nativeBinary"),
+    }.get(target, ())
+    evidence_ids.extend(
+        target_legalization_evidence_id(target, f"package-artifact.required.{artifact}")
+        for artifact in required_artifacts
+    )
+
+    allows_planned_native = mode == "source-package" and target in {"directx", "opengl"}
+    if allows_planned_native:
+        evidence_ids.extend(
+            [
+                target_legalization_evidence_id(
+                    target, "package-artifact.native-binary-status.required"
+                ),
+                target_legalization_evidence_id(
+                    target, "package-artifact.planned-native-binary.allowed"
+                ),
+                target_legalization_evidence_id(
+                    target,
+                    "package-artifact.planned-native-source-evidence.allowed",
+                ),
+            ]
+        )
     return evidence_ids
 
 
@@ -555,6 +596,40 @@ def validate_tool_requirement_fields(errors, path, record):
             )
 
 
+def validate_package_artifact_requirement_evidence_ids(errors, path, record):
+    field = PACKAGE_ARTIFACT_REQUIREMENT_EVIDENCE_FIELD
+    if field not in record:
+        return
+
+    evidence_ids = string_list(record[field])
+    if not evidence_ids:
+        errors.append(f"{path}.{field}: must be a non-empty array")
+        return
+
+    expected_prefix = f"{TARGET_LEGALIZATION_EVIDENCE_PREFIX}.{record['target']}."
+    seen = set()
+    for index, evidence_id in enumerate(evidence_ids):
+        item_path = f"{path}.{field}[{index}]"
+        if evidence_id in seen:
+            errors.append(
+                f"{path}.{field}: duplicate package artifact requirement "
+                f"evidence id {evidence_id!r}"
+            )
+        seen.add(evidence_id)
+        if not evidence_id.startswith(expected_prefix):
+            errors.append(
+                f"{item_path}: expected target legalization evidence prefix "
+                f"{expected_prefix!r}, got {evidence_id!r}"
+            )
+
+    expected_evidence_ids = expected_package_artifact_requirement_evidence_ids(record)
+    if evidence_ids != expected_evidence_ids:
+        errors.append(
+            f"{path}.{field}: expected package artifact requirement evidence "
+            f"ids {expected_evidence_ids!r}, got {evidence_ids!r}"
+        )
+
+
 def validate_target_explanation_legalization_core_evidence(errors, path, document):
     for index, record in enumerate(document["targets"]):
         validate_normalized_legalization_fields(
@@ -573,6 +648,11 @@ def validate_target_explanation_legalization_core_evidence(errors, path, documen
             record,
         )
         validate_tool_requirement_fields(
+            errors,
+            f"{path}.targets[{index}]",
+            record,
+        )
+        validate_package_artifact_requirement_evidence_ids(
             errors,
             f"{path}.targets[{index}]",
             record,

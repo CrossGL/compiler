@@ -1,0 +1,1 @@
+$.summary.artifactProvenanceByIntermediate: expected artifact provenance counts {'none': 1}, got {'crossgl': 1}

@@ -8504,18 +8504,26 @@ void testHIRSourceMapSchemaV8ResourceAccessRecords() {
     expect(record.resourceRecordKind == "access" &&
                record.resourceName == "values" &&
                record.resourceKind == "buffer" &&
+               record.function == "main" && record.ownerKind == "statement" &&
+               record.ownerName == "values" && record.accessKind == "write" &&
+               record.accessPath == "values" && record.operation == "index" &&
+               (record.indexExpression == "0" ||
+                record.indexExpression == "1") &&
+               record.memberName.empty() &&
                spanMatches(source, sourceLocation(record.location), "values"),
            "schema 8 HIR source-map access record points at resource "
-           "identifier token");
+           "identifier token with access context");
   }
   expect(accessSourceMap.records.items[0].recordKind == "resource" &&
              accessSourceMap.records.items[0]
                      .resource.resourceRecordKind == "access" &&
+             accessSourceMap.records.items[0].resource.accessKind == "write" &&
+             accessSourceMap.records.items[0].resource.function == "main" &&
              accessSourceMap.records.items[1].recordKind == "resource" &&
              accessSourceMap.records.items[1]
                      .resource.resourceRecordKind == "access",
-         "schema 8 HIR source-map combined records include resource access "
-         "records");
+         "schema 8 HIR source-map combined records include contextual "
+         "resource access records");
 
   crossgl::DebugMetadataHIRSourceMapPagination resourcePage;
   resourcePage.resourceLimit = 1;
@@ -8539,8 +8547,13 @@ void testHIRSourceMapSchemaV8ResourceAccessRecords() {
              accessJson.find("\"resourceName\":\"values\"") !=
                  std::string::npos &&
              accessJson.find("\"resourceKind\":\"buffer\"") !=
-                 std::string::npos,
-         "schema 8 HIR source-map JSON serializes resource access records");
+                 std::string::npos &&
+             accessJson.find("\"function\":\"main\"") != std::string::npos &&
+             accessJson.find("\"accessKind\":\"write\"") !=
+                 std::string::npos &&
+             accessJson.find("\"operation\":\"index\"") != std::string::npos,
+         "schema 8 HIR source-map JSON serializes contextual resource access "
+         "records");
 }
 
 std::vector<crossgl::Diagnostic> collectDiagnostics(std::string_view source) {
@@ -8553,6 +8566,124 @@ std::vector<crossgl::Diagnostic> collectDiagnostics(std::string_view source) {
     (void)crossgl::buildHIR(*ast, diagnostics);
   }
   return diagnostics.diagnostics();
+}
+
+void testSpecializationConstantsFrontendAndHIR() {
+  constexpr std::string_view source = R"(
+shader SpecializationConstantsShader {
+  layout(constant_id = 7) const int WORKGROUP_SCALE = 4;
+  const float BASE_GAIN = 1.0;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    void main() {
+      int scaled = WORKGROUP_SCALE;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "specialization constant source builds HIR");
+  if (!hir.has_value()) {
+    return;
+  }
+
+  const auto findConstant = [&hir](std::string_view name) {
+    for (const crossgl::HIRConstant &constant : hir->constants) {
+      if (constant.name == name) {
+        return &constant;
+      }
+    }
+    return static_cast<const crossgl::HIRConstant *>(nullptr);
+  };
+
+  const crossgl::HIRConstant *workgroupScale =
+      findConstant("WORKGROUP_SCALE");
+  const crossgl::HIRConstant *baseGain = findConstant("BASE_GAIN");
+  expect(workgroupScale != nullptr &&
+             workgroupScale->specializationId.has_value() &&
+             *workgroupScale->specializationId == 7 &&
+             workgroupScale->foldedValue == std::optional<std::string>("4"),
+         "HIR preserves specialization constant id and default value");
+  expect(baseGain != nullptr && !baseGain->specializationId.has_value(),
+         "ordinary module constants do not become specialization constants");
+
+  const std::string hirText = crossgl::printHIR(*hir);
+  expect(hirText.find("const int WORKGROUP_SCALE = 4 folded 4 "
+                      "specialization_id 7") != std::string::npos,
+         "HIR printer exposes specialization constant ids");
+
+  const std::string crossglText = crossgl::printCrossGLIR(*hir);
+  expect(crossglText.find("crossgl.constant @WORKGROUP_SCALE") !=
+             std::string::npos,
+         "CrossGL debug IR prints specialization constants");
+  expect(crossglText.find("attributes {folded = \"4\", "
+                          "specialization_id = 7}") != std::string::npos,
+         "CrossGL debug IR preserves specialization constant ids");
+  expect(crossglText.find("crossgl.constant @BASE_GAIN") != std::string::npos,
+         "CrossGL debug IR keeps ordinary constants");
+
+  const std::string pseudoMLIRText = crossgl::printPseudoMLIR(*hir);
+  expect(pseudoMLIRText.find("// crossgl.constant @WORKGROUP_SCALE") !=
+             std::string::npos,
+         "pseudo-MLIR debug projection carries specialization constants");
+  expect(pseudoMLIRText.find("specialization_id = 7") != std::string::npos,
+         "pseudo-MLIR debug projection preserves specialization ids");
+}
+
+void testSpecializationConstantsDiagnostics() {
+  const std::vector<crossgl::Diagnostic> negativeIdDiagnostics =
+      collectDiagnostics(R"(
+shader NegativeSpecializationConstantIdShader {
+  layout(constant_id = -1) const int BAD = 1;
+}
+)");
+  expect(hasDiagnosticCode(negativeIdDiagnostics,
+                           "parse.invalid-specialization-constant-id"),
+         "parser rejects negative specialization constant ids");
+
+  const std::vector<crossgl::Diagnostic> missingIdDiagnostics =
+      collectDiagnostics(R"(
+shader MissingSpecializationConstantIdShader {
+  layout(binding = 1) const int BAD = 1;
+}
+)");
+  expect(hasDiagnosticCode(missingIdDiagnostics,
+                           "parse.missing-specialization-constant-id"),
+         "parser requires a constant_id specialization layout key");
+
+  const std::vector<crossgl::Diagnostic> missingConstDiagnostics =
+      collectDiagnostics(R"(
+shader SpecializationLayoutWithoutConstShader {
+  layout(constant_id = 2) int BAD = 1;
+}
+)");
+  expect(hasDiagnosticCode(missingConstDiagnostics,
+                           "parse.specialization-layout-requires-const"),
+         "parser rejects specialization constant layouts without const");
+
+  const std::vector<crossgl::Diagnostic> duplicateIdDiagnostics =
+      collectDiagnostics(R"(
+shader DuplicateSpecializationConstantIdShader {
+  layout(constant_id = 0) const int FIRST = 1;
+  layout(constant_id = 0) const int SECOND = 2;
+}
+)");
+  expect(hasDiagnosticCode(duplicateIdDiagnostics,
+                           "sema.duplicate-specialization-constant-id"),
+         "HIR builder rejects duplicate specialization constant ids");
+
+  const std::vector<crossgl::Diagnostic> vectorTypeDiagnostics =
+      collectDiagnostics(R"(
+shader VectorSpecializationConstantShader {
+  layout(constant_id = 3) const vec2 BAD = vec2(1.0, 2.0);
+}
+)");
+  expect(hasDiagnosticCode(vectorTypeDiagnostics,
+                           "sema.unsupported-specialization-constant-type"),
+         "HIR builder rejects non-scalar specialization constant types");
 }
 
 void testDebugSourceLocationsUseGenericPathSeparators() {
@@ -15214,11 +15345,23 @@ bool hasReflectionFeature(const crossgl::ReflectionDocument &document,
   return false;
 }
 
+const crossgl::ReflectionTargetFeature *findReflectionFeature(
+    const std::vector<crossgl::ReflectionTargetFeature> &features,
+    std::string_view target, std::string_view kind, std::string_view name) {
+  for (const crossgl::ReflectionTargetFeature &feature : features) {
+    if (feature.target == target && feature.kind == kind &&
+        feature.name == name) {
+      return &feature;
+    }
+  }
+  return nullptr;
+}
+
 bool sameReflectionTargetFeature(
     const crossgl::ReflectionTargetFeature &lhs,
     const crossgl::ReflectionTargetFeature &rhs) {
   return lhs.target == rhs.target && lhs.kind == rhs.kind &&
-         lhs.name == rhs.name;
+         lhs.name == rhs.name && lhs.evidenceIds == rhs.evidenceIds;
 }
 
 bool sameReflectionTargetFeatures(
@@ -16109,6 +16252,7 @@ bool reflectionBindingMatchesLegalizationRecord(
          binding.storageClass == record.storageClass &&
          binding.spirvType == record.spirvType &&
          binding.storageImageFormat == record.storageImageFormat &&
+         binding.evidenceId == record.evidenceId &&
          binding.argumentIndex == record.argumentIndex &&
          binding.set == record.set && binding.binding == record.binding;
 }
@@ -17268,6 +17412,57 @@ shader RemappedSourceMapShader {
   ]
 })",
                            "source remap parser rejects zero-length spans");
+  expectInvalidSourceRemap(R"({
+  "schemaVersion": 1,
+  "generatedFile": "generated/remapped-source.cgl",
+  "mappings": [
+    {
+      "generated": {
+        "file": "generated/remapped-source.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      },
+      "original": {
+        "file": "shaders/original-remapped.crossgl",
+        "line": 31,
+        "column": 5,
+        "offset": 1200,
+        "length": 4,
+        "endLine": 31,
+        "endColumn": 9,
+        "endOffset": 1204
+      }
+    },
+    {
+      "generated": {
+        "file": "generated/remapped-source.cgl",
+        "line": 1,
+        "column": 3,
+        "offset": 2,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 7,
+        "endOffset": 6
+      },
+      "original": {
+        "file": "shaders/original-remapped.crossgl",
+        "line": 41,
+        "column": 5,
+        "offset": 2200,
+        "length": 4,
+        "endLine": 41,
+        "endColumn": 9,
+        "endOffset": 2204
+      }
+    }
+  ]
+})",
+                           "source remap parser rejects overlapping generated spans");
   expectInvalidSourceRemap(R"({
   "schemaVersion": 1,
   "generatedFile": "generated/remapped-source.cgl",
@@ -21126,6 +21321,22 @@ shader TargetLegalizationShader {
                                   "dxc"),
          "reflection target features are projected from target legalization "
          "result and contract capability facts");
+  const crossgl::ReflectionTargetFeature *directxBackendFeature =
+      findReflectionFeature(directxReflection.targetFeatures, "directx",
+                            "backend", "native-dxil-package");
+  expect(directxBackendFeature != nullptr &&
+             hasString(directxBackendFeature->evidenceIds,
+                       "target-legalization.v1.directx.capability.required."
+                       "directx.backend.native-dxil-package") &&
+             std::any_of(directxBackendFeature->evidenceIds.begin(),
+                         directxBackendFeature->evidenceIds.end(),
+                         [](const std::string &evidenceId) {
+                           return evidenceId.find(
+                                      "target-legalization.v1.directx.abi.") ==
+                                  0;
+                         }) &&
+             directxBackendFeature->evidenceIds.size() >= 2,
+         "reflection target features merge capability and ABI evidence ids");
   crossgl::TargetLegalizationResult abiOnlyDirectxLegalization =
       directxLegalization;
   abiOnlyDirectxLegalization.requiredCapabilities.clear();
@@ -21143,6 +21354,9 @@ shader TargetLegalizationShader {
               abiOnlyDirectxContract);
   crossgl::ReflectionDocument abiOnlyReflection;
   abiOnlyReflection.targetFeatures = abiOnlyResultTargetFeatures;
+  const crossgl::ReflectionTargetFeature *abiOnlyBackendFeature =
+      findReflectionFeature(abiOnlyResultTargetFeatures, "directx", "backend",
+                            "native-dxil-package");
   expect(sameReflectionTargetFeatures(abiOnlyResultTargetFeatures,
                                       abiOnlyContractTargetFeatures) &&
              hasReflectionFeature(abiOnlyReflection, "directx", "backend",
@@ -21152,7 +21366,14 @@ shader TargetLegalizationShader {
              hasReflectionFeature(abiOnlyReflection, "directx", "toolchain",
                                   "dxc") &&
              !hasReflectionFeature(abiOnlyReflection, "directx", "resource",
-                                   "storage-buffer"),
+                                   "storage-buffer") &&
+             abiOnlyBackendFeature != nullptr &&
+             !std::any_of(abiOnlyBackendFeature->evidenceIds.begin(),
+                          abiOnlyBackendFeature->evidenceIds.end(),
+                          [](const std::string &evidenceId) {
+                            return evidenceId.find(".capability.") !=
+                                   std::string::npos;
+                          }),
          "reflection target features project recorded ABI facts without "
          "recomputing them from capability summaries");
   crossgl::TargetLegalizationContract inconsistentDirectxContract =
@@ -23011,6 +23232,7 @@ void testScalarVectorFixtureTargetFeatureEvidence() {
     bool scalarConstructor = false;
     bool vectorConstructor = false;
     bool matrixConstructor = false;
+    bool scalarLogical = false;
   };
 
   const std::array<FixtureFeatureCase, 9> cases = {{
@@ -23073,12 +23295,18 @@ shader LogicalComputeShader {
       bool left = true;
       bool right = false;
       bool both = left && right;
-      bool either = both || left;
+      bool either = both || !right;
       return;
     }
   }
 }
 )",
+          false,
+          false,
+          false,
+          false,
+          true,
+          false,
           false,
           false,
           false,
@@ -23305,6 +23533,7 @@ shader MatrixConstructorComputeShader {
                        testCase.vectorArithmetic);
       expectCapability("operation", "scalar-comparison",
                        testCase.scalarComparison);
+      expectCapability("operation", "scalar-logical", testCase.scalarLogical);
       expectCapability("operation", "scalar-constructor",
                        testCase.scalarConstructor);
       expectCapability("operation", "vector-constructor",
@@ -23341,6 +23570,8 @@ shader MatrixConstructorComputeShader {
                               testCase.vectorArithmetic);
       expectReflectionFeature("operation", "scalar-comparison",
                               testCase.scalarComparison);
+      expectReflectionFeature("operation", "scalar-logical",
+                              testCase.scalarLogical);
       expectReflectionFeature("operation", "scalar-constructor",
                               testCase.scalarConstructor);
       expectReflectionFeature("operation", "vector-constructor",
@@ -23374,6 +23605,8 @@ shader MatrixConstructorComputeShader {
                               testCase.vectorArithmetic);
         expectSourceSatisfied("operation", "scalar-comparison",
                               testCase.scalarComparison);
+        expectSourceSatisfied("operation", "scalar-logical",
+                              testCase.scalarLogical);
         expectSourceSatisfied("operation", "scalar-constructor",
                               testCase.scalarConstructor);
         expectSourceSatisfied("operation", "vector-constructor",
@@ -26015,7 +26248,8 @@ shader VulkanLegalizedBindingRequiredShader {
              nativePackagePolicy.profileApi == "vulkan" &&
              nativePackagePolicy.profileName == "vulkan-prototype" &&
              nativePackagePolicy.vulkanVersion == "1.2" &&
-             nativePackagePolicy.spirvVersion == "1.0" &&
+             nativePackagePolicy.spirvVersion ==
+                 crossgl::kVulkanNativeSpirvVersion &&
              nativePackagePolicy.generatorName ==
                  "CrossGL Vulkan prototype backend" &&
              nativePackagePolicy.binaryFormat == "SPIR-V" &&
@@ -26093,6 +26327,71 @@ shader VulkanLegalizedBindingRequiredShader {
   missingRecordFacts.records.clear();
   expectPackageBuildRejected(missingRecordFacts, "resource 'values'",
                              "missing-record");
+}
+
+void testNativePackageDescriptorPolicySupportsSourceFreeRequirements() {
+  auto sourceFreeRequirements =
+      [](crossgl::TargetKind target)
+      -> crossgl::TargetPackageArtifactRequirements {
+    crossgl::TargetPackageArtifactRequirements requirements;
+    requirements.target = target;
+    requirements.targetName = std::string(crossgl::targetName(target));
+    requirements.packageMode = crossgl::TargetLegalizationPackageMode::Native;
+    requirements.packageModeName = "native";
+    requirements.requiredPathArtifactKeys = {"nativeBinary"};
+    requirements.evidenceIds = {
+        "target-legalization.v1." + requirements.targetName +
+        ".package-artifacts.native",
+        "target-legalization.v1." + requirements.targetName +
+        ".package-artifact.required.nativeBinary"};
+    return requirements;
+  };
+
+  const crossgl::TargetNativePackageDescriptorPolicy metalPolicy =
+      crossgl::targetNativePackageDescriptorPolicy(
+          sourceFreeRequirements(crossgl::TargetKind::Metal));
+  expect(metalPolicy.supported &&
+             metalPolicy.target == crossgl::TargetKind::Metal &&
+             metalPolicy.binaryKind == "metal.metallib" &&
+             metalPolicy.sourceArtifactKey.empty() &&
+             metalPolicy.nativeBinaryArtifactKey == "nativeBinary" &&
+             metalPolicy.descriptorArtifactKey == "nativeArtifactDescriptor" &&
+             metalPolicy.profileArtifactKey == "nativeProfile" &&
+             metalPolicy.optimizationEvidenceModeName == "metal-xcrun-metal",
+         "Metal descriptor policy accepts source-free native requirements");
+
+  const crossgl::TargetNativePackageDescriptorPolicy vulkanPolicy =
+      crossgl::targetNativePackageDescriptorPolicy(
+          sourceFreeRequirements(crossgl::TargetKind::Vulkan));
+  expect(vulkanPolicy.supported &&
+             vulkanPolicy.target == crossgl::TargetKind::Vulkan &&
+             vulkanPolicy.binaryKind == "vulkan.spirv-module" &&
+             vulkanPolicy.sourceArtifactKey.empty() &&
+             vulkanPolicy.nativeBinaryArtifactKey == "nativeBinary" &&
+             vulkanPolicy.descriptorArtifactKey == "nativeArtifactDescriptor" &&
+             vulkanPolicy.profileArtifactKey == "nativeProfile" &&
+             vulkanPolicy.optimizationEvidenceModeName == "vulkan-spirv-opt",
+         "Vulkan descriptor policy accepts source-free native requirements");
+
+  const crossgl::TargetNativePackageDescriptorPolicy directxPolicy =
+      crossgl::targetNativePackageDescriptorPolicy(
+          sourceFreeRequirements(crossgl::TargetKind::DirectX));
+  expect(directxPolicy.supported &&
+             directxPolicy.target == crossgl::TargetKind::DirectX &&
+             directxPolicy.binaryKind == "directx.dxil" &&
+             directxPolicy.sourceArtifactKey.empty() &&
+             directxPolicy.nativeBinaryArtifactKey == "nativeBinary" &&
+             directxPolicy.descriptorArtifactKey == "nativeArtifactDescriptor" &&
+             directxPolicy.optimizationEvidenceModeName == "directx-dxc",
+         "DirectX descriptor policy accepts source-free native requirements");
+
+  crossgl::TargetPackageArtifactRequirements sourceFreeWithNativeStatus =
+      sourceFreeRequirements(crossgl::TargetKind::Metal);
+  sourceFreeWithNativeStatus.requiresNativeBinaryStatus = true;
+  expect(!crossgl::targetNativePackageDescriptorPolicy(
+              sourceFreeWithNativeStatus)
+              .supported,
+         "source-free native descriptor policy rejects native status policy drift");
 }
 
 void testPackageBuildStagingPreservesNonDirectoryOutput() {
@@ -38193,6 +38492,18 @@ shader VulkanNonUniformDescriptorArrayIndexShader {
   expect(!hasCapability(openglMissing, crossgl::TargetKind::OpenGL,
                         "extension", "GL_EXT_nonuniform_qualifier"),
          "OpenGL nonuniform extension is satisfied by the source package");
+  const crossgl::TargetLegalizationResult openglLegalization =
+      crossgl::legalizeTarget(*hir, crossgl::TargetKind::OpenGL);
+  expect(hasABIRecord(openglLegalization.abiFacts.requiredRecords,
+                      crossgl::TargetKind::OpenGL, "extension",
+                      "GL_EXT_nonuniform_qualifier") &&
+             hasString(openglLegalization.abiFacts.requiredFacts,
+                       "opengl.extension.GL_EXT_nonuniform_qualifier") &&
+             hasString(
+                 openglLegalization.abiFacts.evidenceIds,
+                 "target-legalization.v1.opengl.abi.required.extension."
+                 "GL_EXT_nonuniform_qualifier"),
+         "OpenGL legalization ABI facts record nonuniform qualifier extension");
   const std::string openglReflectionJson =
       crossgl::reflectionJson(crossgl::buildReflectionDocument(
           *hir, crossgl::TargetKind::OpenGL,
@@ -38260,6 +38571,22 @@ shader VulkanNonUniformDescriptorArrayIndexShader {
                        "capability",
                        "StorageBufferArrayNonUniformIndexingEXT"),
          "target capability registry records storage-buffer nonuniform indexing");
+  const crossgl::TargetLegalizationResult vulkanLegalization =
+      crossgl::legalizeTarget(*hir, crossgl::TargetKind::Vulkan);
+  expect(hasABIRecord(vulkanLegalization.abiFacts.requiredRecords,
+                      crossgl::TargetKind::Vulkan, "extension",
+                      "SPV_EXT_descriptor_indexing") &&
+             hasString(vulkanLegalization.abiFacts.requiredFacts,
+                       "vulkan.extension.SPV_EXT_descriptor_indexing") &&
+             hasString(
+                 vulkanLegalization.abiFacts.evidenceIds,
+                 "target-legalization.v1.vulkan.abi.required.extension."
+                 "SPV_EXT_descriptor_indexing") &&
+             jsonHasStringValue(
+                 crossgl::targetLegalizationResultV0Json(vulkanLegalization),
+                 "target-legalization.v1.vulkan.abi.required.extension."
+                 "SPV_EXT_descriptor_indexing"),
+         "Vulkan legalization ABI facts record descriptor-indexing extension");
 
   const crossgl::ReflectionDocument reflection =
       crossgl::buildReflectionDocument(
@@ -43256,11 +43583,66 @@ shader ReflectionShader {
   expect(vulkanJson.find("\"spirvType\":\"OpTypeSampler\"") != std::string::npos,
          "Vulkan reflection JSON prints SPIR-V type");
   expect(vulkanJson.find("\"targetFeatures\"") != std::string::npos &&
-             vulkanJson.find("\"name\":\"Shader\"") != std::string::npos,
-         "Vulkan reflection JSON prints target features");
+             vulkanJson.find("\"name\":\"Shader\"") != std::string::npos &&
+             vulkanJson.find("\"evidenceIds\"") != std::string::npos,
+         "Vulkan reflection JSON prints target features with evidence ids");
   expect(vulkanJson.find("\"storageBufferLayout\"") != std::string::npos &&
              vulkanJson.find("\"arrayStrideBytes\":4") != std::string::npos,
          "Vulkan reflection JSON prints storage buffer layout metadata");
+}
+
+void testReflectionFunctionConstantSpecializationIds() {
+  constexpr std::string_view source = R"(
+shader ReflectionSpecializationConstantsShader {
+  layout(constant_id = 11) const int TILE_SIZE = 16;
+  const bool USE_FAST_PATH = true;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    void main() {
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "reflection specialization constant source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  const crossgl::ReflectionDocument document =
+      crossgl::buildReflectionDocument(
+          *hir, crossgl::TargetKind::Vulkan,
+          "/tmp/ReflectionSpecializationConstantsShader.spv");
+  expect(document.functionConstants.size() == 2,
+         "reflection records module function constants");
+  if (document.functionConstants.size() < 2) {
+    return;
+  }
+
+  const crossgl::ReflectionFunctionConstant &tileSize =
+      document.functionConstants[0];
+  const crossgl::ReflectionFunctionConstant &useFastPath =
+      document.functionConstants[1];
+  expect(tileSize.name == "TILE_SIZE" && tileSize.type == "int" &&
+             tileSize.value == std::optional<std::string>("16") &&
+             tileSize.specializationId == std::optional<std::size_t>(11),
+         "reflection records specialization IDs for specialized constants");
+  expect(useFastPath.name == "USE_FAST_PATH" &&
+             useFastPath.type == "bool" &&
+             useFastPath.value == std::optional<std::string>("true") &&
+             !useFastPath.specializationId.has_value(),
+         "reflection leaves ordinary function constants without "
+         "specialization IDs");
+
+  const std::string json = crossgl::reflectionJson(document);
+  expect(json.find("\"name\":\"TILE_SIZE\"") != std::string::npos &&
+             json.find("\"specializationId\":11") != std::string::npos &&
+             json.find("\"name\":\"USE_FAST_PATH\"") != std::string::npos,
+         "reflection JSON serializes specialization IDs");
 }
 
 void testStorageImageReflectionDocumentModel() {
@@ -51760,6 +52142,83 @@ shader ForConstantStrideComputeShader {
          "for-constant-stride Vulkan prototype SPIR-V binary exists");
 }
 
+void testVulkanSpecializationConstantsPrototypeAssembly() {
+  constexpr std::string_view source = R"(
+shader VulkanSpecializationConstantsComputeShader {
+  layout(constant_id = 3) const int A = 2;
+  layout(constant_id = 4) const int B = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    void main() {
+      values[0] = A + B;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(),
+         "Vulkan specialization constant source builds HIR");
+  if (!hir) {
+    return;
+  }
+  expect(hir->constants.size() == 2 &&
+             hir->constants[0].specializationId == std::optional<std::size_t>(3) &&
+             hir->constants[1].specializationId == std::optional<std::size_t>(4),
+         "HIR keeps distinct specialization ids for same-default constants");
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assembly.empty() && !assemblyDiagnostics.hasErrors(),
+         "Vulkan specialization constant assembly has no diagnostics");
+  expect(assembly.find("OpDecorate %spec_A SpecId 3") != std::string::npos &&
+             assembly.find("OpDecorate %spec_B SpecId 4") != std::string::npos,
+         "Vulkan assembly decorates specialization constants with SpecId");
+  expect(assembly.find("%spec_A = OpSpecConstant %int 2") !=
+             std::string::npos &&
+             assembly.find("%spec_B = OpSpecConstant %int 2") !=
+                 std::string::npos,
+         "Vulkan assembly emits same-default specialization constants as "
+         "distinct ids");
+  expect(assembly.find("OpIAdd %int %spec_A %spec_B") != std::string::npos,
+         "Vulkan assembly uses specialization constants in expressions");
+  expect(assembly.find("%const_int__2 = OpConstant %int 2") ==
+             std::string::npos,
+         "Vulkan assembly does not collapse specialization constants into a "
+         "pooled literal constant");
+
+  if (!crossgl::findExecutable("spirv-as") ||
+      !crossgl::findExecutable("spirv-val")) {
+    return;
+  }
+
+  const std::filesystem::path packageDir =
+      unitTestTempDirectoryPath() /
+      "crossgl-vulkan-specialization-constants-prototype-test";
+  std::error_code error;
+  std::filesystem::remove_all(packageDir, error);
+
+  crossgl::DiagnosticEngine buildDiagnostics;
+  const crossgl::VulkanBuildResult result =
+      crossgl::buildVulkanPrototypeBinary(*hir, packageDir, buildDiagnostics);
+  expect(result.success,
+         "Vulkan specialization constant prototype binary assembles and "
+         "validates");
+  expect(!buildDiagnostics.hasErrors(),
+         "Vulkan specialization constant prototype binary build has no "
+         "diagnostics");
+  expect(std::filesystem::exists(result.assemblyPath),
+         "Vulkan specialization constant prototype assembly file exists");
+  expect(std::filesystem::exists(result.spvPath),
+         "Vulkan specialization constant prototype SPIR-V binary exists");
+
+  std::filesystem::remove_all(packageDir, error);
+}
+
 void testVulkanPrototypeForFoldedUpdateAssembly() {
   constexpr std::string_view source = R"(
 shader ForFoldedUpdateComputeShader {
@@ -54298,6 +54757,7 @@ int main() {
   testOpenGLSourcePackageRequiresLegalizedResourceBindings();
   testMetalNativePackageRequiresLegalizedResourceBindings();
   testVulkanNativePackageRequiresLegalizedResourceBindings();
+  testNativePackageDescriptorPolicySupportsSourceFreeRequirements();
   testPackageBuildStagingPreservesNonDirectoryOutput();
   testPackageReleaseReportArtifactInventory();
   testGcsReleasePublishPlansTypedUploadRequest();
@@ -54306,6 +54766,8 @@ int main() {
   testTypedFunctionBodyHIR();
   testStageResourceHIR();
   testHIRParameterAndFieldNameSpans();
+  testSpecializationConstantsFrontendAndHIR();
+  testSpecializationConstantsDiagnostics();
   testHIRGraphicsStageAndEntryFunctionSpans();
   testResourceSpanPlumbing();
   testHIRSourceMapSchemaV8ResourceAccessRecords();
@@ -54401,6 +54863,7 @@ int main() {
   testOpenGLStructStorageBufferSource();
   testDirectXMixedSamplerArrayUsageDiagnostic();
   testReflectionDocumentModel();
+  testReflectionFunctionConstantSpecializationIds();
   testStorageImageReflectionDocumentModel();
   testMetalResourceArgumentPacking();
   testMetalArgumentSlotCollisionRepair();
@@ -54462,6 +54925,7 @@ int main() {
   testVulkanPrototypeNestedForAssembly();
   testVulkanPrototypeForDynamicStrideAssembly();
   testVulkanPrototypeForConstantStrideAssembly();
+  testVulkanSpecializationConstantsPrototypeAssembly();
   testVulkanPrototypeForFoldedUpdateAssembly();
   testVulkanPrototypeVectorLocalAssembly();
   testVulkanPrototypeIntrinsicAssembly();

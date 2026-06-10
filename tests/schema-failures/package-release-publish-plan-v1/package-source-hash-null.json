@@ -25,7 +25,13 @@
       },
       "artifactCount": 0,
       "totalArtifactBytes": 0,
-      "artifacts": []
+      "artifacts": [],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.metal.abi.required.package-release-fixture"
+        ]
+      }
     }
   ],
   "artifacts": []

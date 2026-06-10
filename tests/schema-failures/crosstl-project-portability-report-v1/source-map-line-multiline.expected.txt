@@ -1,0 +1,1 @@
+$.artifacts[0].sourceMap.mappings[0]: expected single source and generated line for line granularity

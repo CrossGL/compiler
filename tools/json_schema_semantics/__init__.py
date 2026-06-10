@@ -3,6 +3,9 @@
 from . import debug_metadata_v10
 from . import debug_metadata_v11
 from . import debug_metadata_v12
+from . import conformance_report_v0
+from . import backend_source_map_v1
+from . import crosstl_project_portability_report_v1
 from . import diagnostics_v1
 from . import doctor_v1
 from . import graphics_abi_v1
@@ -41,6 +44,7 @@ from . import package_verify_v1
 from . import reflection_v1
 from . import release_report_artifact_inventory_v1
 from . import release_provenance_manifest_v1
+from . import runtime_loader_plan_v1
 from . import source_batch_result_v1
 from . import source_remap_v1
 from . import source_remap_provenance_v1
@@ -52,6 +56,12 @@ from . import vulkan_native_profile_v1
 
 def validate_semantics(instance, schema):
     schema_id = schema.get("$id", "")
+    if schema_id.endswith("/backend-source-map-v1.schema.json"):
+        return backend_source_map_v1.validate_semantics(instance)
+    if schema_id.endswith("/conformance-report-v0.schema.json"):
+        return conformance_report_v0.validate_semantics(instance)
+    if schema_id.endswith("/crosstl-project-portability-report-v1.schema.json"):
+        return crosstl_project_portability_report_v1.validate_semantics(instance)
     if schema_id.endswith("/diagnostics-v1.schema.json"):
         return diagnostics_v1.validate_semantics(instance)
     if schema_id.endswith("/doctor-v1.schema.json"):
@@ -66,6 +76,8 @@ def validate_semantics(instance, schema):
         return release_report_artifact_inventory_v1.validate_semantics(instance)
     if schema_id.endswith("/release-provenance-manifest-v1.schema.json"):
         return release_provenance_manifest_v1.validate_semantics(instance)
+    if schema_id.endswith("/runtime-loader-plan-v1.schema.json"):
+        return runtime_loader_plan_v1.validate_semantics(instance)
     if schema_id.endswith("/source-remap-v1.schema.json"):
         return source_remap_v1.validate_semantics(instance)
     if schema_id.endswith("/source-remap-provenance-v1.schema.json"):

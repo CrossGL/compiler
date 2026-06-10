@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "registryVersion": "v0",
-  "targetCount": 4,
-  "capabilityCount": 12,
+  "targetCount": 5,
+  "capabilityCount": 15,
   "targets": [
     {
       "target": "metal",
@@ -451,6 +451,102 @@
             "src/Backend/TargetCapabilities.cpp",
             "tools/package_target_contracts.json",
             "cglc_package_target_contracts"
+          ]
+        }
+      ]
+    },
+    {
+      "target": "wgsl",
+      "displayName": "WGSL / WebGPU",
+      "packageMode": "unsupported",
+      "emittedBaselineCapabilities": [
+        "wgsl.backend.wgsl-lowering",
+        "wgsl.sourceLanguage.WGSL"
+      ],
+      "optimization": {
+        "capability": "wgsl.optimization.hir-pipeline",
+        "supported": true,
+        "levels": [
+          "O0",
+          "O1",
+          "O2"
+        ],
+        "evidence": [
+          "include/crossgl/Backend/TargetCapabilityInventory.h",
+          "src/Backend/TargetCapabilities.cpp"
+        ]
+      },
+      "nativeArtifact": {
+        "capability": "wgsl.native-artifact.wgsl-source",
+        "status": "unsupported",
+        "artifactFormat": "wgsl-source",
+        "pathArtifacts": [],
+        "requiresNativeBinaryStatus": false,
+        "allowsPlannedNativeBinary": false,
+        "evidence": [
+          "include/crossgl/Backend/TargetCapabilityInventory.h",
+          "src/Backend/TargetCapabilities.cpp"
+        ]
+      },
+      "packageAdmission": {
+        "capability": "wgsl.package-admission.native-source-package",
+        "packageMode": "unsupported",
+        "nativeSupportClass": "planned-native",
+        "nativeImplemented": false,
+        "sourcePackageSelectable": false,
+        "packageBuildSupported": false,
+        "admittedPackageModes": [],
+        "baselineBackendCapability": "wgsl.backend.wgsl-lowering",
+        "nativeArtifactCapability": "wgsl.native-artifact.wgsl-source",
+        "packageDecisionReason": "unsupported",
+        "packageRankScore": 2,
+        "packageArtifactRequirementsSource": "src/Backend/TargetLegalization.cpp",
+        "packageArtifactRequirements": {
+          "packageMode": "unsupported",
+          "requiredPathArtifacts": [],
+          "requiresNativeBinaryStatus": false,
+          "allowsPlannedNativeBinary": false,
+          "allowsPlannedNativeSourceEvidence": false,
+          "evidenceIds": [
+            "target-legalization.v1.wgsl.package-artifacts.unsupported"
+          ]
+        },
+        "evidence": [
+          "include/crossgl/Backend/TargetCapabilityInventory.h",
+          "src/Backend/TargetCapabilities.cpp",
+          "src/Backend/TargetLegalization.cpp"
+        ]
+      },
+      "capabilities": [
+        {
+          "id": "wgsl.native-artifact.wgsl-source",
+          "area": "native-artifact",
+          "status": "unsupported",
+          "summary": "WGSL/WebGPU is target-aware but does not yet emit WGSL source or native package artifacts.",
+          "evidence": [
+            "include/crossgl/Backend/TargetCapabilityInventory.h",
+            "src/Backend/TargetCapabilities.cpp"
+          ]
+        },
+        {
+          "id": "wgsl.optimization.hir-pipeline",
+          "area": "optimization",
+          "status": "supported",
+          "summary": "WGSL participates in target explanation and shared HIR optimization accounting for O0, O1, and O2 builds.",
+          "evidence": [
+            "include/crossgl/Backend/TargetCapabilityInventory.h",
+            "src/Backend/TargetCapabilities.cpp"
+          ]
+        },
+        {
+          "id": "wgsl.package-admission.native-source-package",
+          "area": "package-admission",
+          "status": "unsupported",
+          "summary": "WGSL/WebGPU package builds are rejected with target.unsupported until a real WGSL source backend exists.",
+          "evidence": [
+            "include/crossgl/Backend/TargetCapabilityInventory.h",
+            "src/Backend/TargetCapabilities.cpp",
+            "src/Backend/TargetLegalization.cpp"
           ]
         }
       ]

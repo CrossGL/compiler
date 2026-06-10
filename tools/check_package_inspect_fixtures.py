@@ -89,6 +89,26 @@ def collect_case_errors(jobs, cases):
     return errors
 
 
+def ordered_unique_strings(values):
+    ordered = []
+    seen = set()
+    for value in values:
+        if not isinstance(value, str) or not value or value in seen:
+            continue
+        ordered.append(value)
+        seen.add(value)
+    return ordered
+
+
+def target_feature_evidence_ids(features):
+    evidence_ids = []
+    for feature in features:
+        values = feature.get("evidenceIds", [])
+        if isinstance(values, list):
+            evidence_ids.extend(values)
+    return ordered_unique_strings(evidence_ids)
+
+
 def case_tmp_dir(tmp_dir, case_name):
     return tmp_dir / case_name
 
@@ -546,6 +566,31 @@ def expect_reflection_summary_contract(errors, case_name, summary, reflection):
             "reflection.target",
             reflection["target"],
             summary.get("target"),
+        )
+    summary_reflection = summary.get("reflection")
+    if not isinstance(summary_reflection, dict):
+        return
+
+    expected_target_features = [
+        feature
+        for feature in reflection.get("targetFeatures", [])
+        if isinstance(feature, dict) and feature.get("target") == summary.get("target")
+    ]
+    if "targetFeatureCount" in summary_reflection:
+        expect_equal(
+            errors,
+            case_name,
+            "summary.reflection.targetFeatureCount",
+            summary_reflection.get("targetFeatureCount"),
+            len(expected_target_features),
+        )
+    if "targetFeatureEvidenceIds" in summary_reflection:
+        expect_equal(
+            errors,
+            case_name,
+            "summary.reflection.targetFeatureEvidenceIds",
+            summary_reflection.get("targetFeatureEvidenceIds"),
+            target_feature_evidence_ids(expected_target_features),
         )
 
 
@@ -2876,7 +2921,7 @@ def check_valid_target(case_name, manifest):
                 case_name,
                 "vulkanNativeProfile.spirvVersion",
                 native_profile["spirvVersion"],
-                "1.0",
+                "1.5",
             )
             expect_equal(
                 errors,
@@ -2925,6 +2970,15 @@ def check_nonuniform_feature_metadata(case_name, manifest, expected_diagnostics)
             payload["reflection"].get("targetFeatures"),
             expected_features,
         )
+        summary_reflection = payload["summary"].get("reflection", {})
+        if "targetFeatureEvidenceIds" in summary_reflection:
+            expect_equal(
+                errors,
+                case_name,
+                "summary.reflection.targetFeatureEvidenceIds",
+                summary_reflection.get("targetFeatureEvidenceIds"),
+                target_feature_evidence_ids(expected_features),
+            )
         expect_equal(
             errors,
             case_name,
@@ -3096,6 +3150,10 @@ def check_storage_image_metadata(case_name, manifest, atomic=False):
         "kind": "storage_image",
         "sourceType": first_type,
         "storageImageFormat": first_format,
+        "evidenceId": (
+            f"target-legalization.v1.{target}.resource-binding."
+            f"compute.compute_main.{first_name}"
+        ),
     }
     array_binding_fields = {
         "sourceType": array_type,
@@ -3103,6 +3161,10 @@ def check_storage_image_metadata(case_name, manifest, atomic=False):
         "arraySize": "IMAGE_COUNT",
         "arrayElementCount": 2,
         "arrayDimensions": array_dimensions,
+        "evidenceId": (
+            f"target-legalization.v1.{target}.resource-binding."
+            f"compute.compute_main.{array_name}"
+        ),
     }
 
     if target == "directx":
@@ -3163,6 +3225,24 @@ def check_storage_image_metadata(case_name, manifest, atomic=False):
             reflection.get("targetFeatures"),
             expected_features,
         )
+        expect_equal(
+            errors,
+            case_name,
+            "reflection.targetFeatures.storage-image.evidenceIds",
+            record_by_name(reflection.get("targetFeatures", []), "storage-image").get(
+                "evidenceIds"
+            ),
+            record_by_name(expected_features, "storage-image").get("evidenceIds"),
+        )
+        summary_reflection = payload["summary"].get("reflection", {})
+        if "targetFeatureEvidenceIds" in summary_reflection:
+            expect_equal(
+                errors,
+                case_name,
+                "summary.reflection.targetFeatureEvidenceIds",
+                summary_reflection.get("targetFeatureEvidenceIds"),
+                target_feature_evidence_ids(expected_features),
+            )
         expect_equal(
             errors,
             case_name,
@@ -3372,6 +3452,233 @@ def check_filtered_hir_source_map(_package, payload):
         False,
     )
     return errors
+
+
+def check_source_remap_granularity_drift(_package, payload):
+    errors = []
+    source_remap = payload["debugArtifacts"]["sourceRemap"]
+    expect_equal(
+        errors,
+        "source-remap-granularity-drift",
+        "debugArtifacts.health",
+        payload["debugArtifacts"]["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "source-remap-granularity-drift",
+        "debugArtifacts.sourceRemap.health",
+        source_remap["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "source-remap-granularity-drift",
+        "debugArtifacts.sourceRemap.mappingGranularity",
+        source_remap["mappingGranularity"],
+        "line",
+    )
+    expect_equal(
+        errors,
+        "source-remap-granularity-drift",
+        "debugArtifacts.sourceRemap.checks.mappingGranularityMatchesContract",
+        source_remap["checks"]["mappingGranularityMatchesContract"],
+        False,
+    )
+    return errors
+
+
+def physical_line_count(text):
+    if not text:
+        return 0
+    return text.count("\n") + (0 if text.endswith("\n") else 1)
+
+
+def backend_source_map_document(manifest, backend_line_count, mapping_end_line):
+    return {
+        "schemaVersion": 1,
+        "kind": "crossgl.backendSourceMap",
+        "target": manifest["target"],
+        "module": manifest["module"],
+        "mappingGranularity": "statement",
+        "sourceBackend": "crossgl-hir",
+        "targetBackend": "hlsl",
+        "backend": {
+            "language": "hlsl",
+            "lineCount": backend_line_count,
+        },
+        "mappingCount": 1,
+        "mappings": [
+            {
+                "index": 0,
+                "stage": "compute",
+                "entryPoint": "compute_main",
+                "function": "compute_main",
+                "statementKind": "declaration",
+                "name": "fixture",
+                "backend": {
+                    "startLine": 1,
+                    "endLine": mapping_end_line,
+                },
+                "location": {
+                    "file": "StorageBufferComputeShader.cgl",
+                    "line": 1,
+                    "column": 1,
+                    "offset": 0,
+                    "length": 6,
+                    "endLine": 1,
+                    "endColumn": 7,
+                    "endOffset": 6,
+                },
+            }
+        ],
+    }
+
+
+def add_backend_source_map(
+    package,
+    manifest,
+    *,
+    backend_line_count=None,
+    mapping_end_line=None,
+):
+    backend_source_text = "line one\nline two\n"
+    write_text(
+        package_path(package, manifest["artifacts"]["backendSource"]),
+        backend_source_text,
+    )
+    source_line_count = physical_line_count(backend_source_text)
+    if backend_line_count is None:
+        backend_line_count = source_line_count
+    if mapping_end_line is None:
+        mapping_end_line = source_line_count
+    manifest["artifacts"]["backendSourceMap"] = (
+        "backend/directx/StorageBufferComputeShader.backend-source-map.json"
+    )
+    write_json(
+        package_path(package, manifest["artifacts"]["backendSourceMap"]),
+        backend_source_map_document(manifest, backend_line_count, mapping_end_line),
+    )
+    rewrite_manifest(package, manifest)
+    return source_line_count
+
+
+def check_backend_source_map_line_count_drift(_package, payload):
+    errors = []
+    backend_source_map = payload["debugArtifacts"]["backendSourceMap"]
+    checks = backend_source_map["checks"]
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.health",
+        payload["debugArtifacts"]["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.health",
+        backend_source_map["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.backendSourceLineCount",
+        backend_source_map["backendSourceLineCount"],
+        2,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.backendMaxMappedLine",
+        backend_source_map["backendMaxMappedLine"],
+        2,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.checks.backendLineCountMatchesSource",
+        checks["backendLineCountMatchesSource"],
+        False,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-line-count-drift",
+        "debugArtifacts.backendSourceMap.checks.backendSpansWithinSource",
+        checks["backendSpansWithinSource"],
+        True,
+    )
+    return errors
+
+
+def check_backend_source_map_span_outside_source(_package, payload):
+    errors = []
+    backend_source_map = payload["debugArtifacts"]["backendSourceMap"]
+    checks = backend_source_map["checks"]
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.health",
+        payload["debugArtifacts"]["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.health",
+        backend_source_map["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.backendSourceLineCount",
+        backend_source_map["backendSourceLineCount"],
+        2,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.backendMaxMappedLine",
+        backend_source_map["backendMaxMappedLine"],
+        3,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.checks.backendLineCountMatchesSource",
+        checks["backendLineCountMatchesSource"],
+        True,
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-span-outside-source",
+        "debugArtifacts.backendSourceMap.checks.backendSpansWithinSource",
+        checks["backendSpansWithinSource"],
+        False,
+    )
+    return errors
+
+
+def source_remap_provenance(manifest, *, mapping_granularity="source-span"):
+    return {
+        "schemaVersion": 1,
+        "kind": "crossgl.sourceRemapProvenance",
+        "contractVersion": "source-remap-provenance-v1",
+        "target": manifest["target"],
+        "generatedFile": "generated/from-translator.cgl",
+        "mappingGranularity": mapping_granularity,
+        "mappingCount": 1,
+        "sourceRemap": {
+            "path": "tests/fixtures/source-remap-v1-full-file.json",
+            "sha256": {
+                "algorithm": "sha256",
+                "value": "7ebc4d584f4b6f19b8eef3c47c1fe799361dd44e397d969df7899f9e05b6041b",
+            },
+            "sizeBytes": 592,
+        },
+    }
 
 
 def check_category_drift(_package, payload):
@@ -4193,6 +4500,59 @@ def run_cases(root, cglc, jobs=1):
                 "filtered-hir-source-map",
                 package,
                 check_filtered_hir_source_map,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir,
+            "source-remap-granularity-drift",
+        )
+        manifest["artifacts"]["sourceRemap"] = "ir/source-remap-provenance.json"
+        write_json(
+            package_path(package, manifest["artifacts"]["sourceRemap"]),
+            source_remap_provenance(manifest, mapping_granularity="line"),
+        )
+        rewrite_manifest(package, manifest)
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "source-remap-granularity-drift",
+                package,
+                check_source_remap_granularity_drift,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir,
+            "backend-source-map-line-count-drift",
+        )
+        add_backend_source_map(package, manifest, backend_line_count=3)
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-line-count-drift",
+                package,
+                check_backend_source_map_line_count_drift,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir,
+            "backend-source-map-span-outside-source",
+        )
+        add_backend_source_map(package, manifest, mapping_end_line=3)
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-span-outside-source",
+                package,
+                check_backend_source_map_span_outside_source,
             )
         )
 
