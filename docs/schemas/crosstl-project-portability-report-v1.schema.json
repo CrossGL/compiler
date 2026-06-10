@@ -37,6 +37,18 @@
         "$ref": "#/$defs/artifact"
       }
     },
+    "units": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/projectUnit"
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/skippedUnit"
+      }
+    },
     "diagnosticCounts": {
       "$ref": "#/$defs/diagnosticCounts"
     },
@@ -48,6 +60,9 @@
     },
     "migration": {
       "$ref": "#/$defs/migration"
+    },
+    "validation": {
+      "$ref": "#/$defs/projectValidation"
     }
   },
   "$defs": {
@@ -130,8 +145,23 @@
         "sourceRemapMappingCount"
       ],
       "properties": {
+        "unitCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "skippedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "targetCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
         "artifactCount": {
           "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "artifactsByTarget": {
+          "$ref": "#/$defs/countMap"
+        },
+        "unitsBySourceBackend": {
+          "$ref": "#/$defs/countMap"
         },
         "translatedCount": {
           "$ref": "#/$defs/nonNegativeInteger"
@@ -215,6 +245,9 @@
           "$ref": "#/$defs/countMap"
         },
         "runtimeReferencesByBackend": {
+          "$ref": "#/$defs/countMap"
+        },
+        "runtimeReferencesByPath": {
           "$ref": "#/$defs/countMap"
         }
       }
@@ -364,8 +397,26 @@
         "status": {
           "$ref": "#/$defs/nonEmptyString"
         },
+        "sourceHash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "sourceSizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
         "provenance": {
           "$ref": "#/$defs/artifactProvenance"
+        },
+        "generatedHash": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "generatedSizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "defineProcessing": {
+          "$ref": "#/$defs/processingSummary"
+        },
+        "includePathProcessing": {
+          "$ref": "#/$defs/processingSummary"
         },
         "sourceMap": {
           "$ref": "#/$defs/sourceMapMetadata"
@@ -375,10 +426,65 @@
         }
       }
     },
+    "projectUnit": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetName"
+          }
+        },
+        "variant": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "status": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "skippedUnit": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "reason": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "projectValidation": {
+      "type": "object",
+      "additionalProperties": true
+    },
     "migration": {
       "type": "object",
       "additionalProperties": true,
       "properties": {
+        "runtimeReferenceCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "runtimeReferencesByKind": {
+          "$ref": "#/$defs/countMap"
+        },
+        "runtimeReferencesByBackend": {
+          "$ref": "#/$defs/countMap"
+        },
+        "runtimeReferencesByPath": {
+          "$ref": "#/$defs/countMap"
+        },
         "actions": {
           "type": "array",
           "items": {
@@ -449,11 +555,32 @@
           "enum": [
             "runtime-api",
             "kernel-launch",
-            "build-system"
+            "build-system",
+            "runtime-loader-plan",
+            "host-integration-handoff",
+            "host-integration-handoff-inspection"
           ]
         },
         "symbol": {
           "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "processingSummary": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "mode": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
         }
       }
     },

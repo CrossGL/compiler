@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "generatedAt": 0,
+  "generator": {
+    "name": "CrossTL",
+    "pipeline": "project-porting",
+    "packageVersion": "0.0.0"
+  },
+  "project": {
+    "root": ".",
+    "targets": [
+      "cgl"
+    ],
+    "outputDir": "crosstl-out"
+  },
+  "summary": {
+    "unitCount": 1,
+    "skippedCount": 0,
+    "targetCount": 1,
+    "artifactCount": 1,
+    "artifactsByTarget": {
+      "cgl": 1
+    },
+    "unitsBySourceBackend": {
+      "metal": 1
+    },
+    "translatedCount": 1,
+    "failedCount": 0,
+    "diagnosticCounts": {
+      "note": 0,
+      "warning": 0,
+      "error": 0
+    },
+    "diagnosticsByCode": {},
+    "diagnosticsByTarget": {},
+    "diagnosticsBySourceBackend": {},
+    "diagnosticsByVariant": {},
+    "missingCapabilityCounts": {},
+    "artifactProvenanceByPipeline": {
+      "single-file-translate": 1
+    },
+    "artifactProvenanceByIntermediate": {
+      "none": 1
+    },
+    "artifactProvenanceIntermediateBySourceBackend": {
+      "metal": {
+        "none": 1
+      }
+    },
+    "artifactProvenanceIntermediateByTarget": {
+      "cgl": {
+        "none": 1
+      }
+    },
+    "artifactProvenanceIntermediateByVariant": {
+      "debug": {
+        "none": 1
+      }
+    },
+    "sourceMapCount": 1,
+    "fineGrainedSourceMapCount": 0,
+    "sourceMapsByGranularity": {
+      "file": 1
+    },
+    "sourceMapsByTarget": {
+      "cgl": 1
+    },
+    "sourceMapsBySourceBackend": {
+      "metal": 1
+    },
+    "sourceMapsByVariant": {
+      "debug": 1
+    },
+    "sourceRemapCount": 1,
+    "sourceRemapMappingCount": 1,
+    "sourceRemapsByGranularity": {
+      "file": 1
+    },
+    "sourceRemapsByTarget": {
+      "cgl": 1
+    },
+    "sourceRemapsBySourceBackend": {
+      "metal": 1
+    },
+    "sourceRemapsByVariant": {
+      "debug": 1
+    }
+  },
+  "units": [
+    {
+      "source": "src/shaders.metal",
+      "sourceBackend": "metal",
+      "targets": [
+        "cgl"
+      ],
+      "variant": "debug",
+      "status": "translated"
+    }
+  ],
+  "skipped": [],
+  "artifacts": [
+    {
+      "source": "src/shaders.metal",
+      "sourceBackend": "metal",
+      "variant": "debug",
+      "target": "cgl",
+      "path": "crosstl-out/cgl/shaders.cgl",
+      "status": "translated",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "sourceSizeBytes": 4096,
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      },
+      "generatedHash": {
+        "algorithm": "sha256",
+        "value": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "generatedSizeBytes": 96,
+      "defineProcessing": {
+        "mode": "forwarded",
+        "count": 1,
+        "values": [
+          "USE_FAST_PATH=1"
+        ]
+      },
+      "includePathProcessing": {
+        "mode": "forwarded",
+        "count": 1,
+        "values": [
+          "include"
+        ]
+      },
+      "sourceMap": {
+        "schemaVersion": 1,
+        "kind": "crosstl-artifact-source-map",
+        "mappingGranularity": "file",
+        "target": "cgl",
+        "source": {
+          "file": "src/shaders.metal",
+          "line": 10,
+          "column": 1,
+          "offset": 240,
+          "length": 96,
+          "endLine": 14,
+          "endColumn": 2,
+          "endOffset": 336
+        },
+        "generated": {
+          "file": "crosstl-out/cgl/shaders.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 96,
+          "endLine": 5,
+          "endColumn": 2,
+          "endOffset": 96
+        },
+        "mappings": [
+          {
+            "source": {
+              "file": "src/shaders.metal",
+              "line": 10,
+              "column": 1,
+              "offset": 240,
+              "length": 96,
+              "endLine": 14,
+              "endColumn": 2,
+              "endOffset": 336
+            },
+            "generated": {
+              "file": "crosstl-out/cgl/shaders.cgl",
+              "line": 1,
+              "column": 1,
+              "offset": 0,
+              "length": 96,
+              "endLine": 5,
+              "endColumn": 2,
+              "endOffset": 96
+            }
+          }
+        ]
+      },
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "crosstl-out/cgl/shaders.source-remap.json",
+        "target": "cgl",
+        "sourceBackend": "metal",
+        "variant": "debug",
+        "generatedFile": "crosstl-out/cgl/shaders.cgl",
+        "mappingGranularity": "file",
+        "mappingCount": 1,
+        "sizeBytes": 561,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "757503b78f7d946c9c46c93046a2e7e6f58b4ae955c6ebc5bce80e256be6c233"
+        }
+      }
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": [],
+  "validation": {},
+  "migration": {},
+  "artifactMatrix": {},
+  "externalCorpus": {}
+}

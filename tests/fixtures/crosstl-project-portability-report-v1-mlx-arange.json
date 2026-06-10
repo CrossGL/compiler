@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "generatedAt": 0,
+  "generator": {
+    "name": "CrossTL",
+    "pipeline": "project-porting",
+    "packageVersion": "0.0.0"
+  },
+  "project": {
+    "root": ".",
+    "targets": [
+      "directx",
+      "vulkan"
+    ],
+    "outputDir": "build"
+  },
+  "summary": {
+    "unitCount": 1,
+    "skippedCount": 0,
+    "targetCount": 2,
+    "artifactCount": 2,
+    "artifactsByTarget": {
+      "directx": 1,
+      "vulkan": 1
+    },
+    "unitsBySourceBackend": {
+      "metal": 1
+    },
+    "translatedCount": 2,
+    "failedCount": 0,
+    "diagnosticCounts": {
+      "note": 0,
+      "warning": 0,
+      "error": 0
+    },
+    "diagnosticsByCode": {},
+    "diagnosticsByTarget": {},
+    "diagnosticsBySourceBackend": {},
+    "diagnosticsByVariant": {},
+    "missingCapabilityCounts": {},
+    "artifactProvenanceByPipeline": {
+      "single-file-translate": 2
+    },
+    "artifactProvenanceByIntermediate": {
+      "crossgl": 2
+    },
+    "artifactProvenanceIntermediateBySourceBackend": {
+      "metal": {
+        "crossgl": 2
+      }
+    },
+    "artifactProvenanceIntermediateByTarget": {
+      "directx": {
+        "crossgl": 1
+      },
+      "vulkan": {
+        "crossgl": 1
+      }
+    },
+    "artifactProvenanceIntermediateByVariant": {
+      "mlx-arange": {
+        "crossgl": 2
+      }
+    },
+    "sourceMapCount": 0,
+    "fineGrainedSourceMapCount": 0,
+    "sourceMapsByGranularity": {},
+    "sourceMapsByTarget": {},
+    "sourceMapsBySourceBackend": {},
+    "sourceMapsByVariant": {},
+    "sourceRemapCount": 0,
+    "sourceRemapMappingCount": 0,
+    "sourceRemapsByGranularity": {},
+    "sourceRemapsByTarget": {},
+    "sourceRemapsBySourceBackend": {},
+    "sourceRemapsByVariant": {},
+    "runtimeReferenceCount": 3,
+    "runtimeReferencesByKind": {
+      "host-integration-handoff": 1,
+      "host-integration-handoff-inspection": 1,
+      "runtime-loader-plan": 1
+    },
+    "runtimeReferencesByBackend": {
+      "directx": 3
+    },
+    "runtimeReferencesByPath": {
+      "crosstl-host-integration/host-integration.json": 1,
+      "crosstl-host-integration/inspection.json": 1,
+      "runtime/directx-loader-plan.json": 1
+    }
+  },
+  "units": [
+    {
+      "source": "mlx/fast/arange.metal",
+      "sourceBackend": "metal",
+      "targets": [
+        "directx",
+        "vulkan"
+      ],
+      "variant": "mlx-arange",
+      "status": "translated"
+    }
+  ],
+  "skipped": [],
+  "artifacts": [
+    {
+      "source": "mlx/fast/arange.metal",
+      "sourceBackend": "metal",
+      "variant": "mlx-arange",
+      "target": "directx",
+      "path": "build/directx/arange.hlsl",
+      "status": "translated",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "sourceSizeBytes": 2048,
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": "crossgl"
+      },
+      "generatedHash": {
+        "algorithm": "sha256",
+        "value": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "generatedSizeBytes": 512,
+      "defineProcessing": {
+        "mode": "forwarded",
+        "count": 1,
+        "values": [
+          "MLX_USE_FAST_MATH=1"
+        ]
+      },
+      "includePathProcessing": {
+        "mode": "forwarded",
+        "count": 2,
+        "values": [
+          "mlx",
+          "mlx/backend/metal"
+        ]
+      }
+    },
+    {
+      "source": "mlx/fast/arange.metal",
+      "sourceBackend": "metal",
+      "variant": "mlx-arange",
+      "target": "vulkan",
+      "path": "build/vulkan/arange.spv",
+      "status": "translated",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "sourceSizeBytes": 2048,
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": "crossgl"
+      },
+      "generatedHash": {
+        "algorithm": "sha256",
+        "value": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "generatedSizeBytes": 256,
+      "defineProcessing": {
+        "mode": "forwarded",
+        "count": 1,
+        "values": [
+          "MLX_USE_FAST_MATH=1"
+        ]
+      },
+      "includePathProcessing": {
+        "mode": "forwarded",
+        "count": 2,
+        "values": [
+          "mlx",
+          "mlx/backend/metal"
+        ]
+      }
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": [],
+  "validation": {},
+  "migration": {
+    "runtimeReferenceCount": 3,
+    "runtimeReferencesByKind": {
+      "host-integration-handoff": 1,
+      "host-integration-handoff-inspection": 1,
+      "runtime-loader-plan": 1
+    },
+    "runtimeReferencesByBackend": {
+      "directx": 3
+    },
+    "runtimeReferencesByPath": {
+      "crosstl-host-integration/host-integration.json": 1,
+      "crosstl-host-integration/inspection.json": 1,
+      "runtime/directx-loader-plan.json": 1
+    },
+    "actions": [
+      {
+        "kind": "manual-runtime-integration",
+        "severity": "note",
+        "message": "Review generated runtime-loader and host-integration handoff bundles before application integration.",
+        "targets": [
+          "directx",
+          "vulkan"
+        ],
+        "runtimeReferences": [
+          {
+            "path": "runtime/directx-loader-plan.json",
+            "line": 1,
+            "column": 1,
+            "backend": "directx",
+            "kind": "runtime-loader-plan",
+            "symbol": "runtime-loader-plan-v1"
+          },
+          {
+            "path": "crosstl-host-integration/host-integration.json",
+            "line": 1,
+            "column": 1,
+            "backend": "directx",
+            "kind": "host-integration-handoff",
+            "symbol": "crosstl-runtime-host-integration-handoff"
+          },
+          {
+            "path": "crosstl-host-integration/inspection.json",
+            "line": 1,
+            "column": 1,
+            "backend": "directx",
+            "kind": "host-integration-handoff-inspection",
+            "symbol": "crosstl-runtime-host-integration-handoff-inspection"
+          }
+        ]
+      }
+    ]
+  },
+  "artifactMatrix": {},
+  "externalCorpus": {}
+}
