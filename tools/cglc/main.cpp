@@ -1141,12 +1141,22 @@ struct CrossTLProjectReportSummary {
   std::uintmax_t artifactCount = 0;
   std::uintmax_t sourceRemapCount = 0;
   std::uintmax_t sourceRemapMappingCount = 0;
+  using CountMap = std::vector<std::pair<std::string, std::uintmax_t>>;
+  std::optional<CountMap> sourceRemapsByGranularity;
+  std::optional<CountMap> sourceRemapsByTarget;
+  std::optional<CountMap> sourceRemapsBySourceBackend;
+  std::optional<CountMap> sourceRemapsByVariant;
 };
 
 struct CrossTLProjectReportStats {
   std::uintmax_t artifactCount = 0;
   std::uintmax_t sourceRemapCount = 0;
   std::uintmax_t sourceRemapMappingCount = 0;
+  CrossTLProjectReportSummary::CountMap sourceRemapsByGranularity;
+  CrossTLProjectReportSummary::CountMap sourceRemapsByTarget;
+  CrossTLProjectReportSummary::CountMap sourceRemapsBySourceBackend;
+  CrossTLProjectReportSummary::CountMap sourceRemapsByVariant;
+  std::vector<std::string> sourceRemapPaths;
 };
 
 bool parseRequiredCrossTLProjectReportSummaryUnsignedMember(
@@ -1167,6 +1177,116 @@ bool parseRequiredCrossTLProjectReportSummaryUnsignedMember(
     return false;
   }
   value = *parsed;
+  return true;
+}
+
+bool parseCrossTLProjectReportSummaryCountMap(
+    std::string_view mapText, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLProjectReportSummary::CountMap &counts) {
+  std::size_t position = 0;
+  crossgl::skipWhitespace(mapText, position);
+  if (position >= mapText.size() || mapText[position] != '{') {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) +
+                                 " must be an object of non-negative counts");
+    return false;
+  }
+  ++position;
+  crossgl::skipWhitespace(mapText, position);
+  if (position < mapText.size() && mapText[position] == '}') {
+    ++position;
+    crossgl::skipWhitespace(mapText, position);
+    if (position == mapText.size()) {
+      return true;
+    }
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) +
+                                 " must be an object of non-negative counts");
+    return false;
+  }
+
+  while (position < mapText.size()) {
+    std::string key;
+    if (!crossgl::parseJsonString(mapText, position, key)) {
+      sourceBatchManifestError(diagnostics, manifestPath,
+                               std::string(context) +
+                                   " keys must be strings");
+      return false;
+    }
+    crossgl::skipWhitespace(mapText, position);
+    if (position >= mapText.size() || mapText[position] != ':') {
+      sourceBatchManifestError(diagnostics, manifestPath,
+                               std::string(context) +
+                                   " must be an object of non-negative counts");
+      return false;
+    }
+    ++position;
+    crossgl::skipWhitespace(mapText, position);
+    const std::size_t valueBegin = position;
+    if (!crossgl::skipJsonValue(mapText, position)) {
+      sourceBatchManifestError(diagnostics, manifestPath,
+                               std::string(context) +
+                                   " must be an object of non-negative counts");
+      return false;
+    }
+    const std::optional<std::uintmax_t> value =
+        crossgl::parseUnsignedInteger(
+            mapText.substr(valueBegin, position - valueBegin));
+    if (!value) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          std::string(context) + "['" + key +
+              "'] must be a non-negative integer");
+      return false;
+    }
+    counts.push_back({std::move(key), *value});
+    crossgl::skipWhitespace(mapText, position);
+    if (position < mapText.size() && mapText[position] == ',') {
+      ++position;
+      crossgl::skipWhitespace(mapText, position);
+      continue;
+    }
+    if (position < mapText.size() && mapText[position] == '}') {
+      ++position;
+      crossgl::skipWhitespace(mapText, position);
+      if (position == mapText.size()) {
+        return true;
+      }
+      sourceBatchManifestError(diagnostics, manifestPath,
+                               std::string(context) +
+                                   " must be an object of non-negative counts");
+      return false;
+    }
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) +
+                                 " must be an object of non-negative counts");
+    return false;
+  }
+  sourceBatchManifestError(diagnostics, manifestPath,
+                           std::string(context) +
+                               " must be an object of non-negative counts");
+  return false;
+}
+
+bool parseOptionalCrossTLProjectReportSummaryCountMap(
+    std::string_view summary, std::string_view key,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    std::optional<CrossTLProjectReportSummary::CountMap> &counts) {
+  const std::optional<std::string_view> mapText =
+      crossgl::findObjectMemberValue(summary, key);
+  if (!mapText) {
+    return true;
+  }
+  CrossTLProjectReportSummary::CountMap parsed;
+  if (!parseCrossTLProjectReportSummaryCountMap(
+          *mapText, "CrossTL project report summary." + std::string(key),
+          manifestPath, diagnostics, parsed)) {
+    return false;
+  }
+  counts = std::move(parsed);
   return true;
 }
 
@@ -1195,7 +1315,74 @@ bool parseCrossTLProjectReportSummary(
              summary.sourceRemapCount) &&
          parseRequiredCrossTLProjectReportSummaryUnsignedMember(
              *summaryText, "sourceRemapMappingCount", manifestPath, diagnostics,
-             summary.sourceRemapMappingCount);
+             summary.sourceRemapMappingCount) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "sourceRemapsByGranularity", manifestPath,
+             diagnostics, summary.sourceRemapsByGranularity) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "sourceRemapsByTarget", manifestPath, diagnostics,
+             summary.sourceRemapsByTarget) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "sourceRemapsBySourceBackend", manifestPath,
+             diagnostics, summary.sourceRemapsBySourceBackend) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "sourceRemapsByVariant", manifestPath, diagnostics,
+             summary.sourceRemapsByVariant);
+}
+
+void incrementCrossTLProjectReportCountMap(
+    CrossTLProjectReportSummary::CountMap &counts, const std::string &key) {
+  for (auto &entry : counts) {
+    if (entry.first == key) {
+      ++entry.second;
+      return;
+    }
+  }
+  counts.push_back({key, 1});
+}
+
+std::uintmax_t crossTLProjectReportCountMapValue(
+    const CrossTLProjectReportSummary::CountMap &counts,
+    const std::string &key) {
+  for (const auto &entry : counts) {
+    if (entry.first == key) {
+      return entry.second;
+    }
+  }
+  return 0;
+}
+
+bool crossTLProjectReportCountMapsMatch(
+    const CrossTLProjectReportSummary::CountMap &expected,
+    const CrossTLProjectReportSummary::CountMap &actual) {
+  for (const auto &entry : expected) {
+    if (crossTLProjectReportCountMapValue(actual, entry.first) != entry.second) {
+      return false;
+    }
+  }
+  for (const auto &entry : actual) {
+    if (crossTLProjectReportCountMapValue(expected, entry.first) != entry.second) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool validateCrossTLProjectReportSummaryCountMap(
+    const std::optional<CrossTLProjectReportSummary::CountMap> &summaryCounts,
+    const CrossTLProjectReportSummary::CountMap &statsCounts,
+    std::string_view key, std::string_view label,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  if (!summaryCounts ||
+      crossTLProjectReportCountMapsMatch(*summaryCounts, statsCounts)) {
+    return true;
+  }
+  sourceBatchManifestError(
+      diagnostics, manifestPath,
+      "CrossTL project report summary." + std::string(key) +
+          " must match sourceRemap counts by " + std::string(label));
+  return false;
 }
 
 bool validateCrossTLProjectReportSummary(
@@ -1227,7 +1414,20 @@ bool validateCrossTLProjectReportSummary(
             std::to_string(stats.sourceRemapMappingCount));
     return false;
   }
-  return true;
+  return validateCrossTLProjectReportSummaryCountMap(
+             summary.sourceRemapsByGranularity, stats.sourceRemapsByGranularity,
+             "sourceRemapsByGranularity", "granularity", manifestPath,
+             diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.sourceRemapsByTarget, stats.sourceRemapsByTarget,
+             "sourceRemapsByTarget", "target", manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.sourceRemapsBySourceBackend,
+             stats.sourceRemapsBySourceBackend, "sourceRemapsBySourceBackend",
+             "source backend", manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.sourceRemapsByVariant, stats.sourceRemapsByVariant,
+             "sourceRemapsByVariant", "variant", manifestPath, diagnostics);
 }
 
 std::string uniqueCrossTLProjectReportEntryId(const SourceBatchManifest &manifest,
@@ -1280,6 +1480,11 @@ bool parseCrossTLProjectReportArtifact(
   const std::optional<std::string_view> sourceRemap =
       crossgl::findObjectMemberValue(artifactText, "sourceRemap");
   std::optional<std::uintmax_t> mappingCount;
+  std::optional<std::string> sourceRemapGranularity;
+  std::optional<std::string> sourceRemapPath;
+  std::optional<std::string> sourceRemapTarget;
+  std::optional<std::string> sourceBackend;
+  std::optional<std::string> variant;
   if (sourceRemap) {
     if (!crossgl::isJsonObjectDocument(*sourceRemap)) {
       sourceBatchManifestError(diagnostics, manifest.path,
@@ -1291,6 +1496,47 @@ bool parseCrossTLProjectReportArtifact(
           diagnostics, manifest.path,
           context + ".sourceRemap expected only for cgl target artifacts");
       return false;
+    }
+    if (!parseOptionalSourceBatchStringMember(
+            *sourceRemap, "target", context + ".sourceRemap", manifest.path,
+            diagnostics, sourceRemapTarget)) {
+      return false;
+    }
+    if (!sourceRemapTarget) {
+      sourceBatchManifestError(diagnostics, manifest.path,
+                               context + ".sourceRemap.target must be recorded");
+      return false;
+    }
+    if (!parseOptionalSourceBatchStringMember(
+            *sourceRemap, "mappingGranularity", context + ".sourceRemap",
+            manifest.path, diagnostics, sourceRemapGranularity)) {
+      return false;
+    }
+    if (!sourceRemapGranularity) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceRemap.mappingGranularity must be recorded");
+      return false;
+    }
+    if (!parseOptionalSourceBatchStableRelativePathMember(
+            *sourceRemap, "path", context + ".sourceRemap", manifest.path,
+            diagnostics, sourceRemapPath)) {
+      return false;
+    }
+    if (!sourceRemapPath) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceRemap.path must be a stable relative path");
+      return false;
+    }
+    for (const std::string &usedPath : stats.sourceRemapPaths) {
+      if (usedPath == *sourceRemapPath) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            context + ".sourceRemap.path must be unique within CrossTL project "
+                      "report");
+        return false;
+      }
     }
     if (!parseOptionalSourceBatchUnsignedMember(
             *sourceRemap, "mappingCount", context + ".sourceRemap",
@@ -1305,6 +1551,31 @@ bool parseCrossTLProjectReportArtifact(
     }
     ++stats.sourceRemapCount;
     stats.sourceRemapMappingCount += *mappingCount;
+    stats.sourceRemapPaths.push_back(*sourceRemapPath);
+    incrementCrossTLProjectReportCountMap(stats.sourceRemapsByGranularity,
+                                          *sourceRemapGranularity);
+    incrementCrossTLProjectReportCountMap(stats.sourceRemapsByTarget,
+                                          *sourceRemapTarget);
+    if (parseOptionalSourceBatchStringMember(
+            artifactText, "sourceBackend", context, manifest.path, diagnostics,
+            sourceBackend)) {
+      if (sourceBackend) {
+        incrementCrossTLProjectReportCountMap(
+            stats.sourceRemapsBySourceBackend, *sourceBackend);
+      }
+    } else {
+      return false;
+    }
+    if (parseOptionalSourceBatchStringMember(
+            artifactText, "variant", context, manifest.path, diagnostics,
+            variant)) {
+      if (variant) {
+        incrementCrossTLProjectReportCountMap(stats.sourceRemapsByVariant,
+                                              *variant);
+      }
+    } else {
+      return false;
+    }
   }
 
   if (!status || *status != "translated") {
@@ -1333,7 +1604,6 @@ bool parseCrossTLProjectReportArtifact(
   }
 
   std::optional<std::string> logicalInput = path;
-  std::optional<std::string> sourceRemapPath;
   if (!sourceRemap) {
     sourceBatchManifestError(
         diagnostics, manifest.path,
@@ -1342,12 +1612,6 @@ bool parseCrossTLProjectReportArtifact(
     return false;
   }
 
-  std::optional<std::string> sourceRemapTarget;
-  if (!parseOptionalSourceBatchStringMember(
-          *sourceRemap, "target", context + ".sourceRemap", manifest.path,
-          diagnostics, sourceRemapTarget)) {
-    return false;
-  }
   if (!sourceRemapTarget || *sourceRemapTarget != *target) {
     sourceBatchManifestError(
         diagnostics, manifest.path,
@@ -1369,11 +1633,6 @@ bool parseCrossTLProjectReportArtifact(
     return false;
   }
 
-  if (!parseOptionalSourceBatchStableRelativePathMember(
-          *sourceRemap, "path", context + ".sourceRemap", manifest.path,
-          diagnostics, sourceRemapPath)) {
-    return false;
-  }
   if (!sourceRemapPath) {
     sourceBatchManifestError(
         diagnostics, manifest.path,
