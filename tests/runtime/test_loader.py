@@ -111,6 +111,31 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             [LEGACY_REQUIREMENTS_FALLBACK_DIAGNOSTIC],
         )
 
+    def assertRuntimeArtifactHandoff(
+        self,
+        handoff: object,
+        *,
+        expected_bytes: bytes,
+        expected_metadata: dict[str, object],
+        expected_package_format: str,
+        expected_artifact_name: str,
+        expected_package_path: str,
+        expected_absolute_path: str,
+        expected_selected_package_mode: str,
+        expected_size: int,
+    ) -> None:
+        self.assertEqual(handoff.bytes, expected_bytes)
+        self.assertEqual(handoff.metadata, expected_metadata)
+        self.assertEqual(handoff.package_format, expected_package_format)
+        self.assertEqual(handoff.artifact_name, expected_artifact_name)
+        self.assertEqual(handoff.package_path, expected_package_path)
+        self.assertEqual(handoff.absolute_path, expected_absolute_path)
+        self.assertEqual(
+            handoff.selected_package_mode,
+            expected_selected_package_mode,
+        )
+        self.assertEqual(handoff.size, expected_size)
+
     def test_directx_source_package_plan_selects_contract_and_reflection(
         self,
     ) -> None:
@@ -1348,6 +1373,187 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 },
             )
             self.assertEqual(summary["missingArtifacts"], [])
+
+    def test_runtime_artifact_handoff_directory_returns_selected_artifact_bytes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime artifact handoff must not parse source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "metal")
+                handoff = plan.require_runtime_artifact_handoff()
+
+            artifact = plan.require_runtime_artifact()
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertRuntimeArtifactHandoff(
+                handoff,
+                expected_bytes=b"bin",
+                expected_metadata=plan.metadata_contract_summary,
+                expected_package_format="directory",
+                expected_artifact_name="nativeBinary",
+                expected_package_path="backend/metal/RuntimeLoaderFixture.metallib",
+                expected_absolute_path=artifact.absolute_path or str(artifact.path),
+                expected_selected_package_mode="native",
+                expected_size=artifact.size,
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_runtime_artifact_handoff_zip_returns_selected_artifact_bytes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            package_dir = temp_root / "package-dir"
+            package_dir.mkdir()
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "zip runtime artifact handoff must not parse source\n",
+                encoding="utf-8",
+            )
+            zip_path = temp_root / "RuntimeLoaderFixture.cglb"
+            self._write_zip_package(package_dir, zip_path)
+
+            with self._guard_crossgl_source_path_reads():
+                with self._guard_crossgl_source_archive_reads():
+                    plan = read_loader_plan(zip_path, "metal")
+                    handoff = plan.require_runtime_artifact_handoff()
+
+            artifact = plan.require_runtime_artifact()
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertRuntimeArtifactHandoff(
+                handoff,
+                expected_bytes=b"bin",
+                expected_metadata=plan.metadata_contract_summary,
+                expected_package_format="zip",
+                expected_artifact_name="nativeBinary",
+                expected_package_path="backend/metal/RuntimeLoaderFixture.metallib",
+                expected_absolute_path=(
+                    f"{zip_path}!/backend/metal/RuntimeLoaderFixture.metallib"
+                ),
+                expected_selected_package_mode="native",
+                expected_size=artifact.size,
+            )
+
+    def test_runtime_artifact_handoff_rejects_not_loadable_plan(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime artifact handoff must not parse source for rejects\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "vulkan")
+                self.assertFalse(plan.loadable)
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "runtime loader cannot load package",
+                ):
+                    plan.require_runtime_artifact_handoff()
+
+            self.assertIsNone(plan.runtime_artifact)
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_runtime_artifact_handoff_enforces_byte_limit_for_directory_and_zip(
+        self,
+    ) -> None:
+        payload = b"0123456789abcdef"
+
+        for package_format in ("directory", "zip"):
+            with self.subTest(package_format=package_format):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_root = Path(temp_dir)
+                    package_dir = temp_root / "package-dir"
+                    package_dir.mkdir()
+                    self._write_valid_package(package_dir, target="directx")
+                    source_path = package_dir / "source" / "invalid.cgl"
+                    source_path.parent.mkdir()
+                    source_path.write_text(
+                        "runtime artifact byte limit must not parse source\n",
+                        encoding="utf-8",
+                    )
+                    artifact_path = (
+                        package_dir / "backend/directx/RuntimeLoaderFixture.hlsl"
+                    )
+                    artifact_path.write_bytes(payload)
+
+                    if package_format == "zip":
+                        package_root = temp_root / "RuntimeLoaderFixture.cglb"
+                        self._write_zip_package(package_dir, package_root)
+                    else:
+                        package_root = package_dir
+
+                    with self._guard_crossgl_source_path_reads():
+                        with self._guard_crossgl_source_archive_reads():
+                            plan = read_loader_plan(package_root, "directx")
+                            handoff = plan.require_runtime_artifact_handoff(
+                                byte_limit=len(payload)
+                            )
+                            with self.assertRaisesRegex(
+                                PackageReadError,
+                                "package artifact exceeds runtime byte limit",
+                            ):
+                                plan.require_runtime_artifact_handoff(
+                                    byte_limit=len(payload) - 1
+                                )
+
+                    artifact = plan.require_runtime_artifact()
+                    self.assertRuntimeArtifactHandoff(
+                        handoff,
+                        expected_bytes=payload,
+                        expected_metadata=plan.metadata_contract_summary,
+                        expected_package_format=package_format,
+                        expected_artifact_name="backendSource",
+                        expected_package_path=(
+                            "backend/directx/RuntimeLoaderFixture.hlsl"
+                        ),
+                        expected_absolute_path=(
+                            artifact.absolute_path or str(artifact.path)
+                        ),
+                        expected_selected_package_mode="source-package",
+                        expected_size=len(payload),
+                    )
+                    self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_runtime_artifact_handoff_preserves_archive_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            package_dir = temp_root / "package-dir"
+            package_dir.mkdir()
+            self._write_valid_package(package_dir)
+            zip_path = temp_root / "RuntimeLoaderFixture.cglb"
+            self._write_zip_package(package_dir, zip_path, prefix=zip_path.name)
+
+            plan = read_loader_plan(zip_path, "metal")
+            handoff = plan.require_runtime_artifact_handoff()
+
+            self.assertRuntimeArtifactHandoff(
+                handoff,
+                expected_bytes=b"bin",
+                expected_metadata=plan.metadata_contract_summary,
+                expected_package_format="zip",
+                expected_artifact_name="nativeBinary",
+                expected_package_path="backend/metal/RuntimeLoaderFixture.metallib",
+                expected_absolute_path=(
+                    f"{zip_path}!/{zip_path.name}/backend/metal/"
+                    "RuntimeLoaderFixture.metallib"
+                ),
+                expected_selected_package_mode="native",
+                expected_size=3,
+            )
 
     def test_loader_plan_rejects_recorded_required_artifact_contract_drift(
         self,

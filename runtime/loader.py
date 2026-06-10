@@ -184,6 +184,50 @@ class LoaderArtifactPlan:
 
 
 @dataclass(frozen=True)
+class SourceFreeRuntimeArtifactHandoff:
+    """Bytes and identity metadata for a selected source-free runtime artifact."""
+
+    plan: "RuntimeLoaderPlan"
+    artifact: LoaderArtifactPlan
+    metadata: dict[str, Any]
+    package_format: str
+    artifact_name: str
+    package_path: str
+    absolute_path: str
+    selected_package_mode: str | None
+    size: int | None
+    bytes: bytes
+    archive_path: Path | None = None
+    archive_member: str | None = None
+
+    @property
+    def byte_length(self) -> int:
+        return len(self.bytes)
+
+    def to_summary(self) -> dict[str, Any]:
+        return {
+            "schemaVersion": 1,
+            "packageFormat": self.package_format,
+            "selectedPackageMode": self.selected_package_mode,
+            "sourceParsingRequired": False,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "byteLength": self.byte_length,
+            "metadata": self.metadata,
+            "artifact": {
+                "name": self.artifact_name,
+                "path": self.package_path,
+                "absolutePath": self.absolute_path,
+                "size": self.size,
+                "archivePath": (
+                    str(self.archive_path) if self.archive_path is not None else None
+                ),
+                "archiveMember": self.archive_member,
+            },
+        }
+
+
+@dataclass(frozen=True)
 class RuntimeLoaderPlan:
     """Structured runtime handoff for a target-specific loader implementation."""
 
@@ -772,6 +816,53 @@ class RuntimeLoaderPlan:
             self.runtime_artifact_selection.require_selected()
             raise PackageReadError("loader plan did not select a runtime artifact")
         return artifact
+
+    def runtime_artifact_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff | None:
+        if not self.loadable:
+            return None
+        artifact = self.runtime_artifact
+        if artifact is None:
+            return None
+        return self._runtime_artifact_handoff(artifact, byte_limit=byte_limit)
+
+    def require_runtime_artifact_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        self.require_loadable()
+        return self._runtime_artifact_handoff(
+            self.require_runtime_artifact(),
+            byte_limit=byte_limit,
+        )
+
+    def _runtime_artifact_handoff(
+        self,
+        artifact: LoaderArtifactPlan,
+        *,
+        byte_limit: int | None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        payload = artifact.read_bytes(byte_limit=byte_limit)
+        return SourceFreeRuntimeArtifactHandoff(
+            plan=self,
+            artifact=artifact,
+            metadata=self.metadata_contract_summary,
+            package_format=self.compatibility_report.package_format,
+            artifact_name=artifact.name,
+            package_path=artifact.package_path,
+            absolute_path=artifact.absolute_path or str(artifact.path),
+            selected_package_mode=(
+                self.runtime_artifact_selection.selected_package_mode
+            ),
+            size=artifact.size if artifact.size is not None else len(payload),
+            bytes=payload,
+            archive_path=artifact.archive_path,
+            archive_member=artifact.archive_member,
+        )
 
     def artifact(self, name: str) -> LoaderArtifactPlan | None:
         for artifact in self.selected_artifacts:
