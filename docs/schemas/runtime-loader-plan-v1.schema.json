@@ -725,6 +725,15 @@
         "descriptorType": {
           "$ref": "#/$defs/stringOrNull"
         },
+        "set": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "binding": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "argumentIndex": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
         "storageImageFormat": {
           "$ref": "#/$defs/stringOrNull"
         },

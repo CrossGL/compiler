@@ -9,6 +9,19 @@ from .common import add_equal_error, validate_normalized_package_path
 
 REQUIRED_METADATA_INPUTS = ["manifest.json", "reflection.json", "diagnostics.json"]
 SEVERITIES = ("note", "warning", "error")
+TARGET_RESOURCE_BINDING_METADATA_PARITY_FIELDS = (
+    "bindingClass",
+    "descriptorType",
+    "set",
+    "binding",
+    "argumentIndex",
+    "abi",
+    "evidenceId",
+    "arrayDimensions",
+    "arrayElementCount",
+    "storageImageFormat",
+    "storageImageAccess",
+)
 
 
 def validate_diagnostic_counts(errors, instance):
@@ -509,6 +522,11 @@ def validate_target_resource_binding_metadata(errors, instance):
         )
 
     selected_target = metadata["selectedTarget"] or metadata["loaderTarget"]
+    reflection_binding_by_identity = {}
+    if reflection_inputs is not None:
+        reflection_binding_by_identity = target_resource_binding_identity_map(
+            reflection_inputs["targetResourceBindings"]
+        )
     for index, binding in enumerate(metadata["bindings"]):
         if selected_target is not None:
             add_equal_error(
@@ -526,6 +544,55 @@ def validate_target_resource_binding_metadata(errors, instance):
                 binding[field],
                 f"$.targetResourceBindingMetadata.bindings[{index}].{field}",
             )
+        if reflection_inputs is not None:
+            validate_target_resource_binding_metadata_reflection_parity(
+                errors,
+                index,
+                binding,
+                reflection_binding_by_identity,
+            )
+
+
+def target_resource_binding_identity(record):
+    return tuple(
+        record.get(field) for field in ("target", "stage", "entryPoint", "name", "kind")
+    )
+
+
+def target_resource_binding_identity_map(bindings):
+    by_identity = {}
+    for index, binding in enumerate(bindings):
+        identity = target_resource_binding_identity(binding)
+        by_identity.setdefault(identity, (index, binding))
+    return by_identity
+
+
+def validate_target_resource_binding_metadata_reflection_parity(
+    errors,
+    metadata_index,
+    metadata_binding,
+    reflection_binding_by_identity,
+):
+    identity = target_resource_binding_identity(metadata_binding)
+    reflection_record = reflection_binding_by_identity.get(identity)
+    metadata_path = f"$.targetResourceBindingMetadata.bindings[{metadata_index}]"
+    if reflection_record is None:
+        errors.append(
+            f"{metadata_path}: expected matching "
+            "$.reflectionInputs.targetResourceBindings record for identity "
+            f"{identity!r}"
+        )
+        return
+
+    reflection_index, reflection_binding = reflection_record
+    for field in TARGET_RESOURCE_BINDING_METADATA_PARITY_FIELDS:
+        add_equal_error(
+            errors,
+            f"{metadata_path}.{field}",
+            metadata_binding.get(field),
+            reflection_binding.get(field),
+            f"$.reflectionInputs.targetResourceBindings[{reflection_index}].{field}",
+        )
 
 
 def validate_semantics(instance):

@@ -532,6 +532,12 @@ void writeReflectionInputTargetBindingRecord(
   writeNullableString(out, binding.bindingClass);
   out << ",\n" << indent << "  \"descriptorType\": ";
   writeNullableString(out, binding.descriptorType);
+  out << ",\n" << indent << "  \"set\": ";
+  writeNullableUnsigned(out, binding.set);
+  out << ",\n" << indent << "  \"binding\": ";
+  writeNullableUnsigned(out, binding.binding);
+  out << ",\n" << indent << "  \"argumentIndex\": ";
+  writeNullableUnsigned(out, binding.argumentIndex);
   out << ",\n" << indent << "  \"storageImageFormat\": ";
   writeNullableString(out, binding.storageImageFormat);
   out << ",\n" << indent << "  \"storageImageAccess\": ";
