@@ -216,6 +216,7 @@ struct PackageMetadata {
   bool hirSourceMapArtifactPresent = false;
   bool debugArtifactsPresent = false;
   bool sourceRemapArtifactPresent = false;
+  bool backendSourceMapArtifactPresent = false;
   bool nativeProfileArtifactPresent = false;
   bool nativeArtifactDescriptorArtifactPresent = false;
 };

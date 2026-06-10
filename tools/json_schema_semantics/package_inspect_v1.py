@@ -77,6 +77,26 @@ SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS = (
     "sourceSizeBytes",
 )
 
+BACKEND_SOURCE_MAP_CHECKS = (
+    "identityMatchesContract",
+    "targetMatchesPackage",
+    "moduleMatchesPackage",
+    "backendLanguagePresent",
+    "backendLineCountPresent",
+    "mappingCountMatchesMappings",
+)
+
+BACKEND_SOURCE_MAP_CONTENT_FIELDS = (
+    "schemaVersion",
+    "kind",
+    "target",
+    "module",
+    "backendLanguage",
+    "backendLineCount",
+    "mappingCount",
+    "mappingRecordCount",
+)
+
 OPTIMIZED_VULKAN_EVIDENCE = {
     "requestedLevel": "O2",
     "effectiveLevel": "O2",
@@ -772,9 +792,13 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
     debug_declared = "debugMetadata" in by_name
     source_map_declared = "hirSourceMap" in by_name
     source_remap_declared = "sourceRemap" in by_name
+    backend_source_map_declared = "backendSourceMap" in by_name
     debug_exists = debug_declared and by_name["debugMetadata"]["exists"]
     source_map_exists = source_map_declared and by_name["hirSourceMap"]["exists"]
     source_remap_exists = source_remap_declared and by_name["sourceRemap"]["exists"]
+    backend_source_map_exists = (
+        backend_source_map_declared and by_name["backendSourceMap"]["exists"]
+    )
 
     add_equal_error(
         errors,
@@ -902,14 +926,146 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
             "sourceRemap artifact is declared"
         )
 
+    backend_source_map_health = "not-present"
+    backend_source_map = debug_artifacts.get("backendSourceMap")
+    if isinstance(backend_source_map, dict):
+        add_equal_error(
+            errors,
+            "$.debugArtifacts.backendSourceMap.artifactPresent",
+            backend_source_map["artifactPresent"],
+            backend_source_map_declared,
+            "backendSourceMap artifact record presence",
+        )
+        add_equal_error(
+            errors,
+            "$.debugArtifacts.backendSourceMap.exists",
+            backend_source_map["exists"],
+            backend_source_map_exists,
+            "backendSourceMap artifact file existence",
+        )
+        if backend_source_map_declared:
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.path",
+                backend_source_map["path"],
+                by_name["backendSourceMap"]["path"],
+                "backendSourceMap artifact path",
+            )
+        elif backend_source_map["path"] is not None:
+            errors.append(
+                "$.debugArtifacts.backendSourceMap.path: expected null when absent"
+            )
+
+        backend_source_map_checks = backend_source_map["checks"]
+        backend_source_map_check_values = [
+            backend_source_map_checks[name] for name in BACKEND_SOURCE_MAP_CHECKS
+        ]
+        if not backend_source_map_declared:
+            expected_backend_source_map_health = "not-present"
+            expected_backend_source_map_checks = [None] * len(
+                backend_source_map_check_values
+            )
+            for field in BACKEND_SOURCE_MAP_CONTENT_FIELDS:
+                if backend_source_map[field] is not None:
+                    errors.append(
+                        f"$.debugArtifacts.backendSourceMap.{field}: "
+                        "expected null when absent"
+                    )
+        elif not backend_source_map_exists:
+            expected_backend_source_map_health = "incomplete"
+            expected_backend_source_map_checks = [None] * len(
+                backend_source_map_check_values
+            )
+        else:
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks.identityMatchesContract",
+                backend_source_map_checks["identityMatchesContract"],
+                backend_source_map["schemaVersion"] == 1
+                and backend_source_map["kind"] == "crossgl.backendSourceMap",
+                "backendSourceMap identity contract",
+            )
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks.targetMatchesPackage",
+                backend_source_map_checks["targetMatchesPackage"],
+                backend_source_map["target"] == summary["target"],
+                "backendSourceMap target matches package",
+            )
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks.moduleMatchesPackage",
+                backend_source_map_checks["moduleMatchesPackage"],
+                backend_source_map["module"] == summary["module"],
+                "backendSourceMap module matches package",
+            )
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks.backendLanguagePresent",
+                backend_source_map_checks["backendLanguagePresent"],
+                isinstance(backend_source_map["backendLanguage"], str)
+                and bool(backend_source_map["backendLanguage"]),
+                "backendSourceMap backend language presence",
+            )
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks.backendLineCountPresent",
+                backend_source_map_checks["backendLineCountPresent"],
+                backend_source_map["backendLineCount"] is not None,
+                "backendSourceMap backend line count presence",
+            )
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks.mappingCountMatchesMappings",
+                backend_source_map_checks["mappingCountMatchesMappings"],
+                backend_source_map["mappingCount"] is not None
+                and backend_source_map["mappingRecordCount"] is not None
+                and backend_source_map["mappingCount"]
+                == backend_source_map["mappingRecordCount"],
+                "backendSourceMap mapping count agreement",
+            )
+            if all(value is True for value in backend_source_map_check_values):
+                expected_backend_source_map_health = "ok"
+            else:
+                expected_backend_source_map_health = "drift"
+            expected_backend_source_map_checks = None
+
+        add_equal_error(
+            errors,
+            "$.debugArtifacts.backendSourceMap.health",
+            backend_source_map["health"],
+            expected_backend_source_map_health,
+            "backendSourceMap health from checks",
+        )
+        backend_source_map_health = backend_source_map["health"]
+        if (
+            expected_backend_source_map_checks is not None
+            and backend_source_map_check_values != expected_backend_source_map_checks
+        ):
+            errors.append(
+                "$.debugArtifacts.backendSourceMap.checks: expected null checks "
+                "when absent or incomplete"
+            )
+    elif backend_source_map_declared:
+        backend_source_map_health = "drift"
+        errors.append(
+            "$.debugArtifacts.backendSourceMap: expected health summary when "
+            "backendSourceMap artifact is declared"
+        )
+
     checks = debug_artifacts["checks"]
     check_values = list(checks.values())
     if not debug_exists or not source_map_exists:
         expected_health = "incomplete"
         expected_checks = [None] * len(check_values)
-    elif all(value is True for value in check_values) and source_remap_health in (
-        "ok",
-        "not-present",
+    elif (
+        all(value is True for value in check_values)
+        and source_remap_health
+        in (
+            "ok",
+            "not-present",
+        )
+        and backend_source_map_health in ("ok", "not-present")
     ):
         expected_health = "ok"
         expected_checks = None

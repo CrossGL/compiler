@@ -933,6 +933,8 @@ void writeDebugArtifactHealth(std::ostream &out,
                               const PackageDebugArtifactHealth &health,
                               std::string_view indent) {
   const PackageSourceRemapProvenanceHealth &sourceRemap = health.sourceRemap;
+  const PackageBackendSourceMapHealth &backendSourceMap =
+      health.backendSourceMap;
   out << "{\n"
       << indent << "  \"debugMetadataArtifactPresent\": "
       << (health.debugMetadataArtifactPresent ? "true" : "false") << ",\n"
@@ -991,6 +993,46 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableBool(out, sourceRemap.checks.sourceHashPresent);
   out << ",\n" << indent << "      \"sourceSizeBytesPresent\": ";
   writeNullableBool(out, sourceRemap.checks.sourceSizeBytesPresent);
+  out << "\n" << indent << "    }\n" << indent << "  },\n"
+      << indent << "  \"backendSourceMap\": {\n"
+      << indent << "    \"artifactPresent\": "
+      << (backendSourceMap.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "    \"exists\": "
+      << (backendSourceMap.exists ? "true" : "false") << ",\n"
+      << indent << "    \"health\": \""
+      << escapeJson(backendSourceMap.health) << "\",\n"
+      << indent << "    \"path\": ";
+  writeNullableString(out, backendSourceMap.path);
+  out << ",\n" << indent << "    \"schemaVersion\": ";
+  writeNullableUnsigned(out, backendSourceMap.schemaVersion);
+  out << ",\n" << indent << "    \"kind\": ";
+  writeNullableString(out, backendSourceMap.kind);
+  out << ",\n" << indent << "    \"target\": ";
+  writeNullableString(out, backendSourceMap.target);
+  out << ",\n" << indent << "    \"module\": ";
+  writeNullableString(out, backendSourceMap.module);
+  out << ",\n" << indent << "    \"backendLanguage\": ";
+  writeNullableString(out, backendSourceMap.backendLanguage);
+  out << ",\n" << indent << "    \"backendLineCount\": ";
+  writeNullableUnsigned(out, backendSourceMap.backendLineCount);
+  out << ",\n" << indent << "    \"mappingCount\": ";
+  writeNullableUnsigned(out, backendSourceMap.mappingCount);
+  out << ",\n" << indent << "    \"mappingRecordCount\": ";
+  writeNullableUnsigned(out, backendSourceMap.mappingRecordCount);
+  out << ",\n"
+      << indent << "    \"checks\": {\n"
+      << indent << "      \"identityMatchesContract\": ";
+  writeNullableBool(out, backendSourceMap.checks.identityMatchesContract);
+  out << ",\n" << indent << "      \"targetMatchesPackage\": ";
+  writeNullableBool(out, backendSourceMap.checks.targetMatchesPackage);
+  out << ",\n" << indent << "      \"moduleMatchesPackage\": ";
+  writeNullableBool(out, backendSourceMap.checks.moduleMatchesPackage);
+  out << ",\n" << indent << "      \"backendLanguagePresent\": ";
+  writeNullableBool(out, backendSourceMap.checks.backendLanguagePresent);
+  out << ",\n" << indent << "      \"backendLineCountPresent\": ";
+  writeNullableBool(out, backendSourceMap.checks.backendLineCountPresent);
+  out << ",\n" << indent << "      \"mappingCountMatchesMappings\": ";
+  writeNullableBool(out, backendSourceMap.checks.mappingCountMatchesMappings);
   out << "\n" << indent << "    }\n" << indent << "  },\n"
       << indent << "  \"checks\": {\n"
       << indent << "    \"hirSourceLocationsMatch\": ";

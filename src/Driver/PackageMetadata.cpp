@@ -2563,6 +2563,9 @@ loadPackageMetadata(const std::filesystem::path &packagePath,
     if (member.name == "sourceRemap") {
       metadata.sourceRemapArtifactPresent = true;
     }
+    if (member.name == "backendSourceMap") {
+      metadata.backendSourceMapArtifactPresent = true;
+    }
     if (member.name == "nativeProfile") {
       metadata.nativeProfileArtifactPresent = true;
     }

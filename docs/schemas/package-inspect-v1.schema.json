@@ -1101,6 +1101,104 @@
         }
       }
     },
+    "backendSourceMapChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityMatchesContract",
+        "targetMatchesPackage",
+        "moduleMatchesPackage",
+        "backendLanguagePresent",
+        "backendLineCountPresent",
+        "mappingCountMatchesMappings"
+      ],
+      "properties": {
+        "identityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "moduleMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLanguagePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLineCountPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingCountMatchesMappings": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "backendSourceMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "exists",
+        "health",
+        "path",
+        "schemaVersion",
+        "kind",
+        "target",
+        "module",
+        "backendLanguage",
+        "backendLineCount",
+        "mappingCount",
+        "mappingRecordCount",
+        "checks"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "drift",
+            "incomplete",
+            "not-present"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "kind": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "target": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "module": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "backendLanguage": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "backendLineCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "mappingRecordCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "checks": {
+          "$ref": "#/$defs/backendSourceMapChecks"
+        }
+      }
+    },
     "debugArtifacts": {
       "type": "object",
       "additionalProperties": false,
@@ -1135,6 +1233,9 @@
         },
         "sourceRemap": {
           "$ref": "#/$defs/sourceRemapProvenance"
+        },
+        "backendSourceMap": {
+          "$ref": "#/$defs/backendSourceMap"
         },
         "checks": {
           "$ref": "#/$defs/debugArtifactChecks"

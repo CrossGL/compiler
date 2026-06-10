@@ -884,6 +884,84 @@ class RuntimePackageReaderTests(unittest.TestCase):
             self.assertNotIn("graphicsAbi", package.required_target_artifacts())
             self.assertNotIn("graphicsAbi", report.required_artifacts)
 
+    def test_accepts_optional_debug_sidecar_manifest_artifacts_without_requiring_them(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            backend_source_map_path = (
+                "backend/metal/RuntimeReaderFixture.backend-source-map.json"
+            )
+            source_remap_path = "ir/source-remap-provenance.json"
+            (package_dir / "ir").mkdir()
+            self._write_json(
+                package_dir / backend_source_map_path,
+                {
+                    "schemaVersion": 1,
+                    "kind": "crossgl.backendSourceMap",
+                    "target": "metal",
+                    "module": "RuntimeReaderFixture",
+                    "backend": {
+                        "language": "metal",
+                        "lineCount": 1,
+                    },
+                    "mappingCount": 0,
+                    "mappings": [],
+                },
+            )
+            self._write_json(
+                package_dir / source_remap_path,
+                {
+                    "schemaVersion": 1,
+                    "kind": "crossgl.sourceRemapProvenance",
+                    "contractVersion": "source-remap-provenance-v1",
+                    "target": "metal",
+                    "generatedFile": "generated/from-translator.cgl",
+                    "mappingGranularity": "source-span",
+                    "mappingCount": 0,
+                    "sourceRemap": {
+                        "path": "source/original.crossgl",
+                        "sha256": {
+                            "algorithm": "sha256",
+                            "value": "0" * 64,
+                        },
+                        "sizeBytes": 0,
+                    },
+                },
+            )
+            manifest["artifacts"]["backendSourceMap"] = backend_source_map_path
+            manifest["artifacts"]["sourceRemap"] = source_remap_path
+            self._write_json(manifest_path, manifest)
+
+            package = read_package(package_dir)
+            report = package.compatibility_report(loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertTrue(report.compatible, summary["diagnostics"])
+            self.assertEqual(
+                package.artifact("backendSourceMap").package_path,
+                backend_source_map_path,
+            )
+            self.assertEqual(
+                package.artifact("sourceRemap").package_path,
+                source_remap_path,
+            )
+            self.assertNotIn("backendSourceMap", package.required_target_artifacts())
+            self.assertNotIn("sourceRemap", package.required_target_artifacts())
+            self.assertNotIn("backendSourceMap", report.required_artifacts)
+            self.assertNotIn("sourceRemap", report.required_artifacts)
+            skipped = {
+                (artifact["name"], artifact["reason"])
+                for artifact in summary["artifactCompatibility"]["skipped"]
+            }
+            self.assertIn(
+                ("backendSourceMap", "package.artifact.not_required"), skipped
+            )
+            self.assertIn(("sourceRemap", "package.artifact.not_required"), skipped)
+
     def test_reports_absent_optional_graphics_abi(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
@@ -7754,6 +7832,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "expected": [
                         "backendAssembly",
                         "backendSource",
+                        "backendSourceMap",
                         "debugMetadata",
                         "graphicsAbi",
                         "hirSourceMap",
@@ -7762,6 +7841,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                         "nativeBinary",
                         "nativeBinaryStatus",
                         "nativeProfile",
+                        "sourceRemap",
                         "targetExplanation",
                     ],
                     "actual": "shaderBlob",

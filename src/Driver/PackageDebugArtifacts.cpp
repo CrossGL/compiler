@@ -121,6 +121,45 @@ std::optional<NameCounts> countRecordCategories(std::string_view arrayText,
   return std::nullopt;
 }
 
+std::optional<std::uintmax_t> countJsonArrayElements(std::string_view arrayText) {
+  std::size_t position = 0;
+  skipWhitespace(arrayText, position);
+  if (position >= arrayText.size() || arrayText[position] != '[') {
+    return std::nullopt;
+  }
+  ++position;
+  skipWhitespace(arrayText, position);
+  std::uintmax_t count = 0;
+  if (position < arrayText.size() && arrayText[position] == ']') {
+    ++position;
+    skipWhitespace(arrayText, position);
+    return position == arrayText.size()
+               ? std::optional<std::uintmax_t>(count)
+               : std::nullopt;
+  }
+  while (position < arrayText.size()) {
+    if (!skipJsonValue(arrayText, position)) {
+      return std::nullopt;
+    }
+    ++count;
+    skipWhitespace(arrayText, position);
+    if (position < arrayText.size() && arrayText[position] == ',') {
+      ++position;
+      skipWhitespace(arrayText, position);
+      continue;
+    }
+    if (position < arrayText.size() && arrayText[position] == ']') {
+      ++position;
+      skipWhitespace(arrayText, position);
+      return position == arrayText.size()
+                 ? std::optional<std::uintmax_t>(count)
+                 : std::nullopt;
+    }
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
 std::optional<std::string> readRegularFile(const std::filesystem::path &path) {
   std::ifstream input(path, std::ios::binary);
   if (!input) {
@@ -431,6 +470,77 @@ collectSourceRemapProvenanceHealth(const PackageMetadata &metadata) {
   return health;
 }
 
+PackageBackendSourceMapHealth
+collectBackendSourceMapHealth(const PackageMetadata &metadata) {
+  PackageBackendSourceMapHealth health;
+  health.artifactPresent = metadata.backendSourceMapArtifactPresent;
+  const PackageArtifactRecord *artifact = findArtifact(metadata, "backendSourceMap");
+  if (artifact != nullptr) {
+    health.path = artifact->path;
+  }
+  health.exists = artifact != nullptr && artifact->exists;
+
+  if (!health.artifactPresent) {
+    return health;
+  }
+  if (!health.exists) {
+    health.health = "incomplete";
+    return health;
+  }
+
+  const std::optional<std::string> document =
+      readArtifactDocument(metadata, artifact);
+  if (!document) {
+    health.health = "incomplete";
+    return health;
+  }
+
+  health.schemaVersion = objectUnsignedMember(*document, "schemaVersion");
+  health.kind = objectStringMember(*document, "kind");
+  health.target = objectStringMember(*document, "target");
+  health.module = objectStringMember(*document, "module");
+  health.mappingCount = objectUnsignedMember(*document, "mappingCount");
+  const std::optional<std::string_view> backend =
+      findObjectMemberValue(*document, "backend");
+  if (backend) {
+    health.backendLanguage = objectStringMember(*backend, "language");
+    health.backendLineCount = objectUnsignedMember(*backend, "lineCount");
+  }
+  const std::optional<std::string_view> mappings =
+      findObjectMemberValue(*document, "mappings");
+  if (mappings) {
+    health.mappingRecordCount = countJsonArrayElements(*mappings);
+  }
+
+  health.checks.identityMatchesContract =
+      health.schemaVersion && *health.schemaVersion == 1 && health.kind &&
+      *health.kind == "crossgl.backendSourceMap";
+  health.checks.targetMatchesPackage =
+      health.target && *health.target == metadata.target;
+  health.checks.moduleMatchesPackage =
+      health.module && *health.module == metadata.module;
+  health.checks.backendLanguagePresent =
+      health.backendLanguage && !health.backendLanguage->empty();
+  health.checks.backendLineCountPresent = health.backendLineCount.has_value();
+  health.checks.mappingCountMatchesMappings =
+      health.mappingCount && health.mappingRecordCount &&
+      *health.mappingCount == *health.mappingRecordCount;
+
+  const std::vector<std::optional<bool>> checks = {
+      health.checks.identityMatchesContract,
+      health.checks.targetMatchesPackage,
+      health.checks.moduleMatchesPackage,
+      health.checks.backendLanguagePresent,
+      health.checks.backendLineCountPresent,
+      health.checks.mappingCountMatchesMappings,
+  };
+  const bool allTrue = std::all_of(checks.begin(), checks.end(), [](auto value) {
+    return value.has_value() && *value;
+  });
+  health.health = allTrue ? "ok" : "drift";
+  return health;
+}
+
 } // namespace
 
 PackageDebugArtifactHealth
@@ -439,6 +549,7 @@ collectPackageDebugArtifactHealth(const PackageMetadata &metadata) {
   health.debugMetadataArtifactPresent = metadata.debugMetadataArtifactPresent;
   health.hirSourceMapArtifactPresent = metadata.hirSourceMapArtifactPresent;
   health.sourceRemap = collectSourceRemapProvenanceHealth(metadata);
+  health.backendSourceMap = collectBackendSourceMapHealth(metadata);
 
   const PackageArtifactRecord *debugMetadata =
       findArtifact(metadata, "debugMetadata");
@@ -477,7 +588,9 @@ collectPackageDebugArtifactHealth(const PackageMetadata &metadata) {
   const bool allTrue = std::all_of(checks.begin(), checks.end(), [](auto value) {
     return value.has_value() && *value;
   }) && (!health.sourceRemap.artifactPresent ||
-         health.sourceRemap.health == "ok");
+         health.sourceRemap.health == "ok") &&
+         (!health.backendSourceMap.artifactPresent ||
+          health.backendSourceMap.health == "ok");
   health.health = allTrue ? "ok" : "drift";
   return health;
 }

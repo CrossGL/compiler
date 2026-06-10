@@ -88,8 +88,10 @@ MANIFEST_ARTIFACT_KEYS = frozenset(
         "nativeArtifactDescriptor",
         "nativeBinaryStatus",
         "debugMetadata",
+        "backendSourceMap",
         "graphicsAbi",
         "hirSourceMap",
+        "sourceRemap",
         "targetExplanation",
     )
 )
