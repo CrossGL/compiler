@@ -1074,6 +1074,15 @@ void appendDiagnostics(std::vector<crossgl::Diagnostic> &target,
   target.insert(target.end(), source.begin(), source.end());
 }
 
+crossgl::SourceLocation
+sourceRemapDocumentLocation(const std::filesystem::path &requestedPath,
+                            const crossgl::SourceRemap &sourceRemap) {
+  if (sourceRemap.documentPath) {
+    return cliSourceLocation(*sourceRemap.documentPath);
+  }
+  return cliSourceLocation(requestedPath);
+}
+
 std::vector<crossgl::Diagnostic> loadAndValidateSourceRemapDiagnostics(
     const std::filesystem::path &sourceRemapPath,
     const std::filesystem::path &compilerInputPath,
@@ -1085,7 +1094,7 @@ std::vector<crossgl::Diagnostic> loadAndValidateSourceRemapDiagnostics(
   }
   (void)crossgl::validateSourceRemapGeneratedFile(
       *sourceRemap, compilerInputPath, remapDiagnostics,
-      cliSourceLocation(sourceRemapPath));
+      sourceRemapDocumentLocation(sourceRemapPath, *sourceRemap));
   return remapDiagnostics.diagnostics();
 }
 
@@ -1795,7 +1804,7 @@ int commandCheck(const std::vector<std::string> &args) {
                                  : std::filesystem::path(logicalInputPath);
     if (!crossgl::validateSourceRemapGeneratedFile(
             *sourceRemap, compilerInputPath, remapDiagnostics,
-            cliSourceLocation(sourceRemapPath))) {
+            sourceRemapDocumentLocation(sourceRemapPath, *sourceRemap))) {
       printDiagnostics(remapDiagnostics.diagnostics());
       if (diagnosticsJson) {
         std::cout << crossgl::diagnosticsToJson(remapDiagnostics.diagnostics());
@@ -2015,7 +2024,7 @@ int commandDumpIR(const std::vector<std::string> &args) {
                                  : std::filesystem::path(logicalInputPath);
     if (!crossgl::validateSourceRemapGeneratedFile(
             *sourceRemap, compilerInputPath, remapDiagnostics,
-            cliSourceLocation(sourceRemapPath))) {
+            sourceRemapDocumentLocation(sourceRemapPath, *sourceRemap))) {
       printDiagnostics(remapDiagnostics.diagnostics());
       return 1;
     }
@@ -2123,7 +2132,7 @@ int commandBuild(const std::vector<std::string> &args) {
                                  : std::filesystem::path(logicalInputPath);
     if (!crossgl::validateSourceRemapGeneratedFile(
             *sourceRemap, compilerInputPath, remapDiagnostics,
-            cliSourceLocation(sourceRemapPath))) {
+            sourceRemapDocumentLocation(sourceRemapPath, *sourceRemap))) {
       printDiagnostics(remapDiagnostics.diagnostics());
       if (diagnosticsJson) {
         std::cout << crossgl::diagnosticsToJson(remapDiagnostics.diagnostics());

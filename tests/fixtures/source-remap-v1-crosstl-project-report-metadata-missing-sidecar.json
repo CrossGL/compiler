@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "path": "out/cgl/missing.source-remap.json",
+  "target": "cgl",
+  "generatedFile": "out/cgl/simple.cgl",
+  "mappingGranularity": "line",
+  "mappingCount": 2
+}

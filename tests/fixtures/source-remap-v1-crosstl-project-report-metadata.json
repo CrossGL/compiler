@@ -5,9 +5,9 @@
   "generatedFile": "out/cgl/simple.cgl",
   "mappingGranularity": "line",
   "mappingCount": 2,
-  "sizeBytes": 1091,
+  "sizeBytes": 982,
   "hash": {
     "algorithm": "sha256",
-    "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    "value": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92"
   }
 }

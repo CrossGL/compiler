@@ -828,19 +828,26 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_file_source_remap_si
   STDOUT_CONTAINS
     "check passed:")
 
-crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_fails
-  EXPECTED_RESULT 1
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_resolves
+  EXPECTED_RESULT 0
   ARGS check ${CROSSGL_SIMPLE_SHADER}
     --logical-input out/cgl/simple.cgl
     --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-crosstl-project-report-metadata.json
+  STDOUT_CONTAINS
+    "check passed:")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_missing_sidecar_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-crosstl-project-report-metadata-missing-sidecar.json
     --diagnostics-json
   STDOUT_CONTAINS
-    "\"code\": \"io.invalid-source-remap\""
-    "source remap document appears to be CrossTL project report sourceRemap metadata"
-    "sourceRemap.path"
+    "\"code\": \"io.read-failed\""
+    "out/cgl/missing.source-remap.json"
   STDERR_CONTAINS
-    "error io.invalid-source-remap"
-    "pass the compiler sidecar JSON referenced by sourceRemap.path instead")
+    "error io.read-failed"
+    "out/cgl/missing.source-remap.json")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_as_source_remap_fails
   EXPECTED_RESULT 1
