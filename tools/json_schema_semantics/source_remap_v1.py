@@ -48,6 +48,12 @@ def spans_overlap(left, right):
     return left["offset"] < right["endOffset"] and right["offset"] < left["endOffset"]
 
 
+def generated_span_order_drift(previous, current):
+    if previous["file"] != current["file"]:
+        return False
+    return current["offset"] < previous["endOffset"]
+
+
 def validate_semantics(instance):
     errors = []
     generated_file = instance["generatedFile"]
@@ -72,6 +78,13 @@ def validate_semantics(instance):
                     f"{mapping_path}.generated: overlaps $.mappings[{prior_index}].generated"
                 )
                 break
+        if generated_spans:
+            previous_index, previous_generated = generated_spans[-1]
+            if generated_span_order_drift(previous_generated, generated):
+                errors.append(
+                    f"{mapping_path}.generated.offset: expected >= "
+                    f"$.mappings[{previous_index}].generated.endOffset"
+                )
         generated_spans.append((index, generated))
         mapping_identity = (span_identity(generated), span_identity(original))
         if mapping_identity in seen_mappings:

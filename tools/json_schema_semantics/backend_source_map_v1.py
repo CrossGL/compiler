@@ -109,6 +109,14 @@ def validate_semantics(instance):
                 mapping["originalLocation"],
             )
 
+        if backend_spans:
+            prior_index, prior_backend = backend_spans[-1]
+            if mapping["backend"]["startLine"] <= prior_backend["endLine"]:
+                errors.append(
+                    f"{mapping_path}.backend.startLine: expected "
+                    f"after $.mappings[{prior_index}].backend"
+                )
+
         for prior_index, prior_backend in backend_spans:
             if backend_spans_overlap(prior_backend, mapping["backend"]):
                 errors.append(
