@@ -1386,18 +1386,25 @@ def self_test_native_artifact_descriptor_file_facts() -> list[str]:
     return errors
 
 
-def runtime_reader_imports() -> tuple[Any, Any]:
+def runtime_reader_imports() -> tuple[Any, Any, Any]:
     repo_root = Path(__file__).resolve().parents[1]
     repo_root_text = str(repo_root)
     if repo_root_text not in sys.path:
         sys.path.insert(0, repo_root_text)
 
+    from runtime.loader import (  # pylint: disable=import-outside-toplevel
+        read_runtime_loader_plan_contract,
+    )
     from runtime.package_reader import (  # pylint: disable=import-outside-toplevel
         read_compatibility_report,
         select_runtime_artifact,
     )
 
-    return read_compatibility_report, select_runtime_artifact
+    return (
+        read_compatibility_report,
+        select_runtime_artifact,
+        read_runtime_loader_plan_contract,
+    )
 
 
 def self_test_native_profile_target_mismatch_blocks_selection() -> list[str]:
@@ -1422,7 +1429,9 @@ def self_test_native_profile_target_mismatch_blocks_selection() -> list[str]:
             encoding="utf-8",
         )
 
-        read_compatibility_report, select_runtime_artifact = runtime_reader_imports()
+        read_compatibility_report, select_runtime_artifact, _contract_reader = (
+            runtime_reader_imports()
+        )
         report = read_compatibility_report(package, loader_target="vulkan")
         selection = select_runtime_artifact(
             report,
@@ -1495,7 +1504,9 @@ def self_test_legacy_requirements_are_report_only() -> list[str]:
         manifest.pop("packageArtifactRequirements", None)
         rewrite_manifest(package, manifest)
 
-        read_compatibility_report, _select_runtime_artifact = runtime_reader_imports()
+        read_compatibility_report, _select_runtime_artifact, _contract_reader = (
+            runtime_reader_imports()
+        )
         report = read_compatibility_report(package, loader_target="metal")
         summary = report.to_summary()
         requirements = summary["admission"]["requirements"]
@@ -1605,6 +1616,113 @@ def self_test_legacy_requirements_are_report_only() -> list[str]:
     return errors
 
 
+def self_test_runtime_loader_plan_contract_shape() -> list[str]:
+    errors: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        package, _source, manifest = make_package(
+            Path(tmp),
+            "runtime-loader-plan-contract",
+            target="directx",
+            status="planned",
+        )
+
+        _read_report, _select_artifact, read_runtime_loader_plan_contract = (
+            runtime_reader_imports()
+        )
+        contract = read_runtime_loader_plan_contract(package, "directx")
+
+        expected_pairs = {
+            "schemaVersion": 1,
+            "kind": "crossgl-runtime-loader-plan",
+            "success": True,
+            "metadataOnly": True,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "packageFormat": "directory",
+            "packageTarget": "directx",
+            "requestedLoaderTarget": "directx",
+            "targetMatchesPackage": True,
+            "requestedPackageMode": "auto",
+            "selectedPackageMode": "source-package",
+            "packageArtifactRequirementsSource": (
+                "manifest.packageArtifactRequirements"
+            ),
+        }
+        for field, expected in expected_pairs.items():
+            actual = contract.get(field)
+            if actual != expected:
+                errors.append(
+                    "self-test: runtime loader plan contract field "
+                    f"{field} expected {expected!r}, got {actual!r}"
+                )
+
+        selected_artifact = contract.get("selectedArtifact")
+        expected_source_path = manifest["artifacts"]["backendSource"]
+        if not isinstance(selected_artifact, dict):
+            errors.append("self-test: runtime loader plan did not select an artifact")
+        else:
+            expected_artifact_pairs = {
+                "name": "backendSource",
+                "path": expected_source_path,
+                "packageMode": "source-package",
+                "packageRelative": True,
+                "exists": True,
+            }
+            for field, expected in expected_artifact_pairs.items():
+                actual = selected_artifact.get(field)
+                if actual != expected:
+                    errors.append(
+                        "self-test: runtime loader plan selectedArtifact field "
+                        f"{field} expected {expected!r}, got {actual!r}"
+                    )
+
+        requirements = contract.get("packageArtifactRequirements")
+        expected_requirements = manifest["packageArtifactRequirements"]
+        if not isinstance(requirements, dict):
+            errors.append(
+                "self-test: runtime loader plan did not expose artifact requirements"
+            )
+        else:
+            for field in (
+                "target",
+                "packageMode",
+                "requiredPathArtifacts",
+                "requiresNativeBinaryStatus",
+                "allowsPlannedNativeBinary",
+                "allowsPlannedNativeSourceEvidence",
+                "evidenceIds",
+            ):
+                actual = requirements.get(field)
+                expected = expected_requirements[field]
+                if actual != expected:
+                    errors.append(
+                        "self-test: runtime loader plan requirements field "
+                        f"{field} expected {expected!r}, got {actual!r}"
+                    )
+
+        if contract.get("requiredMetadataInputs") != [
+            "manifest.json",
+            "reflection.json",
+            "diagnostics.json",
+        ]:
+            errors.append(
+                "self-test: runtime loader plan required metadata inputs drifted"
+            )
+
+        diagnostic_counts = contract.get("diagnosticCounts")
+        if diagnostic_counts != {"note": 0, "warning": 0, "error": 0}:
+            errors.append(
+                "self-test: runtime loader plan diagnostic counts expected all "
+                f"zero, got {diagnostic_counts!r}"
+            )
+        if contract.get("diagnostics") != []:
+            errors.append(
+                "self-test: runtime loader plan contract emitted diagnostics for "
+                "a valid fixture"
+            )
+    return errors
+
+
 def run_self_test() -> list[str]:
     errors: list[str] = []
     path_cases = {
@@ -1627,6 +1745,7 @@ def run_self_test() -> list[str]:
     errors.extend(self_test_native_artifact_descriptor_file_facts())
     errors.extend(self_test_native_profile_target_mismatch_blocks_selection())
     errors.extend(self_test_legacy_requirements_are_report_only())
+    errors.extend(self_test_runtime_loader_plan_contract_shape())
     return errors
 
 

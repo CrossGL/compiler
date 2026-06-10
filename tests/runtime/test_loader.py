@@ -15,6 +15,7 @@ import zipfile
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_ROOT = REPO_ROOT / "runtime" / "examples" / "fixtures"
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 
 def _discard_legacy_cglc_arg() -> None:
@@ -35,7 +36,11 @@ def _discard_legacy_cglc_arg() -> None:
 _discard_legacy_cglc_arg()
 
 
-from runtime.loader import read_loader_plan  # noqa: E402
+from json_schema_semantics import validate_semantics  # noqa: E402
+from runtime.loader import (  # noqa: E402
+    read_loader_plan,
+    read_runtime_loader_plan_contract,
+)
 from runtime.opengl_loader import plan_opengl_loader  # noqa: E402
 from runtime.package_reader import (  # noqa: E402
     PackageReadError,
@@ -43,8 +48,13 @@ from runtime.package_reader import (  # noqa: E402
     select_runtime_artifact,
 )
 import runtime.package_target_contracts as runtime_target_contracts  # noqa: E402
+from validate_json_schema import load_json as load_schema_json  # noqa: E402
+from validate_json_schema import validate as validate_json_schema  # noqa: E402
 
 
+RUNTIME_LOADER_PLAN_SCHEMA = load_schema_json(
+    REPO_ROOT / "docs" / "schemas" / "runtime-loader-plan-v1.schema.json"
+)
 LEGACY_REQUIREMENTS_FALLBACK_CODE = "package.artifact_requirements.legacy_v0_fallback"
 LEGACY_REQUIREMENTS_FALLBACK_DIAGNOSTIC = {
     "severity": "note",
@@ -61,6 +71,17 @@ LEGACY_REQUIREMENTS_FALLBACK_DIAGNOSTIC = {
 
 
 class RuntimeLoaderFacadeTests(unittest.TestCase):
+    def assertRuntimeLoaderPlanContractValid(self, contract: dict[str, object]) -> None:
+        validate_json_schema(
+            contract,
+            RUNTIME_LOADER_PLAN_SCHEMA,
+            RUNTIME_LOADER_PLAN_SCHEMA,
+        )
+        self.assertEqual(
+            validate_semantics(contract, RUNTIME_LOADER_PLAN_SCHEMA),
+            [],
+        )
+
     def assertLegacyRequirementsFallbackOnly(
         self, diagnostics: list[dict[str, object]]
     ) -> None:
@@ -104,8 +125,38 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
 
             plan = read_loader_plan(package_dir, "directx")
             summary = plan.to_summary()
+            contract = plan.to_runtime_loader_plan_contract()
 
             self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(contract["kind"], "crossgl-runtime-loader-plan")
+            self.assertEqual(contract["success"], True)
+            self.assertEqual(contract["packageFormat"], "directory")
+            self.assertEqual(contract["packageTarget"], "directx")
+            self.assertEqual(contract["requestedLoaderTarget"], "directx")
+            self.assertEqual(contract["selectedPackageMode"], "source-package")
+            self.assertEqual(contract["selectedArtifact"]["name"], "backendSource")
+            self.assertEqual(
+                read_runtime_loader_plan_contract(package_dir, "directx"),
+                contract,
+            )
+            self.assertEqual(
+                contract["packageArtifactRequirementsSource"],
+                "generated-package-target-contract",
+            )
+            self.assertEqual(
+                contract["targetLegalizationEvidenceSummary"],
+                {
+                    "toolRequirementsPresent": False,
+                    "target": None,
+                    "packageMode": None,
+                    "requiredToolCount": 0,
+                    "missingToolCount": 0,
+                    "requiredToolIds": [],
+                    "missingToolIds": [],
+                    "toolRequirementEvidenceIds": [],
+                },
+            )
             self.assertFalse(plan.source_parsing_required)
             self.assertEqual(plan.module, "RuntimeLoaderFixture")
             self.assertEqual(plan.package_target, "directx")
@@ -2092,9 +2143,15 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 with self._guard_crossgl_source_archive_reads():
                     plan = read_loader_plan(zip_path, "metal")
                     summary = plan.to_summary()
+                    contract = plan.to_runtime_loader_plan_contract()
 
             self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertRuntimeLoaderPlanContractValid(contract)
             self.assertEqual(summary["packageFormat"], "zip")
+            self.assertEqual(contract["packageFormat"], "zip")
+            self.assertEqual(contract["success"], True)
+            self.assertEqual(contract["selectedPackageMode"], "native")
+            self.assertEqual(contract["selectedArtifact"]["name"], "nativeBinary")
             self.assertEqual(summary["packageVersion"], 1)
             self.assertEqual(summary["status"], "compatible")
             self.assertEqual(
@@ -3724,8 +3781,22 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 package_mode="native",
             )
             summary = plan.to_summary()
+            contract = plan.to_runtime_loader_plan_contract()
 
             self.assertFalse(plan.loadable)
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(contract["success"], False)
+            self.assertEqual(contract["requestedPackageMode"], "native")
+            self.assertIsNone(contract["selectedPackageMode"])
+            self.assertIsNone(contract["selectedArtifact"])
+            self.assertNotIn(
+                "skip",
+                [diagnostic["severity"] for diagnostic in contract["diagnostics"]],
+            )
+            self.assertIn(
+                "package.native_binary_status.not_ready",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
+            )
             self.assertTrue(plan.compatibility_report.compatible)
             self.assertEqual(summary["status"], "source-only")
             self.assertCompatibilityCodesWithLegacyFallback(summary, [])
@@ -3743,6 +3814,34 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                     LEGACY_REQUIREMENTS_FALLBACK_CODE,
                     "package.native_binary_status.not_ready",
                 ],
+            )
+
+    def test_runtime_loader_plan_contract_normalizes_target_mismatch(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+
+            plan = read_loader_plan(package_dir, "vulkan")
+            contract = plan.to_runtime_loader_plan_contract()
+
+            self.assertFalse(plan.loadable)
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(contract["success"], False)
+            self.assertEqual(contract["packageTarget"], "directx")
+            self.assertEqual(contract["requestedLoaderTarget"], "vulkan")
+            self.assertEqual(contract["targetMatchesPackage"], False)
+            self.assertEqual(contract["selectedArtifact"], None)
+            self.assertEqual(contract["diagnosticCounts"]["error"], 1)
+            mismatch_diagnostic = next(
+                diagnostic
+                for diagnostic in contract["diagnostics"]
+                if diagnostic["code"] == "package.target.loader_mismatch"
+            )
+            self.assertEqual(
+                mismatch_diagnostic["severity"],
+                "error",
             )
 
     def test_unsupported_package_target_rejects_without_loader_policy(self) -> None:

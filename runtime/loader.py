@@ -30,6 +30,18 @@ from .package_reader import (
 
 _CROSSGL_SOURCE_INPUT_SUFFIXES = frozenset((".cgl",))
 _ARTIFACT_SELECTION_MODES = ("auto", "native", "source-package")
+_RUNTIME_LOADER_PLAN_KIND = "crossgl-runtime-loader-plan"
+_RUNTIME_LOADER_PLAN_REQUIRED_METADATA_INPUTS = [
+    "manifest.json",
+    "reflection.json",
+    "diagnostics.json",
+]
+_RUNTIME_LOADER_PLAN_KNOWN_TARGETS = frozenset(("metal", "vulkan", "directx", "opengl"))
+_RUNTIME_LOADER_PLAN_SCHEMA_REQUIREMENT_SOURCES = {
+    "manifest.packageArtifactRequirements": "manifest.packageArtifactRequirements",
+    "generated-package-target-contract": "generated-package-target-contract",
+    "legacy-v0-target-contract": "generated-package-target-contract",
+}
 _VERSION_COMPATIBILITY_DIAGNOSTIC_CODES = frozenset(
     (
         "package.compiler.missing",
@@ -289,6 +301,64 @@ class RuntimeLoaderPlan:
                 self.target_resource_binding_metadata_summary
             ),
             "sourceInputs": [],
+        }
+
+    def to_runtime_loader_plan_contract(self) -> dict[str, Any]:
+        """Return the published metadata-only runtime loader plan contract."""
+        diagnostics = _runtime_loader_plan_contract_diagnostics(self)
+        selected_artifact = _runtime_loader_plan_contract_selected_artifact(self)
+        diagnostic_counts = _runtime_loader_plan_contract_diagnostic_counts(diagnostics)
+        package_target = _runtime_loader_plan_target_or_null(self.package_target)
+        requested_target = _runtime_loader_plan_target_or_null(self.loader_target)
+        target_matches_package = (
+            package_target is not None
+            and requested_target is not None
+            and package_target == requested_target
+        )
+
+        return {
+            "schemaVersion": 1,
+            "kind": _RUNTIME_LOADER_PLAN_KIND,
+            "success": selected_artifact is not None
+            and diagnostic_counts["error"] == 0
+            and target_matches_package,
+            "metadataOnly": True,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "packageFormat": _runtime_loader_plan_package_format(
+                self.compatibility_report.package_format
+            ),
+            "packageTarget": package_target,
+            "requestedLoaderTarget": requested_target,
+            "targetMatchesPackage": target_matches_package,
+            "requestedPackageMode": (
+                self.runtime_artifact_selection.requested_package_mode
+            ),
+            "selectedPackageMode": (
+                selected_artifact["packageMode"] if selected_artifact else None
+            ),
+            "selectedArtifact": selected_artifact,
+            "requiredMetadataInputs": list(
+                _RUNTIME_LOADER_PLAN_REQUIRED_METADATA_INPUTS
+            ),
+            "packageArtifactRequirementsSource": (
+                _runtime_loader_plan_requirements_source(
+                    self.package_artifact_requirements_source
+                )
+            ),
+            "packageArtifactRequirements": (
+                _runtime_loader_plan_package_artifact_requirements(
+                    self.compatibility_report
+                )
+            ),
+            "targetLegalizationEvidenceSummary": (
+                _runtime_loader_plan_target_legalization_summary(
+                    self.compatibility_report
+                )
+            ),
+            "reflectionSummary": _runtime_loader_plan_reflection_summary(self),
+            "diagnosticCounts": diagnostic_counts,
+            "diagnostics": diagnostics,
         }
 
     @property
@@ -985,6 +1055,202 @@ def read_loader_plan(
         runtime_artifact_selection=runtime_artifact_selection,
         selected_artifacts=selected_artifacts,
     )
+
+
+def read_runtime_loader_plan_contract(
+    package_path: Path | str,
+    loader_target: str,
+    *,
+    package_mode: str = "auto",
+) -> dict[str, Any]:
+    """Read a `.cglb` package and return the published loader-plan contract."""
+    return read_loader_plan(
+        package_path,
+        loader_target,
+        package_mode=package_mode,
+    ).to_runtime_loader_plan_contract()
+
+
+def _runtime_loader_plan_target_or_null(target: str | None) -> str | None:
+    if target in _RUNTIME_LOADER_PLAN_KNOWN_TARGETS:
+        return target
+    return None
+
+
+def _runtime_loader_plan_package_format(package_format: str) -> str | None:
+    if package_format in {"directory", "zip"}:
+        return package_format
+    return None
+
+
+def _runtime_loader_plan_requirements_source(source: str | None) -> str | None:
+    if source is None:
+        return None
+    return _RUNTIME_LOADER_PLAN_SCHEMA_REQUIREMENT_SOURCES.get(source)
+
+
+def _runtime_loader_plan_package_artifact_requirements(
+    report: PackageCompatibilityReport,
+) -> dict[str, Any] | None:
+    contract = report.target_contract
+    if contract is None:
+        return None
+
+    evidence_ids = report.target_legalization_evidence.get(
+        "packageArtifactRequirementEvidenceIds"
+    )
+    if not isinstance(evidence_ids, list):
+        evidence_ids = []
+
+    return {
+        "target": contract.target,
+        "packageMode": contract.package_mode,
+        "requiredPathArtifacts": list(contract.required_artifacts),
+        "requiresNativeBinaryStatus": contract.native_binary_status_required,
+        "allowsPlannedNativeBinary": contract.planned_native_binary_may_be_absent,
+        "allowsPlannedNativeSourceEvidence": (
+            contract.allows_planned_native_source_evidence
+        ),
+        "evidenceIds": [item for item in evidence_ids if isinstance(item, str)],
+    }
+
+
+def _runtime_loader_plan_target_legalization_summary(
+    report: PackageCompatibilityReport,
+) -> dict[str, Any]:
+    requirements = report.target_legalization_tool_requirements
+    present = bool(requirements.get("present"))
+    required_tool_ids = _runtime_loader_plan_string_list(
+        requirements.get("requiredToolIds")
+    )
+    missing_tool_ids = _runtime_loader_plan_string_list(
+        requirements.get("missingToolIds")
+    )
+    evidence_ids = _runtime_loader_plan_string_list(
+        requirements.get("toolRequirementEvidenceIds")
+    )
+    package_mode = requirements.get("packageMode")
+
+    return {
+        "toolRequirementsPresent": present,
+        "target": (
+            _runtime_loader_plan_target_or_null(requirements.get("target"))
+            if present
+            else None
+        ),
+        "packageMode": (
+            package_mode if package_mode in {"native", "source-package"} else None
+        ),
+        "requiredToolCount": len(required_tool_ids),
+        "missingToolCount": len(missing_tool_ids),
+        "requiredToolIds": required_tool_ids,
+        "missingToolIds": missing_tool_ids,
+        "toolRequirementEvidenceIds": evidence_ids,
+    }
+
+
+def _runtime_loader_plan_reflection_summary(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any]:
+    reflection = plan.reflection_resource_summary
+    return {
+        "resourceCount": reflection["resourceCount"],
+        "targetResourceBindingCount": reflection["targetResourceBindingCount"],
+        "targetFeatureCount": reflection["targetFeatureCount"],
+        "entryPointCount": reflection["entryPointCount"],
+        "workgroupSizeCount": reflection["workgroupSizeCount"],
+        "threadgroupShapeSource": "reflection.workgroupSizes",
+    }
+
+
+def _runtime_loader_plan_contract_selected_artifact(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any] | None:
+    artifact = plan.runtime_artifact
+    package_mode = plan.runtime_artifact_selection.selected_package_mode
+    if artifact is None or package_mode is None:
+        return None
+    package_path = artifact.package_path
+    return {
+        "name": artifact.name,
+        "path": package_path,
+        "packageMode": package_mode,
+        "packageRelative": (
+            not PurePosixPath(package_path).is_absolute() and "\\" not in package_path
+        ),
+        "exists": artifact.exists,
+    }
+
+
+def _runtime_loader_plan_contract_diagnostics(
+    plan: RuntimeLoaderPlan,
+) -> list[dict[str, Any]]:
+    return [
+        _runtime_loader_plan_contract_diagnostic(diagnostic)
+        for diagnostic in plan.runtime_artifact_selection.diagnostics
+    ]
+
+
+def _runtime_loader_plan_contract_diagnostic(
+    diagnostic: CompatibilityDiagnostic,
+) -> dict[str, Any]:
+    severity = diagnostic.severity
+    if severity == "skip":
+        severity = "error"
+    if severity not in {"note", "warning", "error"}:
+        severity = "error"
+
+    summary: dict[str, Any] = {
+        "severity": severity,
+        "code": diagnostic.code,
+        "message": diagnostic.message,
+        "location": _runtime_loader_plan_diagnostic_location(diagnostic),
+    }
+    target = _runtime_loader_plan_diagnostic_target(diagnostic)
+    if target is not None:
+        summary["target"] = target
+    return summary
+
+
+def _runtime_loader_plan_diagnostic_location(
+    diagnostic: CompatibilityDiagnostic,
+) -> dict[str, int | str]:
+    return {
+        "file": diagnostic.document or "package",
+        "line": 0,
+        "column": 0,
+        "offset": 0,
+        "length": 0,
+        "endLine": 0,
+        "endColumn": 0,
+        "endOffset": 0,
+    }
+
+
+def _runtime_loader_plan_diagnostic_target(
+    diagnostic: CompatibilityDiagnostic,
+) -> str | None:
+    for value in (diagnostic.actual, diagnostic.expected):
+        if isinstance(value, str) and value in _RUNTIME_LOADER_PLAN_KNOWN_TARGETS:
+            return value
+    return None
+
+
+def _runtime_loader_plan_contract_diagnostic_counts(
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, int]:
+    counts = {"note": 0, "warning": 0, "error": 0}
+    for diagnostic in diagnostics:
+        severity = diagnostic["severity"]
+        if severity in counts:
+            counts[severity] += 1
+    return counts
+
+
+def _runtime_loader_plan_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 def _select_loader_artifacts(
