@@ -290,6 +290,7 @@ def plan_source_free_native_backend_loader(
             entry_points=entry_points,
             resources=resources,
             target_resource_bindings=target_resource_bindings,
+            target_resource_binding_metadata=target_resource_binding_metadata,
         )
     )
 
@@ -321,6 +322,7 @@ def _native_backend_loader_boundary_diagnostics(
     entry_points: tuple[dict[str, Any], ...],
     resources: tuple[dict[str, Any], ...],
     target_resource_bindings: tuple[dict[str, Any], ...],
+    target_resource_binding_metadata: tuple[dict[str, Any], ...],
 ) -> tuple[CompatibilityDiagnostic, ...]:
     diagnostics: list[CompatibilityDiagnostic] = list(
         _native_artifact_descriptor_admission_diagnostics(
@@ -470,6 +472,14 @@ def _native_backend_loader_boundary_diagnostics(
                 target_resource_bindings=target_resource_bindings,
             )
         )
+
+    diagnostics.extend(
+        _target_resource_binding_metadata_drift_diagnostics(
+            target=target,
+            target_resource_bindings=target_resource_bindings,
+            target_resource_binding_metadata=target_resource_binding_metadata,
+        )
+    )
 
     return tuple(diagnostics)
 
@@ -762,6 +772,9 @@ def _native_admission_summary(
         ),
         "nativeArtifact": artifact_admission,
         "nativeArtifactDescriptor": descriptor_admission,
+        "targetResourceBindingMetadata": (
+            _target_resource_binding_metadata_admission_summary(plan)
+        ),
         "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
             plan.runtime_plan,
             target=plan.target,
@@ -1208,6 +1221,157 @@ def _target_resource_binding_drift_diagnostics(
     return tuple(diagnostics)
 
 
+def _target_resource_binding_metadata_admission_summary(
+    plan: SourceFreeNativeBackendLoaderPlan,
+) -> dict[str, Any]:
+    parity = _target_resource_binding_metadata_parity(
+        target=plan.target,
+        target_resource_bindings=plan.target_resource_bindings,
+        target_resource_binding_metadata=plan.target_resource_binding_metadata,
+    )
+    diagnostics = [
+        diagnostic.to_summary()
+        for diagnostic in plan.diagnostics
+        if _diagnostic_matches_target_binding_metadata(diagnostic)
+    ]
+    blocking_diagnostics = [
+        diagnostic
+        for diagnostic in diagnostics
+        if diagnostic.get("severity") in {"error", "skip"}
+    ]
+    identity_matches = parity["identityMatches"]
+    if identity_matches is True and not blocking_diagnostics:
+        decision = "accepted"
+        status = "matched"
+        reason = "runtime.target_resource_binding_metadata.accepted"
+        message = "target resource binding metadata matches selected bindings"
+    else:
+        decision = "rejected"
+        status = "mismatched" if identity_matches is False else "not-checkable"
+        reason = (
+            blocking_diagnostics[0]["code"]
+            if blocking_diagnostics
+            else "runtime.target_resource_binding_metadata.mismatched"
+        )
+        message = (
+            blocking_diagnostics[0]["message"]
+            if blocking_diagnostics
+            else "target resource binding metadata does not match selected bindings"
+        )
+
+    return {
+        "schemaVersion": 1,
+        "decision": decision,
+        "status": status,
+        "reason": reason,
+        "message": message,
+        "target": plan.target,
+        "targetResourceBindingCount": len(plan.target_resource_bindings),
+        "metadataBindingCount": len(plan.target_resource_binding_metadata),
+        "identityMatches": identity_matches,
+        "missingMetadataBindingCount": len(parity["missingMetadataBindings"]),
+        "staleMetadataBindingCount": len(parity["staleMetadataBindings"]),
+        "missingMetadataBindings": parity["missingMetadataBindings"],
+        "staleMetadataBindings": parity["staleMetadataBindings"],
+        "diagnosticCodes": [
+            diagnostic["code"]
+            for diagnostic in diagnostics
+            if isinstance(diagnostic.get("code"), str)
+        ],
+        "diagnostics": diagnostics,
+    }
+
+
+def _target_resource_binding_metadata_drift_diagnostics(
+    *,
+    target: str,
+    target_resource_bindings: tuple[dict[str, Any], ...],
+    target_resource_binding_metadata: tuple[dict[str, Any], ...],
+) -> tuple[CompatibilityDiagnostic, ...]:
+    parity = _target_resource_binding_metadata_parity(
+        target=target,
+        target_resource_bindings=target_resource_bindings,
+        target_resource_binding_metadata=target_resource_binding_metadata,
+    )
+    diagnostics: list[CompatibilityDiagnostic] = []
+
+    for identity in parity["missingMetadataBindings"]:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=f"{target}_loader.reflection.target_binding_metadata_missing",
+                message=(
+                    f"{target} native loader requires every selected-target "
+                    "resource binding to have loader-facing binding metadata"
+                ),
+                document="reflection",
+                path="targetResourceBindingMetadata.bindings",
+                expected=identity,
+                actual="missing",
+            )
+        )
+
+    for identity in parity["staleMetadataBindings"]:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=f"{target}_loader.reflection.target_binding_metadata_stale",
+                message=(
+                    f"{target} native loader requires loader-facing binding "
+                    "metadata to match a selected-target resource binding"
+                ),
+                document="reflection",
+                path="targetResourceBindings",
+                expected=identity,
+                actual="missing",
+            )
+        )
+
+    return tuple(diagnostics)
+
+
+def _target_resource_binding_metadata_parity(
+    *,
+    target: str,
+    target_resource_bindings: tuple[dict[str, Any], ...],
+    target_resource_binding_metadata: tuple[dict[str, Any], ...],
+) -> dict[str, Any]:
+    binding_keys = {
+        key
+        for record in target_resource_bindings
+        if (key := _target_resource_binding_metadata_identity(record)) is not None
+        and key[0] == target
+    }
+    metadata_keys = {
+        key
+        for record in target_resource_binding_metadata
+        if (key := _target_resource_binding_metadata_identity(record)) is not None
+        and key[0] == target
+    }
+    missing_metadata_keys = tuple(sorted(binding_keys - metadata_keys))
+    stale_metadata_keys = tuple(sorted(metadata_keys - binding_keys))
+    identity_matches = not missing_metadata_keys and not stale_metadata_keys
+    return {
+        "identityMatches": identity_matches,
+        "missingMetadataBindings": [
+            _target_resource_binding_metadata_identity_summary(key)
+            for key in missing_metadata_keys
+        ],
+        "staleMetadataBindings": [
+            _target_resource_binding_metadata_identity_summary(key)
+            for key in stale_metadata_keys
+        ],
+    }
+
+
+def _diagnostic_matches_target_binding_metadata(
+    diagnostic: CompatibilityDiagnostic,
+) -> bool:
+    return (
+        diagnostic.path == "targetResourceBindingMetadata.bindings"
+        or diagnostic.code.endswith(".target_binding_metadata_missing")
+        or diagnostic.code.endswith(".target_binding_metadata_stale")
+    )
+
+
 def _graphics_abi_reflection_parity_summary(
     runtime_plan: RuntimeLoaderPlan,
     *,
@@ -1370,6 +1534,41 @@ def _graphics_abi_binding_identity_summary(
     key: tuple[str, str, str, str | None],
 ) -> dict[str, Any]:
     stage, entry_point, name, kind = key
+    return {
+        "target": target,
+        "stage": stage,
+        "entryPoint": entry_point,
+        "name": name,
+        "kind": kind,
+    }
+
+
+def _target_resource_binding_metadata_identity(
+    record: dict[str, Any],
+) -> tuple[str, str, str, str, str | None] | None:
+    target = record.get("target")
+    stage = record.get("stage")
+    entry_point = record.get("entryPoint")
+    name = record.get("name")
+    kind = record.get("kind")
+    if (
+        not isinstance(target, str)
+        or not target
+        or not isinstance(stage, str)
+        or not stage
+        or not isinstance(entry_point, str)
+        or not entry_point
+        or not isinstance(name, str)
+        or not name
+    ):
+        return None
+    return target, stage, entry_point, name, kind if isinstance(kind, str) else None
+
+
+def _target_resource_binding_metadata_identity_summary(
+    key: tuple[str, str, str, str, str | None],
+) -> dict[str, Any]:
+    target, stage, entry_point, name, kind = key
     return {
         "target": target,
         "stage": stage,

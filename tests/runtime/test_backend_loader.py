@@ -41,6 +41,7 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             admission = summary["nativeAdmission"]
             artifact = admission["nativeArtifact"]
             descriptor = admission["nativeArtifactDescriptor"]
+            metadata_admission = admission["targetResourceBindingMetadata"]
 
             self.assertTrue(plan.ready, summary["diagnostics"])
             self.assertEqual(summary["deviceExecutionRequired"], False)
@@ -132,6 +133,14 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
                 "runtime_backend_loader_main",
             )
             self.assertEqual(metadata["bindings"][0]["abi"], {"buffer": 0})
+            self.assertEqual(metadata_admission["decision"], "accepted")
+            self.assertEqual(metadata_admission["status"], "matched")
+            self.assertTrue(metadata_admission["identityMatches"])
+            self.assertEqual(metadata_admission["targetResourceBindingCount"], 1)
+            self.assertEqual(metadata_admission["metadataBindingCount"], 1)
+            self.assertEqual(metadata_admission["missingMetadataBindings"], [])
+            self.assertEqual(metadata_admission["staleMetadataBindings"], [])
+            self.assertEqual(metadata_admission["diagnostics"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_ready_plan_returns_explicit_runtime_artifact_handoff(self) -> None:
@@ -173,6 +182,79 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
                 handoff.metadata["targetResourceBindingMetadata"],
                 summary["targetResourceBindingMetadata"],
             )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_summary_rejects_missing_target_binding_metadata(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_source_free_metal_package(package_dir)
+            source_path = package_dir / "source" / "RuntimeBackendLoaderFixture.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "metadata drift must not trigger source parsing\n",
+                encoding="utf-8",
+            )
+
+            with (
+                mock.patch(
+                    "runtime.loader.RuntimeLoaderPlan."
+                    "target_resource_binding_metadata_records",
+                    return_value=(),
+                ),
+                self._guard_source_reads(),
+            ):
+                plan = plan_source_free_native_backend_loader(
+                    package_dir,
+                    "metal",
+                    loader_name="metal-native",
+                )
+                summary = plan.to_summary()
+
+            diagnostic_code = "metal_loader.reflection.target_binding_metadata_missing"
+            reject_diagnostics = {
+                diagnostic["code"]: diagnostic
+                for diagnostic in summary["rejectReasons"]
+            }
+            diagnostic = reject_diagnostics[diagnostic_code]
+            metadata_admission = summary["nativeAdmission"][
+                "targetResourceBindingMetadata"
+            ]
+
+            self.assertFalse(plan.ready)
+            self.assertIsNone(plan.native_artifact)
+            self.assertEqual(summary["sourceInputs"], [])
+            self.assertEqual(summary["nativeAdmission"]["decision"], "rejected")
+            self.assertEqual(summary["nativeAdmission"]["reason"], diagnostic_code)
+            self.assertEqual(summary["reflection"]["targetResourceBindingCount"], 1)
+            self.assertEqual(
+                summary["reflection"]["targetResourceBindingMetadataCount"],
+                0,
+            )
+            self.assertEqual(metadata_admission["decision"], "rejected")
+            self.assertEqual(metadata_admission["status"], "mismatched")
+            self.assertFalse(metadata_admission["identityMatches"])
+            self.assertEqual(metadata_admission["targetResourceBindingCount"], 1)
+            self.assertEqual(metadata_admission["metadataBindingCount"], 0)
+            self.assertEqual(metadata_admission["missingMetadataBindingCount"], 1)
+            self.assertEqual(metadata_admission["staleMetadataBindingCount"], 0)
+            self.assertEqual(metadata_admission["diagnosticCodes"], [diagnostic_code])
+            self.assertEqual(diagnostic["document"], "reflection")
+            self.assertEqual(
+                diagnostic["path"], "targetResourceBindingMetadata.bindings"
+            )
+            self.assertEqual(
+                diagnostic["expected"],
+                {
+                    "target": "metal",
+                    "stage": "compute",
+                    "entryPoint": "runtime_backend_loader_main",
+                    "name": "OutputBuffer",
+                    "kind": "storageBuffer",
+                },
+            )
+            self.assertEqual(diagnostic["actual"], "missing")
+            with self.assertRaisesRegex(PackageReadError, "binding metadata"):
+                plan.require_ready()
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_rejected_plan_does_not_return_runtime_artifact_handoff(self) -> None:
