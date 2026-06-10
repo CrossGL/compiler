@@ -37,6 +37,14 @@ _RUNTIME_LOADER_PLAN_REQUIRED_METADATA_INPUTS = [
     "diagnostics.json",
 ]
 _RUNTIME_LOADER_PLAN_KNOWN_TARGETS = frozenset(("metal", "vulkan", "directx", "opengl"))
+_RUNTIME_HOST_LOADER_INTEGRATION_KIND = "crossgl-runtime-host-loader-integration"
+_RUNTIME_HOST_LOADER_INTEGRATION_SCOPE = "host-loader-scaffold-generation"
+_RUNTIME_HOST_LOADER_INTEGRATION_NON_GOALS = [
+    "host-code-rewriting",
+    "device-execution",
+    "runtime-framework-generation",
+    "target-sdk-installation",
+]
 _RUNTIME_LOADER_PLAN_SCHEMA_REQUIREMENT_SOURCES = {
     "manifest.packageArtifactRequirements": "manifest.packageArtifactRequirements",
     "generated-package-target-contract": "generated-package-target-contract",
@@ -359,13 +367,16 @@ class RuntimeLoaderPlan:
             and requested_target is not None
             and package_target == requested_target
         )
+        success = (
+            selected_artifact is not None
+            and diagnostic_counts["error"] == 0
+            and target_matches_package
+        )
 
         return {
             "schemaVersion": 1,
             "kind": _RUNTIME_LOADER_PLAN_KIND,
-            "success": selected_artifact is not None
-            and diagnostic_counts["error"] == 0
-            and target_matches_package,
+            "success": success,
             "metadataOnly": True,
             "sourceParsingRequired": self.source_parsing_required,
             "compilerInvocationRequired": False,
@@ -393,11 +404,7 @@ class RuntimeLoaderPlan:
                 _runtime_loader_plan_contract_runtime_artifact_selection(
                     self,
                     selected_artifact=selected_artifact,
-                    success=(
-                        selected_artifact is not None
-                        and diagnostic_counts["error"] == 0
-                        and target_matches_package
-                    ),
+                    success=success,
                 )
             ),
             "requiredMetadataInputs": list(
@@ -422,6 +429,13 @@ class RuntimeLoaderPlan:
             "reflectionInputs": self.reflection_resource_summary,
             "targetResourceBindingMetadata": (
                 self.target_resource_binding_metadata_summary
+            ),
+            "hostLoaderIntegration": (
+                _runtime_loader_plan_host_loader_integration(
+                    self,
+                    selected_artifact=selected_artifact,
+                    success=success,
+                )
             ),
             "diagnosticCounts": diagnostic_counts,
             "diagnostics": diagnostics,
@@ -1376,6 +1390,145 @@ def _runtime_loader_plan_contract_runtime_artifact_selection(
         "deviceExecutionRequired": False,
         "sourceInputs": [],
         "artifact": selected_artifact,
+    }
+
+
+def _runtime_loader_plan_host_loader_integration(
+    plan: RuntimeLoaderPlan,
+    *,
+    selected_artifact: dict[str, Any] | None,
+    success: bool,
+) -> dict[str, Any]:
+    reflection = plan.reflection_resource_summary
+    entry_point_count = int(reflection.get("entryPointCount") or 0)
+    resource_binding_count = int(reflection.get("targetResourceBindingCount") or 0)
+    workgroup_size_count = int(reflection.get("workgroupSizeCount") or 0)
+    has_load_unit = selected_artifact is not None
+    host_interface_ready = bool(success and has_load_unit and entry_point_count > 0)
+    blocked_load_unit_count = 1 if has_load_unit and not host_interface_ready else 0
+    ready_load_unit_count = 1 if host_interface_ready else 0
+
+    load_units = []
+    if selected_artifact is not None:
+        load_units.append(
+            _runtime_loader_plan_host_loader_load_unit(
+                plan,
+                selected_artifact=selected_artifact,
+                host_interface_ready=host_interface_ready,
+                entry_point_count=entry_point_count,
+                resource_binding_count=resource_binding_count,
+                workgroup_size_count=workgroup_size_count,
+            )
+        )
+
+    if host_interface_ready:
+        status = "ready"
+    elif has_load_unit:
+        status = "blocked"
+    else:
+        status = "unavailable"
+
+    return {
+        "schemaVersion": 1,
+        "kind": _RUNTIME_HOST_LOADER_INTEGRATION_KIND,
+        "status": status,
+        "scope": _RUNTIME_HOST_LOADER_INTEGRATION_SCOPE,
+        "nonGoals": list(_RUNTIME_HOST_LOADER_INTEGRATION_NON_GOALS),
+        "summary": {
+            "targetCount": 1 if has_load_unit else 0,
+            "loadUnitCount": len(load_units),
+            "readyLoadUnitCount": ready_load_unit_count,
+            "blockedLoadUnitCount": blocked_load_unit_count,
+            "entryPointCount": entry_point_count,
+            "resourceBindingCount": resource_binding_count,
+            "workgroupSizeCount": workgroup_size_count,
+        },
+        "loadUnits": load_units,
+    }
+
+
+def _runtime_loader_plan_host_loader_load_unit(
+    plan: RuntimeLoaderPlan,
+    *,
+    selected_artifact: dict[str, Any],
+    host_interface_ready: bool,
+    entry_point_count: int,
+    resource_binding_count: int,
+    workgroup_size_count: int,
+) -> dict[str, Any]:
+    load_steps = [
+        {
+            "kind": "load-package-artifact",
+            "command": None,
+            "tools": [],
+            "metadata": {
+                "source": {
+                    "field": "selectedArtifact.path",
+                    "path": selected_artifact["path"],
+                },
+                "artifact": {
+                    "name": selected_artifact["name"],
+                    "packageMode": selected_artifact["packageMode"],
+                },
+            },
+        }
+    ]
+    blockers = []
+    if host_interface_ready:
+        load_steps.append(
+            {
+                "kind": "bind-host-interface",
+                "command": None,
+                "tools": [],
+                "metadata": {
+                    "source": {"field": "reflectionInputs"},
+                    "entryPointCount": entry_point_count,
+                    "resourceBindingCount": resource_binding_count,
+                    "workgroupSizeCount": workgroup_size_count,
+                },
+            }
+        )
+    else:
+        blockers.append(
+            {
+                "kind": "resolve-host-interface-metadata",
+                "severity": "warning",
+                "source": "reflectionInputs.entryPoints",
+                "message": (
+                    "runtime loader plan requires reflection entry point metadata "
+                    "before host loader scaffolding"
+                ),
+            }
+        )
+
+    status = "ready" if host_interface_ready else "blocked"
+    return {
+        "target": _runtime_loader_plan_target_or_null(plan.selected_target),
+        "packageMode": selected_artifact["packageMode"],
+        "artifact": selected_artifact,
+        "packagePath": selected_artifact["path"],
+        "artifactFormat": (
+            "native-binary"
+            if selected_artifact["name"] == "nativeBinary"
+            else "backend-source"
+        ),
+        "status": status,
+        "hostInterface": {
+            "status": "ready" if host_interface_ready else "unavailable",
+            "source": "reflectionInputs",
+            "entryPointCount": entry_point_count,
+            "resourceBindingCount": resource_binding_count,
+            "workgroupSizeCount": workgroup_size_count,
+        },
+        "validation": {
+            "loadReady": host_interface_ready,
+            "metadataOnly": True,
+            "sourceParsingRequired": False,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+        },
+        "loadSteps": load_steps,
+        "blockers": blockers,
     }
 
 

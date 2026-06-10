@@ -701,6 +701,7 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
             "packageArtifactRequirements",
             "targetLegalizationEvidenceSummary",
             "reflectionSummary",
+            "hostLoaderIntegration",
             "diagnosticCounts",
             "diagnostics",
         )

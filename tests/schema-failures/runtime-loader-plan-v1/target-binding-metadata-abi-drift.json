@@ -1,207 +1,289 @@
 {
-  "schemaVersion": 1,
-  "kind": "crossgl-runtime-loader-plan",
-  "success": true,
-  "metadataOnly": true,
-  "sourceParsingRequired": false,
   "compilerInvocationRequired": false,
   "deviceExecutionRequired": false,
-  "packageFormat": "directory",
-  "packageVersion": 1,
-  "packageTarget": "vulkan",
-  "requestedLoaderTarget": "vulkan",
-  "selectedTarget": "vulkan",
-  "targetMatchesPackage": true,
-  "loadable": true,
-  "requestedPackageMode": "auto",
-  "selectedPackageMode": "native",
-  "selectedArtifact": {
-    "name": "nativeBinary",
-    "path": "backend/vulkan/Shader.spv",
-    "packageMode": "native",
-    "packageRelative": true,
-    "exists": true
+  "diagnosticCounts": {
+    "error": 0,
+    "note": 0,
+    "warning": 0
   },
-  "requiredArtifacts": [
-    "backendAssembly",
-    "nativeBinary"
-  ],
-  "requiredArtifactPaths": {
-    "backendAssembly": "backend/vulkan/Shader.spvasm",
-    "nativeBinary": "backend/vulkan/Shader.spv"
-  },
-  "runtimeArtifactPath": "backend/vulkan/Shader.spv",
-  "runtimeArtifactSelection": {
+  "diagnostics": [],
+  "hostLoaderIntegration": {
+    "kind": "crossgl-runtime-host-loader-integration",
+    "loadUnits": [
+      {
+        "artifact": {
+          "exists": true,
+          "name": "nativeBinary",
+          "packageMode": "native",
+          "packageRelative": true,
+          "path": "backend/vulkan/Shader.spv"
+        },
+        "artifactFormat": "native-binary",
+        "blockers": [],
+        "hostInterface": {
+          "entryPointCount": 1,
+          "resourceBindingCount": 1,
+          "source": "reflectionInputs",
+          "status": "ready",
+          "workgroupSizeCount": 1
+        },
+        "loadSteps": [
+          {
+            "command": null,
+            "kind": "load-package-artifact",
+            "metadata": {
+              "artifact": {
+                "name": "nativeBinary",
+                "packageMode": "native"
+              },
+              "source": {
+                "field": "selectedArtifact.path",
+                "path": "backend/vulkan/Shader.spv"
+              }
+            },
+            "tools": []
+          },
+          {
+            "command": null,
+            "kind": "bind-host-interface",
+            "metadata": {
+              "entryPointCount": 1,
+              "resourceBindingCount": 1,
+              "source": {
+                "field": "reflectionInputs"
+              },
+              "workgroupSizeCount": 1
+            },
+            "tools": []
+          }
+        ],
+        "packageMode": "native",
+        "packagePath": "backend/vulkan/Shader.spv",
+        "status": "ready",
+        "target": "vulkan",
+        "validation": {
+          "compilerInvocationRequired": false,
+          "deviceExecutionRequired": false,
+          "loadReady": true,
+          "metadataOnly": true,
+          "sourceParsingRequired": false
+        }
+      }
+    ],
+    "nonGoals": [
+      "host-code-rewriting",
+      "device-execution",
+      "runtime-framework-generation",
+      "target-sdk-installation"
+    ],
     "schemaVersion": 1,
-    "requestedTarget": "vulkan",
-    "requestedPackageMode": "auto",
-    "packageTarget": "vulkan",
-    "selectedTarget": "vulkan",
-    "selected": true,
-    "selectedPackageMode": "native",
-    "sourceParsingRequired": false,
-    "compilerInvocationRequired": false,
-    "deviceExecutionRequired": false,
-    "sourceInputs": [],
-    "artifact": {
-      "name": "nativeBinary",
-      "path": "backend/vulkan/Shader.spv",
-      "packageMode": "native",
-      "packageRelative": true,
-      "exists": true
+    "scope": "host-loader-scaffold-generation",
+    "status": "ready",
+    "summary": {
+      "blockedLoadUnitCount": 0,
+      "entryPointCount": 1,
+      "loadUnitCount": 1,
+      "readyLoadUnitCount": 1,
+      "resourceBindingCount": 1,
+      "targetCount": 1,
+      "workgroupSizeCount": 1
     }
   },
-  "requiredMetadataInputs": [
-    "manifest.json",
-    "reflection.json",
-    "diagnostics.json"
-  ],
-  "packageArtifactRequirementsSource": "manifest.packageArtifactRequirements",
+  "kind": "crossgl-runtime-loader-plan",
+  "loadable": true,
+  "metadataOnly": true,
   "packageArtifactRequirements": {
-    "target": "vulkan",
+    "allowsPlannedNativeBinary": false,
+    "allowsPlannedNativeSourceEvidence": false,
+    "evidenceIds": [],
     "packageMode": "native",
     "requiredPathArtifacts": [
       "backendAssembly",
       "nativeBinary"
     ],
     "requiresNativeBinaryStatus": false,
-    "allowsPlannedNativeBinary": false,
-    "allowsPlannedNativeSourceEvidence": false,
-    "evidenceIds": []
+    "target": "vulkan"
   },
-  "targetLegalizationEvidenceSummary": {
-    "toolRequirementsPresent": true,
-    "target": "vulkan",
-    "packageMode": "native",
-    "requiredToolCount": 0,
-    "missingToolCount": 0,
-    "requiredToolIds": [],
-    "missingToolIds": [],
-    "toolRequirementEvidenceIds": []
-  },
-  "reflectionSummary": {
-    "resourceCount": 1,
-    "targetResourceBindingCount": 1,
-    "targetFeatureCount": 1,
-    "entryPointCount": 1,
-    "workgroupSizeCount": 1,
-    "threadgroupShapeSource": "reflection.workgroupSizes"
-  },
-  "diagnosticCounts": {
-    "note": 0,
-    "warning": 0,
-    "error": 0
-  },
-  "diagnostics": [],
+  "packageArtifactRequirementsSource": "manifest.packageArtifactRequirements",
+  "packageFormat": "directory",
+  "packageTarget": "vulkan",
+  "packageVersion": 1,
   "reflectionInputs": {
-    "schemaVersion": 1,
-    "selectedTarget": "vulkan",
     "entryPointCount": 1,
-    "resourceCount": 1,
-    "targetResourceBindingCount": 1,
-    "targetFeatureCount": 1,
-    "workgroupSizeCount": 1,
-    "workgroupSizesAvailable": true,
-    "skippedTargetResourceBindingCount": 0,
-    "skippedTargetFeatureCount": 0,
     "entryPoints": [
       {
-        "stage": "compute",
+        "backendName": "main",
         "sourceName": "main",
-        "backendName": "main"
+        "stage": "compute"
       }
     ],
+    "resourceCount": 1,
     "resources": [
       {
-        "stage": "compute",
-        "name": "Resource0",
-        "kind": "storageBuffer",
-        "type": "float4",
-        "storageImageFormat": null,
-        "storageImageAccess": null,
         "arrayDimensions": [],
         "arrayElementCount": null,
+        "binding": 0,
+        "kind": "storageBuffer",
+        "name": "Resource0",
         "set": 0,
-        "binding": 0
+        "stage": "compute",
+        "storageImageAccess": null,
+        "storageImageFormat": null,
+        "type": "float4"
       }
     ],
+    "schemaVersion": 1,
+    "selectedTarget": "vulkan",
+    "skippedTargetFeatureCount": 0,
+    "skippedTargetResourceBindingCount": 0,
+    "targetFeatureCount": 1,
+    "targetFeatures": [
+      {
+        "evidenceIds": [],
+        "kind": "package",
+        "name": "native",
+        "target": "vulkan"
+      }
+    ],
+    "targetResourceBindingCount": 1,
     "targetResourceBindings": [
       {
-        "target": "vulkan",
-        "stage": "compute",
-        "entryPoint": "main",
-        "name": "Resource0",
-        "kind": "storageBuffer",
-        "bindingClass": "uav",
-        "descriptorType": "UAV",
         "abi": {
-          "space": 0,
-          "register": "u0"
+          "register": "u0",
+          "space": 0
         },
-        "evidenceId": "target-legalization.v1.vulkan.resource-binding.compute.main.Resource0",
-        "set": 0,
-        "binding": 0,
         "argumentIndex": null,
         "arrayDimensions": [],
         "arrayElementCount": null,
+        "binding": 0,
+        "bindingClass": "uav",
+        "descriptorType": "UAV",
+        "entryPoint": "main",
+        "evidenceId": "target-legalization.v1.vulkan.resource-binding.compute.main.Resource0",
+        "kind": "storageBuffer",
+        "name": "Resource0",
+        "set": 0,
+        "stage": "compute",
+        "storageImageAccess": null,
         "storageImageFormat": null,
-        "storageImageAccess": null
+        "target": "vulkan"
       }
     ],
-    "targetFeatures": [
-      {
-        "target": "vulkan",
-        "kind": "package",
-        "name": "native",
-        "evidenceIds": []
-      }
-    ],
+    "workgroupSizeCount": 1,
     "workgroupSizes": [
       {
-        "stage": "compute",
         "entryPoint": "main",
+        "stage": "compute",
         "x": "1",
         "y": "1",
         "z": "1"
       }
-    ]
+    ],
+    "workgroupSizesAvailable": true
   },
-  "targetResourceBindingMetadata": {
-    "schemaVersion": 1,
-    "selectedTarget": "vulkan",
-    "loaderTarget": "vulkan",
+  "reflectionSummary": {
+    "entryPointCount": 1,
+    "resourceCount": 1,
+    "targetFeatureCount": 1,
+    "targetResourceBindingCount": 1,
+    "threadgroupShapeSource": "reflection.workgroupSizes",
+    "workgroupSizeCount": 1
+  },
+  "requestedLoaderTarget": "vulkan",
+  "requestedPackageMode": "auto",
+  "requiredArtifactPaths": {
+    "backendAssembly": "backend/vulkan/Shader.spvasm",
+    "nativeBinary": "backend/vulkan/Shader.spv"
+  },
+  "requiredArtifacts": [
+    "backendAssembly",
+    "nativeBinary"
+  ],
+  "requiredMetadataInputs": [
+    "manifest.json",
+    "reflection.json",
+    "diagnostics.json"
+  ],
+  "runtimeArtifactPath": "backend/vulkan/Shader.spv",
+  "runtimeArtifactSelection": {
+    "artifact": {
+      "exists": true,
+      "name": "nativeBinary",
+      "packageMode": "native",
+      "packageRelative": true,
+      "path": "backend/vulkan/Shader.spv"
+    },
+    "compilerInvocationRequired": false,
+    "deviceExecutionRequired": false,
     "packageTarget": "vulkan",
+    "requestedPackageMode": "auto",
+    "requestedTarget": "vulkan",
+    "schemaVersion": 1,
+    "selected": true,
+    "selectedPackageMode": "native",
+    "selectedTarget": "vulkan",
+    "sourceInputs": [],
+    "sourceParsingRequired": false
+  },
+  "schemaVersion": 1,
+  "selectedArtifact": {
+    "exists": true,
+    "name": "nativeBinary",
+    "packageMode": "native",
+    "packageRelative": true,
+    "path": "backend/vulkan/Shader.spv"
+  },
+  "selectedPackageMode": "native",
+  "selectedTarget": "vulkan",
+  "sourceParsingRequired": false,
+  "success": true,
+  "targetLegalizationEvidenceSummary": {
+    "missingToolCount": 0,
+    "missingToolIds": [],
+    "packageMode": "native",
+    "requiredToolCount": 0,
+    "requiredToolIds": [],
+    "target": "vulkan",
+    "toolRequirementEvidenceIds": [],
+    "toolRequirementsPresent": true
+  },
+  "targetMatchesPackage": true,
+  "targetResourceBindingMetadata": {
     "bindingCount": 1,
-    "skippedBindingCount": 0,
     "bindings": [
       {
-        "target": "vulkan",
-        "stage": "compute",
-        "entryPoint": "main",
-        "name": "Resource0",
-        "kind": "storageBuffer",
-        "bindingClass": "uav",
-        "descriptorType": "UAV",
-        "set": 0,
-        "binding": 0,
-        "argumentIndex": null,
         "abi": {
-          "space": 1,
-          "register": "u0"
+          "register": "u0",
+          "space": 1
         },
-        "identity": {
-          "target": "vulkan",
-          "stage": "compute",
-          "entryPoint": "main",
-          "name": "Resource0",
-          "kind": "storageBuffer"
-        },
-        "evidenceId": "target-legalization.v1.vulkan.resource-binding.compute.main.Resource0",
+        "argumentIndex": null,
         "arrayDimensions": [],
         "arrayElementCount": null,
+        "binding": 0,
+        "bindingClass": "uav",
+        "descriptorType": "UAV",
+        "entryPoint": "main",
+        "evidenceId": "target-legalization.v1.vulkan.resource-binding.compute.main.Resource0",
+        "identity": {
+          "entryPoint": "main",
+          "kind": "storageBuffer",
+          "name": "Resource0",
+          "stage": "compute",
+          "target": "vulkan"
+        },
+        "kind": "storageBuffer",
+        "name": "Resource0",
+        "set": 0,
+        "stage": "compute",
+        "storageImageAccess": null,
         "storageImageFormat": null,
-        "storageImageAccess": null
+        "target": "vulkan"
       }
-    ]
+    ],
+    "loaderTarget": "vulkan",
+    "packageTarget": "vulkan",
+    "schemaVersion": 1,
+    "selectedTarget": "vulkan",
+    "skippedBindingCount": 0
   }
 }

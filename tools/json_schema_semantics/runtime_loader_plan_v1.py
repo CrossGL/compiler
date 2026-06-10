@@ -8,6 +8,12 @@ from .common import add_equal_error, validate_normalized_package_path
 
 
 REQUIRED_METADATA_INPUTS = ["manifest.json", "reflection.json", "diagnostics.json"]
+HOST_LOADER_NON_GOALS = [
+    "host-code-rewriting",
+    "device-execution",
+    "runtime-framework-generation",
+    "target-sdk-installation",
+]
 SEVERITIES = ("note", "warning", "error")
 TARGET_RESOURCE_BINDING_METADATA_PARITY_FIELDS = (
     "bindingClass",
@@ -595,6 +601,196 @@ def validate_target_resource_binding_metadata_reflection_parity(
         )
 
 
+def validate_host_loader_integration(errors, instance):
+    integration = instance["hostLoaderIntegration"]
+    summary = integration["summary"]
+    load_units = integration["loadUnits"]
+    selected_artifact = instance["selectedArtifact"]
+    reflection_inputs = instance["reflectionInputs"]
+    selected_artifact_present = selected_artifact is not None
+    host_interface_ready = (
+        instance["success"]
+        and selected_artifact_present
+        and reflection_inputs is not None
+        and reflection_inputs["entryPointCount"] > 0
+    )
+
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.nonGoals",
+        integration["nonGoals"],
+        HOST_LOADER_NON_GOALS,
+        "stable host-loader non-goals",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.summary.loadUnitCount",
+        summary["loadUnitCount"],
+        len(load_units),
+        "loadUnits length",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.summary.targetCount",
+        summary["targetCount"],
+        1 if selected_artifact_present else 0,
+        "selected artifact target count",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.summary.readyLoadUnitCount",
+        summary["readyLoadUnitCount"],
+        1 if host_interface_ready else 0,
+        "ready host-loader unit count",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.summary.blockedLoadUnitCount",
+        summary["blockedLoadUnitCount"],
+        1 if selected_artifact_present and not host_interface_ready else 0,
+        "blocked host-loader unit count",
+    )
+    if reflection_inputs is not None:
+        add_equal_error(
+            errors,
+            "$.hostLoaderIntegration.summary.entryPointCount",
+            summary["entryPointCount"],
+            reflection_inputs["entryPointCount"],
+            "$.reflectionInputs.entryPointCount",
+        )
+        add_equal_error(
+            errors,
+            "$.hostLoaderIntegration.summary.resourceBindingCount",
+            summary["resourceBindingCount"],
+            reflection_inputs["targetResourceBindingCount"],
+            "$.reflectionInputs.targetResourceBindingCount",
+        )
+        add_equal_error(
+            errors,
+            "$.hostLoaderIntegration.summary.workgroupSizeCount",
+            summary["workgroupSizeCount"],
+            reflection_inputs["workgroupSizeCount"],
+            "$.reflectionInputs.workgroupSizeCount",
+        )
+    elif any(
+        summary[field] != 0
+        for field in ("entryPointCount", "resourceBindingCount", "workgroupSizeCount")
+    ):
+        errors.append(
+            "$.hostLoaderIntegration.summary: expected zero interface counts "
+            "without reflectionInputs"
+        )
+
+    expected_status = (
+        "ready"
+        if host_interface_ready
+        else ("blocked" if selected_artifact_present else "unavailable")
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.status",
+        integration["status"],
+        expected_status,
+        "host-loader readiness",
+    )
+    if not selected_artifact_present:
+        if load_units:
+            errors.append(
+                "$.hostLoaderIntegration.loadUnits: expected [] without "
+                "selectedArtifact"
+            )
+        return
+
+    if len(load_units) != 1:
+        errors.append("$.hostLoaderIntegration.loadUnits: expected one load unit")
+        return
+    load_unit = load_units[0]
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].target",
+        load_unit["target"],
+        instance["selectedTarget"],
+        "$.selectedTarget",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].packageMode",
+        load_unit["packageMode"],
+        instance["selectedPackageMode"],
+        "$.selectedPackageMode",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].artifact",
+        load_unit["artifact"],
+        selected_artifact,
+        "$.selectedArtifact",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].packagePath",
+        load_unit["packagePath"],
+        selected_artifact["path"],
+        "$.selectedArtifact.path",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].validation.loadReady",
+        load_unit["validation"]["loadReady"],
+        host_interface_ready,
+        "host interface readiness",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].hostInterface.entryPointCount",
+        load_unit["hostInterface"]["entryPointCount"],
+        summary["entryPointCount"],
+        "$.hostLoaderIntegration.summary.entryPointCount",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].hostInterface.resourceBindingCount",
+        load_unit["hostInterface"]["resourceBindingCount"],
+        summary["resourceBindingCount"],
+        "$.hostLoaderIntegration.summary.resourceBindingCount",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].hostInterface.workgroupSizeCount",
+        load_unit["hostInterface"]["workgroupSizeCount"],
+        summary["workgroupSizeCount"],
+        "$.hostLoaderIntegration.summary.workgroupSizeCount",
+    )
+
+    expected_unit_status = "ready" if host_interface_ready else "blocked"
+    expected_interface_status = "ready" if host_interface_ready else "unavailable"
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].status",
+        load_unit["status"],
+        expected_unit_status,
+        "host-loader unit readiness",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].hostInterface.status",
+        load_unit["hostInterface"]["status"],
+        expected_interface_status,
+        "host interface readiness",
+    )
+    if host_interface_ready:
+        if load_unit["blockers"] != []:
+            errors.append(
+                "$.hostLoaderIntegration.loadUnits[0].blockers: expected [] "
+                "for ready unit"
+            )
+    elif not load_unit["blockers"]:
+        errors.append(
+            "$.hostLoaderIntegration.loadUnits[0].blockers: blocked unit "
+            "requires blocker"
+        )
+
+
 def validate_semantics(instance):
     errors = []
     counts = validate_diagnostic_counts(errors, instance)
@@ -605,6 +801,7 @@ def validate_semantics(instance):
     validate_reflection_summary(errors, instance)
     validate_reflection_inputs(errors, instance)
     validate_target_resource_binding_metadata(errors, instance)
+    validate_host_loader_integration(errors, instance)
 
     add_equal_error(
         errors,

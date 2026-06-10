@@ -215,6 +215,41 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 },
             )
             self.assertEqual(binding_metadata["bindings"][0]["descriptorType"], "UAV")
+            host_loader_integration = contract["hostLoaderIntegration"]
+            self.assertEqual(
+                host_loader_integration["kind"],
+                "crossgl-runtime-host-loader-integration",
+            )
+            self.assertEqual(host_loader_integration["status"], "ready")
+            self.assertEqual(
+                host_loader_integration["scope"],
+                "host-loader-scaffold-generation",
+            )
+            self.assertEqual(
+                host_loader_integration["summary"],
+                {
+                    "targetCount": 1,
+                    "loadUnitCount": 1,
+                    "readyLoadUnitCount": 1,
+                    "blockedLoadUnitCount": 0,
+                    "entryPointCount": 1,
+                    "resourceBindingCount": 1,
+                    "workgroupSizeCount": 0,
+                },
+            )
+            load_unit = host_loader_integration["loadUnits"][0]
+            self.assertEqual(load_unit["target"], "directx")
+            self.assertEqual(
+                load_unit["packagePath"], contract["selectedArtifact"]["path"]
+            )
+            self.assertEqual(load_unit["artifact"], contract["selectedArtifact"])
+            self.assertEqual(load_unit["hostInterface"]["status"], "ready")
+            self.assertEqual(load_unit["validation"]["loadReady"], True)
+            self.assertEqual(
+                [step["kind"] for step in load_unit["loadSteps"]],
+                ["load-package-artifact", "bind-host-interface"],
+            )
+            self.assertEqual(load_unit["blockers"], [])
             self.assertEqual(
                 contract["runtimeArtifactSelection"],
                 {

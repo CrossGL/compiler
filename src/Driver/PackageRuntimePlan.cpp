@@ -791,6 +791,219 @@ void writeTargetResourceBindingMetadata(
   out << "\n" << indent << "}";
 }
 
+std::string_view artifactFormatForHostLoader(
+    const PackageArtifactRecord *artifact) {
+  if (artifact == nullptr) {
+    return "unknown";
+  }
+  if (artifact->name == kNativeBinaryArtifact) {
+    return "native-binary";
+  }
+  if (artifact->name == kBackendSourceArtifact) {
+    return "backend-source";
+  }
+  return artifact->name;
+}
+
+void writeHostLoaderLoadStepMetadataSource(std::ostream &out,
+                                           std::string_view field,
+                                           const std::string *path,
+                                           std::string_view indent) {
+  out << "{\n" << indent << "  \"field\": \"" << escapeJson(field) << "\"";
+  if (path != nullptr) {
+    out << ",\n" << indent << "  \"path\": \"" << escapeJson(*path) << "\"";
+  }
+  out << "\n" << indent << "}";
+}
+
+void writeHostLoaderLoadSteps(std::ostream &out,
+                              const PackageArtifactRecord &artifact,
+                              const std::optional<std::string> &mode,
+                              bool hostInterfaceReady,
+                              std::size_t entryPointCount,
+                              std::size_t resourceBindingCount,
+                              std::size_t workgroupSizeCount,
+                              std::string_view indent) {
+  out << "[\n"
+      << indent << "  {\n"
+      << indent << "    \"kind\": \"load-package-artifact\",\n"
+      << indent << "    \"command\": null,\n"
+      << indent << "    \"tools\": [],\n"
+      << indent << "    \"metadata\": {\n"
+      << indent << "      \"source\": ";
+  writeHostLoaderLoadStepMetadataSource(out, "selectedArtifact.path",
+                                        &artifact.path,
+                                        std::string(indent) + "      ");
+  out << ",\n"
+      << indent << "      \"artifact\": {\n"
+      << indent << "        \"name\": \"" << escapeJson(artifact.name)
+      << "\",\n"
+      << indent << "        \"packageMode\": ";
+  writeNullableString(out, mode);
+  out << "\n"
+      << indent << "      }\n"
+      << indent << "    }\n"
+      << indent << "  }";
+
+  if (hostInterfaceReady) {
+    out << ",\n"
+        << indent << "  {\n"
+        << indent << "    \"kind\": \"bind-host-interface\",\n"
+        << indent << "    \"command\": null,\n"
+        << indent << "    \"tools\": [],\n"
+        << indent << "    \"metadata\": {\n"
+        << indent << "      \"source\": ";
+    writeHostLoaderLoadStepMetadataSource(out, "reflectionInputs", nullptr,
+                                          std::string(indent) + "      ");
+    out << ",\n"
+        << indent << "      \"entryPointCount\": " << entryPointCount << ",\n"
+        << indent << "      \"resourceBindingCount\": " << resourceBindingCount
+        << ",\n"
+        << indent << "      \"workgroupSizeCount\": " << workgroupSizeCount
+        << "\n"
+        << indent << "    }\n"
+        << indent << "  }";
+  }
+
+  out << "\n" << indent << "]";
+}
+
+void writeHostLoaderBlockers(std::ostream &out, bool hostInterfaceReady,
+                             std::string_view indent) {
+  if (hostInterfaceReady) {
+    out << "[]";
+    return;
+  }
+  out << "[\n"
+      << indent << "  {\n"
+      << indent << "    \"kind\": \"resolve-host-interface-metadata\",\n"
+      << indent << "    \"severity\": \"warning\",\n"
+      << indent << "    \"source\": \"reflectionInputs.entryPoints\",\n"
+      << indent
+      << "    \"message\": \"runtime loader plan requires reflection entry "
+         "point metadata before host loader scaffolding\"\n"
+      << indent << "  }\n"
+      << indent << "]";
+}
+
+void writeHostLoaderLoadUnit(
+    std::ostream &out, const PackageArtifactRecord &artifact,
+    const std::optional<std::string> &mode,
+    const std::optional<std::string> &selectedTarget,
+    bool hostInterfaceReady, std::size_t entryPointCount,
+    std::size_t resourceBindingCount, std::size_t workgroupSizeCount,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"target\": ";
+  writeNullableString(out, selectedTarget);
+  out << ",\n"
+      << indent << "  \"packageMode\": ";
+  writeNullableString(out, mode);
+  out << ",\n"
+      << indent << "  \"artifact\": ";
+  writeSelectedArtifact(out, &artifact, mode, std::string(indent) + "  ");
+  out << ",\n"
+      << indent << "  \"packagePath\": \"" << escapeJson(artifact.path)
+      << "\",\n"
+      << indent << "  \"artifactFormat\": \""
+      << escapeJson(artifactFormatForHostLoader(&artifact)) << "\",\n"
+      << indent << "  \"status\": \""
+      << (hostInterfaceReady ? "ready" : "blocked") << "\",\n"
+      << indent << "  \"hostInterface\": {\n"
+      << indent << "    \"status\": \""
+      << (hostInterfaceReady ? "ready" : "unavailable") << "\",\n"
+      << indent << "    \"source\": \"reflectionInputs\",\n"
+      << indent << "    \"entryPointCount\": " << entryPointCount << ",\n"
+      << indent << "    \"resourceBindingCount\": " << resourceBindingCount
+      << ",\n"
+      << indent << "    \"workgroupSizeCount\": " << workgroupSizeCount
+      << "\n"
+      << indent << "  },\n"
+      << indent << "  \"validation\": {\n"
+      << indent << "    \"loadReady\": "
+      << (hostInterfaceReady ? "true" : "false") << ",\n"
+      << indent << "    \"metadataOnly\": true,\n"
+      << indent << "    \"sourceParsingRequired\": false,\n"
+      << indent << "    \"compilerInvocationRequired\": false,\n"
+      << indent << "    \"deviceExecutionRequired\": false\n"
+      << indent << "  },\n"
+      << indent << "  \"loadSteps\": ";
+  writeHostLoaderLoadSteps(out, artifact, mode, hostInterfaceReady,
+                           entryPointCount, resourceBindingCount,
+                           workgroupSizeCount, std::string(indent) + "  ");
+  out << ",\n" << indent << "  \"blockers\": ";
+  writeHostLoaderBlockers(out, hostInterfaceReady,
+                          std::string(indent) + "  ");
+  out << "\n" << indent << "}";
+}
+
+void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metadata,
+                                const Selection &selection,
+                                const std::optional<std::string> &selectedTarget,
+                                const std::optional<std::string> &filterTarget,
+                                bool success, std::string_view indent) {
+  const bool hasLoadUnit = metadata != nullptr && selection.artifact != nullptr;
+  const std::size_t entryPointCount =
+      metadata != nullptr
+          ? jsonArraySize(metadata->documents.reflection, "entryPoints")
+                .value_or(0)
+          : 0;
+  const std::size_t resourceBindingCount =
+      metadata != nullptr && filterTarget
+          ? selectedTargetBindingCount(*metadata, *filterTarget)
+          : 0;
+  const std::size_t workgroupSizeCount =
+      metadata != nullptr
+          ? jsonArraySize(metadata->documents.reflection, "workgroupSizes")
+                .value_or(0)
+          : 0;
+  const bool hostInterfaceReady =
+      success && hasLoadUnit && entryPointCount != 0;
+  const std::size_t readyLoadUnitCount = hostInterfaceReady ? 1 : 0;
+  const std::size_t blockedLoadUnitCount =
+      hasLoadUnit && !hostInterfaceReady ? 1 : 0;
+  const char *status = hostInterfaceReady
+                           ? "ready"
+                           : (hasLoadUnit ? "blocked" : "unavailable");
+
+  out << "{\n"
+      << indent << "  \"schemaVersion\": 1,\n"
+      << indent
+      << "  \"kind\": \"crossgl-runtime-host-loader-integration\",\n"
+      << indent << "  \"status\": \"" << status << "\",\n"
+      << indent << "  \"scope\": \"host-loader-scaffold-generation\",\n"
+      << indent << "  \"nonGoals\": [\"host-code-rewriting\", "
+         "\"device-execution\", \"runtime-framework-generation\", "
+         "\"target-sdk-installation\"],\n"
+      << indent << "  \"summary\": {\n"
+      << indent << "    \"targetCount\": " << (hasLoadUnit ? 1 : 0) << ",\n"
+      << indent << "    \"loadUnitCount\": " << (hasLoadUnit ? 1 : 0)
+      << ",\n"
+      << indent << "    \"readyLoadUnitCount\": " << readyLoadUnitCount
+      << ",\n"
+      << indent << "    \"blockedLoadUnitCount\": " << blockedLoadUnitCount
+      << ",\n"
+      << indent << "    \"entryPointCount\": " << entryPointCount << ",\n"
+      << indent << "    \"resourceBindingCount\": " << resourceBindingCount
+      << ",\n"
+      << indent << "    \"workgroupSizeCount\": " << workgroupSizeCount
+      << "\n"
+      << indent << "  },\n"
+      << indent << "  \"loadUnits\": ";
+  if (!hasLoadUnit) {
+    out << "[]";
+  } else {
+    out << "[\n" << indent << "    ";
+    writeHostLoaderLoadUnit(out, *selection.artifact, selection.mode,
+                            selectedTarget, hostInterfaceReady,
+                            entryPointCount, resourceBindingCount,
+                            workgroupSizeCount,
+                            std::string(indent) + "    ");
+    out << "\n" << indent << "  ]";
+  }
+  out << "\n" << indent << "}";
+}
+
 void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
                    const PackageMetadata *metadata,
                    const PackageTargetContract *contract,
@@ -920,6 +1133,10 @@ void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
   } else {
     out << "null";
   }
+  out << ",\n"
+      << "  \"hostLoaderIntegration\": ";
+  writeHostLoaderIntegration(out, metadata, selection, selectedTarget,
+                             reflectionFilterTarget, success, "  ");
   out << ",\n"
       << "  \"diagnosticCounts\": {\n"
       << "    \"note\": " << countDiagnostics(diagnostics, DiagnosticSeverity::Note)

@@ -1,1 +1,1 @@
-$.targetResourceBindingMetadata.bindings[0].abi: expected $.reflectionInputs.targetResourceBindings[0].abi {'space': 0, 'register': 'u0'}, got {'space': 1, 'register': 'u0'}
+$.targetResourceBindingMetadata.bindings[0].abi: expected $.reflectionInputs.targetResourceBindings[0].abi {'register': 'u0', 'space': 0}, got {'register': 'u0', 'space': 1}
