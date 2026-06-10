@@ -24,13 +24,14 @@
     ]
   },
   "coverageSummary": {
-    "operationCount": 37,
-    "typeFactCount": 39,
-    "fixtureCount": 14,
+    "operationCount": 38,
+    "typeFactCount": 44,
+    "fixtureCount": 15,
     "fixtures": [
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/MinimalComputeShader.cgl",
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/fixtures/SpecializationConstantsComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
       "tests/fixtures/StorageImageAtomicShader.cgl",
@@ -49,6 +50,7 @@
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/MinimalComputeShader.cgl",
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/fixtures/SpecializationConstantsComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
       "tests/fixtures/StorageImageAtomicShader.cgl",
@@ -65,6 +67,7 @@
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/MinimalComputeShader.cgl",
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/fixtures/SpecializationConstantsComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
       "tests/fixtures/StorageImageAtomicShader.cgl",
@@ -114,7 +117,8 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
-        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -246,6 +250,16 @@
             "shader_module"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -281,7 +295,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -397,6 +412,16 @@
         {
           "path": "tests/fixtures/StorageImageAtomicShader.cgl",
           "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "compute_stage",
@@ -439,7 +464,8 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
-        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -565,6 +591,16 @@
         {
           "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
           "experimentSlice": "graphics-stage-io-metadata",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "entry_point",
@@ -605,7 +641,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -715,6 +752,63 @@
             "resourceFacts.localSize"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.constant",
+      "coverageStatus": "boundary-inventory-only",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records module-scope constant declarations, folded default values, and specialization constant ids before backend lowering.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants"
+      ],
+      "preserves": [
+        "typed_hir_facts",
+        "constant_defaults",
+        "specialization_ids"
+      ],
+      "requiredFixtureFacts": [
+        "specialization_constant_declaration",
+        "constant_declaration",
+        "typeFacts.constant_name",
+        "typeFacts.constant_type",
+        "typeFacts.constant_default_value",
+        "typeFacts.constant_folded_value",
+        "typeFacts.specialization_constant_id"
+      ],
+      "fixtures": [
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "specialization_constant_declaration",
+            "constant_declaration",
+            "typeFacts.constant_name",
+            "typeFacts.constant_type",
+            "typeFacts.constant_default_value",
+            "typeFacts.constant_folded_value",
+            "typeFacts.specialization_constant_id"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -750,7 +844,8 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
-        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -864,6 +959,15 @@
         {
           "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
           "experimentSlice": "graphics-stage-io-metadata",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "return_statement"
@@ -1153,7 +1257,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -1313,6 +1418,20 @@
         {
           "path": "tests/fixtures/StorageImageAtomicShader.cgl",
           "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "source_file",
@@ -1542,7 +1661,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -1744,6 +1864,26 @@
             "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -1784,7 +1924,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -1934,6 +2075,24 @@
         {
           "path": "tests/fixtures/StorageImageAtomicShader.cgl",
           "experimentSlice": "direct-storage-image-atomic-operation-families",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
           "loweringStatus": "eligible-report-only",
           "matchedRequiredFacts": [
             "storage_buffer_element_type",
@@ -3146,7 +3305,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "fixtureCoverage": [
         {
@@ -3238,6 +3398,15 @@
             "storage_buffer_write"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "experimentSlice": "specialization-constant-compute-resource",
+          "loweringStatus": "eligible-report-only",
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -3291,6 +3460,7 @@
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
         "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
       ]
     },
@@ -3331,6 +3501,38 @@
       "fixtures": [
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "constant_default_value",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "constant_folded_value",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "constant_name",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ]
+    },
+    {
+      "typeFact": "constant_type",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ]
     },
     {
@@ -3459,6 +3661,14 @@
       ]
     },
     {
+      "typeFact": "specialization_constant_id",
+      "coverageStatus": "hir-type-fact-only",
+      "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
+      "fixtures": [
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ]
+    },
+    {
       "typeFact": "stage_varying_vec2_vec4",
       "coverageStatus": "hir-type-fact-only",
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
@@ -3472,6 +3682,7 @@
       "sourceField": "eligibleFixtures[].boundaryFactCoverage.targetIndependentTypeFacts",
       "fixtures": [
         "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
@@ -3678,6 +3889,7 @@
         "tests/fixtures/IfComputeShader.cgl",
         "tests/fixtures/MinimalComputeShader.cgl",
         "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl",
         "tests/fixtures/StorageBufferComputeShader.cgl",
         "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",

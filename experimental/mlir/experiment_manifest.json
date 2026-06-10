@@ -1612,6 +1612,176 @@
       ]
     },
     {
+      "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+      "experimentSlice": "specialization-constant-compute-resource",
+      "loweringStatus": "eligible-report-only",
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics",
+        "resources_layouts_and_storage"
+      ],
+      "loweringEvidence": {
+        "status": "report-only",
+        "entryPointIdentity": {
+          "stage": "compute",
+          "entryPoint": "main",
+          "fields": [
+            "stage",
+            "entryPoint",
+            "sourceLocationFacts.shader_module",
+            "sourceLocationFacts.compute_stage",
+            "sourceLocationFacts.entry_point",
+            "typeFacts.void_entry_point"
+          ]
+        },
+        "sourceLocationExpectation": {
+          "required": true,
+          "facts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "specialization_constant_declaration",
+            "constant_declaration",
+            "storage_buffer_declaration",
+            "storage_buffer_write",
+            "return_statement"
+          ]
+        },
+        "resourceMode": "single-storage-buffer-binding",
+        "typeFacts": {
+          "required": true,
+          "facts": [
+            "void_entry_point",
+            "constant_name",
+            "constant_type",
+            "constant_default_value",
+            "constant_folded_value",
+            "specialization_constant_id",
+            "storage_buffer_element_type",
+            "assignment_expression_result_types"
+          ]
+        },
+        "controlFlowCategory": "straight-line"
+      },
+      "boundaryFactCoverage": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "specialization_constant_declaration",
+          "constant_declaration",
+          "storage_buffer_declaration",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFacts": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "constant_name",
+          "constant_type",
+          "constant_default_value",
+          "constant_folded_value",
+          "specialization_constant_id",
+          "storage_buffer_element_type",
+          "assignment_expression_result_types"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.specialization_constant_declaration",
+          "sourceLocationFacts.constant_declaration",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.constant_name",
+          "typeFacts.constant_type",
+          "typeFacts.constant_default_value",
+          "typeFacts.constant_folded_value",
+          "typeFacts.specialization_constant_id",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.assignment_expression_result_types",
+          "resourceFacts.localSize"
+        ]
+      },
+      "requiredPreservation": [
+        "source_file",
+        "source_map_debug_contracts",
+        "compute_stage",
+        "entry_point",
+        "constant_declaration",
+        "specialization_constant_id",
+        "constant_default_value",
+        "constant_folded_value",
+        "descriptor_set_binding",
+        "target_independent_resource_metadata",
+        "storage_buffer_element_type",
+        "storage_buffer_write"
+      ]
+    },
+    {
       "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
       "experimentSlice": "fixed-storage-buffer-descriptor-array-resource",
       "loweringStatus": "eligible-report-only",

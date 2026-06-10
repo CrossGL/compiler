@@ -1204,6 +1204,11 @@
       "translator_ast_sha256": "e34fc0c3dd4d15095a76f64c99a0fee0892ffc9c04728393ec9fbb621112e9d3",
       "compiler_hir_sha256": "5b9f3d138bffee9c69c68985b8dffebcaf849b16ce3295379f2096b20268f067"
     },
+    "compiler/tests/fixtures/SpecializationConstantsComputeShader.cgl": {
+      "source_sha256": "f690ecd3733efcbf13f3ebcda5f9901036fdef48169a84c3bafe5c4f603cd4f9",
+      "translator_ast_sha256": "a14148495bd7d88863b5ff404b75daff4ba1f05e8a607fa2d86ff1713c706afb",
+      "compiler_hir_sha256": "16571abfba6a01b3afd6e5df04dde72620c147c0d9bcceffc6af11632c39a5c4"
+    },
     "compiler/tests/fixtures/StorageBufferArrayAccessShader.cgl": {
       "source_sha256": "b723e2b68f881396ad93aeb58edd8f85988eacbee92c6ec852530a94e1509735",
       "translator_ast_sha256": "f2a1f5448114d84c5015abaabbb0042d2aecfda972e8bf4d8257f23d6170ef60",

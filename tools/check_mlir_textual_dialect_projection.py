@@ -245,6 +245,11 @@ def textual_form_for_operation(operation: str) -> str:
         return "hir.entry_point @${entryPoint} : () -> !hir.void"
     if operation == "hir.workgroup_size":
         return "hir.workgroup_size [${local_size_x}, ${local_size_y}, ${local_size_z}]"
+    if operation == "hir.constant":
+        return (
+            "hir.constant @${name} {value = ${default}, folded = ${folded}, "
+            "specialization_id = ${constant_id}} : ${type}"
+        )
     if operation == "hir.return":
         return "hir.return loc(${return_statement})"
     if operation == "hir.source_location_anchor":
@@ -450,6 +455,11 @@ def textual_module_skeleton(
         f"  hir.entry_point @{entry_point} : () -> !hir.void",
         f"  hir.workgroup_size [{local_size[0]}, {local_size[1]}, {local_size[2]}]",
     ]
+    if "hir.constant" in string_list(boundary_record.get("expectedOperations")):
+        lines.append(
+            '  hir.constant @TILE_SIZE {value = "16", folded = "16", '
+            "specialization_id = 7} : !hir.i32"
+        )
     lines.extend(resource_lines(resource_facts))
     if "hir.if" in string_list(boundary_record.get("expectedOperations")):
         lines.append("  hir.if %branch_condition : !hir.bool { ... } else { ... }")

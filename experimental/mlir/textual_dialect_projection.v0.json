@@ -368,6 +368,138 @@
       }
     },
     {
+      "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+      "stage": "compute",
+      "entryPoint": "main",
+      "experimentSlice": "specialization-constant-compute-resource",
+      "loweringStatus": "eligible-report-only",
+      "resourceFactMode": "single-storage-buffer-binding",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.constant",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "textualModuleSkeleton": [
+        "hir.module @SpecializationConstantsComputeShader attributes {source = \"tests/fixtures/SpecializationConstantsComputeShader.cgl\"} {",
+        "  hir.compute_stage @compute attributes {stage = \"compute\"}",
+        "  hir.entry_point @main : () -> !hir.void",
+        "  hir.workgroup_size [16, 1, 1]",
+        "  hir.constant @TILE_SIZE {value = \"16\", folded = \"16\", specialization_id = 7} : !hir.i32",
+        "  hir.resource @values {set = 0, binding = 0, kind = \"storageBuffer\"}",
+        "  hir.storage_buffer @values : !hir.storage_buffer<!hir.i32>",
+        "  hir.return loc(return_statement)",
+        "  hir.source_location_anchor {source_file, shader_module, compute_stage, entry_point, layout_local_size, return_statement}",
+        "}"
+      ],
+      "sourceResourcePreservation": {
+        "sourceLocationFacts": [
+          "source_file",
+          "shader_module",
+          "compute_stage",
+          "entry_point",
+          "layout_local_size",
+          "specialization_constant_declaration",
+          "constant_declaration",
+          "storage_buffer_declaration",
+          "storage_buffer_write",
+          "return_statement"
+        ],
+        "entryPointFields": [
+          "stage",
+          "entryPoint",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "typeFacts.void_entry_point",
+          "resourceFacts.localSize"
+        ],
+        "targetIndependentTypeFacts": [
+          "void_entry_point",
+          "constant_name",
+          "constant_type",
+          "constant_default_value",
+          "constant_folded_value",
+          "specialization_constant_id",
+          "storage_buffer_element_type",
+          "assignment_expression_result_types"
+        ],
+        "resourceFactFields": [
+          "resourceFacts.localSize",
+          "resourceFacts.descriptors",
+          "resourceFacts.descriptors[].stage",
+          "resourceFacts.descriptors[].name",
+          "resourceFacts.descriptors[].kind",
+          "resourceFacts.descriptors[].set",
+          "resourceFacts.descriptors[].binding",
+          "resourceFacts.storageBuffers",
+          "resourceFacts.storageBuffers[].name",
+          "resourceFacts.storageBuffers[].type",
+          "resourceFacts.storageBuffers[].elementType",
+          "resourceFacts.storageBuffers[].addressSpace",
+          "resourceFacts.storageBuffers[].writeAccess",
+          "resourceFacts.storageImages",
+          "resourceFacts.textures",
+          "resourceFacts.samplers"
+        ],
+        "targetIndependentResourceMetadataFields": [
+          "resourceFacts.targetIndependentResourceMetadata",
+          "resourceFacts.targetIndependentResourceMetadata[].stage",
+          "resourceFacts.targetIndependentResourceMetadata[].name",
+          "resourceFacts.targetIndependentResourceMetadata[].kind",
+          "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+          "resourceFacts.targetIndependentResourceMetadata[].elementType",
+          "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+          "resourceFacts.targetIndependentResourceMetadata[].access",
+          "resourceFacts.targetIndependentResourceMetadata[].set",
+          "resourceFacts.targetIndependentResourceMetadata[].binding",
+          "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+        ],
+        "sourceMapDebugFacts": [
+          "path",
+          "stage",
+          "entryPoint",
+          "manifest.artifacts.debugMetadata",
+          "manifest.artifacts.hirSourceMap",
+          "ir/debug-metadata.json",
+          "ir/hir-source-map.json",
+          "debugMetadata.schemaVersion=11",
+          "hirSourceMap.schemaVersion=7",
+          "debugMetadata.hirSourceLocations",
+          "hirSourceMap.hirSourceLocations",
+          "hirSourceMap.categoryCounts",
+          "hirSourceMap.filters.activeCount=0",
+          "hirSourceMap.pagination.activeCount=0",
+          "hirSourceMap.records.enabled=false",
+          "sourceLocationFacts.source_file",
+          "sourceLocationFacts.shader_module",
+          "sourceLocationFacts.compute_stage",
+          "sourceLocationFacts.entry_point",
+          "sourceLocationFacts.layout_local_size",
+          "sourceLocationFacts.specialization_constant_declaration",
+          "sourceLocationFacts.constant_declaration",
+          "sourceLocationFacts.storage_buffer_declaration",
+          "sourceLocationFacts.storage_buffer_write",
+          "sourceLocationFacts.return_statement",
+          "typeFacts.void_entry_point",
+          "typeFacts.constant_name",
+          "typeFacts.constant_type",
+          "typeFacts.constant_default_value",
+          "typeFacts.constant_folded_value",
+          "typeFacts.specialization_constant_id",
+          "typeFacts.storage_buffer_element_type",
+          "typeFacts.assignment_expression_result_types",
+          "resourceFacts.localSize"
+        ]
+      }
+    },
+    {
       "path": "tests/fixtures/StorageBufferComputeShader.cgl",
       "stage": "compute",
       "entryPoint": "main",
@@ -2214,7 +2346,8 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
-        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -2339,6 +2472,15 @@
             "shader_module"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2362,7 +2504,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "compute_stage",
@@ -2478,6 +2621,15 @@
             "stage"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "compute_stage",
+            "stage"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2502,7 +2654,8 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
-        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "entry_point",
@@ -2627,6 +2780,15 @@
             "entryPoint"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "entry_point",
+            "entryPoint"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2650,7 +2812,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "sourceLocationFactsRequired": [],
       "typeFactsRequired": [],
@@ -2753,6 +2916,54 @@
             "resourceFacts.localSize"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "resourceFacts.localSize"
+          ],
+          "missingRequiredFacts": []
+        }
+      ]
+    },
+    {
+      "operation": "hir.constant",
+      "textualForm": "hir.constant @${name} {value = ${default}, folded = ${folded}, specialization_id = ${constant_id}} : ${type}",
+      "emissionStatus": "not-emitted-report-only",
+      "role": "Records module-scope constant declarations, folded default values, and specialization constant ids before backend lowering.",
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants"
+      ],
+      "fixtures": [
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "sourceLocationFactsRequired": [
+        "specialization_constant_declaration",
+        "constant_declaration"
+      ],
+      "typeFactsRequired": [
+        "typeFacts.constant_name",
+        "typeFacts.constant_type",
+        "typeFacts.constant_default_value",
+        "typeFacts.constant_folded_value",
+        "typeFacts.specialization_constant_id"
+      ],
+      "resourceFieldsRequired": [],
+      "fixtureCoverage": [
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "specialization_constant_declaration",
+            "constant_declaration",
+            "typeFacts.constant_name",
+            "typeFacts.constant_type",
+            "typeFacts.constant_default_value",
+            "typeFacts.constant_folded_value",
+            "typeFacts.specialization_constant_id"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -2777,7 +2988,8 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
-        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "return_statement"
@@ -2883,6 +3095,14 @@
         },
         {
           "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "return_statement"
@@ -3107,7 +3327,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "source_file",
@@ -3265,6 +3486,19 @@
         },
         {
           "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "source_file",
+            "shader_module",
+            "compute_stage",
+            "entry_point",
+            "layout_local_size",
+            "return_statement"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "source_file",
@@ -3440,7 +3674,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_declaration"
@@ -3649,6 +3884,25 @@
             "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_declaration",
+            "resourceFacts.descriptors[].stage",
+            "resourceFacts.descriptors[].name",
+            "resourceFacts.descriptors[].kind",
+            "resourceFacts.descriptors[].set",
+            "resourceFacts.descriptors[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].stage",
+            "resourceFacts.targetIndependentResourceMetadata[].name",
+            "resourceFacts.targetIndependentResourceMetadata[].kind",
+            "resourceFacts.targetIndependentResourceMetadata[].set",
+            "resourceFacts.targetIndependentResourceMetadata[].binding",
+            "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -3669,7 +3923,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_element_type"
@@ -3825,6 +4080,23 @@
         },
         {
           "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_element_type",
+            "resourceFacts.storageBuffers[].name",
+            "resourceFacts.storageBuffers[].type",
+            "resourceFacts.storageBuffers[].elementType",
+            "resourceFacts.storageBuffers[].addressSpace",
+            "resourceFacts.storageBuffers[].writeAccess",
+            "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+            "resourceFacts.targetIndependentResourceMetadata[].elementType",
+            "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+            "resourceFacts.targetIndependentResourceMetadata[].access"
+          ],
+          "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
           "presentInBoundaryFixture": true,
           "matchedRequiredFacts": [
             "storage_buffer_element_type",
@@ -4881,7 +5153,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "sourceLocationFactsRequired": [
         "storage_buffer_write"
@@ -4968,6 +5241,14 @@
             "storage_buffer_write"
           ],
           "missingRequiredFacts": []
+        },
+        {
+          "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+          "presentInBoundaryFixture": true,
+          "matchedRequiredFacts": [
+            "storage_buffer_write"
+          ],
+          "missingRequiredFacts": []
         }
       ]
     },
@@ -5014,11 +5295,12 @@
     "productionLinked": false
   },
   "coverageSummary": {
-    "fixtureCount": 14,
-    "operationCount": 37,
-    "resourceBoundFixtureCount": 11,
+    "fixtureCount": 15,
+    "operationCount": 38,
+    "resourceBoundFixtureCount": 12,
     "resourceBoundFixtures": [
       "tests/fixtures/IfComputeShader.cgl",
+      "tests/fixtures/SpecializationConstantsComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
       "tests/fixtures/StorageImageAtomicShader.cgl",
@@ -5048,6 +5330,7 @@
       "tests/fixtures/IfComputeShader.cgl",
       "tests/fixtures/MinimalComputeShader.cgl",
       "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "tests/fixtures/SpecializationConstantsComputeShader.cgl",
       "tests/fixtures/StorageBufferComputeShader.cgl",
       "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
       "tests/fixtures/StorageImageAtomicShader.cgl",
@@ -5068,6 +5351,7 @@
         "hir.compute_stage",
         "hir.entry_point",
         "hir.workgroup_size",
+        "hir.constant",
         "hir.return",
         "hir.vertex_stage",
         "hir.fragment_stage",
@@ -5107,6 +5391,7 @@
         "hir.compute_stage",
         "hir.entry_point",
         "hir.workgroup_size",
+        "hir.constant",
         "hir.return",
         "hir.vertex_stage",
         "hir.fragment_stage",

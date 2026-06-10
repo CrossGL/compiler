@@ -60,7 +60,8 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
-        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -94,7 +95,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -128,7 +130,8 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
-        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -163,7 +166,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "preserves": [
         "workgroup_size",
@@ -171,6 +175,36 @@
       ],
       "requiredFixtureFacts": [
         "resourceFacts.localSize"
+      ]
+    },
+    {
+      "operation": "hir.constant",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records module-scope constant declarations, folded default values, and specialization constant ids before backend lowering.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants"
+      ],
+      "fixtures": [
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "typed_hir_facts",
+        "constant_defaults",
+        "specialization_ids"
+      ],
+      "requiredFixtureFacts": [
+        "specialization_constant_declaration",
+        "constant_declaration",
+        "typeFacts.constant_name",
+        "typeFacts.constant_type",
+        "typeFacts.constant_default_value",
+        "typeFacts.constant_folded_value",
+        "typeFacts.specialization_constant_id"
       ]
     },
     {
@@ -197,7 +231,8 @@
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
         "tests/fixtures/StorageImageAtomicShader.cgl",
-        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -391,7 +426,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -507,7 +543,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -549,7 +586,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "preserves": [
         "typed_hir_facts",
@@ -1184,7 +1222,8 @@
         "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
         "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
         "tests/fixtures/StorageImageExplicitFormatShader.cgl",
-        "tests/fixtures/StorageImageAtomicShader.cgl"
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
       ],
       "preserves": [
         "source_locations",
@@ -1377,6 +1416,41 @@
         "stage_entry_points",
         "resource_bindings",
         "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.constant",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "single-storage-buffer-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "constant_defaults",
+        "specialization_ids",
         "package_artifact_contracts"
       ],
       "fixtureInventoryParity": {
