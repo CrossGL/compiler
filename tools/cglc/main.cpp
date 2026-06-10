@@ -1438,7 +1438,8 @@ bool validateCrossTLProjectReportSourceMap(
     const std::optional<std::string> &artifactTarget,
     const std::string &sourceMapGranularity,
     const std::filesystem::path &manifestPath,
-    crossgl::DiagnosticEngine &diagnostics) {
+    crossgl::DiagnosticEngine &diagnostics,
+    std::size_t *validatedMappingCount = nullptr) {
   if (artifactTarget &&
       !crossTLProjectReportIsCrossGLTarget(*artifactTarget) &&
       (sourceMapGranularity == "statement" || sourceMapGranularity == "token")) {
@@ -1638,6 +1639,9 @@ bool validateCrossTLProjectReportSourceMap(
               "granularity");
       return false;
     }
+  }
+  if (validatedMappingCount) {
+    *validatedMappingCount = mappingCount;
   }
   return true;
 }
@@ -2520,6 +2524,14 @@ bool parseCrossTLProjectReportArtifact(
 
   const std::optional<std::string_view> sourceMap =
       crossgl::findObjectMemberValue(artifactText, "sourceMap");
+  std::optional<std::string> sourceMapGranularity;
+  std::optional<std::size_t> sourceMapMappingCount;
+  if (status && *status == "failed" && sourceMap) {
+    sourceBatchManifestError(
+        diagnostics, manifest.path,
+        context + ".sourceMap must be omitted for failed artifacts");
+    return false;
+  }
   if (sourceMap) {
     if (!crossgl::isJsonObjectDocument(*sourceMap)) {
       sourceBatchManifestError(diagnostics, manifest.path,
@@ -2550,7 +2562,6 @@ bool parseCrossTLProjectReportArtifact(
               ".sourceMap.kind must be crosstl-artifact-source-map");
       return false;
     }
-    std::optional<std::string> sourceMapGranularity;
     if (!parseOptionalSourceBatchStringMember(
             *sourceMap, "mappingGranularity", context + ".sourceMap",
             manifest.path, diagnostics, sourceMapGranularity)) {
@@ -2588,11 +2599,14 @@ bool parseCrossTLProjectReportArtifact(
               "'");
       return false;
     }
+    std::size_t validatedSourceMapMappingCount = 0;
     if (!validateCrossTLProjectReportSourceMap(
             *sourceMap, context + ".sourceMap", source, path, target,
-            *sourceMapGranularity, manifest.path, diagnostics)) {
+            *sourceMapGranularity, manifest.path, diagnostics,
+            &validatedSourceMapMappingCount)) {
       return false;
     }
+    sourceMapMappingCount = validatedSourceMapMappingCount;
     ++stats.sourceMapCount;
     if (*sourceMapGranularity != "file") {
       ++stats.fineGrainedSourceMapCount;
@@ -2611,6 +2625,12 @@ bool parseCrossTLProjectReportArtifact(
 
   const std::optional<std::string_view> sourceRemap =
       crossgl::findObjectMemberValue(artifactText, "sourceRemap");
+  if (status && *status == "failed" && sourceRemap) {
+    sourceBatchManifestError(
+        diagnostics, manifest.path,
+        context + ".sourceRemap must be omitted for failed artifacts");
+    return false;
+  }
   std::optional<std::uintmax_t> mappingCount;
   std::optional<std::string> sourceRemapGranularity;
   std::optional<std::string> sourceRemapPath;
@@ -2709,8 +2729,25 @@ bool parseCrossTLProjectReportArtifact(
     }
     if (!mappingCount || *mappingCount == 0) {
       sourceBatchManifestError(
+        diagnostics, manifest.path,
+        context + ".sourceRemap.mappingCount must be positive");
+      return false;
+    }
+    if (sourceMapGranularity &&
+        *sourceRemapGranularity != *sourceMapGranularity) {
+      sourceBatchManifestError(
           diagnostics, manifest.path,
-          context + ".sourceRemap.mappingCount must be positive");
+          context +
+              ".sourceRemap.mappingGranularity must match sourceMap."
+              "mappingGranularity");
+      return false;
+    }
+    if (sourceMapMappingCount &&
+        static_cast<std::uintmax_t>(*sourceMapMappingCount) != *mappingCount) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context +
+              ".sourceRemap.mappingCount must match sourceMap mappings");
       return false;
     }
     std::optional<std::uintmax_t> sourceRemapSizeBytes;

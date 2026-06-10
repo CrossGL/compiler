@@ -243,6 +243,15 @@ def validate_semantics(instance):
         source_map = artifact.get("sourceMap")
         source_remap = artifact.get("sourceRemap")
 
+        if status == "failed" and source_map is not None:
+            errors.append(
+                f"{artifact_path}.sourceMap: must be omitted for failed artifacts"
+            )
+        if status == "failed" and source_remap is not None:
+            errors.append(
+                f"{artifact_path}.sourceRemap: must be omitted for failed artifacts"
+            )
+
         provenance_pipeline = _provenance_pipeline_key(provenance)
         provenance_intermediate = _provenance_intermediate_key(provenance)
         _increment(artifact_provenance_by_pipeline, provenance_pipeline)
@@ -353,6 +362,24 @@ def validate_semantics(instance):
                 errors.append(
                     f"{artifact_path}.sourceRemap.path: expected sidecar path, "
                     "not generated artifact path"
+                )
+        if isinstance(source_map, dict):
+            source_map_granularity = source_map.get("mappingGranularity")
+            if (
+                source_map_granularity is not None
+                and source_remap["mappingGranularity"] != source_map_granularity
+            ):
+                errors.append(
+                    f"{artifact_path}.sourceRemap.mappingGranularity: expected "
+                    "to match sourceMap.mappingGranularity"
+                )
+            source_map_mappings = source_map.get("mappings")
+            if isinstance(source_map_mappings, list) and source_remap[
+                "mappingCount"
+            ] != len(source_map_mappings):
+                errors.append(
+                    f"{artifact_path}.sourceRemap.mappingCount: expected to "
+                    "match sourceMap mappings"
                 )
         if source_remap["mappingCount"] <= 0:
             errors.append(f"{artifact_path}.sourceRemap.mappingCount: expected > 0")
