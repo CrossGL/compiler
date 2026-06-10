@@ -2998,6 +2998,7 @@ bool parseCrossTLProjectReportArtifact(
   std::optional<std::string> sourceRemapGranularity;
   std::optional<std::string> sourceRemapPath;
   std::optional<std::string> sourceRemapSourceBackend;
+  std::optional<std::string> sourceRemapVariant;
   std::optional<std::string> sourceRemapTarget;
   std::optional<std::string> sourceRemapGeneratedFile;
   std::optional<crossgl::SourceRemap> loadedSourceRemap;
@@ -3056,6 +3057,26 @@ bool parseCrossTLProjectReportArtifact(
             context +
                 ".sourceRemap.sourceBackend must match artifact sourceBackend '" +
                 *sourceBackend + "'");
+        return false;
+      }
+    }
+    if (!parseOptionalSourceBatchStringMember(
+            *sourceRemap, "variant", context + ".sourceRemap", manifest.path,
+            diagnostics, sourceRemapVariant)) {
+      return false;
+    }
+    if (sourceRemapVariant) {
+      if (!variant) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            context + ".sourceRemap.variant requires artifact variant");
+        return false;
+      }
+      if (*sourceRemapVariant != *variant) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            context + ".sourceRemap.variant must match artifact variant '" +
+                *variant + "'");
         return false;
       }
     }

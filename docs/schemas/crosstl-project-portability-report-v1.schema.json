@@ -557,6 +557,14 @@
         "target": {
           "$ref": "#/$defs/targetName"
         },
+        "sourceBackend": {
+          "$ref": "#/$defs/targetName",
+          "description": "Optional source backend copied from the artifact so compiler-side checks can bind source-remap sidecars to the originating frontend."
+        },
+        "variant": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Optional artifact variant copied from the artifact so compiler-side checks can bind source-remap sidecars to a named build variant."
+        },
         "generatedFile": {
           "$ref": "#/$defs/stableRelativePath"
         },
