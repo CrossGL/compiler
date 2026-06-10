@@ -4,6 +4,7 @@ from . import debug_metadata_v10
 from . import debug_metadata_v11
 from . import debug_metadata_v12
 from . import conformance_report_v0
+from . import backend_source_map_v1
 from . import crosstl_project_portability_report_v1
 from . import diagnostics_v1
 from . import doctor_v1
@@ -54,6 +55,8 @@ from . import vulkan_native_profile_v1
 
 def validate_semantics(instance, schema):
     schema_id = schema.get("$id", "")
+    if schema_id.endswith("/backend-source-map-v1.schema.json"):
+        return backend_source_map_v1.validate_semantics(instance)
     if schema_id.endswith("/conformance-report-v0.schema.json"):
         return conformance_report_v0.validate_semantics(instance)
     if schema_id.endswith("/crosstl-project-portability-report-v1.schema.json"):

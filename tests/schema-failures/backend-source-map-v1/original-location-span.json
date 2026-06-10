@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.backendSourceMap",
+  "target": "directx",
+  "module": "SemanticFixture",
+  "backend": {
+    "language": "hlsl",
+    "lineCount": 12
+  },
+  "mappingCount": 1,
+  "mappings": [
+    {
+      "index": 0,
+      "stage": "compute",
+      "entryPoint": "main",
+      "function": "main",
+      "statementKind": "assignment",
+      "name": "value",
+      "backend": {
+        "startLine": 7,
+        "endLine": 7
+      },
+      "location": {
+        "file": "generated/from-translator.cgl",
+        "line": 7,
+        "column": 3,
+        "offset": 120,
+        "length": 5,
+        "endLine": 7,
+        "endColumn": 8,
+        "endOffset": 125
+      },
+      "originalLocation": {
+        "file": "shaders/source.crossgl",
+        "line": 42,
+        "column": 9,
+        "offset": 900,
+        "length": 5,
+        "endLine": 42,
+        "endColumn": 14,
+        "endOffset": 904
+      }
+    }
+  ]
+}

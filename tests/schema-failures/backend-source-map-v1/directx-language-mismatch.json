@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.backendSourceMap",
+  "target": "directx",
+  "module": "SemanticFixture",
+  "backend": {
+    "language": "msl",
+    "lineCount": 12
+  },
+  "mappingCount": 0,
+  "mappings": []
+}

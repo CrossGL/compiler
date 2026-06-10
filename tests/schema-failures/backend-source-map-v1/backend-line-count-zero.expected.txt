@@ -1,0 +1,1 @@
+$.mappings[0].backend: backend lineCount 0 cannot contain mapped spans

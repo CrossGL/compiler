@@ -1,0 +1,1 @@
+$.mappings[0].index: expected mapping array index 0, got 1
