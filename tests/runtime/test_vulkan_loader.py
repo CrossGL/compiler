@@ -325,6 +325,62 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             self.assertEqual(summary["rejectReasons"], [])
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_ready_plan_returns_explicit_spirv_handoff_without_source_parse(
+        self,
+    ) -> None:
+        expected_bytes = b"SPIR-V"
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_vulkan_package(
+                package_dir,
+                include_backend_source=True,
+                include_native_profile=True,
+            )
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "SPIR-V handoff must not parse CrossGL source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_source_reads(), self._guard_compiler_and_device_work():
+                plan = plan_vulkan_native_loader(package_dir)
+                summary = plan.to_summary()
+                handoff = plan.require_spirv_handoff()
+                with self.assertRaisesRegex(
+                    PackageReadError,
+                    "package artifact exceeds runtime byte limit",
+                ):
+                    plan.require_spirv_handoff(byte_limit=len(expected_bytes) - 1)
+
+            self.assertTrue(plan.ready, summary["diagnostics"])
+            self.assertNotIn("runtimeArtifactHandoff", summary)
+            self.assertNotIn("spirvHandoff", summary)
+            self.assertEqual(handoff.artifact_name, "nativeBinary")
+            self.assertEqual(
+                handoff.package_path,
+                "backend/vulkan/RuntimeVulkanLoaderFixture.spv",
+            )
+            self.assertEqual(handoff.package_format, "directory")
+            self.assertEqual(handoff.selected_package_mode, "native")
+            self.assertEqual(handoff.bytes, expected_bytes)
+            self.assertEqual(handoff.byte_length, len(expected_bytes))
+            self.assertIsNone(handoff.archive_path)
+            self.assertIsNone(handoff.archive_member)
+            self.assertEqual(handoff.metadata["sourceInputs"], [])
+            self.assertFalse(handoff.metadata["sourceParsingRequired"])
+            self.assertFalse(handoff.metadata["compilerInvocationRequired"])
+            self.assertFalse(handoff.metadata["deviceExecutionRequired"])
+            self.assertEqual(
+                handoff.metadata["runtimeArtifact"],
+                {
+                    "name": "nativeBinary",
+                    "path": "backend/vulkan/RuntimeVulkanLoaderFixture.spv",
+                    "declaredBy": "manifest.artifacts.nativeBinary",
+                },
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_ready_plan_summarizes_flat_vulkan_binding_evidence_without_source_parse(
         self,
     ) -> None:
@@ -723,6 +779,7 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             ):
                 plan = plan_vulkan_native_loader(zip_path)
                 summary = plan.to_summary()
+                handoff = plan.require_spirv_handoff()
 
             descriptor_summary = summary["nativeArtifactDescriptor"]
             runtime_summary = summary["runtimePlan"]
@@ -746,6 +803,22 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                 plan.native_artifact.archive_member,
                 f"{zip_path.name}/backend/vulkan/RuntimeVulkanLoaderFixture.spv",
             )
+            self.assertNotIn("runtimeArtifactHandoff", summary)
+            self.assertEqual(handoff.artifact_name, "nativeBinary")
+            self.assertEqual(
+                handoff.package_path,
+                "backend/vulkan/RuntimeVulkanLoaderFixture.spv",
+            )
+            self.assertEqual(handoff.package_format, "zip")
+            self.assertEqual(handoff.selected_package_mode, "native")
+            self.assertEqual(handoff.bytes, b"SPIR-V")
+            self.assertEqual(handoff.archive_path, zip_path)
+            self.assertEqual(
+                handoff.archive_member,
+                f"{zip_path.name}/backend/vulkan/RuntimeVulkanLoaderFixture.spv",
+            )
+            self.assertEqual(handoff.metadata["sourceInputs"], [])
+            self.assertFalse(handoff.metadata["sourceParsingRequired"])
             self.assertTrue(
                 summary["nativeArtifact"]["absolutePath"].startswith(f"{zip_path}!/")
             )
@@ -1137,6 +1210,8 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(PackageReadError, "nativeBinary"):
                 plan.require_ready()
+            with self.assertRaisesRegex(PackageReadError, "nativeBinary"):
+                plan.require_spirv_handoff()
 
     def test_rejects_zip_stale_spv_descriptor_without_source_or_work(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

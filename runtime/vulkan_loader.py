@@ -13,7 +13,7 @@ from .backend_loader import NATIVE_ARTIFACT_DESCRIPTOR
 from .backend_loader import NativeArtifactDescriptorPlan
 from .backend_loader import SourceFreeNativeBackendLoaderPlan
 from .backend_loader import plan_source_free_native_backend_loader
-from .loader import LoaderArtifactPlan
+from .loader import LoaderArtifactPlan, SourceFreeRuntimeArtifactHandoff
 from .package_reader import CompatibilityDiagnostic, PackageReadError
 from .package_reader import RUNTIME_METADATA_JSON_BYTE_LIMIT
 from .package_reader import NATIVE_ARTIFACT_DESCRIPTOR_CONTRACT_VERSION
@@ -67,6 +67,19 @@ class VulkanNativeLoaderPlan(SourceFreeNativeBackendLoaderPlan):
     @property
     def vulkan_native_api_boundary(self) -> dict[str, Any]:
         return _vulkan_native_api_boundary(self)
+
+    def require_spirv_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        handoff = self.require_runtime_artifact_handoff(byte_limit=byte_limit)
+        if handoff.artifact_name != VULKAN_NATIVE_ARTIFACT:
+            raise PackageReadError(
+                "vulkan-native loader selected non-SPIR-V runtime artifact: "
+                f"{handoff.artifact_name}"
+            )
+        return handoff
 
     def to_summary(self) -> dict[str, Any]:
         summary = super().to_summary()
