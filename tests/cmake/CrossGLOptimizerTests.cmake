@@ -25,6 +25,7 @@ set(CROSSGL_OPTIMIZER_VECTOR_TRIG_INTRINSIC_FOLD_SHADER ${CMAKE_CURRENT_SOURCE_D
 set(CROSSGL_OPTIMIZER_O2_TEMPORARY_INLINING_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2TemporaryInliningOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2PureExpressionCSEOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_O2_DOMINATED_SCOPE_CSE_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/O2DominatedScopeCSEOptimizerShader.cgl)
+set(CROSSGL_OPTIMIZER_CONSTANT_FALSE_LOOP_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/optimizer/fixtures/ConstantFalseLoopOptimizerShader.cgl)
 set(CROSSGL_OPTIMIZER_FOR_BOUNDARY_HIR_SHADER ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend/fixtures/ForOptimizerBoundaryHIRShader.cgl)
 
 add_test(NAME cglc_optimizer_opt_level_check_o2_accepts
@@ -122,6 +123,22 @@ add_test(NAME cglc_optimizer_hir_o2_temp_inlining_trace_changed
 set_tests_properties(cglc_optimizer_hir_o2_temp_inlining_trace_changed
   PROPERTIES
     PASS_REGULAR_EXPRESSION [=["optimizationLevel": "O2".*"name": "hir[.]optimize[.]o2[.]inline-scalar-temporaries".*"changed": true.*"name": "hir[.]optimize[.]o2[.]inline-literal-vector-temporaries".*"changed": true]=])
+
+add_test(NAME cglc_optimizer_constant_false_loop_check
+  COMMAND cglc check ${CROSSGL_OPTIMIZER_CONSTANT_FALSE_LOOP_SHADER})
+
+add_test(NAME cglc_optimizer_hir_constant_false_loop_cleanup
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_CONSTANT_FALSE_LOOP_SHADER} --stage hir)
+set_tests_properties(cglc_optimizer_hir_constant_false_loop_cleanup
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=[decl int live = values\[0\] : int.*assign values\[1\] : int = live : int.*return]=]
+    FAIL_REGULAR_EXPRESSION [=[deadForBody|deadEmptyFor|deadWhileBody|values\[10\]|values\[11\]|values\[12\]|values\[13\]|neverIndex = neverIndex \+ 1]=])
+
+add_test(NAME cglc_optimizer_hir_constant_false_loop_trace_changed
+  COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_CONSTANT_FALSE_LOOP_SHADER} --stage hir-pass-trace)
+set_tests_properties(cglc_optimizer_hir_constant_false_loop_trace_changed
+  PROPERTIES
+    PASS_REGULAR_EXPRESSION [=["name": "hir[.]optimize[.]cleanup-constant-branches".*"changed": true]=])
 
 add_test(NAME cglc_optimizer_hir_o1_preserves_pure_expression_cse_candidates
   COMMAND cglc dump-ir ${CROSSGL_OPTIMIZER_O2_PURE_EXPRESSION_CSE_SHADER} --stage hir --opt-level O1)

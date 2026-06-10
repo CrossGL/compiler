@@ -7846,6 +7846,26 @@ bool cleanupConstantHIRBranchesInBlock(std::vector<HIRStatement> &statements) {
     HIRStatement &statement = statements[index];
     changed = cleanupConstantHIRBranchesInStatement(statement) || changed;
 
+    if (statement.kind == HIRStatementKind::For) {
+      const std::optional<bool> condition =
+          literalHIRBoolCondition(statement.value);
+      if (condition.has_value() && !*condition) {
+        std::vector<HIRStatement> initializer =
+            std::move(statement.initializer);
+        if (initializer.empty()) {
+          statements.erase(statements.begin() +
+                           static_cast<std::ptrdiff_t>(index));
+          changed = true;
+          continue;
+        }
+
+        statements[index] = makeScopedHIRBlock(std::move(initializer));
+        changed = true;
+      }
+      ++index;
+      continue;
+    }
+
     if (statement.kind != HIRStatementKind::If) {
       ++index;
       continue;
