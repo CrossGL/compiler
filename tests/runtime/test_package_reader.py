@@ -8985,6 +8985,83 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     )
                     self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
+    def test_compatibility_report_accepts_generated_native_profile_artifact_map_without_source_parse(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="vulkan")
+            backend_dir = package_dir / "backend" / "vulkan"
+            assembly_path = backend_dir / "RuntimeReaderFixture.spvasm"
+            assembly_path.write_bytes(b"spvasm")
+            profile_path = backend_dir / "native-profile.json"
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["backendAssembly"] = (
+                "backend/vulkan/RuntimeReaderFixture.spvasm"
+            )
+            manifest["artifacts"]["nativeProfile"] = (
+                "backend/vulkan/native-profile.json"
+            )
+            self._write_json(manifest_path, manifest)
+            self._write_json(
+                profile_path,
+                {
+                    "schemaVersion": 1,
+                    "target": "vulkan",
+                    "artifacts": {
+                        "backendAssembly": (
+                            "backend/vulkan/RuntimeReaderFixture.spvasm"
+                        ),
+                        "nativeBinary": "backend/vulkan/RuntimeReaderFixture.bin",
+                    },
+                },
+            )
+            source_path = package_dir / "source" / "generated-profile.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "runtime must not parse CrossGL source for generated native "
+                "profile metadata\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                report = read_compatibility_report(
+                    package_dir,
+                    loader_target="vulkan",
+                )
+                selection = select_runtime_artifact(report, target="vulkan")
+
+            summary = report.to_summary()
+            artifact_records = {
+                artifact["name"]: artifact
+                for artifact in summary["artifactCompatibility"]["artifacts"]
+            }
+
+            self.assertTrue(report.compatible, summary["rejectReasons"])
+            self.assertEqual(report.status, "compatible")
+            self.assertFalse(report.source_parsing_required)
+            self.assertTrue(selection.selected)
+            self.assertEqual(selection.artifact.name, "nativeBinary")
+            self.assertNotIn(
+                "package.native_profile.backend_assembly_missing",
+                [diagnostic["code"] for diagnostic in summary["rejectReasons"]],
+            )
+            self.assertNotIn(
+                "package.native_profile.native_binary_missing",
+                [diagnostic["code"] for diagnostic in summary["rejectReasons"]],
+            )
+            self.assertEqual(
+                artifact_records["nativeProfile"]["decision"],
+                "skipped",
+            )
+            self.assertEqual(
+                artifact_records["nativeProfile"]["reason"],
+                "package.artifact.not_required",
+            )
+            self.assertEqual(artifact_records["nativeProfile"]["diagnostics"], [])
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
     def test_compatibility_report_rejects_native_profile_artifact_link_drift_without_source_parse(
         self,
     ) -> None:

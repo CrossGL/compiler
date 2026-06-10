@@ -5059,7 +5059,7 @@ def _append_native_profile_artifact_link_diagnostics(
         artifact = _artifact_by_name(artifacts, artifact_name)
         if artifact is None:
             continue
-        profile_path = profile.get(field_name)
+        profile_path = _native_profile_artifact_path(profile, field_name)
         if not isinstance(profile_path, str) or not profile_path:
             diagnostics.append(
                 CompatibilityDiagnostic(
@@ -5092,6 +5092,15 @@ def _append_native_profile_artifact_link_diagnostics(
                 actual=profile_path,
             )
         )
+
+
+def _native_profile_artifact_path(profile: dict[str, Any], field_name: str) -> Any:
+    artifacts = profile.get("artifacts")
+    if isinstance(artifacts, dict):
+        nested = artifacts.get(field_name)
+        if isinstance(nested, str):
+            return nested
+    return profile.get(field_name)
 
 
 def _append_native_artifact_descriptor_identity_diagnostics(

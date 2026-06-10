@@ -727,7 +727,7 @@ def _vulkan_spirv_artifact_detail(
         runtime_artifact is not None and runtime_artifact.name == VULKAN_NATIVE_ARTIFACT
     )
     native_profile_binary = (
-        native_profile.fields.get("nativeBinary")
+        _vulkan_profile_artifact_path(native_profile.fields, VULKAN_NATIVE_ARTIFACT)
         if native_profile is not None and native_profile.readable
         else None
     )

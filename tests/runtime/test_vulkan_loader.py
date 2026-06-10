@@ -489,6 +489,12 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
                     "nativeBinaryMatchesSpirv"
                 ]
             )
+            self.assertEqual(
+                summary["vulkanNativeAdmission"]["spirvArtifact"][
+                    "profileNativeBinary"
+                ],
+                "backend/vulkan/RuntimeVulkanLoaderFixture.spv",
+            )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_graphics_stage_closure_reports_vertex_fragment_pair(self) -> None:
