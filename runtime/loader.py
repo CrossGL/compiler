@@ -1186,13 +1186,18 @@ def _runtime_loader_plan_contract_diagnostics(
     plan: RuntimeLoaderPlan,
 ) -> list[dict[str, Any]]:
     return [
-        _runtime_loader_plan_contract_diagnostic(diagnostic)
+        _runtime_loader_plan_contract_diagnostic(
+            diagnostic,
+            requested_package_mode=plan.runtime_artifact_selection.requested_package_mode,
+        )
         for diagnostic in plan.runtime_artifact_selection.diagnostics
     ]
 
 
 def _runtime_loader_plan_contract_diagnostic(
     diagnostic: CompatibilityDiagnostic,
+    *,
+    requested_package_mode: str,
 ) -> dict[str, Any]:
     severity = diagnostic.severity
     if severity == "skip":
@@ -1202,7 +1207,10 @@ def _runtime_loader_plan_contract_diagnostic(
 
     summary: dict[str, Any] = {
         "severity": severity,
-        "code": diagnostic.code,
+        "code": _runtime_loader_plan_contract_diagnostic_code(
+            diagnostic,
+            requested_package_mode=requested_package_mode,
+        ),
         "message": diagnostic.message,
         "location": _runtime_loader_plan_diagnostic_location(diagnostic),
     }
@@ -1210,6 +1218,73 @@ def _runtime_loader_plan_contract_diagnostic(
     if target is not None:
         summary["target"] = target
     return summary
+
+
+def _runtime_loader_plan_contract_diagnostic_code(
+    diagnostic: CompatibilityDiagnostic,
+    *,
+    requested_package_mode: str,
+) -> str:
+    if diagnostic.code == "package.target.loader_mismatch":
+        return "package.runtime-plan.target-mismatch"
+    if diagnostic.code == "package.target.unsupported":
+        return "package.runtime-plan.unsupported-target"
+    native_artifact_failure = (
+        diagnostic.artifact
+        in {
+            "nativeArtifactDescriptor",
+            "nativeBinary",
+            "nativeBinaryStatus",
+            "nativeProfile",
+        }
+        or diagnostic.code == "package.mode.unsupported"
+    )
+    source_artifact_failure = (
+        diagnostic.artifact == "backendSource"
+        or diagnostic.code == "package.mode.unsupported"
+    )
+    if requested_package_mode == "native" and (
+        diagnostic.code
+        in {
+            "package.artifact.required_file_missing",
+            "package.artifact.required_missing",
+            "package.artifact.selection_missing",
+            "package.artifact.selection_file_missing",
+            "package.native_artifact_descriptor.required_missing",
+            "package.native_binary_status.not_ready",
+            "package.native_profile.required_missing",
+        }
+        and native_artifact_failure
+    ):
+        return "package.runtime-plan.native-artifact-unavailable"
+    if requested_package_mode == "source-package" and (
+        diagnostic.code
+        in {
+            "package.artifact.required_file_missing",
+            "package.artifact.required_missing",
+            "package.artifact.selection_missing",
+            "package.artifact.selection_file_missing",
+            "package.mode.unsupported",
+        }
+        and source_artifact_failure
+    ):
+        return "package.runtime-plan.source-artifact-unavailable"
+    if requested_package_mode == "auto" and (
+        diagnostic.code
+        in {
+            "package.artifact.required_file_missing",
+            "package.artifact.required_missing",
+            "package.artifact.selection_missing",
+            "package.artifact.selection_file_missing",
+            "package.mode.unsupported",
+            "package.native_artifact_descriptor.required_missing",
+            "package.native_binary_status.not_ready",
+            "package.native_profile.required_missing",
+        }
+        and (native_artifact_failure or source_artifact_failure)
+    ):
+        return "package.runtime-plan.artifact-unavailable"
+    return diagnostic.code
 
 
 def _runtime_loader_plan_diagnostic_location(

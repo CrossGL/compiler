@@ -3794,6 +3794,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 [diagnostic["severity"] for diagnostic in contract["diagnostics"]],
             )
             self.assertIn(
+                "package.runtime-plan.native-artifact-unavailable",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
+            )
+            self.assertNotIn(
                 "package.native_binary_status.not_ready",
                 [diagnostic["code"] for diagnostic in contract["diagnostics"]],
             )
@@ -3837,11 +3841,44 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             mismatch_diagnostic = next(
                 diagnostic
                 for diagnostic in contract["diagnostics"]
-                if diagnostic["code"] == "package.target.loader_mismatch"
+                if diagnostic["code"] == "package.runtime-plan.target-mismatch"
             )
             self.assertEqual(
                 mismatch_diagnostic["severity"],
                 "error",
+            )
+            self.assertNotIn(
+                "package.target.loader_mismatch",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
+            )
+
+    def test_runtime_loader_plan_contract_normalizes_source_artifact_unavailable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            (package_dir / "backend/directx/RuntimeLoaderFixture.hlsl").unlink()
+
+            plan = read_loader_plan(
+                package_dir,
+                "directx",
+                package_mode="source-package",
+            )
+            contract = plan.to_runtime_loader_plan_contract()
+
+            self.assertFalse(plan.loadable)
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(contract["success"], False)
+            self.assertEqual(contract["requestedPackageMode"], "source-package")
+            self.assertIsNone(contract["selectedArtifact"])
+            self.assertIn(
+                "package.runtime-plan.source-artifact-unavailable",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
+            )
+            self.assertNotIn(
+                "package.artifact.required_file_missing",
+                [diagnostic["code"] for diagnostic in contract["diagnostics"]],
             )
 
     def test_unsupported_package_target_rejects_without_loader_policy(self) -> None:
