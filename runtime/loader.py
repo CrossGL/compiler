@@ -731,6 +731,7 @@ class RuntimeLoaderPlan:
         target_bindings = self._reflection_records("targetResourceBindings")
         target_features = self._reflection_records("targetFeatures")
         workgroup_sizes = self.workgroup_sizes
+        function_constants = self.function_constants
         selected_target = self.selected_target
         if selected_target is None:
             selected_target = self.loader_target
@@ -754,7 +755,12 @@ class RuntimeLoaderPlan:
             "targetResourceBindingCount": len(selected_bindings),
             "targetFeatureCount": len(selected_features),
             "workgroupSizeCount": len(workgroup_sizes),
+            "functionConstantCount": len(function_constants),
+            "specializationConstantCount": sum(
+                1 for record in function_constants if "specializationId" in record
+            ),
             "workgroupSizesAvailable": bool(workgroup_sizes),
+            "functionConstantsAvailable": bool(function_constants),
             "skippedTargetResourceBindingCount": (
                 len(target_bindings) - len(selected_bindings)
             ),
@@ -816,6 +822,7 @@ class RuntimeLoaderPlan:
                 for record in selected_features
             ],
             "workgroupSizes": list(workgroup_sizes),
+            "functionConstants": list(function_constants),
         }
 
     @property
@@ -1048,6 +1055,21 @@ class RuntimeLoaderPlan:
     def workgroup_sizes(self) -> tuple[dict[str, Any], ...]:
         """Return reflected compute workgroup sizes from package metadata."""
         return self.compatibility_report.workgroup_sizes
+
+    @property
+    def function_constants(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected function constants from package metadata."""
+        return self.compatibility_report.function_constants
+
+    def function_constant(self, name: str) -> dict[str, Any] | None:
+        """Find reflected function constant metadata by name."""
+        return self.compatibility_report.function_constant(name)
+
+    def require_function_constant(self, name: str) -> dict[str, Any]:
+        function_constant = self.function_constant(name)
+        if function_constant is None:
+            raise PackageReadError(f"missing reflection function constant: name={name}")
+        return function_constant
 
     def workgroup_size(self, stage: str, entry_point: str) -> dict[str, Any] | None:
         """Find reflected workgroup size by stage and source/backend entry name."""
@@ -1344,6 +1366,8 @@ def _runtime_loader_plan_reflection_summary(
         "targetFeatureCount": reflection["targetFeatureCount"],
         "entryPointCount": reflection["entryPointCount"],
         "workgroupSizeCount": reflection["workgroupSizeCount"],
+        "functionConstantCount": reflection["functionConstantCount"],
+        "specializationConstantCount": reflection["specializationConstantCount"],
         "threadgroupShapeSource": "reflection.workgroupSizes",
     }
 
@@ -1403,6 +1427,10 @@ def _runtime_loader_plan_host_loader_integration(
     entry_point_count = int(reflection.get("entryPointCount") or 0)
     resource_binding_count = int(reflection.get("targetResourceBindingCount") or 0)
     workgroup_size_count = int(reflection.get("workgroupSizeCount") or 0)
+    function_constant_count = int(reflection.get("functionConstantCount") or 0)
+    specialization_constant_count = int(
+        reflection.get("specializationConstantCount") or 0
+    )
     has_load_unit = selected_artifact is not None
     host_interface_ready = bool(success and has_load_unit and entry_point_count > 0)
     blocked_load_unit_count = 1 if has_load_unit and not host_interface_ready else 0
@@ -1418,6 +1446,8 @@ def _runtime_loader_plan_host_loader_integration(
                 entry_point_count=entry_point_count,
                 resource_binding_count=resource_binding_count,
                 workgroup_size_count=workgroup_size_count,
+                function_constant_count=function_constant_count,
+                specialization_constant_count=specialization_constant_count,
             )
         )
 
@@ -1442,6 +1472,8 @@ def _runtime_loader_plan_host_loader_integration(
             "entryPointCount": entry_point_count,
             "resourceBindingCount": resource_binding_count,
             "workgroupSizeCount": workgroup_size_count,
+            "functionConstantCount": function_constant_count,
+            "specializationConstantCount": specialization_constant_count,
         },
         "loadUnits": load_units,
     }
@@ -1455,6 +1487,8 @@ def _runtime_loader_plan_host_loader_load_unit(
     entry_point_count: int,
     resource_binding_count: int,
     workgroup_size_count: int,
+    function_constant_count: int,
+    specialization_constant_count: int,
 ) -> dict[str, Any]:
     load_steps = [
         {
@@ -1485,6 +1519,8 @@ def _runtime_loader_plan_host_loader_load_unit(
                     "entryPointCount": entry_point_count,
                     "resourceBindingCount": resource_binding_count,
                     "workgroupSizeCount": workgroup_size_count,
+                    "functionConstantCount": function_constant_count,
+                    "specializationConstantCount": specialization_constant_count,
                 },
             }
         )
@@ -1519,6 +1555,8 @@ def _runtime_loader_plan_host_loader_load_unit(
             "entryPointCount": entry_point_count,
             "resourceBindingCount": resource_binding_count,
             "workgroupSizeCount": workgroup_size_count,
+            "functionConstantCount": function_constant_count,
+            "specializationConstantCount": specialization_constant_count,
         },
         "validation": {
             "loadReady": host_interface_ready,

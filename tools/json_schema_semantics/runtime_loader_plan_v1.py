@@ -415,10 +415,33 @@ def validate_reflection_inputs(errors, instance):
     )
     add_equal_error(
         errors,
+        "$.reflectionInputs.functionConstantCount",
+        inputs["functionConstantCount"],
+        len(inputs["functionConstants"]),
+        "functionConstants length",
+    )
+    add_equal_error(
+        errors,
+        "$.reflectionInputs.specializationConstantCount",
+        inputs["specializationConstantCount"],
+        sum(
+            1 for record in inputs["functionConstants"] if "specializationId" in record
+        ),
+        "functionConstants specializationId count",
+    )
+    add_equal_error(
+        errors,
         "$.reflectionInputs.workgroupSizesAvailable",
         inputs["workgroupSizesAvailable"],
         inputs["workgroupSizeCount"] > 0,
         "workgroup size availability",
+    )
+    add_equal_error(
+        errors,
+        "$.reflectionInputs.functionConstantsAvailable",
+        inputs["functionConstantsAvailable"],
+        inputs["functionConstantCount"] > 0,
+        "function constant availability",
     )
 
     if summary is not None:
@@ -449,6 +472,22 @@ def validate_reflection_inputs(errors, instance):
                 inputs["workgroupSizeCount"],
                 summary["workgroupSizeCount"],
                 "$.reflectionSummary.workgroupSizeCount",
+            )
+        if summary["functionConstantCount"] is not None:
+            add_equal_error(
+                errors,
+                "$.reflectionInputs.functionConstantCount",
+                inputs["functionConstantCount"],
+                summary["functionConstantCount"],
+                "$.reflectionSummary.functionConstantCount",
+            )
+        if summary["specializationConstantCount"] is not None:
+            add_equal_error(
+                errors,
+                "$.reflectionInputs.specializationConstantCount",
+                inputs["specializationConstantCount"],
+                summary["specializationConstantCount"],
+                "$.reflectionSummary.specializationConstantCount",
             )
 
     selected_target = inputs["selectedTarget"] or instance["requestedLoaderTarget"]
@@ -672,9 +711,29 @@ def validate_host_loader_integration(errors, instance):
             reflection_inputs["workgroupSizeCount"],
             "$.reflectionInputs.workgroupSizeCount",
         )
+        add_equal_error(
+            errors,
+            "$.hostLoaderIntegration.summary.functionConstantCount",
+            summary["functionConstantCount"],
+            reflection_inputs["functionConstantCount"],
+            "$.reflectionInputs.functionConstantCount",
+        )
+        add_equal_error(
+            errors,
+            "$.hostLoaderIntegration.summary.specializationConstantCount",
+            summary["specializationConstantCount"],
+            reflection_inputs["specializationConstantCount"],
+            "$.reflectionInputs.specializationConstantCount",
+        )
     elif any(
         summary[field] != 0
-        for field in ("entryPointCount", "resourceBindingCount", "workgroupSizeCount")
+        for field in (
+            "entryPointCount",
+            "resourceBindingCount",
+            "workgroupSizeCount",
+            "functionConstantCount",
+            "specializationConstantCount",
+        )
     ):
         errors.append(
             "$.hostLoaderIntegration.summary: expected zero interface counts "
@@ -760,6 +819,20 @@ def validate_host_loader_integration(errors, instance):
         load_unit["hostInterface"]["workgroupSizeCount"],
         summary["workgroupSizeCount"],
         "$.hostLoaderIntegration.summary.workgroupSizeCount",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].hostInterface.functionConstantCount",
+        load_unit["hostInterface"]["functionConstantCount"],
+        summary["functionConstantCount"],
+        "$.hostLoaderIntegration.summary.functionConstantCount",
+    )
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].hostInterface.specializationConstantCount",
+        load_unit["hostInterface"]["specializationConstantCount"],
+        summary["specializationConstantCount"],
+        "$.hostLoaderIntegration.summary.specializationConstantCount",
     )
 
     expected_unit_status = "ready" if host_interface_ready else "blocked"

@@ -26,7 +26,9 @@
       "readyLoadUnitCount": 0,
       "resourceBindingCount": 1,
       "targetCount": 0,
-      "workgroupSizeCount": 1
+      "workgroupSizeCount": 1,
+      "functionConstantCount": 0,
+      "specializationConstantCount": 0
     }
   },
   "kind": "crossgl-runtime-loader-plan",
@@ -112,7 +114,11 @@
         "z": "1"
       }
     ],
-    "workgroupSizesAvailable": true
+    "workgroupSizesAvailable": true,
+    "functionConstantCount": 0,
+    "specializationConstantCount": 0,
+    "functionConstantsAvailable": false,
+    "functionConstants": []
   },
   "reflectionSummary": {
     "entryPointCount": 1,
@@ -120,7 +126,9 @@
     "targetFeatureCount": 1,
     "targetResourceBindingCount": 1,
     "threadgroupShapeSource": "reflection.workgroupSizes",
-    "workgroupSizeCount": 1
+    "workgroupSizeCount": 1,
+    "functionConstantCount": 0,
+    "specializationConstantCount": 0
   },
   "requestedLoaderTarget": "directx",
   "requestedPackageMode": "auto",

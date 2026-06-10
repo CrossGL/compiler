@@ -760,6 +760,120 @@ class RuntimePackageReaderTests(unittest.TestCase):
             ):
                 package.require_workgroup_size("compute", "main")
 
+    def test_reads_function_constant_metadata_without_source_parse(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            function_constants = [
+                {
+                    "name": "TILE_SIZE",
+                    "type": "int",
+                    "value": "16",
+                    "specializationId": 7,
+                },
+                {
+                    "name": "USE_FAST_PATH",
+                    "type": "bool",
+                    "value": "true",
+                },
+            ]
+            reflection["functionConstants"] = function_constants
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "function constant reflection lookup must not parse source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_reads():
+                package = read_package(package_dir)
+                report = package.compatibility_report(loader_target="metal")
+
+            summary = report.to_summary()
+
+            self.assertEqual(package.function_constants, tuple(function_constants))
+            self.assertEqual(
+                package.function_constant("TILE_SIZE"), function_constants[0]
+            )
+            self.assertEqual(
+                report.require_function_constant("USE_FAST_PATH"),
+                function_constants[1],
+            )
+            self.assertEqual(summary["reflection"]["functionConstantCount"], 2)
+            self.assertEqual(summary["reflection"]["specializationConstantCount"], 1)
+            self.assertTrue(summary["reflection"]["functionConstantsAvailable"])
+            self.assertEqual(
+                summary["functionConstants"],
+                {
+                    "schemaVersion": 1,
+                    "metadataOnly": True,
+                    "declared": True,
+                    "available": True,
+                    "recordCount": 2,
+                    "specializationRecordCount": 1,
+                    "malformedRecordCount": 0,
+                    "records": function_constants,
+                },
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
+
+    def test_function_constant_metadata_falls_back_for_legacy_reflection(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+
+            package = read_package(package_dir)
+            report = package.compatibility_report(loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertEqual(package.function_constants, ())
+            self.assertIsNone(package.function_constant("TILE_SIZE"))
+            self.assertEqual(report.function_constants, ())
+            self.assertIsNone(report.function_constant("TILE_SIZE"))
+            self.assertEqual(summary["reflection"]["functionConstantCount"], 0)
+            self.assertEqual(summary["reflection"]["specializationConstantCount"], 0)
+            self.assertFalse(summary["reflection"]["functionConstantsAvailable"])
+            self.assertEqual(summary["functionConstants"]["declared"], False)
+            self.assertFalse(summary["functionConstants"]["available"])
+            with self.assertRaisesRegex(
+                PackageReadError,
+                "missing reflection function constant",
+            ):
+                package.require_function_constant("TILE_SIZE")
+
+    def test_malformed_function_constant_metadata_reports_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir)
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            reflection["functionConstants"] = [
+                {"name": "TILE_SIZE", "type": "int", "value": 16},
+                {"name": "USE_FAST_PATH", "type": "bool", "specializationId": True},
+                {"name": "MODE", "type": "int", "specializationId": -1},
+            ]
+            self._write_json(reflection_path, reflection)
+
+            report = read_compatibility_report(package_dir, loader_target="metal")
+            summary = report.to_summary()
+
+            self.assertEqual(report.function_constants, ())
+            self.assertEqual(summary["functionConstants"]["malformedRecordCount"], 3)
+            diagnostic_codes = [
+                diagnostic["code"] for diagnostic in summary["diagnostics"]
+            ]
+            self.assertIn(
+                "package.reflection.function_constants_value_invalid",
+                diagnostic_codes,
+            )
+            self.assertIn(
+                "package.reflection.function_constants_specialization_id_invalid",
+                diagnostic_codes,
+            )
+
     def test_reads_metadata_and_artifacts_without_source_parse(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
@@ -9250,6 +9364,7 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "debugMetadata",
                     "diagnosticCount",
                     "entryPoints",
+                    "functionConstants",
                     "graphicsAbi",
                     "graphicsDescriptorBindings",
                     "module",

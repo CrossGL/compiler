@@ -235,6 +235,8 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                     "entryPointCount": 1,
                     "resourceBindingCount": 1,
                     "workgroupSizeCount": 0,
+                    "functionConstantCount": 0,
+                    "specializationConstantCount": 0,
                 },
             )
             load_unit = host_loader_integration["loadUnits"][0]
@@ -438,6 +440,88 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 "missing reflection workgroup size",
             ):
                 plan.require_workgroup_size("compute", "main")
+
+    def test_function_constant_metadata_handoff_uses_reflection_only(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            reflection_path = package_dir / "reflection.json"
+            reflection = json.loads(reflection_path.read_text(encoding="utf-8"))
+            function_constants = [
+                {
+                    "name": "TILE_SIZE",
+                    "type": "int",
+                    "value": "16",
+                    "specializationId": 7,
+                },
+                {
+                    "name": "USE_FAST_PATH",
+                    "type": "bool",
+                    "value": "true",
+                },
+            ]
+            reflection["functionConstants"] = function_constants
+            self._write_json(reflection_path, reflection)
+            source_path = package_dir / "source" / "invalid.cgl"
+            source_path.parent.mkdir()
+            source_path.write_text(
+                "loader function constant handoff must not parse CrossGL source\n",
+                encoding="utf-8",
+            )
+
+            with self._guard_crossgl_source_path_reads():
+                plan = read_loader_plan(package_dir, "directx")
+
+            summary = plan.to_summary()
+            contract = plan.to_runtime_loader_plan_contract()
+            reflection_summary = summary["reflectionResources"]
+            contract_reflection = summary["metadataContract"]["reflectionInputs"]
+            host_loader_integration = contract["hostLoaderIntegration"]
+            load_unit = host_loader_integration["loadUnits"][0]
+            bind_step = load_unit["loadSteps"][1]
+
+            self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertEqual(plan.function_constants, tuple(function_constants))
+            self.assertEqual(plan.function_constant("TILE_SIZE"), function_constants[0])
+            self.assertEqual(
+                plan.require_function_constant("USE_FAST_PATH"),
+                function_constants[1],
+            )
+            self.assertEqual(reflection_summary["functionConstantCount"], 2)
+            self.assertEqual(reflection_summary["specializationConstantCount"], 1)
+            self.assertTrue(reflection_summary["functionConstantsAvailable"])
+            self.assertEqual(
+                reflection_summary["functionConstants"], function_constants
+            )
+            self.assertEqual(contract_reflection["functionConstantCount"], 2)
+            self.assertEqual(contract_reflection["specializationConstantCount"], 1)
+            self.assertTrue(contract_reflection["functionConstantsAvailable"])
+            self.assertEqual(
+                contract_reflection["functionConstants"], function_constants
+            )
+            self.assertEqual(
+                summary["compatibilityReport"]["functionConstants"]["records"],
+                function_constants,
+            )
+            self.assertEqual(
+                host_loader_integration["summary"]["functionConstantCount"],
+                2,
+            )
+            self.assertEqual(
+                host_loader_integration["summary"]["specializationConstantCount"],
+                1,
+            )
+            self.assertEqual(load_unit["hostInterface"]["functionConstantCount"], 2)
+            self.assertEqual(
+                load_unit["hostInterface"]["specializationConstantCount"],
+                1,
+            )
+            self.assertEqual(bind_step["metadata"]["functionConstantCount"], 2)
+            self.assertEqual(
+                bind_step["metadata"]["specializationConstantCount"],
+                1,
+            )
+            self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_metadata_contract_consumes_declared_package_inputs_only(
         self,

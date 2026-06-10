@@ -718,9 +718,12 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
             "targetFeatureCount",
             "entryPointCount",
             "workgroupSizeCount",
+            "functionConstantCount",
+            "specializationConstantCount",
             "threadgroupShapeSource",
             "targetFeatures",
             "workgroupSizes",
+            "functionConstants",
         ):
             self.assertEqual(
                 cli_reflection.get(field),

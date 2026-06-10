@@ -207,6 +207,7 @@ REFLECTION_RUNTIME_COLLECTIONS = {
     "resources": "resources",
     "targetResourceBindings": "target_resource_bindings",
     "targetFeatures": "target_features",
+    "functionConstants": "function_constants",
 }
 REFLECTION_WORKGROUP_SIZE_FIELDS = (
     "stage",
@@ -223,6 +224,7 @@ REFLECTION_REQUIRED_STRING_FIELDS = {
     "resources": ("stage", "name", "kind"),
     "targetResourceBindings": ("stage", "entryPoint", "name", "kind"),
     "targetFeatures": ("kind", "name"),
+    "functionConstants": ("name", "type"),
 }
 TARGET_LEGALIZATION_EVIDENCE_PREFIX = "target-legalization.v1"
 TARGET_FEATURE_EVIDENCE_TARGETS = frozenset(("metal", "vulkan", "directx", "opengl"))
@@ -1033,6 +1035,21 @@ class PackageCompatibilityReport:
         """Return reflected compute workgroup sizes from metadata only."""
         return _workgroup_size_records(self.reflection)
 
+    @property
+    def function_constants(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected function constants from metadata only."""
+        return _function_constant_records(self.reflection)
+
+    def function_constant(self, name: str) -> dict[str, Any] | None:
+        """Find reflected function constant metadata by name."""
+        return _find_function_constant(self.reflection, name)
+
+    def require_function_constant(self, name: str) -> dict[str, Any]:
+        function_constant = self.function_constant(name)
+        if function_constant is None:
+            raise PackageReadError(f"missing reflection function constant: name={name}")
+        return function_constant
+
     def workgroup_size(self, stage: str, entry_point: str) -> dict[str, Any] | None:
         """Find reflected workgroup size by stage and source/backend entry name."""
         return _find_workgroup_size(self.reflection, stage, entry_point)
@@ -1049,6 +1066,10 @@ class PackageCompatibilityReport:
     @property
     def workgroup_size_summary(self) -> dict[str, Any]:
         return _workgroup_size_summary(self.reflection)
+
+    @property
+    def function_constant_summary(self) -> dict[str, Any]:
+        return _function_constant_summary(self.reflection)
 
     @property
     def availability_summary(self) -> dict[str, Any]:
@@ -1248,6 +1269,7 @@ class PackageCompatibilityReport:
             ],
             "reflection": self.reflection_availability,
             "workgroupSizes": self.workgroup_size_summary,
+            "functionConstants": self.function_constant_summary,
             "diagnosticsMetadata": self.diagnostics_availability,
             "debugMetadata": self.debug_metadata_availability,
             "graphicsAbi": self.graphics_abi_availability,
@@ -1638,6 +1660,21 @@ class RuntimePackage:
         """Return reflected compute workgroup sizes without artifact decoding."""
         return _workgroup_size_records(self.reflection)
 
+    @property
+    def function_constants(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected function constants without artifact decoding."""
+        return _function_constant_records(self.reflection)
+
+    def function_constant(self, name: str) -> dict[str, Any] | None:
+        """Find reflected function constant metadata by name."""
+        return _find_function_constant(self.reflection, name)
+
+    def require_function_constant(self, name: str) -> dict[str, Any]:
+        function_constant = self.function_constant(name)
+        if function_constant is None:
+            raise PackageReadError(f"missing reflection function constant: name={name}")
+        return function_constant
+
     def workgroup_size(self, stage: str, entry_point: str) -> dict[str, Any] | None:
         """Find reflected workgroup size by stage and source/backend entry name."""
         return _find_workgroup_size(self.reflection, stage, entry_point)
@@ -1736,6 +1773,7 @@ class RuntimePackage:
             "artifacts": [artifact.to_summary() for artifact in self.artifacts],
             "entryPoints": self.reflection.get("entryPoints", []),
             "workgroupSizes": list(self.workgroup_sizes),
+            "functionConstants": list(self.function_constants),
             "diagnosticCount": len(diagnostics) if isinstance(diagnostics, list) else 0,
             "debugMetadata": _debug_metadata_availability_summary(
                 self.debug_metadata_artifact(), debug_metadata_record
@@ -3528,6 +3566,10 @@ def _append_reflection_consistency_diagnostics(
         diagnostics,
         reflection=reflection,
     )
+    _append_reflection_function_constant_diagnostics(
+        diagnostics,
+        reflection=reflection,
+    )
     _append_reflection_target_binding_duplicate_diagnostics(
         diagnostics,
         target=target,
@@ -3881,6 +3923,49 @@ def _append_reflection_target_feature_evidence_diagnostics(
                         actual=capability_target,
                     )
                 )
+
+
+def _append_reflection_function_constant_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    reflection: dict[str, Any],
+) -> None:
+    for index, record in enumerate(
+        _json_object_list(reflection.get("functionConstants"))
+    ):
+        value = record.get("value")
+        if value is not None and not isinstance(value, str):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.reflection.function_constants_value_invalid",
+                    message="reflection.functionConstants value must be a string",
+                    document="reflection",
+                    path=f"functionConstants[{index}].value",
+                    expected="string",
+                    actual=_contract_actual_value(value),
+                )
+            )
+
+        specialization_id = record.get("specializationId")
+        if specialization_id is None:
+            continue
+        if type(specialization_id) is int and specialization_id >= 0:
+            continue
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code=(
+                    "package.reflection.function_constants_specialization_id_invalid"
+                ),
+                message=(
+                    "reflection.functionConstants specializationId must be "
+                    "a non-negative integer"
+                ),
+                document="reflection",
+                path=f"functionConstants[{index}].specializationId",
+                expected="non-negative integer",
+                actual=_contract_actual_value(specialization_id),
+            )
+        )
 
 
 def _append_reflection_target_binding_duplicate_diagnostics(
@@ -7136,6 +7221,7 @@ def _reflection_availability_summary(reflection: dict[str, Any]) -> dict[str, An
         reflection.get("targetFeatures")
     )
     workgroup_sizes = _workgroup_size_records(reflection)
+    function_constants = _function_constant_records(reflection)
     schema_version = reflection.get("schemaVersion")
     return {
         "declared": True,
@@ -7147,9 +7233,14 @@ def _reflection_availability_summary(reflection: dict[str, Any]) -> dict[str, An
         "targetResourceBindingEvidenceIds": target_resource_binding_evidence_ids,
         "targetFeatureEvidenceIds": list(target_feature_evidence_ids),
         "workgroupSizeCount": len(workgroup_sizes),
+        "functionConstantCount": len(function_constants),
+        "specializationConstantCount": sum(
+            1 for record in function_constants if "specializationId" in record
+        ),
         "entryPointsAvailable": bool(entry_points),
         "resourceBindingsAvailable": bool(resources or target_resource_bindings),
         "workgroupSizesAvailable": bool(workgroup_sizes),
+        "functionConstantsAvailable": bool(function_constants),
     }
 
 
@@ -7176,6 +7267,60 @@ def _workgroup_size_records(reflection: dict[str, Any]) -> tuple[dict[str, Any],
     )
 
 
+def _function_constant_summary(reflection: dict[str, Any]) -> dict[str, Any]:
+    records_value = reflection.get("functionConstants")
+    raw_records = _json_object_list(records_value)
+    records = _function_constant_records(reflection)
+    return {
+        "schemaVersion": 1,
+        "metadataOnly": True,
+        "declared": "functionConstants" in reflection,
+        "available": bool(records),
+        "recordCount": len(records),
+        "specializationRecordCount": sum(
+            1 for record in records if "specializationId" in record
+        ),
+        "malformedRecordCount": len(raw_records) - len(records),
+        "records": list(records),
+    }
+
+
+def _function_constant_records(
+    reflection: dict[str, Any],
+) -> tuple[dict[str, Any], ...]:
+    return tuple(
+        _summarize_function_constant_record(record)
+        for record in _json_object_list(reflection.get("functionConstants"))
+        if _is_function_constant_record(record)
+    )
+
+
+def _is_function_constant_record(record: dict[str, Any]) -> bool:
+    if not isinstance(record.get("name"), str):
+        return False
+    if not isinstance(record.get("type"), str):
+        return False
+    value = record.get("value")
+    if value is not None and not isinstance(value, str):
+        return False
+    specialization_id = record.get("specializationId")
+    return specialization_id is None or (
+        type(specialization_id) is int and specialization_id >= 0
+    )
+
+
+def _summarize_function_constant_record(record: dict[str, Any]) -> dict[str, Any]:
+    summary = {
+        "name": record["name"],
+        "type": record["type"],
+    }
+    if "value" in record:
+        summary["value"] = record["value"]
+    if "specializationId" in record:
+        summary["specializationId"] = record["specializationId"]
+    return summary
+
+
 def _find_workgroup_size(
     reflection: dict[str, Any],
     stage: str,
@@ -7190,6 +7335,18 @@ def _find_workgroup_size(
         if record.get("stage") != stage:
             continue
         if record.get("entryPoint") in candidate_entry_points:
+            return record
+    return None
+
+
+def _find_function_constant(
+    reflection: dict[str, Any],
+    name: str,
+) -> dict[str, Any] | None:
+    if not isinstance(name, str):
+        return None
+    for record in _function_constant_records(reflection):
+        if record.get("name") == name:
             return record
     return None
 

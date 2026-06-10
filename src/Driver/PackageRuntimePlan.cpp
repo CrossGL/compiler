@@ -171,6 +171,49 @@ std::optional<std::size_t> jsonArraySize(std::string_view object,
   return arrayLength(*array);
 }
 
+std::size_t jsonArrayObjectMemberCount(std::string_view object,
+                                       std::string_view arrayKey,
+                                       std::string_view memberKey) {
+  const std::optional<std::string_view> array =
+      findObjectMemberValue(object, arrayKey);
+  if (!array) {
+    return 0;
+  }
+
+  std::size_t position = 0;
+  skipWhitespace(*array, position);
+  if (position >= array->size() || (*array)[position] != '[') {
+    return 0;
+  }
+  ++position;
+
+  std::size_t count = 0;
+  while (position < array->size()) {
+    skipWhitespace(*array, position);
+    if (position < array->size() && (*array)[position] == ']') {
+      break;
+    }
+
+    const std::size_t valueBegin = position;
+    if (!skipJsonValue(*array, position)) {
+      break;
+    }
+    const std::string_view value(array->data() + valueBegin,
+                                 position - valueBegin);
+    if (!value.empty() && value.front() == '{' &&
+        findObjectMemberValue(value, memberKey)) {
+      ++count;
+    }
+
+    skipWhitespace(*array, position);
+    if (position < array->size() && (*array)[position] == ',') {
+      ++position;
+    }
+  }
+
+  return count;
+}
+
 struct Selection {
   std::optional<std::string> mode;
   const PackageArtifactRecord *artifact = nullptr;
@@ -682,6 +725,11 @@ void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
                             std::string_view target, std::string_view indent) {
   const std::optional<std::size_t> workgroupSizeCount =
       jsonArraySize(metadata.documents.reflection, "workgroupSizes");
+  const std::optional<std::size_t> functionConstantCount =
+      jsonArraySize(metadata.documents.reflection, "functionConstants");
+  const std::size_t specializationConstantCount =
+      jsonArrayObjectMemberCount(metadata.documents.reflection,
+                                 "functionConstants", "specializationId");
   const std::optional<std::size_t> entryPointCount =
       jsonArraySize(metadata.documents.reflection, "entryPoints");
   out << "{\n"
@@ -703,6 +751,18 @@ void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
   } else {
     out << "null";
   }
+  out << ",\n" << indent << "  \"functionConstantCount\": ";
+  if (functionConstantCount) {
+    out << *functionConstantCount;
+  } else {
+    out << "null";
+  }
+  out << ",\n" << indent << "  \"specializationConstantCount\": ";
+  if (functionConstantCount) {
+    out << specializationConstantCount;
+  } else {
+    out << "null";
+  }
   out << ",\n"
       << indent << "  \"threadgroupShapeSource\": \"reflection.workgroupSizes\""
       << "\n"
@@ -715,6 +775,11 @@ void writeReflectionInputs(std::ostream &out, const PackageMetadata &metadata,
                            std::string_view indent) {
   const std::optional<std::size_t> workgroupSizeCount =
       jsonArraySize(metadata.documents.reflection, "workgroupSizes");
+  const std::optional<std::size_t> functionConstantCount =
+      jsonArraySize(metadata.documents.reflection, "functionConstants");
+  const std::size_t specializationConstantCount =
+      jsonArrayObjectMemberCount(metadata.documents.reflection,
+                                 "functionConstants", "specializationId");
   const std::optional<std::size_t> entryPointCount =
       jsonArraySize(metadata.documents.reflection, "entryPoints");
   const std::size_t targetBindingCount =
@@ -736,8 +801,15 @@ void writeReflectionInputs(std::ostream &out, const PackageMetadata &metadata,
       << indent << "  \"targetFeatureCount\": " << targetFeatureCount << ",\n"
       << indent << "  \"workgroupSizeCount\": "
       << workgroupSizeCount.value_or(0) << ",\n"
+      << indent << "  \"functionConstantCount\": "
+      << functionConstantCount.value_or(0) << ",\n"
+      << indent << "  \"specializationConstantCount\": "
+      << specializationConstantCount << ",\n"
       << indent << "  \"workgroupSizesAvailable\": "
       << (workgroupSizeCount.value_or(0) != 0 ? "true" : "false") << ",\n"
+      << indent << "  \"functionConstantsAvailable\": "
+      << (functionConstantCount.value_or(0) != 0 ? "true" : "false")
+      << ",\n"
       << indent << "  \"skippedTargetResourceBindingCount\": "
       << (metadata.reflectionTargetResourceBindings.size() - targetBindingCount)
       << ",\n"
@@ -759,6 +831,9 @@ void writeReflectionInputs(std::ostream &out, const PackageMetadata &metadata,
   out << ",\n" << indent << "  \"workgroupSizes\": ";
   writeJsonArrayMemberOrEmpty(out, metadata.documents.reflection,
                               "workgroupSizes");
+  out << ",\n" << indent << "  \"functionConstants\": ";
+  writeJsonArrayMemberOrEmpty(out, metadata.documents.reflection,
+                              "functionConstants");
   out << "\n" << indent << "}";
 }
 
@@ -823,6 +898,8 @@ void writeHostLoaderLoadSteps(std::ostream &out,
                               std::size_t entryPointCount,
                               std::size_t resourceBindingCount,
                               std::size_t workgroupSizeCount,
+                              std::size_t functionConstantCount,
+                              std::size_t specializationConstantCount,
                               std::string_view indent) {
   out << "[\n"
       << indent << "  {\n"
@@ -860,6 +937,11 @@ void writeHostLoaderLoadSteps(std::ostream &out,
         << indent << "      \"resourceBindingCount\": " << resourceBindingCount
         << ",\n"
         << indent << "      \"workgroupSizeCount\": " << workgroupSizeCount
+        << ",\n"
+        << indent << "      \"functionConstantCount\": "
+        << functionConstantCount << ",\n"
+        << indent << "      \"specializationConstantCount\": "
+        << specializationConstantCount
         << "\n"
         << indent << "    }\n"
         << indent << "  }";
@@ -892,6 +974,8 @@ void writeHostLoaderLoadUnit(
     const std::optional<std::string> &selectedTarget,
     bool hostInterfaceReady, std::size_t entryPointCount,
     std::size_t resourceBindingCount, std::size_t workgroupSizeCount,
+    std::size_t functionConstantCount,
+    std::size_t specializationConstantCount,
     std::string_view indent) {
   out << "{\n"
       << indent << "  \"target\": ";
@@ -917,6 +1001,11 @@ void writeHostLoaderLoadUnit(
       << indent << "    \"resourceBindingCount\": " << resourceBindingCount
       << ",\n"
       << indent << "    \"workgroupSizeCount\": " << workgroupSizeCount
+      << ",\n"
+      << indent << "    \"functionConstantCount\": " << functionConstantCount
+      << ",\n"
+      << indent << "    \"specializationConstantCount\": "
+      << specializationConstantCount
       << "\n"
       << indent << "  },\n"
       << indent << "  \"validation\": {\n"
@@ -930,7 +1019,9 @@ void writeHostLoaderLoadUnit(
       << indent << "  \"loadSteps\": ";
   writeHostLoaderLoadSteps(out, artifact, mode, hostInterfaceReady,
                            entryPointCount, resourceBindingCount,
-                           workgroupSizeCount, std::string(indent) + "  ");
+                           workgroupSizeCount, functionConstantCount,
+                           specializationConstantCount,
+                           std::string(indent) + "  ");
   out << ",\n" << indent << "  \"blockers\": ";
   writeHostLoaderBlockers(out, hostInterfaceReady,
                           std::string(indent) + "  ");
@@ -956,6 +1047,16 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
       metadata != nullptr
           ? jsonArraySize(metadata->documents.reflection, "workgroupSizes")
                 .value_or(0)
+          : 0;
+  const std::size_t functionConstantCount =
+      metadata != nullptr
+          ? jsonArraySize(metadata->documents.reflection, "functionConstants")
+                .value_or(0)
+          : 0;
+  const std::size_t specializationConstantCount =
+      metadata != nullptr
+          ? jsonArrayObjectMemberCount(metadata->documents.reflection,
+                                       "functionConstants", "specializationId")
           : 0;
   const bool hostInterfaceReady =
       success && hasLoadUnit && entryPointCount != 0;
@@ -987,6 +1088,11 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
       << indent << "    \"resourceBindingCount\": " << resourceBindingCount
       << ",\n"
       << indent << "    \"workgroupSizeCount\": " << workgroupSizeCount
+      << ",\n"
+      << indent << "    \"functionConstantCount\": " << functionConstantCount
+      << ",\n"
+      << indent << "    \"specializationConstantCount\": "
+      << specializationConstantCount
       << "\n"
       << indent << "  },\n"
       << indent << "  \"loadUnits\": ";
@@ -997,7 +1103,8 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
     writeHostLoaderLoadUnit(out, *selection.artifact, selection.mode,
                             selectedTarget, hostInterfaceReady,
                             entryPointCount, resourceBindingCount,
-                            workgroupSizeCount,
+                            workgroupSizeCount, functionConstantCount,
+                            specializationConstantCount,
                             std::string(indent) + "    ");
     out << "\n" << indent << "  ]";
   }

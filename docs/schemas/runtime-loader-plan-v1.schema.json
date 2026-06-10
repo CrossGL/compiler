@@ -492,6 +492,8 @@
         "targetFeatureCount",
         "entryPointCount",
         "workgroupSizeCount",
+        "functionConstantCount",
+        "specializationConstantCount",
         "threadgroupShapeSource"
       ],
       "properties": {
@@ -508,6 +510,12 @@
           "$ref": "#/$defs/nonNegativeIntegerOrNull"
         },
         "workgroupSizeCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "functionConstantCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "specializationConstantCount": {
           "$ref": "#/$defs/nonNegativeIntegerOrNull"
         },
         "threadgroupShapeSource": {
@@ -527,14 +535,18 @@
         "targetResourceBindingCount",
         "targetFeatureCount",
         "workgroupSizeCount",
+        "functionConstantCount",
+        "specializationConstantCount",
         "workgroupSizesAvailable",
+        "functionConstantsAvailable",
         "skippedTargetResourceBindingCount",
         "skippedTargetFeatureCount",
         "entryPoints",
         "resources",
         "targetResourceBindings",
         "targetFeatures",
-        "workgroupSizes"
+        "workgroupSizes",
+        "functionConstants"
       ],
       "properties": {
         "schemaVersion": {
@@ -559,7 +571,16 @@
         "workgroupSizeCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         },
+        "functionConstantCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "specializationConstantCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
         "workgroupSizesAvailable": {
+          "type": "boolean"
+        },
+        "functionConstantsAvailable": {
           "type": "boolean"
         },
         "skippedTargetResourceBindingCount": {
@@ -596,6 +617,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/reflectionWorkgroupSize"
+          }
+        },
+        "functionConstants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reflectionFunctionConstant"
           }
         }
       }
@@ -783,6 +810,28 @@
       "type": "object",
       "additionalProperties": true
     },
+    "reflectionFunctionConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "specializationId": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
     "targetResourceBindingMetadataRecord": {
       "type": "object",
       "additionalProperties": false,
@@ -948,7 +997,9 @@
         "blockedLoadUnitCount",
         "entryPointCount",
         "resourceBindingCount",
-        "workgroupSizeCount"
+        "workgroupSizeCount",
+        "functionConstantCount",
+        "specializationConstantCount"
       ],
       "properties": {
         "targetCount": {
@@ -970,6 +1021,12 @@
           "$ref": "#/$defs/nonNegativeInteger"
         },
         "workgroupSizeCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "functionConstantCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "specializationConstantCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         }
       }
@@ -1045,7 +1102,9 @@
         "source",
         "entryPointCount",
         "resourceBindingCount",
-        "workgroupSizeCount"
+        "workgroupSizeCount",
+        "functionConstantCount",
+        "specializationConstantCount"
       ],
       "properties": {
         "status": {
@@ -1066,6 +1125,12 @@
           "$ref": "#/$defs/nonNegativeInteger"
         },
         "workgroupSizeCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "functionConstantCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "specializationConstantCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         }
       }
