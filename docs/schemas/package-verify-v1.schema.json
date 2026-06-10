@@ -501,7 +501,10 @@
           ]
         },
         "target": {
-          "$ref": "#/$defs/nullableSourceRemapTarget"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "generatedFile": {
           "type": [
@@ -510,7 +513,10 @@
           ]
         },
         "mappingGranularity": {
-          "$ref": "#/$defs/nullableSourceRemapGranularity"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "mappingCount": {
           "$ref": "#/$defs/nullableNonNegativeInteger"
@@ -522,7 +528,10 @@
           ]
         },
         "sourceSha256": {
-          "$ref": "#/$defs/nullableSha256"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "sourceSizeBytes": {
           "$ref": "#/$defs/nullableNonNegativeInteger"

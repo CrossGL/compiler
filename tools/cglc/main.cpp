@@ -2615,6 +2615,8 @@ bool parseCrossTLProjectReportArtifact(
   std::optional<std::string> sourceRemapGranularity;
   std::optional<std::string> sourceRemapPath;
   std::optional<std::string> sourceRemapTarget;
+  std::optional<std::string> sourceRemapGeneratedFile;
+  std::optional<crossgl::SourceRemap> loadedSourceRemap;
   if (sourceRemap) {
     if (!crossgl::isJsonObjectDocument(*sourceRemap)) {
       sourceBatchManifestError(diagnostics, manifest.path,
@@ -2635,6 +2637,13 @@ bool parseCrossTLProjectReportArtifact(
     if (!sourceRemapTarget) {
       sourceBatchManifestError(diagnostics, manifest.path,
                                context + ".sourceRemap.target must be recorded");
+      return false;
+    }
+    if (target && *sourceRemapTarget != *target) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceRemap.target must match artifact target '" + *target +
+              "'");
       return false;
     }
     if (!parseOptionalSourceBatchStringMember(
@@ -2662,11 +2671,36 @@ bool parseCrossTLProjectReportArtifact(
     for (const std::string &usedPath : stats.sourceRemapPaths) {
       if (usedPath == *sourceRemapPath) {
         sourceBatchManifestError(
-            diagnostics, manifest.path,
-            context + ".sourceRemap.path must be unique within CrossTL project "
-                      "report");
+          diagnostics, manifest.path,
+          context + ".sourceRemap.path must be unique within CrossTL project "
+                    "report");
         return false;
       }
+    }
+    if (!parseOptionalSourceBatchStableRelativePathMember(
+            *sourceRemap, "generatedFile", context + ".sourceRemap",
+            manifest.path, diagnostics, sourceRemapGeneratedFile)) {
+      return false;
+    }
+    if (!sourceRemapGeneratedFile) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceRemap.generatedFile must be a stable relative path");
+      return false;
+    }
+    if (path && *sourceRemapGeneratedFile != *path) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceRemap.generatedFile must match artifact path '" +
+              *path + "'");
+      return false;
+    }
+    if (path && *sourceRemapPath == *path) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context +
+              ".sourceRemap.path must reference a sidecar path, not artifact path");
+      return false;
     }
     if (!parseOptionalSourceBatchUnsignedMember(
             *sourceRemap, "mappingCount", context + ".sourceRemap",
@@ -2679,6 +2713,43 @@ bool parseCrossTLProjectReportArtifact(
           context + ".sourceRemap.mappingCount must be positive");
       return false;
     }
+    std::optional<std::uintmax_t> sourceRemapSizeBytes;
+    if (!parseOptionalSourceBatchUnsignedMember(
+            *sourceRemap, "sizeBytes", context + ".sourceRemap", manifest.path,
+            diagnostics, sourceRemapSizeBytes)) {
+      return false;
+    }
+    if (!sourceRemapSizeBytes) {
+      sourceBatchManifestError(diagnostics, manifest.path,
+                               context +
+                                   ".sourceRemap.sizeBytes must be recorded");
+      return false;
+    }
+    if (!crossgl::findObjectMemberValue(*sourceRemap, "hash")) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceRemap.hash must contain sha256 algorithm and 64 "
+                    "lowercase hexadecimal value");
+      return false;
+    }
+
+    crossgl::DiagnosticEngine sourceRemapDiagnostics;
+    loadedSourceRemap =
+        crossgl::loadSourceRemapMetadata(*sourceRemap, projectRoot,
+                                         cliSourceLocation(manifest.path),
+                                         sourceRemapDiagnostics);
+    const bool validSourceRemapDiagnostics =
+        replayCrossTLProjectReportSourceRemapDiagnostics(
+            sourceRemapDiagnostics, diagnostics, manifest.path);
+    if (!validSourceRemapDiagnostics || !loadedSourceRemap) {
+      if (sourceRemapDiagnostics.empty()) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            context + ".sourceRemap failed to load referenced sidecar");
+      }
+      return false;
+    }
+
     ++stats.sourceRemapCount;
     stats.sourceRemapMappingCount += *mappingCount;
     stats.sourceRemapPaths.push_back(*sourceRemapPath);
@@ -2718,78 +2789,7 @@ bool parseCrossTLProjectReportArtifact(
     return false;
   }
 
-  if (!sourceRemapTarget || *sourceRemapTarget != *target) {
-    sourceBatchManifestError(
-        diagnostics, manifest.path,
-        context + ".sourceRemap.target must match artifact target '" + *target +
-            "'");
-    return false;
-  }
-
-  if (!parseOptionalSourceBatchStableRelativePathMember(
-          *sourceRemap, "generatedFile", context + ".sourceRemap", manifest.path,
-          diagnostics, logicalInput)) {
-    return false;
-  }
-  if (!logicalInput || *logicalInput != *path) {
-    sourceBatchManifestError(
-        diagnostics, manifest.path,
-        context + ".sourceRemap.generatedFile must match artifact path '" +
-            *path + "'");
-    return false;
-  }
-
-  if (!sourceRemapPath) {
-    sourceBatchManifestError(
-        diagnostics, manifest.path,
-        context + ".sourceRemap.path must be a stable relative path");
-    return false;
-  }
-  if (*sourceRemapPath == *path) {
-    sourceBatchManifestError(
-        diagnostics, manifest.path,
-        context +
-            ".sourceRemap.path must reference a sidecar path, not artifact path");
-    return false;
-  }
-
-  std::optional<std::uintmax_t> sourceRemapSizeBytes;
-  if (!parseOptionalSourceBatchUnsignedMember(
-          *sourceRemap, "sizeBytes", context + ".sourceRemap", manifest.path,
-          diagnostics, sourceRemapSizeBytes)) {
-    return false;
-  }
-  if (!sourceRemapSizeBytes) {
-    sourceBatchManifestError(diagnostics, manifest.path,
-                             context +
-                                 ".sourceRemap.sizeBytes must be recorded");
-    return false;
-  }
-
-  if (!crossgl::findObjectMemberValue(*sourceRemap, "hash")) {
-    sourceBatchManifestError(
-        diagnostics, manifest.path,
-        context + ".sourceRemap.hash must contain sha256 algorithm and 64 "
-                  "lowercase hexadecimal value");
-    return false;
-  }
-
-  crossgl::DiagnosticEngine sourceRemapDiagnostics;
-  std::optional<crossgl::SourceRemap> loadedSourceRemap =
-      crossgl::loadSourceRemapMetadata(*sourceRemap, projectRoot,
-                                       cliSourceLocation(manifest.path),
-                                       sourceRemapDiagnostics);
-  const bool validSourceRemapDiagnostics =
-      replayCrossTLProjectReportSourceRemapDiagnostics(
-          sourceRemapDiagnostics, diagnostics, manifest.path);
-  if (!validSourceRemapDiagnostics || !loadedSourceRemap) {
-    if (sourceRemapDiagnostics.empty()) {
-      sourceBatchManifestError(
-          diagnostics, manifest.path,
-          context + ".sourceRemap failed to load referenced sidecar");
-    }
-    return false;
-  }
+  logicalInput = sourceRemapGeneratedFile;
 
   SourceBatchEntry entry;
   entry.id =

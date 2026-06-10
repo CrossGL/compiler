@@ -1329,6 +1329,73 @@ void verifyDebugArtifacts(const PackageMetadata &metadata,
   }
 }
 
+void verifySourceRemapProvenanceHealth(
+    const PackageMetadata &metadata,
+    const PackageSourceRemapProvenanceHealth &health,
+    DiagnosticEngine &diagnostics) {
+  if (!health.artifactPresent || health.health == "ok") {
+    return;
+  }
+
+  const PackageArtifactRecord *sourceRemap =
+      findArtifact(metadata, "sourceRemap");
+  const SourceLocation location =
+      sourceRemap ? artifactLocation(metadata, *sourceRemap)
+                  : artifactsLocation(metadata);
+  const std::string label = artifactLabel("sourceRemap", sourceRemap);
+  if (!health.exists) {
+    diagnostics.error(diagnosticCode("source-remap-provenance-missing"),
+                      label + " provenance artifact does not exist", location);
+    return;
+  }
+
+  const PackageSourceRemapProvenanceChecks &checks = health.checks;
+  if (checks.identityMatchesContract && !*checks.identityMatchesContract) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-contract-invalid"),
+        label + " must use the source-remap-provenance-v1 contract",
+        location);
+  }
+  if (checks.targetMatchesPackage && !*checks.targetMatchesPackage) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-target-mismatch"),
+        label + " target must match package target '" + metadata.target + "'",
+        location);
+  }
+  if (checks.generatedFilePresent && !*checks.generatedFilePresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-generated-file-missing"),
+        label + " generatedFile must be recorded", location);
+  }
+  if (checks.mappingGranularityMatchesContract &&
+      !*checks.mappingGranularityMatchesContract) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-granularity-mismatch"),
+        label + " mappingGranularity must be source-span", location);
+  }
+  if (checks.mappingCountPositive && !*checks.mappingCountPositive) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-mapping-count-invalid"),
+        label + " mappingCount must be positive", location);
+  }
+  if (checks.sourcePathPresent && !*checks.sourcePathPresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-path-missing"),
+        label + " sourceRemap.path must be recorded", location);
+  }
+  if (checks.sourceHashPresent && !*checks.sourceHashPresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-hash-invalid"),
+        label + " sourceRemap.sha256 must record a lowercase sha256 digest",
+        location);
+  }
+  if (checks.sourceSizeBytesPresent && !*checks.sourceSizeBytesPresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-size-missing"),
+        label + " sourceRemap.sizeBytes must be recorded", location);
+  }
+}
+
 void verifyDebugArtifactHealth(const PackageMetadata &metadata,
                                DiagnosticEngine &diagnostics) {
   if (!metadata.debugMetadataArtifactPresent ||
@@ -1390,15 +1457,7 @@ void verifyDebugArtifactHealth(const PackageMetadata &metadata,
             " records.totalCount must match categoryCounts.recordTotalCount",
         sourceMapLocation);
   }
-  if (health.sourceRemap.artifactPresent && health.sourceRemap.health != "ok") {
-    const PackageArtifactRecord *sourceRemap =
-        findArtifact(metadata, "sourceRemap");
-    diagnostics.error(diagnosticCode("source-remap-provenance-invalid"),
-                      artifactLabel("sourceRemap", sourceRemap) +
-                          " provenance health must be ok",
-                      sourceRemap ? artifactLocation(metadata, *sourceRemap)
-                                  : artifactsLocation(metadata));
-  }
+  verifySourceRemapProvenanceHealth(metadata, health.sourceRemap, diagnostics);
   if (health.backendSourceMap.artifactPresent &&
       health.backendSourceMap.health != "ok") {
     const PackageArtifactRecord *backendSourceMap =

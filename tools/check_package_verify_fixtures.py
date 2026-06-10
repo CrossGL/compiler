@@ -208,6 +208,28 @@ def read_artifact_json(package, manifest, artifact_name):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def source_remap_provenance(manifest, *, mapping_granularity="source-span"):
+    return {
+        "schemaVersion": 1,
+        "kind": "crossgl.sourceRemapProvenance",
+        "contractVersion": "source-remap-provenance-v1",
+        "target": manifest["target"],
+        "generatedFile": "generated/from-translator.cgl",
+        "mappingGranularity": mapping_granularity,
+        "mappingCount": 1,
+        "sourceRemap": {
+            "path": "tests/fixtures/source-remap-v1-full-file.json",
+            "sha256": {
+                "algorithm": "sha256",
+                "value": (
+                    "7ebc4d584f4b6f19b8eef3c47c1fe799361dd44e397d969df7899f9e05b6041b"
+                ),
+            },
+            "sizeBytes": 592,
+        },
+    }
+
+
 def target_record(records, target):
     for record in records or []:
         if isinstance(record, dict) and record.get("target") == target:
@@ -3211,6 +3233,45 @@ def run_cases(root, cglc, jobs=1):
                 "ir/hir-source-map.json",
                 manifest=manifest,
                 expected_code="package.verify.missing-artifact",
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir, "source-remap-granularity-drift"
+        )
+        source_remap_manifest = copy.deepcopy(manifest)
+        source_remap_manifest["artifacts"]["sourceRemap"] = (
+            "ir/source-remap-provenance.json"
+        )
+        write_json(
+            package_path(package, source_remap_manifest["artifacts"]["sourceRemap"]),
+            source_remap_provenance(source_remap_manifest, mapping_granularity="line"),
+        )
+        rewrite_manifest(package, source_remap_manifest)
+        expected = (
+            "sourceRemap 'ir/source-remap-provenance.json' "
+            "mappingGranularity must be source-span"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "source-remap-granularity-drift",
+                package,
+                expected,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "source-remap-granularity-drift-json",
+                package,
+                expected,
+                manifest=source_remap_manifest,
+                expected_code=(
+                    "package.verify.source-remap-provenance-granularity-mismatch"
+                ),
             )
         )
 
