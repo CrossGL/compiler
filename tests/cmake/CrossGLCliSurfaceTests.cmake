@@ -303,6 +303,12 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ROOT_DIAGNOSTIC_COUNT_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-root-diagnostic-count-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_COUNT_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-diagnostic-count-mismatch.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_MISSING_MESSAGE
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-diagnostic-missing-message.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_MISSING_LOCATION
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-diagnostic-missing-location.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_UNEXPECTED_FIELD
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-diagnostic-unexpected-field.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTICS_BY_CODE_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-diagnostics-by-code-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTICS_BY_TARGET_MISMATCH
@@ -2153,6 +2159,143 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_COUNT_MISMATCH}"
       \"target\": \"metal\",
       \"sourceBackend\": \"cgl\",
       \"missingCapabilities\": [\"repo.scan\"]
+    }
+  ]
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_MISSING_MESSAGE}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"summary\": {
+    \"artifactCount\": 1,
+    \"diagnosticCounts\": {
+      \"note\": 0,
+      \"warning\": 1,
+      \"error\": 0
+    },
+    \"sourceRemapCount\": 0,
+    \"sourceRemapMappingCount\": 0
+  },
+  \"artifacts\": [
+    {
+      \"source\": \"simple.cgl\",
+      \"sourceBackend\": \"cgl\",
+      \"target\": \"metal\",
+      \"path\": \"out/metal/simple.metal\",
+      \"status\": \"translated\"
+    }
+  ],
+  \"diagnosticCounts\": {
+    \"note\": 0,
+    \"warning\": 1,
+    \"error\": 0
+  },
+  \"diagnostics\": [
+    {
+      \"severity\": \"warning\",
+      \"code\": \"project.config.include-pattern-outside-project\",
+      \"location\": {
+        \"file\": \"crosstl.toml\",
+        \"line\": 1,
+        \"column\": 1,
+        \"offset\": 0,
+        \"length\": 0,
+        \"endLine\": 1,
+        \"endColumn\": 1,
+        \"endOffset\": 0
+      },
+      \"target\": \"metal\",
+      \"sourceBackend\": \"cgl\"
+    }
+  ]
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_MISSING_LOCATION}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"summary\": {
+    \"artifactCount\": 1,
+    \"diagnosticCounts\": {
+      \"note\": 0,
+      \"warning\": 1,
+      \"error\": 0
+    },
+    \"sourceRemapCount\": 0,
+    \"sourceRemapMappingCount\": 0
+  },
+  \"artifacts\": [
+    {
+      \"source\": \"simple.cgl\",
+      \"sourceBackend\": \"cgl\",
+      \"target\": \"metal\",
+      \"path\": \"out/metal/simple.metal\",
+      \"status\": \"translated\"
+    }
+  ],
+  \"diagnosticCounts\": {
+    \"note\": 0,
+    \"warning\": 1,
+    \"error\": 0
+  },
+  \"diagnostics\": [
+    {
+      \"severity\": \"warning\",
+      \"code\": \"project.config.include-pattern-outside-project\",
+      \"message\": \"Include pattern points outside the project.\",
+      \"target\": \"metal\",
+      \"sourceBackend\": \"cgl\"
+    }
+  ]
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_UNEXPECTED_FIELD}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"summary\": {
+    \"artifactCount\": 1,
+    \"diagnosticCounts\": {
+      \"note\": 0,
+      \"warning\": 1,
+      \"error\": 0
+    },
+    \"sourceRemapCount\": 0,
+    \"sourceRemapMappingCount\": 0
+  },
+  \"artifacts\": [
+    {
+      \"source\": \"simple.cgl\",
+      \"sourceBackend\": \"cgl\",
+      \"target\": \"metal\",
+      \"path\": \"out/metal/simple.metal\",
+      \"status\": \"translated\"
+    }
+  ],
+  \"diagnosticCounts\": {
+    \"note\": 0,
+    \"warning\": 1,
+    \"error\": 0
+  },
+  \"diagnostics\": [
+    {
+      \"severity\": \"warning\",
+      \"code\": \"project.config.include-pattern-outside-project\",
+      \"message\": \"Include pattern points outside the project.\",
+      \"location\": {
+        \"file\": \"crosstl.toml\",
+        \"line\": 1,
+        \"column\": 1,
+        \"offset\": 0,
+        \"length\": 0,
+        \"endLine\": 1,
+        \"endColumn\": 1,
+        \"endOffset\": 0
+      },
+      \"target\": \"metal\",
+      \"sourceBackend\": \"cgl\",
+      \"details\": \"schema rejects additional diagnostic fields\"
     }
   ]
 }
@@ -4379,6 +4522,30 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_diagnostic_co
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
     "summary.diagnosticCounts must match diagnostic severity counts")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_diagnostic_missing_message_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_MISSING_MESSAGE}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "diagnostics[0].message must be recorded")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_diagnostic_missing_location_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_MISSING_LOCATION}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "diagnostics[0].location must be a JSON object")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_diagnostic_unexpected_field_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DIAGNOSTIC_UNEXPECTED_FIELD}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "diagnostics[0] has unexpected property 'details'")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_diagnostics_by_code_mismatch_fails
   EXPECTED_RESULT 1

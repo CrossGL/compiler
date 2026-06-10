@@ -1405,6 +1405,129 @@ bool parseCrossTLProjectReportSourceMapSpan(
   return true;
 }
 
+bool parseCrossTLProjectReportDiagnosticLocation(
+    std::string_view locationText, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLProjectReportSourceMapSpan &location) {
+  if (!crossgl::isJsonObjectDocument(locationText)) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + " must be a JSON object");
+    return false;
+  }
+  if (!validateSourceBatchAllowedMembers(
+          locationText,
+          {"file", "line", "column", "offset", "length", "endLine",
+           "endColumn", "endOffset"},
+          context, manifestPath, diagnostics)) {
+    return false;
+  }
+  if (!parseRequiredSourceBatchStringMember(locationText, "file", context,
+                                            manifestPath, diagnostics,
+                                            location.file) ||
+      !parseRequiredSourceBatchUnsignedMember(locationText, "line", context,
+                                              manifestPath, diagnostics,
+                                              location.line) ||
+      !parseRequiredSourceBatchUnsignedMember(locationText, "column", context,
+                                              manifestPath, diagnostics,
+                                              location.column) ||
+      !parseRequiredSourceBatchUnsignedMember(locationText, "offset", context,
+                                              manifestPath, diagnostics,
+                                              location.offset) ||
+      !parseRequiredSourceBatchUnsignedMember(locationText, "length", context,
+                                              manifestPath, diagnostics,
+                                              location.length) ||
+      !parseRequiredSourceBatchUnsignedMember(locationText, "endLine", context,
+                                              manifestPath, diagnostics,
+                                              location.endLine) ||
+      !parseRequiredSourceBatchUnsignedMember(locationText, "endColumn",
+                                              context, manifestPath,
+                                              diagnostics, location.endColumn) ||
+      !parseRequiredSourceBatchUnsignedMember(locationText, "endOffset",
+                                              context, manifestPath,
+                                              diagnostics,
+                                              location.endOffset)) {
+    return false;
+  }
+  if (location.line == 0) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + ".line must be positive");
+    return false;
+  }
+  if (location.column == 0) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + ".column must be positive");
+    return false;
+  }
+  if (location.endLine == 0) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + ".endLine must be positive");
+    return false;
+  }
+  if (location.endColumn == 0) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) + ".endColumn must be positive");
+    return false;
+  }
+  if (location.offset >
+          std::numeric_limits<std::uintmax_t>::max() - location.length ||
+      location.endOffset != location.offset + location.length) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) + ".endOffset must equal offset + length");
+    return false;
+  }
+  if (location.endLine < location.line) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) +
+                                 ".endLine must be greater than or equal to line");
+    return false;
+  }
+  if (location.endLine == location.line &&
+      location.endColumn < location.column) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".endColumn must be greater than or equal to column on same line");
+    return false;
+  }
+  return true;
+}
+
+bool parseRequiredCrossTLProjectReportDiagnosticLocation(
+    std::string_view diagnosticText, std::string_view key,
+    std::string_view context, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLProjectReportSourceMapSpan &location) {
+  const std::optional<std::string_view> locationText =
+      crossgl::findObjectMemberValue(diagnosticText, key);
+  if (!locationText) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + "." + std::string(key) +
+                                 " must be a JSON object");
+    return false;
+  }
+  return parseCrossTLProjectReportDiagnosticLocation(
+      *locationText, std::string(context) + "." + std::string(key),
+      manifestPath, diagnostics, location);
+}
+
+bool parseOptionalCrossTLProjectReportDiagnosticLocation(
+    std::string_view diagnosticText, std::string_view key,
+    std::string_view context, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  const std::optional<std::string_view> locationText =
+      crossgl::findObjectMemberValue(diagnosticText, key);
+  if (!locationText) {
+    return true;
+  }
+  CrossTLProjectReportSourceMapSpan location;
+  return parseCrossTLProjectReportDiagnosticLocation(
+      *locationText, std::string(context) + "." + std::string(key),
+      manifestPath, diagnostics, location);
+}
+
 bool crossTLProjectReportSourceMapSpanWithinEnvelope(
     const CrossTLProjectReportSourceMapSpan &span,
     const CrossTLProjectReportSourceMapSpan &envelope,
@@ -3180,6 +3303,13 @@ bool parseCrossTLProjectReportDiagnostic(
                              context + " must be a JSON object");
     return false;
   }
+  if (!validateSourceBatchAllowedMembers(
+          diagnosticText,
+          {"severity", "code", "message", "location", "originalLocation",
+           "target", "sourceBackend", "variant", "missingCapabilities"},
+          context, manifestPath, diagnostics)) {
+    return false;
+  }
 
   std::string severity;
   if (!parseRequiredSourceBatchStringMember(diagnosticText, "severity", context,
@@ -3202,6 +3332,25 @@ bool parseCrossTLProjectReportDiagnostic(
     return false;
   }
   incrementCrossTLProjectReportCountMap(stats.diagnosticsByCode, code);
+
+  std::string message;
+  if (!parseRequiredSourceBatchStringMember(diagnosticText, "message", context,
+                                            manifestPath, diagnostics,
+                                            message)) {
+    return false;
+  }
+
+  CrossTLProjectReportSourceMapSpan location;
+  if (!parseRequiredCrossTLProjectReportDiagnosticLocation(
+          diagnosticText, "location", context, manifestPath, diagnostics,
+          location)) {
+    return false;
+  }
+  if (!parseOptionalCrossTLProjectReportDiagnosticLocation(
+          diagnosticText, "originalLocation", context, manifestPath,
+          diagnostics)) {
+    return false;
+  }
 
   std::optional<std::string> target;
   if (!parseOptionalSourceBatchStringMember(diagnosticText, "target", context,
