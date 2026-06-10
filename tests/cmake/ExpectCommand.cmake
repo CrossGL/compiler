@@ -1461,14 +1461,39 @@ function(crossgl_expect_source_remap_provenance manifest)
     "${source_remap_provenance}")
 endfunction()
 
+function(crossgl_insert_optional_artifact_order manifest expected_order artifact
+         anchor output_variable)
+  set(updated_order "${expected_order}")
+  string(JSON artifact_value ERROR_VARIABLE artifact_error GET
+         "${manifest}" artifacts ${artifact})
+  if(artifact_error STREQUAL "NOTFOUND")
+    string(FIND ",${updated_order}," ",${artifact}," artifact_order_position)
+    if(artifact_order_position EQUAL -1)
+      string(FIND ",${updated_order}," ",${anchor}," anchor_order_position)
+      if(anchor_order_position EQUAL -1)
+        set(updated_order "${updated_order},${artifact}")
+      else()
+        string(REPLACE "${anchor}" "${anchor},${artifact}" updated_order
+               "${updated_order}")
+      endif()
+    endif()
+  endif()
+  set(${output_variable} "${updated_order}" PARENT_SCOPE)
+endfunction()
+
 function(crossgl_expect_manifest_artifact_order manifest expected_order)
   set(expected_order_with_optional "${expected_order}")
+  crossgl_insert_optional_artifact_order(
+    "${manifest}" "${expected_order_with_optional}" backendSourceMap
+    hirSourceMap expected_order_with_optional)
   string(JSON graphics_abi ERROR_VARIABLE graphics_abi_error GET
          "${manifest}" artifacts graphicsAbi)
   if(graphics_abi_error STREQUAL "NOTFOUND")
-    string(FIND ",${expected_order}," ",graphicsAbi," graphics_abi_order_position)
+    string(FIND ",${expected_order_with_optional}," ",graphicsAbi,"
+           graphics_abi_order_position)
     if(graphics_abi_order_position EQUAL -1)
-      set(expected_order_with_optional "${expected_order},graphicsAbi")
+      set(expected_order_with_optional
+          "${expected_order_with_optional},graphicsAbi")
     endif()
   endif()
   crossgl_expect_json_object_member_order("${manifest}" "artifacts" "${expected_order_with_optional}")
@@ -1553,6 +1578,25 @@ function(crossgl_expect_manifest_debug_artifacts manifest)
     if(NOT original_location_position EQUAL -1)
       message(FATAL_ERROR "package HIR source-map must not include originalLocation by default. Output: ${hir_source_map}")
     endif()
+  endif()
+
+  string(JSON backend_source_map ERROR_VARIABLE backend_source_map_error GET
+         "${manifest}" artifacts backendSourceMap)
+  if(backend_source_map_error STREQUAL "NOTFOUND")
+    crossgl_manifest_artifact_path("${manifest}" backendSourceMap
+                                   backend_source_map_path)
+    if(NOT EXISTS "${backend_source_map_path}")
+      message(FATAL_ERROR "expected backend source-map artifact at ${backend_source_map_path}")
+    endif()
+    file(READ "${backend_source_map_path}" backend_source_map)
+    if(DEFINED JSON_SCHEMA_VALIDATOR)
+      crossgl_validate_json_schema_file(
+        "${backend_source_map}"
+        "${CROSSGL_EXPECT_REPO_ROOT}/docs/schemas/backend-source-map-v1.schema.json")
+    endif()
+    crossgl_expect_json_field("${backend_source_map}" "schemaVersion" "1")
+    crossgl_expect_json_field("${backend_source_map}" "kind" "crossgl.backendSourceMap")
+    crossgl_expect_json_field("${backend_source_map}" "target" "directx")
   endif()
 
   crossgl_manifest_artifact_path("${manifest}" targetExplanation

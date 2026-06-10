@@ -98,6 +98,7 @@ struct ManifestArtifact {
 struct ManifestArtifactValues {
   std::optional<std::string> backendAssembly;
   std::optional<std::string> backendSource;
+  std::optional<std::string> backendSourceMap;
   std::optional<std::string> graphicsAbi;
   std::optional<std::string> intermediate;
   std::optional<std::string> nativeBinary;
@@ -319,6 +320,9 @@ manifestArtifactValue(const ManifestArtifactValues &values,
   if (name == "backendSource") {
     return &values.backendSource;
   }
+  if (name == "backendSourceMap") {
+    return &values.backendSourceMap;
+  }
   if (name == "graphicsAbi") {
     return &values.graphicsAbi;
   }
@@ -347,6 +351,9 @@ manifestArtifactValue(ManifestArtifactValues &values, std::string_view name) {
   }
   if (name == "backendSource") {
     return &values.backendSource;
+  }
+  if (name == "backendSourceMap") {
+    return &values.backendSourceMap;
   }
   if (name == "graphicsAbi") {
     return &values.graphicsAbi;
@@ -2191,6 +2198,7 @@ std::string manifestJson(
     const std::filesystem::path *nativeArtifactDescriptorPath = nullptr,
     const std::filesystem::path *debugMetadataPath = nullptr,
     const std::filesystem::path *hirSourceMapPath = nullptr,
+    const std::filesystem::path *backendSourceMapPath = nullptr,
     const std::filesystem::path *sourceRemapProvenancePath = nullptr,
     const std::filesystem::path *targetExplanationPath = nullptr,
     const std::filesystem::path *graphicsAbiPath = nullptr,
@@ -2293,6 +2301,11 @@ std::string manifestJson(
   if (hirSourceMapPath != nullptr) {
     artifacts.push_back(
         {"hirSourceMap", packageRelativePath(packageDir, *hirSourceMapPath)});
+  }
+  if (backendSourceMapPath != nullptr) {
+    artifacts.push_back({"backendSourceMap",
+                         packageRelativePath(packageDir,
+                                             *backendSourceMapPath)});
   }
   if (sourceRemapProvenancePath != nullptr) {
     artifacts.push_back(
@@ -2480,6 +2493,7 @@ bool finalizeSourcePackageBuild(
     std::string_view nativeToolName, const TargetLegalizationContract &contract,
     const std::optional<std::filesystem::path> &debugMetadataPath,
     const std::optional<std::filesystem::path> &hirSourceMapPath,
+    const std::optional<std::filesystem::path> &backendSourceMapPath,
     const std::optional<std::filesystem::path> &sourceRemapProvenancePath,
     const std::optional<std::filesystem::path> &targetExplanationPath,
     const std::filesystem::path &inputPath,
@@ -2557,6 +2571,7 @@ bool finalizeSourcePackageBuild(
       nullptr, &artifact, &descriptorPolicy, &*descriptorPath,
       debugMetadataPath ? &*debugMetadataPath : nullptr,
       hirSourceMapPath ? &*hirSourceMapPath : nullptr,
+      backendSourceMapPath ? &*backendSourceMapPath : nullptr,
       sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
       targetExplanationPath ? &*targetExplanationPath : nullptr,
       graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr);
@@ -2574,6 +2589,7 @@ bool finalizeDirectXNativePackageBuild(
     const TargetLegalizationContract &contract,
     const std::optional<std::filesystem::path> &debugMetadataPath,
     const std::optional<std::filesystem::path> &hirSourceMapPath,
+    const std::optional<std::filesystem::path> &backendSourceMapPath,
     const std::optional<std::filesystem::path> &sourceRemapProvenancePath,
     const std::optional<std::filesystem::path> &targetExplanationPath,
     const std::filesystem::path &inputPath,
@@ -2630,6 +2646,7 @@ bool finalizeDirectXNativePackageBuild(
       nullptr, nullptr, nullptr, &*descriptorPath,
       debugMetadataPath ? &*debugMetadataPath : nullptr,
       hirSourceMapPath ? &*hirSourceMapPath : nullptr,
+      backendSourceMapPath ? &*backendSourceMapPath : nullptr,
       sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
       targetExplanationPath ? &*targetExplanationPath : nullptr,
       graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
@@ -3108,6 +3125,7 @@ CompileResult compile(const CompileRequest &request) {
   const std::string sourceHash = sha256(parsed->source);
   std::optional<std::filesystem::path> debugMetadataPath;
   std::optional<std::filesystem::path> hirSourceMapPath;
+  std::optional<std::filesystem::path> backendSourceMapPath;
   std::optional<std::filesystem::path> sourceRemapProvenancePath;
   std::optional<std::filesystem::path> targetExplanationPath;
   DebugMetadataOptions debugMetadataOptions;
@@ -3233,6 +3251,7 @@ CompileResult compile(const CompileRequest &request) {
           nullptr, nullptr, nullptr, &*descriptorPath,
           debugMetadataPath ? &*debugMetadataPath : nullptr,
           hirSourceMapPath ? &*hirSourceMapPath : nullptr,
+          nullptr,
           sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
           targetExplanationPath ? &*targetExplanationPath : nullptr,
           graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
@@ -3336,6 +3355,7 @@ CompileResult compile(const CompileRequest &request) {
           &vulkanProfilePath, nullptr, nullptr, &*descriptorPath,
           debugMetadataPath ? &*debugMetadataPath : nullptr,
           hirSourceMapPath ? &*hirSourceMapPath : nullptr,
+          nullptr,
           sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
           targetExplanationPath ? &*targetExplanationPath : nullptr,
           graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
@@ -3375,19 +3395,34 @@ CompileResult compile(const CompileRequest &request) {
       const SourcePackageArtifact directxArtifact{
           directx.sourcePath, directx.nativeBinaryPath,
           directx.nativeBinaryStatus};
+      if (request.debugIR) {
+        backendSourceMapPath =
+            directx.sourcePath.parent_path() /
+            (backendHIR.name + ".backend-source-map.json");
+        if (!writeText(*backendSourceMapPath,
+                       generateDirectXBackendSourceMapJson(
+                           backendHIR, legalization.resourceBindings,
+                           sourceMapOptions.sourceRemap
+                               ? &*sourceMapOptions.sourceRemap
+                               : nullptr),
+                       diagnostics, "artifact.write-backend-source-map")) {
+          assignDiagnostics();
+          return result;
+        }
+      }
       const bool finalized =
           directxProjection.packageMode == TargetLegalizationPackageMode::Native
               ? finalizeDirectXNativePackageBuild(
                     backendHIR, target, sourceHash, packageDir,
                     directxProjection, directx, admission->decision.contract,
-                    debugMetadataPath, hirSourceMapPath,
+                    debugMetadataPath, hirSourceMapPath, backendSourceMapPath,
                     sourceRemapProvenancePath, targetExplanationPath,
                     request.inputPath, stagedPackage, diagnostics)
               : finalizeSourcePackageBuild(
                     backendHIR, target, sourceHash, packageDir,
                     directxProjection, directxArtifact, request.optimizationLevel,
                     &directx, "", admission->decision.contract, debugMetadataPath,
-                    hirSourceMapPath, sourceRemapProvenancePath,
+                    hirSourceMapPath, backendSourceMapPath, sourceRemapProvenancePath,
                     targetExplanationPath, request.inputPath, stagedPackage,
                     diagnostics);
       if (finalized) {
@@ -3426,7 +3461,7 @@ CompileResult compile(const CompileRequest &request) {
               admission->decision.projection, artifact,
               request.optimizationLevel, nullptr, opengl.validatorTool,
               admission->decision.contract, debugMetadataPath, hirSourceMapPath,
-              sourceRemapProvenancePath, targetExplanationPath,
+              std::nullopt, sourceRemapProvenancePath, targetExplanationPath,
               request.inputPath, stagedPackage, diagnostics,
               &opengl.validationDiagnostics)) {
         result.artifactPath = request.outputPath;

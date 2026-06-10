@@ -256,6 +256,9 @@
         "hirSourceMap": {
           "type": "string"
         },
+        "backendSourceMap": {
+          "type": "string"
+        },
         "sourceRemap": {
           "type": "string"
         },
