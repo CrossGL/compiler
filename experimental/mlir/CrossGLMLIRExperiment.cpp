@@ -101,6 +101,30 @@ struct ExperimentResourceInventory {
   bool productionLinked;
 };
 
+struct ExperimentTextureSamplerInventory {
+  std::string_view fixture;
+  std::string_view operation;
+  std::string_view textureName;
+  std::string_view textureKind;
+  std::string_view textureSourceType;
+  std::string_view textureElementType;
+  std::string_view textureDimension;
+  int textureSet;
+  int textureBinding;
+  std::string_view samplerName;
+  std::string_view samplerKind;
+  std::string_view samplerSourceType;
+  int samplerSet;
+  int samplerBinding;
+  bool samplerComparison;
+  std::string_view coordinateType;
+  std::string_view lodType;
+  std::string_view resultType;
+  bool explicitLod;
+  bool targetIndependent;
+  bool productionLinked;
+};
+
 struct ExperimentControlFlowInventory {
   std::string_view fixture;
   std::string_view operation;
@@ -172,7 +196,7 @@ constexpr ExperimentControlFlowFixtureSlice structuredIfControlFlowFixtureSlice(
   };
 }
 
-constexpr std::array<ExperimentComputeFixture, 4> computeFixtureInventory() {
+constexpr std::array<ExperimentComputeFixture, 5> computeFixtureInventory() {
   return {{
       {
           "tests/fixtures/MinimalComputeShader.cgl",
@@ -218,10 +242,21 @@ constexpr std::array<ExperimentComputeFixture, 4> computeFixtureInventory() {
           "structured-if-else",
           false,
       },
+      {
+          "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          "VulkanTextureSamplerLodShader",
+          "main",
+          "compute",
+          {1, 1, 1},
+          "texture-sampler-explicit-lod",
+          "texture-sampler-resource-bindings",
+          "none",
+          false,
+      },
   }};
 }
 
-constexpr std::array<ExperimentNamedFact, 37>
+constexpr std::array<ExperimentNamedFact, 50>
 sourceLocationInventory() {
   return {{
       {"tests/fixtures/MinimalComputeShader.cgl", "source_file"},
@@ -266,6 +301,26 @@ sourceLocationInventory() {
       {"tests/fixtures/IfComputeShader.cgl", "else_block_assignment"},
       {"tests/fixtures/IfComputeShader.cgl", "storage_buffer_write"},
       {"tests/fixtures/IfComputeShader.cgl", "return_statement"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl", "source_file"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl", "shader_module"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl", "compute_stage"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl", "entry_point"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl", "layout_local_size"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "storage_buffer_declaration"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "texture_declaration"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "sampler_declaration"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "local_variable_declarations"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "scalar_expression_statements"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "texture_sample_lod"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "storage_buffer_write"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl", "return_statement"},
   }};
 }
 
@@ -284,7 +339,7 @@ constexpr ExperimentSourceLocationAnchor sourceLocationAnchorInventory() {
   };
 }
 
-constexpr std::array<ExperimentVerifierParityScaffold, 4>
+constexpr std::array<ExperimentVerifierParityScaffold, 5>
 verifierParityScaffoldInventory() {
   return {{
       {
@@ -331,10 +386,21 @@ verifierParityScaffoldInventory() {
           true,
           false,
       },
+      {
+          "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          false,
+      },
   }};
 }
 
-constexpr std::array<ExperimentNamedFact, 22>
+constexpr std::array<ExperimentNamedFact, 31>
 targetIndependentTypeInventory() {
   return {{
       {"tests/fixtures/MinimalComputeShader.cgl", "void_entry_point"},
@@ -365,10 +431,25 @@ targetIndependentTypeInventory() {
       {"tests/fixtures/IfComputeShader.cgl", "branch_condition_bool"},
       {"tests/fixtures/IfComputeShader.cgl", "assignment_expression_result_types"},
       {"tests/fixtures/IfComputeShader.cgl", "unary_expression_result_types"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl", "void_entry_point"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl", "vec4_scalar"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "vec4_pointer_storage_buffer"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "storage_buffer_element_type"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "texture_sample_result_type"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "texture_coordinate_type"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "explicit_lod_scalar"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+       "constructor_cast_expression"},
+      {"tests/fixtures/VulkanTextureSamplerLodShader.cgl", "scalar_literals"},
   }};
 }
 
-constexpr std::array<ExperimentResourceInventory, 2> resourceInventory() {
+constexpr std::array<ExperimentResourceInventory, 3> resourceInventory() {
   return {{
       {
           "tests/fixtures/StorageBufferComputeShader.cgl",
@@ -408,6 +489,54 @@ constexpr std::array<ExperimentResourceInventory, 2> resourceInventory() {
           false,
           false,
       },
+      {
+          "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          "values",
+          "storageBuffer",
+          0,
+          0,
+          "vec4*",
+          "vec4",
+          "storage",
+          "target-independent resource metadata",
+          "read_write",
+          true,
+          true,
+          false,
+          true,
+          true,
+          false,
+          false,
+      },
+  }};
+}
+
+constexpr std::array<ExperimentTextureSamplerInventory, 1>
+textureSamplerInventory() {
+  return {{
+      {
+          "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          "texture_lod",
+          "shadowMap",
+          "sampledTexture",
+          "sampler2D",
+          "float",
+          "2d",
+          0,
+          2,
+          "comparisonSampler",
+          "sampler",
+          "sampler",
+          0,
+          5,
+          true,
+          "vec2",
+          "float",
+          "vec4",
+          true,
+          true,
+          false,
+      },
   }};
 }
 
@@ -444,7 +573,7 @@ constexpr ExperimentControlFlowInventory structuredControlFlowInventory() {
   };
 }
 
-constexpr std::array<ExperimentSourceMapDebugContract, 4>
+constexpr std::array<ExperimentSourceMapDebugContract, 5>
 sourceMapDebugContractInventory() {
   return {{
       {
@@ -491,6 +620,17 @@ sourceMapDebugContractInventory() {
           true,
           false,
       },
+      {
+          "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          "ir/debug-metadata" ".json",
+          "ir/hir-source-map" ".json",
+          11,
+          7,
+          true,
+          true,
+          true,
+          false,
+      },
   }};
 }
 
@@ -519,19 +659,27 @@ constexpr bool experimentScaffoldIsProductionIsolated() {
       return false;
     }
   }
+  for (const ExperimentTextureSamplerInventory &TextureSampler :
+       textureSamplerInventory()) {
+    if (TextureSampler.productionLinked) {
+      return false;
+    }
+  }
   for (const ExperimentSourceMapDebugContract &Contract :
        sourceMapDebugContractInventory()) {
     if (Contract.productionLinked) {
       return false;
     }
   }
+  for (const ExperimentVerifierParityScaffold &Verifier :
+       verifierParityScaffoldInventory()) {
+    if (Verifier.productionLinked) {
+      return false;
+    }
+  }
   return !structuredControlFlowInventory().productionLinked &&
          !scalarComparisonInventory().productionLinked &&
          !sourceLocationAnchorInventory().productionLinked &&
-         !verifierParityScaffoldInventory()[0].productionLinked &&
-         !verifierParityScaffoldInventory()[1].productionLinked &&
-         !verifierParityScaffoldInventory()[2].productionLinked &&
-         !verifierParityScaffoldInventory()[3].productionLinked &&
          !builtinVerifierSmokeInput().productionLinked;
 }
 
@@ -546,13 +694,17 @@ constexpr ExperimentVerifierHarness minimalComputeVerifierHarness() {
   };
 }
 
-static_assert(computeFixtureInventory().size() == 4);
-static_assert(sourceLocationInventory().size() == 37);
+static_assert(computeFixtureInventory().size() == 5);
+static_assert(computeFixtureInventory()[4].path ==
+              "tests/fixtures/VulkanTextureSamplerLodShader.cgl");
+static_assert(computeFixtureInventory()[4].admittedSlice ==
+              "texture-sampler-explicit-lod");
+static_assert(sourceLocationInventory().size() == 50);
 static_assert(sourceLocationAnchorInventory().operation ==
               "hir.source_location_anchor");
 static_assert(sourceLocationAnchorInventory().commonSourceLocationFacts.size() == 6);
 static_assert(!sourceLocationAnchorInventory().productionLinked);
-static_assert(verifierParityScaffoldInventory().size() == 4);
+static_assert(verifierParityScaffoldInventory().size() == 5);
 static_assert(verifierParityScaffoldInventory()[0].coversSourceLocations);
 static_assert(verifierParityScaffoldInventory()[0].coversEntryPoint);
 static_assert(verifierParityScaffoldInventory()[0].coversResourceFacts);
@@ -561,8 +713,12 @@ static_assert(verifierParityScaffoldInventory()[0]
 static_assert(verifierParityScaffoldInventory()[0].coversTargetIndependentTypeFacts);
 static_assert(verifierParityScaffoldInventory()[0].coversSourceMapDebugFacts);
 static_assert(verifierParityScaffoldInventory()[0].futureVerifierGated);
-static_assert(targetIndependentTypeInventory().size() == 22);
-static_assert(resourceInventory().size() == 2);
+static_assert(verifierParityScaffoldInventory()[4].fixture ==
+              "tests/fixtures/VulkanTextureSamplerLodShader.cgl");
+static_assert(verifierParityScaffoldInventory()[4]
+                  .coversTargetIndependentResourceMetadata);
+static_assert(targetIndependentTypeInventory().size() == 31);
+static_assert(resourceInventory().size() == 3);
 static_assert(resourceInventory()[0].descriptorSet == 0);
 static_assert(resourceInventory()[0].descriptorBinding == 0);
 static_assert(resourceInventory()[0].targetIndependent);
@@ -570,12 +726,36 @@ static_assert(!resourceInventory()[0].hasTargetAbiFacts);
 static_assert(!resourceInventory()[0].hasTextureFacts);
 static_assert(!resourceInventory()[0].hasSamplerFacts);
 static_assert(!resourceInventory()[0].hasStorageImageFacts);
+static_assert(resourceInventory()[2].fixture ==
+              "tests/fixtures/VulkanTextureSamplerLodShader.cgl");
+static_assert(resourceInventory()[2].storageBufferType == "vec4*");
+static_assert(resourceInventory()[2].storageBufferElementType == "vec4");
+static_assert(resourceInventory()[2].hasTextureFacts);
+static_assert(resourceInventory()[2].hasSamplerFacts);
+static_assert(textureSamplerInventory().size() == 1);
+static_assert(textureSamplerInventory()[0].operation == "texture_lod");
+static_assert(textureSamplerInventory()[0].textureKind == "sampledTexture");
+static_assert(textureSamplerInventory()[0].textureSourceType == "sampler2D");
+static_assert(textureSamplerInventory()[0].textureElementType == "float");
+static_assert(textureSamplerInventory()[0].textureDimension == "2d");
+static_assert(textureSamplerInventory()[0].textureSet == 0);
+static_assert(textureSamplerInventory()[0].textureBinding == 2);
+static_assert(textureSamplerInventory()[0].samplerKind == "sampler");
+static_assert(textureSamplerInventory()[0].samplerComparison);
+static_assert(textureSamplerInventory()[0].samplerSet == 0);
+static_assert(textureSamplerInventory()[0].samplerBinding == 5);
+static_assert(textureSamplerInventory()[0].coordinateType == "vec2");
+static_assert(textureSamplerInventory()[0].lodType == "float");
+static_assert(textureSamplerInventory()[0].resultType == "vec4");
+static_assert(textureSamplerInventory()[0].explicitLod);
+static_assert(textureSamplerInventory()[0].targetIndependent);
+static_assert(!textureSamplerInventory()[0].productionLinked);
 static_assert(scalarComparisonInventory().operation == "hir.scalar_compare");
 static_assert(!scalarComparisonInventory().productionLinked);
 static_assert(structuredControlFlowInventory().structuredOnly);
 static_assert(!structuredControlFlowInventory().loopsAdmitted);
 static_assert(!structuredControlFlowInventory().earlyReturnsAdmitted);
-static_assert(sourceMapDebugContractInventory().size() == 4);
+static_assert(sourceMapDebugContractInventory().size() == 5);
 static_assert(sourceMapDebugContractInventory()[0].debugMetadataSchemaVersion == 11);
 static_assert(sourceMapDebugContractInventory()[0].hirSourceMapSchemaVersion == 7);
 static_assert(sourceMapDebugContractInventory()[0].unfilteredSourceMap);
