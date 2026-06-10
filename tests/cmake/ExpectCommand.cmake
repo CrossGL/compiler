@@ -1932,6 +1932,9 @@ elseif(MODE STREQUAL "package-runtime-plan")
   if(NOT DEFINED PACKAGE_MODE)
     set(PACKAGE_MODE "auto")
   endif()
+  if(NOT DEFINED PACKAGE_FORMAT)
+    set(PACKAGE_FORMAT "directory")
+  endif()
   if(NOT DEFINED EXPECTED_RESULT)
     set(EXPECTED_RESULT 0)
   endif()
@@ -2918,8 +2921,31 @@ elseif(MODE STREQUAL "package-runtime-plan")
     message(FATAL_ERROR "${TARGET} package runtime plan build failed: ${stderr}")
   endif()
 
+  set(package_path "${OUTPUT}")
+  if(PACKAGE_FORMAT STREQUAL "zip")
+    get_filename_component(package_parent "${OUTPUT}" DIRECTORY)
+    get_filename_component(package_name "${OUTPUT}" NAME)
+    set(package_path "${OUTPUT}.archive.cglb")
+    file(REMOVE "${package_path}")
+    execute_process(
+      COMMAND "${CMAKE_COMMAND}" -E tar cf "${package_path}" --format=zip
+              "${package_name}"
+      WORKING_DIRECTORY "${package_parent}"
+      RESULT_VARIABLE runtime_plan_archive_result
+      OUTPUT_VARIABLE runtime_plan_archive_stdout
+      ERROR_VARIABLE runtime_plan_archive_stderr
+    )
+    if(NOT runtime_plan_archive_result EQUAL 0)
+      message(FATAL_ERROR
+        "failed to create package runtime plan zip archive: "
+        "${runtime_plan_archive_stderr}${runtime_plan_archive_stdout}")
+    endif()
+  elseif(NOT PACKAGE_FORMAT STREQUAL "directory")
+    message(FATAL_ERROR "unsupported PACKAGE_FORMAT: ${PACKAGE_FORMAT}")
+  endif()
+
   set(runtime_plan_command
-      "${CGLC}" package plan-runtime "${OUTPUT}"
+      "${CGLC}" package plan-runtime "${package_path}"
       --target "${PACKAGE_RUNTIME_TARGET}"
       --package-mode "${PACKAGE_MODE}"
       --json)

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <ostream>
 #include <sstream>
@@ -129,6 +130,41 @@ bool artifactUsable(const PackageArtifactRecord *artifact) {
 bool targetSupportsSourcePackage(const PackageTargetContract &contract) {
   return contract.allowsPlannedNativeBinary ||
          contract.allowsPlannedNativeSourceEvidence;
+}
+
+bool fileHasZipSignature(const std::filesystem::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return false;
+  }
+  char signature[4] = {};
+  input.read(signature, sizeof(signature));
+  if (input.gcount() != sizeof(signature)) {
+    return false;
+  }
+  const auto third = static_cast<unsigned char>(signature[2]);
+  const auto fourth = static_cast<unsigned char>(signature[3]);
+  return signature[0] == 'P' && signature[1] == 'K' &&
+         ((third == 0x03 && fourth == 0x04) ||
+          (third == 0x05 && fourth == 0x06) ||
+          (third == 0x07 && fourth == 0x08));
+}
+
+std::optional<std::string>
+detectRuntimePlanPackageFormat(const std::filesystem::path &packagePath) {
+  std::error_code error;
+  if (!std::filesystem::exists(packagePath, error) || error) {
+    return std::nullopt;
+  }
+  if (std::filesystem::is_directory(packagePath, error) && !error) {
+    return "directory";
+  }
+  error.clear();
+  if (std::filesystem::is_regular_file(packagePath, error) && !error &&
+      fileHasZipSignature(packagePath)) {
+    return "zip";
+  }
+  return std::nullopt;
 }
 
 bool nativeArtifactReady(const PackageMetadata &metadata,
@@ -402,6 +438,7 @@ void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
 void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
                    const PackageMetadata *metadata,
                    const PackageTargetContract *contract,
+                   const std::optional<std::string> &packageFormat,
                    const Selection &selection,
                    const std::vector<Diagnostic> &diagnostics,
                    bool success) {
@@ -419,11 +456,7 @@ void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
       << "  \"compilerInvocationRequired\": false,\n"
       << "  \"deviceExecutionRequired\": false,\n"
       << "  \"packageFormat\": ";
-  if (metadata) {
-    out << "\"directory\"";
-  } else {
-    out << "null";
-  }
+  writeNullableString(out, packageFormat);
   out << ",\n"
       << "  \"packageTarget\": ";
   writeNullableString(out, packageTarget);
@@ -522,6 +555,8 @@ bool parseRuntimeLoaderPackageMode(std::string_view text,
 PackageRuntimePlanResult
 planPackageRuntimeLoader(const PackageRuntimePlanOptions &options) {
   DiagnosticEngine diagnostics;
+  std::optional<std::string> packageFormat =
+      detectRuntimePlanPackageFormat(options.packagePath);
   PackageMetadataLoadOptions metadataOptions;
   metadataOptions.diagnosticCodePrefix = "package.runtime-plan";
   metadataOptions.commandName = "package plan-runtime";
@@ -575,7 +610,7 @@ planPackageRuntimeLoader(const PackageRuntimePlanOptions &options) {
 
   std::ostringstream json;
   writePlanJson(json, options, metadata ? &*metadata : nullptr, contract,
-                selection, allDiagnostics, success);
+                packageFormat, selection, allDiagnostics, success);
   return PackageRuntimePlanResult{success, json.str(), std::move(allDiagnostics)};
 }
 

@@ -7,6 +7,7 @@ function(crossgl_add_runtime_loader_plan_schema_test)
     OUTPUT
     PACKAGE_RUNTIME_TARGET
     PACKAGE_MODE
+    PACKAGE_FORMAT
     EXPECTED_RESULT
     TOOLCHAIN_PATH)
   set(multi_value_args
@@ -50,6 +51,10 @@ function(crossgl_add_runtime_loader_plan_schema_test)
   if(CROSSGL_RUNTIME_PLAN_PACKAGE_MODE)
     list(APPEND runtime_plan_definitions
       "-DPACKAGE_MODE=${CROSSGL_RUNTIME_PLAN_PACKAGE_MODE}")
+  endif()
+  if(CROSSGL_RUNTIME_PLAN_PACKAGE_FORMAT)
+    list(APPEND runtime_plan_definitions
+      "-DPACKAGE_FORMAT=${CROSSGL_RUNTIME_PLAN_PACKAGE_FORMAT}")
   endif()
   if(DEFINED CROSSGL_RUNTIME_PLAN_EXPECTED_RESULT)
     list(APPEND runtime_plan_definitions
@@ -134,5 +139,18 @@ crossgl_add_runtime_loader_plan_schema_test(
   EXPECTED_RESULT 1
   EXPECTED_JSON_FIELDS
     "schemaVersion=1|kind=crossgl-runtime-loader-plan|success=false|metadataOnly=true|compilerInvocationRequired=false|deviceExecutionRequired=false|packageFormat=directory|packageTarget=directx|requestedLoaderTarget=vulkan|targetMatchesPackage=false|requestedPackageMode=auto|selectedPackageMode=null|selectedArtifact=null|packageArtifactRequirementsSource=manifest.packageArtifactRequirements|packageArtifactRequirements.target=directx|packageArtifactRequirements.packageMode=source-package|targetLegalizationEvidenceSummary.target=directx|targetLegalizationEvidenceSummary.packageMode=source-package|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.runtime-plan.target-mismatch"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "requiredMetadataInputs=3|diagnostics=1")
+
+crossgl_add_runtime_loader_plan_schema_test(
+  NAME cglc_package_runtime_plan_zip_unsupported_schema
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/runtime-plan-directx-archive.cglb
+  PACKAGE_FORMAT zip
+  PACKAGE_MODE auto
+  EXPECTED_RESULT 1
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|kind=crossgl-runtime-loader-plan|success=false|metadataOnly=true|compilerInvocationRequired=false|deviceExecutionRequired=false|packageFormat=zip|packageTarget=null|requestedLoaderTarget=directx|targetMatchesPackage=false|requestedPackageMode=auto|selectedPackageMode=null|selectedArtifact=null|packageArtifactRequirementsSource=null|packageArtifactRequirements=null|targetLegalizationEvidenceSummary=null|reflectionSummary=null|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.runtime-plan.unsupported-format"
   EXPECTED_JSON_ARRAY_LENGTHS
     "requiredMetadataInputs=3|diagnostics=1")
