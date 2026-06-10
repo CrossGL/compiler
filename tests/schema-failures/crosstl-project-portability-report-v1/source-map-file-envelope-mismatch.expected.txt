@@ -1,0 +1,1 @@
+$.artifacts[0].sourceMap.mappings[0]: expected source/generated envelopes for file granularity

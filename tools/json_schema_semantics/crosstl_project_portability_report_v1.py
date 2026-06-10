@@ -88,6 +88,10 @@ def _spans_overlap(left, right):
     return left["offset"] < right["endOffset"] and right["offset"] < left["endOffset"]
 
 
+def _span_is_single_line(span):
+    return span["line"] == span["endLine"]
+
+
 def _validate_source_map_span(errors, path, span):
     validate_source_location_span(errors, path, span)
     if span["length"] <= 0:
@@ -153,6 +157,14 @@ def _validate_source_map_semantics(
             generated_span,
             f"{artifact_path}.sourceMap.generated",
         )
+        if source_map_granularity == "line" and not (
+            _span_is_single_line(mapping_source)
+            and _span_is_single_line(mapping_generated)
+        ):
+            errors.append(
+                f"{mapping_path}: expected single source and generated line "
+                "for line granularity"
+            )
         for prior_index, prior_generated in generated_spans:
             if _spans_overlap(prior_generated, mapping_generated):
                 errors.append(
@@ -168,6 +180,22 @@ def _validate_source_map_semantics(
         if mapping_identity in seen_mappings:
             errors.append(f"{mapping_path}: duplicate source/generated span pair")
         seen_mappings.add(mapping_identity)
+
+    if source_map_granularity == "file":
+        if len(source_map["mappings"]) != 1:
+            errors.append(
+                f"{artifact_path}.sourceMap.mappings: expected exactly one "
+                "source/generated span pair for file granularity"
+            )
+            return
+        mapping = source_map["mappings"][0]
+        if _span_identity(mapping["source"]) != _span_identity(
+            source_span
+        ) or _span_identity(mapping["generated"]) != _span_identity(generated_span):
+            errors.append(
+                f"{artifact_path}.sourceMap.mappings[0]: expected "
+                "source/generated envelopes for file granularity"
+            )
 
 
 def validate_semantics(instance):
