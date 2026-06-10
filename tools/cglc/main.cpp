@@ -2440,11 +2440,70 @@ std::string uniqueCrossTLProjectReportEntryId(const SourceBatchManifest &manifes
   return candidate;
 }
 
+bool crossTLProjectReportTargetDeclared(
+    const std::optional<std::vector<std::string>> &declaredTargets,
+    std::string_view target) {
+  if (!declaredTargets) {
+    return true;
+  }
+  for (const std::string &declaredTarget : *declaredTargets) {
+    if (declaredTarget == target) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool parseOptionalCrossTLProjectReportDeclaredTargets(
+    std::string_view projectText, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    std::optional<std::vector<std::string>> &declaredTargets) {
+  const std::optional<std::string_view> targetsText =
+      crossgl::findObjectMemberValue(projectText, "targets");
+  if (!targetsText) {
+    return true;
+  }
+
+  std::vector<std::string> parsedTargets;
+  bool valid = true;
+  const bool parsedArray = forEachSourceBatchJsonArrayElement(
+      *targetsText, [&](std::size_t targetIndex, std::string_view targetText) {
+        if (!valid) {
+          return false;
+        }
+        std::string target;
+        if (!parseSourceBatchStringMemberValue(targetText, target) ||
+            target.empty()) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              "CrossTL project report project.targets[" +
+                  std::to_string(targetIndex) +
+                  "] must be a non-empty string");
+          valid = false;
+          return false;
+        }
+        parsedTargets.push_back(std::move(target));
+        return true;
+      });
+  if (!parsedArray || !valid) {
+    if (!parsedArray && valid) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          "CrossTL project report project.targets must be a JSON array");
+    }
+    return false;
+  }
+
+  declaredTargets = std::move(parsedTargets);
+  return true;
+}
+
 bool parseCrossTLProjectReportArtifact(
     std::string_view artifactText, std::size_t artifactIndex,
     const std::filesystem::path &projectRoot, SourceBatchManifest &manifest,
     crossgl::DiagnosticEngine &diagnostics,
-    CrossTLProjectReportStats &stats) {
+    CrossTLProjectReportStats &stats,
+    const std::optional<std::vector<std::string>> &declaredTargets) {
   const std::string context =
       "CrossTL project report artifacts[" + std::to_string(artifactIndex) + "]";
   if (!crossgl::isJsonObjectDocument(artifactText)) {
@@ -2469,6 +2528,12 @@ bool parseCrossTLProjectReportArtifact(
   if (!parseOptionalSourceBatchStringMember(artifactText, "target", context,
                                             manifest.path, diagnostics,
                                             target)) {
+    return false;
+  }
+  if (target && !crossTLProjectReportTargetDeclared(declaredTargets, *target)) {
+    sourceBatchManifestError(
+        diagnostics, manifest.path,
+        context + ".target must be declared by project.targets");
     return false;
   }
   std::optional<std::string> path;
@@ -2917,7 +2982,8 @@ bool parseCrossTLProjectReportDiagnostic(
     std::string_view diagnosticText, std::size_t diagnosticIndex,
     const std::filesystem::path &manifestPath,
     crossgl::DiagnosticEngine &diagnostics,
-    CrossTLProjectReportStats &stats) {
+    CrossTLProjectReportStats &stats,
+    const std::optional<std::vector<std::string>> &declaredTargets) {
   const std::string context =
       "CrossTL project report diagnostics[" +
       std::to_string(diagnosticIndex) + "]";
@@ -2953,6 +3019,12 @@ bool parseCrossTLProjectReportDiagnostic(
   if (!parseOptionalSourceBatchStringMember(diagnosticText, "target", context,
                                             manifestPath, diagnostics,
                                             target)) {
+    return false;
+  }
+  if (target && !crossTLProjectReportTargetDeclared(declaredTargets, *target)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        context + ".target must be declared by project.targets");
     return false;
   }
   if (target) {
@@ -2994,7 +3066,8 @@ bool parseCrossTLProjectReportDiagnostic(
 bool parseCrossTLProjectReportDiagnostics(
     std::string_view document, const std::filesystem::path &manifestPath,
     crossgl::DiagnosticEngine &diagnostics,
-    CrossTLProjectReportStats &stats) {
+    CrossTLProjectReportStats &stats,
+    const std::optional<std::vector<std::string>> &declaredTargets) {
   const std::optional<std::string_view> diagnosticsText =
       crossgl::findObjectMemberValue(document, "diagnostics");
   if (!diagnosticsText) {
@@ -3007,7 +3080,8 @@ bool parseCrossTLProjectReportDiagnostics(
           return false;
         }
         valid = parseCrossTLProjectReportDiagnostic(
-            diagnosticText, index, manifestPath, diagnostics, stats);
+            diagnosticText, index, manifestPath, diagnostics, stats,
+            declaredTargets);
         return valid;
       });
   if (!parsedDiagnostics && valid) {
@@ -3061,6 +3135,7 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
   }
   manifest.root = reportBase.lexically_normal();
   std::filesystem::path projectRoot = manifest.root;
+  std::optional<std::vector<std::string>> declaredTargets;
   if (const std::optional<std::string_view> project =
           crossgl::findObjectMemberValue(document, "project")) {
     if (!crossgl::isJsonObjectDocument(*project)) {
@@ -3077,6 +3152,10 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
     }
     if (root && !root->empty()) {
       projectRoot = resolveManifestPath(reportBase, *root);
+    }
+    if (!parseOptionalCrossTLProjectReportDeclaredTargets(
+            *project, manifestPath, diagnostics, declaredTargets)) {
+      return std::nullopt;
     }
   }
 
@@ -3096,7 +3175,8 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
           return false;
         }
         valid = parseCrossTLProjectReportArtifact(
-            artifactText, index, projectRoot, manifest, diagnostics, stats);
+            artifactText, index, projectRoot, manifest, diagnostics, stats,
+            declaredTargets);
         return valid;
       });
   if (!parsedArtifacts || !valid) {
@@ -3108,7 +3188,7 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
     return std::nullopt;
   }
   if (!parseCrossTLProjectReportDiagnostics(document, manifestPath, diagnostics,
-                                            stats) ||
+                                            stats, declaredTargets) ||
       !validateCrossTLProjectReportRootDiagnosticCounts(
           rootDiagnosticCounts, stats.diagnosticCounts, manifestPath,
           diagnostics)) {

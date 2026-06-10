@@ -203,6 +203,10 @@ def validate_semantics(instance):
     artifacts = instance["artifacts"]
     summary = instance["summary"]
     diagnostics = instance.get("diagnostics", [])
+    project = instance.get("project")
+    declared_targets = None
+    if isinstance(project, dict) and isinstance(project.get("targets"), list):
+        declared_targets = set(project["targets"])
 
     artifact_provenance_by_pipeline = {}
     artifact_provenance_by_intermediate = {}
@@ -242,6 +246,15 @@ def validate_semantics(instance):
         provenance = artifact.get("provenance")
         source_map = artifact.get("sourceMap")
         source_remap = artifact.get("sourceRemap")
+
+        if (
+            declared_targets is not None
+            and target is not None
+            and target not in declared_targets
+        ):
+            errors.append(
+                f"{artifact_path}.target: expected to be declared in $.project.targets"
+            )
 
         if status == "failed" and source_map is not None:
             errors.append(
@@ -385,6 +398,18 @@ def validate_semantics(instance):
             errors.append(f"{artifact_path}.sourceRemap.mappingCount: expected > 0")
 
     if "diagnostics" in instance:
+        for diagnostic_index, diagnostic in enumerate(diagnostics):
+            target = diagnostic.get("target")
+            if (
+                declared_targets is not None
+                and target is not None
+                and target not in declared_targets
+            ):
+                errors.append(
+                    f"$.diagnostics[{diagnostic_index}].target: expected to be "
+                    "declared in $.project.targets"
+                )
+
         diagnostic_counts = _diagnostic_counts(diagnostics)
         diagnostics_by_code = _diagnostic_counts_by_field(diagnostics, "code")
         diagnostics_by_target = _diagnostic_counts_by_field(diagnostics, "target")
