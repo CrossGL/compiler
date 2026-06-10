@@ -106,6 +106,7 @@ class SourceFreeNativeBackendLoaderPlan:
     entry_points: tuple[dict[str, Any], ...]
     resources: tuple[dict[str, Any], ...]
     target_resource_bindings: tuple[dict[str, Any], ...]
+    target_resource_binding_metadata: tuple[dict[str, Any], ...]
     workgroup_sizes: tuple[dict[str, Any], ...]
     diagnostics: tuple[CompatibilityDiagnostic, ...]
 
@@ -217,12 +218,21 @@ class SourceFreeNativeBackendLoaderPlan:
                 "entryPointCount": len(self.entry_points),
                 "resourceCount": len(self.resources),
                 "targetResourceBindingCount": len(self.target_resource_bindings),
+                "targetResourceBindingMetadataCount": len(
+                    self.target_resource_binding_metadata
+                ),
                 "workgroupSizeCount": len(self.workgroup_sizes),
                 "entryPoints": list(self.entry_points),
                 "resources": list(self.resources),
                 "targetResourceBindings": list(self.target_resource_bindings),
+                "targetResourceBindingMetadata": list(
+                    self.target_resource_binding_metadata
+                ),
                 "workgroupSizes": list(self.workgroup_sizes),
             },
+            "targetResourceBindingMetadata": (
+                self.runtime_plan.target_resource_binding_metadata_summary
+            ),
             "graphicsDescriptorBindings": (
                 self.runtime_plan.compatibility_report.graphics_descriptor_bindings
             ),
@@ -266,6 +276,9 @@ def plan_source_free_native_backend_loader(
     entry_points = _reflection_records(runtime_plan, "entryPoints")
     resources = _reflection_records(runtime_plan, "resources")
     target_resource_bindings = _target_resource_bindings(runtime_plan, target)
+    target_resource_binding_metadata = (
+        runtime_plan.target_resource_binding_metadata_records(target=target)
+    )
     workgroup_sizes = runtime_plan.workgroup_sizes
 
     diagnostics.extend(
@@ -293,6 +306,7 @@ def plan_source_free_native_backend_loader(
         entry_points=entry_points,
         resources=resources,
         target_resource_bindings=target_resource_bindings,
+        target_resource_binding_metadata=target_resource_binding_metadata,
         workgroup_sizes=workgroup_sizes,
         diagnostics=tuple(diagnostics),
     )

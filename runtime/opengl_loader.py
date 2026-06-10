@@ -119,6 +119,11 @@ def plan_opengl_native_loader(
             runtime_plan,
             OPENGL_LOADER_TARGET,
         ),
+        target_resource_binding_metadata=(
+            runtime_plan.target_resource_binding_metadata_records(
+                target=OPENGL_LOADER_TARGET,
+            )
+        ),
         workgroup_sizes=runtime_plan.workgroup_sizes,
         diagnostics=runtime_plan.diagnostics,
     )

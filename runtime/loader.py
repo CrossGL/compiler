@@ -972,6 +972,61 @@ class RuntimeLoaderPlan:
             )
         return resource
 
+    def target_resource_binding_metadata_records(
+        self,
+        *,
+        target: str | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        """Return loader-facing binding metadata records for a selected target."""
+        expected_target = self.loader_target if target is None else target
+        bindings = self.target_resource_binding_metadata_summary.get("bindings")
+        if not isinstance(bindings, list):
+            return ()
+        return tuple(
+            record
+            for record in bindings
+            if isinstance(record, dict) and record.get("target") == expected_target
+        )
+
+    def target_resource_binding_metadata(
+        self,
+        stage: str,
+        name: str,
+        *,
+        target: str | None = None,
+        entry_point: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Find loader-facing target binding metadata by stage and resource name."""
+        for record in self.target_resource_binding_metadata_records(target=target):
+            if record.get("stage") != stage or record.get("name") != name:
+                continue
+            if entry_point is not None and record.get("entryPoint") != entry_point:
+                continue
+            return record
+        return None
+
+    def require_target_resource_binding_metadata(
+        self,
+        stage: str,
+        name: str,
+        *,
+        target: str | None = None,
+        entry_point: str | None = None,
+    ) -> dict[str, Any]:
+        record = self.target_resource_binding_metadata(
+            stage,
+            name,
+            target=target,
+            entry_point=entry_point,
+        )
+        if record is None:
+            expected_target = self.loader_target if target is None else target
+            raise PackageReadError(
+                "missing reflection target resource binding metadata: "
+                f"target={expected_target} stage={stage} name={name}"
+            )
+        return record
+
     @property
     def workgroup_sizes(self) -> tuple[dict[str, Any], ...]:
         """Return reflected compute workgroup sizes from package metadata."""

@@ -89,6 +89,7 @@ def plan_metal_native_loader(
         entry_points=base_plan.entry_points,
         resources=base_plan.resources,
         target_resource_bindings=base_plan.target_resource_bindings,
+        target_resource_binding_metadata=base_plan.target_resource_binding_metadata,
         workgroup_sizes=base_plan.workgroup_sizes,
         diagnostics=diagnostics,
     )

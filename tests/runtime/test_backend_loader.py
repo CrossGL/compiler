@@ -113,6 +113,25 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
                 "sourcePath",
                 summary["nativeArtifactDescriptor"]["fields"],
             )
+            metadata = summary["targetResourceBindingMetadata"]
+            self.assertEqual(
+                metadata,
+                summary["runtimePlan"]["targetResourceBindingMetadata"],
+            )
+            self.assertEqual(metadata["bindingCount"], 1)
+            self.assertEqual(
+                summary["reflection"]["targetResourceBindingMetadataCount"],
+                1,
+            )
+            self.assertEqual(
+                summary["reflection"]["targetResourceBindingMetadata"],
+                metadata["bindings"],
+            )
+            self.assertEqual(
+                metadata["bindings"][0]["entryPoint"],
+                "runtime_backend_loader_main",
+            )
+            self.assertEqual(metadata["bindings"][0]["abi"], {"buffer": 0})
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 
     def test_ready_plan_returns_explicit_runtime_artifact_handoff(self) -> None:
@@ -149,6 +168,10 @@ class SourceFreeNativeBackendLoaderAdmissionTests(unittest.TestCase):
             self.assertEqual(
                 handoff.metadata["runtimeArtifact"]["name"],
                 "nativeBinary",
+            )
+            self.assertEqual(
+                handoff.metadata["targetResourceBindingMetadata"],
+                summary["targetResourceBindingMetadata"],
             )
             self.assertEqual(list(package_dir.rglob("*.cgl")), [source_path])
 

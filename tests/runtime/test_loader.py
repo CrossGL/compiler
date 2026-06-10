@@ -299,6 +299,27 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             )
             self.assertEqual(target_resource["hlslType"], "RWStructuredBuffer<float4>")
             self.assertEqual(target_resource["descriptorType"], "UAV")
+            metadata_record = plan.require_target_resource_binding_metadata(
+                "compute",
+                "OutputBuffer",
+                entry_point="runtime_loader_main",
+            )
+            self.assertEqual(metadata_record, binding_metadata["bindings"][0])
+            self.assertEqual(
+                plan.target_resource_binding_metadata_records(),
+                (metadata_record,),
+            )
+            self.assertIsNone(
+                plan.target_resource_binding_metadata("compute", "MissingBuffer")
+            )
+            with self.assertRaisesRegex(
+                PackageReadError,
+                "target resource binding metadata",
+            ):
+                plan.require_target_resource_binding_metadata(
+                    "compute",
+                    "MissingBuffer",
+                )
             self.assertEqual(
                 summary["compatibilityReport"]["sourceParsingRequired"],
                 False,
