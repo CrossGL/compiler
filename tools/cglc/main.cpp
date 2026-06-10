@@ -1142,6 +1142,12 @@ struct CrossTLProjectReportSummary {
   std::uintmax_t sourceRemapCount = 0;
   std::uintmax_t sourceRemapMappingCount = 0;
   using CountMap = std::vector<std::pair<std::string, std::uintmax_t>>;
+  std::optional<std::uintmax_t> sourceMapCount;
+  std::optional<std::uintmax_t> fineGrainedSourceMapCount;
+  std::optional<CountMap> sourceMapsByGranularity;
+  std::optional<CountMap> sourceMapsByTarget;
+  std::optional<CountMap> sourceMapsBySourceBackend;
+  std::optional<CountMap> sourceMapsByVariant;
   std::optional<CountMap> sourceRemapsByGranularity;
   std::optional<CountMap> sourceRemapsByTarget;
   std::optional<CountMap> sourceRemapsBySourceBackend;
@@ -1150,8 +1156,14 @@ struct CrossTLProjectReportSummary {
 
 struct CrossTLProjectReportStats {
   std::uintmax_t artifactCount = 0;
+  std::uintmax_t sourceMapCount = 0;
+  std::uintmax_t fineGrainedSourceMapCount = 0;
   std::uintmax_t sourceRemapCount = 0;
   std::uintmax_t sourceRemapMappingCount = 0;
+  CrossTLProjectReportSummary::CountMap sourceMapsByGranularity;
+  CrossTLProjectReportSummary::CountMap sourceMapsByTarget;
+  CrossTLProjectReportSummary::CountMap sourceMapsBySourceBackend;
+  CrossTLProjectReportSummary::CountMap sourceMapsByVariant;
   CrossTLProjectReportSummary::CountMap sourceRemapsByGranularity;
   CrossTLProjectReportSummary::CountMap sourceRemapsByTarget;
   CrossTLProjectReportSummary::CountMap sourceRemapsBySourceBackend;
@@ -1290,6 +1302,16 @@ bool parseOptionalCrossTLProjectReportSummaryCountMap(
   return true;
 }
 
+bool parseOptionalCrossTLProjectReportSummaryUnsignedMember(
+    std::string_view summary, std::string_view key,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    std::optional<std::uintmax_t> &value) {
+  return parseOptionalSourceBatchUnsignedMember(
+      summary, key, "CrossTL project report summary", manifestPath, diagnostics,
+      value);
+}
+
 bool parseCrossTLProjectReportSummary(
     std::string_view document, const std::filesystem::path &manifestPath,
     crossgl::DiagnosticEngine &diagnostics,
@@ -1316,6 +1338,24 @@ bool parseCrossTLProjectReportSummary(
          parseRequiredCrossTLProjectReportSummaryUnsignedMember(
              *summaryText, "sourceRemapMappingCount", manifestPath, diagnostics,
              summary.sourceRemapMappingCount) &&
+         parseOptionalCrossTLProjectReportSummaryUnsignedMember(
+             *summaryText, "sourceMapCount", manifestPath, diagnostics,
+             summary.sourceMapCount) &&
+         parseOptionalCrossTLProjectReportSummaryUnsignedMember(
+             *summaryText, "fineGrainedSourceMapCount", manifestPath,
+             diagnostics, summary.fineGrainedSourceMapCount) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "sourceMapsByGranularity", manifestPath,
+             diagnostics, summary.sourceMapsByGranularity) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "sourceMapsByTarget", manifestPath, diagnostics,
+             summary.sourceMapsByTarget) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "sourceMapsBySourceBackend", manifestPath,
+             diagnostics, summary.sourceMapsBySourceBackend) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "sourceMapsByVariant", manifestPath, diagnostics,
+             summary.sourceMapsByVariant) &&
          parseOptionalCrossTLProjectReportSummaryCountMap(
              *summaryText, "sourceRemapsByGranularity", manifestPath,
              diagnostics, summary.sourceRemapsByGranularity) &&
@@ -1371,7 +1411,7 @@ bool crossTLProjectReportCountMapsMatch(
 bool validateCrossTLProjectReportSummaryCountMap(
     const std::optional<CrossTLProjectReportSummary::CountMap> &summaryCounts,
     const CrossTLProjectReportSummary::CountMap &statsCounts,
-    std::string_view key, std::string_view label,
+    std::string_view key, std::string_view itemLabel, std::string_view countLabel,
     const std::filesystem::path &manifestPath,
     crossgl::DiagnosticEngine &diagnostics) {
   if (!summaryCounts ||
@@ -1381,7 +1421,23 @@ bool validateCrossTLProjectReportSummaryCountMap(
   sourceBatchManifestError(
       diagnostics, manifestPath,
       "CrossTL project report summary." + std::string(key) +
-          " must match sourceRemap counts by " + std::string(label));
+          " must match " + std::string(itemLabel) + " counts by " +
+          std::string(countLabel));
+  return false;
+}
+
+bool validateCrossTLProjectReportSummaryOptionalCount(
+    const std::optional<std::uintmax_t> &summaryCount,
+    std::uintmax_t statsCount, std::string_view key, std::string_view label,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  if (!summaryCount || *summaryCount == statsCount) {
+    return true;
+  }
+  sourceBatchManifestError(
+      diagnostics, manifestPath,
+      "CrossTL project report summary." + std::string(key) + " must match " +
+          std::string(label) + " " + std::to_string(statsCount));
   return false;
 }
 
@@ -1414,20 +1470,47 @@ bool validateCrossTLProjectReportSummary(
             std::to_string(stats.sourceRemapMappingCount));
     return false;
   }
-  return validateCrossTLProjectReportSummaryCountMap(
+  return validateCrossTLProjectReportSummaryOptionalCount(
+             summary.sourceMapCount, stats.sourceMapCount, "sourceMapCount",
+             "sourceMap artifact count", manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryOptionalCount(
+             summary.fineGrainedSourceMapCount, stats.fineGrainedSourceMapCount,
+             "fineGrainedSourceMapCount",
+             "fine-grained sourceMap artifact count", manifestPath,
+             diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.sourceMapsByGranularity, stats.sourceMapsByGranularity,
+             "sourceMapsByGranularity", "sourceMap", "granularity",
+             manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.sourceMapsByTarget, stats.sourceMapsByTarget,
+             "sourceMapsByTarget", "sourceMap", "target", manifestPath,
+             diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.sourceMapsBySourceBackend, stats.sourceMapsBySourceBackend,
+             "sourceMapsBySourceBackend", "sourceMap", "source backend",
+             manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.sourceMapsByVariant, stats.sourceMapsByVariant,
+             "sourceMapsByVariant", "sourceMap", "variant", manifestPath,
+             diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
              summary.sourceRemapsByGranularity, stats.sourceRemapsByGranularity,
-             "sourceRemapsByGranularity", "granularity", manifestPath,
+             "sourceRemapsByGranularity", "sourceRemap", "granularity",
+             manifestPath,
              diagnostics) &&
          validateCrossTLProjectReportSummaryCountMap(
              summary.sourceRemapsByTarget, stats.sourceRemapsByTarget,
-             "sourceRemapsByTarget", "target", manifestPath, diagnostics) &&
+             "sourceRemapsByTarget", "sourceRemap", "target", manifestPath,
+             diagnostics) &&
          validateCrossTLProjectReportSummaryCountMap(
              summary.sourceRemapsBySourceBackend,
              stats.sourceRemapsBySourceBackend, "sourceRemapsBySourceBackend",
-             "source backend", manifestPath, diagnostics) &&
+             "sourceRemap", "source backend", manifestPath, diagnostics) &&
          validateCrossTLProjectReportSummaryCountMap(
              summary.sourceRemapsByVariant, stats.sourceRemapsByVariant,
-             "sourceRemapsByVariant", "variant", manifestPath, diagnostics);
+             "sourceRemapsByVariant", "sourceRemap", "variant", manifestPath,
+             diagnostics);
 }
 
 std::string uniqueCrossTLProjectReportEntryId(const SourceBatchManifest &manifest,
@@ -1476,6 +1559,67 @@ bool parseCrossTLProjectReportArtifact(
                                             target)) {
     return false;
   }
+  std::optional<std::string> sourceBackend;
+  if (!parseOptionalSourceBatchStringMember(artifactText, "sourceBackend",
+                                            context, manifest.path,
+                                            diagnostics, sourceBackend)) {
+    return false;
+  }
+  std::optional<std::string> variant;
+  if (!parseOptionalSourceBatchStringMember(artifactText, "variant", context,
+                                            manifest.path, diagnostics,
+                                            variant)) {
+    return false;
+  }
+
+  const std::optional<std::string_view> sourceMap =
+      crossgl::findObjectMemberValue(artifactText, "sourceMap");
+  if (sourceMap) {
+    if (!crossgl::isJsonObjectDocument(*sourceMap)) {
+      sourceBatchManifestError(diagnostics, manifest.path,
+                               context + ".sourceMap must be a JSON object");
+      return false;
+    }
+    std::optional<std::string> sourceMapGranularity;
+    if (!parseOptionalSourceBatchStringMember(
+            *sourceMap, "mappingGranularity", context + ".sourceMap",
+            manifest.path, diagnostics, sourceMapGranularity)) {
+      return false;
+    }
+    if (!sourceMapGranularity) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceMap.mappingGranularity must be recorded");
+      return false;
+    }
+    std::optional<std::string> sourceMapTarget;
+    if (!parseOptionalSourceBatchStringMember(
+            *sourceMap, "target", context + ".sourceMap", manifest.path,
+            diagnostics, sourceMapTarget)) {
+      return false;
+    }
+    if (target && sourceMapTarget && *sourceMapTarget != *target) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".sourceMap.target must match artifact target '" + *target +
+              "'");
+      return false;
+    }
+    ++stats.sourceMapCount;
+    if (*sourceMapGranularity != "file") {
+      ++stats.fineGrainedSourceMapCount;
+    }
+    incrementCrossTLProjectReportCountMap(stats.sourceMapsByGranularity,
+                                          *sourceMapGranularity);
+    incrementCrossTLProjectReportCountMap(
+        stats.sourceMapsByTarget, target ? *target : std::string("unknown"));
+    incrementCrossTLProjectReportCountMap(
+        stats.sourceMapsBySourceBackend,
+        sourceBackend ? *sourceBackend : std::string("unknown"));
+    if (variant) {
+      incrementCrossTLProjectReportCountMap(stats.sourceMapsByVariant, *variant);
+    }
+  }
 
   const std::optional<std::string_view> sourceRemap =
       crossgl::findObjectMemberValue(artifactText, "sourceRemap");
@@ -1483,8 +1627,6 @@ bool parseCrossTLProjectReportArtifact(
   std::optional<std::string> sourceRemapGranularity;
   std::optional<std::string> sourceRemapPath;
   std::optional<std::string> sourceRemapTarget;
-  std::optional<std::string> sourceBackend;
-  std::optional<std::string> variant;
   if (sourceRemap) {
     if (!crossgl::isJsonObjectDocument(*sourceRemap)) {
       sourceBatchManifestError(diagnostics, manifest.path,
@@ -1556,25 +1698,13 @@ bool parseCrossTLProjectReportArtifact(
                                           *sourceRemapGranularity);
     incrementCrossTLProjectReportCountMap(stats.sourceRemapsByTarget,
                                           *sourceRemapTarget);
-    if (parseOptionalSourceBatchStringMember(
-            artifactText, "sourceBackend", context, manifest.path, diagnostics,
-            sourceBackend)) {
-      if (sourceBackend) {
-        incrementCrossTLProjectReportCountMap(
-            stats.sourceRemapsBySourceBackend, *sourceBackend);
-      }
-    } else {
-      return false;
+    if (sourceBackend) {
+      incrementCrossTLProjectReportCountMap(stats.sourceRemapsBySourceBackend,
+                                            *sourceBackend);
     }
-    if (parseOptionalSourceBatchStringMember(
-            artifactText, "variant", context, manifest.path, diagnostics,
-            variant)) {
-      if (variant) {
-        incrementCrossTLProjectReportCountMap(stats.sourceRemapsByVariant,
-                                              *variant);
-      }
-    } else {
-      return false;
+    if (variant) {
+      incrementCrossTLProjectReportCountMap(stats.sourceRemapsByVariant,
+                                            *variant);
     }
   }
 
