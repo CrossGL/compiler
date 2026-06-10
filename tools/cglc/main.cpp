@@ -766,6 +766,12 @@ bool pathLexicallyInsideOrEqual(const std::filesystem::path &root,
   return true;
 }
 
+bool pathLexicallyInside(const std::filesystem::path &root,
+                         const std::filesystem::path &path) {
+  return path.lexically_normal() != root.lexically_normal() &&
+         pathLexicallyInsideOrEqual(root, path);
+}
+
 bool isStableRelativeFilesystemPath(const std::filesystem::path &path) {
   return isSourceBatchStableRelativePath(path.generic_string());
 }
@@ -2646,7 +2652,9 @@ bool validateCrossTLProjectReportSummaryDeclaredTargetKeys(
 
 bool parseCrossTLProjectReportArtifact(
     std::string_view artifactText, std::size_t artifactIndex,
-    const std::filesystem::path &projectRoot, SourceBatchManifest &manifest,
+    const std::filesystem::path &projectRoot,
+    const std::optional<std::filesystem::path> &projectOutputDir,
+    SourceBatchManifest &manifest,
     crossgl::DiagnosticEngine &diagnostics,
     CrossTLProjectReportStats &stats,
     const std::optional<std::vector<std::string>> &declaredTargets) {
@@ -2687,10 +2695,20 @@ bool parseCrossTLProjectReportArtifact(
           artifactText, "path", context, manifest.path, diagnostics, path)) {
     return false;
   }
+  if (path && projectOutputDir) {
+    const std::filesystem::path artifactPath =
+        resolveManifestPath(projectRoot, *path);
+    if (!pathLexicallyInside(*projectOutputDir, artifactPath)) {
+      sourceBatchManifestError(
+          diagnostics, manifest.path,
+          context + ".path must resolve inside project.outputDir");
+      return false;
+    }
+  }
   std::optional<std::string> source;
-  if (!parseOptionalSourceBatchStringMember(artifactText, "source", context,
-                                            manifest.path, diagnostics, source,
-                                            /*requireNonEmpty=*/false)) {
+  if (!parseOptionalSourceBatchStableRelativePathMember(
+          artifactText, "source", context, manifest.path, diagnostics,
+          source)) {
     return false;
   }
   std::optional<std::string> sourceBackend;
@@ -2911,6 +2929,17 @@ bool parseCrossTLProjectReportArtifact(
           diagnostics, manifest.path,
           context + ".sourceRemap.path must be a stable relative path");
       return false;
+    }
+    if (projectOutputDir) {
+      const std::filesystem::path resolvedSourceRemapPath =
+          resolveManifestPath(projectRoot, *sourceRemapPath);
+      if (!pathLexicallyInside(*projectOutputDir, resolvedSourceRemapPath)) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            context +
+                ".sourceRemap.path must resolve inside project.outputDir");
+        return false;
+      }
     }
     for (const std::string &usedPath : stats.sourceRemapPaths) {
       if (usedPath == *sourceRemapPath) {
@@ -3294,6 +3323,7 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
   }
   manifest.root = reportBase.lexically_normal();
   std::filesystem::path projectRoot = manifest.root;
+  std::optional<std::filesystem::path> projectOutputDir;
   std::optional<std::vector<std::string>> declaredTargets;
   if (const std::optional<std::string_view> project =
           crossgl::findObjectMemberValue(document, "project")) {
@@ -3319,15 +3349,16 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
       return std::nullopt;
     }
     if (outputDir) {
-      const std::filesystem::path projectOutputDir =
+      const std::filesystem::path resolvedProjectOutputDir =
           resolveManifestPath(projectRoot, *outputDir);
-      if (!pathLexicallyInsideOrEqual(projectRoot, projectOutputDir)) {
+      if (!pathLexicallyInsideOrEqual(projectRoot, resolvedProjectOutputDir)) {
         sourceBatchManifestError(
             diagnostics, manifestPath,
             "CrossTL project report project.outputDir must resolve inside "
             "project.root");
         return std::nullopt;
       }
+      projectOutputDir = resolvedProjectOutputDir;
     }
     if (!parseOptionalCrossTLProjectReportDeclaredTargets(
             *project, manifestPath, diagnostics, declaredTargets)) {
@@ -3355,8 +3386,8 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
           return false;
         }
         valid = parseCrossTLProjectReportArtifact(
-            artifactText, index, projectRoot, manifest, diagnostics, stats,
-            declaredTargets);
+            artifactText, index, projectRoot, projectOutputDir, manifest,
+            diagnostics, stats, declaredTargets);
         return valid;
       });
   if (!parsedArtifacts || !valid) {

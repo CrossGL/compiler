@@ -229,6 +229,12 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_INVALID_PROJECT_OUTPUT_DIR
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-invalid-project-output-dir.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ESCAPING_PROJECT_OUTPUT_DIR
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-escaping-project-output-dir.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ESCAPING_ARTIFACT_SOURCE
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-escaping-artifact-source.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ARTIFACT_OUTSIDE_OUTPUT_DIR
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-artifact-outside-output-dir.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_REMAP_OUTSIDE_OUTPUT_DIR
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-source-remap-outside-output-dir.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_MISSING_REMAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-missing-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_TARGET_MISMATCH
@@ -747,6 +753,92 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ESCAPING_PROJECT_OUTPUT_DIR}"
     \"sourceRemapMappingCount\": 0
   },
   \"artifacts\": []
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ESCAPING_ARTIFACT_SOURCE}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"project\": {
+    \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\",
+    \"targets\": [\"metal\"],
+    \"outputDir\": \"out\"
+  },
+  \"summary\": {
+    \"artifactCount\": 1,
+    \"sourceRemapCount\": 0,
+    \"sourceRemapMappingCount\": 0
+  },
+  \"artifacts\": [
+    {
+      \"source\": \"../outside/simple.cgl\",
+      \"target\": \"metal\",
+      \"path\": \"out/metal/simple.metal\",
+      \"status\": \"translated\"
+    }
+  ]
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ARTIFACT_OUTSIDE_OUTPUT_DIR}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"project\": {
+    \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\",
+    \"targets\": [\"metal\"],
+    \"outputDir\": \"out\"
+  },
+  \"summary\": {
+    \"artifactCount\": 1,
+    \"sourceRemapCount\": 0,
+    \"sourceRemapMappingCount\": 0
+  },
+  \"artifacts\": [
+    {
+      \"source\": \"simple.cgl\",
+      \"target\": \"metal\",
+      \"path\": \"misplaced/simple.metal\",
+      \"status\": \"translated\"
+    }
+  ]
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_REMAP_OUTSIDE_OUTPUT_DIR}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crosstl-project-portability-report\",
+  \"project\": {
+    \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\",
+    \"targets\": [\"cgl\"],
+    \"outputDir\": \"out\"
+  },
+  \"summary\": {
+    \"artifactCount\": 1,
+    \"sourceRemapCount\": 1,
+    \"sourceRemapMappingCount\": 2
+  },
+  \"artifacts\": [
+    {
+      \"source\": \"simple.cgl\",
+      \"sourceBackend\": \"cgl\",
+      \"target\": \"cgl\",
+      \"path\": \"out/cgl/simple.cgl\",
+      \"status\": \"translated\",
+      \"sourceRemap\": {
+        \"schemaVersion\": 1,
+        \"path\": \"remaps/simple.source-remap.json\",
+        \"target\": \"cgl\",
+        \"generatedFile\": \"out/cgl/simple.cgl\",
+        \"mappingGranularity\": \"line\",
+        \"mappingCount\": 2,
+        \"sizeBytes\": 982,
+        \"hash\": {
+          \"algorithm\": \"sha256\",
+          \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
+        }
+      }
+    }
+  ]
 }
 ")
 file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_MAP_FILE_MULTIMAP}"
@@ -3922,6 +4014,30 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_escaping_proj
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
     "project.outputDir must resolve inside project.root")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_escaping_artifact_source_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ESCAPING_ARTIFACT_SOURCE}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "artifacts[0].source must be a stable relative path")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_artifact_outside_output_dir_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ARTIFACT_OUTSIDE_OUTPUT_DIR}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "artifacts[0].path must resolve inside project.outputDir")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_source_remap_outside_output_dir_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_REMAP_OUTSIDE_OUTPUT_DIR}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "artifacts[0].sourceRemap.path must resolve inside project.outputDir")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_missing_source_remap_fails
   EXPECTED_RESULT 1
