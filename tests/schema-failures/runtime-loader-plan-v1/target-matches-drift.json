@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-runtime-loader-plan",
+  "success": true,
+  "metadataOnly": true,
+  "compilerInvocationRequired": false,
+  "deviceExecutionRequired": false,
+  "packageFormat": "directory",
+  "packageTarget": "directx",
+  "requestedLoaderTarget": "vulkan",
+  "targetMatchesPackage": true,
+  "requestedPackageMode": "auto",
+  "selectedPackageMode": "source-package",
+  "selectedArtifact": {
+    "name": "backendSource",
+    "path": "backend/directx/Shader.hlsl",
+    "packageMode": "source-package",
+    "packageRelative": true,
+    "exists": true
+  },
+  "requiredMetadataInputs": [
+    "manifest.json",
+    "reflection.json",
+    "diagnostics.json"
+  ],
+  "packageArtifactRequirementsSource": "manifest.packageArtifactRequirements",
+  "packageArtifactRequirements": {
+    "target": "directx",
+    "packageMode": "source-package",
+    "requiredPathArtifacts": [
+      "backendSource",
+      "nativeBinary"
+    ],
+    "requiresNativeBinaryStatus": true,
+    "allowsPlannedNativeBinary": true,
+    "allowsPlannedNativeSourceEvidence": true,
+    "evidenceIds": []
+  },
+  "targetLegalizationEvidenceSummary": {
+    "toolRequirementsPresent": true,
+    "target": "directx",
+    "packageMode": "source-package",
+    "requiredToolCount": 0,
+    "missingToolCount": 0,
+    "requiredToolIds": [],
+    "missingToolIds": [],
+    "toolRequirementEvidenceIds": []
+  },
+  "reflectionSummary": {
+    "resourceCount": 1,
+    "targetResourceBindingCount": 1,
+    "targetFeatureCount": 1,
+    "entryPointCount": 1,
+    "workgroupSizeCount": 1,
+    "threadgroupShapeSource": "reflection.workgroupSizes"
+  },
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

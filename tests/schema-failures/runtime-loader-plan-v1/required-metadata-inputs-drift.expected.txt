@@ -1,0 +1,1 @@
+$.requiredMetadataInputs: expected stable root metadata inputs ['manifest.json', 'reflection.json', 'diagnostics.json']

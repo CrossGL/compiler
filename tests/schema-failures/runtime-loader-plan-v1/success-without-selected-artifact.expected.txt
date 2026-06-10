@@ -1,0 +1,1 @@
+$.selectedPackageMode: successful plan requires mode
