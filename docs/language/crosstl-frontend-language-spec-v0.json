@@ -8,7 +8,7 @@
     "files": [
       {
         "path": "crosstl/translator/lexer.py",
-        "sha256": "4022b7e23c46538d7a080cd1719773567fc60cc9994ad3ba1bab5f0fcbad8bc4"
+        "sha256": "81820686f072df53de25d5e00d194f48f22899c2dbbe8165d40fe3d76e2541d8"
       },
       {
         "path": "crosstl/translator/parser.py",

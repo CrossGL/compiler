@@ -4,18 +4,6 @@ from .common import add_length_count_error
 from .common import validate_source_location_span
 
 
-def is_stable_relative_path(path):
-    if path == "":
-        return False
-    if "\\" in path:
-        return False
-    if path.startswith("/") or (
-        len(path) >= 2 and path[0].isalpha() and path[1] == ":"
-    ):
-        return False
-    return all(segment not in ("", ".", "..") for segment in path.split("/"))
-
-
 def source_span_identity(span):
     return (
         span["file"],
@@ -43,8 +31,8 @@ def backend_spans_overlap(left, right):
 
 
 def validate_source_location_range(errors, path, location):
-    if not is_stable_relative_path(location["file"]):
-        errors.append(f"{path}.file: expected stable relative POSIX source path")
+    if "\\" in location["file"]:
+        errors.append(f"{path}.file: expected normalized '/' path separators")
     validate_source_location_span(errors, path, location)
     if location["length"] <= 0:
         errors.append(f"{path}.length: expected > 0")

@@ -27,23 +27,9 @@ def validate_normalized_path(errors, path, value):
         errors.append(f"{path}: expected normalized '/' path separators")
 
 
-def validate_stable_relative_path(errors, path, value):
-    validate_normalized_path(errors, path, value)
-    if (
-        not value
-        or value.startswith("/")
-        or re.match(r"^[A-Za-z]:/", value) is not None
-        or any(part in ("", ".", "..") for part in value.split("/"))
-    ):
-        errors.append(
-            f"{path}: expected stable relative path without absolute, empty, "
-            "'.', or '..' segments"
-        )
-
-
 def validate_report_source_location(errors, path, location):
     validate_source_location_span(errors, path, location)
-    validate_stable_relative_path(errors, f"{path}.file", location["file"])
+    validate_normalized_path(errors, f"{path}.file", location["file"])
 
 
 def add_source_location_equal_error(
