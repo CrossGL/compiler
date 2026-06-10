@@ -44,6 +44,7 @@ from . import package_verify_v1
 from . import reflection_v1
 from . import release_report_artifact_inventory_v1
 from . import release_provenance_manifest_v1
+from . import runtime_loader_plan_v1
 from . import source_batch_result_v1
 from . import source_remap_v1
 from . import source_remap_provenance_v1
@@ -75,6 +76,8 @@ def validate_semantics(instance, schema):
         return release_report_artifact_inventory_v1.validate_semantics(instance)
     if schema_id.endswith("/release-provenance-manifest-v1.schema.json"):
         return release_provenance_manifest_v1.validate_semantics(instance)
+    if schema_id.endswith("/runtime-loader-plan-v1.schema.json"):
+        return runtime_loader_plan_v1.validate_semantics(instance)
     if schema_id.endswith("/source-remap-v1.schema.json"):
         return source_remap_v1.validate_semantics(instance)
     if schema_id.endswith("/source-remap-provenance-v1.schema.json"):

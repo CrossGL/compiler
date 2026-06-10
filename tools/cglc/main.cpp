@@ -11,6 +11,8 @@
 #include "crossgl/Driver/PackageIntegrity.h"
 #include "crossgl/Driver/PackageJson.h"
 #include "crossgl/Driver/PackagePublication.h"
+#include "crossgl/Driver/PackageRuntimePlan.h"
+#include "crossgl/Driver/PackageTargetContracts.h"
 #include "crossgl/Driver/SourceRemap.h"
 
 #include <charconv>
@@ -86,6 +88,9 @@ void printUsage() {
          "[--output-dir <dir>] [--opt-level O0|O1|O2] [--debug-ir] "
          "[--diagnostics-json]\n"
       << "  cglc package inspect <out.cglb> --json\n"
+      << "  cglc package plan-runtime <out.cglb> --target "
+         "metal|vulkan|directx|opengl --package-mode "
+         "auto|native|source-package --json\n"
       << "  cglc package verify <out.cglb> [--source <input.cgl>] [--json]\n"
       << "  cglc package recover <package-or-sidecar.cglb> --list [--json]\n"
       << "  cglc package recover <package-or-sidecar.cglb> --discard-stale "
@@ -5633,8 +5638,8 @@ int commandPackage(const std::vector<std::string> &args) {
   }
 
   const std::string subcommand = args[1];
-  if (subcommand != "inspect" && subcommand != "verify" &&
-      subcommand != "recover" && subcommand != "release" &&
+  if (subcommand != "inspect" && subcommand != "plan-runtime" &&
+      subcommand != "verify" && subcommand != "recover" && subcommand != "release" &&
       subcommand != "maintain") {
     std::cerr << "unknown package command: " << args[1] << "\n";
     printUsage();
@@ -5643,6 +5648,10 @@ int commandPackage(const std::vector<std::string> &args) {
 
   if (subcommand == "inspect" && !hasArg(args, "--json")) {
     std::cerr << "error: package inspect currently requires --json\n";
+    return 2;
+  }
+  if (subcommand == "plan-runtime" && !hasArg(args, "--json")) {
+    std::cerr << "error: package plan-runtime currently requires --json\n";
     return 2;
   }
 
@@ -5676,6 +5685,10 @@ int commandPackage(const std::vector<std::string> &args) {
   std::optional<std::filesystem::path> uploadManifestPath;
   std::optional<std::filesystem::path> uploadReportOutputPath;
   std::optional<std::filesystem::path> uploadReceiptOutputPath;
+  std::optional<std::string> runtimeLoaderTarget;
+  crossgl::RuntimeLoaderPackageMode runtimePackageMode =
+      crossgl::RuntimeLoaderPackageMode::Auto;
+  bool runtimePackageModeSeen = false;
   bool reportArtifactInventory = false;
   bool mockUpload = false;
   bool gcsUpload = false;
@@ -5690,6 +5703,32 @@ int commandPackage(const std::vector<std::string> &args) {
         return 2;
       }
       sourcePath = args[index + 1];
+      ++index;
+      continue;
+    }
+    if (args[index] == "--target") {
+      if (index + 1 >= args.size() || args[index + 1].empty() ||
+          args[index + 1][0] == '-') {
+        std::cerr << "error: --target requires a target\n";
+        return 2;
+      }
+      runtimeLoaderTarget = args[index + 1];
+      ++index;
+      continue;
+    }
+    if (args[index] == "--package-mode") {
+      if (index + 1 >= args.size() || args[index + 1].empty() ||
+          args[index + 1][0] == '-') {
+        std::cerr << "error: --package-mode requires a mode\n";
+        return 2;
+      }
+      if (!crossgl::parseRuntimeLoaderPackageMode(args[index + 1],
+                                                  runtimePackageMode)) {
+        std::cerr << "error: --package-mode requires auto, native, or "
+                     "source-package\n";
+        return 2;
+      }
+      runtimePackageModeSeen = true;
       ++index;
       continue;
     }
@@ -6065,6 +6104,16 @@ int commandPackage(const std::vector<std::string> &args) {
               << " does not accept --promotion-summary\n";
     return 2;
   }
+  if (runtimeLoaderTarget && subcommand != "plan-runtime") {
+    std::cerr << "error: package " << subcommand
+              << " does not accept --target\n";
+    return 2;
+  }
+  if (runtimePackageModeSeen && subcommand != "plan-runtime") {
+    std::cerr << "error: package " << subcommand
+              << " does not accept --package-mode\n";
+    return 2;
+  }
   if (manifestOutputPath && subcommand != "release") {
     std::cerr << "error: package " << subcommand
               << " does not accept --manifest-output\n";
@@ -6214,6 +6263,7 @@ int commandPackage(const std::vector<std::string> &args) {
       !(subcommand == "maintain" &&
         (scanPath || packageSetPath || exportPackageSetVerificationBatchPath ||
          verifyPackageSetBatchPath)) &&
+      !(subcommand == "plan-runtime") &&
       !(subcommand == "release" &&
         (promotionSummaryPath || manifestOutputPath || bundleOutputPath ||
          verifyBundlePath || planPublishPath || planOutputPath ||
@@ -6236,6 +6286,47 @@ int commandPackage(const std::vector<std::string> &args) {
     }
     std::cout << result.json;
     return 0;
+  }
+
+  if (subcommand == "plan-runtime") {
+    if (sourcePath || policyPath || scanPath || packageSetPath ||
+        exportPackageSetPath || verifyPackageSetPath ||
+        exportPackageSetVerificationBatchPath || verifyPackageSetBatchPath ||
+        summaryOutputPath || promotionSummaryPath || manifestOutputPath ||
+        bundleOutputPath || verifyBundlePath || planPublishPath ||
+        planOutputPath || stagePublishPath || stageOutputPath ||
+        reportArtifactInventory || reportBundlePath || reportPublishPlanPath ||
+        reportPublishStagePath || publishStagePath || publishTarget ||
+        targetOutputPath || targetDescriptorPath || receiptOutputPath ||
+        uploadManifestOutputPath || uploadManifestPath ||
+        uploadReportOutputPath || uploadReceiptOutputPath || mockUpload ||
+        gcsUpload || gcsUploadOverwrite ||
+        !exportPackageSetVerificationEntries.empty()) {
+      std::cerr << "error: package plan-runtime accepts only --target, "
+                   "--package-mode, and --json\n";
+      return 2;
+    }
+    if (packagePath.empty()) {
+      printUsage();
+      return 2;
+    }
+    if (!runtimeLoaderTarget) {
+      std::cerr << "error: package plan-runtime requires --target\n";
+      return 2;
+    }
+    if (!crossgl::isKnownPackageTarget(*runtimeLoaderTarget)) {
+      std::cerr << "error: package plan-runtime --target must be one of "
+                   "metal, vulkan, directx, or opengl\n";
+      return 2;
+    }
+    crossgl::PackageRuntimePlanOptions options;
+    options.packagePath = packagePath;
+    options.requestedTarget = *runtimeLoaderTarget;
+    options.packageMode = runtimePackageMode;
+    crossgl::PackageRuntimePlanResult result =
+        crossgl::planPackageRuntimeLoader(options);
+    std::cout << result.json;
+    return result.success ? 0 : 1;
   }
 
   if (subcommand == "recover") {

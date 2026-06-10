@@ -1919,6 +1919,23 @@ elseif(MODE STREQUAL "package-verify-text")
     set(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}-verify-text.cglb")
   endif()
   list(APPEND command build "${INPUT}" --target "${TARGET}" --output "${OUTPUT}" --debug-ir)
+elseif(MODE STREQUAL "package-runtime-plan")
+  if(NOT DEFINED TARGET)
+    message(FATAL_ERROR "TARGET is required")
+  endif()
+  if(NOT DEFINED OUTPUT)
+    set(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}-runtime-plan.cglb")
+  endif()
+  if(NOT DEFINED PACKAGE_RUNTIME_TARGET)
+    set(PACKAGE_RUNTIME_TARGET "${TARGET}")
+  endif()
+  if(NOT DEFINED PACKAGE_MODE)
+    set(PACKAGE_MODE "auto")
+  endif()
+  if(NOT DEFINED EXPECTED_RESULT)
+    set(EXPECTED_RESULT 0)
+  endif()
+  list(APPEND command build "${INPUT}" --target "${TARGET}" --output "${OUTPUT}" --debug-ir)
 elseif(MODE STREQUAL "package-verify-json-failure")
   if(NOT DEFINED FAILURE_KIND)
     message(FATAL_ERROR "FAILURE_KIND is required")
@@ -2896,6 +2913,35 @@ elseif(MODE STREQUAL "package-verify-text")
   if(DEFINED MUST_CONTAIN AND NOT verify_stdout MATCHES "${MUST_CONTAIN}")
     message(FATAL_ERROR "package verify text did not contain '${MUST_CONTAIN}'. Output: ${verify_stdout}")
   endif()
+elseif(MODE STREQUAL "package-runtime-plan")
+  if(NOT result EQUAL 0)
+    message(FATAL_ERROR "${TARGET} package runtime plan build failed: ${stderr}")
+  endif()
+
+  set(runtime_plan_command
+      "${CGLC}" package plan-runtime "${OUTPUT}"
+      --target "${PACKAGE_RUNTIME_TARGET}"
+      --package-mode "${PACKAGE_MODE}"
+      --json)
+  execute_process(
+    COMMAND ${runtime_plan_command}
+    RESULT_VARIABLE runtime_plan_result
+    OUTPUT_VARIABLE runtime_plan_stdout
+    ERROR_VARIABLE runtime_plan_stderr
+  )
+  if(NOT runtime_plan_result EQUAL EXPECTED_RESULT)
+    message(FATAL_ERROR
+      "expected package plan-runtime exit code ${EXPECTED_RESULT}, "
+      "got ${runtime_plan_result}. Stderr: ${runtime_plan_stderr} "
+      "Stdout: ${runtime_plan_stdout}")
+  endif()
+  if(NOT runtime_plan_stderr STREQUAL "")
+    message(FATAL_ERROR
+      "package plan-runtime --json must not emit human diagnostics on stderr: "
+      "${runtime_plan_stderr}")
+  endif()
+  crossgl_apply_json_expectations("${runtime_plan_stdout}")
+  crossgl_validate_json_schema("${runtime_plan_stdout}")
 elseif(MODE STREQUAL "package-verify-json-failure")
   if(NOT result EQUAL 0)
     message(FATAL_ERROR "${FAILURE_KIND} package verify fixture setup failed: ${stderr}")

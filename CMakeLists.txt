@@ -140,6 +140,7 @@ add_library(crossgl_compiler
   src/Driver/PackageJson.cpp
   src/Driver/PackageMetadata.cpp
   src/Driver/PackagePublication.cpp
+  src/Driver/PackageRuntimePlan.cpp
   src/Driver/Reflection.cpp
   src/Driver/SourceRemap.cpp
   src/Driver/StorageCapabilities.cpp

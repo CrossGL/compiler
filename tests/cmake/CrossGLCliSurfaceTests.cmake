@@ -4070,7 +4070,8 @@ crossgl_add_cli_surface_test(cglc_cli_no_args_prints_usage
     "CrossGL native compiler"
     "Usage:"
     "cglc build <input.cgl>"
-    "cglc package inspect <out.cglb> --json")
+    "cglc package inspect <out.cglb> --json"
+    "cglc package plan-runtime <out.cglb> --target")
 
 crossgl_add_cli_surface_test(cglc_cli_unknown_command_fails
   EXPECTED_RESULT 2
@@ -4097,6 +4098,7 @@ crossgl_add_cli_surface_test(cglc_cli_help_lists_major_commands
     "hir-pass-trace"
     "cglc build"
     "cglc package inspect"
+    "cglc package plan-runtime"
     "cglc package verify"
     "cglc package recover"
     "cglc package release"
@@ -5444,6 +5446,31 @@ crossgl_add_cli_surface_test(cglc_cli_package_inspect_missing_path_fails
   STDOUT_CONTAINS
     "Usage:"
     "cglc package inspect <out.cglb> --json")
+
+crossgl_add_cli_surface_test(cglc_cli_package_plan_runtime_requires_json
+  EXPECTED_RESULT 2
+  ARGS package plan-runtime placeholder.cglb --target directx
+  STDERR_CONTAINS
+    "error: package plan-runtime currently requires --json")
+
+crossgl_add_cli_surface_test(cglc_cli_package_plan_runtime_requires_target
+  EXPECTED_RESULT 2
+  ARGS package plan-runtime placeholder.cglb --json
+  STDERR_CONTAINS
+    "error: package plan-runtime requires --target")
+
+crossgl_add_cli_surface_test(cglc_cli_package_plan_runtime_bad_package_mode_fails
+  EXPECTED_RESULT 2
+  ARGS package plan-runtime placeholder.cglb --target directx
+    --package-mode compiled --json
+  STDERR_CONTAINS
+    "error: --package-mode requires auto, native, or source-package")
+
+crossgl_add_cli_surface_test(cglc_cli_package_plan_runtime_unknown_target_fails
+  EXPECTED_RESULT 2
+  ARGS package plan-runtime placeholder.cglb --target wgsl --json
+  STDERR_CONTAINS
+    "error: package plan-runtime --target must be one of metal, vulkan, directx, or opengl")
 
 crossgl_add_cli_surface_test(cglc_cli_package_verify_missing_path_fails
   EXPECTED_RESULT 2
