@@ -1,0 +1,1 @@
+$.summary.vulkanNativeProfile.health: expected Vulkan native profile health from checks 'not-applicable', got 'ok'

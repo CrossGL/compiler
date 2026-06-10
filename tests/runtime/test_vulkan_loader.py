@@ -2062,6 +2062,16 @@ class VulkanNativeLoaderPlanTests(unittest.TestCase):
             self.assertFalse(
                 profile_admission["descriptorEvidenceSourcePathMatchesNativeProfile"]
             )
+            profile_api_input = summary["vulkanNativeApiBoundary"]["runtimeInputs"][
+                "nativeProfile"
+            ]
+            self.assertEqual(
+                profile_api_input["descriptorEvidenceSourcePath"],
+                "backend/vulkan/StaleRuntimeVulkanLoaderFixture.profile.json",
+            )
+            self.assertFalse(
+                profile_api_input["descriptorEvidenceSourcePathMatchesNativeProfile"]
+            )
             mismatch_checks = {
                 check["name"]: check for check in vulkan_admission["checks"]
             }

@@ -62,6 +62,14 @@ SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS = (
     "sourceSha256",
     "sourceSizeBytes",
 )
+VULKAN_NATIVE_PROFILE_CHECKS = (
+    "targetMatchesPackage",
+    "moduleMatchesPackage",
+    "nativeBinaryMatchesManifest",
+    "backendAssemblyMatchesManifest",
+    "emittedDisassemblyExists",
+    "spirvProfilePresent",
+)
 
 
 def validate_diagnostic_counts(errors, diagnostic_counts, diagnostics):
@@ -105,6 +113,7 @@ def validate_summary(errors, success, summary):
     )
     validate_source_remap_summary(errors, summary)
     validate_native_artifact_descriptor_summary(errors, summary)
+    validate_vulkan_native_profile_summary(errors, summary)
     validate_reflection_summary(errors, summary)
     validate_native_ready_descriptor_evidence(errors, summary)
     validate_target_legalization_evidence_summary(errors, summary)
@@ -387,6 +396,64 @@ def validate_source_remap_summary(errors, summary):
         errors.append(
             "$.summary.sourceRemap.checks: expected null checks when absent "
             "or incomplete"
+        )
+
+
+def validate_vulkan_native_profile_summary(errors, summary):
+    profile = summary.get("vulkanNativeProfile")
+    if not isinstance(profile, dict):
+        return
+
+    is_vulkan = summary["target"] == "vulkan"
+    profile_declared = profile["nativeProfileArtifactPresent"]
+    profile_exists = profile["nativeProfileExists"]
+    checks = profile["checks"]
+    check_values = [checks[name] for name in VULKAN_NATIVE_PROFILE_CHECKS]
+    health_check_values = [
+        checks[name]
+        for name in VULKAN_NATIVE_PROFILE_CHECKS
+        if name != "emittedDisassemblyExists" or checks[name] is not None
+    ]
+
+    add_equal_error(
+        errors,
+        "$.summary.vulkanNativeProfile.applicable",
+        profile["applicable"],
+        is_vulkan,
+        "Vulkan profile applicability",
+    )
+    if not profile_declared:
+        add_equal_error(
+            errors,
+            "$.summary.vulkanNativeProfile.nativeProfileExists",
+            profile_exists,
+            False,
+            "absent nativeProfile artifact file existence",
+        )
+
+    if not is_vulkan:
+        expected_health = "not-applicable"
+        expected_checks = [None] * len(check_values)
+    elif not profile_declared or not profile_exists:
+        expected_health = "incomplete"
+        expected_checks = [None] * len(check_values)
+    elif all(value is True for value in health_check_values):
+        expected_health = "ok"
+        expected_checks = None
+    else:
+        expected_health = "drift"
+        expected_checks = None
+
+    add_equal_error(
+        errors,
+        "$.summary.vulkanNativeProfile.health",
+        profile["health"],
+        expected_health,
+        "Vulkan native profile health from checks",
+    )
+    if expected_checks is not None and check_values != expected_checks:
+        errors.append(
+            "$.summary.vulkanNativeProfile.checks: expected null checks when inactive"
         )
 
 

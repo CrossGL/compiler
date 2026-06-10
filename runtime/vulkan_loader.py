@@ -1489,6 +1489,9 @@ def _vulkan_api_profile_input(
     native_artifact: LoaderArtifactPlan | None,
     native_profile: VulkanNativeProfilePlan | None,
 ) -> dict[str, Any]:
+    descriptor_profile_path = _descriptor_native_profile_evidence_path(
+        plan.native_artifact_descriptor,
+    )
     if native_profile is None:
         return {
             "declared": False,
@@ -1503,6 +1506,8 @@ def _vulkan_api_profile_input(
             "backendAssembly": None,
             "nativeBinary": None,
             "nativeBinaryMatchesSpirv": None,
+            "descriptorEvidenceSourcePath": descriptor_profile_path,
+            "descriptorEvidenceSourcePathMatchesNativeProfile": None,
             "diagnostics": _vulkan_profile_diagnostics(plan),
         }
 
@@ -1536,6 +1541,12 @@ def _vulkan_api_profile_input(
         "nativeBinaryMatchesSpirv": (
             native_binary == native_artifact.package_path
             if native_profile.readable and native_artifact is not None
+            else None
+        ),
+        "descriptorEvidenceSourcePath": descriptor_profile_path,
+        "descriptorEvidenceSourcePathMatchesNativeProfile": (
+            descriptor_profile_path == native_profile.artifact.package_path
+            if isinstance(descriptor_profile_path, str)
             else None
         ),
         "diagnostics": _vulkan_profile_diagnostics(plan),
