@@ -12,7 +12,7 @@
       },
       {
         "path": "crosstl/translator/parser.py",
-        "sha256": "bce5f7ffb0dbfb619bd88f9d89450a3477bf8367150281e8716810b6784fc764"
+        "sha256": "8776437d940a6c88cfc401433fdbec43f8b7d43549a2c0e87e6c23aaa39fd50b"
       },
       {
         "path": "crosstl/translator/ast.py",
