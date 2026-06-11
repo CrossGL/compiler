@@ -3421,13 +3421,37 @@ CompileResult compile(const CompileRequest &request) {
         assignDiagnostics();
         return result;
       }
+      if (request.debugIR && singleComputeStage(backendHIR) != nullptr) {
+        backendSourceMapPath =
+            vulkan.assemblyPath.parent_path() /
+            (backendHIR.name + ".backend-source-map.json");
+        const SourceRemap *backendSourceMapRemap =
+            sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
+                                         : nullptr;
+        std::optional<SourceRemap> packageLocalSourceRemap;
+        if (sourceMapOptions.sourceRemap && sourceRemapProvenancePath) {
+          packageLocalSourceRemap = packageLocalBackendSourceMapRemap(
+              *sourceMapOptions.sourceRemap, packageDir,
+              *sourceRemapProvenancePath);
+          backendSourceMapRemap = &*packageLocalSourceRemap;
+        }
+        const std::optional<std::string> backendSourceMapJson =
+            generateVulkanBackendSourceMapJson(backendHIR, diagnostics,
+                                               backendSourceMapRemap);
+        if (!backendSourceMapJson ||
+            !writeText(*backendSourceMapPath, *backendSourceMapJson,
+                       diagnostics, "artifact.write-backend-source-map")) {
+          assignDiagnostics();
+          return result;
+        }
+      }
       const std::string manifest = manifestJson(
           backendHIR, target, sourceHash, packageDir,
           projection.packageArtifactRequirements, projection, nullptr, &vulkan,
           &vulkanProfilePath, nullptr, nullptr, &*descriptorPath,
           debugMetadataPath ? &*debugMetadataPath : nullptr,
           hirSourceMapPath ? &*hirSourceMapPath : nullptr,
-          nullptr,
+          backendSourceMapPath ? &*backendSourceMapPath : nullptr,
           sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
           targetExplanationPath ? &*targetExplanationPath : nullptr,
           graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,

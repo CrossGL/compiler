@@ -594,7 +594,16 @@ std::string SPIRVModule::render(const SPIRVRenderOptions &options) const {
                function.entryLabel.empty() ? std::string{}
                                            : function.entryLabel + " = OpLabel",
                &lineNumber);
-    appendSection(out, function.variableLines, &lineNumber);
+    for (std::size_t variableIndex = 0;
+         variableIndex < function.variableLines.size(); ++variableIndex) {
+      const std::size_t emittedLine = lineNumber;
+      if (appendLine(out, function.variableLines[variableIndex],
+                     &lineNumber) &&
+          options.variableLineMappings != nullptr) {
+        options.variableLineMappings->push_back(
+            {function.id.str(), variableIndex, emittedLine});
+      }
+    }
     for (std::size_t instructionIndex = 0;
          instructionIndex < function.instructionLines.size();
          ++instructionIndex) {

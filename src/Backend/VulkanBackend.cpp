@@ -6135,6 +6135,8 @@ struct PrototypeLoopLabels {
 struct VulkanBackendSourceMapRecord {
   std::size_t index = 0;
   std::string functionId;
+  std::size_t variableStartIndex = 0;
+  std::size_t variableEndIndex = 0;
   std::size_t instructionStartIndex = 0;
   std::size_t instructionEndIndex = 0;
   std::size_t backendStartLine = 1;
@@ -6230,15 +6232,22 @@ struct VulkanBackendSourceMapCollector {
   void recordStatement(const HIRStatement &statement, const HIRStage &stage,
                        std::string_view functionName,
                        std::string_view functionId,
+                       std::size_t variableStartIndex,
+                       std::size_t variableEndIndex,
                        std::size_t instructionStartIndex,
                        std::size_t instructionEndIndex) {
-    if (functionId.empty() || instructionStartIndex >= instructionEndIndex) {
+    const bool hasVariableSpan = variableStartIndex < variableEndIndex;
+    const bool hasInstructionSpan =
+        instructionStartIndex < instructionEndIndex;
+    if (functionId.empty() || (!hasVariableSpan && !hasInstructionSpan)) {
       return;
     }
 
     VulkanBackendSourceMapRecord record;
     record.index = records.size();
     record.functionId = std::string(functionId);
+    record.variableStartIndex = variableStartIndex;
+    record.variableEndIndex = variableEndIndex;
     record.instructionStartIndex = instructionStartIndex;
     record.instructionEndIndex = instructionEndIndex;
     record.stage = stage.stage;
@@ -6286,25 +6295,65 @@ std::optional<std::size_t> vulkanRenderedInstructionLine(
   return std::nullopt;
 }
 
+std::optional<std::size_t> vulkanRenderedVariableLine(
+    const std::vector<SPIRVVariableLineMapping> &renderedLines,
+    std::string_view functionId, std::size_t variableIndex) {
+  for (const SPIRVVariableLineMapping &mapping : renderedLines) {
+    if (mapping.functionId == functionId &&
+        mapping.variableIndex == variableIndex) {
+      return mapping.line;
+    }
+  }
+  return std::nullopt;
+}
+
 std::vector<VulkanBackendSourceMapRecord> resolveVulkanBackendSourceMapLines(
     const std::vector<VulkanBackendSourceMapRecord> &records,
-    const std::vector<SPIRVInstructionLineMapping> &renderedLines) {
+    const std::vector<SPIRVInstructionLineMapping> &renderedInstructionLines,
+    const std::vector<SPIRVVariableLineMapping> &renderedVariableLines) {
   std::vector<VulkanBackendSourceMapRecord> resolved;
   resolved.reserve(records.size());
   for (VulkanBackendSourceMapRecord record : records) {
-    const std::optional<std::size_t> startLine =
-        vulkanRenderedInstructionLine(renderedLines, record.functionId,
-                                      record.instructionStartIndex);
-    const std::optional<std::size_t> endLine =
-        vulkanRenderedInstructionLine(renderedLines, record.functionId,
-                                      record.instructionEndIndex - 1);
+    std::optional<std::size_t> startLine;
+    std::optional<std::size_t> endLine;
+    if (record.instructionStartIndex < record.instructionEndIndex) {
+      startLine =
+          vulkanRenderedInstructionLine(renderedInstructionLines,
+                                        record.functionId,
+                                        record.instructionStartIndex);
+      endLine =
+          vulkanRenderedInstructionLine(renderedInstructionLines,
+                                        record.functionId,
+                                        record.instructionEndIndex - 1);
+    } else if (record.statementKind == "decl" &&
+               record.variableStartIndex < record.variableEndIndex) {
+      startLine = vulkanRenderedVariableLine(renderedVariableLines,
+                                             record.functionId,
+                                             record.variableStartIndex);
+      endLine = vulkanRenderedVariableLine(renderedVariableLines,
+                                           record.functionId,
+                                           record.variableEndIndex - 1);
+    }
     if (!startLine || !endLine) {
       continue;
     }
-    record.index = resolved.size();
     record.backendStartLine = *startLine;
     record.backendEndLine = *endLine;
     resolved.push_back(std::move(record));
+  }
+  std::sort(resolved.begin(), resolved.end(),
+            [](const VulkanBackendSourceMapRecord &left,
+               const VulkanBackendSourceMapRecord &right) {
+              if (left.backendStartLine != right.backendStartLine) {
+                return left.backendStartLine < right.backendStartLine;
+              }
+              if (left.backendEndLine != right.backendEndLine) {
+                return left.backendEndLine < right.backendEndLine;
+              }
+              return left.index < right.index;
+            });
+  for (std::size_t index = 0; index < resolved.size(); ++index) {
+    resolved[index].index = index;
   }
   return resolved;
 }
@@ -6396,7 +6445,8 @@ public:
   std::string render(
       const HIRModule &module, const HIRStage &stage,
       std::vector<SPIRVInstructionLineMapping> *instructionLineMappings =
-          nullptr) {
+          nullptr,
+      std::vector<SPIRVVariableLineMapping> *variableLineMappings = nullptr) {
     const HIRWorkgroupSize &workgroup = *stage.workgroupSize;
     const std::string entry = entryPointName(stage);
     const SPIRVId entryId = SPIRVModule::id("%" + entry);
@@ -6441,6 +6491,7 @@ public:
     SPIRVRenderOptions renderOptions;
     renderOptions.version = kVulkanNativeSpirvVersion;
     renderOptions.instructionLineMappings = instructionLineMappings;
+    renderOptions.variableLineMappings = variableLineMappings;
     return module_.render(renderOptions);
   }
 
@@ -10817,21 +10868,25 @@ private:
   }
 
   void recordSourceMapStatement(const HIRStatement &statement,
+                                std::size_t variableStartIndex,
                                 std::size_t instructionStartIndex) {
     if (sourceMap_ == nullptr ||
         !vulkanSourceMapRecordsStatementKind(statement.kind)) {
       return;
     }
     sourceMap_->recordStatement(statement, stage_, currentFunctionName_,
-                                currentFunctionId_, instructionStartIndex,
+                                currentFunctionId_, variableStartIndex,
+                                variableLines_.size(), instructionStartIndex,
                                 instructionLines_.size());
   }
 
   PrototypeEmitResult emitStatement(const HIRStatement &statement) {
+    const std::size_t variableStartIndex = variableLines_.size();
     const std::size_t instructionStartIndex = instructionLines_.size();
     PrototypeEmitResult result = emitStatementImpl(statement);
     if (result.success) {
-      recordSourceMapStatement(statement, instructionStartIndex);
+      recordSourceMapStatement(statement, variableStartIndex,
+                               instructionStartIndex);
     }
     return result;
   }
@@ -10890,10 +10945,12 @@ private:
 
   PrototypeEmitResult emitBranchStatement(const HIRStatement &statement,
                                           bool allowReturn = true) {
+    const std::size_t variableStartIndex = variableLines_.size();
     const std::size_t instructionStartIndex = instructionLines_.size();
     PrototypeEmitResult result = emitBranchStatementImpl(statement, allowReturn);
     if (result.success) {
-      recordSourceMapStatement(statement, instructionStartIndex);
+      recordSourceMapStatement(statement, variableStartIndex,
+                               instructionStartIndex);
     }
     return result;
   }
@@ -16694,11 +16751,14 @@ std::optional<std::string> generateVulkanBackendSourceMapJson(
     return std::nullopt;
   }
 
-  std::vector<SPIRVInstructionLineMapping> renderedLines;
-  const std::string assembly =
-      sourceMapBuilder.render(module, stage, &renderedLines);
+  std::vector<SPIRVInstructionLineMapping> renderedInstructionLines;
+  std::vector<SPIRVVariableLineMapping> renderedVariableLines;
+  const std::string assembly = sourceMapBuilder.render(
+      module, stage, &renderedInstructionLines, &renderedVariableLines);
   const std::vector<VulkanBackendSourceMapRecord> resolvedRecords =
-      resolveVulkanBackendSourceMapLines(sourceMap.records, renderedLines);
+      resolveVulkanBackendSourceMapLines(sourceMap.records,
+                                         renderedInstructionLines,
+                                         renderedVariableLines);
   return vulkanBackendSourceMapJson(module, assembly, resolvedRecords,
                                     sourceRemap);
 }

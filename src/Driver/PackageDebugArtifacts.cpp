@@ -612,8 +612,10 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
   health.artifactPresent = metadata.backendSourceMapArtifactPresent;
   const PackageArtifactRecord *artifact =
       findArtifact(metadata, "backendSourceMap");
-  const PackageArtifactRecord *backendSource =
-      findArtifact(metadata, "backendSource");
+  const PackageArtifactRecord *backendComparisonSource =
+      findArtifact(metadata,
+                   metadata.target == "vulkan" ? "backendAssembly"
+                                               : "backendSource");
   if (artifact != nullptr) {
     health.path = artifact->path;
   }
@@ -634,7 +636,7 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
     return health;
   }
   const std::optional<std::string> backendSourceDocument =
-      readArtifactDocument(metadata, backendSource);
+      readArtifactDocument(metadata, backendComparisonSource);
   if (backendSourceDocument) {
     health.backendSourceLineCount = countPhysicalLines(*backendSourceDocument);
   }

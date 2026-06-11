@@ -123,6 +123,12 @@ struct SPIRVInstructionLineMapping {
   std::size_t line = 0;
 };
 
+struct SPIRVVariableLineMapping {
+  std::string functionId;
+  std::size_t variableIndex = 0;
+  std::size_t line = 0;
+};
+
 struct SPIRVRenderOptions {
   bool emitDisassemblyHeader = false;
   std::string version = "1.0";
@@ -131,6 +137,7 @@ struct SPIRVRenderOptions {
   bool emitSchema = true;
   bool validateReferences = true;
   std::vector<SPIRVInstructionLineMapping> *instructionLineMappings = nullptr;
+  std::vector<SPIRVVariableLineMapping> *variableLineMappings = nullptr;
 };
 
 std::string_view spirvExecutionModelName(SPIRVExecutionModel model);

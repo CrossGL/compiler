@@ -763,6 +763,18 @@ crossgl_add_python_expect_test(
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
 crossgl_add_python_expect_test(
+  NAME cglc_dump_backend_source_map_vulkan_decl_uses_variable_line
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/VulkanDeclarationSourceMapShader.cgl
+    -DTARGET=vulkan
+    -DSTAGE=backend-source-map
+    -DMODE=dump-stage
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=mappings=4"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=vulkan|module=VulkanDeclarationSourceMapShader|mappingGranularity=statement|sourceBackend=crossgl-hir|targetBackend=spvasm|backend.language=spvasm|backend.lineCount=30|mappingCount=4|mappings.0.statementKind=decl|mappings.0.name=untouched|mappings.0.backend.startLine=24|mappings.0.backend.endLine=24|mappings.0.location.line=7|mappings.1.statementKind=assign|mappings.1.name=untouched|mappings.1.backend.startLine=25|mappings.1.backend.endLine=25|mappings.2.statementKind=assign|mappings.2.name=values[0]|mappings.2.backend.startLine=26|mappings.2.backend.endLine=28|mappings.3.statementKind=return|mappings.3.backend.startLine=29|mappings.3.backend.endLine=29"
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+crossgl_add_python_expect_test(
   NAME cglc_dump_backend_source_map_opengl_logical_source_remap
   DEFINITIONS
     -DCGLC=$<TARGET_FILE:cglc>
