@@ -1,0 +1,1 @@
+$.artifacts[0].sourceRemap.mappingGranularity: expected to match sourceMap.mappingGranularity
