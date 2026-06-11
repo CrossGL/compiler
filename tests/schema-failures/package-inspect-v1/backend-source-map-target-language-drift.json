@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "SemanticFixture.cglb",
+  "packageFormat": "directory",
+  "summary": {
+    "module": "SemanticFixture",
+    "target": "directx",
+    "nativeBinaryStatus": "planned",
+    "artifactCount": 5,
+    "debugArtifactsPresent": true
+  },
+  "rootFiles": [
+    {
+      "name": "manifest",
+      "path": "manifest.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "reflection",
+      "path": "reflection.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "diagnostics",
+      "path": "diagnostics.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "backendSource",
+      "path": "backend/directx/SemanticFixture.hlsl",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "backendSource"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "nativeBinary",
+      "path": "backend/directx/SemanticFixture.dxil",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "nativeBinary"
+      },
+      "packageRelative": true,
+      "exists": false,
+      "sizeBytes": null,
+      "sha256": null
+    },
+    {
+      "name": "debugMetadata",
+      "path": "ir/debug-metadata.json",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "debugMetadata"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "hirSourceMap",
+      "path": "ir/source-map.json",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "hirSourceMap"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "backendSourceMap",
+      "path": "ir/backend-source-map.json",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "backendSourceMap"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "manifest": {
+    "module": "SemanticFixture",
+    "target": "directx",
+    "artifacts": {
+      "backendSource": "backend/directx/SemanticFixture.hlsl",
+      "nativeBinary": "backend/directx/SemanticFixture.dxil",
+      "nativeBinaryStatus": "planned",
+      "debugMetadata": "ir/debug-metadata.json",
+      "hirSourceMap": "ir/source-map.json",
+      "backendSourceMap": "ir/backend-source-map.json"
+    }
+  },
+  "reflection": {
+    "module": "SemanticFixture",
+    "target": "directx"
+  },
+  "diagnostics": {
+    "schemaVersion": 1
+  },
+  "debugArtifacts": {
+    "debugMetadataArtifactPresent": true,
+    "hirSourceMapArtifactPresent": true,
+    "debugMetadataExists": true,
+    "hirSourceMapExists": true,
+    "health": "ok",
+    "backendSourceMap": {
+      "artifactPresent": true,
+      "exists": true,
+      "health": "ok",
+      "path": "ir/backend-source-map.json",
+      "schemaVersion": 1,
+      "kind": "crossgl.backendSourceMap",
+      "target": "directx",
+      "module": "SemanticFixture",
+      "mappingGranularity": "statement",
+      "sourceBackend": "crossgl-hir",
+      "targetBackend": "spvasm",
+      "backendLanguage": "spvasm",
+      "backendLineCount": 12,
+      "backendSourceLineCount": 12,
+      "mappingCount": 0,
+      "mappingRecordCount": 0,
+      "backendMaxMappedLine": 0,
+      "sourceRemapPresent": false,
+      "sourceRemapPath": null,
+      "sourceRemapGeneratedFile": null,
+      "sourceRemapTarget": null,
+      "sourceRemapMappingGranularity": null,
+      "sourceRemapMappingCount": null,
+      "sourceRemapSourceBackend": null,
+      "sourceRemapVariant": null,
+      "sourceRemapSha256": null,
+      "sourceRemapSizeBytes": null,
+      "checks": {
+        "identityMatchesContract": true,
+        "targetMatchesPackage": true,
+        "moduleMatchesPackage": true,
+        "mappingGranularityMatchesContract": true,
+        "sourceBackendPresent": true,
+        "targetBackendMatchesBackendLanguage": true,
+        "backendLanguagePresent": true,
+        "backendLineCountPresent": true,
+        "backendLineCountMatchesSource": true,
+        "backendSpansWithinSource": true,
+        "mappingCountMatchesMappings": true,
+        "sourceRemapPathPackageRelative": null,
+        "sourceRemapGeneratedFilePackageRelative": null,
+        "sourceRemapHashPresent": null,
+        "sourceRemapMappingCountPositive": null,
+        "sourceRemapMatchesProvenance": null
+      }
+    },
+    "checks": {
+      "hirSourceLocationsMatch": true,
+      "sourceMapUnfiltered": true,
+      "sourceMapUnpaged": true,
+      "sourceMapRecordsDisabled": true,
+      "sourceMapCategoryCountsConsistent": true,
+      "recordsTotalCountMatchesCategoryCounts": true
+    }
+  }
+}

@@ -43,6 +43,12 @@ TARGET_LEGALIZATION_TARGET_FEATURE_EVIDENCE_RE = re.compile(
     r"|(?:abi\.(?:required|missing)\.[A-Za-z0-9_.-]+))$"
 )
 LOWERCASE_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+TARGET_BACKEND_LANGUAGES = {
+    "directx": "hlsl",
+    "metal": "msl",
+    "opengl": "glsl",
+    "vulkan": "spvasm",
+}
 SOURCE_REMAP_PROVENANCE_CHECKS = (
     "identityMatchesContract",
     "targetMatchesPackage",
@@ -515,6 +521,20 @@ def validate_backend_source_map_summary(errors, summary):
             bool(backend_source_map["backendLanguage"]),
             "backendSourceMap backend language presence",
         )
+        expected_backend_language = TARGET_BACKEND_LANGUAGES.get(summary["target"])
+        if expected_backend_language is not None:
+            if backend_source_map["targetBackend"] != expected_backend_language:
+                errors.append(
+                    "$.summary.backendSourceMap.targetBackend: expected "
+                    f"{expected_backend_language!r} for {summary['target']} "
+                    "package target"
+                )
+            if backend_source_map["backendLanguage"] != expected_backend_language:
+                errors.append(
+                    "$.summary.backendSourceMap.backendLanguage: expected "
+                    f"{expected_backend_language!r} for {summary['target']} "
+                    "package target"
+                )
         add_equal_error(
             errors,
             "$.summary.backendSourceMap.checks.backendLineCountPresent",

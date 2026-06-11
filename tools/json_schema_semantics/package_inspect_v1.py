@@ -23,6 +23,12 @@ EXPECTED_ROOT_FILES = {
 
 LOWERCASE_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 WINDOWS_DRIVE_PATH = re.compile(r"^[A-Za-z]:")
+TARGET_BACKEND_LANGUAGES = {
+    "directx": "hlsl",
+    "metal": "msl",
+    "opengl": "glsl",
+    "vulkan": "spvasm",
+}
 
 NATIVE_ARTIFACT_DESCRIPTOR_CHECKS = (
     "descriptorIdentityMatchesContract",
@@ -1046,6 +1052,20 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
                 and bool(backend_source_map["backendLanguage"]),
                 "backendSourceMap backend language presence",
             )
+            expected_backend_language = TARGET_BACKEND_LANGUAGES.get(summary["target"])
+            if expected_backend_language is not None:
+                if backend_source_map["targetBackend"] != expected_backend_language:
+                    errors.append(
+                        "$.debugArtifacts.backendSourceMap.targetBackend: expected "
+                        f"{expected_backend_language!r} for {summary['target']} "
+                        "package target"
+                    )
+                if backend_source_map["backendLanguage"] != expected_backend_language:
+                    errors.append(
+                        "$.debugArtifacts.backendSourceMap.backendLanguage: expected "
+                        f"{expected_backend_language!r} for {summary['target']} "
+                        "package target"
+                    )
             add_equal_error(
                 errors,
                 "$.debugArtifacts.backendSourceMap.checks.backendLineCountPresent",
