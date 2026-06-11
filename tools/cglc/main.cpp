@@ -1316,6 +1316,7 @@ struct CrossTLProjectReportStats {
   CrossTLProjectReportSummary::CountMap runtimeReferencesByKind;
   CrossTLProjectReportSummary::CountMap runtimeReferencesByBackend;
   CrossTLProjectReportSummary::CountMap runtimeReferencesByPath;
+  std::vector<std::string> artifactPaths;
   std::vector<std::string> sourceRemapPaths;
   std::vector<std::string> backendSourceMapPaths;
   std::vector<CrossTLProjectReportSourceRemapRecord> sourceRemapRecords;
@@ -4412,6 +4413,17 @@ bool parseCrossTLProjectReportArtifact(
           context + ".path must resolve inside project.outputDir");
       return false;
     }
+  }
+  if (path) {
+    for (const std::string &usedPath : stats.artifactPaths) {
+      if (usedPath == *path) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            context + ".path must be unique within CrossTL project report");
+        return false;
+      }
+    }
+    stats.artifactPaths.push_back(*path);
   }
   std::optional<std::string> source;
   if (!parseOptionalSourceBatchStableRelativePathMember(

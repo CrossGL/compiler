@@ -407,6 +407,7 @@ def validate_semantics(instance):
     source_maps_by_variant = {}
     source_remap_count = 0
     source_remap_mapping_count = 0
+    generated_artifact_paths = set()
     source_remap_paths = set()
     source_remaps_by_granularity = {}
     source_remaps_by_target = {}
@@ -481,6 +482,10 @@ def validate_semantics(instance):
             errors.append(
                 f"{artifact_path}.target: expected to be declared in $.project.targets"
             )
+        if generated_path is not None:
+            if generated_path in generated_artifact_paths:
+                errors.append(f"{artifact_path}.path: duplicate artifact path")
+            generated_artifact_paths.add(generated_path)
         _increment(artifacts_by_target, target if target is not None else "unknown")
 
         if status == "failed" and source_map is not None:

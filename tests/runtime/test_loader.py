@@ -631,6 +631,172 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 },
             )
 
+    def test_backend_source_map_embedded_source_remap_matches_host_loader_provenance(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            source_remap_path = "ir/source-remap-provenance.json"
+            backend_source_map_path = (
+                "backend/directx/RuntimeLoaderFixture.backend-source-map.json"
+            )
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["sourceRemap"] = source_remap_path
+            manifest["artifacts"]["backendSourceMap"] = backend_source_map_path
+            self._write_json(manifest_path, manifest)
+            (package_dir / "ir").mkdir()
+            source_hash = {
+                "algorithm": "sha256",
+                "value": "0" * 64,
+            }
+            source_remap_metadata = {
+                "target": "cgl",
+                "mappingGranularity": "file",
+                "sourceBackend": "cgl",
+                "variant": "debug",
+            }
+            self._write_json(
+                package_dir / source_remap_path,
+                {
+                    "schemaVersion": 1,
+                    "kind": "crossgl.sourceRemapProvenance",
+                    "contractVersion": "source-remap-provenance-v1",
+                    "target": "directx",
+                    "generatedFile": "generated/from-translator.cgl",
+                    "mappingGranularity": "source-span",
+                    "mappingCount": 1,
+                    "sourceRemap": {
+                        "path": "source/original.crossgl",
+                        "sha256": dict(source_hash),
+                        "sizeBytes": 0,
+                        **source_remap_metadata,
+                    },
+                },
+            )
+            self._write_json(
+                package_dir / backend_source_map_path,
+                {
+                    "schemaVersion": 1,
+                    "kind": "crossgl.backendSourceMap",
+                    "target": "directx",
+                    "module": "RuntimeLoaderFixture",
+                    "mappingGranularity": "statement",
+                    "sourceBackend": "crossgl-hir",
+                    "targetBackend": "hlsl",
+                    "backend": {
+                        "language": "hlsl",
+                        "lineCount": 1,
+                    },
+                    "sourceRemap": {
+                        "path": source_remap_path,
+                        "sha256": dict(source_hash),
+                        "sizeBytes": 0,
+                        "generatedFile": "generated/from-translator.cgl",
+                        "mappingCount": 1,
+                        **source_remap_metadata,
+                    },
+                    "mappingCount": 1,
+                    "mappings": [
+                        {
+                            "index": 0,
+                            "stage": "compute",
+                            "entryPoint": "main",
+                            "function": "main",
+                            "statementKind": "assignment",
+                            "backend": {
+                                "startLine": 1,
+                                "endLine": 1,
+                            },
+                            "location": {
+                                "file": "generated/from-translator.cgl",
+                                "line": 1,
+                                "column": 1,
+                                "offset": 0,
+                                "length": 1,
+                                "endLine": 1,
+                                "endColumn": 2,
+                                "endOffset": 1,
+                            },
+                            "originalLocation": {
+                                "file": "source/original.crossgl",
+                                "line": 1,
+                                "column": 1,
+                                "offset": 0,
+                                "length": 1,
+                                "endLine": 1,
+                                "endColumn": 2,
+                                "endOffset": 1,
+                            },
+                        }
+                    ],
+                },
+            )
+
+            contract = read_runtime_loader_plan_contract(package_dir, "directx")
+
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            load_unit = contract["hostLoaderIntegration"]["loadUnits"][0]
+            self.assertEqual(
+                load_unit["sourceRemap"]["provenance"],
+                {
+                    "available": True,
+                    "health": "ok",
+                    "schemaVersion": 1,
+                    "kind": "crossgl.sourceRemapProvenance",
+                    "contractVersion": "source-remap-provenance-v1",
+                    "target": "directx",
+                    "generatedFile": "generated/from-translator.cgl",
+                    "mappingGranularity": "source-span",
+                    "mappingCount": 1,
+                    "sourcePath": "source/original.crossgl",
+                    "sourceSha256": "0" * 64,
+                    "sourceSizeBytes": 0,
+                    "sourceRemapTarget": "cgl",
+                    "sourceRemapMappingGranularity": "file",
+                    "sourceRemapSourceBackend": "cgl",
+                    "sourceRemapVariant": "debug",
+                },
+            )
+            self.assertEqual(
+                load_unit["backendSourceMap"]["provenance"],
+                {
+                    "available": True,
+                    "health": "ok",
+                    "schemaVersion": 1,
+                    "kind": "crossgl.backendSourceMap",
+                    "target": "directx",
+                    "module": "RuntimeLoaderFixture",
+                    "mappingGranularity": "statement",
+                    "sourceBackend": "crossgl-hir",
+                    "targetBackend": "hlsl",
+                    "backendLanguage": "hlsl",
+                    "backendLineCount": 1,
+                    "mappingCount": 1,
+                    "mappingRecordCount": 1,
+                    "sourceRemapPresent": True,
+                    "sourceRemapPath": source_remap_path,
+                    "sourceRemapGeneratedFile": "generated/from-translator.cgl",
+                    "sourceRemapTarget": "cgl",
+                    "sourceRemapMappingGranularity": "file",
+                    "sourceRemapMappingCount": 1,
+                    "sourceRemapSourceBackend": "cgl",
+                    "sourceRemapVariant": "debug",
+                    "sourceRemapSha256": "0" * 64,
+                    "sourceRemapSizeBytes": 0,
+                },
+            )
+            self.assertEqual(
+                [step["kind"] for step in load_unit["loadSteps"]],
+                [
+                    "load-package-artifact",
+                    "load-source-remap",
+                    "load-backend-source-map",
+                    "bind-host-interface",
+                ],
+            )
+
     def test_workgroup_size_metadata_handoff_uses_reflection_only(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
