@@ -1459,7 +1459,7 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       -DEXPECTED_DESCRIPTOR_TYPE=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
       -DEXPECTED_STORAGE_ELEMENT=float
       -DEXPECTED_STORAGE_STRIDE=4
-      "-DEXPECTED_SPVASM_SNIPPET=OpFMul %float"
+      "-DEXPECTED_SPVASM_CONTAINS=ConstOffset %const_float__2_0 %const_ivec2_0_0|ConstOffset %const_float__2_0 %const_ivec2_1_0|ConstOffset %const_float__2_0 %const_ivec2_0_1|ConstOffset %const_float__2_0 %const_ivec2_1_1|OpFMul %float"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_texture_2d_array_shadow_compare_lod_manual_gather_2x2_native
@@ -1471,7 +1471,7 @@ if(CROSSGL_HAS_VULKAN_NATIVE_TOOLS)
       -DEXPECTED_DESCRIPTOR_TYPE=VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE
       -DEXPECTED_STORAGE_ELEMENT=float
       -DEXPECTED_STORAGE_STRIDE=4
-      "-DEXPECTED_SPVASM_SNIPPET=OpFMul %float"
+      "-DEXPECTED_SPVASM_CONTAINS=ConstOffset %const_float__2_0 %const_ivec2_0_0|ConstOffset %const_float__2_0 %const_ivec2_1_0|ConstOffset %const_float__2_0 %const_ivec2_0_1|ConstOffset %const_float__2_0 %const_ivec2_1_1|OpFMul %float"
       -DMODE=vulkan-build
       -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
   add_test(NAME cglc_build_vulkan_texture_2d_shadow_compare_lod_manual_kernel_4_native

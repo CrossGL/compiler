@@ -1405,6 +1405,16 @@ add_test(NAME cglc_dump_hir_source_map_schema_alias_disagreement
     "-DEXPECTED_DIAGNOSTIC=source-map schema version aliases disagree"
     "-DEXPECTED_STDERR_FRAGMENT=source-map schema version aliases disagree"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_source_map_rejects_non_directx_target
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SIMPLE_SHADER}
+    -DTARGET=metal
+    -DSTAGE=backend-source-map
+    -DMODE=dump-stage-failure
+    -DEXPECTED_DIAGNOSTIC=dump.backend-source-map.unsupported-target
+    "-DEXPECTED_STDERR_FRAGMENT=backend source maps currently support directx only"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_hir_source_map_records
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
