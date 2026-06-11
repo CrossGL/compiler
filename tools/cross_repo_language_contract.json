@@ -1573,6 +1573,11 @@
       "translator_ast_sha256": "9a7ab4ab8e3cb162c40e5b9d91fc3c8ff311089111bdc56638273dbfac0e8345",
       "compiler_hir_sha256": "900d5ce178e04393d162a788807879efffc42fc74a39dfcb9920b02fb5706837"
     },
+    "compiler/tests/fixtures/VulkanDeclarationSourceMapShader.cgl": {
+      "source_sha256": "63defc23f268569b4a92f90beec4fb2869520140778baf1b78887f6cf80402a5",
+      "translator_ast_sha256": "dc4313e7c10a9d02464d2c60466d8d6ef5387c86acb9ad010163f6911992b3dc",
+      "compiler_hir_sha256": "d0d0b9afd1330ae62f986bd9c2dbfadf8e8754e13f559a7f9c93abc1ab707c65"
+    },
     "compiler/tests/fixtures/VulkanDynamicDescriptorArrayIndexShader.cgl": {
       "source_sha256": "144d8c2e2c318e415fe787d0cc820291d2349dac1405057e9632627c9aeeb411",
       "translator_ast_sha256": "2a830120509416e0e08da022f14bf00bdc4d0b2b8c298e7204e0a1ec9460a9e6",

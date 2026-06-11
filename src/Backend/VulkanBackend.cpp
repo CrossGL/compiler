@@ -11181,6 +11181,28 @@ private:
     return emitAssignment(statement);
   }
 
+  bool emitSourceMappedLoopInitializer(const HIRStatement &statement) {
+    const std::size_t variableStartIndex = variableLines_.size();
+    const std::size_t instructionStartIndex = instructionLines_.size();
+    const bool success = emitDeclaration(statement);
+    if (success) {
+      recordSourceMapStatement(statement, variableStartIndex,
+                               instructionStartIndex);
+    }
+    return success;
+  }
+
+  bool emitSourceMappedParsedLoopUpdate(const HIRStatement &statement) {
+    const std::size_t variableStartIndex = variableLines_.size();
+    const std::size_t instructionStartIndex = instructionLines_.size();
+    const bool success = emitParsedLoopUpdate(statement);
+    if (success) {
+      recordSourceMapStatement(statement, variableStartIndex,
+                               instructionStartIndex);
+    }
+    return success;
+  }
+
   PrototypeEmitResult emitForStatement(const HIRStatement &statement) {
     const bool whileLowered = isWhileLoweredForStatement(statement);
     std::unordered_map<std::string, PrototypeSPIRVLocal> outerLocals = locals_;
@@ -11193,7 +11215,7 @@ private:
         return {};
       }
 
-      if (!emitDeclaration(statement.initializer.front())) {
+      if (!emitSourceMappedLoopInitializer(statement.initializer.front())) {
         locals_ = std::move(outerLocals);
         return {};
       }
@@ -11235,7 +11257,7 @@ private:
     if (!whileLowered) {
       if (!statement.update.empty()) {
         if (statement.update.size() != 1 ||
-            !emitParsedLoopUpdate(statement.update.front())) {
+            !emitSourceMappedParsedLoopUpdate(statement.update.front())) {
           locals_ = std::move(outerLocals);
           return {};
         }
