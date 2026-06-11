@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 import hashlib
 import json
@@ -67,9 +68,16 @@ class CrossTLAdapterDescriptor:
     adapter_kind: str | None
     artifact_format: str | None
     package_path: str | None
+    source_path: str | None
+    source_backend: str | None
+    stage: str | None
+    variant: str | None
+    defines: dict[str, Any]
     descriptor_path: str
     host_interface_status: str | None
     required_tools: tuple[str, ...]
+    host_interface: dict[str, Any] | None
+    validation: dict[str, Any]
     document: dict[str, Any] | None
 
 
@@ -103,7 +111,18 @@ class CrossTLRuntimeAdapterCandidate:
     load_ready: bool
     required_tools: tuple[str, ...]
     host_responsibilities: tuple[str, ...]
+    source_path: str | None
+    source_backend: str | None
+    stage: str | None
+    variant: str | None
+    defines: dict[str, Any]
     source_remap: dict[str, Any] | None
+    host_interface: dict[str, Any] | None
+    entry_points: tuple[dict[str, Any], ...]
+    resources: tuple[dict[str, Any], ...]
+    constants: tuple[dict[str, Any], ...]
+    target_resource_binding_metadata: tuple[dict[str, Any], ...]
+    validation: dict[str, Any]
 
 
 def read_crosstl_runtime_adapter_package(
@@ -186,6 +205,10 @@ def normalize_crosstl_runtime_adapter_candidates(
         compiler_artifact_format = _compiler_artifact_format(descriptor.artifact_format)
         if compiler_artifact_format is None:
             continue
+        host_interface = descriptor.host_interface
+        entry_points = _host_interface_records(host_interface, "entryPoints")
+        resources = _host_interface_records(host_interface, "resources")
+        constants = _host_interface_records(host_interface, "constants")
         candidates.append(
             CrossTLRuntimeAdapterCandidate(
                 id=_runtime_loader_candidate_id(descriptor),
@@ -206,12 +229,34 @@ def normalize_crosstl_runtime_adapter_candidates(
                 producer_adapter_kind=descriptor.adapter_kind,
                 producer_artifact_format=descriptor.artifact_format,
                 host_interface_status=descriptor.host_interface_status,
-                load_ready=descriptor.host_interface_status == "ready",
+                load_ready=_candidate_load_ready(descriptor),
                 required_tools=descriptor.required_tools,
                 host_responsibilities=tuple(
                     _string_list(descriptor.document.get("hostResponsibilities"))
                 ),
+                source_path=descriptor.source_path,
+                source_backend=descriptor.source_backend,
+                stage=descriptor.stage,
+                variant=descriptor.variant,
+                defines=_json_object_copy(descriptor.defines),
                 source_remap=_optional_object(descriptor.document.get("sourceRemap")),
+                host_interface=(
+                    _json_object_copy(host_interface)
+                    if host_interface is not None
+                    else None
+                ),
+                entry_points=entry_points,
+                resources=resources,
+                constants=constants,
+                target_resource_binding_metadata=(
+                    _target_resource_binding_metadata(
+                        target=descriptor.target,
+                        descriptor_stage=descriptor.stage,
+                        entry_points=entry_points,
+                        resources=resources,
+                    )
+                ),
+                validation=_json_object_copy(descriptor.validation),
             )
         )
     return tuple(candidates)
@@ -392,9 +437,36 @@ def _read_descriptors(
                 adapter_kind=_optional_str(record.get("adapterKind")),
                 artifact_format=_optional_str(record.get("artifactFormat")),
                 package_path=_optional_str(record.get("packagePath")),
+                source_path=_optional_str(
+                    _descriptor_field(record, descriptor_document, "sourcePath")
+                ),
+                source_backend=_optional_str(
+                    _descriptor_field(record, descriptor_document, "sourceBackend")
+                ),
+                stage=_optional_str(
+                    _descriptor_field(record, descriptor_document, "stage")
+                ),
+                variant=_optional_str(
+                    _descriptor_field(record, descriptor_document, "variant")
+                ),
+                defines=(
+                    _optional_object(
+                        _descriptor_field(record, descriptor_document, "defines")
+                    )
+                    or {}
+                ),
                 descriptor_path=descriptor_path,
                 host_interface_status=_optional_str(record.get("hostInterfaceStatus")),
                 required_tools=tuple(_string_list(record.get("requiredTools"))),
+                host_interface=_optional_object(
+                    _descriptor_field(record, descriptor_document, "hostInterface")
+                ),
+                validation=(
+                    _optional_object(
+                        _descriptor_field(record, descriptor_document, "validation")
+                    )
+                    or {}
+                ),
                 document=descriptor_document,
             )
         )
@@ -520,6 +592,14 @@ def _validate_descriptor_document(
         )
     host_interface = document.get("hostInterface")
     validation = document.get("validation")
+    if isinstance(host_interface, dict):
+        _expect_equal(
+            diagnostics,
+            f"{record_path}.descriptor.hostInterface.status",
+            host_interface.get("status"),
+            record.get("hostInterfaceStatus"),
+            "crosstl.adapter.host_interface_record_drift",
+        )
     if isinstance(host_interface, dict) and isinstance(validation, dict):
         _validate_host_interface_status(
             host_interface,
@@ -776,12 +856,102 @@ def _expect_equal(
         )
 
 
+def _descriptor_field(
+    record: dict[str, Any],
+    document: dict[str, Any] | None,
+    field_name: str,
+) -> Any:
+    if field_name in record:
+        return record.get(field_name)
+    if document is not None:
+        return document.get(field_name)
+    return None
+
+
+def _candidate_load_ready(descriptor: CrossTLAdapterDescriptor) -> bool:
+    load_ready = descriptor.validation.get("loadReady")
+    if isinstance(load_ready, bool):
+        return load_ready and descriptor.host_interface_status == "ready"
+    return descriptor.host_interface_status == "ready"
+
+
+def _json_object_copy(value: dict[str, Any]) -> dict[str, Any]:
+    return copy.deepcopy(value)
+
+
+def _host_interface_records(
+    host_interface: dict[str, Any] | None, field_name: str
+) -> tuple[dict[str, Any], ...]:
+    if host_interface is None:
+        return ()
+    value = host_interface.get(field_name)
+    if not isinstance(value, list):
+        return ()
+    return tuple(_json_object_copy(item) for item in value if isinstance(item, dict))
+
+
+def _target_resource_binding_metadata(
+    *,
+    target: str | None,
+    descriptor_stage: str | None,
+    entry_points: tuple[dict[str, Any], ...],
+    resources: tuple[dict[str, Any], ...],
+) -> tuple[dict[str, Any], ...]:
+    if target is None:
+        return ()
+    default_entry_point = entry_points[0] if len(entry_points) == 1 else {}
+    default_entry_point_name = _optional_str(default_entry_point.get("name"))
+    default_stage = _optional_str(default_entry_point.get("stage")) or descriptor_stage
+
+    records = []
+    for index, resource in enumerate(resources):
+        record: dict[str, Any] = {
+            "target": target,
+            "stage": _optional_str(resource.get("stage")) or default_stage,
+            "entryPoint": (
+                _optional_str(resource.get("entryPoint")) or default_entry_point_name
+            ),
+            "name": _optional_str(resource.get("name")),
+            "kind": _optional_str(resource.get("kind")),
+            "bindingClass": _optional_str(resource.get("bindingClass")),
+            "descriptorType": _optional_str(resource.get("descriptorType")),
+            "set": resource.get("set"),
+            "binding": resource.get("binding"),
+            "argumentIndex": resource.get("argumentIndex"),
+            "abi": {
+                "source": "hostInterface.resources",
+                "status": _resource_binding_status(resource),
+            },
+            "evidenceId": f"hostInterface.resources[{index}]",
+        }
+        for field_name in (
+            "arrayDimensions",
+            "arrayElementCount",
+            "storageImageFormat",
+            "storageImageAccess",
+        ):
+            if field_name in resource:
+                record[field_name] = copy.deepcopy(resource.get(field_name))
+        records.append(record)
+    return tuple(records)
+
+
+def _resource_binding_status(resource: dict[str, Any]) -> str:
+    has_set = resource.get("set") is not None
+    has_binding = resource.get("binding") is not None
+    if has_set and has_binding:
+        return "bound"
+    if has_set or has_binding:
+        return "layout-partial"
+    return "layout-missing"
+
+
 def _optional_str(value: Any) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
 def _optional_object(value: Any) -> dict[str, Any] | None:
-    return dict(value) if isinstance(value, dict) else None
+    return _json_object_copy(value) if isinstance(value, dict) else None
 
 
 def _string_list(value: Any) -> list[str]:

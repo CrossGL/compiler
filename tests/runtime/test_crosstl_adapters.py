@@ -64,9 +64,73 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             self.assertEqual(
                 candidate.host_responsibilities, ("load-package-artifact",)
             )
+            self.assertEqual(candidate.source_path, "src/opengl/main.crossgl")
+            self.assertEqual(candidate.source_backend, "crossgl")
+            self.assertEqual(candidate.stage, "compute")
+            self.assertEqual(candidate.variant, "debug")
+            self.assertEqual(candidate.defines, {})
             self.assertEqual(
                 candidate.source_remap,
                 {"packagePath": "source-remaps/opengl/main.source-remap.json"},
+            )
+            self.assertEqual(candidate.validation["loadReady"], True)
+            self.assertEqual(candidate.host_interface["status"], "ready")
+            self.assertEqual(
+                candidate.entry_points,
+                (
+                    {
+                        "name": "main",
+                        "stage": "compute",
+                        "executionConfig": {"workgroupSize": [8, 1, 1]},
+                    },
+                ),
+            )
+            self.assertEqual(
+                candidate.resources,
+                (
+                    {
+                        "name": "Particles",
+                        "kind": "buffer",
+                        "type": "RWStructuredBuffer<float4>",
+                        "set": 0,
+                        "binding": 1,
+                        "access": "read-write",
+                    },
+                ),
+            )
+            self.assertEqual(
+                candidate.constants,
+                (
+                    {
+                        "name": "ParticleCount",
+                        "kind": "specialization-constant",
+                        "dtype": "uint",
+                        "id": 0,
+                        "required": False,
+                    },
+                ),
+            )
+            self.assertEqual(
+                candidate.target_resource_binding_metadata,
+                (
+                    {
+                        "target": "opengl",
+                        "stage": "compute",
+                        "entryPoint": "main",
+                        "name": "Particles",
+                        "kind": "buffer",
+                        "bindingClass": None,
+                        "descriptorType": None,
+                        "set": 0,
+                        "binding": 1,
+                        "argumentIndex": None,
+                        "abi": {
+                            "source": "hostInterface.resources",
+                            "status": "bound",
+                        },
+                        "evidenceId": "hostInterface.resources[0]",
+                    },
+                ),
             )
 
     def test_reports_unsupported_descriptor_targets_without_invalidating_package(
@@ -280,6 +344,30 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                 {diagnostic.code for diagnostic in report.diagnostics},
             )
 
+    def test_detects_manifest_host_interface_status_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            manifest = self._write_adapter_bundle(root, target="opengl")
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            descriptor_path = root / payload["descriptors"][0]["descriptorPath"]
+            descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
+            descriptor["hostInterface"]["status"] = "blocked"
+            self._write_json(descriptor_path, descriptor)
+            descriptor_bytes = descriptor_path.read_bytes()
+            payload["descriptors"][0]["descriptorHash"]["value"] = hashlib.sha256(
+                descriptor_bytes
+            ).hexdigest()
+            payload["descriptors"][0]["descriptorSizeBytes"] = len(descriptor_bytes)
+            self._write_json(manifest, payload)
+
+            report = read_crosstl_runtime_adapter_package(manifest)
+
+            self.assertFalse(report.valid)
+            self.assertIn(
+                "crosstl.adapter.host_interface_record_drift",
+                {diagnostic.code for diagnostic in report.diagnostics},
+            )
+
     def _write_adapter_bundle(
         self,
         root: Path,
@@ -324,7 +412,42 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             "sourceRemap": {
                 "packagePath": f"source-remaps/{target}/main.source-remap.json"
             },
-            "hostInterface": {"status": host_interface_status},
+            "hostInterface": {
+                "status": host_interface_status,
+                "source": "package-artifact",
+                "parser": target,
+                "artifactFormat": artifact_format,
+                "entryPointCount": 1,
+                "resourceCount": 1,
+                "constantCount": 1,
+                "entryPoints": [
+                    {
+                        "name": "main",
+                        "stage": "compute",
+                        "executionConfig": {"workgroupSize": [8, 1, 1]},
+                    }
+                ],
+                "resources": [
+                    {
+                        "name": "Particles",
+                        "kind": "buffer",
+                        "type": "RWStructuredBuffer<float4>",
+                        "set": 0,
+                        "binding": 1,
+                        "access": "read-write",
+                    }
+                ],
+                "constants": [
+                    {
+                        "name": "ParticleCount",
+                        "kind": "specialization-constant",
+                        "dtype": "uint",
+                        "id": 0,
+                        "required": False,
+                    }
+                ],
+                "diagnostics": [],
+            },
             "requiredTools": [f"{target}.toolchain.compiler"],
             "hostResponsibilities": ["load-package-artifact"],
             "validation": {"loadReady": load_ready},
