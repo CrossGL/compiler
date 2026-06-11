@@ -240,6 +240,17 @@ Diagnostic vulkanToolValidationDiagnostic(
   return diagnostic;
 }
 
+Diagnostic vulkanToolFailureDiagnostic(std::string_view toolName) {
+  Diagnostic diagnostic;
+  diagnostic.severity = DiagnosticSeverity::Error;
+  diagnostic.code = "vulkan." + std::string(toolName) + "-failed";
+  diagnostic.message = std::string(toolName) +
+                       " failed without parseable source-coordinate diagnostics";
+  diagnostic.target = "vulkan";
+  diagnostic.missingCapabilities = {"vulkan.native-artifact.spirv"};
+  return diagnostic;
+}
+
 void appendVulkanToolValidationDiagnostics(
     std::vector<Diagnostic> &diagnostics, std::string_view output,
     const std::filesystem::path &packageRelativeSource,
@@ -17156,6 +17167,8 @@ VulkanBuildResult buildVulkanPrototypeBinary(
   result.validatorProvenance =
       captureToolInvocationProvenance("spirv-val", validateCommand);
   const ProcessCaptureResult validateProcess = runProcessCapture(validateCommand);
+  const std::size_t validationDiagnosticCount =
+      result.validationDiagnostics.size();
   appendVulkanToolValidationDiagnostics(result.validationDiagnostics,
                                         validateProcess,
                                         packageRelativeAssembly, "spirv-val");
@@ -17166,6 +17179,10 @@ VulkanBuildResult buildVulkanPrototypeBinary(
           ? validateProcess.exitCode
           : 1;
   if (status != 0) {
+    if (result.validationDiagnostics.size() == validationDiagnosticCount) {
+      result.validationDiagnostics.push_back(
+          vulkanToolFailureDiagnostic("spirv-val"));
+    }
     diagnostics.error("vulkan.validate-failed",
                       "spirv-val failed for generated Vulkan prototype binary");
     return result;

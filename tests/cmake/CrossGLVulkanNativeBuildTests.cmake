@@ -485,10 +485,19 @@ add_test(NAME cglc_build_vulkan_native_fake_spirv_val_planned_failure
     -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-fake-spirv-val-failure.cglb
     -DTOOLCHAIN_PATH=${CROSSGL_FAKE_VULKAN_VALIDATOR_FAILURE_DIR}
     -DTOOLCHAIN_DISABLE_FALLBACK=ON
-    -DEXPECT_NO_OUTPUT_PACKAGE=ON
+    -DEXPECTED_FAILED_PACKAGE=ON
     -DEXPECTED_DIAGNOSTIC=vulkan.validate-failed
     "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=error|diagnostics.0.code=vulkan.validate-failed"
     "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=StorageBufferComputeShader|artifacts.backendAssembly=backend/vulkan/StorageBufferComputeShader.spvasm|artifacts.nativeBinary=backend/vulkan/StorageBufferComputeShader.spv|artifacts.nativeArtifactDescriptor=backend/vulkan/StorageBufferComputeShader.native-artifact.json"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=vulkan|binaryKind=vulkan.spirv-module|sourcePath=backend/vulkan/StorageBufferComputeShader.spvasm|artifactPath=backend/vulkan/StorageBufferComputeShader.spv|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=none|optimizationEvidence.policy=disabled-by-opt-level|optimizationEvidence.status=skipped-disabled|optimizationEvidence.tool=spirv-opt|validationStatus=failed|validationDiagnostics.0.severity=error|validationDiagnostics.0.code=vulkan.spirv-val-failed|validationDiagnostics.0.message=spirv-val failed without parseable source-coordinate diagnostics|validationDiagnostics.0.target=vulkan|validationDiagnostics.0.missingCapabilities.0=vulkan.native-artifact.spirv|toolchainProvenance.tools.1.name=spirv-as|toolchainProvenance.tools.1.role=assembler|toolchainProvenance.tools.1.provenanceStatus=succeeded|toolchainProvenance.tools.2.name=spirv-val|toolchainProvenance.tools.2.role=validator|toolchainProvenance.tools.2.provenanceStatus=failed"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value|artifactHash.value|toolchainProvenance.tools.2.provenanceDetail"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=1|validationDiagnostics.0.missingCapabilities=1"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=StorageBufferComputeShader|nativeBinary=backend/vulkan/StorageBufferComputeShader.spv"
+    -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DPACKAGE_INTEGRITY_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_package_integrity.py
+    -DPYTHON3_EXECUTABLE=${CROSSGL_PYTHON3}
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_VULKAN_VALIDATOR_FAILURE_DIR}/spirv-as.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=spirv-as success: --target-env vulkan1.2"
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_VULKAN_VALIDATOR_FAILURE_DIR}/spirv-val.log
