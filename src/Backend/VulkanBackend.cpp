@@ -20,6 +20,7 @@
 #include <array>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -39,6 +40,13 @@ constexpr std::string_view kRawStatementBackendInputDiagnostic =
 using PrototypeTextureOffset = std::array<int, 2>;
 
 const std::unordered_set<std::string> kEmptyStringSet;
+
+struct VulkanToolParsedDiagnostic {
+  std::size_t line = 1;
+  std::size_t column = 1;
+  DiagnosticSeverity severity = DiagnosticSeverity::Error;
+  std::string message;
+};
 
 VulkanSPIRVImport
 vulkanSPIRVImport(const SPIRVExtInstImportDefinition &definition) {
@@ -78,6 +86,188 @@ bool moduleContainsRawStatement(const HIRModule &module) {
     }
   }
   return false;
+}
+
+std::string_view trimVulkanToolText(std::string_view text) {
+  const std::size_t first = text.find_first_not_of(" \t\r\n");
+  if (first == std::string_view::npos) {
+    return {};
+  }
+  const std::size_t last = text.find_last_not_of(" \t\r\n");
+  return text.substr(first, last - first + 1);
+}
+
+std::optional<std::size_t>
+parseVulkanToolPositiveInteger(std::string_view text) {
+  text = trimVulkanToolText(text);
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  std::size_t value = 0;
+  for (char c : text) {
+    if (c < '0' || c > '9') {
+      return std::nullopt;
+    }
+    const std::size_t digit = static_cast<std::size_t>(c - '0');
+    if (value > (std::numeric_limits<std::size_t>::max() - digit) / 10) {
+      return std::nullopt;
+    }
+    value = value * 10 + digit;
+  }
+  if (value == 0) {
+    return std::nullopt;
+  }
+  return value;
+}
+
+std::string vulkanPackageRelativePath(
+    const std::filesystem::path &packageDir,
+    const std::filesystem::path &artifactPath) {
+  const auto relative = artifactPath.lexically_relative(packageDir);
+  const auto normalized = relative.lexically_normal();
+  if (!normalized.empty() && !normalized.is_absolute()) {
+    const auto first = normalized.begin();
+    if (first == normalized.end() || first->string() != "..") {
+      return normalized.generic_string();
+    }
+  }
+  return artifactPath.generic_string();
+}
+
+std::optional<DiagnosticSeverity>
+vulkanToolSeverity(std::string_view text) {
+  const std::string_view trimmed = trimVulkanToolText(text);
+  const std::size_t tokenEnd = trimmed.find(' ');
+  const std::string_view token =
+      tokenEnd == std::string_view::npos ? trimmed : trimmed.substr(0, tokenEnd);
+  if (token == "error") {
+    return DiagnosticSeverity::Error;
+  }
+  if (token == "warning") {
+    return DiagnosticSeverity::Warning;
+  }
+  if (token == "note") {
+    return DiagnosticSeverity::Note;
+  }
+  return std::nullopt;
+}
+
+std::optional<VulkanToolParsedDiagnostic>
+parseVulkanToolDiagnosticLine(std::string_view line) {
+  line = trimVulkanToolText(line);
+  constexpr std::array<std::string_view, 3> severityMarkers = {
+      ": error:", ": warning:", ": note:"};
+  for (std::string_view marker : severityMarkers) {
+    const std::size_t markerPosition = line.find(marker);
+    if (markerPosition == std::string_view::npos) {
+      continue;
+    }
+    const std::optional<DiagnosticSeverity> severity =
+        vulkanToolSeverity(marker.substr(2, marker.size() - 3));
+    if (!severity) {
+      continue;
+    }
+    const std::string_view coordinatePrefix = line.substr(0, markerPosition);
+    const std::size_t columnSeparator = coordinatePrefix.rfind(':');
+    if (columnSeparator == std::string_view::npos || columnSeparator == 0) {
+      continue;
+    }
+    const std::size_t lineSeparator =
+        coordinatePrefix.rfind(':', columnSeparator - 1);
+    if (lineSeparator == std::string_view::npos || lineSeparator == 0) {
+      continue;
+    }
+    const std::optional<std::size_t> parsedLine =
+        parseVulkanToolPositiveInteger(
+            coordinatePrefix.substr(lineSeparator + 1,
+                                    columnSeparator - lineSeparator - 1));
+    const std::optional<std::size_t> parsedColumn =
+        parseVulkanToolPositiveInteger(
+            coordinatePrefix.substr(columnSeparator + 1));
+    if (!parsedLine || !parsedColumn) {
+      continue;
+    }
+    const std::string_view detail =
+        trimVulkanToolText(line.substr(markerPosition + marker.size()));
+    if (detail.empty()) {
+      return std::nullopt;
+    }
+
+    VulkanToolParsedDiagnostic diagnostic;
+    diagnostic.line = *parsedLine;
+    diagnostic.column = *parsedColumn;
+    diagnostic.severity = *severity;
+    diagnostic.message = std::string(detail);
+    return diagnostic;
+  }
+  return std::nullopt;
+}
+
+std::string vulkanToolDiagnosticCode(DiagnosticSeverity severity,
+                                     std::string_view toolName) {
+  const std::string tool = toolName == "spirv-val" ? "spirv-val" : "tool";
+  switch (severity) {
+  case DiagnosticSeverity::Error:
+    return "vulkan." + tool + "-error";
+  case DiagnosticSeverity::Warning:
+    return "vulkan." + tool + "-warning";
+  case DiagnosticSeverity::Note:
+    return "vulkan." + tool + "-note";
+  }
+  return "vulkan." + tool + "-message";
+}
+
+Diagnostic vulkanToolValidationDiagnostic(
+    const VulkanToolParsedDiagnostic &parsed,
+    const std::filesystem::path &packageRelativeSource,
+    std::string_view toolName) {
+  Diagnostic diagnostic;
+  diagnostic.severity = parsed.severity;
+  diagnostic.code = vulkanToolDiagnosticCode(parsed.severity, toolName);
+  diagnostic.message = std::string(toolName) + " " +
+                       std::string(toString(parsed.severity)) + ": " +
+                       parsed.message + " (" +
+                       packageRelativeSource.generic_string() + ":" +
+                       std::to_string(parsed.line) + ":" +
+                       std::to_string(parsed.column) + ")";
+  diagnostic.location.file = packageRelativeSource.generic_string();
+  diagnostic.location.line = parsed.line;
+  diagnostic.location.column = parsed.column;
+  diagnostic.location.endLine = parsed.line;
+  diagnostic.location.endColumn = parsed.column;
+  diagnostic.target = "vulkan";
+  diagnostic.missingCapabilities = {"vulkan.native-artifact.spirv"};
+  return diagnostic;
+}
+
+void appendVulkanToolValidationDiagnostics(
+    std::vector<Diagnostic> &diagnostics, std::string_view output,
+    const std::filesystem::path &packageRelativeSource,
+    std::string_view toolName) {
+  while (!output.empty()) {
+    const std::size_t lineEnd = output.find('\n');
+    const std::string_view line =
+        lineEnd == std::string_view::npos ? output : output.substr(0, lineEnd);
+    if (std::optional<VulkanToolParsedDiagnostic> parsed =
+            parseVulkanToolDiagnosticLine(line)) {
+      diagnostics.push_back(vulkanToolValidationDiagnostic(
+          *parsed, packageRelativeSource, toolName));
+    }
+    if (lineEnd == std::string_view::npos) {
+      break;
+    }
+    output.remove_prefix(lineEnd + 1);
+  }
+}
+
+void appendVulkanToolValidationDiagnostics(
+    std::vector<Diagnostic> &diagnostics, const ProcessCaptureResult &result,
+    const std::filesystem::path &packageRelativeSource,
+    std::string_view toolName) {
+  appendVulkanToolValidationDiagnostics(diagnostics, result.stderrText,
+                                        packageRelativeSource, toolName);
+  appendVulkanToolValidationDiagnostics(diagnostics, result.stdoutText,
+                                        packageRelativeSource, toolName);
 }
 
 const SourceLocation &resourceDiagnosticLocation(const HIRResource &resource) {
@@ -16892,6 +17082,8 @@ VulkanBuildResult buildVulkanPrototypeBinary(
 
   result.assemblyPath = backendDir / (module.name + ".spvasm");
   result.spvPath = backendDir / (module.name + ".spv");
+  const std::filesystem::path packageRelativeAssembly =
+      vulkanPackageRelativePath(packageDir, result.assemblyPath);
   if (!writeTextFile(result.assemblyPath, assembly, diagnostics,
                      "artifact.write-vulkan-assembly")) {
     return result;
@@ -16963,8 +17155,16 @@ VulkanBuildResult buildVulkanPrototypeBinary(
       result.spvPath.string()};
   result.validatorProvenance =
       captureToolInvocationProvenance("spirv-val", validateCommand);
-  status = runProcess(validateCommand);
-  completeToolInvocationProvenance(*result.validatorProvenance, status);
+  const ProcessCaptureResult validateProcess = runProcessCapture(validateCommand);
+  appendVulkanToolValidationDiagnostics(result.validationDiagnostics,
+                                        validateProcess,
+                                        packageRelativeAssembly, "spirv-val");
+  completeToolInvocationProvenance(*result.validatorProvenance,
+                                   validateProcess);
+  status =
+      validateProcess.started && validateProcess.error.empty()
+          ? validateProcess.exitCode
+          : 1;
   if (status != 0) {
     diagnostics.error("vulkan.validate-failed",
                       "spirv-val failed for generated Vulkan prototype binary");

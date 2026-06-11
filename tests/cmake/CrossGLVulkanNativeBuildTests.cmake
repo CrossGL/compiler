@@ -173,6 +173,8 @@ crossgl_configure_fake_vulkan_native_toolchain(
 crossgl_configure_fake_vulkan_native_toolchain(
   CROSSGL_FAKE_VULKAN_VALIDATOR_FAILURE_DIR success failure)
 crossgl_configure_fake_vulkan_native_toolchain(
+  CROSSGL_FAKE_VULKAN_VALIDATOR_DIAGNOSTICS_FAILURE_DIR success diagnostics-failure)
+crossgl_configure_fake_vulkan_native_toolchain(
   CROSSGL_FAKE_VULKAN_ASSEMBLER_UNAVAILABLE_DIR unavailable success)
 crossgl_configure_fake_vulkan_native_toolchain(
   CROSSGL_FAKE_VULKAN_VALIDATOR_UNAVAILABLE_DIR success unavailable)
@@ -494,6 +496,34 @@ add_test(NAME cglc_build_vulkan_native_fake_spirv_val_planned_failure
     -DMODE=planned-build-failure
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 
+add_test(NAME cglc_build_vulkan_native_fake_spirv_val_diagnostics_tool_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DTARGET=vulkan
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-fake-spirv-val-diagnostics-failure.cglb
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_VULKAN_VALIDATOR_DIAGNOSTICS_FAILURE_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    -DEXPECTED_FAILED_PACKAGE=ON
+    -DEXPECTED_DIAGNOSTIC=vulkan.validate-failed
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=error|diagnostics.0.code=vulkan.validate-failed"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=StorageBufferComputeShader|artifacts.backendAssembly=backend/vulkan/StorageBufferComputeShader.spvasm|artifacts.nativeBinary=backend/vulkan/StorageBufferComputeShader.spv|artifacts.nativeArtifactDescriptor=backend/vulkan/StorageBufferComputeShader.native-artifact.json"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=vulkan|binaryKind=vulkan.spirv-module|sourcePath=backend/vulkan/StorageBufferComputeShader.spvasm|artifactPath=backend/vulkan/StorageBufferComputeShader.spv|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=none|optimizationEvidence.policy=disabled-by-opt-level|optimizationEvidence.status=skipped-disabled|optimizationEvidence.tool=spirv-opt|validationStatus=failed|validationDiagnostics.0.severity=error|validationDiagnostics.0.code=vulkan.spirv-val-error|validationDiagnostics.0.message=spirv-val error: fake spirv-val mapped failure (backend/vulkan/StorageBufferComputeShader.spvasm:7:2)|validationDiagnostics.0.location.file=backend/vulkan/StorageBufferComputeShader.spvasm|validationDiagnostics.0.location.line=7|validationDiagnostics.0.location.column=2|validationDiagnostics.0.target=vulkan|validationDiagnostics.0.missingCapabilities.0=vulkan.native-artifact.spirv|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=spirv-as|toolchainProvenance.tools.1.role=assembler|toolchainProvenance.tools.1.provenanceStatus=succeeded|toolchainProvenance.tools.2.name=spirv-val|toolchainProvenance.tools.2.role=validator|toolchainProvenance.tools.2.provenanceStatus=failed"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value|artifactHash.value|toolchainProvenance.tools.2.provenanceDetail"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=1|validationDiagnostics.0.missingCapabilities=1"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=StorageBufferComputeShader|nativeBinary=backend/vulkan/StorageBufferComputeShader.spv"
+    -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DPACKAGE_INTEGRITY_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_package_integrity.py
+    -DPYTHON3_EXECUTABLE=${CROSSGL_PYTHON3}
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_VULKAN_VALIDATOR_DIAGNOSTICS_FAILURE_DIR}/spirv-as.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=spirv-as success: --target-env vulkan1.2"
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_VULKAN_VALIDATOR_DIAGNOSTICS_FAILURE_DIR}/spirv-val.log
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=spirv-val diagnostics-failure: --target-env vulkan1.2"
+    -DMODE=planned-build-failure
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+
 add_test(NAME cglc_build_vulkan_native_fake_spirv_as_unavailable_planned_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -547,6 +577,8 @@ crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_spirv_as_unavailable_planned_failure vulkan)
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_spirv_val_planned_failure vulkan)
+crossgl_label_optional_native_policy_test(
+  cglc_build_vulkan_native_fake_spirv_val_diagnostics_tool_failure vulkan)
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_spirv_val_unavailable_planned_failure vulkan)
 

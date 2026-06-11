@@ -333,6 +333,10 @@ elseif(FAKE_TOOL_NAME STREQUAL "dxc" AND
   file(WRITE "${fake_output}" "fake partial dxil from diagnostic dxc failure\n")
   message("${fake_dxc_source}(5,3): error: fake dxc mapped failure")
   message(FATAL_ERROR "fake dxc mapped failure")
+elseif(FAKE_TOOL_NAME STREQUAL "spirv-val" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "diagnostics-failure")
+  message("${fake_module}:7:2: error: fake spirv-val mapped failure")
+  message(FATAL_ERROR "fake spirv-val mapped failure")
 elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator" AND
        FAKE_TOOL_BEHAVIOR STREQUAL "failure")
   fake_glslang_write_partial_native_artifact()

@@ -45,6 +45,7 @@ struct VulkanBuildResult {
   std::optional<ToolInvocationProvenance> optimizerProvenance;
   std::optional<ToolInvocationProvenance> validatorProvenance;
   std::optional<ToolInvocationProvenance> disassemblerProvenance;
+  std::vector<Diagnostic> validationDiagnostics;
   std::vector<VulkanSPIRVImport> extendedInstructionImports;
 };
 

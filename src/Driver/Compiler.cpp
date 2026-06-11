@@ -2007,6 +2007,53 @@ metalNativeDescriptorSpec(const MetalBuildResult &metalResult,
   return descriptorSpec;
 }
 
+NativeArtifactDescriptorSpec
+vulkanNativeDescriptorSpec(const VulkanBuildResult &vulkanResult,
+                           const TargetNativePackageDescriptorPolicy &policy,
+                           const std::filesystem::path &packageDir,
+                           const std::filesystem::path &profilePath) {
+  NativeArtifactDescriptorSpec descriptorSpec;
+  descriptorSpec.binaryKind = policy.binaryKind;
+  descriptorSpec.sourcePath = vulkanResult.assemblyPath;
+  descriptorSpec.artifactPath = vulkanResult.spvPath;
+  descriptorSpec.validationStatus =
+      vulkanResult.validationDiagnostics.empty() ? policy.validationStatus
+                                                 : "failed";
+  descriptorSpec.optimizationLevel =
+      vulkanResult.optimizationRequestedLevel.empty()
+          ? "unknown"
+          : vulkanResult.optimizationRequestedLevel;
+
+  NativeOptimizationEvidenceSpec optimizationEvidence;
+  optimizationEvidence.requestedLevel = descriptorSpec.optimizationLevel;
+  optimizationEvidence.effectiveLevel =
+      vulkanNativeOptimizationEffectiveLevel(vulkanResult);
+  optimizationEvidence.policy = vulkanResult.optimizationPolicy;
+  optimizationEvidence.status = vulkanResult.optimizationStatus;
+  optimizationEvidence.tool = policy.optimizationToolName;
+  if (vulkanResult.optimizationLevel != "none") {
+    optimizationEvidence.toolFlag = vulkanResult.optimizationLevel;
+  }
+  optimizationEvidence.evidenceSourceKind = "native-profile";
+  optimizationEvidence.evidenceSourcePath =
+      packageRelativePath(packageDir, profilePath);
+  descriptorSpec.optimizationEvidenceJson =
+      nativeOptimizationEvidenceJson(optimizationEvidence);
+  descriptorSpec.tools = nativeDescriptorTools(policy.requiredTools);
+  if (vulkanResult.assemblerProvenance) {
+    applyInvocationProvenance(descriptorSpec.tools, "spirv-as", "assembler",
+                              *vulkanResult.assemblerProvenance, packageDir);
+  }
+  if (vulkanResult.validatorProvenance) {
+    applyInvocationProvenance(descriptorSpec.tools, "spirv-val", "validator",
+                              *vulkanResult.validatorProvenance, packageDir);
+  }
+  descriptorSpec.validationDiagnostics = vulkanResult.validationDiagnostics;
+  descriptorSpec.spirvExtendedInstructionImports =
+      vulkanResult.extendedInstructionImports;
+  return descriptorSpec;
+}
+
 std::string projectionResolvedTargetName(
     const TargetLegalizationContractProjection &projection) {
   if (!projection.targetProfile.resolvedTargetName.empty()) {
@@ -3480,7 +3527,9 @@ CompileResult compile(const CompileRequest &request) {
     VulkanBuildResult vulkan = buildVulkanPrototypeBinary(
         backendHIR, packageDir, diagnostics, legalization.resourceBindings,
         request.optimizationLevel);
-    if (vulkan.success) {
+    const bool vulkanDiagnosticFailure =
+        !vulkan.success && !vulkan.validationDiagnostics.empty();
+    if (vulkan.success || vulkanDiagnosticFailure) {
       const TargetLegalizationContractProjection &projection =
           admission->decision.projection;
       const TargetNativePackageDescriptorPolicy nativePackagePolicy =
@@ -3501,44 +3550,12 @@ CompileResult compile(const CompileRequest &request) {
         assignDiagnostics();
         return result;
       }
-      NativeArtifactDescriptorSpec descriptorSpec;
-      descriptorSpec.binaryKind = nativePackagePolicy.binaryKind;
-      descriptorSpec.sourcePath = vulkan.assemblyPath;
-      descriptorSpec.artifactPath = vulkan.spvPath;
-      descriptorSpec.validationStatus = nativePackagePolicy.validationStatus;
-      descriptorSpec.optimizationLevel = vulkan.optimizationRequestedLevel;
-      NativeOptimizationEvidenceSpec optimizationEvidence;
-      optimizationEvidence.requestedLevel = vulkan.optimizationRequestedLevel;
-      optimizationEvidence.effectiveLevel =
-          vulkanNativeOptimizationEffectiveLevel(vulkan);
-      optimizationEvidence.policy = vulkan.optimizationPolicy;
-      optimizationEvidence.status = vulkan.optimizationStatus;
-      optimizationEvidence.tool = nativePackagePolicy.optimizationToolName;
-      if (vulkan.optimizationLevel != "none") {
-        optimizationEvidence.toolFlag = vulkan.optimizationLevel;
-      }
-      optimizationEvidence.evidenceSourceKind = "native-profile";
-      optimizationEvidence.evidenceSourcePath =
-          packageRelativePath(packageDir, vulkanProfilePath);
-      descriptorSpec.optimizationEvidenceJson =
-          nativeOptimizationEvidenceJson(optimizationEvidence);
-      descriptorSpec.tools =
-          nativeDescriptorTools(nativePackagePolicy.requiredTools);
-      if (vulkan.assemblerProvenance) {
-        applyInvocationProvenance(descriptorSpec.tools, "spirv-as",
-                                  "assembler",
-                                  *vulkan.assemblerProvenance, packageDir);
-      }
-      if (vulkan.validatorProvenance) {
-        applyInvocationProvenance(descriptorSpec.tools, "spirv-val",
-                                  "validator",
-                                  *vulkan.validatorProvenance, packageDir);
-      }
-      descriptorSpec.spirvExtendedInstructionImports =
-          vulkan.extendedInstructionImports;
       const std::optional<std::filesystem::path> descriptorPath =
-          writeNativeArtifactDescriptor(backendHIR, target, packageDir,
-                                        descriptorSpec, diagnostics);
+          writeNativeArtifactDescriptor(
+              backendHIR, target, packageDir,
+              vulkanNativeDescriptorSpec(vulkan, nativePackagePolicy,
+                                         packageDir, vulkanProfilePath),
+              diagnostics);
       if (!descriptorPath) {
         assignDiagnostics();
         return result;
@@ -3595,11 +3612,21 @@ CompileResult compile(const CompileRequest &request) {
           graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
           &nativePackagePolicy);
       const std::string reflection = reflectionJson(*reflectionDocument);
-      if (finalizePackageBuild(packageDir, manifest, reflection,
-                               request.inputPath, diagnostics) &&
-          stagedPackage.promote(diagnostics)) {
+      const bool finalized =
+          vulkan.success
+              ? (finalizePackageBuild(packageDir, manifest, reflection,
+                                      request.inputPath, diagnostics) &&
+                 stagedPackage.promote(diagnostics))
+              : finalizeFailedPackageBuild(packageDir, manifest, reflection,
+                                           request.inputPath, stagedPackage,
+                                           diagnostics);
+      if (finalized && vulkan.success) {
         result.artifactPath = request.outputPath;
         result.success = true;
+      }
+      if (!finalized) {
+        assignDiagnostics();
+        return result;
       }
     }
   }
