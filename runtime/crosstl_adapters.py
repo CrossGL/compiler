@@ -92,6 +92,7 @@ class CrossTLAdapterPackageReport:
 class CrossTLRuntimeAdapterCandidate:
     id: str
     target: str
+    artifact_name: str
     adapter_kind: str
     artifact_format: str
     package_path: str
@@ -189,6 +190,11 @@ def normalize_crosstl_runtime_adapter_candidates(
             CrossTLRuntimeAdapterCandidate(
                 id=_runtime_loader_candidate_id(descriptor),
                 target=descriptor.target,
+                artifact_name=(
+                    "nativeBinary"
+                    if compiler_artifact_format == "native-binary"
+                    else "backendSource"
+                ),
                 adapter_kind=(
                     "native-binary-loader"
                     if compiler_artifact_format == "native-binary"

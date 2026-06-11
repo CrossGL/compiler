@@ -52,6 +52,7 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             candidate = candidates[0]
             self.assertEqual(candidate.id, "runtime-loader.opengl.OpenglMain")
             self.assertEqual(candidate.target, "opengl")
+            self.assertEqual(candidate.artifact_name, "backendSource")
             self.assertEqual(candidate.adapter_kind, "backend-source-loader")
             self.assertEqual(candidate.artifact_format, "backend-source")
             self.assertEqual(candidate.producer_adapter_kind, "opengl-glsl-adapter")
@@ -112,6 +113,7 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             self.assertTrue(report.valid, report.diagnostics)
             self.assertEqual(len(candidates), 1)
             self.assertEqual(candidates[0].artifact_format, "native-binary")
+            self.assertEqual(candidates[0].artifact_name, "nativeBinary")
             self.assertEqual(candidates[0].adapter_kind, "native-binary-loader")
             self.assertEqual(candidates[0].producer_artifact_format, "DXIL binary")
 
