@@ -739,6 +739,30 @@ crossgl_add_python_expect_test(
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
 crossgl_add_python_expect_test(
+  NAME cglc_dump_backend_source_map_vulkan_logical_source_remap
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DTARGET=vulkan
+    -DSTAGE=backend-source-map
+    -DMODE=dump-stage
+    "-DSOURCE_MAP_FILTER_ARGS=--logical-input|generated/from-translator.cgl|--source-remap|${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=mappings=2"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=vulkan|module=StorageBufferComputeShader|mappingGranularity=statement|sourceBackend=crossgl-hir|targetBackend=spvasm|backend.language=spvasm|backend.lineCount=26|sourceRemap.target=cgl|sourceRemap.generatedFile=generated/from-translator.cgl|sourceRemap.mappingGranularity=file|sourceRemap.mappingCount=1|sourceRemap.sizeBytes=592|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug|mappingCount=2|mappings.0.stage=compute|mappings.0.entryPoint=main|mappings.0.function=main|mappings.0.statementKind=assign|mappings.0.name=values[0]|mappings.0.backend.startLine=23|mappings.0.backend.endLine=24|mappings.0.location.file=generated/from-translator.cgl|mappings.0.location.line=8|mappings.0.originalLocation.file=shaders/original.crossgl|mappings.0.originalLocation.line=47|mappings.1.statementKind=return|mappings.1.name=return|mappings.1.backend.startLine=25|mappings.1.backend.endLine=25|mappings.1.originalLocation.line=48"
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+crossgl_add_python_expect_test(
+  NAME cglc_dump_backend_source_map_vulkan_if_compute_spans_do_not_overlap
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_IF_COMPUTE_SHADER}
+    -DTARGET=vulkan
+    -DSTAGE=backend-source-map
+    -DMODE=dump-stage
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=vulkan|module=IfComputeShader|mappingGranularity=statement|sourceBackend=crossgl-hir|targetBackend=spvasm|backend.language=spvasm"
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+crossgl_add_python_expect_test(
   NAME cglc_dump_backend_source_map_opengl_logical_source_remap
   DEFINITIONS
     -DCGLC=$<TARGET_FILE:cglc>
@@ -1435,11 +1459,21 @@ add_test(NAME cglc_dump_backend_source_map_rejects_unsupported_target
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_SIMPLE_SHADER}
-    -DTARGET=vulkan
+    -DTARGET=wgsl
     -DSTAGE=backend-source-map
     -DMODE=dump-stage-failure
     -DEXPECTED_DIAGNOSTIC=dump.backend-source-map.unsupported-target
-    "-DEXPECTED_STDERR_FRAGMENT=backend source maps currently support directx, metal, and opengl only"
+    "-DEXPECTED_STDERR_FRAGMENT=backend source maps currently support directx, metal, opengl, and vulkan only"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_dump_backend_source_map_vulkan_rejects_graphics
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_GRAPHICS_PROVENANCE_HIR_SHADER}
+    -DTARGET=vulkan
+    -DSTAGE=backend-source-map
+    -DMODE=dump-stage-failure
+    -DEXPECTED_DIAGNOSTIC=vulkan.backend-source-map.unsupported-graphics
+    "-DEXPECTED_STDERR_FRAGMENT=Vulkan backend source maps currently support compute prototype SPIR-V assembly only"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_hir_source_map_records
   COMMAND ${CMAKE_COMMAND}

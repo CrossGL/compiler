@@ -19,16 +19,23 @@ std::string quoteSPIRVString(std::string_view text) {
   return result;
 }
 
-void appendLine(std::ostringstream &out, const std::string &line) {
+bool appendLine(std::ostringstream &out, const std::string &line,
+                std::size_t *lineNumber = nullptr) {
   if (!line.empty()) {
     out << line << "\n";
+    if (lineNumber != nullptr) {
+      ++*lineNumber;
+    }
+    return true;
   }
+  return false;
 }
 
 void appendSection(std::ostringstream &out,
-                   const std::vector<std::string> &section) {
+                   const std::vector<std::string> &section,
+                   std::size_t *lineNumber = nullptr) {
   for (const std::string &line : section) {
-    appendLine(out, line);
+    appendLine(out, line, lineNumber);
   }
 }
 
@@ -534,57 +541,75 @@ std::string SPIRVModule::render(const SPIRVRenderOptions &options) const {
   }
 
   std::ostringstream out;
+  std::size_t lineNumber = 1;
   if (options.emitDisassemblyHeader) {
     out << "; SPIR-V\n";
+    ++lineNumber;
     out << "; Version: " << options.version << "\n";
+    ++lineNumber;
     if (!options.generator.empty()) {
       out << "; Generator: " << options.generator << "\n";
+      ++lineNumber;
     }
     if (options.bound.has_value()) {
       out << "; Bound: " << *options.bound << "\n";
+      ++lineNumber;
     }
     if (options.emitSchema) {
       out << "; Schema: 0\n";
+      ++lineNumber;
     }
   }
 
   for (const SPIRVCapabilityDeclaration &capability : capabilities_) {
-    appendLine(out, renderCapability(capability));
+    appendLine(out, renderCapability(capability), &lineNumber);
   }
   for (const SPIRVExtensionDeclaration &extension : extensions_) {
-    appendLine(out, renderExtension(extension));
+    appendLine(out, renderExtension(extension), &lineNumber);
   }
   for (const SPIRVExtInstImportDefinition &importDefinition : imports_) {
-    appendLine(out, renderExtInstImport(importDefinition));
+    appendLine(out, renderExtInstImport(importDefinition), &lineNumber);
   }
   if (memoryModel_.has_value()) {
-    appendLine(out, renderMemoryModel(*memoryModel_));
+    appendLine(out, renderMemoryModel(*memoryModel_), &lineNumber);
   }
   for (const SPIRVEntryPointDefinition &entryPoint : entryPoints_) {
-    appendLine(out, renderEntryPoint(entryPoint));
+    appendLine(out, renderEntryPoint(entryPoint), &lineNumber);
   }
   for (const SPIRVExecutionModeDefinition &executionMode : executionModes_) {
-    appendLine(out, renderExecutionMode(executionMode));
+    appendLine(out, renderExecutionMode(executionMode), &lineNumber);
   }
-  appendSection(out, names_);
-  appendSection(out, annotations_);
-  appendSection(out, types_);
-  appendSection(out, constants_);
-  appendSection(out, globals_);
+  appendSection(out, names_, &lineNumber);
+  appendSection(out, annotations_, &lineNumber);
+  appendSection(out, types_, &lineNumber);
+  appendSection(out, constants_, &lineNumber);
+  appendSection(out, globals_, &lineNumber);
   for (const SPIRVFunctionDefinition &function : functions_) {
     out << function.id.str() << " = OpFunction " << function.returnType.str()
         << " " << function.functionControl << " "
         << function.functionType.str() << "\n";
-    appendSection(out, function.parameterLines);
-    appendLine(out, function.entryLabel.empty() ? std::string{}
-                                                : function.entryLabel +
-                                                      " = OpLabel");
-    appendSection(out, function.variableLines);
-    appendSection(out, function.instructionLines);
-    if (!function.hasTerminator && !function.defaultTerminator.empty()) {
-      appendLine(out, function.defaultTerminator);
+    ++lineNumber;
+    appendSection(out, function.parameterLines, &lineNumber);
+    appendLine(out,
+               function.entryLabel.empty() ? std::string{}
+                                           : function.entryLabel + " = OpLabel",
+               &lineNumber);
+    appendSection(out, function.variableLines, &lineNumber);
+    for (std::size_t instructionIndex = 0;
+         instructionIndex < function.instructionLines.size();
+         ++instructionIndex) {
+      const std::size_t emittedLine = lineNumber;
+      if (appendLine(out, function.instructionLines[instructionIndex],
+                     &lineNumber) &&
+          options.instructionLineMappings != nullptr) {
+        options.instructionLineMappings->push_back(
+            {function.id.str(), instructionIndex, emittedLine});
+      }
     }
-    appendLine(out, "OpFunctionEnd");
+    if (!function.hasTerminator && !function.defaultTerminator.empty()) {
+      appendLine(out, function.defaultTerminator, &lineNumber);
+    }
+    appendLine(out, "OpFunctionEnd", &lineNumber);
   }
   return out.str();
 }

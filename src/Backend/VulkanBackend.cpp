@@ -8,6 +8,8 @@
 #include "crossgl/Backend/TargetLegalization.h"
 #include "crossgl/Backend/TextureCompare.h"
 #include "crossgl/Backend/Toolchain.h"
+#include "crossgl/Basic/Json.h"
+#include "crossgl/Driver/SourceRemap.h"
 #include "crossgl/Driver/StorageCapabilities.h"
 #include "crossgl/Driver/StorageLayout.h"
 #include "crossgl/HIR/Intrinsics.h"
@@ -6130,6 +6132,183 @@ struct PrototypeLoopLabels {
   std::string mergeLabel;
 };
 
+struct VulkanBackendSourceMapRecord {
+  std::size_t index = 0;
+  std::string functionId;
+  std::size_t instructionStartIndex = 0;
+  std::size_t instructionEndIndex = 0;
+  std::size_t backendStartLine = 1;
+  std::size_t backendEndLine = 1;
+  std::string stage;
+  std::string entryPoint;
+  std::string function;
+  std::string statementKind;
+  std::string name;
+  SourceLocation location;
+  std::optional<SourceLocation> originalLocation;
+};
+
+std::size_t vulkanBackendSourceLineCount(std::string_view text) {
+  if (text.empty()) {
+    return 0;
+  }
+  const std::size_t newlineCount =
+      static_cast<std::size_t>(std::count(text.begin(), text.end(), '\n'));
+  return newlineCount + (text.back() == '\n' ? 0 : 1);
+}
+
+std::string vulkanSourceMapExpressionName(const HIRExpression &expression) {
+  switch (expression.kind) {
+  case HIRExpressionKind::Identifier:
+  case HIRExpressionKind::Literal:
+  case HIRExpressionKind::Call:
+  case HIRExpressionKind::Unary:
+  case HIRExpressionKind::Binary:
+  case HIRExpressionKind::TextureSample:
+  case HIRExpressionKind::TextureCompare:
+  case HIRExpressionKind::TextureCompareLodManual:
+    return expression.value;
+  case HIRExpressionKind::Group:
+  case HIRExpressionKind::NonUniform:
+    return expression.children.empty()
+               ? expression.value
+               : vulkanSourceMapExpressionName(expression.children.front());
+  case HIRExpressionKind::MemberAccess:
+    if (!expression.children.empty()) {
+      return vulkanSourceMapExpressionName(expression.children.front()) + "." +
+             expression.value;
+    }
+    return expression.value;
+  case HIRExpressionKind::IndexAccess:
+    if (expression.children.size() >= 2) {
+      return vulkanSourceMapExpressionName(expression.children[0]) + "[" +
+             vulkanSourceMapExpressionName(expression.children[1]) + "]";
+    }
+    return expression.value;
+  case HIRExpressionKind::Constructor:
+    return expression.type.name.empty() ? expression.value
+                                        : expression.type.name;
+  case HIRExpressionKind::Select:
+    return "select";
+  case HIRExpressionKind::Empty:
+    return "";
+  }
+  return "";
+}
+
+std::string vulkanSourceMapStatementName(const HIRStatement &statement) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    return statement.name;
+  case HIRStatementKind::Assignment:
+    return vulkanSourceMapExpressionName(statement.target);
+  case HIRStatementKind::Return:
+    return "return";
+  case HIRStatementKind::Expression:
+    return vulkanSourceMapExpressionName(statement.value);
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+    return vulkanSourceMapExpressionName(statement.value);
+  case HIRStatementKind::Break:
+    return "break";
+  case HIRStatementKind::Continue:
+    return "continue";
+  case HIRStatementKind::Discard:
+    return "discard";
+  case HIRStatementKind::Block:
+    return "block";
+  case HIRStatementKind::Raw:
+    return "raw";
+  }
+  return "";
+}
+
+struct VulkanBackendSourceMapCollector {
+  const SourceRemap *sourceRemap = nullptr;
+  std::vector<VulkanBackendSourceMapRecord> records;
+
+  void recordStatement(const HIRStatement &statement, const HIRStage &stage,
+                       std::string_view functionName,
+                       std::string_view functionId,
+                       std::size_t instructionStartIndex,
+                       std::size_t instructionEndIndex) {
+    if (functionId.empty() || instructionStartIndex >= instructionEndIndex) {
+      return;
+    }
+
+    VulkanBackendSourceMapRecord record;
+    record.index = records.size();
+    record.functionId = std::string(functionId);
+    record.instructionStartIndex = instructionStartIndex;
+    record.instructionEndIndex = instructionEndIndex;
+    record.stage = stage.stage;
+    record.entryPoint = stage.entryPointName;
+    record.function = std::string(functionName);
+    record.statementKind = statementKindName(statement.kind);
+    record.name = vulkanSourceMapStatementName(statement);
+    record.location = statement.location;
+    if (sourceRemap != nullptr) {
+      record.originalLocation =
+          remapSourceLocation(*sourceRemap, statement.location);
+    }
+    records.push_back(std::move(record));
+  }
+};
+
+bool vulkanSourceMapRecordsStatementKind(HIRStatementKind kind) {
+  switch (kind) {
+  case HIRStatementKind::Block:
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+    return false;
+  case HIRStatementKind::Declaration:
+  case HIRStatementKind::Assignment:
+  case HIRStatementKind::Return:
+  case HIRStatementKind::Break:
+  case HIRStatementKind::Continue:
+  case HIRStatementKind::Discard:
+  case HIRStatementKind::Expression:
+  case HIRStatementKind::Raw:
+    return true;
+  }
+  return true;
+}
+
+std::optional<std::size_t> vulkanRenderedInstructionLine(
+    const std::vector<SPIRVInstructionLineMapping> &renderedLines,
+    std::string_view functionId, std::size_t instructionIndex) {
+  for (const SPIRVInstructionLineMapping &mapping : renderedLines) {
+    if (mapping.functionId == functionId &&
+        mapping.instructionIndex == instructionIndex) {
+      return mapping.line;
+    }
+  }
+  return std::nullopt;
+}
+
+std::vector<VulkanBackendSourceMapRecord> resolveVulkanBackendSourceMapLines(
+    const std::vector<VulkanBackendSourceMapRecord> &records,
+    const std::vector<SPIRVInstructionLineMapping> &renderedLines) {
+  std::vector<VulkanBackendSourceMapRecord> resolved;
+  resolved.reserve(records.size());
+  for (VulkanBackendSourceMapRecord record : records) {
+    const std::optional<std::size_t> startLine =
+        vulkanRenderedInstructionLine(renderedLines, record.functionId,
+                                      record.instructionStartIndex);
+    const std::optional<std::size_t> endLine =
+        vulkanRenderedInstructionLine(renderedLines, record.functionId,
+                                      record.instructionEndIndex - 1);
+    if (!startLine || !endLine) {
+      continue;
+    }
+    record.index = resolved.size();
+    record.backendStartLine = *startLine;
+    record.backendEndLine = *endLine;
+    resolved.push_back(std::move(record));
+  }
+  return resolved;
+}
+
 enum class PrototypeSPIRVAtomicStorageClass {
   StorageBuffer,
   Workgroup,
@@ -6173,8 +6352,9 @@ enum class PrototypeNonUniformDescriptorUse {
 class PrototypeSPIRVBuilder {
 public:
   PrototypeSPIRVBuilder(const HIRModule &module, const HIRStage &stage,
-                        DiagnosticEngine &diagnostics)
-      : diagnostics_(diagnostics),
+                        DiagnosticEngine &diagnostics,
+                        VulkanBackendSourceMapCollector *sourceMap = nullptr)
+      : diagnostics_(diagnostics), stage_(stage), sourceMap_(sourceMap),
         layoutContext_(module.structs, module.constants),
         structs_(prototypeStructs(module)), constants_(prototypeConstants(module)) {
     for (const HIRResource &resource : stage.resources) {
@@ -6213,7 +6393,10 @@ public:
     return emitFunction(entryFunction);
   }
 
-  std::string render(const HIRModule &module, const HIRStage &stage) {
+  std::string render(
+      const HIRModule &module, const HIRStage &stage,
+      std::vector<SPIRVInstructionLineMapping> *instructionLineMappings =
+          nullptr) {
     const HIRWorkgroupSize &workgroup = *stage.workgroupSize;
     const std::string entry = entryPointName(stage);
     const SPIRVId entryId = SPIRVModule::id("%" + entry);
@@ -6257,6 +6440,7 @@ public:
     (void)module;
     SPIRVRenderOptions renderOptions;
     renderOptions.version = kVulkanNativeSpirvVersion;
+    renderOptions.instructionLineMappings = instructionLineMappings;
     return module_.render(renderOptions);
   }
 
@@ -6338,6 +6522,7 @@ private:
     if (returnTypeId.empty() || functionTypeId.empty()) {
       return false;
     }
+    currentFunctionId_ = functionInfo->second.id;
     SPIRVFunctionDefinition output;
     output.id = SPIRVModule::id(functionInfo->second.id);
     output.returnType = SPIRVModule::id(returnTypeId);
@@ -6408,6 +6593,7 @@ private:
     module_.addFunction(std::move(output));
     locals_.clear();
     currentFunctionName_.clear();
+    currentFunctionId_.clear();
     variableLines_.clear();
     instructionLines_.clear();
     return true;
@@ -10630,7 +10816,27 @@ private:
     return PrototypeEmitResult{true, true};
   }
 
+  void recordSourceMapStatement(const HIRStatement &statement,
+                                std::size_t instructionStartIndex) {
+    if (sourceMap_ == nullptr ||
+        !vulkanSourceMapRecordsStatementKind(statement.kind)) {
+      return;
+    }
+    sourceMap_->recordStatement(statement, stage_, currentFunctionName_,
+                                currentFunctionId_, instructionStartIndex,
+                                instructionLines_.size());
+  }
+
   PrototypeEmitResult emitStatement(const HIRStatement &statement) {
+    const std::size_t instructionStartIndex = instructionLines_.size();
+    PrototypeEmitResult result = emitStatementImpl(statement);
+    if (result.success) {
+      recordSourceMapStatement(statement, instructionStartIndex);
+    }
+    return result;
+  }
+
+  PrototypeEmitResult emitStatementImpl(const HIRStatement &statement) {
     switch (statement.kind) {
     case HIRStatementKind::Declaration:
       return PrototypeEmitResult{emitDeclaration(statement), false};
@@ -10684,6 +10890,16 @@ private:
 
   PrototypeEmitResult emitBranchStatement(const HIRStatement &statement,
                                           bool allowReturn = true) {
+    const std::size_t instructionStartIndex = instructionLines_.size();
+    PrototypeEmitResult result = emitBranchStatementImpl(statement, allowReturn);
+    if (result.success) {
+      recordSourceMapStatement(statement, instructionStartIndex);
+    }
+    return result;
+  }
+
+  PrototypeEmitResult emitBranchStatementImpl(const HIRStatement &statement,
+                                              bool allowReturn = true) {
     if (statement.kind == HIRStatementKind::Declaration) {
       return PrototypeEmitResult{emitDeclaration(statement), false};
     }
@@ -11178,6 +11394,8 @@ private:
   }
 
   DiagnosticEngine &diagnostics_;
+  const HIRStage &stage_;
+  VulkanBackendSourceMapCollector *sourceMap_ = nullptr;
   SPIRVModule module_;
   std::vector<std::string> variableLines_;
   std::vector<std::string> instructionLines_;
@@ -11216,6 +11434,7 @@ private:
   VulkanPrototypeArrayWriteBackParameterMap arrayWriteBackParameters_;
   HIRType currentReturnType_;
   std::string currentFunctionName_;
+  std::string currentFunctionId_;
   StorageLayoutContext layoutContext_;
   PrototypeStructMap structs_;
   PrototypeConstantMap constants_;
@@ -15628,6 +15847,126 @@ VulkanPrototypeAssemblyArtifact generateVulkanGraphicsPrototypeAssemblyArtifact(
   return artifact;
 }
 
+void appendVulkanBackendSourceLocationJson(std::ostringstream &out,
+                                           const SourceLocation &location,
+                                           std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"file\": \"" << escapeJson(location.file) << "\",\n"
+      << indent << "  \"line\": " << location.line << ",\n"
+      << indent << "  \"column\": " << location.column << ",\n"
+      << indent << "  \"offset\": " << location.offset << ",\n"
+      << indent << "  \"length\": " << location.length << ",\n"
+      << indent << "  \"endLine\": " << location.endLine << ",\n"
+      << indent << "  \"endColumn\": " << location.endColumn << ",\n"
+      << indent << "  \"endOffset\": " << location.endOffset << "\n"
+      << indent << "}";
+}
+
+void appendVulkanBackendSourceMapSourceRemapJson(
+    std::ostringstream &out, const SourceRemap &sourceRemap,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"path\": \""
+      << escapeJson(sourceRemap.documentPath.value_or("")) << "\",\n"
+      << indent << "  \"sha256\": {\n"
+      << indent << "    \"algorithm\": \"sha256\",\n"
+      << indent << "    \"value\": \""
+      << escapeJson(sourceRemap.documentSha256.value_or("")) << "\"\n"
+      << indent << "  },\n"
+      << indent << "  \"sizeBytes\": "
+      << sourceRemap.documentSizeBytes.value_or(static_cast<std::uintmax_t>(0))
+      << ",\n"
+      << indent << "  \"generatedFile\": \""
+      << escapeJson(sourceRemap.generatedFile) << "\",\n"
+      << indent << "  \"mappingCount\": " << sourceRemap.mappings.size();
+  if (sourceRemap.metadataTarget) {
+    out << ",\n"
+        << indent << "  \"target\": \""
+        << escapeJson(*sourceRemap.metadataTarget) << "\"";
+  }
+  if (sourceRemap.metadataMappingGranularity) {
+    out << ",\n"
+        << indent << "  \"mappingGranularity\": \""
+        << escapeJson(*sourceRemap.metadataMappingGranularity) << "\"";
+  }
+  if (sourceRemap.metadataSourceBackend) {
+    out << ",\n"
+        << indent << "  \"sourceBackend\": \""
+        << escapeJson(*sourceRemap.metadataSourceBackend) << "\"";
+  }
+  if (sourceRemap.metadataVariant) {
+    out << ",\n"
+        << indent << "  \"variant\": \""
+        << escapeJson(*sourceRemap.metadataVariant) << "\"";
+  }
+  out << "\n" << indent << "}";
+}
+
+std::string vulkanBackendSourceMapJson(
+    const HIRModule &module, std::string_view sourceText,
+    const std::vector<VulkanBackendSourceMapRecord> &records,
+    const SourceRemap *sourceRemap) {
+  std::ostringstream out;
+  out << "{\n"
+      << "  \"schemaVersion\": 1,\n"
+      << "  \"kind\": \"crossgl.backendSourceMap\",\n"
+      << "  \"target\": \"vulkan\",\n"
+      << "  \"module\": \"" << escapeJson(module.name) << "\",\n"
+      << "  \"mappingGranularity\": \"statement\",\n"
+      << "  \"sourceBackend\": \"crossgl-hir\",\n"
+      << "  \"targetBackend\": \"spvasm\",\n"
+      << "  \"backend\": {\n"
+      << "    \"language\": \"spvasm\",\n"
+      << "    \"lineCount\": " << vulkanBackendSourceLineCount(sourceText)
+      << "\n"
+      << "  },\n"
+      << "  \"sourceRemap\": ";
+  if (sourceRemap != nullptr && sourceRemap->documentPath &&
+      sourceRemap->documentSha256 && sourceRemap->documentSizeBytes) {
+    appendVulkanBackendSourceMapSourceRemapJson(out, *sourceRemap, "  ");
+  } else {
+    out << "null";
+  }
+  out << ",\n"
+      << "  \"mappingCount\": " << records.size() << ",\n"
+      << "  \"mappings\": [";
+  for (std::size_t i = 0; i < records.size(); ++i) {
+    const VulkanBackendSourceMapRecord &record = records[i];
+    if (i != 0) {
+      out << ",";
+    }
+    out << "\n    {\n"
+        << "      \"index\": " << record.index << ",\n"
+        << "      \"stage\": \"" << escapeJson(record.stage) << "\",\n"
+        << "      \"entryPoint\": \"" << escapeJson(record.entryPoint)
+        << "\",\n"
+        << "      \"function\": \"" << escapeJson(record.function) << "\",\n"
+        << "      \"statementKind\": \"" << escapeJson(record.statementKind)
+        << "\",\n"
+        << "      \"name\": \"" << escapeJson(record.name) << "\",\n"
+        << "      \"backend\": {\n"
+        << "        \"startLine\": " << record.backendStartLine << ",\n"
+        << "        \"endLine\": " << record.backendEndLine << "\n"
+        << "      },\n"
+        << "      \"location\": ";
+    appendVulkanBackendSourceLocationJson(out, record.location, "      ");
+    if (record.originalLocation) {
+      out << ",\n"
+          << "      \"originalLocation\": ";
+      appendVulkanBackendSourceLocationJson(out, *record.originalLocation,
+                                            "      ");
+    }
+    out << "\n"
+        << "    }";
+  }
+  if (!records.empty()) {
+    out << "\n  ";
+  }
+  out << "]\n"
+      << "}\n";
+  return out.str();
+}
+
 bool writeTextFile(const std::filesystem::path &path, std::string_view text,
                    DiagnosticEngine &diagnostics, std::string_view code) {
   std::ofstream output(path, std::ios::binary);
@@ -16327,6 +16666,41 @@ bool vulkanPrototypeBinarySupported(const HIRModule &module,
 std::string generateVulkanPrototypeAssembly(const HIRModule &module,
                                             DiagnosticEngine &diagnostics) {
   return generateVulkanPrototypeAssemblyArtifact(module, diagnostics).assembly;
+}
+
+std::optional<std::string> generateVulkanBackendSourceMapJson(
+    const HIRModule &module, DiagnosticEngine &diagnostics,
+    const SourceRemap *sourceRemap) {
+  const HIRStage *graphicsVertex = nullptr;
+  const HIRStage *graphicsFragment = nullptr;
+  if (vulkanGraphicsStagePair(module, graphicsVertex, graphicsFragment)) {
+    diagnostics.error(
+        "vulkan.backend-source-map.unsupported-graphics",
+        "Vulkan backend source maps currently support compute prototype "
+        "SPIR-V assembly only");
+    return std::nullopt;
+  }
+
+  if (!vulkanPrototypeBinarySupported(module, diagnostics)) {
+    return std::nullopt;
+  }
+
+  const HIRStage &stage = *prototypeComputeStage(module);
+  VulkanBackendSourceMapCollector sourceMap;
+  sourceMap.sourceRemap = sourceRemap;
+  PrototypeSPIRVBuilder sourceMapBuilder(module, stage, diagnostics, &sourceMap);
+  const HIRFunction &entry = *entryFunction(stage);
+  if (!sourceMapBuilder.emit(module, stage, entry)) {
+    return std::nullopt;
+  }
+
+  std::vector<SPIRVInstructionLineMapping> renderedLines;
+  const std::string assembly =
+      sourceMapBuilder.render(module, stage, &renderedLines);
+  const std::vector<VulkanBackendSourceMapRecord> resolvedRecords =
+      resolveVulkanBackendSourceMapLines(sourceMap.records, renderedLines);
+  return vulkanBackendSourceMapJson(module, assembly, resolvedRecords,
+                                    sourceRemap);
 }
 
 VulkanPrototypeAssemblyArtifact

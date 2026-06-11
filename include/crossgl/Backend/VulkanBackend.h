@@ -12,6 +12,7 @@
 
 namespace crossgl {
 
+struct SourceRemap;
 struct TargetLegalizationResourceBindingFacts;
 
 inline constexpr char kVulkanNativeTargetEnv[] = "vulkan1.2";
@@ -56,6 +57,10 @@ std::string vulkanResourceBindingClass(HIRResourceKind kind);
 std::string vulkanResourceSPIRVType(const HIRResource &resource);
 
 std::string generateVulkanBackendIR(const HIRModule &module);
+std::optional<std::string>
+generateVulkanBackendSourceMapJson(const HIRModule &module,
+                                   DiagnosticEngine &diagnostics,
+                                   const SourceRemap *sourceRemap = nullptr);
 std::string generateVulkanPrototypeAssembly(const HIRModule &module,
                                             DiagnosticEngine &diagnostics);
 VulkanPrototypeAssemblyArtifact

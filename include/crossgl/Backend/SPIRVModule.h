@@ -117,6 +117,12 @@ struct SPIRVExecutionModeDefinition {
   std::vector<std::string> operands;
 };
 
+struct SPIRVInstructionLineMapping {
+  std::string functionId;
+  std::size_t instructionIndex = 0;
+  std::size_t line = 0;
+};
+
 struct SPIRVRenderOptions {
   bool emitDisassemblyHeader = false;
   std::string version = "1.0";
@@ -124,6 +130,7 @@ struct SPIRVRenderOptions {
   std::optional<std::size_t> bound;
   bool emitSchema = true;
   bool validateReferences = true;
+  std::vector<SPIRVInstructionLineMapping> *instructionLineMappings = nullptr;
 };
 
 std::string_view spirvExecutionModelName(SPIRVExecutionModel model);

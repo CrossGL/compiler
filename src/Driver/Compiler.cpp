@@ -2882,14 +2882,20 @@ std::optional<std::string> dumpIRFromCompilerModule(
     return std::nullopt;
   case DumpStage::BackendSourceMap:
     if (target != TargetKind::DirectX && target != TargetKind::Metal &&
-        target != TargetKind::OpenGL) {
+        target != TargetKind::OpenGL && target != TargetKind::Vulkan) {
       diagnostics.error("dump.backend-source-map.unsupported-target",
                         "backend source maps currently support directx, "
-                        "metal, and opengl only");
+                        "metal, opengl, and vulkan only");
       return std::nullopt;
     }
     if (std::optional<BackendAdmission> admission =
             requireAdmittedBackendInput(parsed, target, diagnostics)) {
+      if (admission->legalization.target == TargetKind::Vulkan) {
+        return generateVulkanBackendSourceMapJson(
+            *admission->input.module, diagnostics,
+            sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
+                                         : nullptr);
+      }
       if (admission->legalization.target == TargetKind::Metal) {
         return generateMetalBackendSourceMapJson(
             *admission->input.module,
