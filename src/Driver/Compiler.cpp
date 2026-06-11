@@ -2881,13 +2881,20 @@ std::optional<std::string> dumpIRFromCompilerModule(
     }
     return std::nullopt;
   case DumpStage::BackendSourceMap:
-    if (target != TargetKind::DirectX) {
+    if (target != TargetKind::DirectX && target != TargetKind::OpenGL) {
       diagnostics.error("dump.backend-source-map.unsupported-target",
-                        "backend source maps currently support directx only");
+                        "backend source maps currently support directx and "
+                        "opengl only");
       return std::nullopt;
     }
     if (std::optional<BackendAdmission> admission =
             requireAdmittedBackendInput(parsed, target, diagnostics)) {
+      if (admission->legalization.target == TargetKind::OpenGL) {
+        return generateOpenGLBackendSourceMapJson(
+            *admission->input.module, admission->legalization.resourceBindings,
+            sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
+                                         : nullptr);
+      }
       return generateDirectXBackendSourceMapJson(
           *admission->input.module, admission->legalization.resourceBindings,
           sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
@@ -3484,6 +3491,8 @@ CompileResult compile(const CompileRequest &request) {
     OpenGLSourcePackageResult opengl = buildOpenGLSourcePackage(
         backendHIR, packageDir, diagnostics, legalization.resourceBindings);
     if (opengl.success) {
+      const bool openglComputeSource =
+          singleComputeStage(backendHIR) != nullptr;
       if (debugMetadataPath) {
         writeText(*debugMetadataPath,
                   debugMetadataJson(backendHIR, request.target,
@@ -3498,6 +3507,29 @@ CompileResult compile(const CompileRequest &request) {
                       DebugMetadataHIRSourceMapPagination{}, sourceMapOptions),
                   diagnostics, "artifact.write-hir-source-map");
       }
+      if (request.debugIR && openglComputeSource) {
+        backendSourceMapPath =
+            opengl.sourcePath.parent_path() /
+            (backendHIR.name + ".backend-source-map.json");
+        const SourceRemap *backendSourceMapRemap =
+            sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
+                                         : nullptr;
+        std::optional<SourceRemap> packageLocalSourceRemap;
+        if (sourceMapOptions.sourceRemap && sourceRemapProvenancePath) {
+          packageLocalSourceRemap = packageLocalBackendSourceMapRemap(
+              *sourceMapOptions.sourceRemap, packageDir,
+              *sourceRemapProvenancePath);
+          backendSourceMapRemap = &*packageLocalSourceRemap;
+        }
+        if (!writeText(*backendSourceMapPath,
+                       generateOpenGLBackendSourceMapJson(
+                           backendHIR, legalization.resourceBindings,
+                           backendSourceMapRemap),
+                       diagnostics, "artifact.write-backend-source-map")) {
+          assignDiagnostics();
+          return result;
+        }
+      }
       const SourcePackageArtifact artifact{opengl.sourcePath,
                                            opengl.nativeBinaryPath,
                                            opengl.nativeBinaryStatus};
@@ -3506,8 +3538,9 @@ CompileResult compile(const CompileRequest &request) {
               admission->decision.projection, artifact,
               request.optimizationLevel, nullptr, opengl.validatorTool,
               admission->decision.contract, debugMetadataPath, hirSourceMapPath,
-              std::nullopt, sourceRemapProvenancePath, targetExplanationPath,
-              request.inputPath, stagedPackage, diagnostics,
+              backendSourceMapPath, sourceRemapProvenancePath,
+              targetExplanationPath, request.inputPath, stagedPackage,
+              diagnostics,
               &opengl.validationDiagnostics)) {
         result.artifactPath = request.outputPath;
         result.success = true;

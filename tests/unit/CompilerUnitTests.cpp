@@ -25238,6 +25238,7 @@ shader ComputeSourcePackageShader {
   openglRequest.inputPath = inputPath;
   openglRequest.outputPath = openglOutputPath;
   openglRequest.target = crossgl::TargetKind::OpenGL;
+  openglRequest.debugIR = true;
   const crossgl::CompileResult openglResult = crossgl::compile(openglRequest);
   expect(openglResult.success,
          "OpenGL textual compute subset builds a source package");
@@ -25300,6 +25301,24 @@ shader ComputeSourcePackageShader {
                  "backend/opengl/ComputeSourcePackageShader.comp.glsl") !=
                  std::string::npos,
          "OpenGL manifest records backend source");
+  expect(openglManifest.find("\"backendSourceMap\"") != std::string::npos &&
+             openglManifest.find(
+                 "backend/opengl/"
+                 "ComputeSourcePackageShader.backend-source-map.json") !=
+                 std::string::npos,
+         "OpenGL debug source package records backend source map");
+  const std::string openglBackendSourceMap = readTextFileOrEmpty(
+      openglOutputPath / "backend" / "opengl" /
+      "ComputeSourcePackageShader.backend-source-map.json");
+  expect(openglBackendSourceMap.find("\"target\": \"opengl\"") !=
+                 std::string::npos &&
+             openglBackendSourceMap.find("\"targetBackend\": \"glsl\"") !=
+                 std::string::npos &&
+             openglBackendSourceMap.find("\"mappingCount\"") !=
+                 std::string::npos &&
+             openglBackendSourceMap.find("\"language\": \"glsl\"") !=
+                 std::string::npos,
+         "OpenGL debug source package writes backend source map sidecar");
   const std::string expectedOpenGLNativeStatus =
       glslValidated ? "\"nativeBinaryStatus\": \"validated\""
                     : "\"nativeBinaryStatus\": \"planned\"";

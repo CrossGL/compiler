@@ -13,10 +13,13 @@
 #include "crossgl/Backend/TextureSample.h"
 #include "crossgl/Backend/TextureTypes.h"
 #include "crossgl/Backend/Toolchain.h"
+#include "crossgl/Basic/Json.h"
+#include "crossgl/Driver/SourceRemap.h"
 #include "crossgl/Frontend/TokenText.h"
 #include "crossgl/HIR/TypeSemantics.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -1103,6 +1106,7 @@ struct OpenGLEmitContext {
   const HIRStage *hirStage = nullptr;
   const HIRFunction *function = nullptr;
   const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr;
+  struct OpenGLBackendSourceMapCollector *sourceMap = nullptr;
   std::string stage;
   std::string backendEntryPoint;
   bool useCombinedSamplerResources = false;
@@ -1117,6 +1121,135 @@ struct OpenGLEmitContext {
 
 std::string emitExpression(const HIRExpression &expression,
                            const OpenGLEmitContext &context);
+std::string emitIdentifierName(std::string_view name,
+                               const OpenGLEmitContext &context);
+
+struct OpenGLBackendSourceMapRecord {
+  std::size_t index = 0;
+  std::size_t backendStartLine = 1;
+  std::size_t backendEndLine = 1;
+  std::string stage;
+  std::string entryPoint;
+  std::string function;
+  std::string statementKind;
+  std::string name;
+  SourceLocation location;
+  std::optional<SourceLocation> originalLocation;
+};
+
+std::size_t lineForOffset(std::string_view text, std::size_t offset) {
+  const std::size_t boundedOffset = std::min(offset, text.size());
+  return static_cast<std::size_t>(
+             std::count(text.begin(), text.begin() + boundedOffset, '\n')) +
+         1;
+}
+
+std::size_t emittedEndLine(std::string_view text, std::size_t beginOffset) {
+  if (beginOffset >= text.size()) {
+    return lineForOffset(text, beginOffset);
+  }
+  const std::string_view emitted = text.substr(beginOffset);
+  const std::size_t startLine = lineForOffset(text, beginOffset);
+  const std::size_t newlineCount = static_cast<std::size_t>(
+      std::count(emitted.begin(), emitted.end(), '\n'));
+  if (newlineCount == 0) {
+    return startLine;
+  }
+  return startLine + newlineCount - (emitted.back() == '\n' ? 1 : 0);
+}
+
+std::size_t backendSourceLineCount(std::string_view text) {
+  if (text.empty()) {
+    return 0;
+  }
+  const std::size_t newlineCount =
+      static_cast<std::size_t>(std::count(text.begin(), text.end(), '\n'));
+  return newlineCount + (text.back() == '\n' ? 0 : 1);
+}
+
+std::string openGLSourceMapStatementName(const HIRStatement &statement,
+                                         const OpenGLEmitContext &context) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    return emitIdentifierName(statement.name, context);
+  case HIRStatementKind::Assignment:
+    return emitExpression(statement.target, context);
+  case HIRStatementKind::Return:
+    return "return";
+  case HIRStatementKind::Expression:
+    return emitExpression(statement.value, context);
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+    return emitExpression(statement.value, context);
+  case HIRStatementKind::Break:
+    return "break";
+  case HIRStatementKind::Continue:
+    return "continue";
+  case HIRStatementKind::Discard:
+    return "discard";
+  case HIRStatementKind::Block:
+    return "block";
+  case HIRStatementKind::Raw:
+    return "raw";
+  }
+  return "";
+}
+
+struct OpenGLBackendSourceMapCollector {
+  const SourceRemap *sourceRemap = nullptr;
+  std::vector<OpenGLBackendSourceMapRecord> records;
+
+  void recordStatement(const HIRStatement &statement,
+                       const OpenGLEmitContext &context,
+                       std::size_t beginOffset, std::string_view sourceText) {
+    if (sourceText.size() <= beginOffset) {
+      return;
+    }
+
+    OpenGLBackendSourceMapRecord record;
+    record.index = records.size();
+    record.backendStartLine = lineForOffset(sourceText, beginOffset);
+    record.backendEndLine = emittedEndLine(sourceText, beginOffset);
+    record.stage = context.stage;
+    record.entryPoint = context.backendEntryPoint;
+    record.function =
+        context.function == nullptr ? "" : context.function->name;
+    record.statementKind = statementKindName(statement.kind);
+    record.name = openGLSourceMapStatementName(statement, context);
+    record.location = statement.location;
+    if (sourceRemap != nullptr) {
+      record.originalLocation =
+          remapSourceLocation(*sourceRemap, statement.location);
+    }
+    records.push_back(std::move(record));
+  }
+};
+
+struct OpenGLStatementSourceMapScope {
+  std::ostringstream &out;
+  const HIRStatement &statement;
+  const OpenGLEmitContext &context;
+  std::size_t beginOffset = 0;
+
+  OpenGLStatementSourceMapScope(std::ostringstream &out,
+                                const HIRStatement &statement,
+                                const OpenGLEmitContext &context)
+      : out(out), statement(statement), context(context) {
+    if (context.sourceMap != nullptr) {
+      beginOffset = out.str().size();
+    }
+  }
+
+  ~OpenGLStatementSourceMapScope() {
+    if (context.sourceMap == nullptr) {
+      return;
+    }
+    const std::string sourceText = out.str();
+    context.sourceMap->recordStatement(statement, context, beginOffset,
+                                       sourceText);
+  }
+};
+
 std::set<std::string>
 writtenOpenGLFunctionParameterArrayNames(const HIRModule &module,
                                          const HIRFunction &function);
@@ -2651,6 +2784,7 @@ void emitStatement(std::ostringstream &out, const HIRStatement &statement,
                    std::size_t indentation,
                    const OpenGLEmitContext &context) {
   const std::string spaces(indentation, ' ');
+  const OpenGLStatementSourceMapScope sourceMapScope(out, statement, context);
   if (const std::optional<OpenGLArrayWriteBackRewrite> rewrite =
           openGLArrayWriteBackRewrite(statement, context)) {
     emitOpenGLStatementWithArrayWriteBack(out, statement, indentation, context,
@@ -4937,7 +5071,8 @@ void emitOpenGLStructDeclarations(
 
 std::string generateOpenGLComputeSource(
     const HIRModule &module,
-    const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr) {
+    const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr,
+    OpenGLBackendSourceMapCollector *sourceMap = nullptr) {
   std::ostringstream out;
   if (!openGLComputeTextualBackendSupported(module)) {
     return out.str();
@@ -4946,8 +5081,9 @@ std::string generateOpenGLComputeSource(
   const HIRStage &stage = module.stages.front();
   const HIRFunction &entry = *entryFunction(stage);
   const HIRWorkgroupSize &workgroup = *stage.workgroupSize;
-  const OpenGLEmitContext context =
+  OpenGLEmitContext context =
       makeOpenGLEmitContext(module, stage, false, resourceBindings);
+  context.sourceMap = sourceMap;
   emitOpenGLSourcePreamble(out, module, context);
 
   const std::vector<const HIRStruct *> storageBufferStructs =
@@ -4972,7 +5108,8 @@ std::string generateOpenGLComputeSource(
 
 std::string generateOpenGLGraphicsSource(
     const HIRModule &module,
-    const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr) {
+    const TargetLegalizationResourceBindingFacts *resourceBindings = nullptr,
+    OpenGLBackendSourceMapCollector *sourceMap = nullptr) {
   std::ostringstream out;
   if (!openGLGraphicsTextualBackendSupported(module)) {
     return out.str();
@@ -4993,10 +5130,12 @@ std::string generateOpenGLGraphicsSource(
       *openGLStructType(module, fragmentEntry.returnType);
   const HIRField &position = *openGLGraphicsPositionField(vertexOutput);
 
-  const OpenGLEmitContext vertexContext =
+  OpenGLEmitContext vertexContext =
       makeOpenGLEmitContext(module, *vertexStage, true, resourceBindings);
-  const OpenGLEmitContext fragmentContext =
+  OpenGLEmitContext fragmentContext =
       makeOpenGLEmitContext(module, *fragmentStage, true, resourceBindings);
+  vertexContext.sourceMap = sourceMap;
+  fragmentContext.sourceMap = sourceMap;
 
   emitOpenGLSourcePreamble(out, module, vertexContext);
   emitOpenGLStructDeclarations(
@@ -5191,18 +5330,181 @@ std::string generateOpenGLGraphicsStageSource(
 
 std::string generateOpenGLSource(
     const HIRModule &module,
-    const TargetLegalizationResourceBindingFacts *resourceBindings) {
+    const TargetLegalizationResourceBindingFacts *resourceBindings,
+    OpenGLBackendSourceMapCollector *sourceMap = nullptr) {
   if (openGLComputeTextualBackendSupported(module)) {
-    return generateOpenGLComputeSource(module, resourceBindings);
+    return generateOpenGLComputeSource(module, resourceBindings, sourceMap);
   }
   if (openGLGraphicsTextualBackendSupported(module)) {
-    return generateOpenGLGraphicsSource(module, resourceBindings);
+    return generateOpenGLGraphicsSource(module, resourceBindings, sourceMap);
   }
   return "";
 }
 
 std::string generateOpenGLSource(const HIRModule &module) {
   return generateOpenGLSource(module, nullptr);
+}
+
+std::optional<TargetLegalizationResourceBindingFacts>
+openGLLegalizedResourceBindingsForEmission(const HIRModule &module) {
+  TargetLegalizationResult legalization =
+      legalizeTarget(module, TargetKind::OpenGL);
+  if (legalization.target != TargetKind::OpenGL ||
+      legalization.resourceBindings.target != TargetKind::OpenGL ||
+      !legalization.resourceBindings.complete) {
+    return std::nullopt;
+  }
+  return legalization.resourceBindings;
+}
+
+void appendOpenGLBackendSourceLocationJson(std::ostringstream &out,
+                                           const SourceLocation &location,
+                                           std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"file\": \"" << escapeJson(location.file) << "\",\n"
+      << indent << "  \"line\": " << location.line << ",\n"
+      << indent << "  \"column\": " << location.column << ",\n"
+      << indent << "  \"offset\": " << location.offset << ",\n"
+      << indent << "  \"length\": " << location.length << ",\n"
+      << indent << "  \"endLine\": " << location.endLine << ",\n"
+      << indent << "  \"endColumn\": " << location.endColumn << ",\n"
+      << indent << "  \"endOffset\": " << location.endOffset << "\n"
+      << indent << "}";
+}
+
+void appendOpenGLBackendSourceMapSourceRemapJson(
+    std::ostringstream &out, const SourceRemap &sourceRemap,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"path\": \""
+      << escapeJson(sourceRemap.documentPath.value_or("")) << "\",\n"
+      << indent << "  \"sha256\": {\n"
+      << indent << "    \"algorithm\": \"sha256\",\n"
+      << indent << "    \"value\": \""
+      << escapeJson(sourceRemap.documentSha256.value_or("")) << "\"\n"
+      << indent << "  },\n"
+      << indent << "  \"sizeBytes\": "
+      << sourceRemap.documentSizeBytes.value_or(static_cast<std::uintmax_t>(0))
+      << ",\n"
+      << indent << "  \"generatedFile\": \""
+      << escapeJson(sourceRemap.generatedFile) << "\",\n"
+      << indent << "  \"mappingCount\": " << sourceRemap.mappings.size();
+  if (sourceRemap.metadataTarget) {
+    out << ",\n"
+        << indent << "  \"target\": \""
+        << escapeJson(*sourceRemap.metadataTarget) << "\"";
+  }
+  if (sourceRemap.metadataMappingGranularity) {
+    out << ",\n"
+        << indent << "  \"mappingGranularity\": \""
+        << escapeJson(*sourceRemap.metadataMappingGranularity) << "\"";
+  }
+  if (sourceRemap.metadataSourceBackend) {
+    out << ",\n"
+        << indent << "  \"sourceBackend\": \""
+        << escapeJson(*sourceRemap.metadataSourceBackend) << "\"";
+  }
+  if (sourceRemap.metadataVariant) {
+    out << ",\n"
+        << indent << "  \"variant\": \""
+        << escapeJson(*sourceRemap.metadataVariant) << "\"";
+  }
+  out << "\n" << indent << "}";
+}
+
+std::string openGLBackendSourceMapJson(
+    const HIRModule &module, std::string_view sourceText,
+    const OpenGLBackendSourceMapCollector &sourceMap) {
+  std::ostringstream out;
+  out << "{\n"
+      << "  \"schemaVersion\": 1,\n"
+      << "  \"kind\": \"crossgl.backendSourceMap\",\n"
+      << "  \"target\": \"opengl\",\n"
+      << "  \"module\": \"" << escapeJson(module.name) << "\",\n"
+      << "  \"mappingGranularity\": \"statement\",\n"
+      << "  \"sourceBackend\": \"crossgl-hir\",\n"
+      << "  \"targetBackend\": \"glsl\",\n"
+      << "  \"backend\": {\n"
+      << "    \"language\": \"glsl\",\n"
+      << "    \"lineCount\": " << backendSourceLineCount(sourceText) << "\n"
+      << "  },\n"
+      << "  \"sourceRemap\": ";
+  if (sourceMap.sourceRemap != nullptr &&
+      sourceMap.sourceRemap->documentPath &&
+      sourceMap.sourceRemap->documentSha256 &&
+      sourceMap.sourceRemap->documentSizeBytes) {
+    appendOpenGLBackendSourceMapSourceRemapJson(out, *sourceMap.sourceRemap,
+                                                "  ");
+  } else {
+    out << "null";
+  }
+  out << ",\n"
+      << "  \"mappingCount\": " << sourceMap.records.size() << ",\n"
+      << "  \"mappings\": [";
+  for (std::size_t i = 0; i < sourceMap.records.size(); ++i) {
+    const OpenGLBackendSourceMapRecord &record = sourceMap.records[i];
+    if (i != 0) {
+      out << ",";
+    }
+    out << "\n    {\n"
+        << "      \"index\": " << record.index << ",\n"
+        << "      \"stage\": \"" << escapeJson(record.stage) << "\",\n"
+        << "      \"entryPoint\": \"" << escapeJson(record.entryPoint)
+        << "\",\n"
+        << "      \"function\": \"" << escapeJson(record.function) << "\",\n"
+        << "      \"statementKind\": \"" << escapeJson(record.statementKind)
+        << "\",\n"
+        << "      \"name\": \"" << escapeJson(record.name) << "\",\n"
+        << "      \"backend\": {\n"
+        << "        \"startLine\": " << record.backendStartLine << ",\n"
+        << "        \"endLine\": " << record.backendEndLine << "\n"
+        << "      },\n"
+        << "      \"location\": ";
+    appendOpenGLBackendSourceLocationJson(out, record.location, "      ");
+    if (record.originalLocation) {
+      out << ",\n"
+          << "      \"originalLocation\": ";
+      appendOpenGLBackendSourceLocationJson(out, *record.originalLocation,
+                                            "      ");
+    }
+    out << "\n"
+        << "    }";
+  }
+  if (!sourceMap.records.empty()) {
+    out << "\n  ";
+  }
+  out << "]\n"
+      << "}\n";
+  return out.str();
+}
+
+std::string generateOpenGLBackendSourceMapJson(
+    const HIRModule &module,
+    const TargetLegalizationResourceBindingFacts *resourceBindings,
+    const SourceRemap *sourceRemap) {
+  OpenGLBackendSourceMapCollector sourceMap;
+  sourceMap.sourceRemap = sourceRemap;
+  const std::string sourceText =
+      generateOpenGLSource(module, resourceBindings, &sourceMap);
+  return openGLBackendSourceMapJson(module, sourceText, sourceMap);
+}
+
+std::string
+generateOpenGLBackendSourceMapJson(const HIRModule &module,
+                                   const SourceRemap *sourceRemap) {
+  const std::optional<TargetLegalizationResourceBindingFacts> resourceBindings =
+      openGLLegalizedResourceBindingsForEmission(module);
+  return generateOpenGLBackendSourceMapJson(
+      module, resourceBindings.has_value() ? &*resourceBindings : nullptr,
+      sourceRemap);
+}
+
+std::string generateOpenGLBackendSourceMapJson(
+    const HIRModule &module,
+    const TargetLegalizationResourceBindingFacts &resourceBindings,
+    const SourceRemap *sourceRemap) {
+  return generateOpenGLBackendSourceMapJson(module, &resourceBindings,
+                                           sourceRemap);
 }
 
 bool openGLProgramResourceRequiresLayoutBinding(

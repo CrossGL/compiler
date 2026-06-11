@@ -11,6 +11,7 @@
 namespace crossgl {
 
 struct TargetLegalizationResourceBindingFacts;
+struct SourceRemap;
 
 struct OpenGLSourcePackageResult {
   bool success = false;
@@ -55,6 +56,13 @@ std::string openglResourceBindingClass(HIRResourceKind kind);
 bool openGLSourcePackageSupported(const HIRModule &module,
                                   DiagnosticEngine &diagnostics);
 std::string generateOpenGLSource(const HIRModule &module);
+std::string
+generateOpenGLBackendSourceMapJson(const HIRModule &module,
+                                   const SourceRemap *sourceRemap = nullptr);
+std::string generateOpenGLBackendSourceMapJson(
+    const HIRModule &module,
+    const TargetLegalizationResourceBindingFacts &resourceBindings,
+    const SourceRemap *sourceRemap = nullptr);
 std::string generateOpenGLBackendIR(const HIRModule &module);
 OpenGLSourcePackageResult
 buildOpenGLSourcePackage(const HIRModule &module,

@@ -1601,7 +1601,8 @@ function(crossgl_expect_manifest_debug_artifacts manifest)
     endif()
     crossgl_expect_json_field("${backend_source_map}" "schemaVersion" "1")
     crossgl_expect_json_field("${backend_source_map}" "kind" "crossgl.backendSourceMap")
-    crossgl_expect_json_field("${backend_source_map}" "target" "directx")
+    string(JSON manifest_target GET "${manifest}" target)
+    crossgl_expect_json_field("${backend_source_map}" "target" "${manifest_target}")
     if(DEFINED EXPECTED_BACKEND_SOURCE_MAP_JSON_FIELDS)
       string(REPLACE "|" ";" backend_source_map_expectations
              "${EXPECTED_BACKEND_SOURCE_MAP_JSON_FIELDS}")
@@ -2791,20 +2792,27 @@ elseif(MODE STREQUAL "source-package-build")
   crossgl_expect_manifest_debug_artifacts("${manifest}")
   crossgl_expect_source_remap_provenance("${manifest}")
   crossgl_expect_debug_metadata_json_expectations("${manifest}")
+  string(JSON backend_source_map ERROR_VARIABLE backend_source_map_error GET
+         "${manifest}" artifacts backendSourceMap)
+  set(crossgl_source_package_debug_artifact_order "debugMetadata,hirSourceMap")
+  if(backend_source_map_error STREQUAL "NOTFOUND")
+    string(APPEND crossgl_source_package_debug_artifact_order
+           ",backendSourceMap")
+  endif()
+  if(DEFINED EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS OR
+     DEFINED SOURCE_REMAP_PROVENANCE_JSON_SCHEMA)
+    string(APPEND crossgl_source_package_debug_artifact_order ",sourceRemap")
+  endif()
+  string(APPEND crossgl_source_package_debug_artifact_order
+         ",nativeArtifactDescriptor,targetExplanation")
   if(crossgl_source_package_manifest_is_native)
-    if(DEFINED EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS OR
-       DEFINED SOURCE_REMAP_PROVENANCE_JSON_SCHEMA)
-      crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,debugMetadata,hirSourceMap,sourceRemap,nativeArtifactDescriptor,targetExplanation")
-    else()
-      crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,debugMetadata,hirSourceMap,nativeArtifactDescriptor,targetExplanation")
-    endif()
+    crossgl_expect_manifest_artifact_order(
+      "${manifest}"
+      "backendSource,nativeBinary,${crossgl_source_package_debug_artifact_order}")
   else()
-    if(DEFINED EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS OR
-       DEFINED SOURCE_REMAP_PROVENANCE_JSON_SCHEMA)
-      crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,nativeBinaryStatus,debugMetadata,hirSourceMap,sourceRemap,nativeArtifactDescriptor,targetExplanation")
-    else()
-      crossgl_expect_manifest_artifact_order("${manifest}" "backendSource,nativeBinary,nativeBinaryStatus,debugMetadata,hirSourceMap,nativeArtifactDescriptor,targetExplanation")
-    endif()
+    crossgl_expect_manifest_artifact_order(
+      "${manifest}"
+      "backendSource,nativeBinary,nativeBinaryStatus,${crossgl_source_package_debug_artifact_order}")
   endif()
   crossgl_apply_manifest_json_expectations("${manifest}")
   crossgl_validate_package_integrity()
