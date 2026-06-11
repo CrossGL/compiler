@@ -4706,6 +4706,73 @@ file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_LOGICAL_PATH_ALIAS_INVALID_MANIFEST}"
 }
 ")
 
+set(CROSSGL_CLI_SOURCE_BATCH_DUPLICATE_ID_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-duplicate-id.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_DUPLICATE_ID_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"id\": \"simple\",
+      \"path\": \"tests/fixtures/SimpleShader.cgl\"
+    },
+    {
+      \"id\": \"simple\",
+      \"path\": \"tests/fixtures/FnStyleFunctionShader.cgl\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_DUPLICATE_LOGICAL_INPUT_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-duplicate-logical-input.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_DUPLICATE_LOGICAL_INPUT_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"sources\": [
+    {
+      \"id\": \"simple\",
+      \"path\": \"tests/fixtures/SimpleShader.cgl\",
+      \"logicalInput\": \"translator/snapshots/shared.cgl\"
+    },
+    {
+      \"id\": \"fn-style\",
+      \"path\": \"tests/fixtures/FnStyleFunctionShader.cgl\",
+      \"logicalInput\": \"translator/snapshots/shared.cgl\"
+    }
+  ]
+}
+")
+
+set(CROSSGL_CLI_SOURCE_BATCH_DUPLICATE_OUTPUT_MANIFEST
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-source-batch-duplicate-output.json")
+file(WRITE "${CROSSGL_CLI_SOURCE_BATCH_DUPLICATE_OUTPUT_MANIFEST}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.sourceBatchManifest\",
+  \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"defaults\": {
+    \"target\": \"directx\"
+  },
+  \"sources\": [
+    {
+      \"id\": \"storage\",
+      \"path\": \"tests/fixtures/StorageBufferComputeShader.cgl\",
+      \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-duplicate-output.cglb\"
+    },
+    {
+      \"id\": \"fn-style\",
+      \"path\": \"tests/fixtures/FnStyleFunctionShader.cgl\",
+      \"output\": \"${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-batch-duplicate-output.cglb\"
+    }
+  ]
+}
+")
+
 function(crossgl_append_cli_surface_defines out_var prefix)
   set(defines)
   set(index 0)
@@ -5928,6 +5995,28 @@ crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_logical_path_alias_i
   STDERR_CONTAINS
     "source batch manifest sources[0].logicalPath must be a stable relative path")
 
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_duplicate_id_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_DUPLICATE_ID_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[1].id duplicates 'simple'"
+  STDERR_CONTAINS
+    "source batch manifest sources[1].id duplicates 'simple'")
+
+crossgl_add_cli_surface_test(cglc_cli_check_source_manifest_duplicate_logical_input_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-manifest
+    ${CROSSGL_CLI_SOURCE_BATCH_DUPLICATE_LOGICAL_INPUT_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "source batch manifest sources[1].logicalInput duplicates 'translator/snapshots/shared.cgl'"
+  STDERR_CONTAINS
+    "source batch manifest sources[1].logicalInput duplicates 'translator/snapshots/shared.cgl'")
+
 crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_logical_input_drive_prefix_fails
   EXPECTED_RESULT 1
   ARGS build --source-batch
@@ -6469,6 +6558,21 @@ crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_output_option_fails
     --output ${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-build-batch-output.cglb
   STDERR_CONTAINS
     "--output is per-source in source manifest mode")
+
+crossgl_add_cli_surface_test(cglc_cli_build_source_manifest_duplicate_output_fails
+  EXPECTED_RESULT 1
+  ARGS
+    build --source-batch ${CROSSGL_CLI_SOURCE_BATCH_DUPLICATE_OUTPUT_MANIFEST}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"kind\": \"crossgl.sourceBatchResult\""
+    "\"success\": false"
+    "\"id\": \"storage\""
+    "\"success\": true"
+    "\"id\": \"fn-style\""
+    "source batch manifest sources[1] output duplicates"
+  STDERR_CONTAINS
+    "source batch manifest sources[1] output duplicates")
 
 crossgl_add_cli_surface_test(cglc_cli_build_source_remap_logical_input_mismatch
   EXPECTED_RESULT 1

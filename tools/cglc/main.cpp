@@ -1118,6 +1118,42 @@ bool parseSourceBatchSources(std::string_view sourcesText,
   return false;
 }
 
+bool validateSourceBatchEntryIdentities(
+    const SourceBatchManifest &manifest, crossgl::DiagnosticEngine &diagnostics) {
+  std::vector<std::string> seenIds;
+  std::vector<std::string> seenLogicalInputs;
+  for (std::size_t index = 0; index < manifest.sources.size(); ++index) {
+    const SourceBatchEntry &entry = manifest.sources[index];
+    for (const std::string &seenId : seenIds) {
+      if (entry.id == seenId) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            "source batch manifest sources[" + std::to_string(index) +
+                "].id duplicates '" + entry.id + "'");
+        return false;
+      }
+    }
+    seenIds.push_back(entry.id);
+
+    if (!entry.logicalInput) {
+      continue;
+    }
+    const std::string logicalInput =
+        entry.logicalInput->lexically_normal().generic_string();
+    for (const std::string &seenLogicalInput : seenLogicalInputs) {
+      if (logicalInput == seenLogicalInput) {
+        sourceBatchManifestError(
+            diagnostics, manifest.path,
+            "source batch manifest sources[" + std::to_string(index) +
+                "].logicalInput duplicates '" + logicalInput + "'");
+        return false;
+      }
+    }
+    seenLogicalInputs.push_back(logicalInput);
+  }
+  return true;
+}
+
 template <typename Callback>
 bool forEachSourceBatchJsonArrayElement(std::string_view arrayText,
                                         Callback callback) {
@@ -4844,6 +4880,9 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
         "CrossTL project report contains no translated cgl artifacts");
     return std::nullopt;
   }
+  if (!validateSourceBatchEntryIdentities(manifest, diagnostics)) {
+    return std::nullopt;
+  }
   return manifest;
 }
 
@@ -4935,6 +4974,9 @@ loadSourceBatchManifest(const std::filesystem::path &manifestPath,
     return std::nullopt;
   }
   if (!parseSourceBatchSources(*sources, manifest, diagnostics)) {
+    return std::nullopt;
+  }
+  if (!validateSourceBatchEntryIdentities(manifest, diagnostics)) {
     return std::nullopt;
   }
   return manifest;
@@ -5311,6 +5353,7 @@ int commandBuildSourceBatch(const std::vector<std::string> &args,
 
   std::vector<crossgl::Diagnostic> allDiagnostics;
   std::vector<SourceBatchEntryResult> entryResults;
+  std::vector<std::string> usedOutputPaths;
   for (std::size_t index = 0; index < manifest->sources.size(); ++index) {
     const SourceBatchEntry &entry = manifest->sources[index];
     SourceBatchEntryResult entryResult;
@@ -5335,6 +5378,26 @@ int commandBuildSourceBatch(const std::vector<std::string> &args,
       entryResults.push_back(std::move(entryResult));
       continue;
     }
+    const std::string normalizedOutputPath =
+        outputPath->lexically_normal().generic_string();
+    bool duplicateOutput = false;
+    for (const std::string &usedOutputPath : usedOutputPaths) {
+      if (normalizedOutputPath == usedOutputPath) {
+        duplicateOutput = true;
+        break;
+      }
+    }
+    if (duplicateOutput) {
+      crossgl::DiagnosticEngine diagnostics;
+      sourceBatchManifestError(
+          diagnostics, manifest->path,
+          "source batch manifest sources[" + std::to_string(index) +
+              "] output duplicates '" + normalizedOutputPath + "'");
+      appendDiagnostics(allDiagnostics, diagnostics.diagnostics());
+      entryResults.push_back(std::move(entryResult));
+      continue;
+    }
+    usedOutputPaths.push_back(normalizedOutputPath);
 
     crossgl::CompileRequest request;
     request.inputPath = entry.path;
