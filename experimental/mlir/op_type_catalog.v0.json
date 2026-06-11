@@ -12,7 +12,8 @@
     ],
     "optionalMlirToolingRequired": false,
     "productionLinked": false,
-    "normalBuildRequired": false
+    "normalBuildRequired": false,
+    "separatesPseudoMlir": true
   },
   "dialect": {
     "canonicalNamespace": "hir",

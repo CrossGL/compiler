@@ -47,6 +47,14 @@ REQUIRED_TOP_LEVEL_KEYS = (
     "types",
     "blockedCoverage",
 )
+GENERATION_KEYS = (
+    "deterministic",
+    "derivedFrom",
+    "optionalMlirToolingRequired",
+    "productionLinked",
+    "normalBuildRequired",
+    "separatesPseudoMlir",
+)
 FIXTURE_UNIVERSE_KEYS = (
     "admittedFixtures",
     "operationFixtures",
@@ -288,6 +296,7 @@ def derive_catalog(root: Path) -> dict[str, Any]:
             "optionalMlirToolingRequired": False,
             "productionLinked": False,
             "normalBuildRequired": False,
+            "separatesPseudoMlir": True,
         },
         "dialect": {
             "canonicalNamespace": source_authority.get("hirNamespace", "hir"),
@@ -318,11 +327,16 @@ def check_catalog_shape(catalog: dict[str, Any], errors: list[str]) -> None:
         errors.append(f"{CATALOG_PATH}: status must be {CATALOG_STATUS!r}")
 
     generation = require_object(catalog.get("generation"), "generation", errors)
-    for flag in ("deterministic", "optionalMlirToolingRequired", "productionLinked"):
-        if flag == "deterministic":
-            expected = True
-        else:
-            expected = False
+    if tuple(generation) != GENERATION_KEYS:
+        errors.append(f"{CATALOG_PATH}: generation schema changed")
+    expected_generation_flags = {
+        "deterministic": True,
+        "optionalMlirToolingRequired": False,
+        "productionLinked": False,
+        "normalBuildRequired": False,
+        "separatesPseudoMlir": True,
+    }
+    for flag, expected in expected_generation_flags.items():
         if generation.get(flag) is not expected:
             errors.append(f"{CATALOG_PATH}: generation.{flag} must be {expected}")
     if generation.get("derivedFrom") != list(DERIVED_FROM):
@@ -546,6 +560,32 @@ def run_self_test() -> list[str]:
         write_json(root / MANIFEST_PATH, manifest)
         generated = derive_catalog(root)
         check_catalog_shape(generated, errors)
+        missing_pseudo_mlir_boundary = copy.deepcopy(generated)
+        del missing_pseudo_mlir_boundary["generation"]["separatesPseudoMlir"]
+        missing_pseudo_mlir_boundary_errors: list[str] = []
+        check_catalog_shape(
+            missing_pseudo_mlir_boundary, missing_pseudo_mlir_boundary_errors
+        )
+        if not any(
+            "generation schema changed" in error
+            for error in missing_pseudo_mlir_boundary_errors
+        ):
+            errors.append(
+                "self-test failed to catch missing pseudo-MLIR separation flag"
+            )
+        wrong_pseudo_mlir_boundary = copy.deepcopy(generated)
+        wrong_pseudo_mlir_boundary["generation"]["separatesPseudoMlir"] = False
+        wrong_pseudo_mlir_boundary_errors: list[str] = []
+        check_catalog_shape(
+            wrong_pseudo_mlir_boundary, wrong_pseudo_mlir_boundary_errors
+        )
+        if not any(
+            "generation.separatesPseudoMlir must be True" in error
+            for error in wrong_pseudo_mlir_boundary_errors
+        ):
+            errors.append(
+                "self-test failed to catch disabled pseudo-MLIR separation flag"
+            )
         missing_coverage = copy.deepcopy(generated)
         missing_coverage["fixtureUniverse"]["fixturesMissingOperationCoverage"] = [
             "tests/fixtures/Test.cgl"
