@@ -1,0 +1,1 @@
+$.validationDiagnostics[0].missingCapabilities[0]: expected string length >= 1

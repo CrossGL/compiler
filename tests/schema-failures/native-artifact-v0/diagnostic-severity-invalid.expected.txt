@@ -1,0 +1,1 @@
+$.validationDiagnostics[0].severity: expected one of ['note', 'warning', 'error'], got 'fatal'
