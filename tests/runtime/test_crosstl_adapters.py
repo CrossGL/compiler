@@ -14,6 +14,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 
 from runtime.crosstl_adapters import (  # noqa: E402
+    normalize_crosstl_runtime_adapter_candidates,
     read_crosstl_runtime_adapter_package,
 )
 
@@ -45,6 +46,26 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                 "adapters/opengl/opengl-main.adapter.json",
             )
             self.assertEqual(descriptor.host_interface_status, "ready")
+            candidates = normalize_crosstl_runtime_adapter_candidates(report)
+            self.assertEqual(len(candidates), 1)
+            candidate = candidates[0]
+            self.assertEqual(candidate.id, "runtime-loader.opengl.OpenglMain")
+            self.assertEqual(candidate.target, "opengl")
+            self.assertEqual(candidate.adapter_kind, "backend-source-loader")
+            self.assertEqual(candidate.artifact_format, "backend-source")
+            self.assertEqual(candidate.producer_adapter_kind, "opengl-glsl-adapter")
+            self.assertEqual(candidate.producer_artifact_format, "GLSL source")
+            self.assertEqual(candidate.package_path, "backend/opengl/main.glsl")
+            self.assertTrue(candidate.load_ready)
+            self.assertEqual(candidate.host_interface_status, "ready")
+            self.assertEqual(candidate.required_tools, ("opengl.toolchain.compiler",))
+            self.assertEqual(
+                candidate.host_responsibilities, ("load-package-artifact",)
+            )
+            self.assertEqual(
+                candidate.source_remap,
+                {"packagePath": "source-remaps/opengl/main.source-remap.json"},
+            )
 
     def test_reports_unsupported_descriptor_targets_without_invalidating_package(
         self,
@@ -65,9 +86,56 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             self.assertEqual(report.supported_targets, ())
             self.assertEqual(report.unsupported_targets, ("cuda",))
             self.assertEqual(
-                [(diagnostic.severity, diagnostic.code) for diagnostic in report.diagnostics],
+                [
+                    (diagnostic.severity, diagnostic.code)
+                    for diagnostic in report.diagnostics
+                ],
                 [("warning", "crosstl.adapter.unsupported_target")],
             )
+            self.assertEqual(normalize_crosstl_runtime_adapter_candidates(report), ())
+
+    def test_normalizes_native_binary_adapter_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            manifest = self._write_adapter_bundle(
+                root,
+                target="directx",
+                adapter_kind="directx-dxil-adapter",
+                artifact_format="DXIL binary",
+                package_path="backend/directx/main.dxil",
+            )
+
+            report = read_crosstl_runtime_adapter_package(manifest)
+            candidates = normalize_crosstl_runtime_adapter_candidates(report)
+
+            self.assertTrue(report.valid, report.diagnostics)
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(candidates[0].artifact_format, "native-binary")
+            self.assertEqual(candidates[0].adapter_kind, "native-binary-loader")
+            self.assertEqual(candidates[0].producer_artifact_format, "DXIL binary")
+
+    def test_blocked_host_interface_keeps_candidate_unready(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            manifest = self._write_adapter_bundle(
+                root,
+                target="vulkan",
+                adapter_kind="vulkan-shader-adapter",
+                artifact_format="Vulkan-targeted shader source",
+                package_path="backend/vulkan/main.spvasm",
+                host_interface_status="blocked",
+                load_ready=False,
+            )
+
+            report = read_crosstl_runtime_adapter_package(manifest)
+            candidates = normalize_crosstl_runtime_adapter_candidates(report)
+
+            self.assertTrue(report.valid, report.diagnostics)
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(candidates[0].adapter_kind, "backend-source-loader")
+            self.assertEqual(candidates[0].artifact_format, "backend-source")
+            self.assertEqual(candidates[0].host_interface_status, "blocked")
+            self.assertFalse(candidates[0].load_ready)
 
     def test_detects_descriptor_hash_and_size_drift(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -113,7 +181,10 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
         *,
         target: str,
         adapter_kind: str | None = None,
+        artifact_format: str = "GLSL source",
         package_path: str | None = None,
+        host_interface_status: str = "ready",
+        load_ready: bool = True,
     ) -> Path:
         adapter_kind = adapter_kind or f"{target}-glsl-adapter"
         package_path = package_path or f"backend/{target}/main.glsl"
@@ -134,7 +205,7 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             "id": f"{target}.main",
             "target": target,
             "adapterKind": adapter_kind,
-            "artifactFormat": "GLSL source",
+            "artifactFormat": artifact_format,
             "binding": {"kind": "runtime-adapter"},
             "artifact": {"name": "backendSource"},
             "packagePath": package_path,
@@ -146,10 +217,10 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             "sourceRemap": {
                 "packagePath": f"source-remaps/{target}/main.source-remap.json"
             },
-            "hostInterface": {"status": "ready"},
+            "hostInterface": {"status": host_interface_status},
             "requiredTools": [f"{target}.toolchain.compiler"],
             "hostResponsibilities": ["load-package-artifact"],
-            "validation": {"loadReady": True},
+            "validation": {"loadReady": load_ready},
         }
         self._write_json(descriptor_file, descriptor)
         descriptor_bytes = descriptor_file.read_bytes()
@@ -157,7 +228,7 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             "id": descriptor["id"],
             "target": target,
             "adapterKind": adapter_kind,
-            "artifactFormat": "GLSL source",
+            "artifactFormat": artifact_format,
             "binding": descriptor["binding"],
             "artifact": descriptor["artifact"],
             "packagePath": package_path,
@@ -167,7 +238,7 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                 "value": hashlib.sha256(descriptor_bytes).hexdigest(),
             },
             "descriptorSizeBytes": len(descriptor_bytes),
-            "hostInterfaceStatus": "ready",
+            "hostInterfaceStatus": host_interface_status,
             "requiredTools": descriptor["requiredTools"],
         }
         manifest = {
@@ -187,8 +258,8 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                 "targetCount": 1,
                 "adapterCount": 1,
                 "descriptorCount": 1,
-                "readyDescriptorCount": 1,
-                "blockedDescriptorCount": 0,
+                "readyDescriptorCount": 1 if host_interface_status == "ready" else 0,
+                "blockedDescriptorCount": 0 if host_interface_status == "ready" else 1,
                 "actionCount": 0,
                 "runtimeReferenceCount": 1,
             },
@@ -198,8 +269,12 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                     "adapterKind": adapter_kind,
                     "adapterCount": 1,
                     "descriptorCount": 1,
-                    "readyDescriptorCount": 1,
-                    "blockedDescriptorCount": 0,
+                    "readyDescriptorCount": 1
+                    if host_interface_status == "ready"
+                    else 0,
+                    "blockedDescriptorCount": 0
+                    if host_interface_status == "ready"
+                    else 1,
                     "runtimeReferenceCount": 1,
                     "requiredTools": descriptor["requiredTools"],
                     "descriptors": [descriptor["id"]],

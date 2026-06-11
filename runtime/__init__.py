@@ -11,6 +11,8 @@ from .crosstl_adapters import (
     CrossTLAdapterDescriptor,
     CrossTLAdapterDiagnostic,
     CrossTLAdapterPackageReport,
+    CrossTLRuntimeAdapterCandidate,
+    normalize_crosstl_runtime_adapter_candidates,
     read_crosstl_runtime_adapter_package,
 )
 from .package_reader import (
@@ -33,6 +35,7 @@ __all__ = [
     "CrossTLAdapterDescriptor",
     "CrossTLAdapterDiagnostic",
     "CrossTLAdapterPackageReport",
+    "CrossTLRuntimeAdapterCandidate",
     "DebugMetadataRecord",
     "LoaderArtifactPlan",
     "PackageCompatibilityReport",
@@ -43,6 +46,7 @@ __all__ = [
     "SourceFreeRuntimeArtifactHandoff",
     "TargetArtifactContract",
     "read_compatibility_report",
+    "normalize_crosstl_runtime_adapter_candidates",
     "read_crosstl_runtime_adapter_package",
     "read_loader_plan",
     "read_runtime_loader_plan_contract",

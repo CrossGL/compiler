@@ -55,6 +55,23 @@ class CrossTLAdapterPackageReport:
     diagnostics: tuple[CrossTLAdapterDiagnostic, ...]
 
 
+@dataclass(frozen=True)
+class CrossTLRuntimeAdapterCandidate:
+    id: str
+    target: str
+    adapter_kind: str
+    artifact_format: str
+    package_path: str
+    descriptor_path: str
+    producer_adapter_kind: str
+    producer_artifact_format: str
+    host_interface_status: str | None
+    load_ready: bool
+    required_tools: tuple[str, ...]
+    host_responsibilities: tuple[str, ...]
+    source_remap: dict[str, Any] | None
+
+
 def read_crosstl_runtime_adapter_package(
     manifest_path: str | Path,
 ) -> CrossTLAdapterPackageReport:
@@ -95,7 +112,9 @@ def read_crosstl_runtime_adapter_package(
             )
         )
 
-    errors = [diagnostic for diagnostic in diagnostics if diagnostic.severity == "error"]
+    errors = [
+        diagnostic for diagnostic in diagnostics if diagnostic.severity == "error"
+    ]
     return CrossTLAdapterPackageReport(
         manifest_path=path,
         package_kind=_optional_str(document.get("kind")),
@@ -109,6 +128,49 @@ def read_crosstl_runtime_adapter_package(
         descriptors=tuple(descriptors),
         diagnostics=tuple(diagnostics),
     )
+
+
+def normalize_crosstl_runtime_adapter_candidates(
+    report: CrossTLAdapterPackageReport,
+) -> tuple[CrossTLRuntimeAdapterCandidate, ...]:
+    """Return compiler runtime-loader candidates for supported CrossTL adapters."""
+
+    candidates = []
+    for descriptor in report.descriptors:
+        if (
+            descriptor.target not in SUPPORTED_COMPILER_TARGETS
+            or descriptor.package_path is None
+            or descriptor.adapter_kind is None
+            or descriptor.artifact_format is None
+            or descriptor.document is None
+        ):
+            continue
+
+        compiler_artifact_format = _compiler_artifact_format(descriptor.artifact_format)
+        candidates.append(
+            CrossTLRuntimeAdapterCandidate(
+                id=_runtime_loader_candidate_id(descriptor),
+                target=descriptor.target,
+                adapter_kind=(
+                    "native-binary-loader"
+                    if compiler_artifact_format == "native-binary"
+                    else "backend-source-loader"
+                ),
+                artifact_format=compiler_artifact_format,
+                package_path=descriptor.package_path,
+                descriptor_path=descriptor.descriptor_path,
+                producer_adapter_kind=descriptor.adapter_kind,
+                producer_artifact_format=descriptor.artifact_format,
+                host_interface_status=descriptor.host_interface_status,
+                load_ready=descriptor.host_interface_status == "ready",
+                required_tools=descriptor.required_tools,
+                host_responsibilities=tuple(
+                    _string_list(descriptor.document.get("hostResponsibilities"))
+                ),
+                source_remap=_optional_object(descriptor.document.get("sourceRemap")),
+            )
+        )
+    return tuple(candidates)
 
 
 def _empty_report(
@@ -305,10 +367,9 @@ def _validate_descriptor_path(
     diagnostics: list[CrossTLAdapterDiagnostic],
 ) -> bool:
     valid = True
-    if (
-        not descriptor_path.endswith(".adapter.json")
-        or not _is_normalized_relative_path(descriptor_path)
-    ):
+    if not descriptor_path.endswith(
+        ".adapter.json"
+    ) or not _is_normalized_relative_path(descriptor_path):
         valid = False
         diagnostics.append(
             CrossTLAdapterDiagnostic(
@@ -659,6 +720,10 @@ def _optional_str(value: Any) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def _optional_object(value: Any) -> dict[str, Any] | None:
+    return dict(value) if isinstance(value, dict) else None
+
+
 def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -671,6 +736,39 @@ def _is_normalized_relative_path(path: str) -> bool:
     if re.match(r"^[A-Za-z]:", path):
         return False
     return all(part not in ("", ".", "..") for part in path.split("/"))
+
+
+def _compiler_artifact_format(producer_artifact_format: str) -> str:
+    normalized = producer_artifact_format.lower()
+    native_markers = (
+        "binary",
+        "native",
+        "dxil",
+        "metallib",
+        "spir-v",
+        "spirv",
+    )
+    return (
+        "native-binary"
+        if any(marker in normalized for marker in native_markers)
+        else "backend-source"
+    )
+
+
+def _runtime_loader_candidate_id(descriptor: CrossTLAdapterDescriptor) -> str:
+    target = descriptor.target or "unknown"
+    seed = descriptor.id or descriptor.package_path or descriptor.descriptor_path
+    return f"runtime-loader.{target}.{_runtime_loader_member_name(seed)}"
+
+
+def _runtime_loader_member_name(value: str) -> str:
+    parts = [part for part in re.split(r"[^A-Za-z0-9]+", value) if part]
+    if not parts:
+        return "Adapter"
+    member = "".join(part[:1].upper() + part[1:] for part in parts)
+    if not member[0].isalpha():
+        member = f"Adapter{member}"
+    return member
 
 
 def _file_sha256(path: Path) -> str:

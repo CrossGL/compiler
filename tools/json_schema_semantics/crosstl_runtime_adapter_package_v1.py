@@ -44,7 +44,11 @@ def validate_summary(errors, instance):
     actions = instance["actions"]
 
     add_length_count_error(
-        errors, "$.summary.targetCount", summary["targetCount"], targets, "target length"
+        errors,
+        "$.summary.targetCount",
+        summary["targetCount"],
+        targets,
+        "target length",
     )
     add_length_count_error(
         errors,
@@ -54,13 +58,15 @@ def validate_summary(errors, instance):
         "descriptor length",
     )
     add_length_count_error(
-        errors, "$.summary.actionCount", summary["actionCount"], actions, "action length"
+        errors,
+        "$.summary.actionCount",
+        summary["actionCount"],
+        actions,
+        "action length",
     )
 
     ready_count = sum(
-        1
-        for descriptor in descriptors
-        if descriptor["hostInterfaceStatus"] == "ready"
+        1 for descriptor in descriptors if descriptor["hostInterfaceStatus"] == "ready"
     )
     blocked_count = sum(
         1
@@ -105,9 +111,7 @@ def validate_summary(errors, instance):
 def validate_adapter_plan(errors, instance):
     adapter_plan = instance["adapterPlan"]
     if adapter_plan["kind"] != "crosstl-runtime-adapter-plan":
-        errors.append(
-            "$.adapterPlan.kind: expected 'crosstl-runtime-adapter-plan'"
-        )
+        errors.append("$.adapterPlan.kind: expected 'crosstl-runtime-adapter-plan'")
     if "adapterCount" in adapter_plan:
         add_equal_error(
             errors,
@@ -182,9 +186,7 @@ def validate_descriptor_paths(errors, descriptors):
     for index, descriptor in enumerate(descriptors):
         validate_descriptor_record(errors, f"$.descriptors[{index}]", descriptor)
         descriptor_paths.append(descriptor["descriptorPath"])
-    duplicates = {
-        path for path in descriptor_paths if descriptor_paths.count(path) > 1
-    }
+    duplicates = {path for path in descriptor_paths if descriptor_paths.count(path) > 1}
     for path in sorted(duplicates):
         errors.append(f"$.descriptors: duplicate descriptorPath {path!r}")
 
