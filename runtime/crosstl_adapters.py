@@ -125,6 +125,34 @@ class CrossTLRuntimeAdapterCandidate:
     validation: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class CrossTLRuntimeAdapterSkippedDescriptor:
+    id: str | None
+    target: str | None
+    artifact_format: str | None
+    descriptor_path: str
+    reason: str
+    message: str
+
+
+@dataclass(frozen=True)
+class CrossTLRuntimeAdapterNormalizationReport:
+    manifest_path: Path
+    valid: bool
+    compiler_supported: bool
+    descriptor_count: int
+    candidate_count: int
+    ready_candidate_count: int
+    blocked_candidate_count: int
+    skipped_descriptor_count: int
+    unsupported_target_count: int
+    unsupported_artifact_format_count: int
+    targets: tuple[str, ...]
+    candidates: tuple[CrossTLRuntimeAdapterCandidate, ...]
+    skipped_descriptors: tuple[CrossTLRuntimeAdapterSkippedDescriptor, ...]
+    diagnostics: tuple[CrossTLAdapterDiagnostic, ...]
+
+
 def read_crosstl_runtime_adapter_package(
     manifest_path: str | Path,
 ) -> CrossTLAdapterPackageReport:
@@ -188,78 +216,48 @@ def normalize_crosstl_runtime_adapter_candidates(
 ) -> tuple[CrossTLRuntimeAdapterCandidate, ...]:
     """Return compiler runtime-loader candidates for supported CrossTL adapters."""
 
-    if not report.valid:
-        return ()
+    return build_crosstl_runtime_adapter_normalization_report(report).candidates
 
-    candidates = []
+
+def build_crosstl_runtime_adapter_normalization_report(
+    report: CrossTLAdapterPackageReport,
+) -> CrossTLRuntimeAdapterNormalizationReport:
+    """Return candidates plus explicit adapter skip reasons."""
+
+    candidates: list[CrossTLRuntimeAdapterCandidate] = []
+    skipped_descriptors: list[CrossTLRuntimeAdapterSkippedDescriptor] = []
     for descriptor in report.descriptors:
-        if (
-            descriptor.target not in SUPPORTED_COMPILER_TARGETS
-            or descriptor.package_path is None
-            or descriptor.adapter_kind is None
-            or descriptor.artifact_format is None
-            or descriptor.document is None
-        ):
+        skip_reason = _runtime_adapter_skip_reason(report, descriptor)
+        if skip_reason is not None:
+            skipped_descriptors.append(skip_reason)
             continue
 
-        compiler_artifact_format = _compiler_artifact_format(descriptor.artifact_format)
-        if compiler_artifact_format is None:
-            continue
-        host_interface = descriptor.host_interface
-        entry_points = _host_interface_records(host_interface, "entryPoints")
-        resources = _host_interface_records(host_interface, "resources")
-        constants = _host_interface_records(host_interface, "constants")
-        candidates.append(
-            CrossTLRuntimeAdapterCandidate(
-                id=_runtime_loader_candidate_id(descriptor),
-                target=descriptor.target,
-                artifact_name=(
-                    "nativeBinary"
-                    if compiler_artifact_format == "native-binary"
-                    else "backendSource"
-                ),
-                adapter_kind=(
-                    "native-binary-loader"
-                    if compiler_artifact_format == "native-binary"
-                    else "backend-source-loader"
-                ),
-                artifact_format=compiler_artifact_format,
-                package_path=descriptor.package_path,
-                descriptor_path=descriptor.descriptor_path,
-                producer_adapter_kind=descriptor.adapter_kind,
-                producer_artifact_format=descriptor.artifact_format,
-                host_interface_status=descriptor.host_interface_status,
-                load_ready=_candidate_load_ready(descriptor),
-                required_tools=descriptor.required_tools,
-                host_responsibilities=tuple(
-                    _string_list(descriptor.document.get("hostResponsibilities"))
-                ),
-                source_path=descriptor.source_path,
-                source_backend=descriptor.source_backend,
-                stage=descriptor.stage,
-                variant=descriptor.variant,
-                defines=_json_object_copy(descriptor.defines),
-                source_remap=_optional_object(descriptor.document.get("sourceRemap")),
-                host_interface=(
-                    _json_object_copy(host_interface)
-                    if host_interface is not None
-                    else None
-                ),
-                entry_points=entry_points,
-                resources=resources,
-                constants=constants,
-                target_resource_binding_metadata=(
-                    _target_resource_binding_metadata(
-                        target=descriptor.target,
-                        descriptor_stage=descriptor.stage,
-                        entry_points=entry_points,
-                        resources=resources,
-                    )
-                ),
-                validation=_json_object_copy(descriptor.validation),
-            )
-        )
-    return tuple(candidates)
+        candidate = _runtime_adapter_candidate(descriptor)
+        if candidate is not None:
+            candidates.append(candidate)
+
+    ready_candidate_count = sum(1 for candidate in candidates if candidate.load_ready)
+    skipped = tuple(skipped_descriptors)
+    return CrossTLRuntimeAdapterNormalizationReport(
+        manifest_path=report.manifest_path,
+        valid=report.valid,
+        compiler_supported=report.compiler_supported,
+        descriptor_count=report.descriptor_count,
+        candidate_count=len(candidates),
+        ready_candidate_count=ready_candidate_count,
+        blocked_candidate_count=len(candidates) - ready_candidate_count,
+        skipped_descriptor_count=len(skipped),
+        unsupported_target_count=len(report.unsupported_targets),
+        unsupported_artifact_format_count=sum(
+            1
+            for descriptor in skipped
+            if descriptor.reason == "unsupported-artifact-format"
+        ),
+        targets=tuple(sorted({candidate.target for candidate in candidates})),
+        candidates=tuple(candidates),
+        skipped_descriptors=skipped,
+        diagnostics=report.diagnostics,
+    )
 
 
 def _empty_report(
@@ -854,6 +852,136 @@ def _expect_equal(
                 path=path,
             )
         )
+
+
+def _runtime_adapter_skip_reason(
+    report: CrossTLAdapterPackageReport,
+    descriptor: CrossTLAdapterDescriptor,
+) -> CrossTLRuntimeAdapterSkippedDescriptor | None:
+    if not report.valid:
+        return _skipped_descriptor(
+            descriptor,
+            "invalid-package",
+            "package validation failed before runtime adapter normalization",
+        )
+    if descriptor.target not in SUPPORTED_COMPILER_TARGETS:
+        return _skipped_descriptor(
+            descriptor,
+            "unsupported-target",
+            "descriptor target is outside the compiler runtime target set",
+        )
+    if descriptor.document is None:
+        return _skipped_descriptor(
+            descriptor,
+            "missing-descriptor-document",
+            "descriptor document was not available for normalization",
+        )
+    if descriptor.package_path is None:
+        return _skipped_descriptor(
+            descriptor,
+            "missing-package-path",
+            "descriptor does not identify a runtime package artifact",
+        )
+    if descriptor.adapter_kind is None:
+        return _skipped_descriptor(
+            descriptor,
+            "missing-adapter-kind",
+            "descriptor does not identify a producer adapter kind",
+        )
+    if descriptor.artifact_format is None:
+        return _skipped_descriptor(
+            descriptor,
+            "missing-artifact-format",
+            "descriptor does not identify a producer artifact format",
+        )
+    if _compiler_artifact_format(descriptor.artifact_format) is None:
+        return _skipped_descriptor(
+            descriptor,
+            "unsupported-artifact-format",
+            "producer artifact format has no compiler runtime-loader mapping",
+        )
+    return None
+
+
+def _skipped_descriptor(
+    descriptor: CrossTLAdapterDescriptor,
+    reason: str,
+    message: str,
+) -> CrossTLRuntimeAdapterSkippedDescriptor:
+    return CrossTLRuntimeAdapterSkippedDescriptor(
+        id=descriptor.id,
+        target=descriptor.target,
+        artifact_format=descriptor.artifact_format,
+        descriptor_path=descriptor.descriptor_path,
+        reason=reason,
+        message=message,
+    )
+
+
+def _runtime_adapter_candidate(
+    descriptor: CrossTLAdapterDescriptor,
+) -> CrossTLRuntimeAdapterCandidate | None:
+    if (
+        descriptor.target is None
+        or descriptor.package_path is None
+        or descriptor.adapter_kind is None
+        or descriptor.artifact_format is None
+        or descriptor.document is None
+    ):
+        return None
+    compiler_artifact_format = _compiler_artifact_format(descriptor.artifact_format)
+    if compiler_artifact_format is None:
+        return None
+    host_interface = descriptor.host_interface
+    entry_points = _host_interface_records(host_interface, "entryPoints")
+    resources = _host_interface_records(host_interface, "resources")
+    constants = _host_interface_records(host_interface, "constants")
+    return CrossTLRuntimeAdapterCandidate(
+        id=_runtime_loader_candidate_id(descriptor),
+        target=descriptor.target,
+        artifact_name=(
+            "nativeBinary"
+            if compiler_artifact_format == "native-binary"
+            else "backendSource"
+        ),
+        adapter_kind=(
+            "native-binary-loader"
+            if compiler_artifact_format == "native-binary"
+            else "backend-source-loader"
+        ),
+        artifact_format=compiler_artifact_format,
+        package_path=descriptor.package_path,
+        descriptor_path=descriptor.descriptor_path,
+        producer_adapter_kind=descriptor.adapter_kind,
+        producer_artifact_format=descriptor.artifact_format,
+        host_interface_status=descriptor.host_interface_status,
+        load_ready=_candidate_load_ready(descriptor),
+        required_tools=descriptor.required_tools,
+        host_responsibilities=tuple(
+            _string_list(descriptor.document.get("hostResponsibilities"))
+        ),
+        source_path=descriptor.source_path,
+        source_backend=descriptor.source_backend,
+        stage=descriptor.stage,
+        variant=descriptor.variant,
+        defines=_json_object_copy(descriptor.defines),
+        source_remap=_optional_object(descriptor.document.get("sourceRemap")),
+        host_interface=(
+            _json_object_copy(host_interface) if host_interface is not None else None
+        ),
+        entry_points=entry_points,
+        resources=resources,
+        constants=constants,
+        target_resource_binding_metadata=(
+            _target_resource_binding_metadata(
+                target=descriptor.target,
+                descriptor_stage=descriptor.stage,
+                entry_points=entry_points,
+                resources=resources,
+            )
+        ),
+        validation=_json_object_copy(descriptor.validation),
+    )
 
 
 def _descriptor_field(

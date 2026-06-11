@@ -15,6 +15,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 
 from runtime.crosstl_adapters import (  # noqa: E402
+    build_crosstl_runtime_adapter_normalization_report,
     normalize_crosstl_runtime_adapter_candidates,
     read_crosstl_runtime_adapter_package,
 )
@@ -132,6 +133,16 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                     },
                 ),
             )
+            normalization_report = build_crosstl_runtime_adapter_normalization_report(
+                report
+            )
+            self.assertEqual(normalization_report.candidates, candidates)
+            self.assertEqual(normalization_report.candidate_count, 1)
+            self.assertEqual(normalization_report.ready_candidate_count, 1)
+            self.assertEqual(normalization_report.blocked_candidate_count, 0)
+            self.assertEqual(normalization_report.skipped_descriptor_count, 0)
+            self.assertEqual(normalization_report.unsupported_target_count, 0)
+            self.assertEqual(normalization_report.targets, ("opengl",))
 
     def test_reports_unsupported_descriptor_targets_without_invalidating_package(
         self,
@@ -159,6 +170,16 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                 [("warning", "crosstl.adapter.unsupported_target")],
             )
             self.assertEqual(normalize_crosstl_runtime_adapter_candidates(report), ())
+            normalization_report = build_crosstl_runtime_adapter_normalization_report(
+                report
+            )
+            self.assertEqual(normalization_report.candidate_count, 0)
+            self.assertEqual(normalization_report.skipped_descriptor_count, 1)
+            self.assertEqual(normalization_report.unsupported_target_count, 1)
+            self.assertEqual(
+                normalization_report.skipped_descriptors[0].reason,
+                "unsupported-target",
+            )
 
     def test_normalizes_native_binary_adapter_candidate(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -233,6 +254,16 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                 {diagnostic.code for diagnostic in report.diagnostics},
             )
             self.assertEqual(normalize_crosstl_runtime_adapter_candidates(report), ())
+            normalization_report = build_crosstl_runtime_adapter_normalization_report(
+                report
+            )
+            self.assertEqual(normalization_report.candidate_count, 0)
+            self.assertEqual(normalization_report.skipped_descriptor_count, 1)
+            self.assertEqual(normalization_report.unsupported_artifact_format_count, 1)
+            self.assertEqual(
+                normalization_report.skipped_descriptors[0].reason,
+                "unsupported-artifact-format",
+            )
 
     def test_blocked_host_interface_keeps_candidate_unready(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -256,6 +287,12 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             self.assertEqual(candidates[0].artifact_format, "backend-source")
             self.assertEqual(candidates[0].host_interface_status, "blocked")
             self.assertFalse(candidates[0].load_ready)
+            normalization_report = build_crosstl_runtime_adapter_normalization_report(
+                report
+            )
+            self.assertEqual(normalization_report.candidate_count, 1)
+            self.assertEqual(normalization_report.ready_candidate_count, 0)
+            self.assertEqual(normalization_report.blocked_candidate_count, 1)
 
     def test_invalid_report_does_not_create_candidates(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -269,6 +306,15 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
 
             self.assertFalse(report.valid)
             self.assertEqual(normalize_crosstl_runtime_adapter_candidates(report), ())
+            normalization_report = build_crosstl_runtime_adapter_normalization_report(
+                report
+            )
+            self.assertEqual(normalization_report.candidate_count, 0)
+            self.assertEqual(normalization_report.skipped_descriptor_count, 1)
+            self.assertEqual(
+                normalization_report.skipped_descriptors[0].reason,
+                "invalid-package",
+            )
 
     def test_native_unsupported_target_is_not_normalized(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
