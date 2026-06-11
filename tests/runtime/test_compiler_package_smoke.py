@@ -56,6 +56,26 @@ from runtime.package_reader import (  # noqa: E402
 
 
 class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
+    def test_fake_glslang_log_parser_preserves_windows_stage_paths(self) -> None:
+        fake_log = (
+            "-S vert "
+            r"C:\Users\RUNNER~1\AppData\Local\Temp\package"
+            r"\backend\opengl\OpenGLGraphicsTextureSamplerResourcesShader.vert.glsl"
+            "\n"
+        )
+        fake_invocations = self._parse_fake_tool_invocations(
+            fake_log, posix_shell=False
+        )
+
+        self.assertTrue(
+            self._fake_tool_invocations_include_stage_source(
+                fake_invocations,
+                "vert",
+                "backend/opengl/OpenGLGraphicsTextureSamplerResourcesShader.vert.glsl",
+            ),
+            fake_invocations,
+        )
+
     def test_reads_compiler_native_artifact_descriptor_without_crossgl_source(
         self,
     ) -> None:
@@ -810,8 +830,16 @@ class CompilerProducedPackageRuntimeSmokeTests(unittest.TestCase):
         )
         script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
-    def _parse_fake_tool_invocations(self, fake_log: str) -> list[list[str]]:
-        return [shlex.split(line) for line in fake_log.splitlines() if line.strip()]
+    def _parse_fake_tool_invocations(
+        self, fake_log: str, *, posix_shell: bool | None = None
+    ) -> list[list[str]]:
+        if posix_shell is None:
+            posix_shell = os.name != "nt"
+        return [
+            shlex.split(line, posix=posix_shell)
+            for line in fake_log.splitlines()
+            if line.strip()
+        ]
 
     def _fake_tool_invocations_include_stage_source(
         self,
