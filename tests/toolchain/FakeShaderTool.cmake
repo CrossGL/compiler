@@ -298,9 +298,32 @@ if(FAKE_TOOL_NAME STREQUAL "xcrun" AND
    fake_xcrun_tool STREQUAL "metal")
   message(FATAL_ERROR "fake xcrun metal failure")
 elseif(FAKE_TOOL_NAME STREQUAL "xcrun" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "metal-diagnostics-failure" AND
+       fake_xcrun_tool STREQUAL "metal")
+  file(WRITE "${fake_output}" "fake partial metal air from diagnostic failure\n")
+  set(fake_partial_metallib "${fake_output}")
+  string(REGEX REPLACE "\\.air$" ".metallib" fake_partial_metallib
+         "${fake_partial_metallib}")
+  if(NOT fake_partial_metallib STREQUAL "${fake_output}")
+    file(WRITE "${fake_partial_metallib}"
+         "fake partial metal metallib from diagnostic metal failure\n")
+  endif()
+  message("${fake_source}:5:3: error: fake metal mapped failure")
+  message(FATAL_ERROR "fake xcrun metal mapped failure")
+elseif(FAKE_TOOL_NAME STREQUAL "xcrun" AND
        FAKE_TOOL_BEHAVIOR STREQUAL "metallib-failure" AND
        fake_xcrun_tool STREQUAL "metallib")
   message(FATAL_ERROR "fake xcrun metallib failure")
+elseif(FAKE_TOOL_NAME STREQUAL "xcrun" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "metallib-diagnostics-failure" AND
+       fake_xcrun_tool STREQUAL "metallib")
+  file(WRITE "${fake_output}"
+       "fake partial metal metallib from diagnostic metallib failure\n")
+  set(fake_metal_source "${fake_source}")
+  string(REGEX REPLACE "\\.air$" ".metal" fake_metal_source
+         "${fake_metal_source}")
+  message("${fake_metal_source}:5:3: error: fake metallib mapped failure")
+  message(FATAL_ERROR "fake xcrun metallib mapped failure")
 elseif(FAKE_TOOL_NAME STREQUAL "dxc" AND
        FAKE_TOOL_BEHAVIOR STREQUAL "failure")
   file(WRITE "${fake_output}" "fake partial dxil from failed dxc\n")
@@ -329,6 +352,8 @@ elseif((FAKE_TOOL_BEHAVIOR STREQUAL "no-output" OR
 elseif(NOT FAKE_TOOL_BEHAVIOR STREQUAL "success" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-failure" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-failure" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-diagnostics-failure" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-diagnostics-failure" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-no-output" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-no-output" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "no-output" AND

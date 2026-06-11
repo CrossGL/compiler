@@ -14,6 +14,7 @@
 #include "crossgl/HIR/TypeSemantics.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -3285,6 +3286,250 @@ std::string metalBackendSourceMapJson(
   return out.str();
 }
 
+struct MetalToolParsedDiagnostic {
+  std::filesystem::path path;
+  std::size_t line = 1;
+  std::size_t column = 1;
+  DiagnosticSeverity severity = DiagnosticSeverity::Error;
+  std::string message;
+};
+
+bool isMetalToolSpace(char c) {
+  return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
+std::string_view trimMetalToolText(std::string_view text) {
+  while (!text.empty() && isMetalToolSpace(text.front())) {
+    text.remove_prefix(1);
+  }
+  while (!text.empty() && isMetalToolSpace(text.back())) {
+    text.remove_suffix(1);
+  }
+  return text;
+}
+
+std::optional<std::size_t>
+parseMetalToolPositiveInteger(std::string_view text) {
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  std::size_t value = 0;
+  for (char c : text) {
+    if (c < '0' || c > '9') {
+      return std::nullopt;
+    }
+    const std::size_t digit = static_cast<std::size_t>(c - '0');
+    if (value > (std::numeric_limits<std::size_t>::max() - digit) / 10) {
+      return std::nullopt;
+    }
+    value = value * 10 + digit;
+  }
+  if (value == 0) {
+    return std::nullopt;
+  }
+  return value;
+}
+
+std::optional<DiagnosticSeverity>
+metalToolSeverity(std::string_view text) {
+  const std::string_view trimmed = trimMetalToolText(text);
+  const std::size_t tokenEnd = trimmed.find(' ');
+  const std::string_view token =
+      tokenEnd == std::string_view::npos ? trimmed : trimmed.substr(0, tokenEnd);
+  if (token == "error") {
+    return DiagnosticSeverity::Error;
+  }
+  if (token == "warning") {
+    return DiagnosticSeverity::Warning;
+  }
+  if (token == "note") {
+    return DiagnosticSeverity::Note;
+  }
+  return std::nullopt;
+}
+
+std::optional<MetalToolParsedDiagnostic>
+parseMetalToolDiagnosticLine(std::string_view line) {
+  line = trimMetalToolText(line);
+  constexpr std::array<std::string_view, 3> severityMarkers = {
+      ": error:", ": warning:", ": note:"};
+  for (std::string_view marker : severityMarkers) {
+    const std::size_t markerPosition = line.find(marker);
+    if (markerPosition == std::string_view::npos) {
+      continue;
+    }
+    const std::optional<DiagnosticSeverity> severity =
+        metalToolSeverity(marker.substr(2, marker.size() - 3));
+    if (!severity) {
+      continue;
+    }
+    const std::string_view coordinatePrefix = line.substr(0, markerPosition);
+    const std::size_t columnSeparator = coordinatePrefix.rfind(':');
+    if (columnSeparator == std::string_view::npos || columnSeparator == 0) {
+      continue;
+    }
+    const std::size_t lineSeparator =
+        coordinatePrefix.rfind(':', columnSeparator - 1);
+    if (lineSeparator == std::string_view::npos || lineSeparator == 0) {
+      continue;
+    }
+    const std::optional<std::size_t> parsedLine =
+        parseMetalToolPositiveInteger(
+            coordinatePrefix.substr(lineSeparator + 1,
+                                    columnSeparator - lineSeparator - 1));
+    const std::optional<std::size_t> parsedColumn =
+        parseMetalToolPositiveInteger(
+            coordinatePrefix.substr(columnSeparator + 1));
+    if (!parsedLine || !parsedColumn) {
+      continue;
+    }
+    const std::string_view detail =
+        trimMetalToolText(line.substr(markerPosition + marker.size()));
+    if (detail.empty()) {
+      return std::nullopt;
+    }
+
+    MetalToolParsedDiagnostic diagnostic;
+    diagnostic.path =
+        std::filesystem::path(std::string(coordinatePrefix.substr(0,
+                                                                  lineSeparator)));
+    diagnostic.line = *parsedLine;
+    diagnostic.column = *parsedColumn;
+    diagnostic.severity = *severity;
+    diagnostic.message = std::string(detail);
+    return diagnostic;
+  }
+  return std::nullopt;
+}
+
+std::string metalToolDiagnosticCode(DiagnosticSeverity severity,
+                                    std::string_view toolName) {
+  const std::string tool = toolName == "xcrun metallib" ? "metallib" : "metal";
+  switch (severity) {
+  case DiagnosticSeverity::Error:
+    return "metal." + tool + "-error";
+  case DiagnosticSeverity::Warning:
+    return "metal." + tool + "-warning";
+  case DiagnosticSeverity::Note:
+    return "metal." + tool + "-note";
+  }
+  return "metal." + tool + "-message";
+}
+
+SourceLocation metalToolGeneratedLocation(
+    const std::filesystem::path &packageRelativeSource,
+    const MetalToolParsedDiagnostic &parsed) {
+  SourceLocation location;
+  location.file = packageRelativeSource.generic_string();
+  location.line = parsed.line;
+  location.column = parsed.column;
+  location.endLine = parsed.line;
+  location.endColumn = parsed.column;
+  return location;
+}
+
+const MetalBackendSourceMapRecord *metalSourceMapRecordForBackendLine(
+    const MetalBackendSourceMapCollector &sourceMap, std::size_t line) {
+  for (const MetalBackendSourceMapRecord &record : sourceMap.records) {
+    if (line >= record.backendStartLine && line <= record.backendEndLine) {
+      return &record;
+    }
+  }
+  return nullptr;
+}
+
+bool isMetalStableDiagnosticPath(std::string_view path) {
+  if (path.empty() || path.starts_with("/") || path.starts_with("\\") ||
+      path.find('\\') != std::string_view::npos) {
+    return false;
+  }
+  if (path.size() >= 2 && path[1] == ':' &&
+      ((path[0] >= 'A' && path[0] <= 'Z') ||
+       (path[0] >= 'a' && path[0] <= 'z'))) {
+    return false;
+  }
+  std::size_t segmentBegin = 0;
+  while (segmentBegin <= path.size()) {
+    const std::size_t segmentEnd = path.find('/', segmentBegin);
+    const std::string_view segment =
+        segmentEnd == std::string_view::npos
+            ? path.substr(segmentBegin)
+            : path.substr(segmentBegin, segmentEnd - segmentBegin);
+    if (segment == "..") {
+      return false;
+    }
+    if (segmentEnd == std::string_view::npos) {
+      break;
+    }
+    segmentBegin = segmentEnd + 1;
+  }
+  return true;
+}
+
+Diagnostic metalToolValidationDiagnostic(
+    const MetalToolParsedDiagnostic &parsed,
+    const MetalBackendSourceMapCollector &sourceMap,
+    const std::filesystem::path &packageRelativeSource,
+    std::string_view toolName) {
+  Diagnostic diagnostic;
+  diagnostic.severity = parsed.severity;
+  diagnostic.code = metalToolDiagnosticCode(parsed.severity, toolName);
+  diagnostic.message = std::string(toolName) + " " +
+                       std::string(toString(parsed.severity)) + ": " +
+                       parsed.message + " (" +
+                       packageRelativeSource.generic_string() + ":" +
+                       std::to_string(parsed.line) + ":" +
+                       std::to_string(parsed.column) + ")";
+  diagnostic.location = metalToolGeneratedLocation(packageRelativeSource, parsed);
+  if (const MetalBackendSourceMapRecord *record =
+          metalSourceMapRecordForBackendLine(sourceMap, parsed.line)) {
+    if (isMetalStableDiagnosticPath(record->location.file)) {
+      diagnostic.location = record->location;
+    }
+    if (record->originalLocation &&
+        isMetalStableDiagnosticPath(record->originalLocation->file)) {
+      diagnostic.originalLocation = record->originalLocation;
+    }
+  }
+  diagnostic.target = "metal";
+  diagnostic.missingCapabilities = {"metal.backend.native-metal-package"};
+  return diagnostic;
+}
+
+void appendMetalToolValidationDiagnostics(
+    std::vector<Diagnostic> &diagnostics, std::string_view output,
+    const MetalBackendSourceMapCollector &sourceMap,
+    const std::filesystem::path &packageRelativeSource,
+    std::string_view toolName) {
+  while (!output.empty()) {
+    const std::size_t lineEnd = output.find('\n');
+    const std::string_view line =
+        lineEnd == std::string_view::npos ? output : output.substr(0, lineEnd);
+    if (std::optional<MetalToolParsedDiagnostic> parsed =
+            parseMetalToolDiagnosticLine(line)) {
+      diagnostics.push_back(metalToolValidationDiagnostic(
+          *parsed, sourceMap, packageRelativeSource, toolName));
+    }
+    if (lineEnd == std::string_view::npos) {
+      break;
+    }
+    output.remove_prefix(lineEnd + 1);
+  }
+}
+
+void appendMetalToolValidationDiagnostics(
+    std::vector<Diagnostic> &diagnostics, const ProcessCaptureResult &result,
+    const MetalBackendSourceMapCollector &sourceMap,
+    const std::filesystem::path &packageRelativeSource,
+    std::string_view toolName) {
+  appendMetalToolValidationDiagnostics(diagnostics, result.stderrText,
+                                       sourceMap, packageRelativeSource,
+                                       toolName);
+  appendMetalToolValidationDiagnostics(diagnostics, result.stdoutText,
+                                       sourceMap, packageRelativeSource,
+                                       toolName);
+}
+
 } // namespace
 
 std::string generateMetalSource(const HIRModule &module) {
@@ -4837,7 +5082,8 @@ buildMetalBinary(const HIRModule &module,
                  const std::filesystem::path &packageDir,
                  DiagnosticEngine &diagnostics,
                  const TargetLegalizationResourceBindingFacts *resourceBindings,
-                 OptimizationLevel optimizationLevel) {
+                 OptimizationLevel optimizationLevel,
+                 const SourceRemap *sourceRemap) {
   MetalBuildResult result;
 
   if (!metalNativeBackendSupported(module, diagnostics)) {
@@ -4863,6 +5109,8 @@ buildMetalBinary(const HIRModule &module,
   result.metallibPath = backendDir / (module.name + ".metallib");
   result.compileOptionsPath =
       backendDir / (module.name + ".metal-compile-options.json");
+  const std::filesystem::path packageRelativeSource =
+      result.sourcePath.lexically_relative(packageDir).lexically_normal();
 
   const MetalCompileOptions compileOptions =
       metalCompileOptionsForOptimizationLevel(optimizationLevel);
@@ -4873,6 +5121,10 @@ buildMetalBinary(const HIRModule &module,
   result.optimizationDebugInfo = compileOptions.debugInfo;
   result.optimizationFlags = compileOptions.metalFlags;
 
+  MetalBackendSourceMapCollector sourceMap;
+  sourceMap.sourceRemap = sourceRemap;
+  const std::string sourceText =
+      generateMetalSourceWithSourceMap(module, &sourceMap);
   {
     std::ofstream source(result.sourcePath);
     if (!source) {
@@ -4880,7 +5132,7 @@ buildMetalBinary(const HIRModule &module,
                         "failed to write generated Metal source");
       return result;
     }
-    source << generateMetalSource(module);
+    source << sourceText;
   }
 
   if (!findExecutable("xcrun")) {
@@ -4903,9 +5155,14 @@ buildMetalBinary(const HIRModule &module,
       metalCompileCommand(compileOptions, result.sourcePath, result.airPath);
   result.metalCompilerProvenance = captureToolInvocationProvenance(
       "xcrun metal", metalCommand, result.airPath.string(), {}, "metal");
-  int status = runProcess(metalCommand);
-  completeToolInvocationProvenance(*result.metalCompilerProvenance, status);
-  if (status != 0) {
+  const ProcessCaptureResult metalProcess = runProcessCapture(metalCommand);
+  appendMetalToolValidationDiagnostics(result.validationDiagnostics,
+                                       metalProcess, sourceMap,
+                                       packageRelativeSource, "xcrun metal");
+  completeToolInvocationProvenance(*result.metalCompilerProvenance,
+                                   metalProcess);
+  if (!metalProcess.started || metalProcess.exitCode != 0 ||
+      !metalProcess.error.empty()) {
     diagnostics.error("metal.compile-failed",
                       "Apple metal compiler failed for generated source");
     return result;
@@ -4920,9 +5177,16 @@ buildMetalBinary(const HIRModule &module,
   result.metallibProvenance = captureToolInvocationProvenance(
       "xcrun metallib", metallibCommand, result.metallibPath.string(), {},
       "metallib");
-  status = runProcess(metallibCommand);
-  completeToolInvocationProvenance(*result.metallibProvenance, status);
-  if (status != 0) {
+  const ProcessCaptureResult metallibProcess =
+      runProcessCapture(metallibCommand);
+  appendMetalToolValidationDiagnostics(result.validationDiagnostics,
+                                       metallibProcess, sourceMap,
+                                       packageRelativeSource,
+                                       "xcrun metallib");
+  completeToolInvocationProvenance(*result.metallibProvenance,
+                                   metallibProcess);
+  if (!metallibProcess.started || metallibProcess.exitCode != 0 ||
+      !metallibProcess.error.empty()) {
     diagnostics.error("metal.library-failed",
                       "metallib failed for generated AIR");
     return result;
@@ -4939,20 +5203,22 @@ buildMetalBinary(const HIRModule &module,
 MetalBuildResult buildMetalBinary(const HIRModule &module,
                                   const std::filesystem::path &packageDir,
                                   DiagnosticEngine &diagnostics,
-                                  OptimizationLevel optimizationLevel) {
+                                  OptimizationLevel optimizationLevel,
+                                  const SourceRemap *sourceRemap) {
   const TargetLegalizationResult legalization =
       legalizeTarget(module, TargetKind::Metal);
   return buildMetalBinary(module, packageDir, diagnostics,
-                          &legalization.resourceBindings, optimizationLevel);
+                          &legalization.resourceBindings, optimizationLevel,
+                          sourceRemap);
 }
 
 MetalBuildResult buildMetalBinary(
     const HIRModule &module, const std::filesystem::path &packageDir,
     DiagnosticEngine &diagnostics,
     const TargetLegalizationResourceBindingFacts &resourceBindings,
-    OptimizationLevel optimizationLevel) {
+    OptimizationLevel optimizationLevel, const SourceRemap *sourceRemap) {
   return buildMetalBinary(module, packageDir, diagnostics, &resourceBindings,
-                          optimizationLevel);
+                          optimizationLevel, sourceRemap);
 }
 
 } // namespace crossgl

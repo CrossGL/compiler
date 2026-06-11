@@ -138,6 +138,36 @@ def directx_planned_dxc_tools_match(instance):
     )
 
 
+def is_metal_native_tool_failure(instance):
+    return (
+        instance["target"] == "metal"
+        and instance["binaryKind"] == "metal.metallib"
+        and instance.get("nativeBinaryStatus") is None
+        and instance["validationStatus"] == "failed"
+        and metal_native_tool_failure_tools_match(instance)
+    )
+
+
+def metal_native_tool_failure_tools_match(instance):
+    tools = [
+        tool
+        for tool in instance["toolchainProvenance"]["tools"]
+        if isinstance(tool, dict)
+    ]
+    generators = tools_with_role(instance, "generator")
+    compilers = tools_with_role(instance, "compiler")
+    linkers = tools_with_role(instance, "linker")
+    return (
+        len(tools) == 3
+        and len(generators) == 1
+        and generators[0].get("name") == "CrossGL-Compiler"
+        and len(compilers) == 1
+        and compilers[0].get("name") == "xcrun metal"
+        and len(linkers) == 1
+        and linkers[0].get("name") == "xcrun metallib"
+    )
+
+
 def directx_planned_optimization_evidence_matches(instance):
     evidence = instance.get("optimizationEvidence")
     return (
@@ -272,7 +302,11 @@ def validate_toolchain_roles(errors, instance):
             f"binaryKind {binary_kind!r} requires tool roles {missing_roles!r}"
         )
 
-    if validation_status in {"validated", "failed"} and "validator" not in roles:
+    if (
+        validation_status in {"validated", "failed"}
+        and "validator" not in roles
+        and not is_metal_native_tool_failure(instance)
+    ):
         errors.append(
             "$.toolchainProvenance.tools: "
             f"{validation_status} artifacts require a validator tool role"

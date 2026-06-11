@@ -2155,6 +2155,30 @@ bool directxPlannedDxcToolsMatch(
                      });
 }
 
+bool metalNativeToolFailureToolsMatch(
+    const std::vector<NativeArtifactToolRecord> &tools) {
+  if (tools.size() != 3 || countToolRole(tools, "generator") != 1 ||
+      countToolRole(tools, "compiler") != 1 ||
+      countToolRole(tools, "linker") != 1) {
+    return false;
+  }
+  return std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "generator" &&
+                              tool.name == "CrossGL-Compiler";
+                     }) &&
+         std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "compiler" &&
+                              tool.name == "xcrun metal";
+                     }) &&
+         std::any_of(tools.begin(), tools.end(),
+                     [](const NativeArtifactToolRecord &tool) {
+                       return tool.role == "linker" &&
+                              tool.name == "xcrun metallib";
+                     });
+}
+
 bool directxPlannedOptimizationEvidenceMatches(
     std::string_view descriptorText, std::string_view optimizationLevel) {
   const std::optional<std::string_view> evidence =
@@ -2670,9 +2694,14 @@ bool nativeArtifactDescriptorMatchesContract(
       *health.validationStatus == "failed" && *health.target == "directx" &&
       *health.binaryKind == "directx.dxil" &&
       directxPlannedDxcToolsMatch(tools);
+  const bool metalNativeToolFailure =
+      !health.nativeBinaryStatus && *health.validationStatus == "failed" &&
+      *health.target == "metal" && *health.binaryKind == "metal.metallib" &&
+      metalNativeToolFailureToolsMatch(tools);
   if ((*health.validationStatus == "validated" ||
        *health.validationStatus == "failed") &&
       !directxPlannedCompilerFailure &&
+      !metalNativeToolFailure &&
       !hasToolRole(tools, "validator")) {
     return false;
   }

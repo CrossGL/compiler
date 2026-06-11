@@ -30,6 +30,7 @@ struct MetalBuildResult {
   std::filesystem::path compileOptionsPath;
   std::optional<ToolInvocationProvenance> metalCompilerProvenance;
   std::optional<ToolInvocationProvenance> metallibProvenance;
+  std::vector<Diagnostic> validationDiagnostics;
 };
 
 enum class MetalBuildProfile {
@@ -76,11 +77,13 @@ MetalBuildResult buildMetalBinary(const HIRModule &module,
                                   const std::filesystem::path &packageDir,
                                   DiagnosticEngine &diagnostics,
                                   OptimizationLevel optimizationLevel =
-                                      OptimizationLevel::O1);
+                                      OptimizationLevel::O1,
+                                  const SourceRemap *sourceRemap = nullptr);
 MetalBuildResult buildMetalBinary(
     const HIRModule &module, const std::filesystem::path &packageDir,
     DiagnosticEngine &diagnostics,
     const TargetLegalizationResourceBindingFacts &resourceBindings,
-    OptimizationLevel optimizationLevel = OptimizationLevel::O1);
+    OptimizationLevel optimizationLevel = OptimizationLevel::O1,
+    const SourceRemap *sourceRemap = nullptr);
 
 } // namespace crossgl

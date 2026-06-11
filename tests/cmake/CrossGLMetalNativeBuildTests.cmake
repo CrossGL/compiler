@@ -73,6 +73,9 @@ crossgl_configure_fake_metal_xcrun(CROSSGL_FAKE_XCRUN_O2_SUCCESS_DIR success
                                    o2)
 crossgl_configure_fake_metal_xcrun(CROSSGL_FAKE_XCRUN_METAL_FAILURE_DIR
                                    metal-failure)
+crossgl_configure_fake_metal_xcrun(
+  CROSSGL_FAKE_XCRUN_METAL_DIAGNOSTICS_FAILURE_DIR
+  metal-diagnostics-failure)
 crossgl_configure_fake_metal_xcrun(CROSSGL_FAKE_XCRUN_METALLIB_FAILURE_DIR
                                    metallib-failure)
 crossgl_configure_fake_metal_xcrun(CROSSGL_FAKE_XCRUN_METAL_NO_OUTPUT_DIR
@@ -82,6 +85,8 @@ crossgl_configure_fake_metal_xcrun(CROSSGL_FAKE_XCRUN_METALLIB_NO_OUTPUT_DIR
 set(CROSSGL_FAKE_METAL_UNAVAILABLE_DIR
     "${CMAKE_CURRENT_BINARY_DIR}/fake-toolchain/xcrun-unavailable")
 file(MAKE_DIRECTORY "${CROSSGL_FAKE_METAL_UNAVAILABLE_DIR}")
+set(CROSSGL_METAL_SOURCE_REMAP_FULL_FILE_METADATA
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json")
 
 if(APPLE)
   set(CROSSGL_FAKE_METAL_NATIVE_DESCRIPTOR_TOOL_SOURCE xcrun)
@@ -282,6 +287,38 @@ add_test(NAME cglc_build_metal_native_fake_xcrun_metal_tool_failure
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_METAL_FAILURE_DIR}/xcrun.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=xcrun metal-failure: -sdk macosx metal -O2 -c"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_metal_native_fake_xcrun_metal_diagnostics_tool_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SIMPLE_SHADER}
+    -DLOGICAL_INPUT=generated/from-translator.cgl
+    -DSOURCE_REMAP=${CROSSGL_METAL_SOURCE_REMAP_FULL_FILE_METADATA}
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-metal-fake-xcrun-metal-diagnostics-failure.cglb
+    -DMODE=metal-build-failure
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_XCRUN_METAL_DIAGNOSTICS_FAILURE_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    -DEXPECTED_FAILED_PACKAGE=ON
+    "-DEXPECTED_STDERR_FRAGMENT=metal.compile-failed"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=error|diagnostics.0.code=metal.compile-failed"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=metal|module=SimpleShader|artifacts.backendSource=backend/metal/SimpleShader.metal|artifacts.intermediate=backend/metal/SimpleShader.air|artifacts.nativeBinary=backend/metal/SimpleShader.metallib|artifacts.sourceRemap=ir/source-remap-provenance.json|artifacts.backendSourceMap=backend/metal/SimpleShader.backend-source-map.json|artifacts.nativeArtifactDescriptor=backend/metal/SimpleShader.native-artifact.json"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/SimpleShader.metal|artifactPath=backend/metal/SimpleShader.metallib|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=not-run|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|validationStatus=failed|validationDiagnostics.0.severity=error|validationDiagnostics.0.code=metal.metal-error|validationDiagnostics.0.message=xcrun metal error: fake metal mapped failure (backend/metal/SimpleShader.metal:5:3)|validationDiagnostics.0.location.file=backend/metal/SimpleShader.metal|validationDiagnostics.0.location.line=5|validationDiagnostics.0.location.column=3|validationDiagnostics.0.target=metal|validationDiagnostics.0.missingCapabilities.0=metal.backend.native-metal-package|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=xcrun metal|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.provenanceStatus=failed|toolchainProvenance.tools.2.name=xcrun metallib|toolchainProvenance.tools.2.role=linker"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value|artifactHash.value|toolchainProvenance.tools.1.provenanceDetail"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=3|validationDiagnostics=1|validationDiagnostics.0.missingCapabilities=1"
+    "-DEXPECTED_BACKEND_SOURCE_MAP_JSON_FIELDS=sourceRemap.path=ir/source-remap-provenance.json|sourceRemap.generatedFile=generated/from-translator.cgl|sourceRemap.target=cgl|sourceRemap.mappingGranularity=file|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug|mappings.0.stage=vertex|mappings.0.location.file=generated/from-translator.cgl|mappings.0.originalLocation.file=shaders/original.crossgl"
+    "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=target=metal|generatedFile=generated/from-translator.cgl|sourceRemap.target=cgl|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug"
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+    "-DEXPECTED_HIR_SOURCE_MAP_JSON_FIELDS=hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=target=metal|module=SimpleShader|nativeBinary=backend/metal/SimpleShader.metallib"
+    -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
+    -DBACKEND_SOURCE_MAP_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
+    -DSOURCE_REMAP_PROVENANCE_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-provenance-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DPACKAGE_INTEGRITY_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_package_integrity.py
+    -DPYTHON3_EXECUTABLE=${CROSSGL_PYTHON3}
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_XCRUN_METAL_DIAGNOSTICS_FAILURE_DIR}/xcrun.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=xcrun metal-diagnostics-failure: -sdk macosx metal -O2 -c|backend/metal/SimpleShader.metal|backend/metal/SimpleShader.air"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_metal_native_fake_xcrun_metallib_tool_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -342,6 +379,8 @@ add_test(NAME cglc_build_metal_native_fake_xcrun_unavailable
 
 crossgl_label_optional_native_policy_test(
   cglc_build_metal_native_fake_xcrun_metal_tool_failure metal)
+crossgl_label_optional_native_policy_test(
+  cglc_build_metal_native_fake_xcrun_metal_diagnostics_tool_failure metal)
 crossgl_label_optional_native_policy_test(
   cglc_build_metal_native_fake_xcrun_metallib_tool_failure metal)
 crossgl_label_optional_native_policy_test(

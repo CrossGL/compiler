@@ -1500,10 +1500,12 @@ NativeOptimizationEvidenceSpec metalNativeOptimizationEvidence(
     const TargetNativePackageDescriptorPolicy &policy) {
   NativeOptimizationEvidenceSpec evidence;
   evidence.requestedLevel = metalResult.optimizationRequestedLevel;
-  evidence.effectiveLevel =
-      nativeOptimizationEffectiveLevelFromFlag(metalResult.optimizationLevel);
+  evidence.effectiveLevel = metalResult.success
+                                ? nativeOptimizationEffectiveLevelFromFlag(
+                                      metalResult.optimizationLevel)
+                                : "unknown";
   evidence.policy = metalResult.optimizationPolicy;
-  evidence.status = "applied";
+  evidence.status = metalResult.success ? "applied" : "not-run";
   evidence.tool = policy.optimizationToolName.empty()
                       ? "xcrun metal"
                       : policy.optimizationToolName;
@@ -1970,6 +1972,38 @@ directxNativeDescriptorSpec(const DirectXSourcePackageResult &directxResult,
                               *directxResult.dxcProvenance, packageDir);
   }
   descriptorSpec.validationDiagnostics = directxResult.validationDiagnostics;
+  return descriptorSpec;
+}
+
+NativeArtifactDescriptorSpec
+metalNativeDescriptorSpec(const MetalBuildResult &metalResult,
+                          const TargetNativePackageDescriptorPolicy &policy,
+                          const std::filesystem::path &packageDir) {
+  NativeArtifactDescriptorSpec descriptorSpec;
+  descriptorSpec.binaryKind = policy.binaryKind;
+  descriptorSpec.sourcePath = metalResult.sourcePath;
+  descriptorSpec.artifactPath = metalResult.metallibPath;
+  descriptorSpec.validationStatus =
+      metalResult.validationDiagnostics.empty() ? policy.validationStatus
+                                                : "failed";
+  descriptorSpec.optimizationLevel =
+      metalResult.optimizationRequestedLevel.empty()
+          ? "unknown"
+          : metalResult.optimizationRequestedLevel;
+  descriptorSpec.optimizationEvidenceJson =
+      nativeOptimizationEvidenceJson(metalNativeOptimizationEvidence(
+          metalResult, policy));
+  descriptorSpec.tools = nativeDescriptorTools(policy.requiredTools);
+  if (metalResult.metalCompilerProvenance) {
+    applyInvocationProvenance(descriptorSpec.tools, "xcrun metal", "compiler",
+                              *metalResult.metalCompilerProvenance,
+                              packageDir);
+  }
+  if (metalResult.metallibProvenance) {
+    applyInvocationProvenance(descriptorSpec.tools, "xcrun metallib", "linker",
+                              *metalResult.metallibProvenance, packageDir);
+  }
+  descriptorSpec.validationDiagnostics = metalResult.validationDiagnostics;
   return descriptorSpec;
 }
 
@@ -2583,6 +2617,39 @@ bool finalizePackageBuild(const std::filesystem::path &packageDir,
   }
 
   return !diagnostics.hasErrors();
+}
+
+bool finalizeFailedPackageBuild(const std::filesystem::path &packageDir,
+                                std::string_view manifest,
+                                std::string_view reflection,
+                                const std::filesystem::path &sourcePath,
+                                StagedPackageDirectory &stagedPackage,
+                                DiagnosticEngine &diagnostics) {
+  const bool wroteManifest = writeText(packageDir / "manifest.json", manifest,
+                                       diagnostics, "artifact.write-manifest");
+  const bool wroteReflection =
+      writeText(packageDir / "reflection.json", reflection, diagnostics,
+                "artifact.write-reflection");
+  const bool wroteDiagnostics =
+      writeText(packageDir / "diagnostics.json",
+                diagnosticsToJson(diagnostics.diagnostics()), diagnostics,
+                "artifact.write-diagnostics");
+  if (!wroteManifest || !wroteReflection || !wroteDiagnostics) {
+    return false;
+  }
+
+  PackageIntegrityResult verification = verifyPackage(packageDir, sourcePath);
+  if (!verification.success) {
+    for (Diagnostic diagnostic : verification.diagnostics) {
+      diagnostics.report(std::move(diagnostic));
+    }
+    (void)writeText(packageDir / "diagnostics.json",
+                    diagnosticsToJson(diagnostics.diagnostics()), diagnostics,
+                    "artifact.write-diagnostics");
+    return false;
+  }
+
+  return stagedPackage.promote(diagnostics);
 }
 
 bool finalizeSourcePackageBuild(
@@ -3313,8 +3380,12 @@ CompileResult compile(const CompileRequest &request) {
   if (target == TargetKind::Metal) {
     MetalBuildResult metal = buildMetalBinary(
         backendHIR, packageDir, diagnostics, legalization.resourceBindings,
-        request.optimizationLevel);
-    if (metal.success) {
+        request.optimizationLevel,
+        sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
+                                     : nullptr);
+    const bool metalDiagnosticFailure =
+        !metal.success && !metal.validationDiagnostics.empty();
+    if (metal.success || metalDiagnosticFailure) {
       const TargetLegalizationContractProjection &projection =
           admission->decision.projection;
       const TargetNativePackageDescriptorPolicy nativePackagePolicy =
@@ -3326,30 +3397,12 @@ CompileResult compile(const CompileRequest &request) {
         assignDiagnostics();
         return result;
       }
-      NativeArtifactDescriptorSpec descriptorSpec;
-      descriptorSpec.binaryKind = nativePackagePolicy.binaryKind;
-      descriptorSpec.sourcePath = metal.sourcePath;
-      descriptorSpec.artifactPath = metal.metallibPath;
-      descriptorSpec.validationStatus = nativePackagePolicy.validationStatus;
-      descriptorSpec.optimizationLevel =
-          nativeDescriptorOptimizationLevel(request.optimizationLevel);
-      descriptorSpec.optimizationEvidenceJson = nativeOptimizationEvidenceJson(
-          metalNativeOptimizationEvidence(metal, nativePackagePolicy));
-      descriptorSpec.tools =
-          nativeDescriptorTools(nativePackagePolicy.requiredTools);
-      if (metal.metalCompilerProvenance) {
-        applyInvocationProvenance(descriptorSpec.tools, "xcrun metal",
-                                  "compiler",
-                                  *metal.metalCompilerProvenance, packageDir);
-      }
-      if (metal.metallibProvenance) {
-        applyInvocationProvenance(descriptorSpec.tools, "xcrun metallib",
-                                  "linker", *metal.metallibProvenance,
-                                  packageDir);
-      }
       const std::optional<std::filesystem::path> descriptorPath =
-          writeNativeArtifactDescriptor(backendHIR, target, packageDir,
-                                        descriptorSpec, diagnostics);
+          writeNativeArtifactDescriptor(
+              backendHIR, target, packageDir,
+              metalNativeDescriptorSpec(metal, nativePackagePolicy,
+                                        packageDir),
+              diagnostics);
       if (!descriptorPath) {
         assignDiagnostics();
         return result;
@@ -3404,11 +3457,21 @@ CompileResult compile(const CompileRequest &request) {
           graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,
           &nativePackagePolicy);
       const std::string reflection = reflectionJson(*reflectionDocument);
-      if (finalizePackageBuild(packageDir, manifest, reflection,
-                               request.inputPath, diagnostics) &&
-          stagedPackage.promote(diagnostics)) {
+      const bool finalized =
+          metal.success
+              ? (finalizePackageBuild(packageDir, manifest, reflection,
+                                      request.inputPath, diagnostics) &&
+                 stagedPackage.promote(diagnostics))
+              : finalizeFailedPackageBuild(packageDir, manifest, reflection,
+                                           request.inputPath, stagedPackage,
+                                           diagnostics);
+      if (finalized && metal.success) {
         result.artifactPath = request.outputPath;
         result.success = true;
+      }
+      if (!finalized) {
+        assignDiagnostics();
+        return result;
       }
     }
   }
