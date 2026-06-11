@@ -2249,6 +2249,36 @@ elseif(MODE STREQUAL "source-batch-check-json" OR
                                           "${PACKAGE_INSPECT_JSON_SCHEMA}")
       endif()
     endif()
+    if(DEFINED EXPECTED_PACKAGE_VERIFY_JSON_FIELDS OR
+       DEFINED PACKAGE_VERIFY_JSON_SCHEMA)
+      set(package_verify_command "${CGLC}" package verify
+          "${EXPECTED_SOURCE_BATCH_PACKAGE}" --json)
+      if(DEFINED VERIFY_SOURCE)
+        list(APPEND package_verify_command --source "${VERIFY_SOURCE}")
+      endif()
+      execute_process(
+        COMMAND ${package_verify_command}
+        RESULT_VARIABLE package_verify_result
+        OUTPUT_VARIABLE package_verify_stdout
+        ERROR_VARIABLE package_verify_stderr
+      )
+      if(NOT package_verify_result EQUAL 0)
+        message(FATAL_ERROR "package verify failed: ${package_verify_stderr}${package_verify_stdout}")
+      endif()
+      if(DEFINED EXPECTED_PACKAGE_VERIFY_JSON_FIELDS)
+        string(REPLACE "|" ";" package_verify_expectations
+               "${EXPECTED_PACKAGE_VERIFY_JSON_FIELDS}")
+        foreach(expectation IN LISTS package_verify_expectations)
+          crossgl_split_json_expectation("${expectation}" path expected)
+          crossgl_expect_json_field("${package_verify_stdout}" "${path}"
+                                    "${expected}")
+        endforeach()
+      endif()
+      if(DEFINED PACKAGE_VERIFY_JSON_SCHEMA)
+        crossgl_validate_json_schema_file("${package_verify_stdout}"
+                                          "${PACKAGE_VERIFY_JSON_SCHEMA}")
+      endif()
+    endif()
   endif()
 elseif(MODE STREQUAL "doctor-input")
   if(NOT result EQUAL 0)
