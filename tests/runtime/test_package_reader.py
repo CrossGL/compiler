@@ -1106,6 +1106,53 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 "metal",
                 "directx",
             ),
+            (
+                "nested target invalid",
+                lambda document: document["sourceRemap"].update({"target": "Metal"}),
+                "package.source_remap_provenance.source_remap_target_invalid",
+                "sourceRemap.target",
+                "normalized target name",
+                "Metal",
+            ),
+            (
+                "nested target rejects non-ascii segment",
+                lambda document: document["sourceRemap"].update(
+                    {"target": "metal\u00e9"}
+                ),
+                "package.source_remap_provenance.source_remap_target_invalid",
+                "sourceRemap.target",
+                "normalized target name",
+                "metal\u00e9",
+            ),
+            (
+                "nested mapping granularity invalid",
+                lambda document: document["sourceRemap"].update(
+                    {"mappingGranularity": "source-span"}
+                ),
+                (
+                    "package.source_remap_provenance."
+                    "source_remap_mapping_granularity_invalid"
+                ),
+                "sourceRemap.mappingGranularity",
+                ["file", "line", "statement", "token"],
+                "source-span",
+            ),
+            (
+                "nested source backend invalid",
+                lambda document: document["sourceRemap"].update({"sourceBackend": ""}),
+                ("package.source_remap_provenance.source_remap_source_backend_invalid"),
+                "sourceRemap.sourceBackend",
+                "non-empty string",
+                "",
+            ),
+            (
+                "nested variant invalid",
+                lambda document: document["sourceRemap"].update({"variant": ""}),
+                "package.source_remap_provenance.source_remap_variant_invalid",
+                "sourceRemap.variant",
+                "non-empty string",
+                "",
+            ),
         )
         for (
             name,
@@ -1194,6 +1241,34 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 "mappingCount": 1,
             }
 
+        def mutate_source_remap_metadata(
+            field_name: str,
+            value: object,
+        ) -> object:
+            def mutate(document: dict[str, object]) -> None:
+                mappings = document["mappings"]
+                assert isinstance(mappings, list)
+                mapping = mappings[0]
+                assert isinstance(mapping, dict)
+                mapping["originalLocation"] = {
+                    "file": "source/original.crossgl",
+                    "line": 1,
+                    "column": 1,
+                }
+                document["sourceRemap"] = {
+                    "path": "ir/source-remap.json",
+                    "sha256": {
+                        "algorithm": "sha256",
+                        "value": "0" * 64,
+                    },
+                    "sizeBytes": 0,
+                    "generatedFile": "generated/from-translator.cgl",
+                    "mappingCount": 1,
+                    field_name: value,
+                }
+
+            return mutate
+
         cases = (
             (
                 "target mismatch",
@@ -1242,6 +1317,38 @@ class RuntimePackageReaderTests(unittest.TestCase):
                 "mappings[0].originalLocation",
                 "present when sourceRemap is declared",
                 "missing",
+            ),
+            (
+                "sourceRemap target invalid",
+                mutate_source_remap_metadata("target", "Metal"),
+                "package.backend_source_map.source_remap_target_invalid",
+                "sourceRemap.target",
+                "normalized target name",
+                "Metal",
+            ),
+            (
+                "sourceRemap mapping granularity invalid",
+                mutate_source_remap_metadata("mappingGranularity", "source-span"),
+                ("package.backend_source_map.source_remap_mapping_granularity_invalid"),
+                "sourceRemap.mappingGranularity",
+                ["file", "line", "statement", "token"],
+                "source-span",
+            ),
+            (
+                "sourceRemap source backend invalid",
+                mutate_source_remap_metadata("sourceBackend", ""),
+                "package.backend_source_map.source_remap_source_backend_invalid",
+                "sourceRemap.sourceBackend",
+                "non-empty string",
+                "",
+            ),
+            (
+                "sourceRemap variant invalid",
+                mutate_source_remap_metadata("variant", ""),
+                "package.backend_source_map.source_remap_variant_invalid",
+                "sourceRemap.variant",
+                "non-empty string",
+                "",
             ),
         )
         for (
@@ -1295,6 +1402,203 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     ]
                     self.assertEqual(artifact_record["decision"], "rejected")
                     self.assertIn(expected_code, artifact_diagnostic_codes)
+
+    def test_compatibility_report_rejects_backend_source_map_source_remap_provenance_drift(
+        self,
+    ) -> None:
+        source_hash = {"algorithm": "sha256", "value": "0" * 64}
+        provenance_metadata = {
+            "target": "metal",
+            "mappingGranularity": "statement",
+            "sourceBackend": "crossgl-hir",
+            "variant": "default",
+        }
+
+        def matching_source_remap(source_remap_path: str) -> dict[str, object]:
+            return {
+                "path": source_remap_path,
+                "sha256": dict(source_hash),
+                "sizeBytes": 0,
+                "generatedFile": "generated/from-translator.cgl",
+                "mappingCount": 1,
+                **provenance_metadata,
+            }
+
+        def mutate_backend_source_remap(
+            field_name: str,
+            value: object,
+        ) -> object:
+            def mutate(document: dict[str, object]) -> None:
+                source_remap = document["sourceRemap"]
+                assert isinstance(source_remap, dict)
+                source_remap[field_name] = value
+
+            return mutate
+
+        cases = (
+            (
+                "path drift",
+                mutate_backend_source_remap("path", "ir/other-source-remap.json"),
+                "package.backend_source_map.source_remap_provenance_path_mismatch",
+                "sourceRemap.path",
+                "ir/source-remap-provenance.json",
+                "ir/other-source-remap.json",
+            ),
+            (
+                "generatedFile drift",
+                mutate_backend_source_remap(
+                    "generatedFile",
+                    "generated/other.cgl",
+                ),
+                (
+                    "package.backend_source_map."
+                    "source_remap_provenance_generated_file_mismatch"
+                ),
+                "sourceRemap.generatedFile",
+                "generated/from-translator.cgl",
+                "generated/other.cgl",
+            ),
+            (
+                "mappingCount drift",
+                mutate_backend_source_remap("mappingCount", 2),
+                (
+                    "package.backend_source_map."
+                    "source_remap_provenance_mapping_count_mismatch"
+                ),
+                "sourceRemap.mappingCount",
+                1,
+                2,
+            ),
+            (
+                "sizeBytes drift",
+                mutate_backend_source_remap("sizeBytes", 7),
+                (
+                    "package.backend_source_map."
+                    "source_remap_provenance_size_bytes_mismatch"
+                ),
+                "sourceRemap.sizeBytes",
+                0,
+                7,
+            ),
+            (
+                "hash drift",
+                mutate_backend_source_remap(
+                    "sha256",
+                    {"algorithm": "sha256", "value": "1" * 64},
+                ),
+                "package.backend_source_map.source_remap_provenance_sha256_mismatch",
+                "sourceRemap.sha256",
+                source_hash,
+                {"algorithm": "sha256", "value": "1" * 64},
+            ),
+            (
+                "sourceBackend drift",
+                mutate_backend_source_remap("sourceBackend", "other-source"),
+                (
+                    "package.backend_source_map."
+                    "source_remap_provenance_source_backend_mismatch"
+                ),
+                "sourceRemap.sourceBackend",
+                "crossgl-hir",
+                "other-source",
+            ),
+            (
+                "variant drift",
+                mutate_backend_source_remap("variant", "fast"),
+                "package.backend_source_map.source_remap_provenance_variant_mismatch",
+                "sourceRemap.variant",
+                "default",
+                "fast",
+            ),
+            (
+                "mappingGranularity drift",
+                mutate_backend_source_remap("mappingGranularity", "line"),
+                (
+                    "package.backend_source_map."
+                    "source_remap_provenance_mapping_granularity_mismatch"
+                ),
+                "sourceRemap.mappingGranularity",
+                "statement",
+                "line",
+            ),
+            (
+                "target drift",
+                mutate_backend_source_remap("target", "directx"),
+                "package.backend_source_map.source_remap_provenance_target_mismatch",
+                "sourceRemap.target",
+                "metal",
+                "directx",
+            ),
+        )
+
+        for (
+            name,
+            mutate,
+            expected_code,
+            expected_path,
+            expected_value,
+            actual_value,
+        ) in cases:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+                    package_dir = Path(temp_dir)
+                    self._write_valid_package(package_dir)
+                    source_remap_path = self._write_source_remap_provenance(
+                        package_dir,
+                        mutate=lambda document: document["sourceRemap"].update(
+                            provenance_metadata
+                        ),
+                    )
+
+                    def add_source_remap(document: dict[str, object]) -> None:
+                        mappings = document["mappings"]
+                        assert isinstance(mappings, list)
+                        mapping = mappings[0]
+                        assert isinstance(mapping, dict)
+                        mapping["originalLocation"] = {
+                            "file": "source/original.crossgl",
+                            "line": 1,
+                            "column": 1,
+                        }
+                        document["sourceRemap"] = matching_source_remap(
+                            source_remap_path
+                        )
+                        mutate(document)
+
+                    self._write_backend_source_map(
+                        package_dir,
+                        mutate=add_source_remap,
+                    )
+
+                    with self._guard_crossgl_source_reads():
+                        report = read_compatibility_report(
+                            package_dir,
+                            loader_target="metal",
+                        )
+                    summary = report.to_summary()
+
+                    self.assertFalse(report.compatible)
+                    self.assertEqual(report.status, "incompatible")
+                    self.assertIn(
+                        expected_code,
+                        [diagnostic.code for diagnostic in report.reject_reasons],
+                    )
+                    diagnostic = next(
+                        diagnostic
+                        for diagnostic in summary["rejectReasons"]
+                        if diagnostic["code"] == expected_code
+                    )
+                    self.assertEqual(diagnostic["document"], "backendSourceMap")
+                    self.assertEqual(diagnostic["artifact"], "backendSourceMap")
+                    self.assertEqual(diagnostic["path"], expected_path)
+                    self.assertEqual(diagnostic["expected"], expected_value)
+                    self.assertEqual(diagnostic["actual"], actual_value)
+                    artifact_record = next(
+                        artifact
+                        for artifact in summary["artifactCompatibility"]["artifacts"]
+                        if artifact["name"] == "backendSourceMap"
+                    )
+                    self.assertEqual(artifact_record["decision"], "rejected")
 
     def test_compatibility_report_rejects_missing_source_remap_provenance_file(
         self,
