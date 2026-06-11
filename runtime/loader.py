@@ -1124,6 +1124,22 @@ class RuntimeLoaderPlan:
         return unit
 
     @property
+    def crosstl_runtime_adapter_summary(self) -> dict[str, Any]:
+        load_units = self.crosstl_adapter_load_unit_records()
+        ready_count = sum(
+            1 for unit in load_units if unit.validation.get("loadReady") is True
+        )
+        return {
+            "target": self.loader_target,
+            "runtimeArtifactPath": self.runtime_artifact_path,
+            "loadUnitCount": len(load_units),
+            "readyLoadUnitCount": ready_count,
+            "blockedLoadUnitCount": len(load_units) - ready_count,
+            "targets": sorted({unit.target for unit in load_units}),
+            "loadUnits": [unit.to_summary() for unit in load_units],
+        }
+
+    @property
     def workgroup_sizes(self) -> tuple[dict[str, Any], ...]:
         """Return reflected compute workgroup sizes from package metadata."""
         return self.compatibility_report.workgroup_sizes
@@ -1197,6 +1213,7 @@ class RuntimeLoaderPlan:
             "artifactSelection": self.artifact_selection_summary,
             "runtimeArtifactAdmission": self.runtime_artifact_admission_summary,
             "runtimeArtifactSelection": self.runtime_artifact_selection.to_summary(),
+            "crosstlRuntimeAdapters": self.crosstl_runtime_adapter_summary,
             "targetLegalizationEvidence": (
                 self.compatibility_report.target_legalization_evidence
             ),
