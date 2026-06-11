@@ -20,6 +20,8 @@ namespace {
 
 constexpr std::string_view kNativeBinaryArtifact = "nativeBinary";
 constexpr std::string_view kBackendSourceArtifact = "backendSource";
+constexpr std::string_view kSourceRemapArtifact = "sourceRemap";
+constexpr std::string_view kBackendSourceMapArtifact = "backendSourceMap";
 
 void writeNullableString(std::ostream &out,
                          const std::optional<std::string> &value) {
@@ -917,11 +919,11 @@ void writeHostLoaderLoadStepMetadataSource(std::ostream &out,
 }
 
 const PackageArtifactRecord *
-findExistingSourceRemapArtifact(const PackageMetadata *metadata) {
+findExistingArtifact(const PackageMetadata *metadata, std::string_view name) {
   if (metadata == nullptr) {
     return nullptr;
   }
-  const PackageArtifactRecord *artifact = findArtifact(*metadata, "sourceRemap");
+  const PackageArtifactRecord *artifact = findArtifact(*metadata, name);
   if (artifact == nullptr || !artifact->exists) {
     return nullptr;
   }
@@ -938,6 +940,7 @@ hostLoaderRequiredTools(const PackageMetadata *metadata) {
 
 std::vector<std::string>
 hostLoaderResponsibilities(const PackageArtifactRecord *sourceRemapArtifact,
+                           const PackageArtifactRecord *backendSourceMapArtifact,
                            const std::vector<std::string> &requiredTools,
                            std::size_t workgroupSizeCount) {
   std::vector<std::string> responsibilities = {
@@ -945,8 +948,13 @@ hostLoaderResponsibilities(const PackageArtifactRecord *sourceRemapArtifact,
       "bind-reflected-entry-points",
       "bind-reflected-resources",
   };
+  auto sidecarInsert = responsibilities.begin() + 1;
   if (sourceRemapArtifact != nullptr) {
-    responsibilities.insert(responsibilities.begin() + 1, "load-source-remap");
+    sidecarInsert =
+        responsibilities.insert(sidecarInsert, "load-source-remap") + 1;
+  }
+  if (backendSourceMapArtifact != nullptr) {
+    responsibilities.insert(sidecarInsert, "load-backend-source-map");
   }
   if (workgroupSizeCount > 0) {
     responsibilities.push_back("bind-workgroup-shape");
@@ -957,15 +965,15 @@ hostLoaderResponsibilities(const PackageArtifactRecord *sourceRemapArtifact,
   return responsibilities;
 }
 
-void writeHostLoaderSourceRemap(std::ostream &out,
-                                const PackageArtifactRecord *artifact,
-                                std::string_view indent) {
+void writeHostLoaderManifestArtifactReference(
+    std::ostream &out, const PackageArtifactRecord *artifact,
+    std::string_view manifestSource, std::string_view indent) {
   if (artifact == nullptr) {
     out << "null";
     return;
   }
   out << "{\n"
-      << indent << "  \"source\": \"manifest.artifacts.sourceRemap\",\n"
+      << indent << "  \"source\": \"" << escapeJson(manifestSource) << "\",\n"
       << indent << "  \"packagePath\": \"" << escapeJson(artifact->path)
       << "\",\n"
       << indent << "  \"exists\": true\n"
@@ -994,6 +1002,7 @@ void writeHostLoaderLoadStepHeader(
 void writeHostLoaderLoadSteps(std::ostream &out,
                               const PackageArtifactRecord &artifact,
                               const PackageArtifactRecord *sourceRemapArtifact,
+                              const PackageArtifactRecord *backendSourceMapArtifact,
                               const std::optional<std::string> &mode,
                               const std::optional<std::string> &selectedTarget,
                               bool hostInterfaceReady,
@@ -1037,6 +1046,20 @@ void writeHostLoaderLoadSteps(std::ostream &out,
     writeHostLoaderLoadStepMetadataSource(
         out, "manifest.artifacts.sourceRemap", &sourceRemapArtifact->path,
         std::string(indent) + "      ");
+    out << "\n" << indent << "    }\n" << indent << "  }";
+  }
+
+  if (backendSourceMapArtifact != nullptr) {
+    out << ",\n";
+    writeHostLoaderLoadStepHeader(
+        out, "load-backend-source-map",
+        "Load backend source map metadata for diagnostics.", selectedTarget,
+        backendSourceMapArtifact->path, hostInterfaceReady, indent);
+    out << indent << "    \"metadata\": {\n"
+        << indent << "      \"source\": ";
+    writeHostLoaderLoadStepMetadataSource(
+        out, "manifest.artifacts.backendSourceMap",
+        &backendSourceMapArtifact->path, std::string(indent) + "      ");
     out << "\n" << indent << "    }\n" << indent << "  }";
   }
 
@@ -1088,6 +1111,7 @@ void writeHostLoaderBlockers(std::ostream &out, bool hostInterfaceReady,
 void writeHostLoaderLoadUnit(
     std::ostream &out, const PackageArtifactRecord &artifact,
     const PackageArtifactRecord *sourceRemapArtifact,
+    const PackageArtifactRecord *backendSourceMapArtifact,
     const std::optional<std::string> &mode,
     const std::optional<std::string> &selectedTarget,
     const std::vector<std::string> &requiredTools,
@@ -1122,14 +1146,21 @@ void writeHostLoaderLoadUnit(
       << indent << "  \"status\": \""
       << (hostInterfaceReady ? "ready" : "blocked") << "\",\n"
       << indent << "  \"sourceRemap\": ";
-  writeHostLoaderSourceRemap(out, sourceRemapArtifact,
-                             std::string(indent) + "  ");
+  writeHostLoaderManifestArtifactReference(out, sourceRemapArtifact,
+                                           "manifest.artifacts.sourceRemap",
+                                           std::string(indent) + "  ");
+  out << ",\n"
+      << indent << "  \"backendSourceMap\": ";
+  writeHostLoaderManifestArtifactReference(
+      out, backendSourceMapArtifact, "manifest.artifacts.backendSourceMap",
+      std::string(indent) + "  ");
   out << ",\n"
       << indent << "  \"requiredTools\": ";
   writeStringArray(out, requiredTools);
   out << ",\n"
       << indent << "  \"hostResponsibilities\": ";
   writeStringArray(out, hostLoaderResponsibilities(sourceRemapArtifact,
+                                                   backendSourceMapArtifact,
                                                    requiredTools,
                                                    workgroupSizeCount));
   out << ",\n"
@@ -1157,11 +1188,11 @@ void writeHostLoaderLoadUnit(
       << indent << "    \"deviceExecutionRequired\": false\n"
       << indent << "  },\n"
       << indent << "  \"loadSteps\": ";
-  writeHostLoaderLoadSteps(out, artifact, sourceRemapArtifact, mode,
-                           selectedTarget, hostInterfaceReady,
-                           entryPointCount, resourceBindingCount,
-                           workgroupSizeCount, functionConstantCount,
-                           specializationConstantCount,
+  writeHostLoaderLoadSteps(out, artifact, sourceRemapArtifact,
+                           backendSourceMapArtifact, mode, selectedTarget,
+                           hostInterfaceReady, entryPointCount,
+                           resourceBindingCount, workgroupSizeCount,
+                           functionConstantCount, specializationConstantCount,
                            std::string(indent) + "  ");
   out << ",\n" << indent << "  \"blockers\": ";
   writeHostLoaderBlockers(out, hostInterfaceReady,
@@ -1202,7 +1233,9 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
   const bool hostInterfaceReady =
       success && hasLoadUnit && entryPointCount != 0;
   const PackageArtifactRecord *sourceRemapArtifact =
-      findExistingSourceRemapArtifact(metadata);
+      findExistingArtifact(metadata, kSourceRemapArtifact);
+  const PackageArtifactRecord *backendSourceMapArtifact =
+      findExistingArtifact(metadata, kBackendSourceMapArtifact);
   const std::vector<std::string> requiredTools =
       hostLoaderRequiredTools(metadata);
   const std::size_t readyLoadUnitCount = hostInterfaceReady ? 1 : 0;
@@ -1246,8 +1279,8 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
   } else {
     out << "[\n" << indent << "    ";
     writeHostLoaderLoadUnit(out, *selection.artifact, sourceRemapArtifact,
-                            selection.mode, selectedTarget, requiredTools,
-                            hostInterfaceReady,
+                            backendSourceMapArtifact, selection.mode,
+                            selectedTarget, requiredTools, hostInterfaceReady,
                             entryPointCount, resourceBindingCount,
                             workgroupSizeCount, functionConstantCount,
                             specializationConstantCount,

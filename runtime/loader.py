@@ -1503,9 +1503,11 @@ def _runtime_loader_plan_host_loader_load_unit(
 ) -> dict[str, Any]:
     selected_target = _runtime_loader_plan_target_or_null(plan.selected_target)
     source_remap = _runtime_loader_plan_source_remap(plan)
+    backend_source_map = _runtime_loader_plan_backend_source_map(plan)
     required_tools = _runtime_loader_plan_required_tools(plan)
     host_responsibilities = _runtime_loader_plan_host_responsibilities(
         source_remap=source_remap,
+        backend_source_map=backend_source_map,
         required_tools=required_tools,
         workgroup_size_count=workgroup_size_count,
     )
@@ -1551,6 +1553,24 @@ def _runtime_loader_plan_host_loader_load_unit(
                     "source": {
                         "field": "manifest.artifacts.sourceRemap",
                         "path": source_remap["packagePath"],
+                    }
+                },
+            }
+        )
+    if backend_source_map is not None:
+        load_steps.append(
+            {
+                "kind": "load-backend-source-map",
+                "message": "Load backend source map metadata for diagnostics.",
+                "target": selected_target,
+                "packagePath": backend_source_map["packagePath"],
+                "hostInterfaceStatus": host_interface_status,
+                "command": None,
+                "tools": [],
+                "metadata": {
+                    "source": {
+                        "field": "manifest.artifacts.backendSourceMap",
+                        "path": backend_source_map["packagePath"],
                     }
                 },
             }
@@ -1604,6 +1624,7 @@ def _runtime_loader_plan_host_loader_load_unit(
         ),
         "status": status,
         "sourceRemap": source_remap,
+        "backendSourceMap": backend_source_map,
         "requiredTools": required_tools,
         "hostResponsibilities": host_responsibilities,
         "hostInterface": {
@@ -1654,6 +1675,26 @@ def _runtime_loader_plan_source_remap(
     }
 
 
+def _runtime_loader_plan_backend_source_map(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any] | None:
+    artifact = next(
+        (
+            artifact
+            for artifact in plan.compatibility_report.available_artifacts
+            if artifact.name == "backendSourceMap"
+        ),
+        None,
+    )
+    if artifact is None or not artifact.exists:
+        return None
+    return {
+        "source": "manifest.artifacts.backendSourceMap",
+        "packagePath": artifact.package_path,
+        "exists": artifact.exists,
+    }
+
+
 def _runtime_loader_plan_required_tools(plan: RuntimeLoaderPlan) -> list[str]:
     summary = _runtime_loader_plan_target_legalization_summary(
         plan.compatibility_report
@@ -1664,6 +1705,7 @@ def _runtime_loader_plan_required_tools(plan: RuntimeLoaderPlan) -> list[str]:
 def _runtime_loader_plan_host_responsibilities(
     *,
     source_remap: dict[str, Any] | None,
+    backend_source_map: dict[str, Any] | None,
     required_tools: list[str],
     workgroup_size_count: int,
 ) -> list[str]:
@@ -1674,6 +1716,9 @@ def _runtime_loader_plan_host_responsibilities(
     ]
     if source_remap is not None:
         responsibilities.insert(1, "load-source-remap")
+    if backend_source_map is not None:
+        insert_index = 2 if source_remap is not None else 1
+        responsibilities.insert(insert_index, "load-backend-source-map")
     if workgroup_size_count > 0:
         responsibilities.append("bind-workgroup-shape")
     if required_tools:

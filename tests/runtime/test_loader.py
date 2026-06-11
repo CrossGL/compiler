@@ -249,6 +249,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             self.assertEqual(load_unit["artifactFormat"], "backend-source")
             self.assertEqual(load_unit["adapterKind"], "backend-source-loader")
             self.assertIsNone(load_unit["sourceRemap"])
+            self.assertIsNone(load_unit["backendSourceMap"])
             self.assertEqual(load_unit["requiredTools"], [])
             self.assertEqual(
                 load_unit["hostResponsibilities"],
@@ -489,6 +490,87 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                         "source": {
                             "field": "manifest.artifacts.sourceRemap",
                             "path": source_remap_path,
+                        }
+                    },
+                },
+            )
+
+    def test_backend_source_map_artifact_is_exposed_as_host_loader_load_step(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            backend_source_map_path = (
+                "backend/directx/RuntimeLoaderFixture.backend-source-map.json"
+            )
+            manifest_path = package_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["artifacts"]["backendSourceMap"] = backend_source_map_path
+            self._write_json(manifest_path, manifest)
+            self._write_json(
+                package_dir / backend_source_map_path,
+                {
+                    "schemaVersion": 1,
+                    "kind": "crossgl.backendSourceMap",
+                    "target": "directx",
+                    "module": "RuntimeLoaderFixture",
+                    "mappingGranularity": "statement",
+                    "sourceBackend": "crossgl-hir",
+                    "targetBackend": "hlsl",
+                    "backend": {
+                        "language": "hlsl",
+                        "lineCount": 1,
+                    },
+                    "mappingCount": 0,
+                    "mappings": [],
+                },
+            )
+
+            contract = read_runtime_loader_plan_contract(package_dir, "directx")
+
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            load_unit = contract["hostLoaderIntegration"]["loadUnits"][0]
+            self.assertIsNone(load_unit["sourceRemap"])
+            self.assertEqual(
+                load_unit["backendSourceMap"],
+                {
+                    "source": "manifest.artifacts.backendSourceMap",
+                    "packagePath": backend_source_map_path,
+                    "exists": True,
+                },
+            )
+            self.assertEqual(
+                load_unit["hostResponsibilities"],
+                [
+                    "load-package-artifact",
+                    "load-backend-source-map",
+                    "bind-reflected-entry-points",
+                    "bind-reflected-resources",
+                ],
+            )
+            self.assertEqual(
+                [step["kind"] for step in load_unit["loadSteps"]],
+                [
+                    "load-package-artifact",
+                    "load-backend-source-map",
+                    "bind-host-interface",
+                ],
+            )
+            self.assertEqual(
+                load_unit["loadSteps"][1],
+                {
+                    "kind": "load-backend-source-map",
+                    "message": "Load backend source map metadata for diagnostics.",
+                    "target": "directx",
+                    "packagePath": backend_source_map_path,
+                    "hostInterfaceStatus": "ready",
+                    "command": None,
+                    "tools": [],
+                    "metadata": {
+                        "source": {
+                            "field": "manifest.artifacts.backendSourceMap",
+                            "path": backend_source_map_path,
                         }
                     },
                 },

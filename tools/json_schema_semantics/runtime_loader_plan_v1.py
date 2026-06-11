@@ -655,6 +655,9 @@ def host_loader_responsibilities(load_unit, required_tools):
     ]
     if load_unit["sourceRemap"] is not None:
         responsibilities.insert(1, "load-source-remap")
+    if load_unit["backendSourceMap"] is not None:
+        insert_index = 2 if load_unit["sourceRemap"] is not None else 1
+        responsibilities.insert(insert_index, "load-backend-source-map")
     if load_unit["hostInterface"]["workgroupSizeCount"] > 0:
         responsibilities.append("bind-workgroup-shape")
     if required_tools:
@@ -745,6 +748,27 @@ def validate_host_loader_load_step_metadata(
             source.get("path"),
             expected_path,
             "$.hostLoaderIntegration.loadUnits[0].sourceRemap.packagePath",
+        )
+    elif kind == "load-backend-source-map":
+        add_equal_error(
+            errors,
+            f"{metadata_path}.source.field",
+            source.get("field"),
+            "manifest.artifacts.backendSourceMap",
+            "backend source map artifact reference",
+        )
+        backend_source_map = load_unit["backendSourceMap"]
+        expected_path = (
+            backend_source_map["packagePath"]
+            if backend_source_map is not None
+            else None
+        )
+        add_equal_error(
+            errors,
+            f"{metadata_path}.source.path",
+            source.get("path"),
+            expected_path,
+            "$.hostLoaderIntegration.loadUnits[0].backendSourceMap.packagePath",
         )
     elif kind == "bind-host-interface":
         add_equal_error(
@@ -1027,9 +1051,12 @@ def validate_host_loader_integration(errors, instance):
         "host interface readiness",
     )
     source_remap = load_unit["sourceRemap"]
+    backend_source_map = load_unit["backendSourceMap"]
     expected_step_kinds = ["load-package-artifact"]
     if source_remap is not None:
         expected_step_kinds.append("load-source-remap")
+    if backend_source_map is not None:
+        expected_step_kinds.append("load-backend-source-map")
     if host_interface_ready:
         expected_step_kinds.append("bind-host-interface")
     add_equal_error(
@@ -1042,6 +1069,9 @@ def validate_host_loader_integration(errors, instance):
     expected_messages = {
         "load-package-artifact": "Load the selected runtime package artifact.",
         "load-source-remap": "Load source remap provenance for diagnostics.",
+        "load-backend-source-map": (
+            "Load backend source map metadata for diagnostics."
+        ),
         "bind-host-interface": "Bind reflected host interface metadata.",
     }
     for index, step in enumerate(load_unit["loadSteps"]):
@@ -1070,6 +1100,8 @@ def validate_host_loader_integration(errors, instance):
         expected_package_path = (
             source_remap["packagePath"]
             if kind == "load-source-remap" and source_remap is not None
+            else backend_source_map["packagePath"]
+            if kind == "load-backend-source-map" and backend_source_map is not None
             else selected_artifact["path"]
         )
         add_equal_error(

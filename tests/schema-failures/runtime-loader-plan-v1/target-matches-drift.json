@@ -83,6 +83,7 @@
         "id": "runtime-loader.vulkan.backendSource",
         "adapterKind": "backend-source-loader",
         "sourceRemap": null,
+        "backendSourceMap": null,
         "requiredTools": [],
         "hostResponsibilities": [
           "load-package-artifact",

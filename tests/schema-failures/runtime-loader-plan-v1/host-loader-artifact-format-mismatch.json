@@ -337,6 +337,7 @@
         "adapterKind": "backend-source-loader",
         "status": "ready",
         "sourceRemap": null,
+        "backendSourceMap": null,
         "requiredTools": [
           "directx.toolchain.dxc",
           "directx.validation.dxil-validator"

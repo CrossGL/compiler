@@ -1044,6 +1044,7 @@
         "adapterKind",
         "status",
         "sourceRemap",
+        "backendSourceMap",
         "requiredTools",
         "hostResponsibilities",
         "hostInterface",
@@ -1099,6 +1100,16 @@
             }
           ]
         },
+        "backendSourceMap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/hostLoaderBackendSourceMap"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "requiredTools": {
           "$ref": "#/$defs/stringList"
         },
@@ -1138,6 +1149,28 @@
         "source": {
           "type": "string",
           "const": "manifest.artifacts.sourceRemap"
+        },
+        "packagePath": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "exists": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "hostLoaderBackendSourceMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "packagePath",
+        "exists"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "const": "manifest.artifacts.backendSourceMap"
         },
         "packagePath": {
           "$ref": "#/$defs/artifactPath"
@@ -1240,6 +1273,7 @@
           "enum": [
             "load-package-artifact",
             "load-source-remap",
+            "load-backend-source-map",
             "bind-host-interface"
           ]
         },

@@ -87,6 +87,7 @@
         "id": "runtime-loader.unselected.backendSource",
         "adapterKind": "backend-source-loader",
         "sourceRemap": null,
+        "backendSourceMap": null,
         "requiredTools": [
           "directx.toolchain.dxc",
           "directx.validation.dxil-validator"
