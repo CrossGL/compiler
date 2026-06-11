@@ -136,7 +136,7 @@
               "minLength": 1
             },
             "mappingCount": {
-              "$ref": "#/$defs/nonNegativeInteger"
+              "$ref": "#/$defs/positiveInteger"
             },
             "target": {
               "type": "string",
