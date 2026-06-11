@@ -17,6 +17,39 @@ CROSSTL_RUNTIME_ADAPTER_PLAN_SCOPE = "runtime-adapter-integration-planning"
 CROSSTL_RUNTIME_ADAPTER_PACKAGE_SCOPE = "runtime-adapter-descriptor-package"
 SUPPORTED_COMPILER_TARGETS = frozenset({"directx", "metal", "opengl", "vulkan"})
 LOWERCASE_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+BACKEND_SOURCE_ARTIFACT_FORMATS = frozenset(
+    {
+        "backend-source",
+        "glsl source",
+        "glsl-source",
+        "hlsl source",
+        "hlsl-source",
+        "metal source",
+        "msl source",
+        "msl-source",
+        "spir-v source",
+        "spirv source",
+        "vulkan-targeted shader source",
+        "wgsl source",
+        "wgsl-source",
+    }
+)
+NATIVE_BINARY_ARTIFACT_FORMATS = frozenset(
+    {
+        "dxbc",
+        "dxil",
+        "dxil binary",
+        "metallib",
+        "metallib binary",
+        "native-binary",
+        "spir-v",
+        "spir-v binary",
+        "spir-v module",
+        "spirv",
+        "spirv binary",
+        "spirv module",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -135,6 +168,9 @@ def normalize_crosstl_runtime_adapter_candidates(
 ) -> tuple[CrossTLRuntimeAdapterCandidate, ...]:
     """Return compiler runtime-loader candidates for supported CrossTL adapters."""
 
+    if not report.valid:
+        return ()
+
     candidates = []
     for descriptor in report.descriptors:
         if (
@@ -147,6 +183,8 @@ def normalize_crosstl_runtime_adapter_candidates(
             continue
 
         compiler_artifact_format = _compiler_artifact_format(descriptor.artifact_format)
+        if compiler_artifact_format is None:
+            continue
         candidates.append(
             CrossTLRuntimeAdapterCandidate(
                 id=_runtime_loader_candidate_id(descriptor),
@@ -458,6 +496,22 @@ def _validate_descriptor_document(
                 path=f"{record_path}.descriptor.adapterKind",
             )
         )
+    artifact_format = _optional_str(document.get("artifactFormat"))
+    if (
+        artifact_format is not None
+        and _compiler_artifact_format(artifact_format) is None
+    ):
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="warning",
+                code="crosstl.adapter.unsupported_artifact_format",
+                message=(
+                    f"CrossTL runtime adapter artifact format {artifact_format!r} "
+                    "has no compiler runtime-loader mapping"
+                ),
+                path=f"{record_path}.descriptor.artifactFormat",
+            )
+        )
     host_interface = document.get("hostInterface")
     validation = document.get("validation")
     if isinstance(host_interface, dict) and isinstance(validation, dict):
@@ -738,21 +792,17 @@ def _is_normalized_relative_path(path: str) -> bool:
     return all(part not in ("", ".", "..") for part in path.split("/"))
 
 
-def _compiler_artifact_format(producer_artifact_format: str) -> str:
-    normalized = producer_artifact_format.lower()
-    native_markers = (
-        "binary",
-        "native",
-        "dxil",
-        "metallib",
-        "spir-v",
-        "spirv",
-    )
-    return (
-        "native-binary"
-        if any(marker in normalized for marker in native_markers)
-        else "backend-source"
-    )
+def _compiler_artifact_format(producer_artifact_format: str) -> str | None:
+    normalized = _normalize_artifact_format_alias(producer_artifact_format)
+    if normalized in BACKEND_SOURCE_ARTIFACT_FORMATS:
+        return "backend-source"
+    if normalized in NATIVE_BINARY_ARTIFACT_FORMATS:
+        return "native-binary"
+    return None
+
+
+def _normalize_artifact_format_alias(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip().lower())
 
 
 def _runtime_loader_candidate_id(descriptor: CrossTLAdapterDescriptor) -> str:

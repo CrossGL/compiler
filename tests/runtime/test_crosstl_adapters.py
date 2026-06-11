@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -114,6 +115,59 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             self.assertEqual(candidates[0].adapter_kind, "native-binary-loader")
             self.assertEqual(candidates[0].producer_artifact_format, "DXIL binary")
 
+    def test_normalizes_known_artifact_format_aliases(self) -> None:
+        cases = {
+            "GLSL source": "backend-source",
+            "glsl-source": "backend-source",
+            "HLSL source": "backend-source",
+            "MSL source": "backend-source",
+            "Metal source": "backend-source",
+            "WGSL source": "backend-source",
+            "backend-source": "backend-source",
+            "DXIL": "native-binary",
+            "DXIL binary": "native-binary",
+            "DXBC": "native-binary",
+            "metallib": "native-binary",
+            "SPIR-V": "native-binary",
+            "SPIR-V module": "native-binary",
+            "spirv": "native-binary",
+            "native-binary": "native-binary",
+        }
+        for artifact_format, expected_format in cases.items():
+            with self.subTest(artifact_format=artifact_format):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    root = Path(temp_dir)
+                    manifest = self._write_adapter_bundle(
+                        root,
+                        target="opengl",
+                        artifact_format=artifact_format,
+                    )
+
+                    report = read_crosstl_runtime_adapter_package(manifest)
+                    candidates = normalize_crosstl_runtime_adapter_candidates(report)
+
+                    self.assertTrue(report.valid, report.diagnostics)
+                    self.assertEqual(len(candidates), 1)
+                    self.assertEqual(candidates[0].artifact_format, expected_format)
+
+    def test_unknown_artifact_format_does_not_create_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            manifest = self._write_adapter_bundle(
+                root,
+                target="opengl",
+                artifact_format="mystery intermediate",
+            )
+
+            report = read_crosstl_runtime_adapter_package(manifest)
+
+            self.assertTrue(report.valid, report.diagnostics)
+            self.assertIn(
+                "crosstl.adapter.unsupported_artifact_format",
+                {diagnostic.code for diagnostic in report.diagnostics},
+            )
+            self.assertEqual(normalize_crosstl_runtime_adapter_candidates(report), ())
+
     def test_blocked_host_interface_keeps_candidate_unready(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -136,6 +190,55 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             self.assertEqual(candidates[0].artifact_format, "backend-source")
             self.assertEqual(candidates[0].host_interface_status, "blocked")
             self.assertFalse(candidates[0].load_ready)
+
+    def test_invalid_report_does_not_create_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            manifest = self._write_adapter_bundle(root, target="opengl")
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            payload["descriptors"][0]["descriptorHash"]["value"] = "0" * 64
+            self._write_json(manifest, payload)
+
+            report = read_crosstl_runtime_adapter_package(manifest)
+
+            self.assertFalse(report.valid)
+            self.assertEqual(normalize_crosstl_runtime_adapter_candidates(report), ())
+
+    def test_native_unsupported_target_is_not_normalized(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            manifest = self._write_adapter_bundle(
+                root,
+                target="cuda",
+                adapter_kind="cuda-native-adapter",
+                artifact_format="native-binary",
+                package_path="backend/cuda/main.cubin",
+            )
+
+            report = read_crosstl_runtime_adapter_package(manifest)
+
+            self.assertTrue(report.valid, report.diagnostics)
+            self.assertFalse(report.compiler_supported)
+            self.assertEqual(normalize_crosstl_runtime_adapter_candidates(report), ())
+
+    def test_candidate_id_is_runtime_loader_safe_for_punctuation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            manifest = self._write_adapter_bundle(
+                root,
+                target="metal",
+                adapter_id="123.main/kernel:debug",
+                package_path="backend/metal/main.metal",
+            )
+
+            report = read_crosstl_runtime_adapter_package(manifest)
+            candidates = normalize_crosstl_runtime_adapter_candidates(report)
+
+            self.assertEqual(len(candidates), 1)
+            self.assertRegex(
+                candidates[0].id,
+                re.compile(r"^runtime-loader\.metal\.[A-Za-z][A-Za-z0-9]*$"),
+            )
 
     def test_detects_descriptor_hash_and_size_drift(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -180,6 +283,7 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
         root: Path,
         *,
         target: str,
+        adapter_id: str | None = None,
         adapter_kind: str | None = None,
         artifact_format: str = "GLSL source",
         package_path: str | None = None,
@@ -187,6 +291,7 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
         load_ready: bool = True,
     ) -> Path:
         adapter_kind = adapter_kind or f"{target}-glsl-adapter"
+        adapter_id = adapter_id or f"{target}.main"
         package_path = package_path or f"backend/{target}/main.glsl"
         descriptor_path = f"adapters/{target}/{target}-main.adapter.json"
         descriptor_file = root / descriptor_path
@@ -202,7 +307,7 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                 "success": True,
                 "scope": "runtime-adapter-integration-planning",
             },
-            "id": f"{target}.main",
+            "id": adapter_id,
             "target": target,
             "adapterKind": adapter_kind,
             "artifactFormat": artifact_format,
