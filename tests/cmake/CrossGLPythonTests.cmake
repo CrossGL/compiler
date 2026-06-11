@@ -406,6 +406,10 @@ if(CROSSGL_PYTHON3)
     PROCESSORS "${CROSSGL_INVALID_JSON_SCHEMA_FIXTURE_JOBS}")
 endif()
 crossgl_add_python_script_test(
+  NAME cglc_crosstl_runtime_adapter_schema_semantics
+  SCRIPT
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/python/test_crosstl_runtime_adapter_schema_semantics.py)
+crossgl_add_python_script_test(
   NAME cglc_target_legalization_result_contract
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_target_legalization_result_contract.py
   ARGS

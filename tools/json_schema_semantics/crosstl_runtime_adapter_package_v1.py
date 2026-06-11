@@ -6,6 +6,12 @@ from .common import add_equal_error, add_length_count_error
 
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+BLOCKED_HOST_INTERFACE_STATUSES = (
+    "blocked",
+    "unavailable",
+    "not-inspected",
+    "failed",
+)
 
 
 def is_normalized_relative_path(value):
@@ -16,7 +22,22 @@ def is_normalized_relative_path(value):
 
 
 def descriptor_blocked(status):
-    return status in ("blocked", "unavailable")
+    return status in BLOCKED_HOST_INTERFACE_STATUSES
+
+
+def add_runtime_reference_count_error(errors, path, summary_count, targets):
+    target_counts = [target["runtimeReferenceCount"] for target in targets]
+    target_count_sum = sum(target_counts)
+    if target_count_sum == summary_count:
+        return
+    if target_counts and all(count == summary_count for count in target_counts):
+        return
+    errors.append(
+        f"{path}: expected target runtime reference count sum "
+        f"{target_count_sum!r}, got {summary_count!r}; copied global count "
+        f"is also accepted when every target repeats it "
+        f"(target counts {target_counts!r})"
+    )
 
 
 def validate_descriptor_record(errors, path, descriptor):
@@ -89,9 +110,6 @@ def validate_summary(errors, instance):
     )
 
     target_adapter_count = sum(target["adapterCount"] for target in targets)
-    target_runtime_reference_count = sum(
-        target["runtimeReferenceCount"] for target in targets
-    )
     add_equal_error(
         errors,
         "$.summary.adapterCount",
@@ -99,12 +117,11 @@ def validate_summary(errors, instance):
         target_adapter_count,
         "target adapter count sum",
     )
-    add_equal_error(
+    add_runtime_reference_count_error(
         errors,
         "$.summary.runtimeReferenceCount",
         summary["runtimeReferenceCount"],
-        target_runtime_reference_count,
-        "target runtime reference count sum",
+        targets,
     )
 
 

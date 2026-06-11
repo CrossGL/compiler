@@ -1,5 +1,12 @@
 """Semantic checks for crosstl-runtime-adapter-descriptor-v1.schema.json."""
 
+BLOCKED_HOST_INTERFACE_STATUSES = (
+    "blocked",
+    "unavailable",
+    "not-inspected",
+    "failed",
+)
+
 
 def validate_adapter_plan(errors, adapter_plan):
     if adapter_plan["kind"] != "crosstl-runtime-adapter-plan":
@@ -24,10 +31,9 @@ def validate_host_interface_readiness(errors, instance):
         errors.append(
             "$.hostInterface.status: ready requires validation.loadReady true"
         )
-    if status in ("blocked", "unavailable") and load_ready is not False:
+    if status in BLOCKED_HOST_INTERFACE_STATUSES and load_ready is not False:
         errors.append(
-            "$.hostInterface.status: blocked/unavailable requires "
-            "validation.loadReady false"
+            "$.hostInterface.status: non-ready requires validation.loadReady false"
         )
 
 

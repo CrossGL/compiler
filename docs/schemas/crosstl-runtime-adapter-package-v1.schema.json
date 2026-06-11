@@ -156,6 +156,17 @@
         }
       ]
     },
+    "stringOrObject": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
     "stringArray": {
       "type": "array",
       "uniqueItems": true,
@@ -173,7 +184,9 @@
       "enum": [
         "ready",
         "blocked",
-        "unavailable"
+        "unavailable",
+        "not-inspected",
+        "failed"
       ]
     },
     "summary": {
@@ -300,10 +313,10 @@
           "$ref": "#/$defs/artifactFormat"
         },
         "binding": {
-          "type": "object"
+          "$ref": "#/$defs/stringOrObject"
         },
         "artifact": {
-          "type": "object"
+          "$ref": "#/$defs/stringOrObject"
         },
         "packagePath": {
           "$ref": "#/$defs/normalizedRelativePath"
