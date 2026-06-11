@@ -18,6 +18,7 @@ from validate_json_schema import (
     load_json as load_json_schema,
     validate as validate_json_schema,
 )
+from json_schema_semantics import validate_semantics as validate_json_semantics
 
 
 SKIPPED_AST_ATTRIBUTES = {"annotations", "parent", "source_location"}
@@ -86,6 +87,45 @@ FEATURE_SPEC_SELF_TEST_FILES = (
     LANGUAGE_SPEC_JSON_SCHEMA_PATH.as_posix(),
     FEATURE_SPEC_JSON_SCHEMA_PATH.as_posix(),
 )
+PROJECT_PORTING_CONTRACT_SEALS = (
+    {
+        "path": "docs/schemas/crosstl-project-portability-report-v1.schema.json",
+        "sha256": "11e60a7c0138d0bbb8becfe454c73865bac47e4ac7327c92fec1a3550b7cb28c",
+    },
+    {
+        "path": "docs/schemas/source-remap-v1.schema.json",
+        "sha256": "b17bf00d269f610906c186abd5b99986ecb441b5ecc89573bfcca1771bfae114",
+    },
+    {
+        "path": "tests/fixtures/crosstl-project-portability-report-v1-pr747-demo.json",
+        "sha256": "347c46a31b22ce5028a7bda595ef453a4cb22fdb6ba2cb90110b90aff4e0ef06",
+    },
+    {
+        "path": (
+            "tests/fixtures/"
+            "crosstl-project-portability-report-v1-source-remap-metadata.json"
+        ),
+        "sha256": "4b9d3f90360d024b44468242081c48d4832aaa9b59a0bc86080117317fcde6b8",
+    },
+    {
+        "path": "tests/fixtures/source-remap-v1-crosstl-project-line.json",
+        "sha256": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92",
+    },
+    {
+        "path": "tests/fixtures/source-remap-v1-crosstl-project-file.json",
+        "sha256": "4407a5c48b300fddf048c5b20c1a3527518da4ffdc7caa9eea0457e6ef1036b9",
+    },
+    {
+        "path": "tests/fixtures/source-remap-v1-crosstl-pr747-demo.json",
+        "sha256": "757503b78f7d946c9c46c93046a2e7e6f58b4ae955c6ebc5bce80e256be6c233",
+    },
+)
+PROJECT_PORTING_CONTRACT_FILES = tuple(
+    seal["path"] for seal in PROJECT_PORTING_CONTRACT_SEALS
+)
+FEATURE_SPEC_SELF_TEST_FILES = (
+    FEATURE_SPEC_SELF_TEST_FILES + PROJECT_PORTING_CONTRACT_FILES
+)
 NATIVE_V0_OWNER_BUCKETS = (
     "compat.language-unsupported-native-v0",
     "compat.frontend-unsupported-native-v0",
@@ -149,6 +189,102 @@ def validate_json_document_schema(document, schema_path, root, document_path):
             )
         ]
     return []
+
+
+def validate_json_document_contract(document, schema_path, root, document_path):
+    errors = validate_json_document_schema(document, schema_path, root, document_path)
+    if errors:
+        return errors
+
+    schema = load_json_schema(schema_path)
+    semantic_errors = validate_json_semantics(document, schema)
+    return [
+        "{} failed semantic validation against {}: {}".format(
+            relative_message_path(root, document_path),
+            relative_message_path(root, schema_path),
+            error,
+        )
+        for error in semantic_errors
+    ]
+
+
+def validate_project_porting_contract_files(compiler_root):
+    errors = []
+    seen_paths = set()
+    for seal in PROJECT_PORTING_CONTRACT_SEALS:
+        relative = seal["path"]
+        if relative in seen_paths:
+            errors.append(
+                "project-porting source-remap contract lists {} more than once".format(
+                    relative
+                )
+            )
+            continue
+        seen_paths.add(relative)
+
+        path = compiler_root / relative
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(
+                "project-porting source-remap contract file {} is unavailable: {}".format(
+                    relative, exc
+                )
+            )
+            continue
+        actual_sha256 = sha256_text(text)
+        if actual_sha256 != seal["sha256"]:
+            errors.append(
+                "project-porting source-remap contract file {} sha256 changed\n"
+                "  expected: {}\n"
+                "  actual:   {}".format(relative, seal["sha256"], actual_sha256)
+            )
+
+    project_report_schema = (
+        compiler_root / "docs/schemas/crosstl-project-portability-report-v1.schema.json"
+    )
+    source_remap_schema = compiler_root / "docs/schemas/source-remap-v1.schema.json"
+    fixture_schemas = (
+        (
+            "tests/fixtures/crosstl-project-portability-report-v1-pr747-demo.json",
+            project_report_schema,
+        ),
+        (
+            "tests/fixtures/"
+            "crosstl-project-portability-report-v1-source-remap-metadata.json",
+            project_report_schema,
+        ),
+        (
+            "tests/fixtures/source-remap-v1-crosstl-project-line.json",
+            source_remap_schema,
+        ),
+        (
+            "tests/fixtures/source-remap-v1-crosstl-project-file.json",
+            source_remap_schema,
+        ),
+        (
+            "tests/fixtures/source-remap-v1-crosstl-pr747-demo.json",
+            source_remap_schema,
+        ),
+    )
+    for relative, schema_path in fixture_schemas:
+        document_path = compiler_root / relative
+        try:
+            document = json.loads(document_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(
+                "could not load project-porting contract fixture {}: {}".format(
+                    relative, exc
+                )
+            )
+            continue
+        errors.extend(
+            validate_json_document_contract(
+                document, schema_path, compiler_root, document_path
+            )
+        )
+
+    return errors
 
 
 def contract_id(prefix, root, path):
@@ -1671,6 +1807,8 @@ def validate_manifest_metadata(manifest, compiler_root, require_feature_spec=Fal
             require_feature_spec=require_feature_spec,
         )
     )
+    if require_feature_spec:
+        errors.extend(validate_project_porting_contract_files(compiler_root))
     try:
         list(iter_negative_contracts(manifest))
     except ValueError as exc:
@@ -1764,6 +1902,13 @@ def mutate_self_test_feature_spec_snapshot(fixture_root):
     write_json_file(path, document)
 
 
+def mutate_self_test_project_porting_fixture(fixture_root):
+    path = fixture_root / "tests/fixtures/source-remap-v1-crosstl-project-line.json"
+    document = json.loads(path.read_text(encoding="utf-8"))
+    document["mappings"][0]["generated"]["length"] += 1
+    write_json_file(path, document)
+
+
 def mutate_self_test_imported_spec_future_fields(fixture_root):
     path = fixture_root / "tools" / "cross_repo_language_spec.json"
     document = json.loads(path.read_text(encoding="utf-8"))
@@ -1843,6 +1988,11 @@ def run_feature_spec_self_test(compiler_root):
             "stale generated feature spec source snapshot",
             mutate_self_test_feature_spec_snapshot,
             "source_language_snapshot changed",
+        ),
+        (
+            "stale project-porting source-remap fixture",
+            mutate_self_test_project_porting_fixture,
+            "source-remap-v1-crosstl-project-line.json sha256 changed",
         ),
     )
 

@@ -1,0 +1,1 @@
+$.artifacts[0].sourceRemap.mappingCount: expected value >= 1, got 0

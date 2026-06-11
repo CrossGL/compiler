@@ -70,6 +70,75 @@ def _expected_intermediate(source_backend, target):
     return None
 
 
+def _source_remap_hash_metadata(source_remap):
+    if not isinstance(source_remap, dict):
+        return (None, None)
+    if isinstance(source_remap.get("hash"), dict):
+        return ("hash", source_remap["hash"])
+    if isinstance(source_remap.get("sha256"), dict):
+        return ("sha256", source_remap["sha256"])
+    return (None, None)
+
+
+def _validate_backend_source_remap_metadata(
+    errors, path, source_remap, source_remap_metadata_by_path
+):
+    if source_remap is None:
+        return
+    if not isinstance(source_remap, dict):
+        errors.append(f"{path}: expected object metadata")
+        return
+
+    source_remap_path = source_remap.get("path")
+    if not isinstance(source_remap_path, str):
+        errors.append(f"{path}.path: expected sourceRemap sidecar path")
+        return
+
+    referenced = source_remap_metadata_by_path.get(source_remap_path)
+    if referenced is None:
+        errors.append(f"{path}.path: expected to match an artifact sourceRemap path")
+        return
+
+    for field_name in (
+        "target",
+        "generatedFile",
+        "mappingGranularity",
+        "mappingCount",
+        "sizeBytes",
+        "sourceBackend",
+        "variant",
+    ):
+        if field_name not in source_remap:
+            continue
+        if source_remap[field_name] != referenced.get(field_name):
+            errors.append(
+                f"{path}.{field_name}: expected to match sourceRemap metadata "
+                f"for {source_remap_path!r}"
+            )
+
+    hash_field, hash_metadata = _source_remap_hash_metadata(source_remap)
+    _, referenced_hash_metadata = _source_remap_hash_metadata(referenced)
+    if hash_metadata is None:
+        return
+    if referenced_hash_metadata is None:
+        errors.append(
+            f"{path}.{hash_field}: expected artifact sourceRemap hash metadata "
+            f"for {source_remap_path!r}"
+        )
+        return
+
+    if hash_metadata.get("algorithm") != referenced_hash_metadata.get("algorithm"):
+        errors.append(
+            f"{path}.{hash_field}.algorithm: expected to match sourceRemap "
+            f"metadata hash for {source_remap_path!r}"
+        )
+    if hash_metadata.get("value") != referenced_hash_metadata.get("value"):
+        errors.append(
+            f"{path}.{hash_field}.value: expected to match sourceRemap "
+            f"metadata hash for {source_remap_path!r}"
+        )
+
+
 def _diagnostic_counts(diagnostics):
     counts = {"note": 0, "warning": 0, "error": 0}
     for diagnostic in diagnostics:
@@ -266,6 +335,12 @@ def validate_semantics(instance):
         artifact.get("path")
         for artifact in artifacts
         if artifact.get("path") is not None
+    }
+    source_remap_metadata_by_path = {
+        artifact["sourceRemap"]["path"]: artifact["sourceRemap"]
+        for artifact in artifacts
+        if isinstance(artifact.get("sourceRemap"), dict)
+        and isinstance(artifact["sourceRemap"].get("path"), str)
     }
     project = instance.get("project")
     declared_targets = None
@@ -545,6 +620,12 @@ def validate_semantics(instance):
                         f"{artifact_path}.backendSourceMap.variant: expected to "
                         f"match artifact variant {variant!r}"
                     )
+            _validate_backend_source_remap_metadata(
+                errors,
+                f"{artifact_path}.backendSourceMap.sourceRemap",
+                backend_source_map.get("sourceRemap"),
+                source_remap_metadata_by_path,
+            )
 
         if (
             target in CROSSGL_TARGETS

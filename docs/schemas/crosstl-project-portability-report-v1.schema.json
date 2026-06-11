@@ -724,7 +724,7 @@
           "$ref": "#/$defs/mappingGranularity"
         },
         "mappingCount": {
-          "$ref": "#/$defs/nonNegativeInteger"
+          "$ref": "#/$defs/positiveInteger"
         },
         "sizeBytes": {
           "$ref": "#/$defs/nonNegativeInteger"

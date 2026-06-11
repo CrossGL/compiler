@@ -1,0 +1,1 @@
+$.artifacts[1].backendSourceMap.sourceRemap.mappingCount: expected to match sourceRemap metadata for 'ir/source-remap.json'
