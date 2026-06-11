@@ -1,0 +1,1 @@
+$.mappings[0].originalLocation: required when $.sourceRemap is non-null

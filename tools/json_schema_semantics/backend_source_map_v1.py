@@ -126,6 +126,7 @@ def validate_semantics(instance):
         )
     if "sourceRemap" in instance:
         validate_source_remap(errors, instance["sourceRemap"])
+    has_source_remap = instance.get("sourceRemap") is not None
 
     line_count = backend["lineCount"]
     backend_spans = []
@@ -149,6 +150,10 @@ def validate_semantics(instance):
                 errors,
                 f"{mapping_path}.originalLocation",
                 mapping["originalLocation"],
+            )
+        elif has_source_remap:
+            errors.append(
+                f"{mapping_path}.originalLocation: required when $.sourceRemap is non-null"
             )
 
         if backend_spans:

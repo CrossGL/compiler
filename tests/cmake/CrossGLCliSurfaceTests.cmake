@@ -323,6 +323,8 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_STAGE_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-stage-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_OVERLAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-overlap.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-missing-original-location.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-non-cgl-source-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DUPLICATE_SOURCE_REMAP_PATH
@@ -453,6 +455,8 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_STAGE_MISMATCH_SIDECAR
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx/simple-stage-mismatch.backend-source-map.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_OVERLAP_SIDECAR
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx/simple-overlap.backend-source-map.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SIDECAR
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx/simple-missing-original-location.backend-source-map.json")
 file(MAKE_DIRECTORY
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/cgl"
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx")
@@ -608,6 +612,29 @@ file(SIZE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_OVERLAP_SIDEC
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_OVERLAP_SIZE_BYTES)
 file(SHA256 "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_OVERLAP_SIDECAR}"
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_OVERLAP_SHA256)
+
+string(REPLACE [=[  "sourceRemap": null,]=] [=[  "sourceRemap": {
+    "path": "out/cgl/simple.source-remap.json",
+    "sha256": {
+      "algorithm": "sha256",
+      "value": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92"
+    },
+    "sizeBytes": 982,
+    "generatedFile": "out/cgl/simple.cgl",
+    "mappingCount": 2,
+    "target": "cgl",
+    "mappingGranularity": "line",
+    "sourceBackend": "cgl",
+    "variant": "debug"
+  },]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SIDECAR_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SIDECAR}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SIDECAR_JSON}")
+file(SIZE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SIDECAR}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SIZE_BYTES)
+file(SHA256 "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SIDECAR}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SHA256)
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CGL_LINE_SOURCE_MAP [=[
 {
         "schemaVersion": 1,
@@ -1639,6 +1666,12 @@ crossgl_write_crosstl_backend_source_map_report_variant(
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_OVERLAP_SIZE_BYTES}"
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_OVERLAP_SHA256}"
   "3" "2")
+crossgl_write_crosstl_backend_source_map_report_variant(
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION}"
+  "out/directx/simple-missing-original-location.backend-source-map.json"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SIZE_BYTES}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION_SHA256}"
+  "1" "1")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON}")
 string(REPLACE [=["runtimeReferenceCount": 1]=]
@@ -5403,6 +5436,14 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_sourc
     "\"code\": \"project.source-batch.invalid-manifest\""
     "sidecar.mappings[1].backend.startLine must be after")
 
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_source_map_source_remap_requires_original_location_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCATION}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "sidecar.mappings[0].originalLocation is required when sidecar.sourceRemap is non-null")
+
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_non_cgl_source_remap_fails
   EXPECTED_RESULT 1
   ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP}
@@ -6298,6 +6339,24 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadat
   STDERR_CONTAINS
     "error io.invalid-source-remap"
     "source remap mappings[1].generated.offset must be >= mappings[0].generated.endOffset")
+
+crossgl_add_cli_surface_test(cglc_cli_dump_backend_source_map_directx_source_remap_original_location
+  EXPECTED_RESULT 0
+  ARGS dump-ir ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    --stage backend-source-map
+    --target directx
+    --logical-input generated/from-translator.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json
+  STDOUT_CONTAINS
+    "\"kind\": \"crossgl.backendSourceMap\""
+    "\"mappingGranularity\": \"statement\""
+    "\"sourceBackend\": \"crossgl-hir\""
+    "\"targetBackend\": \"hlsl\""
+    "\"sourceRemap\""
+    "\"generatedFile\": \"generated/from-translator.cgl\""
+    "\"sourceBackend\": \"cgl\""
+    "\"originalLocation\""
+    "\"file\": \"shaders/original.crossgl\"")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_missing_sidecar_fails
   EXPECTED_RESULT 1

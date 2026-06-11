@@ -1598,12 +1598,14 @@
     {
       "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
       "verifierInputCoverage": {
-        "status": "blocked",
-        "blocker": {
-          "id": "mlir-verifier-specialization-constants-deferred",
-          "reason": "Specialization-constant verifier marker coverage is deferred outside this bounded storage-image, descriptor-array, and graphics-provenance metadata-only verifier tranche.",
-          "nextStep": "Add a dedicated specialization-constant builtin MLIR verifier input when that tranche is admitted."
-        },
+        "status": "covered",
+        "key": "specialization_constants_compute",
+        "input": "tests/fixtures/mlir/specialization_constants_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+        "ctest": "cglc_mlir_experiment_specialization_constants_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
         "productionLinked": false
       },
       "productionFacing": false,

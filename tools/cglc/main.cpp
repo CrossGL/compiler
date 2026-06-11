@@ -2997,6 +2997,7 @@ bool parseCrossTLBackendSourceMapBackendSpan(
 bool validateCrossTLBackendSourceMapSidecarMappings(
     std::string_view mappingsText, std::string_view metadataContext,
     std::uintmax_t mappingCount, std::uintmax_t backendLineCount,
+    bool hasSourceRemap,
     const std::filesystem::path &manifestPath,
     crossgl::DiagnosticEngine &diagnostics,
     std::size_t &sidecarMappingsLength) {
@@ -3126,6 +3127,14 @@ bool validateCrossTLBackendSourceMapSidecarMappings(
             return false;
           }
           originalLocation = std::move(parsedOriginalLocation);
+        } else if (hasSourceRemap) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              mappingContext +
+                  ".originalLocation is required when sidecar.sourceRemap is "
+                  "non-null");
+          valid = false;
+          return false;
         }
 
         if (!backendSpans.empty()) {
@@ -3479,6 +3488,10 @@ bool parseCrossTLProjectReportBackendSourceMap(
         metadataContext + " backend metadata must match referenced sidecar");
     return false;
   }
+  const std::optional<std::string_view> sourceRemapText =
+      crossgl::findObjectMemberValue(*sidecarText, "sourceRemap");
+  const bool hasSourceRemap =
+      sourceRemapText && !isSourceBatchJsonNullValue(*sourceRemapText);
   const std::optional<std::string_view> mappingsText =
       crossgl::findObjectMemberValue(*sidecarText, "mappings");
   std::size_t sidecarMappingsLength = 0;
@@ -3490,7 +3503,7 @@ bool parseCrossTLProjectReportBackendSourceMap(
   }
   if (!validateCrossTLBackendSourceMapSidecarMappings(
           *mappingsText, metadataContext, mappingCount, backendLineCount,
-          manifestPath, diagnostics, sidecarMappingsLength)) {
+          hasSourceRemap, manifestPath, diagnostics, sidecarMappingsLength)) {
     return false;
   }
 

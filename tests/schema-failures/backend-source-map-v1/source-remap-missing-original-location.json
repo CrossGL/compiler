@@ -46,16 +46,6 @@
         "endLine": 7,
         "endColumn": 8,
         "endOffset": 125
-      },
-      "originalLocation": {
-        "file": "shaders/original.crossgl",
-        "line": 42,
-        "column": 9,
-        "offset": 2048,
-        "length": 5,
-        "endLine": 42,
-        "endColumn": 14,
-        "endOffset": 2053
       }
     }
   ]

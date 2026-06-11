@@ -46,6 +46,7 @@ set(CROSSGL_MLIR_EXPERIMENT_SOURCES
 set(CROSSGL_MLIR_EXPERIMENT_FIXTURES
   tests/fixtures/MinimalComputeShader.cgl
   tests/fixtures/ScalarExpressionComputeShader.cgl
+  tests/fixtures/SpecializationConstantsComputeShader.cgl
   tests/fixtures/StorageBufferComputeShader.cgl
   tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl
   tests/fixtures/IfComputeShader.cgl
@@ -62,6 +63,7 @@ set(CROSSGL_MLIR_EXPERIMENT_FIXTURES
 set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS
   tests/fixtures/mlir/minimal_compute_builtin_module.mlir
   tests/fixtures/mlir/scalar_expression_compute_builtin_module.mlir
+  tests/fixtures/mlir/specialization_constants_compute_builtin_module.mlir
   tests/fixtures/mlir/storage_buffer_compute_builtin_module.mlir
   tests/fixtures/mlir/if_compute_builtin_module.mlir
   tests/fixtures/mlir/texture_sampler_compute_builtin_module.mlir

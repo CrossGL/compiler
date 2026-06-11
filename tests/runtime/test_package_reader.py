@@ -1019,9 +1019,9 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     "module": "RuntimeReaderFixture",
                     "mappingGranularity": "statement",
                     "sourceBackend": "crossgl-hir",
-                    "targetBackend": "metal",
+                    "targetBackend": "msl",
                     "backend": {
-                        "language": "metal",
+                        "language": "msl",
                         "lineCount": 1,
                     },
                     "mappingCount": 0,
@@ -1154,6 +1154,147 @@ class RuntimePackageReaderTests(unittest.TestCase):
                     )
                     self.assertEqual(artifact_record["decision"], "rejected")
                     self.assertEqual(artifact_record["reason"], expected_code)
+
+    def test_compatibility_report_rejects_backend_source_map_health_drift(
+        self,
+    ) -> None:
+        def mutate_mapping_count(document: dict[str, object]) -> None:
+            document["mappingCount"] = 2
+
+        def mutate_backend_span(document: dict[str, object]) -> None:
+            mappings = document["mappings"]
+            assert isinstance(mappings, list)
+            mapping = mappings[0]
+            assert isinstance(mapping, dict)
+            mapping["backend"] = {"startLine": 1, "endLine": 2}
+
+        def mutate_backend_span_source_bound(document: dict[str, object]) -> None:
+            backend = document["backend"]
+            assert isinstance(backend, dict)
+            backend["lineCount"] = 2
+            mutate_backend_span(document)
+
+        def mutate_backend_language(document: dict[str, object]) -> None:
+            document["targetBackend"] = "metal"
+            backend = document["backend"]
+            assert isinstance(backend, dict)
+            backend["language"] = "metal"
+
+        def mutate_source_remap_without_original_location(
+            document: dict[str, object],
+        ) -> None:
+            document["sourceRemap"] = {
+                "path": "ir/source-remap.json",
+                "sha256": {
+                    "algorithm": "sha256",
+                    "value": "0" * 64,
+                },
+                "sizeBytes": 0,
+                "generatedFile": "generated/from-translator.cgl",
+                "mappingCount": 1,
+            }
+
+        cases = (
+            (
+                "target mismatch",
+                lambda document: document.update({"target": "directx"}),
+                "package.backend_source_map.target_mismatch",
+                "target",
+                "metal",
+                "directx",
+            ),
+            (
+                "mapping count mismatch",
+                mutate_mapping_count,
+                "package.backend_source_map.mapping_count_mismatch",
+                "mappingCount",
+                1,
+                2,
+            ),
+            (
+                "backend language mismatch",
+                mutate_backend_language,
+                "package.backend_source_map.backend_language_mismatch",
+                "backend.language",
+                "msl",
+                "metal",
+            ),
+            (
+                "backend span outside backend line count",
+                mutate_backend_span,
+                "package.backend_source_map.backend_span_out_of_bounds",
+                "mappings[0].backend.endLine",
+                "<= 1",
+                2,
+            ),
+            (
+                "backend span outside backendSource line count",
+                mutate_backend_span_source_bound,
+                "package.backend_source_map.backend_span_source_out_of_bounds",
+                "mappings[0].backend.endLine",
+                "<= 1",
+                2,
+            ),
+            (
+                "sourceRemap requires originalLocation",
+                mutate_source_remap_without_original_location,
+                "package.backend_source_map.original_location_missing",
+                "mappings[0].originalLocation",
+                "present when sourceRemap is declared",
+                "missing",
+            ),
+        )
+        for (
+            name,
+            mutate,
+            expected_code,
+            expected_path,
+            expected_value,
+            actual_value,
+        ) in cases:
+            with self.subTest(name=name):
+                with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+                    package_dir = Path(temp_dir)
+                    self._write_valid_package(package_dir)
+                    self._write_backend_source_map(
+                        package_dir,
+                        mutate=mutate,
+                    )
+
+                    with self._guard_crossgl_source_reads():
+                        report = read_compatibility_report(
+                            package_dir,
+                            loader_target="metal",
+                        )
+                    summary = report.to_summary()
+
+                    self.assertFalse(report.compatible)
+                    self.assertEqual(report.status, "incompatible")
+                    self.assertIn(
+                        expected_code,
+                        [diagnostic.code for diagnostic in report.reject_reasons],
+                    )
+                    diagnostic = next(
+                        diagnostic
+                        for diagnostic in summary["rejectReasons"]
+                        if diagnostic["code"] == expected_code
+                    )
+                    self.assertEqual(diagnostic["document"], "backendSourceMap")
+                    self.assertEqual(diagnostic["artifact"], "backendSourceMap")
+                    self.assertEqual(diagnostic["path"], expected_path)
+                    self.assertEqual(diagnostic["expected"], expected_value)
+                    self.assertEqual(diagnostic["actual"], actual_value)
+                    artifact_record = next(
+                        artifact
+                        for artifact in summary["artifactCompatibility"]["artifacts"]
+                        if artifact["name"] == "backendSourceMap"
+                    )
+                    artifact_diagnostic_codes = [
+                        diagnostic["code"]
+                        for diagnostic in artifact_record["diagnostics"]
+                    ]
+                    self.assertEqual(artifact_record["decision"], "rejected")
+                    self.assertIn(expected_code, artifact_diagnostic_codes)
 
     def test_compatibility_report_rejects_missing_source_remap_provenance_file(
         self,
@@ -9769,6 +9910,75 @@ class RuntimePackageReaderTests(unittest.TestCase):
         self._write_json(source_remap_file, provenance)
         self._write_json(manifest_path, manifest)
         return source_remap_path
+
+    def _write_backend_source_map(
+        self,
+        package_dir: Path,
+        *,
+        mutate: object | None = None,
+    ) -> str:
+        manifest_path = package_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        target = manifest["target"]
+        backend_language = self._backend_source_map_language_for_target(target)
+        backend_source_map_path = (
+            f"backend/{target}/RuntimeReaderFixture.backend-source-map.json"
+        )
+        source_map: dict[str, object] = {
+            "schemaVersion": 1,
+            "kind": "crossgl.backendSourceMap",
+            "target": target,
+            "module": "RuntimeReaderFixture",
+            "mappingGranularity": "statement",
+            "sourceBackend": "crossgl-hir",
+            "targetBackend": backend_language,
+            "backend": {
+                "language": backend_language,
+                "lineCount": 1,
+            },
+            "mappingCount": 1,
+            "mappings": [
+                {
+                    "index": 0,
+                    "stage": "compute",
+                    "entryPoint": "runtime_reader_main",
+                    "function": "runtime_reader_main",
+                    "statementKind": "resource-write",
+                    "name": "OutputBuffer",
+                    "backend": {
+                        "startLine": 1,
+                        "endLine": 1,
+                    },
+                    "location": {
+                        "file": "source/original.crossgl",
+                        "line": 1,
+                        "column": 1,
+                        "offset": 0,
+                        "length": 1,
+                        "endLine": 1,
+                        "endColumn": 2,
+                        "endOffset": 1,
+                    },
+                }
+            ],
+        }
+        if mutate is not None:
+            mutate(source_map)
+        manifest["artifacts"]["backendSourceMap"] = backend_source_map_path
+        backend_source_map_file = package_dir / backend_source_map_path
+        backend_source_map_file.parent.mkdir(parents=True, exist_ok=True)
+        self._write_json(backend_source_map_file, source_map)
+        self._write_json(manifest_path, manifest)
+        return backend_source_map_path
+
+    @staticmethod
+    def _backend_source_map_language_for_target(target: str) -> str:
+        return {
+            "directx": "hlsl",
+            "metal": "msl",
+            "opengl": "glsl",
+            "vulkan": "spirv",
+        }[target]
 
     @staticmethod
     def _target_resource_binding_abi(target: str) -> dict[str, object]:

@@ -104,6 +104,15 @@ SUPPORTED_PACKAGE_TARGET_CONTRACT_SCHEMA_VERSION = 1
 SUPPORTED_SOURCE_REMAP_PROVENANCE_SCHEMA_VERSION = 1
 SOURCE_ARTIFACT_NAMES = ("backendSource",)
 SOURCE_PACKAGE_MODE = "source-package"
+BACKEND_SOURCE_MAP_KIND = "crossgl.backendSourceMap"
+BACKEND_SOURCE_MAP_SCHEMA_VERSION = 1
+BACKEND_SOURCE_MAP_MAPPING_GRANULARITY = "statement"
+BACKEND_SOURCE_MAP_BACKEND_LANGUAGE_BY_TARGET = {
+    "directx": "hlsl",
+    "metal": "msl",
+    "opengl": "glsl",
+    "vulkan": "spirv",
+}
 NATIVE_ARTIFACT_DESCRIPTOR_KIND = "crossgl.nativeArtifact"
 NATIVE_ARTIFACT_DESCRIPTOR_CONTRACT_VERSION = "native-artifact-v0"
 SOURCE_REMAP_PROVENANCE_KIND = "crossgl.sourceRemapProvenance"
@@ -3347,6 +3356,13 @@ def _build_compatibility_report(
         artifacts=artifacts,
         unreadable_documents=unreadable_documents,
     )
+    _append_backend_source_map_diagnostics(
+        diagnostics,
+        module=module,
+        target=target,
+        artifacts=artifacts,
+        unreadable_documents=unreadable_documents,
+    )
 
     debug_metadata_record = (
         _debug_metadata_record(debug_metadata) if debug_metadata is not None else None
@@ -4447,6 +4463,10 @@ def _is_non_negative_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
+def _is_positive_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
 def _is_non_empty_string(value: Any) -> bool:
     return isinstance(value, str) and bool(value)
 
@@ -4539,6 +4559,491 @@ def _append_native_artifact_descriptor_diagnostics(
         native_binary_artifact=_artifact_by_name(artifacts, "nativeBinary"),
         native_binary_status=native_binary_status,
     )
+
+
+def _append_backend_source_map_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    module: str | None,
+    target: str | None,
+    artifacts: tuple[Artifact, ...],
+    unreadable_documents: frozenset[str],
+) -> None:
+    if "manifest" in unreadable_documents:
+        return
+
+    source_map_artifact = _artifact_by_name(artifacts, "backendSourceMap")
+    if source_map_artifact is None:
+        return
+
+    source_map = _read_declared_artifact_json_object_for_report(
+        source_map_artifact,
+        root_file_name="backend source map",
+        document="backendSourceMap",
+        diagnostic_prefix="package.backend_source_map",
+        diagnostics=diagnostics,
+    )
+    if source_map is None:
+        return
+
+    _append_backend_source_map_identity_diagnostics(
+        diagnostics,
+        source_map=source_map,
+        module=module,
+        target=target,
+    )
+    _append_backend_source_map_content_diagnostics(
+        diagnostics,
+        source_map=source_map,
+        target=target,
+        artifacts=artifacts,
+    )
+
+
+def _append_backend_source_map_identity_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    source_map: dict[str, Any],
+    module: str | None,
+    target: str | None,
+) -> None:
+    schema_version = source_map.get("schemaVersion")
+    if schema_version is None:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.schema_version_missing",
+                message="backendSourceMap schemaVersion is required",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="schemaVersion",
+                expected=BACKEND_SOURCE_MAP_SCHEMA_VERSION,
+                actual="missing",
+            )
+        )
+    elif _schema_version_is_malformed(schema_version):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.schema_version_invalid",
+                message="backendSourceMap schemaVersion must be an integer",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="schemaVersion",
+                expected=BACKEND_SOURCE_MAP_SCHEMA_VERSION,
+                actual=_contract_actual_value(schema_version),
+            )
+        )
+    elif schema_version != BACKEND_SOURCE_MAP_SCHEMA_VERSION:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.schema_incompatible",
+                message="backendSourceMap schemaVersion is not supported by this runtime",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="schemaVersion",
+                expected=BACKEND_SOURCE_MAP_SCHEMA_VERSION,
+                actual=schema_version,
+            )
+        )
+
+    kind = source_map.get("kind")
+    if kind != BACKEND_SOURCE_MAP_KIND:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.kind_mismatch",
+                message="backendSourceMap kind does not match the runtime contract",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="kind",
+                expected=BACKEND_SOURCE_MAP_KIND,
+                actual=_contract_actual_value(kind),
+            )
+        )
+
+    source_map_target = source_map.get("target")
+    if target is not None and source_map_target != target:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.target_mismatch",
+                message="backendSourceMap target does not match manifest.target",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="target",
+                expected=target,
+                actual=_contract_actual_value(source_map_target),
+            )
+        )
+
+    source_map_module = source_map.get("module")
+    if module is not None and source_map_module != module:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.module_mismatch",
+                message="backendSourceMap module does not match manifest.module",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="module",
+                expected=module,
+                actual=_contract_actual_value(source_map_module),
+            )
+        )
+
+    mapping_granularity = source_map.get("mappingGranularity")
+    if mapping_granularity != BACKEND_SOURCE_MAP_MAPPING_GRANULARITY:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.mapping_granularity_mismatch",
+                message="backendSourceMap mappingGranularity must be statement",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="mappingGranularity",
+                expected=BACKEND_SOURCE_MAP_MAPPING_GRANULARITY,
+                actual=_contract_actual_value(mapping_granularity),
+            )
+        )
+
+
+def _append_backend_source_map_content_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    source_map: dict[str, Any],
+    target: str | None,
+    artifacts: tuple[Artifact, ...],
+) -> None:
+    source_backend = source_map.get("sourceBackend")
+    if not _is_non_empty_string(source_backend):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.source_backend_invalid",
+                message="backendSourceMap sourceBackend must be a non-empty string",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="sourceBackend",
+                expected="non-empty string",
+                actual=_contract_actual_value(source_backend),
+            )
+        )
+
+    backend = source_map.get("backend")
+    backend_language: Any = None
+    backend_line_count: Any = None
+    if not isinstance(backend, dict):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.backend_invalid",
+                message="backendSourceMap backend must be an object",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="backend",
+                expected="object",
+                actual=_json_type_name(backend),
+            )
+        )
+    else:
+        backend_language = backend.get("language")
+        backend_line_count = backend.get("lineCount")
+
+    if not _is_non_empty_string(backend_language):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.backend_language_invalid",
+                message="backendSourceMap backend.language must be a non-empty string",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="backend.language",
+                expected="non-empty string",
+                actual=_contract_actual_value(backend_language),
+            )
+        )
+    expected_backend_language = BACKEND_SOURCE_MAP_BACKEND_LANGUAGE_BY_TARGET.get(
+        target
+    )
+    if (
+        expected_backend_language is not None
+        and _is_non_empty_string(backend_language)
+        and backend_language != expected_backend_language
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.backend_language_mismatch",
+                message=(
+                    "backendSourceMap backend.language does not match manifest.target"
+                ),
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="backend.language",
+                expected=expected_backend_language,
+                actual=backend_language,
+            )
+        )
+
+    target_backend = source_map.get("targetBackend")
+    if (
+        not _is_non_empty_string(target_backend)
+        or not _is_non_empty_string(backend_language)
+        or target_backend != backend_language
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.target_backend_mismatch",
+                message="backendSourceMap targetBackend must match backend.language",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="targetBackend",
+                expected=_contract_actual_value(backend_language),
+                actual=_contract_actual_value(target_backend),
+            )
+        )
+
+    if not _is_non_negative_int(backend_line_count):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.backend_line_count_invalid",
+                message="backendSourceMap backend.lineCount must be a non-negative integer",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="backend.lineCount",
+                expected="non-negative integer",
+                actual=_contract_actual_value(backend_line_count),
+            )
+        )
+
+    mapping_count = source_map.get("mappingCount")
+    mapping_count_valid = _is_non_negative_int(mapping_count)
+    if not mapping_count_valid:
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.mapping_count_invalid",
+                message="backendSourceMap mappingCount must be a non-negative integer",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="mappingCount",
+                expected="non-negative integer",
+                actual=_contract_actual_value(mapping_count),
+            )
+        )
+
+    mappings = source_map.get("mappings")
+    if not isinstance(mappings, list):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.mappings_invalid",
+                message="backendSourceMap mappings must be an array",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="mappings",
+                expected="array",
+                actual=_json_type_name(mappings),
+            )
+        )
+        mappings = []
+
+    if mapping_count_valid and mapping_count != len(mappings):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.mapping_count_mismatch",
+                message="backendSourceMap mappingCount does not match mappings length",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="mappingCount",
+                expected=len(mappings),
+                actual=mapping_count,
+            )
+        )
+
+    backend_source_line_count = _backend_source_artifact_line_count(artifacts)
+    if (
+        _is_non_negative_int(backend_line_count)
+        and backend_source_line_count is not None
+        and backend_line_count != backend_source_line_count
+    ):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.backend_line_count_mismatch",
+                message=(
+                    "backendSourceMap backend.lineCount does not match the "
+                    "declared backendSource artifact"
+                ),
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="backend.lineCount",
+                expected=backend_source_line_count,
+                actual=backend_line_count,
+            )
+        )
+
+    source_remap = source_map.get("sourceRemap")
+    source_remap_declared = source_remap is not None
+    if source_remap_declared and not isinstance(source_remap, dict):
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.backend_source_map.source_remap_invalid",
+                message="backendSourceMap sourceRemap must be an object or null",
+                document="backendSourceMap",
+                artifact="backendSourceMap",
+                path="sourceRemap",
+                expected="object or null",
+                actual=_json_type_name(source_remap),
+            )
+        )
+
+    _append_backend_source_map_span_diagnostics(
+        diagnostics,
+        mappings=mappings,
+        backend_line_count=backend_line_count,
+        backend_source_line_count=backend_source_line_count,
+        require_original_location=source_remap_declared,
+    )
+
+
+def _append_backend_source_map_span_diagnostics(
+    diagnostics: list[CompatibilityDiagnostic],
+    *,
+    mappings: list[Any],
+    backend_line_count: Any,
+    backend_source_line_count: int | None,
+    require_original_location: bool,
+) -> None:
+    for index, mapping in enumerate(mappings):
+        mapping_path = f"mappings[{index}]"
+        if not isinstance(mapping, dict):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.backend_source_map.mapping_invalid",
+                    message="backendSourceMap mapping record must be an object",
+                    document="backendSourceMap",
+                    artifact="backendSourceMap",
+                    path=mapping_path,
+                    expected="object",
+                    actual=_json_type_name(mapping),
+                )
+            )
+            continue
+
+        if require_original_location and "originalLocation" not in mapping:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.backend_source_map.original_location_missing",
+                    message=(
+                        "backendSourceMap mappings must include originalLocation "
+                        "when sourceRemap is declared"
+                    ),
+                    document="backendSourceMap",
+                    artifact="backendSourceMap",
+                    path=f"{mapping_path}.originalLocation",
+                    expected="present when sourceRemap is declared",
+                    actual="missing",
+                )
+            )
+
+        backend_span = mapping.get("backend")
+        if not isinstance(backend_span, dict):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.backend_source_map.backend_span_invalid",
+                    message="backendSourceMap mapping backend span must be an object",
+                    document="backendSourceMap",
+                    artifact="backendSourceMap",
+                    path=f"{mapping_path}.backend",
+                    expected="object",
+                    actual=_json_type_name(backend_span),
+                )
+            )
+            continue
+
+        start_line = backend_span.get("startLine")
+        end_line = backend_span.get("endLine")
+        if not _is_positive_int(start_line):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.backend_source_map.backend_span_invalid",
+                    message="backendSourceMap backend.startLine must be positive",
+                    document="backendSourceMap",
+                    artifact="backendSourceMap",
+                    path=f"{mapping_path}.backend.startLine",
+                    expected="positive integer",
+                    actual=_contract_actual_value(start_line),
+                )
+            )
+        if not _is_positive_int(end_line):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.backend_source_map.backend_span_invalid",
+                    message="backendSourceMap backend.endLine must be positive",
+                    document="backendSourceMap",
+                    artifact="backendSourceMap",
+                    path=f"{mapping_path}.backend.endLine",
+                    expected="positive integer",
+                    actual=_contract_actual_value(end_line),
+                )
+            )
+            continue
+        if not _is_positive_int(start_line):
+            continue
+
+        if end_line < start_line:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.backend_source_map.backend_span_invalid",
+                    message="backendSourceMap backend.endLine must be >= startLine",
+                    document="backendSourceMap",
+                    artifact="backendSourceMap",
+                    path=f"{mapping_path}.backend.endLine",
+                    expected=f">= {start_line}",
+                    actual=end_line,
+                )
+            )
+
+        if _is_non_negative_int(backend_line_count) and end_line > backend_line_count:
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.backend_source_map.backend_span_out_of_bounds",
+                    message=("backendSourceMap backend span exceeds backend.lineCount"),
+                    document="backendSourceMap",
+                    artifact="backendSourceMap",
+                    path=f"{mapping_path}.backend.endLine",
+                    expected=f"<= {backend_line_count}",
+                    actual=end_line,
+                )
+            )
+
+        if (
+            backend_source_line_count is not None
+            and end_line > backend_source_line_count
+        ):
+            diagnostics.append(
+                CompatibilityDiagnostic(
+                    code="package.backend_source_map.backend_span_source_out_of_bounds",
+                    message=(
+                        "backendSourceMap backend span exceeds declared "
+                        "backendSource line count"
+                    ),
+                    document="backendSourceMap",
+                    artifact="backendSourceMap",
+                    path=f"{mapping_path}.backend.endLine",
+                    expected=f"<= {backend_source_line_count}",
+                    actual=end_line,
+                )
+            )
+
+
+def _backend_source_artifact_line_count(
+    artifacts: tuple[Artifact, ...],
+) -> int | None:
+    backend_source_artifact = _artifact_by_name(artifacts, "backendSource")
+    if backend_source_artifact is None or not backend_source_artifact.exists:
+        return None
+    try:
+        return _count_physical_lines(
+            backend_source_artifact.read_text(byte_limit=RUNTIME_ARTIFACT_BYTE_LIMIT)
+        )
+    except (PackageReadError, UnicodeDecodeError):
+        return None
+
+
+def _count_physical_lines(text: str) -> int:
+    if not text:
+        return 0
+    return text.count("\n") + (0 if text.endswith("\n") else 1)
 
 
 def _append_source_remap_provenance_diagnostics(
