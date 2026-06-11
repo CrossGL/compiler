@@ -736,6 +736,10 @@ collectPackageDebugArtifactHealth(const PackageMetadata &metadata) {
       health.backendSourceMap.artifactPresent) {
     health.backendSourceMap.checks.sourceRemapMatchesProvenance =
         health.backendSourceMap.sourceRemapPresent &&
+        health.backendSourceMap.checks.sourceRemapPathPackageRelative
+            .value_or(false) &&
+        optionalStringEquals(health.backendSourceMap.sourceRemapPath,
+                             health.sourceRemap.path) &&
         optionalStringEquals(health.backendSourceMap.sourceRemapGeneratedFile,
                              health.sourceRemap.generatedFile) &&
         optionalUnsignedEquals(health.backendSourceMap.sourceRemapMappingCount,

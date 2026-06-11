@@ -2402,6 +2402,15 @@ std::string sourceRemapProvenanceJson(const SourceRemap &remap,
   return out.str();
 }
 
+SourceRemap packageLocalBackendSourceMapRemap(
+    const SourceRemap &remap, const std::filesystem::path &packageDir,
+    const std::filesystem::path &sourceRemapProvenancePath) {
+  SourceRemap packageLocalRemap = remap;
+  packageLocalRemap.documentPath =
+      packageRelativePath(packageDir, sourceRemapProvenancePath);
+  return packageLocalRemap;
+}
+
 std::string
 vulkanNativeProfileJson(const HIRModule &module,
                         const std::filesystem::path &packageDir,
@@ -3427,12 +3436,20 @@ CompileResult compile(const CompileRequest &request) {
         backendSourceMapPath =
             directx.sourcePath.parent_path() /
             (backendHIR.name + ".backend-source-map.json");
+        const SourceRemap *backendSourceMapRemap =
+            sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
+                                         : nullptr;
+        std::optional<SourceRemap> packageLocalSourceRemap;
+        if (sourceMapOptions.sourceRemap && sourceRemapProvenancePath) {
+          packageLocalSourceRemap = packageLocalBackendSourceMapRemap(
+              *sourceMapOptions.sourceRemap, packageDir,
+              *sourceRemapProvenancePath);
+          backendSourceMapRemap = &*packageLocalSourceRemap;
+        }
         if (!writeText(*backendSourceMapPath,
                        generateDirectXBackendSourceMapJson(
                            backendHIR, legalization.resourceBindings,
-                           sourceMapOptions.sourceRemap
-                               ? &*sourceMapOptions.sourceRemap
-                               : nullptr),
+                           backendSourceMapRemap),
                        diagnostics, "artifact.write-backend-source-map")) {
           assignDiagnostics();
           return result;
