@@ -1499,6 +1499,11 @@ def _runtime_loader_plan_host_loader_load_unit(
         workgroup_size_count=workgroup_size_count,
     )
     host_interface_status = "ready" if host_interface_ready else "unavailable"
+    selected_artifact_format = (
+        "native-binary"
+        if selected_artifact["name"] == "nativeBinary"
+        else "backend-source"
+    )
     load_steps = [
         {
             "kind": "load-package-artifact",
@@ -1516,6 +1521,7 @@ def _runtime_loader_plan_host_loader_load_unit(
                 "artifact": {
                     "name": selected_artifact["name"],
                     "packageMode": selected_artifact["packageMode"],
+                    "artifactFormat": selected_artifact_format,
                 },
             },
         }
@@ -1579,14 +1585,10 @@ def _runtime_loader_plan_host_loader_load_unit(
         "packageMode": selected_artifact["packageMode"],
         "artifact": selected_artifact,
         "packagePath": selected_artifact["path"],
-        "artifactFormat": (
-            "native-binary"
-            if selected_artifact["name"] == "nativeBinary"
-            else "backend-source"
-        ),
+        "artifactFormat": selected_artifact_format,
         "adapterKind": (
             "native-binary-loader"
-            if selected_artifact["name"] == "nativeBinary"
+            if selected_artifact_format == "native-binary"
             else "backend-source-loader"
         ),
         "status": status,

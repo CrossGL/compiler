@@ -278,6 +278,20 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 "ready",
             )
             self.assertEqual(
+                load_unit["loadSteps"][0]["metadata"],
+                {
+                    "source": {
+                        "field": "selectedArtifact.path",
+                        "path": "backend/directx/RuntimeLoaderFixture.hlsl",
+                    },
+                    "artifact": {
+                        "name": "backendSource",
+                        "packageMode": "source-package",
+                        "artifactFormat": "backend-source",
+                    },
+                },
+            )
+            self.assertEqual(
                 load_unit["loadSteps"][1]["message"],
                 "Bind reflected host interface metadata.",
             )

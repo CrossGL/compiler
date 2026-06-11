@@ -662,6 +662,114 @@ def host_loader_responsibilities(load_unit, required_tools):
     return responsibilities
 
 
+def host_loader_artifact_format(selected_artifact):
+    return (
+        "native-binary"
+        if selected_artifact["name"] == "nativeBinary"
+        else "backend-source"
+    )
+
+
+def validate_host_loader_load_step_metadata(
+    errors,
+    index,
+    step,
+    selected_artifact,
+    load_unit,
+    summary,
+):
+    kind = step["kind"]
+    metadata = step["metadata"]
+    metadata_path = f"$.hostLoaderIntegration.loadUnits[0].loadSteps[{index}].metadata"
+
+    source = metadata.get("source")
+    if not isinstance(source, dict):
+        errors.append(f"{metadata_path}.source: expected object")
+        return
+
+    if kind == "load-package-artifact":
+        add_equal_error(
+            errors,
+            f"{metadata_path}.source.field",
+            source.get("field"),
+            "selectedArtifact.path",
+            "selected artifact path reference",
+        )
+        add_equal_error(
+            errors,
+            f"{metadata_path}.source.path",
+            source.get("path"),
+            selected_artifact["path"],
+            "$.selectedArtifact.path",
+        )
+        artifact = metadata.get("artifact")
+        if not isinstance(artifact, dict):
+            errors.append(f"{metadata_path}.artifact: expected object")
+            return
+        add_equal_error(
+            errors,
+            f"{metadata_path}.artifact.name",
+            artifact.get("name"),
+            selected_artifact["name"],
+            "$.selectedArtifact.name",
+        )
+        add_equal_error(
+            errors,
+            f"{metadata_path}.artifact.packageMode",
+            artifact.get("packageMode"),
+            load_unit["packageMode"],
+            "$.hostLoaderIntegration.loadUnits[0].packageMode",
+        )
+        add_equal_error(
+            errors,
+            f"{metadata_path}.artifact.artifactFormat",
+            artifact.get("artifactFormat"),
+            host_loader_artifact_format(selected_artifact),
+            "selected artifact format",
+        )
+    elif kind == "load-source-remap":
+        add_equal_error(
+            errors,
+            f"{metadata_path}.source.field",
+            source.get("field"),
+            "manifest.artifacts.sourceRemap",
+            "source remap artifact reference",
+        )
+        source_remap = load_unit["sourceRemap"]
+        expected_path = (
+            source_remap["packagePath"] if source_remap is not None else None
+        )
+        add_equal_error(
+            errors,
+            f"{metadata_path}.source.path",
+            source.get("path"),
+            expected_path,
+            "$.hostLoaderIntegration.loadUnits[0].sourceRemap.packagePath",
+        )
+    elif kind == "bind-host-interface":
+        add_equal_error(
+            errors,
+            f"{metadata_path}.source.field",
+            source.get("field"),
+            "reflectionInputs",
+            "reflection input metadata reference",
+        )
+        for field in (
+            "entryPointCount",
+            "resourceBindingCount",
+            "workgroupSizeCount",
+            "functionConstantCount",
+            "specializationConstantCount",
+        ):
+            add_equal_error(
+                errors,
+                f"{metadata_path}.{field}",
+                metadata.get(field),
+                summary[field],
+                f"$.hostLoaderIntegration.summary.{field}",
+            )
+
+
 def validate_host_loader_integration(errors, instance):
     integration = instance["hostLoaderIntegration"]
     summary = integration["summary"]
@@ -832,6 +940,13 @@ def validate_host_loader_integration(errors, instance):
     )
     add_equal_error(
         errors,
+        "$.hostLoaderIntegration.loadUnits[0].artifactFormat",
+        load_unit["artifactFormat"],
+        host_loader_artifact_format(selected_artifact),
+        "selected artifact format",
+    )
+    add_equal_error(
+        errors,
         "$.hostLoaderIntegration.loadUnits[0].adapterKind",
         load_unit["adapterKind"],
         expected_adapter_kind,
@@ -963,6 +1078,14 @@ def validate_host_loader_integration(errors, instance):
             step["packagePath"],
             expected_package_path,
             f"stable {kind} package path",
+        )
+        validate_host_loader_load_step_metadata(
+            errors,
+            index,
+            step,
+            selected_artifact,
+            load_unit,
+            summary,
         )
     if host_interface_ready:
         if load_unit["blockers"] != []:

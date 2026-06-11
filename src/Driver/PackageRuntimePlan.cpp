@@ -1019,7 +1019,9 @@ void writeHostLoaderLoadSteps(std::ostream &out,
       << "\",\n"
       << indent << "        \"packageMode\": ";
   writeNullableString(out, mode);
-  out << "\n"
+  out << ",\n"
+      << indent << "        \"artifactFormat\": \""
+      << escapeJson(artifactFormatForHostLoader(&artifact)) << "\"\n"
       << indent << "      }\n"
       << indent << "    }\n"
       << indent << "  }";
