@@ -292,6 +292,14 @@ def validate_semantics(instance):
     source_remaps_by_target = {}
     source_remaps_by_source_backend = {}
     source_remaps_by_variant = {}
+    backend_source_map_count = 0
+    backend_source_map_mapping_count = 0
+    backend_source_map_paths = set()
+    backend_source_maps_by_granularity = {}
+    backend_source_maps_by_target = {}
+    backend_source_maps_by_source_backend = {}
+    backend_source_maps_by_target_backend = {}
+    backend_source_maps_by_variant = {}
 
     add_equal_error(
         errors,
@@ -343,6 +351,7 @@ def validate_semantics(instance):
         provenance = artifact.get("provenance")
         source_map = artifact.get("sourceMap")
         source_remap = artifact.get("sourceRemap")
+        backend_source_map = artifact.get("backendSourceMap")
 
         if (
             declared_targets is not None
@@ -361,6 +370,11 @@ def validate_semantics(instance):
         if status == "failed" and source_remap is not None:
             errors.append(
                 f"{artifact_path}.sourceRemap: must be omitted for failed artifacts"
+            )
+        if status == "failed" and backend_source_map is not None:
+            errors.append(
+                f"{artifact_path}.backendSourceMap: must be omitted for failed "
+                "artifacts"
             )
 
         provenance_pipeline = _provenance_pipeline_key(provenance)
@@ -436,6 +450,101 @@ def validate_semantics(instance):
             _validate_source_map_semantics(
                 errors, artifact_path, target, source_map_granularity, source_map
             )
+
+        if backend_source_map is not None:
+            backend_source_map_count += 1
+            backend_source_map_mapping_count += backend_source_map["mappingCount"]
+            _increment(
+                backend_source_maps_by_granularity,
+                backend_source_map["mappingGranularity"],
+            )
+            _increment(backend_source_maps_by_target, backend_source_map["target"])
+            _increment(
+                backend_source_maps_by_source_backend,
+                backend_source_map["sourceBackend"],
+            )
+            _increment(
+                backend_source_maps_by_target_backend,
+                backend_source_map["targetBackend"],
+            )
+            if variant is not None:
+                _increment(backend_source_maps_by_variant, variant)
+
+            backend_source_map_path = backend_source_map["path"]
+            if backend_source_map_path in backend_source_map_paths:
+                errors.append(
+                    f"{artifact_path}.backendSourceMap.path: duplicate "
+                    "backendSourceMap path"
+                )
+            backend_source_map_paths.add(backend_source_map_path)
+
+            if target in CROSSGL_TARGETS:
+                errors.append(
+                    f"{artifact_path}.backendSourceMap: expected only for backend "
+                    "target artifacts"
+                )
+            if target is not None and backend_source_map["target"] != target:
+                errors.append(
+                    f"{artifact_path}.backendSourceMap.target: expected to match "
+                    f"artifact target {target!r}"
+                )
+            if (
+                declared_targets is not None
+                and backend_source_map["target"] not in declared_targets
+            ):
+                errors.append(
+                    f"{artifact_path}.backendSourceMap.target: expected to be "
+                    "declared in $.project.targets"
+                )
+            if generated_path is not None:
+                if backend_source_map["generatedFile"] != generated_path:
+                    errors.append(
+                        f"{artifact_path}.backendSourceMap.generatedFile: "
+                        f"expected to match artifact path {generated_path!r}"
+                    )
+                if backend_source_map_path == generated_path:
+                    errors.append(
+                        f"{artifact_path}.backendSourceMap.path: expected sidecar "
+                        "path, not generated artifact path"
+                    )
+            if (
+                backend_source_map_path in artifact_paths
+                and backend_source_map_path != generated_path
+            ):
+                errors.append(
+                    f"{artifact_path}.backendSourceMap.path: expected sidecar "
+                    "path, not artifact path"
+                )
+            if backend_source_map["mappingGranularity"] != "statement":
+                errors.append(
+                    f"{artifact_path}.backendSourceMap.mappingGranularity: "
+                    "expected statement"
+                )
+            if backend_source_map["kind"] != "crossgl.backendSourceMap":
+                errors.append(
+                    f"{artifact_path}.backendSourceMap.kind: expected "
+                    "crossgl.backendSourceMap"
+                )
+            if (
+                backend_source_map["backendLanguage"]
+                != backend_source_map["targetBackend"]
+            ):
+                errors.append(
+                    f"{artifact_path}.backendSourceMap.backendLanguage: expected "
+                    "to match targetBackend"
+                )
+            backend_source_map_variant = backend_source_map.get("variant")
+            if backend_source_map_variant is not None:
+                if variant is None:
+                    errors.append(
+                        f"{artifact_path}.backendSourceMap.variant: expected "
+                        "artifact variant to be recorded"
+                    )
+                elif backend_source_map_variant != variant:
+                    errors.append(
+                        f"{artifact_path}.backendSourceMap.variant: expected to "
+                        f"match artifact variant {variant!r}"
+                    )
 
         if (
             target in CROSSGL_TARGETS
@@ -839,6 +948,69 @@ def validate_semantics(instance):
             summary["sourceRemapsByVariant"],
             source_remaps_by_variant,
             "sourceRemap",
+        )
+
+    if "backendSourceMapCount" in summary:
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMapCount",
+            summary["backendSourceMapCount"],
+            backend_source_map_count,
+            "backendSourceMap artifact count",
+        )
+    if "backendSourceMapMappingCount" in summary:
+        add_equal_error(
+            errors,
+            "$.summary.backendSourceMapMappingCount",
+            summary["backendSourceMapMappingCount"],
+            backend_source_map_mapping_count,
+            "backendSourceMap mapping total",
+        )
+    if "backendSourceMapsByGranularity" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.backendSourceMapsByGranularity",
+            summary["backendSourceMapsByGranularity"],
+            backend_source_maps_by_granularity,
+            "backendSourceMap",
+        )
+    if "backendSourceMapsByTarget" in summary:
+        _validate_declared_target_count_keys(
+            errors,
+            "$.summary.backendSourceMapsByTarget",
+            summary["backendSourceMapsByTarget"],
+            declared_targets,
+        )
+        _validate_summary_count_map(
+            errors,
+            "$.summary.backendSourceMapsByTarget",
+            summary["backendSourceMapsByTarget"],
+            backend_source_maps_by_target,
+            "backendSourceMap",
+        )
+    if "backendSourceMapsBySourceBackend" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.backendSourceMapsBySourceBackend",
+            summary["backendSourceMapsBySourceBackend"],
+            backend_source_maps_by_source_backend,
+            "backendSourceMap",
+        )
+    if "backendSourceMapsByTargetBackend" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.backendSourceMapsByTargetBackend",
+            summary["backendSourceMapsByTargetBackend"],
+            backend_source_maps_by_target_backend,
+            "backendSourceMap",
+        )
+    if "backendSourceMapsByVariant" in summary:
+        _validate_summary_count_map(
+            errors,
+            "$.summary.backendSourceMapsByVariant",
+            summary["backendSourceMapsByVariant"],
+            backend_source_maps_by_variant,
+            "backendSourceMap",
         )
 
     if "runtimeReferenceCount" in summary:

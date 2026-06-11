@@ -1209,6 +1209,13 @@ struct CrossTLProjectReportSummary {
   std::optional<CountMap> sourceRemapsByTarget;
   std::optional<CountMap> sourceRemapsBySourceBackend;
   std::optional<CountMap> sourceRemapsByVariant;
+  std::optional<std::uintmax_t> backendSourceMapCount;
+  std::optional<std::uintmax_t> backendSourceMapMappingCount;
+  std::optional<CountMap> backendSourceMapsByGranularity;
+  std::optional<CountMap> backendSourceMapsByTarget;
+  std::optional<CountMap> backendSourceMapsBySourceBackend;
+  std::optional<CountMap> backendSourceMapsByTargetBackend;
+  std::optional<CountMap> backendSourceMapsByVariant;
   std::optional<std::uintmax_t> runtimeReferenceCount;
   std::optional<CountMap> runtimeReferencesByKind;
   std::optional<CountMap> runtimeReferencesByBackend;
@@ -1249,11 +1256,19 @@ struct CrossTLProjectReportStats {
   CrossTLProjectReportSummary::CountMap sourceRemapsByTarget;
   CrossTLProjectReportSummary::CountMap sourceRemapsBySourceBackend;
   CrossTLProjectReportSummary::CountMap sourceRemapsByVariant;
+  std::uintmax_t backendSourceMapCount = 0;
+  std::uintmax_t backendSourceMapMappingCount = 0;
+  CrossTLProjectReportSummary::CountMap backendSourceMapsByGranularity;
+  CrossTLProjectReportSummary::CountMap backendSourceMapsByTarget;
+  CrossTLProjectReportSummary::CountMap backendSourceMapsBySourceBackend;
+  CrossTLProjectReportSummary::CountMap backendSourceMapsByTargetBackend;
+  CrossTLProjectReportSummary::CountMap backendSourceMapsByVariant;
   std::uintmax_t runtimeReferenceCount = 0;
   CrossTLProjectReportSummary::CountMap runtimeReferencesByKind;
   CrossTLProjectReportSummary::CountMap runtimeReferencesByBackend;
   CrossTLProjectReportSummary::CountMap runtimeReferencesByPath;
   std::vector<std::string> sourceRemapPaths;
+  std::vector<std::string> backendSourceMapPaths;
 };
 
 struct CrossTLProjectReportRuntimeReferenceRollups {
@@ -2317,6 +2332,27 @@ bool parseCrossTLProjectReportSummary(
              *summaryText, "sourceRemapsByVariant", manifestPath, diagnostics,
              summary.sourceRemapsByVariant) &&
          parseOptionalCrossTLProjectReportSummaryUnsignedMember(
+             *summaryText, "backendSourceMapCount", manifestPath, diagnostics,
+             summary.backendSourceMapCount) &&
+         parseOptionalCrossTLProjectReportSummaryUnsignedMember(
+             *summaryText, "backendSourceMapMappingCount", manifestPath,
+             diagnostics, summary.backendSourceMapMappingCount) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "backendSourceMapsByGranularity", manifestPath,
+             diagnostics, summary.backendSourceMapsByGranularity) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "backendSourceMapsByTarget", manifestPath,
+             diagnostics, summary.backendSourceMapsByTarget) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "backendSourceMapsBySourceBackend", manifestPath,
+             diagnostics, summary.backendSourceMapsBySourceBackend) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "backendSourceMapsByTargetBackend", manifestPath,
+             diagnostics, summary.backendSourceMapsByTargetBackend) &&
+         parseOptionalCrossTLProjectReportSummaryCountMap(
+             *summaryText, "backendSourceMapsByVariant", manifestPath,
+             diagnostics, summary.backendSourceMapsByVariant) &&
+         parseOptionalCrossTLProjectReportSummaryUnsignedMember(
              *summaryText, "runtimeReferenceCount", manifestPath, diagnostics,
              summary.runtimeReferenceCount) &&
          parseOptionalCrossTLProjectReportSummaryCountMap(
@@ -2653,6 +2689,38 @@ bool validateCrossTLProjectReportSummary(
              "sourceRemapsByVariant", "sourceRemap", "variant", manifestPath,
              diagnostics) &&
          validateCrossTLProjectReportSummaryOptionalCount(
+             summary.backendSourceMapCount, stats.backendSourceMapCount,
+             "backendSourceMapCount", "backendSourceMap artifact count",
+             manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryOptionalCount(
+             summary.backendSourceMapMappingCount,
+             stats.backendSourceMapMappingCount,
+             "backendSourceMapMappingCount", "backendSourceMap mapping total",
+             manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.backendSourceMapsByGranularity,
+             stats.backendSourceMapsByGranularity,
+             "backendSourceMapsByGranularity", "backendSourceMap",
+             "granularity", manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.backendSourceMapsByTarget, stats.backendSourceMapsByTarget,
+             "backendSourceMapsByTarget", "backendSourceMap", "target",
+             manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.backendSourceMapsBySourceBackend,
+             stats.backendSourceMapsBySourceBackend,
+             "backendSourceMapsBySourceBackend", "backendSourceMap",
+             "source backend", manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.backendSourceMapsByTargetBackend,
+             stats.backendSourceMapsByTargetBackend,
+             "backendSourceMapsByTargetBackend", "backendSourceMap",
+             "target backend", manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryCountMap(
+             summary.backendSourceMapsByVariant,
+             stats.backendSourceMapsByVariant, "backendSourceMapsByVariant",
+             "backendSourceMap", "variant", manifestPath, diagnostics) &&
+         validateCrossTLProjectReportSummaryOptionalCount(
              summary.runtimeReferenceCount, stats.runtimeReferenceCount,
              "runtimeReferenceCount", "runtimeReference count", manifestPath,
              diagnostics) &&
@@ -2702,6 +2770,382 @@ bool crossTLProjectReportTargetDeclared(
     }
   }
   return false;
+}
+
+bool crossTLProjectReportIsLowercaseSha256(std::string_view value) {
+  if (value.size() != 64) {
+    return false;
+  }
+  for (const char character : value) {
+    const bool digit = character >= '0' && character <= '9';
+    const bool lowercaseHex = character >= 'a' && character <= 'f';
+    if (!digit && !lowercaseHex) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool parseCrossTLProjectReportHash(
+    std::string_view objectText, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics, std::string &hashValue) {
+  const std::optional<std::string_view> hashText =
+      crossgl::findObjectMemberValue(objectText, "hash");
+  if (!hashText || !crossgl::isJsonObjectDocument(*hashText)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) + ".hash must contain sha256 algorithm and 64 "
+                               "lowercase hexadecimal value");
+    return false;
+  }
+  std::string algorithm;
+  std::string value;
+  if (!parseRequiredSourceBatchStringMember(*hashText, "algorithm",
+                                            std::string(context) + ".hash",
+                                            manifestPath, diagnostics,
+                                            algorithm) ||
+      !parseRequiredSourceBatchStringMember(*hashText, "value",
+                                            std::string(context) + ".hash",
+                                            manifestPath, diagnostics, value)) {
+    return false;
+  }
+  if (algorithm != "sha256" || !crossTLProjectReportIsLowercaseSha256(value)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) + ".hash must contain sha256 algorithm and 64 "
+                               "lowercase hexadecimal value");
+    return false;
+  }
+  hashValue = std::move(value);
+  return true;
+}
+
+bool parseCrossTLProjectReportBackendSourceMap(
+    std::string_view backendSourceMapText, std::string_view context,
+    const std::filesystem::path &projectRoot,
+    const std::optional<std::filesystem::path> &projectOutputDir,
+    const std::optional<std::string> &artifactPath,
+    const std::optional<std::string> &artifactTarget,
+    const std::optional<std::string> &artifactVariant,
+    const std::optional<std::vector<std::string>> &declaredTargets,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLProjectReportStats &stats) {
+  if (!crossgl::isJsonObjectDocument(backendSourceMapText)) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) +
+                                 ".backendSourceMap must be a JSON object");
+    return false;
+  }
+
+  std::uintmax_t schemaVersion = 0;
+  std::string kind;
+  std::string path;
+  std::string target;
+  std::string module;
+  std::string generatedFile;
+  std::string mappingGranularity;
+  std::string sourceBackend;
+  std::string targetBackend;
+  std::string backendLanguage;
+  std::uintmax_t backendLineCount = 0;
+  std::uintmax_t mappingCount = 0;
+  std::uintmax_t sizeBytes = 0;
+  std::string hashValue;
+  const std::string metadataContext =
+      std::string(context) + ".backendSourceMap";
+  if (!parseRequiredSourceBatchUnsignedMember(
+          backendSourceMapText, "schemaVersion", metadataContext, manifestPath,
+          diagnostics, schemaVersion) ||
+      !parseRequiredSourceBatchStringMember(backendSourceMapText, "kind",
+                                            metadataContext, manifestPath,
+                                            diagnostics, kind) ||
+      !parseRequiredSourceBatchStableRelativePathMember(
+          backendSourceMapText, "path", metadataContext, manifestPath,
+          diagnostics, path) ||
+      !parseRequiredSourceBatchStringMember(backendSourceMapText, "target",
+                                            metadataContext, manifestPath,
+                                            diagnostics, target) ||
+      !parseRequiredSourceBatchStringMember(backendSourceMapText, "module",
+                                            metadataContext, manifestPath,
+                                            diagnostics, module) ||
+      !parseRequiredSourceBatchStableRelativePathMember(
+          backendSourceMapText, "generatedFile", metadataContext, manifestPath,
+          diagnostics, generatedFile) ||
+      !parseRequiredSourceBatchStringMember(
+          backendSourceMapText, "mappingGranularity", metadataContext,
+          manifestPath, diagnostics, mappingGranularity) ||
+      !parseRequiredSourceBatchStringMember(backendSourceMapText,
+                                            "sourceBackend", metadataContext,
+                                            manifestPath, diagnostics,
+                                            sourceBackend) ||
+      !parseRequiredSourceBatchStringMember(backendSourceMapText,
+                                            "targetBackend", metadataContext,
+                                            manifestPath, diagnostics,
+                                            targetBackend) ||
+      !parseRequiredSourceBatchStringMember(backendSourceMapText,
+                                            "backendLanguage", metadataContext,
+                                            manifestPath, diagnostics,
+                                            backendLanguage) ||
+      !parseRequiredSourceBatchUnsignedMember(backendSourceMapText,
+                                              "backendLineCount",
+                                              metadataContext, manifestPath,
+                                              diagnostics, backendLineCount) ||
+      !parseRequiredSourceBatchUnsignedMember(backendSourceMapText,
+                                              "mappingCount", metadataContext,
+                                              manifestPath, diagnostics,
+                                              mappingCount) ||
+      !parseRequiredSourceBatchUnsignedMember(backendSourceMapText,
+                                              "sizeBytes", metadataContext,
+                                              manifestPath, diagnostics,
+                                              sizeBytes) ||
+      !parseCrossTLProjectReportHash(backendSourceMapText, metadataContext,
+                                     manifestPath, diagnostics, hashValue)) {
+    return false;
+  }
+
+  if (schemaVersion != 1) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             metadataContext + ".schemaVersion must be 1");
+    return false;
+  }
+  if (kind != "crossgl.backendSourceMap") {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + ".kind must be crossgl.backendSourceMap");
+    return false;
+  }
+  if (mappingGranularity != "statement") {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + ".mappingGranularity must be statement");
+    return false;
+  }
+  if (backendLanguage != targetBackend) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + ".backendLanguage must match targetBackend");
+    return false;
+  }
+  if (!crossTLProjectReportTargetDeclared(declaredTargets, target)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + ".target must be declared by project.targets");
+    return false;
+  }
+  if (artifactTarget) {
+    if (crossTLProjectReportIsCrossGLTarget(*artifactTarget)) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          metadataContext + " expected only for backend target artifacts");
+      return false;
+    }
+    if (target != *artifactTarget) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          metadataContext + ".target must match artifact target '" +
+              *artifactTarget + "'");
+      return false;
+    }
+  }
+  if (artifactPath) {
+    if (generatedFile != *artifactPath) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          metadataContext + ".generatedFile must match artifact path '" +
+              *artifactPath + "'");
+      return false;
+    }
+    if (path == *artifactPath) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          metadataContext +
+              ".path must reference a sidecar path, not artifact path");
+      return false;
+    }
+  }
+  if (projectOutputDir) {
+    const std::filesystem::path resolvedBackendSourceMapPath =
+        resolveManifestPath(projectRoot, path);
+    if (!pathLexicallyInside(*projectOutputDir,
+                             resolvedBackendSourceMapPath)) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          metadataContext + ".path must resolve inside project.outputDir");
+      return false;
+    }
+  }
+  for (const std::string &usedPath : stats.backendSourceMapPaths) {
+    if (usedPath == path) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          metadataContext +
+              ".path must be unique within CrossTL project report");
+      return false;
+    }
+  }
+  std::optional<std::string> variant;
+  if (!parseOptionalSourceBatchStringMember(backendSourceMapText, "variant",
+                                            metadataContext, manifestPath,
+                                            diagnostics, variant)) {
+    return false;
+  }
+  if (variant) {
+    if (!artifactVariant) {
+      sourceBatchManifestError(diagnostics, manifestPath,
+                               metadataContext +
+                                   ".variant requires artifact variant");
+      return false;
+    }
+    if (*variant != *artifactVariant) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          metadataContext + ".variant must match artifact variant '" +
+              *artifactVariant + "'");
+      return false;
+    }
+  }
+
+  const std::filesystem::path resolvedPath =
+      resolveManifestPath(projectRoot, path);
+  std::optional<std::string> sidecarText =
+      readTextDocument(resolvedPath, diagnostics);
+  if (!sidecarText) {
+    return false;
+  }
+  if (sizeBytes != sidecarText->size()) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + ".sizeBytes does not match referenced sidecar '" +
+            resolvedPath.generic_string() + "'");
+    return false;
+  }
+  const std::string actualHash = crossgl::sha256(*sidecarText);
+  if (hashValue != actualHash) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + ".hash.value does not match referenced sidecar '" +
+            resolvedPath.generic_string() + "'");
+    return false;
+  }
+  if (!crossgl::isJsonObjectDocument(*sidecarText)) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             metadataContext +
+                                 " sidecar must be a JSON object");
+    return false;
+  }
+
+  std::uintmax_t sidecarSchemaVersion = 0;
+  std::string sidecarKind;
+  std::string sidecarTarget;
+  std::string sidecarModule;
+  std::string sidecarGranularity;
+  std::string sidecarSourceBackend;
+  std::string sidecarTargetBackend;
+  std::uintmax_t sidecarMappingCount = 0;
+  const std::string sidecarContext = metadataContext + " sidecar";
+  if (!parseRequiredSourceBatchUnsignedMember(
+          *sidecarText, "schemaVersion", sidecarContext, manifestPath,
+          diagnostics, sidecarSchemaVersion) ||
+      !parseRequiredSourceBatchStringMember(*sidecarText, "kind",
+                                            sidecarContext, manifestPath,
+                                            diagnostics, sidecarKind) ||
+      !parseRequiredSourceBatchStringMember(*sidecarText, "target",
+                                            sidecarContext, manifestPath,
+                                            diagnostics, sidecarTarget) ||
+      !parseRequiredSourceBatchStringMember(*sidecarText, "module",
+                                            sidecarContext, manifestPath,
+                                            diagnostics, sidecarModule) ||
+      !parseRequiredSourceBatchStringMember(*sidecarText, "mappingGranularity",
+                                            sidecarContext, manifestPath,
+                                            diagnostics, sidecarGranularity) ||
+      !parseRequiredSourceBatchStringMember(*sidecarText, "sourceBackend",
+                                            sidecarContext, manifestPath,
+                                            diagnostics, sidecarSourceBackend) ||
+      !parseRequiredSourceBatchStringMember(*sidecarText, "targetBackend",
+                                            sidecarContext, manifestPath,
+                                            diagnostics, sidecarTargetBackend) ||
+      !parseRequiredSourceBatchUnsignedMember(*sidecarText, "mappingCount",
+                                              sidecarContext, manifestPath,
+                                              diagnostics,
+                                              sidecarMappingCount)) {
+    return false;
+  }
+  if (sidecarSchemaVersion != 1 || sidecarKind != "crossgl.backendSourceMap" ||
+      sidecarTarget != target || sidecarModule != module ||
+      sidecarGranularity != mappingGranularity ||
+      sidecarSourceBackend != sourceBackend ||
+      sidecarTargetBackend != targetBackend ||
+      sidecarMappingCount != mappingCount) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + " metadata must match referenced sidecar identity");
+    return false;
+  }
+  const std::optional<std::string_view> backendText =
+      crossgl::findObjectMemberValue(*sidecarText, "backend");
+  if (!backendText || !crossgl::isJsonObjectDocument(*backendText)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + " sidecar.backend must be a JSON object");
+    return false;
+  }
+  std::string sidecarBackendLanguage;
+  std::uintmax_t sidecarBackendLineCount = 0;
+  if (!parseRequiredSourceBatchStringMember(
+          *backendText, "language", metadataContext + " sidecar.backend",
+          manifestPath, diagnostics, sidecarBackendLanguage) ||
+      !parseRequiredSourceBatchUnsignedMember(
+          *backendText, "lineCount", metadataContext + " sidecar.backend",
+          manifestPath, diagnostics, sidecarBackendLineCount)) {
+    return false;
+  }
+  if (sidecarBackendLanguage != backendLanguage ||
+      sidecarBackendLineCount != backendLineCount) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + " backend metadata must match referenced sidecar");
+    return false;
+  }
+  const std::optional<std::string_view> mappingsText =
+      crossgl::findObjectMemberValue(*sidecarText, "mappings");
+  std::size_t sidecarMappingsLength = 0;
+  if (!mappingsText ||
+      !forEachSourceBatchJsonArrayElement(
+          *mappingsText,
+          [&](std::size_t, std::string_view) {
+            ++sidecarMappingsLength;
+            return true;
+          })) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + " sidecar.mappings must be a JSON array");
+    return false;
+  }
+  if (static_cast<std::uintmax_t>(sidecarMappingsLength) != mappingCount) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext + ".mappingCount must match sidecar mappings");
+    return false;
+  }
+
+  ++stats.backendSourceMapCount;
+  stats.backendSourceMapMappingCount += mappingCount;
+  stats.backendSourceMapPaths.push_back(path);
+  incrementCrossTLProjectReportCountMap(stats.backendSourceMapsByGranularity,
+                                        mappingGranularity);
+  incrementCrossTLProjectReportCountMap(stats.backendSourceMapsByTarget,
+                                        target);
+  incrementCrossTLProjectReportCountMap(stats.backendSourceMapsBySourceBackend,
+                                        sourceBackend);
+  incrementCrossTLProjectReportCountMap(stats.backendSourceMapsByTargetBackend,
+                                        targetBackend);
+  if (artifactVariant) {
+    incrementCrossTLProjectReportCountMap(stats.backendSourceMapsByVariant,
+                                          *artifactVariant);
+  }
+  return true;
 }
 
 bool isCrossTLProjectReportTargetSegmentChar(char c) {
@@ -3426,6 +3870,14 @@ bool parseCrossTLProjectReportArtifact(
         context + ".sourceRemap must be omitted for failed artifacts");
     return false;
   }
+  const std::optional<std::string_view> backendSourceMap =
+      crossgl::findObjectMemberValue(artifactText, "backendSourceMap");
+  if (status && *status == "failed" && backendSourceMap) {
+    sourceBatchManifestError(
+        diagnostics, manifest.path,
+        context + ".backendSourceMap must be omitted for failed artifacts");
+    return false;
+  }
   std::optional<std::uintmax_t> mappingCount;
   std::optional<std::string> sourceRemapGranularity;
   std::optional<std::string> sourceRemapPath;
@@ -3660,6 +4112,14 @@ bool parseCrossTLProjectReportArtifact(
       incrementCrossTLProjectReportCountMap(stats.sourceRemapsByVariant,
                                             *variant);
     }
+  }
+
+  if (backendSourceMap &&
+      !parseCrossTLProjectReportBackendSourceMap(
+          *backendSourceMap, context, projectRoot, projectOutputDir, path,
+          target, variant, declaredTargets, manifest.path, diagnostics,
+          stats)) {
+    return false;
   }
 
   if (!status || *status != "translated") {

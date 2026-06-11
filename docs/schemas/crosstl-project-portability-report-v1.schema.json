@@ -238,6 +238,27 @@
         "sourceRemapsByVariant": {
           "$ref": "#/$defs/countMap"
         },
+        "backendSourceMapCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "backendSourceMapMappingCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "backendSourceMapsByGranularity": {
+          "$ref": "#/$defs/countMap"
+        },
+        "backendSourceMapsByTarget": {
+          "$ref": "#/$defs/countMap"
+        },
+        "backendSourceMapsBySourceBackend": {
+          "$ref": "#/$defs/countMap"
+        },
+        "backendSourceMapsByTargetBackend": {
+          "$ref": "#/$defs/countMap"
+        },
+        "backendSourceMapsByVariant": {
+          "$ref": "#/$defs/countMap"
+        },
         "runtimeReferenceCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         },
@@ -423,6 +444,9 @@
         },
         "sourceRemap": {
           "$ref": "#/$defs/sourceRemapMetadata"
+        },
+        "backendSourceMap": {
+          "$ref": "#/$defs/backendSourceMapMetadata"
         }
       }
     },
@@ -698,6 +722,79 @@
         },
         "mappingGranularity": {
           "$ref": "#/$defs/mappingGranularity"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "hash": {
+          "$ref": "#/$defs/sha256Hash"
+        }
+      }
+    },
+    "backendSourceMapMetadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "path",
+        "target",
+        "module",
+        "generatedFile",
+        "mappingGranularity",
+        "sourceBackend",
+        "targetBackend",
+        "backendLanguage",
+        "backendLineCount",
+        "mappingCount",
+        "sizeBytes",
+        "hash"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "const": 1
+        },
+        "kind": {
+          "type": "string",
+          "const": "crossgl.backendSourceMap"
+        },
+        "path": {
+          "$ref": "#/$defs/stableRelativePath",
+          "description": "Relative path to the compiler backend-source-map sidecar for this backend artifact."
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "module": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "generatedFile": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "mappingGranularity": {
+          "type": "string",
+          "const": "statement"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Backend source-map sourceBackend value, typically crossgl-hir for compiler lowering provenance."
+        },
+        "targetBackend": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "backendLanguage": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "backendLineCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "variant": {
+          "$ref": "#/$defs/nonEmptyString",
+          "description": "Optional artifact variant copied from the artifact so compiler-side checks can bind backend source-map sidecars to a named build variant."
         },
         "mappingCount": {
           "$ref": "#/$defs/nonNegativeInteger"

@@ -299,6 +299,12 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_RUNTIME_REFERENCE_PATH_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-runtime-reference-path-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-host-execution-plan.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_HASH_MISMATCH
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-hash-mismatch.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_GENERATED_MISMATCH
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-generated-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-non-cgl-source-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DUPLICATE_SOURCE_REMAP_PATH
@@ -399,6 +405,68 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE_SOURCE_REMAP
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/out/cgl/simple.source-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_FILE_SOURCE_REMAP
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/out/cgl/simple-file.source-remap.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT
+  "${CMAKE_CURRENT_BINARY_DIR}")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/cgl/simple.cgl")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/cgl/simple.source-remap.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx/simple.backend-source-map.json")
+file(MAKE_DIRECTORY
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/cgl"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx")
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/out/cgl/simple.cgl"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE}"
+  COPYONLY)
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/out/cgl/simple.source-remap.json"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP}"
+  COPYONLY)
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR}"
+"{
+  \"schemaVersion\": 1,
+  \"kind\": \"crossgl.backendSourceMap\",
+  \"target\": \"directx\",
+  \"module\": \"SimpleShader\",
+  \"mappingGranularity\": \"statement\",
+  \"sourceBackend\": \"crossgl-hir\",
+  \"targetBackend\": \"hlsl\",
+  \"backend\": {
+    \"language\": \"hlsl\",
+    \"lineCount\": 1
+  },
+  \"sourceRemap\": null,
+  \"mappingCount\": 1,
+  \"mappings\": [
+    {
+      \"index\": 0,
+      \"stage\": \"compute\",
+      \"entryPoint\": \"main\",
+      \"function\": \"main\",
+      \"statementKind\": \"assign\",
+      \"name\": \"value\",
+      \"backend\": {
+        \"startLine\": 1,
+        \"endLine\": 1
+      },
+      \"location\": {
+        \"file\": \"out/cgl/simple.cgl\",
+        \"line\": 1,
+        \"column\": 1,
+        \"offset\": 0,
+        \"length\": 31,
+        \"endLine\": 1,
+        \"endColumn\": 32,
+        \"endOffset\": 31
+      }
+    }
+  ]
+}
+")
+file(SIZE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIZE_BYTES)
+file(SHA256 "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SHA256)
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_CGL_LINE_SOURCE_MAP [=[
 {
         "schemaVersion": 1,
@@ -1112,6 +1180,174 @@ string(REPLACE "\"root\": \".\""
   "\"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\""
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_JSON}")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_JSON}")
+string(REPLACE [=["targets": [
+      "cgl"
+    ]=] [=["targets": [
+      "cgl",
+      "directx"
+    ]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["targetCount": 1]=] [=["targetCount": 2]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["artifactCount": 1]=] [=["artifactCount": 2]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["artifactsByTarget": {
+      "cgl": 1
+    }]=] [=["artifactsByTarget": {
+      "cgl": 1,
+      "directx": 1
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["translatedCount": 1]=] [=["translatedCount": 2]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["artifactProvenanceByPipeline": {
+      "single-file-translate": 1
+    }]=] [=["artifactProvenanceByPipeline": {
+      "single-file-translate": 2
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["artifactProvenanceByIntermediate": {
+      "none": 1
+    }]=] [=["artifactProvenanceByIntermediate": {
+      "none": 2
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["artifactProvenanceIntermediateBySourceBackend": {
+      "cgl": {
+        "none": 1
+      }
+    }]=] [=["artifactProvenanceIntermediateBySourceBackend": {
+      "cgl": {
+        "none": 2
+      }
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["artifactProvenanceIntermediateByTarget": {
+      "cgl": {
+        "none": 1
+      }
+    }]=] [=["artifactProvenanceIntermediateByTarget": {
+      "cgl": {
+        "none": 1
+      },
+      "directx": {
+        "none": 1
+      }
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["artifactProvenanceIntermediateByVariant": {}]=]
+  [=["artifactProvenanceIntermediateByVariant": {
+      "debug": {
+        "none": 1
+      }
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=["sourceRemapsByVariant": {}]=]
+  [=["sourceRemapsByVariant": {},
+    "backendSourceMapCount": 1,
+    "backendSourceMapMappingCount": 1,
+    "backendSourceMapsByGranularity": {
+      "statement": 1
+    },
+    "backendSourceMapsByTarget": {
+      "directx": 1
+    },
+    "backendSourceMapsBySourceBackend": {
+      "crossgl-hir": 1
+    },
+    "backendSourceMapsByTargetBackend": {
+      "hlsl": 1
+    },
+    "backendSourceMapsByVariant": {
+      "debug": 1
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE [=[    }
+  ],
+  "diagnosticCounts"]=] [=[    },
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "variant": "debug",
+      "target": "directx",
+      "path": "out/directx/simple.hlsl",
+      "status": "translated",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "sourceSizeBytes": 801,
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      },
+      "generatedHash": {
+        "algorithm": "sha256",
+        "value": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "generatedSizeBytes": 64,
+      "backendSourceMap": {
+        "schemaVersion": 1,
+        "kind": "crossgl.backendSourceMap",
+        "path": "out/directx/simple.backend-source-map.json",
+        "target": "directx",
+        "module": "SimpleShader",
+        "generatedFile": "out/directx/simple.hlsl",
+        "mappingGranularity": "statement",
+        "sourceBackend": "crossgl-hir",
+        "targetBackend": "hlsl",
+        "backendLanguage": "hlsl",
+        "backendLineCount": 1,
+        "variant": "debug",
+        "mappingCount": 1,
+        "sizeBytes": ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIZE_BYTES},
+        "hash": {
+          "algorithm": "sha256",
+          "value": "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SHA256}"
+        }
+      }
+    }
+  ],
+  "diagnosticCounts"]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE
+  "\${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIZE_BYTES}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIZE_BYTES}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE
+  "\${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SHA256}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SHA256}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+string(REPLACE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SHA256}"
+  "0000000000000000000000000000000000000000000000000000000000000000"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_HASH_MISMATCH_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_HASH_MISMATCH}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_HASH_MISMATCH_JSON}")
+string(REPLACE [=["generatedFile": "out/directx/simple.hlsl"]=]
+  [=["generatedFile": "out/directx/other.hlsl"]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_GENERATED_MISMATCH_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_GENERATED_MISMATCH}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_GENERATED_MISMATCH_JSON}")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON}")
 string(REPLACE [=["runtimeReferenceCount": 1]=]
@@ -4321,6 +4557,40 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_crossgl_targe
     "\"diagnostics\": []")
 
 crossgl_add_required_python_test(
+  NAME cglc_crosstl_project_report_backend_source_map_sidecar_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json"
+    --instance
+    "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR}")
+
+crossgl_add_required_python_test(
+  NAME cglc_crosstl_project_report_backend_source_map_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/crosstl-project-portability-report-v1.schema.json"
+    --instance
+    "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP}")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_source_map_success_contract
+  EXPECTED_RESULT 0
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"kind\": \"crossgl.sourceBatchResult\""
+    "\"entryCount\": 1"
+    "\"id\": \"simple.cgl\""
+    "\"logicalInput\": \"out/cgl/simple.cgl\""
+    "\"sourceRemap\": \"${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP}\""
+    "\"target\": \"auto\""
+    "\"success\": true"
+    "\"diagnostics\": []")
+
+crossgl_add_required_python_test(
   NAME cglc_crosstl_project_report_host_execution_plan_json_schema
   COMMAND
     "${CROSSGL_PYTHON3}"
@@ -4716,6 +4986,22 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_runtime_refer
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
     "migration.runtimeReferencesByPath must match runtimeReference counts by path")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_source_map_hash_mismatch_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_HASH_MISMATCH}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "backendSourceMap.hash.value does not match referenced sidecar")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_source_map_generated_mismatch_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_GENERATED_MISMATCH}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "backendSourceMap.generatedFile must match artifact path")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_non_cgl_source_remap_fails
   EXPECTED_RESULT 1
