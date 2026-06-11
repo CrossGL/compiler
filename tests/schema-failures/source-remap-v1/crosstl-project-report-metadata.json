@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "path": "out/cgl/simple.source-remap.json",
+  "target": "cgl",
+  "sourceBackend": "cgl",
+  "variant": "debug",
+  "generatedFile": "out/cgl/simple.cgl",
+  "mappingGranularity": "line",
+  "mappingCount": 2,
+  "sizeBytes": 982,
+  "hash": {
+    "algorithm": "sha256",
+    "value": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92"
+  }
+}
