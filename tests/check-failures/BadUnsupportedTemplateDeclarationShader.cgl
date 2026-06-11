@@ -1,0 +1,11 @@
+shader BadUnsupportedTemplateDeclaration {
+  template <typename T>
+  struct ProjectBox {
+    T value;
+  }
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

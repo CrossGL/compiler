@@ -136,6 +136,34 @@ bool isUnsupportedNominalName(std::string_view text) {
          text == "impl";
 }
 
+bool isUnsupportedProjectPreprocessingName(std::string_view text) {
+  return text == "project" || text == "preprocess" ||
+         text == "project_preprocess" || text == "project_preprocessing";
+}
+
+bool isLikelyNativeMacroName(std::string_view text) {
+  bool hasAlpha = false;
+  bool hasLower = false;
+  bool hasUpper = false;
+  bool hasUnderscore = false;
+  for (char ch : text) {
+    const unsigned char value = static_cast<unsigned char>(ch);
+    if (std::isalpha(value)) {
+      hasAlpha = true;
+      hasLower = hasLower || std::islower(value);
+      hasUpper = hasUpper || std::isupper(value);
+    } else if (ch == '_') {
+      hasUnderscore = true;
+    }
+  }
+  return hasAlpha && hasUpper && !hasLower && hasUnderscore;
+}
+
+bool isUnsupportedMacroInvocationStart(const Token &token, const Token &next) {
+  return token.kind == TokenKind::Identifier && next.kind == TokenKind::LParen &&
+         isLikelyNativeMacroName(token.text);
+}
+
 bool isIdentifierText(const Token &token, std::string_view text) {
   return token.kind == TokenKind::Identifier && token.text == text;
 }
@@ -218,6 +246,13 @@ std::optional<std::string> unsupportedShaderItemForm(const Token &token) {
   if (isUnsupportedImportName(text)) {
     return "source import declarations";
   }
+  if (text == "template") {
+    return "template declarations/specializations";
+  }
+  if (isUnsupportedProjectPreprocessingName(text)) {
+    return "project preprocessing declarations "
+           "(compatibility id project.preprocessing)";
+  }
   if (isUnsupportedNominalName(text)) {
     return text + " declarations";
   }
@@ -226,8 +261,16 @@ std::optional<std::string> unsupportedShaderItemForm(const Token &token) {
 
 std::optional<std::string> unsupportedStructItemForm(const Token &token) {
   if (token.kind != TokenKind::Identifier ||
-      !isUnsupportedNominalName(token.text)) {
+      (!isUnsupportedNominalName(token.text) && token.text != "template" &&
+       !isUnsupportedProjectPreprocessingName(token.text))) {
     return std::nullopt;
+  }
+  if (token.text == "template") {
+    return "template declarations/specializations";
+  }
+  if (isUnsupportedProjectPreprocessingName(token.text)) {
+    return "project preprocessing declarations "
+           "(compatibility id project.preprocessing)";
   }
   return token.text + " declarations";
 }
@@ -1549,6 +1592,30 @@ bool Parser::diagnoseAndSkipUnsupportedPreambleItem() {
     skipDeclarationOrBlock();
     return true;
   }
+  if (current().kind == TokenKind::Identifier &&
+      current().text == "template") {
+    diagnoseUnsupportedNativeV0("template declarations/specializations",
+                                current().location);
+    skipDeclarationOrBlock();
+    return true;
+  }
+  if (current().kind == TokenKind::Identifier &&
+      isUnsupportedProjectPreprocessingName(current().text)) {
+    diagnoseUnsupportedNativeV0(
+        "project preprocessing declarations "
+        "(compatibility id project.preprocessing)",
+        current().location);
+    skipDeclarationOrBlock();
+    return true;
+  }
+  if (isUnsupportedMacroInvocationStart(current(), peek())) {
+    diagnoseUnsupportedNativeV0(
+        "native macro invocation/preprocessing forms "
+        "(compatibility id macro.native)",
+        current().location);
+    skipDeclarationOrBlock();
+    return true;
+  }
   return false;
 }
 
@@ -1561,6 +1628,14 @@ bool Parser::diagnoseAndSkipUnsupportedShaderItem() {
   if (isColonStyleVarDeclarationStart(current(), peek(), peek(2))) {
     diagnoseUnsupportedNativeV0(
         "colon-style variable declarations (compatibility id decl.colon-var)",
+        current().location);
+    skipDeclarationOrBlock();
+    return true;
+  }
+  if (isUnsupportedMacroInvocationStart(current(), peek())) {
+    diagnoseUnsupportedNativeV0(
+        "native macro invocation/preprocessing forms "
+        "(compatibility id macro.native)",
         current().location);
     skipDeclarationOrBlock();
     return true;
@@ -1582,6 +1657,14 @@ bool Parser::diagnoseAndSkipUnsupportedStageItem() {
   if (isColonStyleVarDeclarationStart(current(), peek(), peek(2))) {
     diagnoseUnsupportedNativeV0(
         "colon-style variable declarations (compatibility id decl.colon-var)",
+        current().location);
+    skipDeclarationOrBlock();
+    return true;
+  }
+  if (isUnsupportedMacroInvocationStart(current(), peek())) {
+    diagnoseUnsupportedNativeV0(
+        "native macro invocation/preprocessing forms "
+        "(compatibility id macro.native)",
         current().location);
     skipDeclarationOrBlock();
     return true;

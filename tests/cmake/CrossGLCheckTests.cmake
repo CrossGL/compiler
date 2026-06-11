@@ -1977,6 +1977,30 @@ crossgl_add_native_v0_unsupported_failure(
   21
   "message=line-splicing/preprocessor continuation syntax|message=native v0|message=decl.line-splicing-preprocessor")
 crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_native_macro_invocation_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedNativeMacroInvocationShader.cgl
+  2
+  3
+  "message=native macro invocation/preprocessing forms|message=native v0|message=macro.native")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_template_declaration_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedTemplateDeclarationShader.cgl
+  2
+  3
+  "message=template declarations/specializations|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_template_specialization_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedTemplateSpecializationShader.cgl
+  2
+  3
+  "message=template declarations/specializations|message=native v0")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_project_preprocessing_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedProjectPreprocessingShader.cgl
+  1
+  1
+  "message=project preprocessing declarations|message=native v0|message=project.preprocessing")
+crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_ray_any_hit_stage_failure
   ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_RAY_ANY_HIT_STAGE_SHADER}
   2

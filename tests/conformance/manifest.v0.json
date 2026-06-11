@@ -996,6 +996,20 @@
       "notes": "Backslash-newline physical line splicing remains translator/importer tolerance, not native-v0 shared .cgl syntax."
     },
     {
+      "id": "native-v0-unsupported.macro-native-invocation",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedNativeMacroInvocationShader.cgl",
+      "fixture_sha256": "52e0de25a5dc666bec82bb7c6ac19724688cba04c633534a7694f24416a78f6d",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_native_macro_invocation_failure"
+      ],
+      "notes": "Native macro invocation tables require CrossTL project preprocessing and are outside the native v0 accepted source surface."
+    },
+    {
       "id": "native-v0-unsupported.malformed-for-header",
       "feature_group": "known-native-v0-unsupported",
       "language_category": "native-v0",
@@ -1036,6 +1050,20 @@
         "cglc_check_unsupported_native_v0_preprocessor_failure"
       ],
       "notes": "Preprocessor directives are outside the native v0 accepted surface."
+    },
+    {
+      "id": "native-v0-unsupported.project-preprocessing",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedProjectPreprocessingShader.cgl",
+      "fixture_sha256": "190ab78b58a010b8dc103c6cd8157379f29db07d18b95b43459b464ac47cbd5c",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_project_preprocessing_failure"
+      ],
+      "notes": "Project preprocessing declarations belong to CrossTL project translation, not native v0 shared .cgl source."
     },
     {
       "id": "native-v0-unsupported.ray-any-hit-stage",
@@ -1176,6 +1204,34 @@
         "cglc_check_unsupported_native_v0_switch_failure"
       ],
       "notes": "Fallthrough switch/case/default forms are outside the restricted native v0 switch subset."
+    },
+    {
+      "id": "native-v0-unsupported.template-declaration",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedTemplateDeclarationShader.cgl",
+      "fixture_sha256": "8b5b1b73f5e20ed229d1ffde47abaef892eb975f641cb5ea41859203bfea80d8",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_template_declaration_failure"
+      ],
+      "notes": "Template declarations are a CrossTL/project-materialization surface and remain outside native v0 shared .cgl source."
+    },
+    {
+      "id": "native-v0-unsupported.template-specialization",
+      "feature_group": "known-native-v0-unsupported",
+      "language_category": "native-v0",
+      "status": "unsupported",
+      "command_profile": "unsupported-native-v0-check",
+      "fixture": "tests/check-failures/BadUnsupportedTemplateSpecializationShader.cgl",
+      "fixture_sha256": "ac0a906ee0e5ce1f5cb730ca25278823deba9993ec1986ee22a10fcb57ace842",
+      "expected_diagnostic": "spec.unsupported-for-native-v0",
+      "evidence_tests": [
+        "cglc_check_unsupported_native_v0_template_specialization_failure"
+      ],
+      "notes": "Template specializations must be lowered by CrossTL project translation before native v0 compiler ingestion."
     },
     {
       "id": "native-v0-unsupported.tessellation-stage",
