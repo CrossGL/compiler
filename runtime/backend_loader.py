@@ -286,9 +286,11 @@ def plan_source_free_native_backend_loader(
         runtime_plan,
         target,
     )
-    entry_points = _reflection_records(runtime_plan, "entryPoints")
-    resources = _reflection_records(runtime_plan, "resources")
-    target_resource_bindings = _target_resource_bindings(runtime_plan, target)
+    entry_points = runtime_plan.entry_point_records()
+    resources = runtime_plan.resource_records()
+    target_resource_bindings = runtime_plan.target_resource_binding_records(
+        target=target
+    )
     target_resource_binding_metadata = (
         runtime_plan.target_resource_binding_metadata_records(target=target)
     )
@@ -1151,27 +1153,6 @@ def _available_artifact(
     return None
 
 
-def _reflection_records(
-    runtime_plan: RuntimeLoaderPlan,
-    key: str,
-) -> tuple[dict[str, Any], ...]:
-    records = runtime_plan.compatibility_report.reflection.get(key, [])
-    if not isinstance(records, list):
-        return ()
-    return tuple(record for record in records if isinstance(record, dict))
-
-
-def _target_resource_bindings(
-    runtime_plan: RuntimeLoaderPlan,
-    target: str,
-) -> tuple[dict[str, Any], ...]:
-    return tuple(
-        record
-        for record in _reflection_records(runtime_plan, "targetResourceBindings")
-        if record.get("target") == target
-    )
-
-
 def _target_resource_binding_drift_diagnostics(
     *,
     target: str,
@@ -1446,7 +1427,9 @@ def _graphics_abi_reflection_parity_summary(
         runtime_plan.compatibility_report.graphics_descriptor_bindings
     )
     if target_resource_bindings is None:
-        target_resource_bindings = _target_resource_bindings(runtime_plan, target)
+        target_resource_bindings = runtime_plan.target_resource_binding_records(
+            target=target
+        )
 
     reflection_bindings = tuple(
         _graphics_abi_boundary_binding(record, target=target)

@@ -740,7 +740,6 @@ class RuntimeLoaderPlan:
 
     @property
     def reflection_resource_summary(self) -> dict[str, Any]:
-        target_bindings = self._reflection_records("targetResourceBindings")
         target_features = self._reflection_records("targetFeatures")
         workgroup_sizes = self.workgroup_sizes
         function_constants = self.function_constants
@@ -748,11 +747,8 @@ class RuntimeLoaderPlan:
         if selected_target is None:
             selected_target = self.loader_target
 
-        selected_bindings = tuple(
-            record
-            for record in target_bindings
-            if record.get("target") == selected_target
-        )
+        selected_bindings = self.target_resource_binding_records(target=selected_target)
+        target_bindings = self.reflection_records("targetResourceBindings")
         selected_features = tuple(
             record
             for record in target_features
@@ -762,8 +758,8 @@ class RuntimeLoaderPlan:
         return {
             "schemaVersion": 1,
             "selectedTarget": self.selected_target,
-            "entryPointCount": len(self._reflection_records("entryPoints")),
-            "resourceCount": len(self._reflection_records("resources")),
+            "entryPointCount": len(self.entry_point_records()),
+            "resourceCount": len(self.resource_records()),
             "targetResourceBindingCount": len(selected_bindings),
             "targetFeatureCount": len(selected_features),
             "workgroupSizeCount": len(workgroup_sizes),
@@ -782,7 +778,7 @@ class RuntimeLoaderPlan:
                     record,
                     ("stage", "sourceName", "backendName"),
                 )
-                for record in self._reflection_records("entryPoints")
+                for record in self.entry_point_records()
             ],
             "resources": [
                 _summarize_reflection_record(
@@ -800,7 +796,7 @@ class RuntimeLoaderPlan:
                         "binding",
                     ),
                 )
-                for record in self._reflection_records("resources")
+                for record in self.resource_records()
             ],
             "targetResourceBindings": [
                 _summarize_reflection_record(
@@ -839,15 +835,11 @@ class RuntimeLoaderPlan:
 
     @property
     def target_resource_binding_metadata_summary(self) -> dict[str, Any]:
-        target_bindings = self._reflection_records("targetResourceBindings")
         selected_target = self.selected_target
         if selected_target is None:
             selected_target = self.loader_target
-        selected_bindings = tuple(
-            record
-            for record in target_bindings
-            if record.get("target") == selected_target
-        )
+        selected_bindings = self.target_resource_binding_records(target=selected_target)
+        target_bindings = self.reflection_records("targetResourceBindings")
         return {
             "schemaVersion": 1,
             "selectedTarget": self.selected_target,
@@ -928,6 +920,31 @@ class RuntimeLoaderPlan:
                 return artifact
         return None
 
+    def reflection_records(self, key: str) -> tuple[dict[str, Any], ...]:
+        """Return raw package reflection records by metadata key."""
+        return self._reflection_records(key)
+
+    def entry_point_records(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected entry point records visible to runtime loaders."""
+        return self.reflection_records("entryPoints")
+
+    def resource_records(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected resource records visible to runtime loaders."""
+        return self.reflection_records("resources")
+
+    def target_resource_binding_records(
+        self,
+        *,
+        target: str | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        """Return reflected target binding records for a selected target."""
+        expected_target = self.loader_target if target is None else target
+        return tuple(
+            record
+            for record in self.reflection_records("targetResourceBindings")
+            if record.get("target") == expected_target
+        )
+
     def require_artifact(self, name: str) -> LoaderArtifactPlan:
         artifact = self.artifact(name)
         if artifact is None:
@@ -936,7 +953,7 @@ class RuntimeLoaderPlan:
 
     def entry_point(self, stage: str, name: str) -> dict[str, Any] | None:
         """Find a reflected entry point by stage and source/backend name."""
-        for entry_point in self._reflection_records("entryPoints"):
+        for entry_point in self.entry_point_records():
             if entry_point.get("stage") != stage:
                 continue
             if name in (entry_point.get("sourceName"), entry_point.get("backendName")):
@@ -953,7 +970,7 @@ class RuntimeLoaderPlan:
 
     def resource_binding(self, stage: str, name: str) -> dict[str, Any] | None:
         """Find a reflected resource binding by stage and resource name."""
-        for resource in self._reflection_records("resources"):
+        for resource in self.resource_records():
             if resource.get("stage") == stage and resource.get("name") == name:
                 return resource
         return None
@@ -976,9 +993,7 @@ class RuntimeLoaderPlan:
     ) -> dict[str, Any] | None:
         """Find a target-specific reflected resource binding by stage and name."""
         expected_target = self.loader_target if target is None else target
-        for resource in self._reflection_records("targetResourceBindings"):
-            if resource.get("target") != expected_target:
-                continue
+        for resource in self.target_resource_binding_records(target=expected_target):
             if resource.get("stage") != stage or resource.get("name") != name:
                 continue
             if entry_point is not None and resource.get("entryPoint") != entry_point:

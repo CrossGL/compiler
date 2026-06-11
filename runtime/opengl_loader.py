@@ -113,11 +113,10 @@ def plan_opengl_native_loader(
         runtime_plan=runtime_plan,
         native_artifact=None,
         native_artifact_descriptor=None,
-        entry_points=_reflection_records(runtime_plan, "entryPoints"),
-        resources=_reflection_records(runtime_plan, "resources"),
-        target_resource_bindings=_target_resource_bindings(
-            runtime_plan,
-            OPENGL_LOADER_TARGET,
+        entry_points=runtime_plan.entry_point_records(),
+        resources=runtime_plan.resource_records(),
+        target_resource_bindings=runtime_plan.target_resource_binding_records(
+            target=OPENGL_LOADER_TARGET
         ),
         target_resource_binding_metadata=(
             runtime_plan.target_resource_binding_metadata_records(
@@ -367,30 +366,30 @@ def _opengl_source_package_admission_detail(
             plan.compatibility_report.target_legalization_tool_requirements
         ),
         "reflection": {
-            "entryPointCount": len(_reflection_records(plan, "entryPoints")),
-            "resourceCount": len(_reflection_records(plan, "resources")),
+            "entryPointCount": len(plan.entry_point_records()),
+            "resourceCount": len(plan.resource_records()),
             "targetResourceBindingCount": len(
-                _target_resource_bindings(plan, OPENGL_LOADER_TARGET)
+                plan.target_resource_binding_records(target=OPENGL_LOADER_TARGET)
             ),
             "entryPoints": [
                 _summarize_opengl_entry_point(record)
-                for record in _reflection_records(plan, "entryPoints")
+                for record in plan.entry_point_records()
             ],
             "resources": [
-                _summarize_opengl_resource(record)
-                for record in _reflection_records(plan, "resources")
+                _summarize_opengl_resource(record) for record in plan.resource_records()
             ],
             "targetResourceBindings": [
                 _summarize_opengl_resource_binding(record)
-                for record in _target_resource_bindings(plan, OPENGL_LOADER_TARGET)
+                for record in plan.target_resource_binding_records(
+                    target=OPENGL_LOADER_TARGET
+                )
             ],
         },
         "graphicsAbiReflectionParity": _graphics_abi_reflection_parity_summary(
             plan,
             target=OPENGL_LOADER_TARGET,
-            target_resource_bindings=_target_resource_bindings(
-                plan,
-                OPENGL_LOADER_TARGET,
+            target_resource_bindings=plan.target_resource_binding_records(
+                target=OPENGL_LOADER_TARGET
             ),
         ),
         "blockedByDiagnostics": [
@@ -639,27 +638,6 @@ def _first_blocking_diagnostic(
             if diagnostic.severity in {"error", "skip"}
         ),
         None,
-    )
-
-
-def _reflection_records(
-    runtime_plan: RuntimeLoaderPlan,
-    key: str,
-) -> tuple[dict[str, Any], ...]:
-    records = runtime_plan.compatibility_report.reflection.get(key, [])
-    if not isinstance(records, list):
-        return ()
-    return tuple(record for record in records if isinstance(record, dict))
-
-
-def _target_resource_bindings(
-    runtime_plan: RuntimeLoaderPlan,
-    target: str,
-) -> tuple[dict[str, Any], ...]:
-    return tuple(
-        record
-        for record in _reflection_records(runtime_plan, "targetResourceBindings")
-        if record.get("target") == target
     )
 
 
