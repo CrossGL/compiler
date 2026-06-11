@@ -6647,6 +6647,14 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_file_source_remap_si
   STDOUT_CONTAINS
     "check passed:")
 
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_pr747_source_remap_sidecar
+  EXPECTED_RESULT 0
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input crosstl-out/cgl/shaders.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-crosstl-pr747-demo.json
+  STDOUT_CONTAINS
+    "check passed:")
+
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_resolves
   EXPECTED_RESULT 0
   ARGS check ${CROSSGL_SIMPLE_SHADER}
