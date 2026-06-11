@@ -11861,6 +11861,53 @@ bool vulkanGraphicsTextureCompareSupported(const HIRModule &module,
            vulkanGraphicsExpressionSupported(module, stage, *lod)));
 }
 
+bool vulkanGraphicsTextureQuerySupported(const HIRModule &module,
+                                         const HIRStage &stage,
+                                         const HIRExpression &expression) {
+  if (expression.kind != HIRExpressionKind::Call ||
+      !isVulkanTextureQueryCallName(expression.value) ||
+      expression.children.empty()) {
+    return false;
+  }
+
+  const bool textureSize = expression.value == "textureSize";
+  if ((textureSize && expression.children.size() > 2) ||
+      (!textureSize && expression.children.size() != 1)) {
+    return false;
+  }
+
+  const HIRExpression &texture = expression.children[0];
+  const HIRType textureElementType = arrayElementType(texture.type);
+  if (!vulkanGraphicsDescriptorOperandSupported(module, stage, texture,
+                                                textureElementType.name)) {
+    return false;
+  }
+
+  const std::size_t textureSizeComponents =
+      vulkanTextureSizeResultComponentCount(textureElementType);
+  if (textureSizeComponents == 0) {
+    return false;
+  }
+
+  if (textureSize) {
+    if (expression.children.size() == 2) {
+      const HIRExpression &lod = expression.children[1];
+      if (lod.type.arraySize.has_value() ||
+          (lod.type.name != "int" && lod.type.name != "uint") ||
+          !vulkanGraphicsExpressionSupported(module, stage, lod)) {
+        return false;
+      }
+    }
+
+    const HIRType expectedType{
+        textureSizeComponents == 2 ? "ivec2" : "ivec3", std::nullopt};
+    return vulkanGraphicsTypeEquals(expression.type, expectedType);
+  }
+
+  return vulkanGraphicsTypeEquals(expression.type,
+                                  HIRType{"int", std::nullopt});
+}
+
 std::string
 vulkanGraphicsUnsupportedStatementMessage(const HIRStatement &statement) {
   switch (statement.kind) {
@@ -12310,6 +12357,9 @@ bool vulkanGraphicsExpressionSupported(const HIRModule &module,
   case HIRExpressionKind::TextureCompareLodManual:
     return false;
   case HIRExpressionKind::Call:
+    if (allowStageHelpers && isVulkanTextureQueryCallName(expression.value)) {
+      return vulkanGraphicsTextureQuerySupported(module, stage, expression);
+    }
     if (prototypeIntrinsicLoweringForCall(expression).has_value()) {
       for (const HIRExpression &child : expression.children) {
         if (!vulkanGraphicsExpressionSupported(module, stage, child,
@@ -12833,6 +12883,9 @@ public:
     out << "; Bound: " << (nextId_ + 1) << "\n";
     out << "; Schema: 0\n";
     out << "OpCapability Shader\n";
+    if (usesImageQuery_) {
+      out << "OpCapability ImageQuery\n";
+    }
     if (usesRuntimeDescriptorArray_) {
       out << "OpCapability RuntimeDescriptorArrayEXT\n";
     }
@@ -14714,6 +14767,9 @@ private:
                          "unsupported expression in Vulkan graphics prototype");
       return EmitValue{expression.type, intConstant(0)};
     case HIRExpressionKind::Call:
+      if (isVulkanTextureQueryCallName(expression.value)) {
+        return emitTextureQuery(context, expression);
+      }
       if (prototypeIntrinsicLoweringForCall(expression).has_value()) {
         return emitIntrinsicCall(context, expression);
       }
@@ -15466,6 +15522,49 @@ private:
     return EmitValue{expression.type, id};
   }
 
+  EmitValue emitTextureQuery(FunctionContext &context,
+                             const HIRExpression &expression) {
+    const bool textureSize = expression.value == "textureSize";
+    if (expression.children.empty() ||
+        (textureSize && expression.children.size() > 2) ||
+        (!textureSize && expression.children.size() != 1)) {
+      diagnostics_.error("vulkan.prototype-unsupported-graphics-body",
+                         textureSize
+                             ? "Vulkan graphics prototype textureSize lowering "
+                               "requires texture and optional lod operands"
+                             : "Vulkan graphics prototype textureQueryLevels "
+                               "lowering requires one texture operand");
+      return EmitValue{expression.type, intConstant(0)};
+    }
+
+    const std::optional<PointerInfo> texture =
+        descriptorResource(context, expression.children[0],
+                           HIRResourceKind::Texture);
+    std::optional<EmitValue> lod;
+    if (textureSize) {
+      lod = expression.children.size() == 2
+                ? std::optional<EmitValue>(
+                      emitExpression(context, expression.children[1]))
+                : std::optional<EmitValue>(
+                      EmitValue{HIRType{"int", std::nullopt}, intConstant(0)});
+    }
+    if (!texture.has_value()) {
+      return EmitValue{expression.type, intConstant(0)};
+    }
+
+    const EmitValue textureValue = emitLoad(*texture);
+    const std::string id = freshId();
+    if (textureSize) {
+      functions_ << id << " = OpImageQuerySizeLod " << typeId(expression.type)
+                 << " " << textureValue.id << " " << lod->id << "\n";
+    } else {
+      functions_ << id << " = OpImageQueryLevels " << typeId(expression.type)
+                 << " " << textureValue.id << "\n";
+    }
+    usesImageQuery_ = true;
+    return EmitValue{expression.type, id};
+  }
+
   const HIRModule &module_;
   DiagnosticEngine &diagnostics_;
   StorageLayoutContext layoutContext_;
@@ -15516,6 +15615,7 @@ private:
   bool usesRuntimeDescriptorArray_ = false;
   bool usesNonUniformDescriptorIndex_ = false;
   bool usesSampledImageArrayNonUniformIndexing_ = false;
+  bool usesImageQuery_ = false;
   std::unordered_set<std::string> nonUniformDecorationIds_;
 };
 

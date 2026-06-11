@@ -30344,6 +30344,97 @@ shader VulkanGraphicsShadowCompareShader {
          "Vulkan graphics prototype emits Dref shadow sampling");
 }
 
+void testVulkanGraphicsTextureQueryPrototypeAssembly() {
+  constexpr std::string_view source = R"(
+shader VulkanGraphicsTextureQueryShader {
+  struct VertexInput {
+    vec3 position;
+    vec2 texCoord;
+  }
+  struct VertexOutput {
+    vec2 uv;
+    vec4 position;
+  }
+  struct FragmentInput {
+    vec2 uv;
+  }
+  struct FragmentOutput {
+    vec4 color;
+  }
+  vertex {
+    VertexOutput main(VertexInput input) {
+      VertexOutput output;
+      output.uv = input.texCoord;
+      output.position = vec4(input.position, 1.0);
+      return output;
+    }
+  }
+  fragment {
+    layout(set = 0, binding = 0) uniform sampler2D colorMap;
+    FragmentOutput main(FragmentInput input) {
+      FragmentOutput output;
+      ivec2 baseSize = textureSize(colorMap);
+      ivec2 lodSize = textureSize(colorMap, 1);
+      int mipLevels = textureQueryLevels(colorMap);
+      output.color = vec4(input.uv.x, input.uv.y, 0.0, 1.0);
+      return output;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "Vulkan graphics texture query source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  crossgl::DiagnosticEngine supportDiagnostics;
+  expect(crossgl::vulkanPrototypeBinarySupported(*hir, supportDiagnostics) &&
+             !supportDiagnostics.hasErrors(),
+         "Vulkan graphics prototype support accepts fragment texture queries");
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assembly.empty() && !assemblyDiagnostics.hasErrors(),
+         "Vulkan graphics texture query prototype assembly has no diagnostics");
+  expect(assembly.find("OpCapability ImageQuery") != std::string::npos,
+         "Vulkan graphics texture query declares ImageQuery capability");
+  expect(assembly.find("resource_fragment_colorMap") != std::string::npos,
+         "Vulkan graphics texture query emits fragment texture resource binding");
+  expect(countOccurrences(assembly, "OpImageQuerySizeLod") == 2,
+         "Vulkan graphics texture query lowers implicit and explicit textureSize");
+  expect(assembly.find("OpImageQueryLevels") != std::string::npos,
+         "Vulkan graphics texture query lowers textureQueryLevels");
+  expect(assembly.find("OpSampledImage") == std::string::npos,
+         "Vulkan graphics texture query consumes loaded image values directly");
+
+  if (!crossgl::findExecutable("spirv-as") ||
+      !crossgl::findExecutable("spirv-val")) {
+    return;
+  }
+
+  const std::filesystem::path packageDir =
+      unitTestTempDirectoryPath() /
+      "crossgl-vulkan-graphics-texture-query-prototype-test";
+  std::error_code error;
+  std::filesystem::remove_all(packageDir, error);
+
+  crossgl::DiagnosticEngine buildDiagnostics;
+  const crossgl::VulkanBuildResult result =
+      crossgl::buildVulkanPrototypeBinary(*hir, packageDir, buildDiagnostics);
+  expect(result.success,
+         "Vulkan graphics texture query prototype binary assembles and validates");
+  expect(!buildDiagnostics.hasErrors(),
+         "Vulkan graphics texture query prototype binary build has no "
+         "diagnostics");
+  expect(std::filesystem::exists(result.assemblyPath),
+         "Vulkan graphics texture query prototype assembly file exists");
+  expect(std::filesystem::exists(result.spvPath),
+         "Vulkan graphics texture query SPIR-V binary exists");
+}
+
 void testVulkanGraphicsFragmentDiscardPrototypeAssembly() {
   constexpr std::string_view source = R"(
 shader VulkanGraphicsFragmentDiscardShader {
@@ -55411,6 +55502,7 @@ int main() {
   testTextureArrayShadowCompareHIRAndNativeBackends();
   testTextureCompareLodHIRAndNativeBackends();
   testGraphicsShadowCompareLodBackends();
+  testVulkanGraphicsTextureQueryPrototypeAssembly();
   testVulkanGraphicsFragmentDiscardPrototypeAssembly();
   testVulkanGraphicsFoldedScalarConstantsPrototypeAssembly();
   testVulkanGraphicsUniformMemberSwizzlePrototypeAssembly();
