@@ -1,0 +1,1 @@
+$.hostLoaderIntegration.loadUnits[0].loadSteps[].kind: expected stable host-loader step order ['load-package-artifact', 'load-backend-source-map', 'bind-host-interface'], got ['load-package-artifact', 'bind-host-interface', 'load-backend-source-map']

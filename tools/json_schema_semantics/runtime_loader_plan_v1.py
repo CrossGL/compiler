@@ -673,6 +673,42 @@ def host_loader_artifact_format(selected_artifact):
     )
 
 
+def validate_host_loader_load_step_provenance(
+    errors,
+    metadata_path,
+    metadata,
+    expected_source,
+    provenance,
+    provenance_label,
+):
+    metadata_provenance = metadata.get("provenance")
+    if not isinstance(metadata_provenance, dict):
+        errors.append(f"{metadata_path}.provenance: expected object")
+        return
+
+    add_equal_error(
+        errors,
+        f"{metadata_path}.provenance.source",
+        metadata_provenance.get("source"),
+        expected_source,
+        f"{provenance_label} provenance reference",
+    )
+    add_equal_error(
+        errors,
+        f"{metadata_path}.provenance.available",
+        metadata_provenance.get("available"),
+        provenance["available"],
+        f"{provenance_label} provenance availability",
+    )
+    add_equal_error(
+        errors,
+        f"{metadata_path}.provenance.health",
+        metadata_provenance.get("health"),
+        provenance["health"],
+        f"{provenance_label} provenance health",
+    )
+
+
 def validate_host_loader_load_step_metadata(
     errors,
     index,
@@ -749,6 +785,14 @@ def validate_host_loader_load_step_metadata(
             expected_path,
             "$.hostLoaderIntegration.loadUnits[0].sourceRemap.packagePath",
         )
+        validate_host_loader_load_step_provenance(
+            errors,
+            metadata_path,
+            metadata,
+            "loadUnit.sourceRemap.provenance",
+            source_remap["provenance"],
+            "sourceRemap",
+        )
     elif kind == "load-backend-source-map":
         add_equal_error(
             errors,
@@ -769,6 +813,14 @@ def validate_host_loader_load_step_metadata(
             source.get("path"),
             expected_path,
             "$.hostLoaderIntegration.loadUnits[0].backendSourceMap.packagePath",
+        )
+        validate_host_loader_load_step_provenance(
+            errors,
+            metadata_path,
+            metadata,
+            "loadUnit.backendSourceMap.provenance",
+            backend_source_map["provenance"],
+            "backendSourceMap",
         )
     elif kind == "bind-host-interface":
         add_equal_error(
