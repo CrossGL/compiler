@@ -320,6 +320,27 @@ def build_crosstl_runtime_adapter_load_units(
     )
 
 
+def read_crosstl_runtime_adapter_load_units(
+    manifest_path: str | Path,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    """Read a CrossTL adapter manifest and return host-loader load units."""
+
+    report = read_crosstl_runtime_adapter_package(manifest_path)
+    normalization = build_crosstl_runtime_adapter_normalization_report(report)
+    return build_crosstl_runtime_adapter_load_units(normalization)
+
+
+def discover_crosstl_runtime_adapter_load_units(
+    package_root: str | Path,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    """Return CrossTL adapter load units when a directory package carries them."""
+
+    manifest_path = _runtime_adapter_manifest_path(Path(package_root))
+    if manifest_path is None:
+        return ()
+    return read_crosstl_runtime_adapter_load_units(manifest_path)
+
+
 def _empty_report(
     path: Path, diagnostics: list[CrossTLAdapterDiagnostic]
 ) -> CrossTLAdapterPackageReport:
@@ -336,6 +357,15 @@ def _empty_report(
         descriptors=(),
         diagnostics=tuple(diagnostics),
     )
+
+
+def _runtime_adapter_manifest_path(path: Path) -> Path | None:
+    if path.is_file() and path.name == "runtime-adapters.json":
+        return path
+    manifest_path = path / "runtime-adapters.json"
+    if path.is_dir() and manifest_path.is_file():
+        return manifest_path
+    return None
 
 
 def _read_json_object(

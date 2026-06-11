@@ -17,8 +17,10 @@ sys.path.insert(0, str(REPO_ROOT))
 from runtime.crosstl_adapters import (  # noqa: E402
     build_crosstl_runtime_adapter_load_units,
     build_crosstl_runtime_adapter_normalization_report,
+    discover_crosstl_runtime_adapter_load_units,
     normalize_crosstl_runtime_adapter_candidates,
     read_crosstl_runtime_adapter_package,
+    read_crosstl_runtime_adapter_load_units,
 )
 
 
@@ -170,6 +172,18 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             self.assertEqual(
                 summary["loadSteps"][1]["packagePath"],
                 "source-remaps/opengl/main.source-remap.json",
+            )
+            self.assertEqual(
+                read_crosstl_runtime_adapter_load_units(manifest)[0].to_summary(),
+                summary,
+            )
+            self.assertEqual(
+                discover_crosstl_runtime_adapter_load_units(root)[0].to_summary(),
+                summary,
+            )
+            self.assertEqual(
+                discover_crosstl_runtime_adapter_load_units(root / "missing-package"),
+                (),
             )
 
     def test_reports_unsupported_descriptor_targets_without_invalidating_package(

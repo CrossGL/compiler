@@ -17,8 +17,10 @@ from .crosstl_adapters import (
     CrossTLRuntimeAdapterSkippedDescriptor,
     build_crosstl_runtime_adapter_load_units,
     build_crosstl_runtime_adapter_normalization_report,
+    discover_crosstl_runtime_adapter_load_units,
     normalize_crosstl_runtime_adapter_candidates,
     read_crosstl_runtime_adapter_package,
+    read_crosstl_runtime_adapter_load_units,
 )
 from .package_reader import (
     Artifact,
@@ -55,8 +57,10 @@ __all__ = [
     "TargetArtifactContract",
     "build_crosstl_runtime_adapter_load_units",
     "build_crosstl_runtime_adapter_normalization_report",
+    "discover_crosstl_runtime_adapter_load_units",
     "read_compatibility_report",
     "normalize_crosstl_runtime_adapter_candidates",
+    "read_crosstl_runtime_adapter_load_units",
     "read_crosstl_runtime_adapter_package",
     "read_loader_plan",
     "read_runtime_loader_plan_contract",
