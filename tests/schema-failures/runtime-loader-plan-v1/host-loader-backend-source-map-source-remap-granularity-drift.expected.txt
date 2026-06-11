@@ -1,0 +1,1 @@
+$.hostLoaderIntegration.loadUnits[0].backendSourceMap.provenance.sourceRemapMappingGranularity: expected $.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance.sourceRemapMappingGranularity 'file', got 'line'
