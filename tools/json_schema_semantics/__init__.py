@@ -6,6 +6,8 @@ from . import debug_metadata_v12
 from . import conformance_report_v0
 from . import backend_source_map_v1
 from . import crosstl_project_portability_report_v1
+from . import crosstl_runtime_adapter_descriptor_v1
+from . import crosstl_runtime_adapter_package_v1
 from . import diagnostics_v1
 from . import doctor_v1
 from . import graphics_abi_v1
@@ -62,6 +64,10 @@ def validate_semantics(instance, schema):
         return conformance_report_v0.validate_semantics(instance)
     if schema_id.endswith("/crosstl-project-portability-report-v1.schema.json"):
         return crosstl_project_portability_report_v1.validate_semantics(instance)
+    if schema_id.endswith("/crosstl-runtime-adapter-descriptor-v1.schema.json"):
+        return crosstl_runtime_adapter_descriptor_v1.validate_semantics(instance)
+    if schema_id.endswith("/crosstl-runtime-adapter-package-v1.schema.json"):
+        return crosstl_runtime_adapter_package_v1.validate_semantics(instance)
     if schema_id.endswith("/diagnostics-v1.schema.json"):
         return diagnostics_v1.validate_semantics(instance)
     if schema_id.endswith("/doctor-v1.schema.json"):

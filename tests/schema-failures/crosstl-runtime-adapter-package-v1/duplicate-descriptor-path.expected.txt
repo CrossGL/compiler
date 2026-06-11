@@ -1,0 +1,1 @@
+$.descriptors: duplicate descriptorPath 'adapters/metal/main.adapter.json'

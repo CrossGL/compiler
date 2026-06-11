@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-runtime-adapter-package",
+  "sourcePackage": "fixtures/package.crosstl",
+  "sourcePackageHash": {
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "generatedAt": 1,
+  "success": true,
+  "scope": "runtime-adapter-descriptor-package",
+  "nonGoals": [],
+  "packageRoot": "/tmp/package",
+  "adapterRoot": "runtime-adapters",
+  "adapterManifest": "runtime-adapters.json",
+  "project": {},
+  "summary": {
+    "targetCount": 1,
+    "adapterCount": 1,
+    "descriptorCount": 2,
+    "readyDescriptorCount": 1,
+    "blockedDescriptorCount": 0,
+    "actionCount": 1,
+    "runtimeReferenceCount": 1
+  },
+  "targets": [
+    {
+      "target": "metal",
+      "adapterKind": "host-loader",
+      "adapterCount": 1,
+      "descriptorCount": 1,
+      "readyDescriptorCount": 1,
+      "blockedDescriptorCount": 0,
+      "runtimeReferenceCount": 1,
+      "requiredTools": [
+        "metal"
+      ],
+      "descriptors": [
+        "metal-main"
+      ],
+      "packagePaths": [
+        "adapters/metal/main.metal"
+      ]
+    }
+  ],
+  "descriptors": [
+    {
+      "id": "metal-main",
+      "target": "metal",
+      "adapterKind": "host-loader",
+      "artifactFormat": "backend-source",
+      "binding": {},
+      "artifact": {},
+      "packagePath": "adapters/metal/main.metal",
+      "descriptorPath": "adapters/metal/main.adapter.json",
+      "descriptorHash": {
+        "algorithm": "sha256",
+        "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "descriptorSizeBytes": 12,
+      "hostInterfaceStatus": "ready",
+      "requiredTools": [
+        "metal"
+      ]
+    }
+  ],
+  "actions": [
+    {}
+  ],
+  "runtimePlan": {},
+  "adapterPlan": {
+    "kind": "crosstl-runtime-adapter-plan",
+    "success": true,
+    "scope": "runtime-adapter-integration-planning",
+    "adapterCount": 1
+  },
+  "packageInspection": {},
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}
