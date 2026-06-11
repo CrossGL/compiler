@@ -376,6 +376,32 @@ bool validateOptionalSourceRemapMetadataString(
   return false;
 }
 
+bool validateOptionalSourceRemapMetadataNonEmptyString(
+    std::string_view metadata, std::string_view field,
+    DiagnosticEngine &diagnostics, const SourceLocation &metadataLocation) {
+  const std::optional<std::string_view> member =
+      findObjectMemberValue(metadata, field);
+  if (!member) {
+    return true;
+  }
+  const std::optional<std::string> value = objectStringMember(metadata, field);
+  if (!value) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap." + std::string(field) +
+                           " must be a string",
+                       metadataLocation);
+    return false;
+  }
+  if (!value->empty()) {
+    return true;
+  }
+  reportInvalidRemap(diagnostics,
+                     "sourceRemap." + std::string(field) +
+                         " must be a non-empty string",
+                     metadataLocation);
+  return false;
+}
+
 std::optional<std::string> requiredSourceRemapMetadataString(
     std::string_view metadata, std::string_view field,
     DiagnosticEngine &diagnostics, const SourceLocation &metadataLocation) {
@@ -807,9 +833,9 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
       !validateOptionalSourceRemapMetadataTarget(metadata, diagnostics,
                                                  metadataLocation,
                                                  targetPolicy) ||
-      !validateOptionalSourceRemapMetadataString(
+      !validateOptionalSourceRemapMetadataNonEmptyString(
           metadata, "sourceBackend", diagnostics, metadataLocation) ||
-      !validateOptionalSourceRemapMetadataString(
+      !validateOptionalSourceRemapMetadataNonEmptyString(
           metadata, "variant", diagnostics, metadataLocation)) {
     return std::nullopt;
   }

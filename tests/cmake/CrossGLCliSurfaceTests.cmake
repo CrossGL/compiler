@@ -227,6 +227,10 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_METADATA_OUTPUT_DIR
   "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-crosstl-project-report-build-metadata")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR
   "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-crosstl-project-report-build-source-batch")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_DEBUG_OUTPUT_DIR
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-crosstl-project-report-build-source-batch-debug")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_RELEASE_OUTPUT_DIR
+  "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-crosstl-project-report-build-source-batch-release")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR
   "${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-crosstl-project-report-source-batch")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGED
@@ -449,6 +453,10 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_HASH_MALFORMED
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-hash-malformed.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_SOURCE_BACKEND_TYPE
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-source-backend-type.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_SOURCE_BACKEND_EMPTY
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-source-backend-empty.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_VARIANT_EMPTY
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-variant-empty.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_NON_CGL_TARGET
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-non-cgl-target.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE_SOURCE_REMAP
@@ -1059,6 +1067,38 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_SOURCE_BACKEND_T
   \"path\": \"out/cgl/simple.source-remap.json\",
   \"target\": \"cgl\",
   \"sourceBackend\": 42,
+  \"generatedFile\": \"out/cgl/simple.cgl\",
+  \"mappingGranularity\": \"line\",
+  \"mappingCount\": 2,
+  \"sizeBytes\": 982,
+  \"hash\": {
+    \"algorithm\": \"sha256\",
+    \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
+  }
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_SOURCE_BACKEND_EMPTY}"
+"{
+  \"schemaVersion\": 1,
+  \"path\": \"out/cgl/simple.source-remap.json\",
+  \"target\": \"cgl\",
+  \"sourceBackend\": \"\",
+  \"generatedFile\": \"out/cgl/simple.cgl\",
+  \"mappingGranularity\": \"line\",
+  \"mappingCount\": 2,
+  \"sizeBytes\": 982,
+  \"hash\": {
+    \"algorithm\": \"sha256\",
+    \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
+  }
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_VARIANT_EMPTY}"
+"{
+  \"schemaVersion\": 1,
+  \"path\": \"out/cgl/simple.source-remap.json\",
+  \"target\": \"cgl\",
+  \"variant\": \"\",
   \"generatedFile\": \"out/cgl/simple.cgl\",
   \"mappingGranularity\": \"line\",
   \"mappingCount\": 2,
@@ -6214,13 +6254,13 @@ crossgl_add_python_expect_test(
     -DMODE=source-batch-build-json
     -DMANIFEST=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGED}
     -DTARGET=directx
-    -DOUTPUT_DIR=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}
+    -DOUTPUT_DIR=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_DEBUG_OUTPUT_DIR}
     -DDEBUG_IR=ON
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=2|entries.0.id=shaders/original.crossgl|entries.0.logicalInput=generated/from-translator.cgl|entries.0.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR}/source-remap-v1-basic.json|entries.0.output=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/generated/from-translator.cglb|entries.0.artifact=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/generated/from-translator.cglb|entries.0.target=directx|entries.0.success=true|entries.1.id=simple.cgl|entries.1.logicalInput=out/cgl/simple.cgl|entries.1.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR}/out/cgl/simple.source-remap.json|entries.1.output=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/out/cgl/simple.cglb|entries.1.artifact=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/out/cgl/simple.cglb|entries.1.target=directx|entries.1.success=true|diagnosticReport.schemaVersion=1"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=2|entries.0.id=shaders/original.crossgl|entries.0.logicalInput=generated/from-translator.cgl|entries.0.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR}/source-remap-v1-basic.json|entries.0.output=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_DEBUG_OUTPUT_DIR}/generated/from-translator.cglb|entries.0.artifact=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_DEBUG_OUTPUT_DIR}/generated/from-translator.cglb|entries.0.target=directx|entries.0.success=true|entries.1.id=simple.cgl|entries.1.logicalInput=out/cgl/simple.cgl|entries.1.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR}/out/cgl/simple.source-remap.json|entries.1.output=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_DEBUG_OUTPUT_DIR}/out/cgl/simple.cglb|entries.1.artifact=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_DEBUG_OUTPUT_DIR}/out/cgl/simple.cglb|entries.1.target=directx|entries.1.success=true|diagnosticReport.schemaVersion=1"
     "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=2"
-    "-DEXPECTED_SOURCE_BATCH_PACKAGE=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/generated/from-translator.cglb"
+    "-DEXPECTED_SOURCE_BATCH_PACKAGE=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_DEBUG_OUTPUT_DIR}/generated/from-translator.cglb"
     "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceRemapProvenance|contractVersion=source-remap-provenance-v1|target=directx|generatedFile=generated/from-translator.cgl|mappingGranularity=source-span|mappingCount=1|sourceRemap.target=cgl|sourceRemap.mappingGranularity=line|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug|sourceRemap.sha256.algorithm=sha256|sourceRemap.sha256.value=6df16a058a70104a1726ee752983062f9bf18336342fa29a8522dfc09c0380a9|sourceRemap.sizeBytes=574"
     -DSOURCE_REMAP_PROVENANCE_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-provenance-v1.schema.json)
 
@@ -6231,13 +6271,13 @@ crossgl_add_python_expect_test(
     -DMODE=source-batch-build-json
     -DMANIFEST=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGED}
     -DTARGET=directx
-    -DOUTPUT_DIR=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}
+    -DOUTPUT_DIR=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_RELEASE_OUTPUT_DIR}
     -DDEBUG_IR=ON
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=2|entries.0.id=shaders/original.crossgl|entries.0.logicalInput=generated/from-translator.cgl|entries.0.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR}/source-remap-v1-basic.json|entries.0.output=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/generated/from-translator.cglb|entries.0.artifact=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/generated/from-translator.cglb|entries.0.target=directx|entries.0.success=true|entries.1.id=simple.cgl|entries.1.logicalInput=out/cgl/simple.cgl|entries.1.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR}/out/cgl/simple.source-remap.json|entries.1.output=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/out/cgl/simple.cglb|entries.1.artifact=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/out/cgl/simple.cglb|entries.1.target=directx|entries.1.success=true|diagnosticReport.schemaVersion=1"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=2|entries.0.id=shaders/original.crossgl|entries.0.logicalInput=generated/from-translator.cgl|entries.0.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR}/source-remap-v1-basic.json|entries.0.output=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_RELEASE_OUTPUT_DIR}/generated/from-translator.cglb|entries.0.artifact=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_RELEASE_OUTPUT_DIR}/generated/from-translator.cglb|entries.0.target=directx|entries.0.success=true|entries.1.id=simple.cgl|entries.1.logicalInput=out/cgl/simple.cgl|entries.1.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR}/out/cgl/simple.source-remap.json|entries.1.output=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_RELEASE_OUTPUT_DIR}/out/cgl/simple.cglb|entries.1.artifact=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_RELEASE_OUTPUT_DIR}/out/cgl/simple.cglb|entries.1.target=directx|entries.1.success=true|diagnosticReport.schemaVersion=1"
     "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=2"
-    "-DEXPECTED_SOURCE_BATCH_PACKAGE=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_OUTPUT_DIR}/out/cgl/simple.cglb"
+    "-DEXPECTED_SOURCE_BATCH_PACKAGE=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_SOURCE_BATCH_RELEASE_OUTPUT_DIR}/out/cgl/simple.cglb"
     "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceRemapProvenance|contractVersion=source-remap-provenance-v1|target=directx|generatedFile=out/cgl/simple.cgl|mappingGranularity=source-span|mappingCount=2|sourceRemap.target=cgl|sourceRemap.mappingGranularity=line|sourceRemap.sourceBackend=cgl|sourceRemap.variant=release|sourceRemap.sha256.algorithm=sha256|sourceRemap.sha256.value=eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92|sourceRemap.sizeBytes=982"
     -DSOURCE_REMAP_PROVENANCE_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-provenance-v1.schema.json)
 
@@ -6686,6 +6726,32 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadat
   STDERR_CONTAINS
     "error io.invalid-source-remap"
     "sourceRemap.sourceBackend must be a string")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_source_backend_empty_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_SOURCE_BACKEND_EMPTY}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "sourceRemap.sourceBackend must be a non-empty string"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "sourceRemap.sourceBackend must be a non-empty string")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_variant_empty_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_VARIANT_EMPTY}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "sourceRemap.variant must be a non-empty string"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "sourceRemap.variant must be a non-empty string")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_non_cgl_target_resolves
   EXPECTED_RESULT 0
