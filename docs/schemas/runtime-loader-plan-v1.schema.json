@@ -1143,7 +1143,8 @@
       "required": [
         "source",
         "packagePath",
-        "exists"
+        "exists",
+        "provenance"
       ],
       "properties": {
         "source": {
@@ -1156,6 +1157,87 @@
         "exists": {
           "type": "boolean",
           "const": true
+        },
+        "provenance": {
+          "$ref": "#/$defs/hostLoaderSourceRemapProvenance"
+        }
+      }
+    },
+    "hostLoaderSourceRemapProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "health",
+        "schemaVersion",
+        "kind",
+        "contractVersion",
+        "target",
+        "generatedFile",
+        "mappingGranularity",
+        "mappingCount",
+        "sourcePath",
+        "sourceSha256",
+        "sourceSizeBytes",
+        "sourceRemapTarget",
+        "sourceRemapMappingGranularity",
+        "sourceRemapSourceBackend",
+        "sourceRemapVariant"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "drift",
+            "incomplete",
+            "not-present"
+          ]
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "kind": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "contractVersion": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "target": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "generatedFile": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "sourcePath": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceSha256": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceSizeBytes": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "sourceRemapTarget": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapMappingGranularity": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapSourceBackend": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapVariant": {
+          "$ref": "#/$defs/stringOrNull"
         }
       }
     },
@@ -1165,7 +1247,8 @@
       "required": [
         "source",
         "packagePath",
-        "exists"
+        "exists",
+        "provenance"
       ],
       "properties": {
         "source": {
@@ -1178,6 +1261,115 @@
         "exists": {
           "type": "boolean",
           "const": true
+        },
+        "provenance": {
+          "$ref": "#/$defs/hostLoaderBackendSourceMapProvenance"
+        }
+      }
+    },
+    "hostLoaderBackendSourceMapProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "health",
+        "schemaVersion",
+        "kind",
+        "target",
+        "module",
+        "mappingGranularity",
+        "sourceBackend",
+        "targetBackend",
+        "backendLanguage",
+        "backendLineCount",
+        "mappingCount",
+        "mappingRecordCount",
+        "sourceRemapPresent",
+        "sourceRemapPath",
+        "sourceRemapGeneratedFile",
+        "sourceRemapTarget",
+        "sourceRemapMappingGranularity",
+        "sourceRemapMappingCount",
+        "sourceRemapSourceBackend",
+        "sourceRemapVariant",
+        "sourceRemapSha256",
+        "sourceRemapSizeBytes"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "drift",
+            "incomplete",
+            "not-present"
+          ]
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "kind": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "target": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "module": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "targetBackend": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "backendLanguage": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "backendLineCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "mappingRecordCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "sourceRemapPresent": {
+          "type": "boolean"
+        },
+        "sourceRemapPath": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapGeneratedFile": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapTarget": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapMappingGranularity": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapMappingCount": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
+        },
+        "sourceRemapSourceBackend": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapVariant": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapSha256": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceRemapSizeBytes": {
+          "$ref": "#/$defs/nonNegativeIntegerOrNull"
         }
       }
     },

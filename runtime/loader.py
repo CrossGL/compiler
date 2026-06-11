@@ -9,6 +9,7 @@ the package contract makes available to a target-specific loader.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import json
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -1553,7 +1554,12 @@ def _runtime_loader_plan_host_loader_load_unit(
                     "source": {
                         "field": "manifest.artifacts.sourceRemap",
                         "path": source_remap["packagePath"],
-                    }
+                    },
+                    "provenance": {
+                        "source": "loadUnit.sourceRemap.provenance",
+                        "available": source_remap["provenance"]["available"],
+                        "health": source_remap["provenance"]["health"],
+                    },
                 },
             }
         )
@@ -1571,7 +1577,12 @@ def _runtime_loader_plan_host_loader_load_unit(
                     "source": {
                         "field": "manifest.artifacts.backendSourceMap",
                         "path": backend_source_map["packagePath"],
-                    }
+                    },
+                    "provenance": {
+                        "source": "loadUnit.backendSourceMap.provenance",
+                        "available": backend_source_map["provenance"]["available"],
+                        "health": backend_source_map["provenance"]["health"],
+                    },
                 },
             }
         )
@@ -1672,6 +1683,7 @@ def _runtime_loader_plan_source_remap(
         "source": "manifest.artifacts.sourceRemap",
         "packagePath": artifact.package_path,
         "exists": artifact.exists,
+        "provenance": _runtime_loader_plan_source_remap_provenance(artifact),
     }
 
 
@@ -1692,6 +1704,231 @@ def _runtime_loader_plan_backend_source_map(
         "source": "manifest.artifacts.backendSourceMap",
         "packagePath": artifact.package_path,
         "exists": artifact.exists,
+        "provenance": _runtime_loader_plan_backend_source_map_provenance(artifact),
+    }
+
+
+def _runtime_loader_plan_artifact_json_document(
+    artifact: Artifact,
+) -> dict[str, Any] | None:
+    try:
+        document = json.loads(artifact.read_text())
+    except (OSError, UnicodeDecodeError, PackageReadError, json.JSONDecodeError):
+        return None
+    return document if isinstance(document, dict) else None
+
+
+def _runtime_loader_plan_sha256_value(value: Any) -> str | None:
+    if not isinstance(value, dict):
+        return None
+    if value.get("algorithm") != "sha256":
+        return None
+    sha256 = value.get("value")
+    return sha256 if isinstance(sha256, str) else None
+
+
+def _runtime_loader_plan_optional_int(value: Any) -> int | None:
+    return value if isinstance(value, int) and value >= 0 else None
+
+
+def _runtime_loader_plan_optional_str(value: Any) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _runtime_loader_plan_source_remap_provenance(
+    artifact: Artifact,
+) -> dict[str, Any]:
+    document = _runtime_loader_plan_artifact_json_document(artifact)
+    if document is None:
+        return _runtime_loader_plan_empty_source_remap_provenance("incomplete")
+
+    source_remap = document.get("sourceRemap")
+    if not isinstance(source_remap, dict):
+        source_remap = {}
+
+    provenance = {
+        "available": True,
+        "health": "ok",
+        "schemaVersion": _runtime_loader_plan_optional_int(
+            document.get("schemaVersion")
+        ),
+        "kind": _runtime_loader_plan_optional_str(document.get("kind")),
+        "contractVersion": _runtime_loader_plan_optional_str(
+            document.get("contractVersion")
+        ),
+        "target": _runtime_loader_plan_optional_str(document.get("target")),
+        "generatedFile": _runtime_loader_plan_optional_str(
+            document.get("generatedFile")
+        ),
+        "mappingGranularity": _runtime_loader_plan_optional_str(
+            document.get("mappingGranularity")
+        ),
+        "mappingCount": _runtime_loader_plan_optional_int(document.get("mappingCount")),
+        "sourcePath": _runtime_loader_plan_optional_str(source_remap.get("path")),
+        "sourceSha256": _runtime_loader_plan_sha256_value(source_remap.get("sha256")),
+        "sourceSizeBytes": _runtime_loader_plan_optional_int(
+            source_remap.get("sizeBytes")
+        ),
+        "sourceRemapTarget": _runtime_loader_plan_optional_str(
+            source_remap.get("target")
+        ),
+        "sourceRemapMappingGranularity": _runtime_loader_plan_optional_str(
+            source_remap.get("mappingGranularity")
+        ),
+        "sourceRemapSourceBackend": _runtime_loader_plan_optional_str(
+            source_remap.get("sourceBackend")
+        ),
+        "sourceRemapVariant": _runtime_loader_plan_optional_str(
+            source_remap.get("variant")
+        ),
+    }
+    if (
+        provenance["schemaVersion"] != 1
+        or provenance["kind"] != "crossgl.sourceRemapProvenance"
+        or provenance["contractVersion"] != "source-remap-provenance-v1"
+        or not provenance["target"]
+        or not provenance["generatedFile"]
+        or provenance["mappingGranularity"] != "source-span"
+        or not provenance["mappingCount"]
+        or not provenance["sourcePath"]
+        or not provenance["sourceSha256"]
+        or provenance["sourceSizeBytes"] is None
+    ):
+        provenance["health"] = "drift"
+    return provenance
+
+
+def _runtime_loader_plan_empty_source_remap_provenance(
+    health: str,
+) -> dict[str, Any]:
+    return {
+        "available": False,
+        "health": health,
+        "schemaVersion": None,
+        "kind": None,
+        "contractVersion": None,
+        "target": None,
+        "generatedFile": None,
+        "mappingGranularity": None,
+        "mappingCount": None,
+        "sourcePath": None,
+        "sourceSha256": None,
+        "sourceSizeBytes": None,
+        "sourceRemapTarget": None,
+        "sourceRemapMappingGranularity": None,
+        "sourceRemapSourceBackend": None,
+        "sourceRemapVariant": None,
+    }
+
+
+def _runtime_loader_plan_backend_source_map_provenance(
+    artifact: Artifact,
+) -> dict[str, Any]:
+    document = _runtime_loader_plan_artifact_json_document(artifact)
+    if document is None:
+        return _runtime_loader_plan_empty_backend_source_map_provenance("incomplete")
+
+    backend = document.get("backend")
+    if not isinstance(backend, dict):
+        backend = {}
+    source_remap = document.get("sourceRemap")
+    source_remap_present = isinstance(source_remap, dict)
+    if not source_remap_present:
+        source_remap = {}
+    mappings = document.get("mappings")
+    mapping_record_count = len(mappings) if isinstance(mappings, list) else None
+
+    provenance = {
+        "available": True,
+        "health": "ok",
+        "schemaVersion": _runtime_loader_plan_optional_int(
+            document.get("schemaVersion")
+        ),
+        "kind": _runtime_loader_plan_optional_str(document.get("kind")),
+        "target": _runtime_loader_plan_optional_str(document.get("target")),
+        "module": _runtime_loader_plan_optional_str(document.get("module")),
+        "mappingGranularity": _runtime_loader_plan_optional_str(
+            document.get("mappingGranularity")
+        ),
+        "sourceBackend": _runtime_loader_plan_optional_str(
+            document.get("sourceBackend")
+        ),
+        "targetBackend": _runtime_loader_plan_optional_str(
+            document.get("targetBackend")
+        ),
+        "backendLanguage": _runtime_loader_plan_optional_str(backend.get("language")),
+        "backendLineCount": _runtime_loader_plan_optional_int(backend.get("lineCount")),
+        "mappingCount": _runtime_loader_plan_optional_int(document.get("mappingCount")),
+        "mappingRecordCount": mapping_record_count,
+        "sourceRemapPresent": source_remap_present,
+        "sourceRemapPath": _runtime_loader_plan_optional_str(source_remap.get("path")),
+        "sourceRemapGeneratedFile": _runtime_loader_plan_optional_str(
+            source_remap.get("generatedFile")
+        ),
+        "sourceRemapTarget": _runtime_loader_plan_optional_str(
+            source_remap.get("target")
+        ),
+        "sourceRemapMappingGranularity": _runtime_loader_plan_optional_str(
+            source_remap.get("mappingGranularity")
+        ),
+        "sourceRemapMappingCount": _runtime_loader_plan_optional_int(
+            source_remap.get("mappingCount")
+        ),
+        "sourceRemapSourceBackend": _runtime_loader_plan_optional_str(
+            source_remap.get("sourceBackend")
+        ),
+        "sourceRemapVariant": _runtime_loader_plan_optional_str(
+            source_remap.get("variant")
+        ),
+        "sourceRemapSha256": _runtime_loader_plan_sha256_value(
+            source_remap.get("sha256")
+        ),
+        "sourceRemapSizeBytes": _runtime_loader_plan_optional_int(
+            source_remap.get("sizeBytes")
+        ),
+    }
+    if (
+        provenance["schemaVersion"] != 1
+        or provenance["kind"] != "crossgl.backendSourceMap"
+        or not provenance["target"]
+        or not provenance["module"]
+        or provenance["mappingGranularity"] != "statement"
+        or not provenance["sourceBackend"]
+        or provenance["targetBackend"] != provenance["backendLanguage"]
+        or provenance["backendLineCount"] is None
+        or provenance["mappingCount"] != provenance["mappingRecordCount"]
+    ):
+        provenance["health"] = "drift"
+    return provenance
+
+
+def _runtime_loader_plan_empty_backend_source_map_provenance(
+    health: str,
+) -> dict[str, Any]:
+    return {
+        "available": False,
+        "health": health,
+        "schemaVersion": None,
+        "kind": None,
+        "target": None,
+        "module": None,
+        "mappingGranularity": None,
+        "sourceBackend": None,
+        "targetBackend": None,
+        "backendLanguage": None,
+        "backendLineCount": None,
+        "mappingCount": None,
+        "mappingRecordCount": None,
+        "sourceRemapPresent": False,
+        "sourceRemapPath": None,
+        "sourceRemapGeneratedFile": None,
+        "sourceRemapTarget": None,
+        "sourceRemapMappingGranularity": None,
+        "sourceRemapMappingCount": None,
+        "sourceRemapSourceBackend": None,
+        "sourceRemapVariant": None,
+        "sourceRemapSha256": None,
+        "sourceRemapSizeBytes": None,
     }
 
 

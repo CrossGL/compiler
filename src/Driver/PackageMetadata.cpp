@@ -2773,6 +2773,33 @@ detectPackageMetadataFormat(const std::filesystem::path &packagePath) {
   return std::nullopt;
 }
 
+std::optional<std::string>
+readPackageArtifactText(const PackageMetadata &metadata,
+                        const PackageArtifactRecord &artifact) {
+  if (!artifact.packageRelative || !artifact.exists) {
+    return std::nullopt;
+  }
+  if (metadata.packageFormat == "directory") {
+    return readRegularTextFile(metadata.packagePath / artifact.path);
+  }
+
+  DiagnosticEngine diagnostics;
+  PackageMetadataLoadOptions options;
+  options.diagnosticCodePrefix = "package.artifact";
+  options.commandName = "package artifact";
+  options.allowStoredZipPackages = true;
+  std::optional<PackageSource> source =
+      loadPackageSource(metadata.packagePath, diagnostics, options);
+  if (!source || source->format != "zip") {
+    return std::nullopt;
+  }
+  const auto member = source->zipMembers.find(artifact.path);
+  if (member == source->zipMembers.end() || member->second.directory) {
+    return std::nullopt;
+  }
+  return readStoredZipMember(*source, member->second, diagnostics, options);
+}
+
 PackageNativeArtifactDescriptorHealth
 collectPackageNativeArtifactDescriptorHealth(const PackageMetadata &metadata) {
   PackageNativeArtifactDescriptorHealth health;

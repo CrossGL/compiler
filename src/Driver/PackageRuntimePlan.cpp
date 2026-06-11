@@ -5,6 +5,8 @@
 #include "crossgl/Driver/PackageMetadata.h"
 #include "crossgl/Driver/PackageTargetContracts.h"
 
+#include "PackageDebugArtifacts.h"
+
 #include <algorithm>
 #include <cstdint>
 #include <filesystem>
@@ -47,6 +49,127 @@ void writeNullableUnsigned(std::ostream &out,
   } else {
     out << "null";
   }
+}
+
+bool sourceRemapProvenanceAvailable(
+    const PackageSourceRemapProvenanceHealth &health) {
+  return health.schemaVersion || health.kind || health.contractVersion ||
+         health.target || health.generatedFile || health.mappingGranularity ||
+         health.mappingCount || health.sourcePath || health.sourceSha256 ||
+         health.sourceSizeBytes;
+}
+
+bool backendSourceMapProvenanceAvailable(
+    const PackageBackendSourceMapHealth &health) {
+  return health.schemaVersion || health.kind || health.target || health.module ||
+         health.mappingGranularity || health.sourceBackend ||
+         health.targetBackend || health.backendLanguage ||
+         health.backendLineCount || health.mappingCount ||
+         health.mappingRecordCount || health.sourceRemapPresent;
+}
+
+void writeSourceRemapProvenanceSummary(
+    std::ostream &out, const PackageSourceRemapProvenanceHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"available\": "
+      << (sourceRemapProvenanceAvailable(health) ? "true" : "false") << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health) << "\",\n"
+      << indent << "  \"schemaVersion\": ";
+  writeNullableUnsigned(out, health.schemaVersion);
+  out << ",\n" << indent << "  \"kind\": ";
+  writeNullableString(out, health.kind);
+  out << ",\n" << indent << "  \"contractVersion\": ";
+  writeNullableString(out, health.contractVersion);
+  out << ",\n" << indent << "  \"target\": ";
+  writeNullableString(out, health.target);
+  out << ",\n" << indent << "  \"generatedFile\": ";
+  writeNullableString(out, health.generatedFile);
+  out << ",\n" << indent << "  \"mappingGranularity\": ";
+  writeNullableString(out, health.mappingGranularity);
+  out << ",\n" << indent << "  \"mappingCount\": ";
+  writeNullableUnsigned(out, health.mappingCount);
+  out << ",\n" << indent << "  \"sourcePath\": ";
+  writeNullableString(out, health.sourcePath);
+  out << ",\n" << indent << "  \"sourceSha256\": ";
+  writeNullableString(out, health.sourceSha256);
+  out << ",\n" << indent << "  \"sourceSizeBytes\": ";
+  writeNullableUnsigned(out, health.sourceSizeBytes);
+  out << ",\n" << indent << "  \"sourceRemapTarget\": ";
+  writeNullableString(out, health.sourceRemapTarget);
+  out << ",\n" << indent << "  \"sourceRemapMappingGranularity\": ";
+  writeNullableString(out, health.sourceRemapMappingGranularity);
+  out << ",\n" << indent << "  \"sourceRemapSourceBackend\": ";
+  writeNullableString(out, health.sourceRemapSourceBackend);
+  out << ",\n" << indent << "  \"sourceRemapVariant\": ";
+  writeNullableString(out, health.sourceRemapVariant);
+  out << "\n" << indent << "}";
+}
+
+void writeBackendSourceMapProvenanceSummary(
+    std::ostream &out, const PackageBackendSourceMapHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"available\": "
+      << (backendSourceMapProvenanceAvailable(health) ? "true" : "false")
+      << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health) << "\",\n"
+      << indent << "  \"schemaVersion\": ";
+  writeNullableUnsigned(out, health.schemaVersion);
+  out << ",\n" << indent << "  \"kind\": ";
+  writeNullableString(out, health.kind);
+  out << ",\n" << indent << "  \"target\": ";
+  writeNullableString(out, health.target);
+  out << ",\n" << indent << "  \"module\": ";
+  writeNullableString(out, health.module);
+  out << ",\n" << indent << "  \"mappingGranularity\": ";
+  writeNullableString(out, health.mappingGranularity);
+  out << ",\n" << indent << "  \"sourceBackend\": ";
+  writeNullableString(out, health.sourceBackend);
+  out << ",\n" << indent << "  \"targetBackend\": ";
+  writeNullableString(out, health.targetBackend);
+  out << ",\n" << indent << "  \"backendLanguage\": ";
+  writeNullableString(out, health.backendLanguage);
+  out << ",\n" << indent << "  \"backendLineCount\": ";
+  writeNullableUnsigned(out, health.backendLineCount);
+  out << ",\n" << indent << "  \"mappingCount\": ";
+  writeNullableUnsigned(out, health.mappingCount);
+  out << ",\n" << indent << "  \"mappingRecordCount\": ";
+  writeNullableUnsigned(out, health.mappingRecordCount);
+  out << ",\n" << indent << "  \"sourceRemapPresent\": "
+      << (health.sourceRemapPresent ? "true" : "false") << ",\n"
+      << indent << "  \"sourceRemapPath\": ";
+  writeNullableString(out, health.sourceRemapPath);
+  out << ",\n" << indent << "  \"sourceRemapGeneratedFile\": ";
+  writeNullableString(out, health.sourceRemapGeneratedFile);
+  out << ",\n" << indent << "  \"sourceRemapTarget\": ";
+  writeNullableString(out, health.sourceRemapTarget);
+  out << ",\n" << indent << "  \"sourceRemapMappingGranularity\": ";
+  writeNullableString(out, health.sourceRemapMappingGranularity);
+  out << ",\n" << indent << "  \"sourceRemapMappingCount\": ";
+  writeNullableUnsigned(out, health.sourceRemapMappingCount);
+  out << ",\n" << indent << "  \"sourceRemapSourceBackend\": ";
+  writeNullableString(out, health.sourceRemapSourceBackend);
+  out << ",\n" << indent << "  \"sourceRemapVariant\": ";
+  writeNullableString(out, health.sourceRemapVariant);
+  out << ",\n" << indent << "  \"sourceRemapSha256\": ";
+  writeNullableString(out, health.sourceRemapSha256);
+  out << ",\n" << indent << "  \"sourceRemapSizeBytes\": ";
+  writeNullableUnsigned(out, health.sourceRemapSizeBytes);
+  out << "\n" << indent << "}";
+}
+
+void writeHostLoaderLoadStepProvenancePointer(std::ostream &out,
+                                              std::string_view source,
+                                              bool available,
+                                              std::string_view health,
+                                              std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"source\": \"" << escapeJson(source) << "\",\n"
+      << indent << "  \"available\": " << (available ? "true" : "false")
+      << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health) << "\"\n"
+      << indent << "}";
 }
 
 void writeStringArray(std::ostream &out,
@@ -967,7 +1090,10 @@ hostLoaderResponsibilities(const PackageArtifactRecord *sourceRemapArtifact,
 
 void writeHostLoaderManifestArtifactReference(
     std::ostream &out, const PackageArtifactRecord *artifact,
-    std::string_view manifestSource, std::string_view indent) {
+    std::string_view manifestSource,
+    const PackageSourceRemapProvenanceHealth *sourceRemapHealth,
+    const PackageBackendSourceMapHealth *backendSourceMapHealth,
+    std::string_view indent) {
   if (artifact == nullptr) {
     out << "null";
     return;
@@ -976,7 +1102,18 @@ void writeHostLoaderManifestArtifactReference(
       << indent << "  \"source\": \"" << escapeJson(manifestSource) << "\",\n"
       << indent << "  \"packagePath\": \"" << escapeJson(artifact->path)
       << "\",\n"
-      << indent << "  \"exists\": true\n"
+      << indent << "  \"exists\": true,\n"
+      << indent << "  \"provenance\": ";
+  if (sourceRemapHealth != nullptr) {
+    writeSourceRemapProvenanceSummary(out, *sourceRemapHealth,
+                                      std::string(indent) + "  ");
+  } else if (backendSourceMapHealth != nullptr) {
+    writeBackendSourceMapProvenanceSummary(out, *backendSourceMapHealth,
+                                           std::string(indent) + "  ");
+  } else {
+    out << "null";
+  }
+  out << "\n"
       << indent << "}";
 }
 
@@ -1003,6 +1140,7 @@ void writeHostLoaderLoadSteps(std::ostream &out,
                               const PackageArtifactRecord &artifact,
                               const PackageArtifactRecord *sourceRemapArtifact,
                               const PackageArtifactRecord *backendSourceMapArtifact,
+                              const PackageDebugArtifactHealth *debugArtifacts,
                               const std::optional<std::string> &mode,
                               const std::optional<std::string> &selectedTarget,
                               bool hostInterfaceReady,
@@ -1046,6 +1184,14 @@ void writeHostLoaderLoadSteps(std::ostream &out,
     writeHostLoaderLoadStepMetadataSource(
         out, "manifest.artifacts.sourceRemap", &sourceRemapArtifact->path,
         std::string(indent) + "      ");
+    out << ",\n" << indent << "      \"provenance\": ";
+    const PackageSourceRemapProvenanceHealth *health =
+        debugArtifacts != nullptr ? &debugArtifacts->sourceRemap : nullptr;
+    writeHostLoaderLoadStepProvenancePointer(
+        out, "loadUnit.sourceRemap.provenance",
+        health != nullptr && sourceRemapProvenanceAvailable(*health),
+        health != nullptr ? health->health : "not-present",
+        std::string(indent) + "      ");
     out << "\n" << indent << "    }\n" << indent << "  }";
   }
 
@@ -1060,6 +1206,14 @@ void writeHostLoaderLoadSteps(std::ostream &out,
     writeHostLoaderLoadStepMetadataSource(
         out, "manifest.artifacts.backendSourceMap",
         &backendSourceMapArtifact->path, std::string(indent) + "      ");
+    out << ",\n" << indent << "      \"provenance\": ";
+    const PackageBackendSourceMapHealth *health =
+        debugArtifacts != nullptr ? &debugArtifacts->backendSourceMap : nullptr;
+    writeHostLoaderLoadStepProvenancePointer(
+        out, "loadUnit.backendSourceMap.provenance",
+        health != nullptr && backendSourceMapProvenanceAvailable(*health),
+        health != nullptr ? health->health : "not-present",
+        std::string(indent) + "      ");
     out << "\n" << indent << "    }\n" << indent << "  }";
   }
 
@@ -1112,6 +1266,7 @@ void writeHostLoaderLoadUnit(
     std::ostream &out, const PackageArtifactRecord &artifact,
     const PackageArtifactRecord *sourceRemapArtifact,
     const PackageArtifactRecord *backendSourceMapArtifact,
+    const PackageDebugArtifactHealth *debugArtifacts,
     const std::optional<std::string> &mode,
     const std::optional<std::string> &selectedTarget,
     const std::vector<std::string> &requiredTools,
@@ -1146,14 +1301,19 @@ void writeHostLoaderLoadUnit(
       << indent << "  \"status\": \""
       << (hostInterfaceReady ? "ready" : "blocked") << "\",\n"
       << indent << "  \"sourceRemap\": ";
+  const PackageSourceRemapProvenanceHealth *sourceRemapHealth =
+      debugArtifacts != nullptr ? &debugArtifacts->sourceRemap : nullptr;
   writeHostLoaderManifestArtifactReference(out, sourceRemapArtifact,
                                            "manifest.artifacts.sourceRemap",
+                                           sourceRemapHealth, nullptr,
                                            std::string(indent) + "  ");
   out << ",\n"
       << indent << "  \"backendSourceMap\": ";
+  const PackageBackendSourceMapHealth *backendSourceMapHealth =
+      debugArtifacts != nullptr ? &debugArtifacts->backendSourceMap : nullptr;
   writeHostLoaderManifestArtifactReference(
       out, backendSourceMapArtifact, "manifest.artifacts.backendSourceMap",
-      std::string(indent) + "  ");
+      nullptr, backendSourceMapHealth, std::string(indent) + "  ");
   out << ",\n"
       << indent << "  \"requiredTools\": ";
   writeStringArray(out, requiredTools);
@@ -1189,8 +1349,8 @@ void writeHostLoaderLoadUnit(
       << indent << "  },\n"
       << indent << "  \"loadSteps\": ";
   writeHostLoaderLoadSteps(out, artifact, sourceRemapArtifact,
-                           backendSourceMapArtifact, mode, selectedTarget,
-                           hostInterfaceReady, entryPointCount,
+                           backendSourceMapArtifact, debugArtifacts, mode,
+                           selectedTarget, hostInterfaceReady, entryPointCount,
                            resourceBindingCount, workgroupSizeCount,
                            functionConstantCount, specializationConstantCount,
                            std::string(indent) + "  ");
@@ -1236,6 +1396,11 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
       findExistingArtifact(metadata, kSourceRemapArtifact);
   const PackageArtifactRecord *backendSourceMapArtifact =
       findExistingArtifact(metadata, kBackendSourceMapArtifact);
+  const std::optional<PackageDebugArtifactHealth> debugArtifacts =
+      metadata != nullptr
+          ? std::optional<PackageDebugArtifactHealth>(
+                collectPackageDebugArtifactHealth(*metadata))
+          : std::nullopt;
   const std::vector<std::string> requiredTools =
       hostLoaderRequiredTools(metadata);
   const std::size_t readyLoadUnitCount = hostInterfaceReady ? 1 : 0;
@@ -1279,8 +1444,10 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
   } else {
     out << "[\n" << indent << "    ";
     writeHostLoaderLoadUnit(out, *selection.artifact, sourceRemapArtifact,
-                            backendSourceMapArtifact, selection.mode,
-                            selectedTarget, requiredTools, hostInterfaceReady,
+                            backendSourceMapArtifact,
+                            debugArtifacts ? &*debugArtifacts : nullptr,
+                            selection.mode, selectedTarget, requiredTools,
+                            hostInterfaceReady,
                             entryPointCount, resourceBindingCount,
                             workgroupSizeCount, functionConstantCount,
                             specializationConstantCount,

@@ -6,10 +6,8 @@
 #include <cctype>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <map>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -250,19 +248,6 @@ summarizeBackendMappedLines(std::string_view arrayText) {
   return std::nullopt;
 }
 
-std::optional<std::string> readRegularFile(const std::filesystem::path &path) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input) {
-    return std::nullopt;
-  }
-  std::ostringstream buffer;
-  buffer << input.rdbuf();
-  if (input.bad()) {
-    return std::nullopt;
-  }
-  return buffer.str();
-}
-
 const PackageArtifactRecord *
 findArtifact(const PackageMetadata &metadata, std::string_view name) {
   for (const PackageArtifactRecord &artifact : metadata.artifacts) {
@@ -279,7 +264,7 @@ readArtifactDocument(const PackageMetadata &metadata,
   if (!artifact || !artifact->packageRelative || !artifact->exists) {
     return std::nullopt;
   }
-  return readRegularFile(metadata.packagePath / artifact->path);
+  return readPackageArtifactText(metadata, *artifact);
 }
 
 std::optional<bool>

@@ -244,6 +244,9 @@ std::optional<std::string>
 effectivePackageNativeBinaryStatus(const PackageMetadata &metadata);
 std::optional<std::string>
 detectPackageMetadataFormat(const std::filesystem::path &packagePath);
+std::optional<std::string>
+readPackageArtifactText(const PackageMetadata &metadata,
+                        const PackageArtifactRecord &artifact);
 
 PackageNativeArtifactDescriptorHealth
 collectPackageNativeArtifactDescriptorHealth(const PackageMetadata &metadata);

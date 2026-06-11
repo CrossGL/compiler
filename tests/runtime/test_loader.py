@@ -451,12 +451,31 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
 
             self.assertRuntimeLoaderPlanContractValid(contract)
             load_unit = contract["hostLoaderIntegration"]["loadUnits"][0]
+            expected_source_remap_provenance = {
+                "available": True,
+                "health": "ok",
+                "schemaVersion": 1,
+                "kind": "crossgl.sourceRemapProvenance",
+                "contractVersion": "source-remap-provenance-v1",
+                "target": "directx",
+                "generatedFile": "generated/from-translator.cgl",
+                "mappingGranularity": "source-span",
+                "mappingCount": 1,
+                "sourcePath": "source/original.crossgl",
+                "sourceSha256": "0" * 64,
+                "sourceSizeBytes": 0,
+                "sourceRemapTarget": None,
+                "sourceRemapMappingGranularity": None,
+                "sourceRemapSourceBackend": None,
+                "sourceRemapVariant": None,
+            }
             self.assertEqual(
                 load_unit["sourceRemap"],
                 {
                     "source": "manifest.artifacts.sourceRemap",
                     "packagePath": source_remap_path,
                     "exists": True,
+                    "provenance": expected_source_remap_provenance,
                 },
             )
             self.assertEqual(
@@ -490,7 +509,12 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                         "source": {
                             "field": "manifest.artifacts.sourceRemap",
                             "path": source_remap_path,
-                        }
+                        },
+                        "provenance": {
+                            "source": "loadUnit.sourceRemap.provenance",
+                            "available": True,
+                            "health": "ok",
+                        },
                     },
                 },
             )
@@ -532,12 +556,38 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             self.assertRuntimeLoaderPlanContractValid(contract)
             load_unit = contract["hostLoaderIntegration"]["loadUnits"][0]
             self.assertIsNone(load_unit["sourceRemap"])
+            expected_backend_source_map_provenance = {
+                "available": True,
+                "health": "ok",
+                "schemaVersion": 1,
+                "kind": "crossgl.backendSourceMap",
+                "target": "directx",
+                "module": "RuntimeLoaderFixture",
+                "mappingGranularity": "statement",
+                "sourceBackend": "crossgl-hir",
+                "targetBackend": "hlsl",
+                "backendLanguage": "hlsl",
+                "backendLineCount": 1,
+                "mappingCount": 0,
+                "mappingRecordCount": 0,
+                "sourceRemapPresent": False,
+                "sourceRemapPath": None,
+                "sourceRemapGeneratedFile": None,
+                "sourceRemapTarget": None,
+                "sourceRemapMappingGranularity": None,
+                "sourceRemapMappingCount": None,
+                "sourceRemapSourceBackend": None,
+                "sourceRemapVariant": None,
+                "sourceRemapSha256": None,
+                "sourceRemapSizeBytes": None,
+            }
             self.assertEqual(
                 load_unit["backendSourceMap"],
                 {
                     "source": "manifest.artifacts.backendSourceMap",
                     "packagePath": backend_source_map_path,
                     "exists": True,
+                    "provenance": expected_backend_source_map_provenance,
                 },
             )
             self.assertEqual(
@@ -571,7 +621,12 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                         "source": {
                             "field": "manifest.artifacts.backendSourceMap",
                             "path": backend_source_map_path,
-                        }
+                        },
+                        "provenance": {
+                            "source": "loadUnit.backendSourceMap.provenance",
+                            "available": True,
+                            "health": "ok",
+                        },
                     },
                 },
             )
