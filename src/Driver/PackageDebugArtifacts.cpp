@@ -37,6 +37,23 @@ bool optionalStringEquals(const std::optional<std::string> &left,
   return left && right && *left == *right;
 }
 
+std::optional<std::string_view> expectedBackendLanguageForTarget(
+    std::string_view target) {
+  if (target == "directx") {
+    return "hlsl";
+  }
+  if (target == "metal") {
+    return "msl";
+  }
+  if (target == "opengl") {
+    return "glsl";
+  }
+  if (target == "vulkan") {
+    return "spvasm";
+  }
+  return std::nullopt;
+}
+
 bool optionalStringMetadataMatches(const std::optional<std::string> &left,
                                    const std::optional<std::string> &right) {
   if (!left || !right) {
@@ -667,9 +684,14 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
       health.mappingGranularity && *health.mappingGranularity == "statement";
   health.checks.sourceBackendPresent =
       health.sourceBackend && !health.sourceBackend->empty();
+  std::optional<std::string_view> expectedBackendLanguage =
+      expectedBackendLanguageForTarget(metadata.target);
   health.checks.targetBackendMatchesBackendLanguage =
       health.targetBackend && health.backendLanguage &&
-      *health.targetBackend == *health.backendLanguage;
+      *health.targetBackend == *health.backendLanguage &&
+      (!expectedBackendLanguage ||
+       (*health.targetBackend == *expectedBackendLanguage &&
+        *health.backendLanguage == *expectedBackendLanguage));
   health.checks.backendLanguagePresent =
       health.backendLanguage && !health.backendLanguage->empty();
   health.checks.backendLineCountPresent = health.backendLineCount.has_value();

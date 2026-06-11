@@ -2105,7 +2105,8 @@ void verifyBackendSourceMapHealth(
   if (checks.targetBackendMatchesBackendLanguage &&
       !*checks.targetBackendMatchesBackendLanguage) {
     emitError("backend-source-map-language-mismatch",
-              label + " targetBackend must match backend.language");
+              label + " targetBackend must match backend.language and the "
+                      "package target backend language");
   }
   if (checks.backendLanguagePresent && !*checks.backendLanguagePresent) {
     emitError("backend-source-map-language-missing",

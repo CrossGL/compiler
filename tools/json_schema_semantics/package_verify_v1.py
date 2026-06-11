@@ -504,14 +504,26 @@ def validate_backend_source_map_summary(errors, summary):
             bool(backend_source_map["sourceBackend"]),
             "backendSourceMap source backend presence",
         )
+        expected_backend_language = TARGET_BACKEND_LANGUAGES.get(summary["target"])
+        expected_target_backend_matches_language = (
+            isinstance(backend_source_map["targetBackend"], str)
+            and isinstance(backend_source_map["backendLanguage"], str)
+            and backend_source_map["targetBackend"]
+            == backend_source_map["backendLanguage"]
+            and (
+                expected_backend_language is None
+                or (
+                    backend_source_map["targetBackend"] == expected_backend_language
+                    and backend_source_map["backendLanguage"]
+                    == expected_backend_language
+                )
+            )
+        )
         add_equal_error(
             errors,
             "$.summary.backendSourceMap.checks.targetBackendMatchesBackendLanguage",
             checks["targetBackendMatchesBackendLanguage"],
-            isinstance(backend_source_map["targetBackend"], str)
-            and isinstance(backend_source_map["backendLanguage"], str)
-            and backend_source_map["targetBackend"]
-            == backend_source_map["backendLanguage"],
+            expected_target_backend_matches_language,
             "backendSourceMap target backend language agreement",
         )
         add_equal_error(
@@ -521,20 +533,6 @@ def validate_backend_source_map_summary(errors, summary):
             bool(backend_source_map["backendLanguage"]),
             "backendSourceMap backend language presence",
         )
-        expected_backend_language = TARGET_BACKEND_LANGUAGES.get(summary["target"])
-        if expected_backend_language is not None:
-            if backend_source_map["targetBackend"] != expected_backend_language:
-                errors.append(
-                    "$.summary.backendSourceMap.targetBackend: expected "
-                    f"{expected_backend_language!r} for {summary['target']} "
-                    "package target"
-                )
-            if backend_source_map["backendLanguage"] != expected_backend_language:
-                errors.append(
-                    "$.summary.backendSourceMap.backendLanguage: expected "
-                    f"{expected_backend_language!r} for {summary['target']} "
-                    "package target"
-                )
         add_equal_error(
             errors,
             "$.summary.backendSourceMap.checks.backendLineCountPresent",

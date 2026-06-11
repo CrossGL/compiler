@@ -3648,6 +3648,44 @@ def run_cases(root, cglc, jobs=1):
         )
 
         package, _source, manifest = make_package(
+            tmp_dir, "backend-source-map-language-drift"
+        )
+        add_backend_source_map(
+            package,
+            manifest,
+            mutate=lambda document: (
+                document.update({"targetBackend": "msl"}),
+                document["backend"].update({"language": "msl"}),
+            ),
+        )
+        expected = (
+            "backendSourceMap "
+            "'backend/directx/StorageBufferComputeShader.backend-source-map.json' "
+            "targetBackend must match backend.language and the package target "
+            "backend language"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "backend-source-map-language-drift",
+                package,
+                expected,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-language-drift-json",
+                package,
+                expected,
+                manifest=manifest,
+                expected_code="package.verify.backend-source-map-language-mismatch",
+            )
+        )
+
+        package, _source, manifest = make_package(
             tmp_dir, "backend-source-map-line-count-drift"
         )
         add_backend_source_map(

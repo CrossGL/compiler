@@ -3577,6 +3577,7 @@ def add_backend_source_map(
     *,
     backend_line_count=None,
     mapping_end_line=None,
+    mutate=None,
 ):
     backend_source_text = "line one\nline two\n"
     write_text(
@@ -3591,9 +3592,15 @@ def add_backend_source_map(
     manifest["artifacts"]["backendSourceMap"] = (
         "backend/directx/StorageBufferComputeShader.backend-source-map.json"
     )
+    document = backend_source_map_document(
+        manifest,
+        backend_line_count,
+        mapping_end_line,
+    )
+    if mutate is not None:
+        mutate(document)
     write_json(
-        package_path(package, manifest["artifacts"]["backendSourceMap"]),
-        backend_source_map_document(manifest, backend_line_count, mapping_end_line),
+        package_path(package, manifest["artifacts"]["backendSourceMap"]), document
     )
     rewrite_manifest(package, manifest)
     return source_line_count
@@ -3644,6 +3651,48 @@ def check_backend_source_map_line_count_drift(_package, payload):
         "debugArtifacts.backendSourceMap.checks.backendSpansWithinSource",
         checks["backendSpansWithinSource"],
         True,
+    )
+    return errors
+
+
+def check_backend_source_map_language_drift(_package, payload):
+    errors = []
+    backend_source_map = payload["debugArtifacts"]["backendSourceMap"]
+    checks = backend_source_map["checks"]
+    expect_equal(
+        errors,
+        "backend-source-map-language-drift",
+        "debugArtifacts.health",
+        payload["debugArtifacts"]["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-language-drift",
+        "debugArtifacts.backendSourceMap.health",
+        backend_source_map["health"],
+        "drift",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-language-drift",
+        "debugArtifacts.backendSourceMap.targetBackend",
+        backend_source_map["targetBackend"],
+        "msl",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-language-drift",
+        "debugArtifacts.backendSourceMap.backendLanguage",
+        backend_source_map["backendLanguage"],
+        "msl",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-language-drift",
+        "debugArtifacts.backendSourceMap.checks.targetBackendMatchesBackendLanguage",
+        checks["targetBackendMatchesBackendLanguage"],
+        False,
     )
     return errors
 
@@ -4573,6 +4622,29 @@ def run_cases(root, cglc, jobs=1):
                 "backend-source-map-line-count-drift",
                 package,
                 check_backend_source_map_line_count_drift,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir,
+            "backend-source-map-language-drift",
+        )
+        add_backend_source_map(
+            package,
+            manifest,
+            mutate=lambda document: (
+                document.update({"targetBackend": "msl"}),
+                document["backend"].update({"language": "msl"}),
+            ),
+        )
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-language-drift",
+                package,
+                check_backend_source_map_language_drift,
             )
         )
 
