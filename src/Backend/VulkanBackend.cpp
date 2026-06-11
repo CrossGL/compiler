@@ -308,6 +308,25 @@ HIRType textureSampleResultType(const HIRType &textureType) {
   return HIRType{"vec4", std::nullopt};
 }
 
+bool isPrototypeTextureGatherTextureType(const HIRType &textureType) {
+  if (textureType.arraySize.has_value()) {
+    return false;
+  }
+  const std::string name = baseTypeName(textureType);
+  return !isComparisonTextureType(name) && !isArrayTextureType(name) &&
+         textureDimension(name) == "2D" &&
+         (name == "sampler2D" || name == "texture2D" ||
+          name == "isampler2D" || name == "usampler2D");
+}
+
+HIRType textureGatherResultType(const HIRType &textureType) {
+  if (!isPrototypeTextureGatherTextureType(textureType)) {
+    return {};
+  }
+  return textureSampleResultType(HIRType{baseTypeName(textureType),
+                                         std::nullopt});
+}
+
 std::string spirvExecutionModel(std::string_view stage) {
   if (stage == "compute") {
     return "GLCompute";
@@ -3916,11 +3935,87 @@ bool prototypeTextureSampleSupported(
     DiagnosticEngine &diagnostics) {
   if (expression.kind == HIRExpressionKind::TextureSample &&
       expression.value == "textureGather") {
-    diagnostics.error(
-        "vulkan.prototype-unsupported-texture-gather",
-        "Vulkan prototype textureGather lowering is not implemented yet; keep "
-        "this module in HIR form until OpImageGather emission is available");
-    return false;
+    if (expression.children.size() != 3 && expression.children.size() != 4) {
+      diagnostics.error("vulkan.prototype-unsupported-texture-gather",
+                        "Vulkan prototype textureGather lowering requires "
+                        "texture, sampler, coordinates, and optional "
+                        "component operands");
+      return false;
+    }
+    const HIRType textureType =
+        prototypeExpressionType(expression.children[0], locals, resources,
+                                constants);
+    if (!isPrototypeTextureGatherTextureType(textureType)) {
+      diagnostics.error("vulkan.prototype-unsupported-texture-gather",
+                        "Vulkan prototype textureGather currently supports "
+                        "only non-comparison 2D textures");
+      return false;
+    }
+    const HIRType samplerType =
+        prototypeExpressionType(expression.children[1], locals, resources,
+                                constants);
+    if (samplerType.arraySize.has_value() ||
+        !isRawSamplerResourceType(baseTypeName(samplerType))) {
+      diagnostics.error("vulkan.prototype-unsupported-texture-gather",
+                        "Vulkan prototype textureGather requires a raw "
+                        "sampler operand");
+      return false;
+    }
+    if (!prototypeDescriptorExpressionSupported(
+            expression.children[0], HIRResourceKind::Texture, resources, locals,
+            constants, structs, diagnostics) ||
+        !prototypeDescriptorExpressionSupported(
+            expression.children[1], HIRResourceKind::Sampler, resources, locals,
+            constants, structs, diagnostics)) {
+      return false;
+    }
+    if (!prototypeExpressionSupported(expression.children[2], locals, resources,
+                                      constants, structs, diagnostics)) {
+      return false;
+    }
+    const HIRType coordinateType =
+        prototypeExpressionType(expression.children[2], locals, resources,
+                                constants);
+    if (coordinateType.name != "vec2" || coordinateType.arraySize.has_value()) {
+      diagnostics.error("vulkan.prototype-unsupported-texture-gather",
+                        "Vulkan prototype textureGather coordinates must be "
+                        "vec2 for non-comparison 2D textures");
+      return false;
+    }
+    if (expression.children.size() == 4) {
+      if (!prototypeExpressionSupported(expression.children[3], locals,
+                                        resources, constants, structs,
+                                        diagnostics)) {
+        return false;
+      }
+      const HIRType componentType =
+          prototypeExpressionType(expression.children[3], locals, resources,
+                                  constants);
+      if (componentType.arraySize.has_value() ||
+          (componentType.name != "int" && componentType.name != "uint")) {
+        diagnostics.error("vulkan.prototype-unsupported-texture-gather",
+                          "Vulkan prototype textureGather component operand "
+                          "must be a scalar integer");
+        return false;
+      }
+      const std::optional<std::size_t> component =
+          prototypeStaticArrayIndexValue(expression.children[3], constants);
+      if (!component.has_value() || *component > 3) {
+        diagnostics.error("vulkan.prototype-unsupported-texture-gather",
+                          "Vulkan prototype textureGather component operand "
+                          "must be a literal or folded integer in range 0..3");
+        return false;
+      }
+    }
+    const HIRType expectedResult = textureGatherResultType(textureType);
+    if (!samePrototypeType(expression.type, expectedResult)) {
+      diagnostics.error("vulkan.prototype-unsupported-texture-gather",
+                        "Vulkan prototype textureGather result for '" +
+                            formatType(textureType) + "' must be " +
+                            formatType(expectedResult));
+      return false;
+    }
+    return true;
   }
 
   const bool explicitLod = isPrototypeExplicitLodTextureSample(expression);
@@ -9132,6 +9227,65 @@ private:
     return sampledImage;
   }
 
+  std::optional<PrototypeSPIRVValue> emitTextureGather(
+      const HIRExpression &expression) {
+    if (expression.children.size() != 3 && expression.children.size() != 4) {
+      diagnostics_.error("vulkan.prototype-unsupported-texture-gather",
+                         "Vulkan prototype textureGather lowering requires "
+                         "texture, sampler, coordinates, and optional "
+                         "component operands");
+      return std::nullopt;
+    }
+
+    std::optional<PrototypeSPIRVValue> texture =
+        emitUniformConstantDescriptorLoad(expression.children[0],
+                                          HIRResourceKind::Texture);
+    std::optional<PrototypeSPIRVValue> sampler =
+        emitUniformConstantDescriptorLoad(expression.children[1],
+                                          HIRResourceKind::Sampler);
+    std::optional<PrototypeSPIRVValue> coordinates =
+        emitExpression(expression.children[2]);
+    std::optional<PrototypeSPIRVValue> component =
+        expression.children.size() == 4 ? emitExpression(expression.children[3])
+                                        : std::nullopt;
+    if (!texture.has_value() || !sampler.has_value() ||
+        !coordinates.has_value() ||
+        (expression.children.size() == 4 && !component.has_value())) {
+      return std::nullopt;
+    }
+
+    if (expression.children.size() == 4) {
+      const std::optional<std::size_t> componentValue =
+          prototypeStaticArrayIndexValue(expression.children[3], constants_);
+      if (!componentValue.has_value() || *componentValue > 3) {
+        diagnostics_.error("vulkan.prototype-unsupported-texture-gather",
+                           "Vulkan prototype textureGather component operand "
+                           "must be a literal or folded integer in range 0..3");
+        return std::nullopt;
+      }
+    }
+
+    const std::string sampledImageTypeId =
+        ensureSampledImageType(texture->type);
+    const std::string resultTypeId = ensureType(expression.type);
+    const std::string componentId =
+        component.has_value()
+            ? component->id
+            : ensureNumericConstant(HIRType{"int", std::nullopt}, "0");
+    if (sampledImageTypeId.empty() || resultTypeId.empty() ||
+        componentId.empty()) {
+      return std::nullopt;
+    }
+
+    const std::string sampledImage =
+        emitSampledImageValue(*texture, *sampler, sampledImageTypeId);
+    const std::string resultId = nextTemp();
+    instructionLines_.push_back(resultId + " = OpImageGather " +
+                                resultTypeId + " " + sampledImage + " " +
+                                coordinates->id + " " + componentId);
+    return PrototypeSPIRVValue{expression.type, resultId};
+  }
+
   std::optional<PrototypeSPIRVValue> emitTextureSample(
       const HIRExpression &expression) {
     const bool explicitLod = isPrototypeExplicitLodTextureSample(expression);
@@ -10053,6 +10207,9 @@ private:
                              "' expressions yet");
       return std::nullopt;
     case HIRExpressionKind::TextureSample:
+      if (expression.value == "textureGather") {
+        return emitTextureGather(expression);
+      }
       return emitTextureSample(expression);
     case HIRExpressionKind::TextureCompare:
       return emitTextureCompare(expression);

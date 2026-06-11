@@ -1461,6 +1461,13 @@ struct OpenGLTextureSampleOperands {
   const HIRExpression *lod = nullptr;
 };
 
+struct OpenGLTextureGatherOperands {
+  const HIRExpression *texture = nullptr;
+  const HIRExpression *sampler = nullptr;
+  const HIRExpression *coordinate = nullptr;
+  const HIRExpression *component = nullptr;
+};
+
 std::optional<OpenGLTextureSampleOperands>
 openGLTextureSampleOperands(const HIRExpression &expression) {
   if (const std::optional<TextureSampleOperands> explicitLodOperands =
@@ -1480,8 +1487,55 @@ openGLTextureSampleOperands(const HIRExpression &expression) {
                                      &expression.children[2], nullptr};
 }
 
+std::optional<OpenGLTextureGatherOperands>
+openGLTextureGatherOperands(const HIRExpression &expression,
+                            const HIRModule *module = nullptr) {
+  if (expression.kind != HIRExpressionKind::TextureSample ||
+      expression.value != "textureGather" ||
+      (expression.children.size() != 3 && expression.children.size() != 4)) {
+    return std::nullopt;
+  }
+  if (expression.children.size() == 4) {
+    const std::optional<std::size_t> component =
+        staticResourceArrayIndexValue(expression.children[3],
+                                      module == nullptr ? nullptr
+                                                        : &module->constants);
+    if (!component.has_value() || *component > 3) {
+      return std::nullopt;
+    }
+  }
+  return OpenGLTextureGatherOperands{
+      &expression.children[0], &expression.children[1], &expression.children[2],
+      expression.children.size() == 4 ? &expression.children[3] : nullptr};
+}
+
 std::string emitTextureSample(const HIRExpression &expression,
                               const OpenGLEmitContext &context) {
+  if (expression.value == "textureGather") {
+    const std::optional<OpenGLTextureGatherOperands> operands =
+        openGLTextureGatherOperands(expression, context.module);
+    if (!operands.has_value()) {
+      return "/* unsupported */";
+    }
+    const std::string combinedSampler =
+        glslCombinedSamplerType(operands->texture->type);
+    if (combinedSampler.empty()) {
+      return "/* unsupported */";
+    }
+    std::string result =
+        context.useCombinedSamplerResources
+            ? "textureGather(" + emitExpression(*operands->texture, context)
+            : "textureGather(" + combinedSampler + "(" +
+                  emitExpression(*operands->texture, context) + ", " +
+                  emitExpression(*operands->sampler, context) + ")";
+    result += ", " + emitExpression(*operands->coordinate, context);
+    if (operands->component != nullptr) {
+      result += ", " + emitExpression(*operands->component, context);
+    }
+    result += ")";
+    return result;
+  }
+
   const std::optional<OpenGLTextureSampleOperands> operands =
       openGLTextureSampleOperands(expression);
   if (!operands.has_value()) {
@@ -1650,15 +1704,6 @@ std::string emitTextureCompare(const HIRExpression &expression,
 
 bool expressionIsManualTextureCompare(const HIRExpression &expression) {
   return textureCompareManualOperands(expression).has_value();
-}
-
-bool expressionIsTextureGather(const HIRExpression &expression) {
-  return expression.kind == HIRExpressionKind::TextureSample &&
-         expression.value == "textureGather";
-}
-
-bool moduleUsesTextureGather(const HIRModule &module) {
-  return moduleExpressionsContain(module, expressionIsTextureGather, true);
 }
 
 bool isStorageBufferArrayDescriptorIndex(const HIRExpression &expression,
@@ -3089,6 +3134,12 @@ openGLGraphicsStructDeclarations(const HIRModule &module,
 bool expressionSupported(const HIRExpression &expression,
                          const OpenGLSupportContext &context);
 
+bool isOpenGLTextureGatherTextureType(const HIRType &type) {
+  const std::string name = baseTypeName(type);
+  return name == "sampler2D" || name == "texture2D" ||
+         name == "isampler2D" || name == "usampler2D";
+}
+
 bool textureOperandSupported(const HIRExpression &expression,
                              const OpenGLSupportContext &context) {
   if (!isResourceReferenceExpression(expression)) {
@@ -3132,6 +3183,18 @@ bool rawSamplerOperandSupported(const HIRExpression &expression,
 
 bool textureSampleSupported(const HIRExpression &expression,
                             const OpenGLSupportContext &context) {
+  if (expression.value == "textureGather") {
+    const std::optional<OpenGLTextureGatherOperands> operands =
+        openGLTextureGatherOperands(expression,
+                                    context.module == nullptr ? nullptr
+                                                              : context.module);
+    return operands.has_value() && isSupportedValueType(expression.type) &&
+           isOpenGLTextureGatherTextureType(operands->texture->type) &&
+           textureOperandSupported(*operands->texture, context) &&
+           rawSamplerOperandSupported(*operands->sampler, context) &&
+           expressionSupported(*operands->coordinate, context);
+  }
+
   const std::optional<OpenGLTextureSampleOperands> operands =
       openGLTextureSampleOperands(expression);
   if (!operands.has_value() || !isSupportedValueType(expression.type) ||
@@ -4400,18 +4463,6 @@ bool openglTextualBackendSupported(const HIRModule &module) {
          openGLGraphicsTextualBackendSupported(module);
 }
 
-bool diagnoseOpenGLUnsupportedTextureGather(const HIRModule &module,
-                                            DiagnosticEngine &diagnostics) {
-  if (!moduleUsesTextureGather(module)) {
-    return false;
-  }
-  diagnostics.error(
-      "opengl.unsupported-texture-gather",
-      "OpenGL textureGather lowering is not implemented yet; keep this module "
-      "in HIR form or target a backend with native texture gather support");
-  return true;
-}
-
 bool openglHasUnsupportedShadowCompareExplicitLodShape(
     const HIRModule &module) {
   return !unsupportedShadowCompareExplicitLodShapeLabels(module).empty();
@@ -4659,9 +4710,6 @@ bool openGLSourcePackageSupported(const HIRModule &module,
   }
   if (openglTextualBackendSupported(module)) {
     return true;
-  }
-  if (diagnoseOpenGLUnsupportedTextureGather(module, diagnostics)) {
-    return false;
   }
   if (diagnoseOpenGLUnsupportedShadowCompareExplicitLodShape(module,
                                                              diagnostics)) {

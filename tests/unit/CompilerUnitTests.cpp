@@ -28841,6 +28841,7 @@ void testTextureGatherHIRFrontend() {
   constexpr std::string_view source = R"(
 shader TextureGatherShader {
   compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
     layout(set = 0, binding = 0) uniform texture2D colorMap;
     layout(set = 0, binding = 1) sampler linearSampler;
     void main() {
@@ -28897,9 +28898,118 @@ shader TextureGatherShader {
 
     const crossgl::TargetPackageDecision decision =
         crossgl::targetPackageDecision(*hir, target);
-    expect(!decision.packageBuildSupported,
-           "textureGather is target-gated until native backend lowering exists");
+    expect(decision.packageBuildSupported,
+           "textureGather supported subset is package-buildable");
   }
+
+  const std::string directx =
+      crossgl::printBackendIR(*hir, crossgl::TargetKind::DirectX);
+  expect(directx.find("float4 gatheredRed = colorMap.GatherRed("
+                      "linearSampler, float2(0.25, 0.75));") !=
+             std::string::npos,
+         "DirectX backend lowers textureGather default component");
+  expect(directx.find("float4 gatheredGreen = colorMap.GatherGreen("
+                      "linearSampler, float2(0.5, 0.5));") !=
+             std::string::npos,
+         "DirectX backend lowers textureGather explicit component");
+
+  const std::string opengl =
+      crossgl::printBackendIR(*hir, crossgl::TargetKind::OpenGL);
+  expect(opengl.find("vec4 gatheredRed = textureGather(sampler2D(colorMap, "
+                     "linearSampler), vec2(0.25, 0.75));") !=
+             std::string::npos,
+         "OpenGL backend lowers textureGather default component");
+  expect(opengl.find("vec4 gatheredGreen = textureGather(sampler2D(colorMap, "
+                     "linearSampler), vec2(0.5, 0.5), 1);") !=
+             std::string::npos,
+         "OpenGL backend lowers textureGather explicit component");
+
+  const std::string metal = crossgl::generateMetalSource(*hir);
+  expect(metal.find("float4 gatheredRed = colorMap.gather(linearSampler, "
+                    "float2(0.25, 0.75));") != std::string::npos,
+         "Metal backend lowers textureGather default component");
+  expect(metal.find("float4 gatheredGreen = colorMap.gather(linearSampler, "
+                    "float2(0.5, 0.5), int2(0), component::y);") !=
+             std::string::npos,
+         "Metal backend lowers textureGather explicit component");
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assemblyDiagnostics.hasErrors(),
+         "textureGather Vulkan prototype assembly has no diagnostics");
+  expect(assembly.find("OpImageGather %vec4") != std::string::npos,
+         "Vulkan prototype assembly lowers textureGather to OpImageGather");
+
+  constexpr std::string_view integerSource = R"(
+shader TextureGatherIntegerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer ivec4* labels;
+    layout(set = 0, binding = 1) buffer uvec4* masks;
+    layout(set = 0, binding = 2) uniform isampler2D labelMap;
+    layout(set = 0, binding = 3) uniform usampler2D maskMap;
+    layout(set = 0, binding = 4) sampler nearestSampler;
+    void main() {
+      ivec4 label =
+          textureGather(labelMap, nearestSampler, vec2(0.5, 0.5), 2);
+      uvec4 mask =
+          textureGather(maskMap, nearestSampler, vec2(0.25, 0.75));
+      labels[0] = label;
+      masks[0] = mask;
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> integerHir = parseHIR(integerSource);
+  expect(integerHir.has_value(),
+         "integer textureGather source builds HIR");
+  if (!integerHir) {
+    return;
+  }
+
+  const std::string integerDirectX =
+      crossgl::printBackendIR(*integerHir, crossgl::TargetKind::DirectX);
+  expect(integerDirectX.find("int4 label = labelMap.GatherBlue("
+                             "nearestSampler, float2(0.5, 0.5));") !=
+             std::string::npos,
+         "DirectX backend preserves signed integer textureGather result type");
+  expect(integerDirectX.find("uint4 mask = maskMap.GatherRed(nearestSampler, "
+                             "float2(0.25, 0.75));") != std::string::npos,
+         "DirectX backend preserves unsigned integer textureGather result type");
+
+  const std::string integerOpenGL =
+      crossgl::printBackendIR(*integerHir, crossgl::TargetKind::OpenGL);
+  expect(integerOpenGL.find("ivec4 label = textureGather(isampler2D(labelMap, "
+                            "nearestSampler), vec2(0.5, 0.5), 2);") !=
+             std::string::npos,
+         "OpenGL backend preserves signed integer textureGather result type");
+  expect(integerOpenGL.find("uvec4 mask = textureGather(usampler2D(maskMap, "
+                            "nearestSampler), vec2(0.25, 0.75));") !=
+             std::string::npos,
+         "OpenGL backend preserves unsigned integer textureGather result type");
+
+  const std::string integerMetal = crossgl::generateMetalSource(*integerHir);
+  expect(integerMetal.find("int4 label = labelMap.gather(nearestSampler, "
+                           "float2(0.5, 0.5), int2(0), component::z);") !=
+             std::string::npos,
+         "Metal backend preserves signed integer textureGather result type");
+  expect(integerMetal.find("uint4 mask = maskMap.gather(nearestSampler, "
+                           "float2(0.25, 0.75));") != std::string::npos,
+         "Metal backend preserves unsigned integer textureGather result type");
+
+  crossgl::DiagnosticEngine integerAssemblyDiagnostics;
+  const std::string integerAssembly =
+      crossgl::generateVulkanPrototypeAssembly(*integerHir,
+                                               integerAssemblyDiagnostics);
+  expect(!integerAssemblyDiagnostics.hasErrors(),
+         "integer textureGather Vulkan prototype assembly has no diagnostics");
+  expect(integerAssembly.find("OpImageGather %ivec4") != std::string::npos,
+         "Vulkan prototype assembly preserves signed integer textureGather result type");
+  expect(integerAssembly.find("OpImageGather %uvec4") != std::string::npos,
+         "Vulkan prototype assembly preserves unsigned integer textureGather result type");
 }
 
 void testExpressionSourceLocations() {

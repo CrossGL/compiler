@@ -1107,11 +1107,24 @@ bool isDirectXWorkgroupBarrierCall(const HIRExpression &expression) {
 bool expressionSupported(const HIRExpression &expression,
                          const DirectXTextualSupportContext &context);
 
+bool isDirectXTextureGatherTextureType(const HIRType &type) {
+  const std::string name = baseTypeName(type);
+  return name == "sampler2D" || name == "texture2D" ||
+         name == "isampler2D" || name == "usampler2D";
+}
+
 struct DirectXTextureSampleOperands {
   const HIRExpression *texture = nullptr;
   const HIRExpression *sampler = nullptr;
   const HIRExpression *coordinate = nullptr;
   const HIRExpression *lod = nullptr;
+};
+
+struct DirectXTextureGatherOperands {
+  const HIRExpression *texture = nullptr;
+  const HIRExpression *sampler = nullptr;
+  const HIRExpression *coordinate = nullptr;
+  std::optional<std::size_t> component;
 };
 
 std::optional<DirectXTextureSampleOperands>
@@ -1131,6 +1144,31 @@ directxTextureSampleOperands(const HIRExpression &expression) {
   return DirectXTextureSampleOperands{&expression.children[0],
                                       &expression.children[1],
                                       &expression.children[2], nullptr};
+}
+
+std::optional<DirectXTextureGatherOperands>
+directxTextureGatherOperands(const HIRExpression &expression,
+                             const HIRModule *module = nullptr) {
+  if (expression.kind != HIRExpressionKind::TextureSample ||
+      expression.value != "textureGather" ||
+      (expression.children.size() != 3 && expression.children.size() != 4)) {
+    return std::nullopt;
+  }
+
+  DirectXTextureGatherOperands operands{&expression.children[0],
+                                        &expression.children[1],
+                                        &expression.children[2], std::nullopt};
+  if (expression.children.size() == 4) {
+    const std::optional<std::size_t> component =
+        staticResourceArrayIndexValue(expression.children[3],
+                                      module == nullptr ? nullptr
+                                                        : &module->constants);
+    if (!component.has_value() || *component > 3) {
+      return std::nullopt;
+    }
+    operands.component = component;
+  }
+  return operands;
 }
 
 bool textureOperandSupported(const HIRExpression &expression,
@@ -1237,6 +1275,16 @@ bool storageImageCallSupported(const HIRExpression &expression,
 
 bool textureSampleSupported(const HIRExpression &expression,
                             const DirectXTextualSupportContext &context) {
+  if (expression.value == "textureGather") {
+    const std::optional<DirectXTextureGatherOperands> operands =
+        directxTextureGatherOperands(expression, context.module);
+    return operands.has_value() && isSupportedValueType(expression.type) &&
+           isDirectXTextureGatherTextureType(operands->texture->type) &&
+           textureOperandSupported(*operands->texture, context) &&
+           rawSamplerOperandSupported(*operands->sampler, context) &&
+           expressionSupported(*operands->coordinate, context);
+  }
+
   const std::optional<DirectXTextureSampleOperands> operands =
       directxTextureSampleOperands(expression);
   if (!operands.has_value() || !isSupportedValueType(expression.type) ||
@@ -1997,6 +2045,21 @@ void emitInterlockedAtomicStatement(std::ostringstream &out,
 
 std::string emitTextureSample(const HIRExpression &expression,
                               const DirectXEmitContext &context) {
+  if (expression.value == "textureGather") {
+    const std::optional<DirectXTextureGatherOperands> operands =
+        directxTextureGatherOperands(expression, context.module);
+    if (!operands.has_value()) {
+      return "/* unsupported */";
+    }
+    static constexpr std::string_view kGatherMethods[] = {
+        "GatherRed", "GatherGreen", "GatherBlue", "GatherAlpha"};
+    const std::size_t component = operands->component.value_or(0);
+    return emitExpression(*operands->texture, context) + "." +
+           std::string(kGatherMethods[component]) + "(" +
+           emitExpression(*operands->sampler, context) + ", " +
+           emitExpression(*operands->coordinate, context) + ")";
+  }
+
   const std::optional<DirectXTextureSampleOperands> operands =
       directxTextureSampleOperands(expression);
   if (!operands.has_value()) {
@@ -3227,18 +3290,9 @@ bool expressionIsManualTextureCompare(const HIRExpression &expression) {
   return textureCompareManualOperands(expression).has_value();
 }
 
-bool expressionIsTextureGather(const HIRExpression &expression) {
-  return expression.kind == HIRExpressionKind::TextureSample &&
-         expression.value == "textureGather";
-}
-
 bool moduleUsesManualTextureCompare(const HIRModule &module) {
   return moduleExpressionsContain(module, expressionIsManualTextureCompare,
                                   true);
-}
-
-bool moduleUsesTextureGather(const HIRModule &module) {
-  return moduleExpressionsContain(module, expressionIsTextureGather, true);
 }
 
 bool constantsSupported(const HIRModule &module) {
@@ -4811,18 +4865,6 @@ bool directxHasUnsupportedRuntimeResourceArray(const HIRModule &module) {
   return !directxUnsupportedRuntimeResourceArrayLabels(module).empty();
 }
 
-bool diagnoseDirectXUnsupportedTextureGather(const HIRModule &module,
-                                             DiagnosticEngine &diagnostics) {
-  if (!moduleUsesTextureGather(module)) {
-    return false;
-  }
-  diagnostics.error(
-      "directx.unsupported-texture-gather",
-      "DirectX textureGather lowering is not implemented yet; keep this module "
-      "in HIR form or target a backend with native texture gather support");
-  return true;
-}
-
 bool diagnoseDirectXUnsupportedGraphicsResources(const HIRModule &module,
                                                  DiagnosticEngine &diagnostics) {
   const std::set<std::string> unsupportedResources =
@@ -4994,9 +5036,6 @@ bool directxSourcePackageSupported(const HIRModule &module,
   }
   if (directxTextualBackendSupported(module)) {
     return true;
-  }
-  if (diagnoseDirectXUnsupportedTextureGather(module, diagnostics)) {
-    return false;
   }
   if (diagnoseDirectXMixedSamplerStateUsage(module, diagnostics)) {
     return false;

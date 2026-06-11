@@ -1215,8 +1215,94 @@ std::string renderMetalArrayTextureLayer(const HIRExpression &coordinates,
          (layerIndex == 2 ? ".z" : ".w") + ")";
 }
 
+bool isMetalTextureGather(const HIRExpression &expression) {
+  return expression.kind == HIRExpressionKind::TextureSample &&
+         expression.value == "textureGather";
+}
+
+std::optional<std::size_t>
+metalTextureGatherComponentIndex(const HIRExpression &component) {
+  if (component.kind != HIRExpressionKind::Literal) {
+    return std::nullopt;
+  }
+
+  std::string_view text = component.value;
+  if (!text.empty() && (text.back() == 'u' || text.back() == 'U')) {
+    text.remove_suffix(1);
+  }
+  if (text.empty()) {
+    return std::nullopt;
+  }
+
+  std::size_t value = 0;
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return std::nullopt;
+    }
+    value = value * 10 + static_cast<std::size_t>(character - '0');
+  }
+  return value <= 3 ? std::optional<std::size_t>{value} : std::nullopt;
+}
+
+std::optional<std::string_view>
+metalTextureGatherComponentName(const HIRExpression &component) {
+  const std::optional<std::size_t> index =
+      metalTextureGatherComponentIndex(component);
+  if (!index.has_value()) {
+    return std::nullopt;
+  }
+
+  constexpr std::string_view names[] = {"x", "y", "z", "w"};
+  return names[*index];
+}
+
+bool isMetalTextureGatherTextureType(const HIRType &type) {
+  const std::string name = metalBaseTypeName(type);
+  return name == "sampler2D" || name == "texture2D" ||
+         name == "isampler2D" || name == "usampler2D";
+}
+
+HIRType metalTextureGatherResultType(const HIRType &textureType) {
+  const std::string name = metalBaseTypeName(textureType);
+  if (name == "isampler2D") {
+    return HIRType{"ivec4"};
+  }
+  if (name == "usampler2D") {
+    return HIRType{"uvec4"};
+  }
+  if (name == "sampler2D" || name == "texture2D") {
+    return HIRType{"vec4"};
+  }
+  return {};
+}
+
+std::string renderMetalTextureGather(const HIRExpression &expression,
+                                     const MetalRenderContext &context) {
+  if (expression.children.size() != 3 && expression.children.size() != 4) {
+    return "";
+  }
+
+  std::ostringstream out;
+  out << renderMetalExpression(expression.children[0], context) << ".gather("
+      << renderMetalExpression(expression.children[1], context) << ", "
+      << renderMetalExpression(expression.children[2], context);
+  if (expression.children.size() == 4) {
+    const std::optional<std::string_view> component =
+        metalTextureGatherComponentName(expression.children[3]);
+    if (!component.has_value()) {
+      return "";
+    }
+    out << ", int2(0), component::" << *component;
+  }
+  out << ")";
+  return out.str();
+}
+
 std::string renderMetalTextureSample(const HIRExpression &expression,
                                      const MetalRenderContext &context) {
+  if (isMetalTextureGather(expression)) {
+    return renderMetalTextureGather(expression, context);
+  }
   if (expression.children.size() < 2) {
     return "";
   }
@@ -2305,18 +2391,9 @@ bool expressionIsManualTextureCompare(const HIRExpression &expression) {
   return textureCompareManualOperands(expression).has_value();
 }
 
-bool expressionIsTextureGather(const HIRExpression &expression) {
-  return expression.kind == HIRExpressionKind::TextureSample &&
-         expression.value == "textureGather";
-}
-
 bool moduleUsesManualTextureCompare(const HIRModule &module) {
   return moduleExpressionsContain(module, expressionIsManualTextureCompare,
                                   true);
-}
-
-bool moduleUsesTextureGather(const HIRModule &module) {
-  return moduleExpressionsContain(module, expressionIsTextureGather, true);
 }
 
 void renderMetalManualCompareHelper(std::ostringstream &out) {
@@ -4094,6 +4171,82 @@ bool validateMetalConstructorExpressions(const HIRModule &module,
   return valid;
 }
 
+bool validateMetalTextureGatherExpressions(const HIRModule &module,
+                                           DiagnosticEngine &diagnostics) {
+  bool valid = true;
+  auto visitor = [&](const HIRExpression &expression) {
+    if (!isMetalTextureGather(expression)) {
+      return;
+    }
+
+    const bool validArity =
+        expression.children.size() == 3 || expression.children.size() == 4;
+    if (!validArity) {
+      diagnostics.error(
+          "metal.unsupported-texture-gather",
+          "Metal textureGather lowering supports texture, sampler, "
+          "coordinates, and optional literal component; got " +
+              std::to_string(expression.children.size()) + " operand(s)");
+      valid = false;
+      return;
+    }
+
+    const HIRExpression &texture = expression.children[0];
+    const HIRExpression &sampler = expression.children[1];
+    const HIRExpression &coordinates = expression.children[2];
+
+    if (!texture.type.name.empty() &&
+        !isMetalTextureGatherTextureType(texture.type)) {
+      diagnostics.error(
+          "metal.unsupported-texture-gather",
+          "Metal textureGather lowering supports only non-comparison 2D "
+          "texture operands, got '" +
+              formatType(texture.type) + "'");
+      valid = false;
+    }
+    if (!sampler.type.name.empty() &&
+        metalBaseTypeName(sampler.type) != "sampler") {
+      diagnostics.error(
+          "metal.unsupported-texture-gather",
+          "Metal textureGather lowering supports only raw sampler operands, "
+          "got '" +
+              formatType(sampler.type) + "'");
+      valid = false;
+    }
+    if (!coordinates.type.name.empty()) {
+      if (metalBaseTypeName(coordinates.type) != "vec2") {
+        diagnostics.error(
+            "metal.unsupported-texture-gather",
+            "Metal textureGather lowering supports only vec2 coordinates, got '" +
+                formatType(coordinates.type) + "'");
+        valid = false;
+      }
+    }
+    if (expression.children.size() == 4 &&
+        !metalTextureGatherComponentIndex(expression.children[3]).has_value()) {
+      diagnostics.error(
+          "metal.unsupported-texture-gather",
+          "Metal textureGather lowering supports only literal integer "
+          "components 0, 1, 2, or 3");
+      valid = false;
+    }
+
+    const HIRType expectedResult = metalTextureGatherResultType(texture.type);
+    if (!expectedResult.name.empty() &&
+        (expression.type.name != expectedResult.name ||
+         expression.type.arraySize != expectedResult.arraySize)) {
+      diagnostics.error(
+          "metal.unsupported-texture-gather",
+          "Metal textureGather result for '" + formatType(texture.type) +
+              "' must be '" + formatType(expectedResult) + "', got '" +
+              formatType(expression.type) + "'");
+      valid = false;
+    }
+  };
+  visitModuleExpressions(module, visitor, true);
+  return valid;
+}
+
 bool validateMetalRuntimeResourceDescriptorArrayPolicy(
     const HIRModule &module, DiagnosticEngine &diagnostics) {
   bool valid = true;
@@ -4200,6 +4353,7 @@ bool validateMetalResources(const HIRModule &module,
       validateMetalFunctionParameterArrayCalls(module, diagnostics) && valid;
   valid =
       validateMetalNonUniformDescriptorIndexes(module, diagnostics) && valid;
+  valid = validateMetalTextureGatherExpressions(module, diagnostics) && valid;
   valid = validateMetalConstructorExpressions(module, diagnostics) && valid;
   valid = validateMetalStorageBufferArrayIndexes(module, diagnostics) && valid;
   valid = validateMetalRuntimeTailBlockIndexes(module, diagnostics) && valid;
@@ -4215,14 +4369,6 @@ bool validateMetalResources(const HIRModule &module,
 bool metalNativeBackendSupported(const HIRModule &module,
                                  DiagnosticEngine &diagnostics) {
   if (diagnoseRawStatementBackendInput(module, diagnostics)) {
-    return false;
-  }
-  if (moduleUsesTextureGather(module)) {
-    diagnostics.error(
-        "metal.unsupported-texture-gather",
-        "Metal native textureGather lowering is not implemented yet; keep this "
-        "module in HIR/source-package form or target a backend with native "
-        "texture gather support");
     return false;
   }
   return validateMetalResources(module, diagnostics);
