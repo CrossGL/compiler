@@ -11,7 +11,7 @@
     "id": "crosstl-frontend-language-spec-v0",
     "path": "docs/language/crosstl-frontend-language-spec-v0.json",
     "schema_version": 0,
-    "sha256": "b9c822b640b20f8832285de32977533cf5b4a537d9e021c23effc049ccf2347b",
+    "sha256": "e95282525ab1310b81ac4242d8721d48b2beb0d4e0645024725043eb15dcf055",
     "authority_references": [
       {
         "id": "authority.pr720-merged-reference",
@@ -30,7 +30,7 @@
       },
       {
         "path": "crosstl/translator/parser.py",
-        "sha256": "2c9d6e4776083bde1035cfd2c37b49e6c12e9f9510a5d205449fcc6fb3a3d7fe"
+        "sha256": "bce5f7ffb0dbfb619bd88f9d89450a3477bf8367150281e8716810b6784fc764"
       },
       {
         "path": "crosstl/translator/ast.py",
@@ -194,7 +194,7 @@
         },
         {
           "ref": "/source/files",
-          "sha256": "8d928c57c642ba33197214e5802ed3e9cd22313233e1ba04ec400b2f32981590"
+          "sha256": "d4b568fcbadb9006e0e50e5d7e725ebcc6363584dfa5f728141b811bd2efa85c"
         }
       ],
       "fixture_count": 8,

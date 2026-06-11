@@ -5,7 +5,7 @@
     "id": "crosstl-frontend-language-spec-v0",
     "path": "docs/language/crosstl-frontend-language-spec-v0.json",
     "schema_version": 0,
-    "sha256": "b9c822b640b20f8832285de32977533cf5b4a537d9e021c23effc049ccf2347b",
+    "sha256": "e95282525ab1310b81ac4242d8721d48b2beb0d4e0645024725043eb15dcf055",
     "source_authority": {
       "mode": "crosstl-frontend-derived-v0",
       "canonical_until": "shared-spec-package",
@@ -30,7 +30,7 @@
         },
         {
           "path": "crosstl/translator/parser.py",
-          "sha256": "2c9d6e4776083bde1035cfd2c37b49e6c12e9f9510a5d205449fcc6fb3a3d7fe"
+          "sha256": "bce5f7ffb0dbfb619bd88f9d89450a3477bf8367150281e8716810b6784fc764"
         },
         {
           "path": "crosstl/translator/ast.py",
