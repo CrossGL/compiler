@@ -590,6 +590,59 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 "runtime-loader.directx.backendSource",
             )
 
+    def test_non_ready_crosstl_adapter_load_units_are_selected_as_blocked(
+        self,
+    ) -> None:
+        for host_interface_status in ("not-inspected", "failed"):
+            with self.subTest(host_interface_status=host_interface_status):
+                with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+                    package_dir = Path(temp_dir)
+                    self._write_valid_package(package_dir, target="directx")
+                    package_path = "backend/directx/RuntimeLoaderFixture.hlsl"
+                    self._write_crosstl_runtime_adapter_package(
+                        package_dir,
+                        target="directx",
+                        artifact_format="HLSL source",
+                        package_path=package_path,
+                        host_interface_status=host_interface_status,
+                        load_ready=False,
+                    )
+
+                    plan = read_loader_plan(package_dir, "directx")
+                    contract = plan.to_runtime_loader_plan_contract()
+                    load_units = plan.crosstl_adapter_load_unit_records()
+
+                    self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+                    self.assertRuntimeLoaderPlanContractValid(contract)
+                    self.assertEqual(len(load_units), 1)
+                    load_unit = load_units[0]
+                    self.assertEqual(load_unit.package_path, plan.runtime_artifact_path)
+                    self.assertEqual(load_unit.target, "directx")
+                    self.assertFalse(load_unit.validation["loadReady"])
+                    self.assertEqual(
+                        load_unit.validation["hostInterface"],
+                        host_interface_status,
+                    )
+                    self.assertEqual(
+                        [blocker["kind"] for blocker in load_unit.blockers],
+                        [
+                            "resolve-host-interface-metadata",
+                            "resolve-runtime-adapter-validation",
+                        ],
+                    )
+                    self.assertNotIn(
+                        "bind-host-interface",
+                        {step["kind"] for step in load_unit.load_steps},
+                    )
+                    self.assertEqual(
+                        plan.require_crosstl_adapter_load_unit(package_path),
+                        load_unit,
+                    )
+                    self.assertEqual(
+                        contract["hostLoaderIntegration"]["loadUnits"][0]["id"],
+                        "runtime-loader.directx.backendSource",
+                    )
+
     def test_crosstl_adapter_load_units_filter_to_selected_artifact_path(
         self,
     ) -> None:
@@ -5884,6 +5937,8 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
         target: str,
         artifact_format: str,
         package_path: str,
+        host_interface_status: str = "ready",
+        load_ready: bool = True,
     ) -> None:
         descriptor_path = f"adapters/{target}/runtime-loader-fixture.adapter.json"
         descriptor_file = package_dir / descriptor_path
@@ -5917,7 +5972,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 "packagePath": "source-remaps/RuntimeLoaderFixture.source-remap.json"
             },
             "hostInterface": {
-                "status": "ready",
+                "status": host_interface_status,
                 "source": "package-artifact",
                 "parser": target,
                 "artifactFormat": artifact_format,
@@ -5954,10 +6009,14 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             },
             "requiredTools": [f"{target}.toolchain.compiler"],
             "hostResponsibilities": ["load-package-artifact"],
-            "validation": {"loadReady": True},
+            "validation": {"loadReady": load_ready},
         }
         self._write_json(descriptor_file, descriptor)
         descriptor_bytes = descriptor_file.read_bytes()
+        ready_descriptor_count = (
+            1 if load_ready and host_interface_status == "ready" else 0
+        )
+        blocked_descriptor_count = 1 - ready_descriptor_count
         descriptor_record = {
             "id": adapter_id,
             "target": target,
@@ -5972,7 +6031,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 "value": hashlib.sha256(descriptor_bytes).hexdigest(),
             },
             "descriptorSizeBytes": len(descriptor_bytes),
-            "hostInterfaceStatus": "ready",
+            "hostInterfaceStatus": host_interface_status,
             "requiredTools": descriptor["requiredTools"],
         }
         self._write_json(
@@ -5994,8 +6053,8 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                     "targetCount": 1,
                     "adapterCount": 1,
                     "descriptorCount": 1,
-                    "readyDescriptorCount": 1,
-                    "blockedDescriptorCount": 0,
+                    "readyDescriptorCount": ready_descriptor_count,
+                    "blockedDescriptorCount": blocked_descriptor_count,
                     "actionCount": 0,
                     "runtimeReferenceCount": 1,
                 },
@@ -6005,8 +6064,8 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                         "adapterKind": adapter_kind,
                         "adapterCount": 1,
                         "descriptorCount": 1,
-                        "readyDescriptorCount": 1,
-                        "blockedDescriptorCount": 0,
+                        "readyDescriptorCount": ready_descriptor_count,
+                        "blockedDescriptorCount": blocked_descriptor_count,
                         "runtimeReferenceCount": 1,
                         "requiredTools": descriptor["requiredTools"],
                         "descriptors": [adapter_id],
