@@ -149,6 +149,17 @@ bool looksLikeCrossTLArtifactSourceMap(std::string_view object) {
   return objectStringMember(object, "kind") == "crosstl-artifact-source-map";
 }
 
+bool looksLikeCrossGLBackendSourceMap(std::string_view object) {
+  return objectStringMember(object, "kind") == "crossgl.backendSourceMap";
+}
+
+bool looksLikeCrossGLSourceRemapProvenance(std::string_view object) {
+  return objectStringMember(object, "kind") ==
+             "crossgl.sourceRemapProvenance" ||
+         objectStringMember(object, "contractVersion") ==
+             "source-remap-provenance-v1";
+}
+
 bool isLowercaseSha256(std::string_view value) {
   if (value.size() != 64) {
     return false;
@@ -324,6 +335,21 @@ bool validateSourceRemapMetadataGranularityContract(
   }
 
   return true;
+}
+
+bool validateOptionalSourceRemapMetadataString(
+    std::string_view metadata, std::string_view field,
+    DiagnosticEngine &diagnostics, const SourceLocation &metadataLocation) {
+  if (!findObjectMemberValue(metadata, field)) {
+    return true;
+  }
+  if (objectStringMember(metadata, field)) {
+    return true;
+  }
+  reportInvalidRemap(diagnostics,
+                     "sourceRemap." + std::string(field) + " must be a string",
+                     metadataLocation);
+  return false;
 }
 
 std::optional<std::string>
@@ -602,8 +628,10 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
   if (*expectedSize != sidecarText->size()) {
     reportInvalidRemap(
         diagnostics,
-        "sourceRemap.sizeBytes does not match referenced sidecar '" +
-            resolvedSidecarPath.generic_string() + "'",
+        "sourceRemap.sizeBytes " + std::to_string(*expectedSize) +
+            " does not match referenced sidecar '" +
+            resolvedSidecarPath.generic_string() + "' size " +
+            std::to_string(sidecarText->size()),
         metadataLocation);
     return std::nullopt;
   }
@@ -611,8 +639,10 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
   if (*expectedHash != actualHash) {
     reportInvalidRemap(
         diagnostics,
-        "sourceRemap.hash.value does not match referenced sidecar '" +
-            resolvedSidecarPath.generic_string() + "'",
+        "sourceRemap.hash.value '" + *expectedHash +
+            "' does not match referenced sidecar '" +
+            resolvedSidecarPath.generic_string() + "' sha256 '" + actualHash +
+            "'",
         metadataLocation);
     return std::nullopt;
   }
@@ -636,7 +666,9 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
   if (generatedFile && *generatedFile != remap->generatedFile) {
     reportInvalidRemap(
         diagnostics,
-        "sourceRemap.generatedFile must match referenced sidecar generatedFile",
+        "sourceRemap.generatedFile '" + *generatedFile +
+            "' must match referenced sidecar generatedFile '" +
+            remap->generatedFile + "'",
         metadataLocation);
     return std::nullopt;
   }
@@ -653,12 +685,22 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
   if (mappingCount && *mappingCount != remap->mappings.size()) {
     reportInvalidRemap(
         diagnostics,
-        "sourceRemap.mappingCount must match referenced sidecar mappings",
+        "sourceRemap.mappingCount " + std::to_string(*mappingCount) +
+            " must match referenced sidecar mapping count " +
+            std::to_string(remap->mappings.size()),
         metadataLocation);
     return std::nullopt;
   }
   if (!validateSourceRemapMetadataGranularityContract(
           metadata, *remap, diagnostics, metadataLocation)) {
+    return std::nullopt;
+  }
+  if (!validateOptionalSourceRemapMetadataString(
+          metadata, "target", diagnostics, metadataLocation) ||
+      !validateOptionalSourceRemapMetadataString(
+          metadata, "sourceBackend", diagnostics, metadataLocation) ||
+      !validateOptionalSourceRemapMetadataString(
+          metadata, "variant", diagnostics, metadataLocation)) {
     return std::nullopt;
   }
   remap->metadataTarget = objectStringMember(metadata, "target");
@@ -703,6 +745,23 @@ std::optional<SourceRemap> parseSourceRemap(std::string_view text,
           "source remap document appears to be a CrossTL artifact source map; "
           "pass the compiler sidecar JSON referenced by "
           "artifacts[].sourceRemap.path instead",
+          documentLocation);
+      return std::nullopt;
+    }
+    if (looksLikeCrossGLBackendSourceMap(text)) {
+      reportInvalidRemap(
+          diagnostics,
+          "source remap document appears to be a CrossGL backend source map; "
+          "pass the source-remap-v1 sidecar JSON instead",
+          documentLocation);
+      return std::nullopt;
+    }
+    if (looksLikeCrossGLSourceRemapProvenance(text)) {
+      reportInvalidRemap(
+          diagnostics,
+          "source remap document appears to be source-remap provenance; pass "
+          "the source-remap-v1 sidecar JSON referenced by sourceRemap.path "
+          "instead",
           documentLocation);
       return std::nullopt;
     }
