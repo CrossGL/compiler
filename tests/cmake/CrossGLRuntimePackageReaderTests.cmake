@@ -5,6 +5,10 @@ crossgl_add_python_script_test(
     --cglc $<TARGET_FILE:cglc>)
 
 crossgl_add_python_script_test(
+  NAME crossgl_runtime_crosstl_adapters
+  SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/test_crosstl_adapters.py)
+
+crossgl_add_python_script_test(
   NAME crossgl_runtime_compiler_package_smoke
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tests/runtime/test_compiler_package_smoke.py
   ARGS
