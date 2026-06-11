@@ -2821,6 +2821,341 @@ bool parseCrossTLProjectReportHash(
   return true;
 }
 
+struct CrossTLBackendSourceMapSpan {
+  std::uintmax_t startLine = 0;
+  std::uintmax_t endLine = 0;
+};
+
+struct CrossTLBackendSourceMapMappingIdentity {
+  CrossTLBackendSourceMapSpan backend;
+  CrossTLProjectReportSourceMapSpan location;
+  std::optional<CrossTLProjectReportSourceMapSpan> originalLocation;
+};
+
+bool crossTLBackendSourceMapSpansOverlap(
+    const CrossTLBackendSourceMapSpan &left,
+    const CrossTLBackendSourceMapSpan &right) {
+  return left.startLine <= right.endLine && right.startLine <= left.endLine;
+}
+
+bool crossTLBackendSourceMapSpansEqual(
+    const CrossTLBackendSourceMapSpan &left,
+    const CrossTLBackendSourceMapSpan &right) {
+  return left.startLine == right.startLine && left.endLine == right.endLine;
+}
+
+bool crossTLBackendSourceMapMappingIdentitiesEqual(
+    const CrossTLBackendSourceMapMappingIdentity &left,
+    const CrossTLBackendSourceMapMappingIdentity &right) {
+  if (!crossTLBackendSourceMapSpansEqual(left.backend, right.backend) ||
+      !crossTLProjectReportSourceMapSpansEqual(left.location, right.location) ||
+      left.originalLocation.has_value() != right.originalLocation.has_value()) {
+    return false;
+  }
+  if (!left.originalLocation) {
+    return true;
+  }
+  return crossTLProjectReportSourceMapSpansEqual(*left.originalLocation,
+                                                *right.originalLocation);
+}
+
+bool parseCrossTLBackendSourceMapSourceLocation(
+    std::string_view locationText, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLProjectReportSourceMapSpan &location) {
+  if (!parseCrossTLProjectReportDiagnosticLocation(locationText, context,
+                                                  manifestPath, diagnostics,
+                                                  location)) {
+    return false;
+  }
+  if (location.file.find('\\') != std::string::npos) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".file must use normalized '/' path separators");
+    return false;
+  }
+  if (location.length == 0) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + ".length must be positive");
+    return false;
+  }
+  if (location.endLine == location.line &&
+      location.endColumn <= location.column) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".endColumn must be greater than column for same-line span");
+    return false;
+  }
+  return true;
+}
+
+bool parseCrossTLBackendSourceMapBackendSpan(
+    std::string_view spanText, std::string_view context,
+    std::uintmax_t backendLineCount, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLBackendSourceMapSpan &span) {
+  if (!crossgl::isJsonObjectDocument(spanText)) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + " must be a JSON object");
+    return false;
+  }
+  if (!validateSourceBatchAllowedMembers(spanText, {"startLine", "endLine"},
+                                         context, manifestPath, diagnostics)) {
+    return false;
+  }
+  if (!parseRequiredSourceBatchUnsignedMember(spanText, "startLine", context,
+                                              manifestPath, diagnostics,
+                                              span.startLine) ||
+      !parseRequiredSourceBatchUnsignedMember(spanText, "endLine", context,
+                                              manifestPath, diagnostics,
+                                              span.endLine)) {
+    return false;
+  }
+  if (span.startLine == 0) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) +
+                                 ".startLine must be positive");
+    return false;
+  }
+  if (span.endLine == 0) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + ".endLine must be positive");
+    return false;
+  }
+  if (span.endLine < span.startLine) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) +
+                                 ".endLine must be greater than or equal to "
+                                 "startLine");
+    return false;
+  }
+  if (backendLineCount == 0) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            " cannot map spans when sidecar.backend.lineCount is 0");
+    return false;
+  }
+  if (span.startLine > backendLineCount) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".startLine must be less than or equal to "
+            "sidecar.backend.lineCount");
+    return false;
+  }
+  if (span.endLine > backendLineCount) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".endLine must be less than or equal to "
+            "sidecar.backend.lineCount");
+    return false;
+  }
+  return true;
+}
+
+bool validateCrossTLBackendSourceMapSidecarMappings(
+    std::string_view mappingsText, std::string_view metadataContext,
+    std::uintmax_t mappingCount, std::uintmax_t backendLineCount,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    std::size_t &sidecarMappingsLength) {
+  std::vector<CrossTLBackendSourceMapSpan> backendSpans;
+  std::vector<CrossTLBackendSourceMapMappingIdentity> seenMappings;
+  bool valid = true;
+  const bool parsedMappings = forEachSourceBatchJsonArrayElement(
+      mappingsText, [&](std::size_t mappingIndex,
+                         std::string_view mappingText) {
+        if (!valid) {
+          return false;
+        }
+        const std::string mappingContext = std::string(metadataContext) +
+                                           " sidecar.mappings[" +
+                                           std::to_string(mappingIndex) + "]";
+        if (!crossgl::isJsonObjectDocument(mappingText)) {
+          sourceBatchManifestError(diagnostics, manifestPath,
+                                   mappingContext + " must be a JSON object");
+          valid = false;
+          return false;
+        }
+        if (!validateSourceBatchAllowedMembers(
+                mappingText,
+                {"index", "stage", "entryPoint", "function", "statementKind",
+                 "name", "backend", "location", "originalLocation"},
+                mappingContext, manifestPath, diagnostics)) {
+          valid = false;
+          return false;
+        }
+
+        std::uintmax_t index = 0;
+        std::string stage;
+        std::string entryPoint;
+        std::string function;
+        std::string statementKind;
+        std::string name;
+        if (!parseRequiredSourceBatchUnsignedMember(mappingText, "index",
+                                                    mappingContext,
+                                                    manifestPath, diagnostics,
+                                                    index) ||
+            !parseRequiredSourceBatchStringMember(mappingText, "stage",
+                                                  mappingContext, manifestPath,
+                                                  diagnostics, stage, false) ||
+            !parseRequiredSourceBatchStringMember(
+                mappingText, "entryPoint", mappingContext, manifestPath,
+                diagnostics, entryPoint, false) ||
+            !parseRequiredSourceBatchStringMember(mappingText, "function",
+                                                  mappingContext, manifestPath,
+                                                  diagnostics, function) ||
+            !parseRequiredSourceBatchStringMember(
+                mappingText, "statementKind", mappingContext, manifestPath,
+                diagnostics, statementKind) ||
+            !parseRequiredSourceBatchStringMember(mappingText, "name",
+                                                  mappingContext, manifestPath,
+                                                  diagnostics, name, false)) {
+          valid = false;
+          return false;
+        }
+        if (index != static_cast<std::uintmax_t>(mappingIndex)) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              mappingContext + ".index must match mapping array index " +
+                  std::to_string(mappingIndex));
+          valid = false;
+          return false;
+        }
+        if (!entryPoint.empty() && stage.empty()) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              mappingContext +
+                  ".stage must be non-empty when entryPoint is non-empty");
+          valid = false;
+          return false;
+        }
+        if (!stage.empty() && entryPoint.empty()) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              mappingContext +
+                  ".entryPoint must be non-empty when stage is non-empty");
+          valid = false;
+          return false;
+        }
+
+        const std::optional<std::string_view> backendText =
+            crossgl::findObjectMemberValue(mappingText, "backend");
+        if (!backendText) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              mappingContext + ".backend must be a JSON object");
+          valid = false;
+          return false;
+        }
+        CrossTLBackendSourceMapSpan backendSpan;
+        if (!parseCrossTLBackendSourceMapBackendSpan(
+                *backendText, mappingContext + ".backend", backendLineCount,
+                manifestPath, diagnostics, backendSpan)) {
+          valid = false;
+          return false;
+        }
+
+        const std::optional<std::string_view> locationText =
+            crossgl::findObjectMemberValue(mappingText, "location");
+        if (!locationText) {
+          sourceBatchManifestError(
+              diagnostics, manifestPath,
+              mappingContext + ".location must be a JSON object");
+          valid = false;
+          return false;
+        }
+        CrossTLProjectReportSourceMapSpan location;
+        if (!parseCrossTLBackendSourceMapSourceLocation(
+                *locationText, mappingContext + ".location", manifestPath,
+                diagnostics, location)) {
+          valid = false;
+          return false;
+        }
+
+        std::optional<CrossTLProjectReportSourceMapSpan> originalLocation;
+        const std::optional<std::string_view> originalLocationText =
+            crossgl::findObjectMemberValue(mappingText, "originalLocation");
+        if (originalLocationText) {
+          CrossTLProjectReportSourceMapSpan parsedOriginalLocation;
+          if (!parseCrossTLBackendSourceMapSourceLocation(
+                  *originalLocationText, mappingContext + ".originalLocation",
+                  manifestPath, diagnostics, parsedOriginalLocation)) {
+            valid = false;
+            return false;
+          }
+          originalLocation = std::move(parsedOriginalLocation);
+        }
+
+        if (!backendSpans.empty()) {
+          const CrossTLBackendSourceMapSpan &previous = backendSpans.back();
+          if (backendSpan.startLine <= previous.endLine) {
+            sourceBatchManifestError(
+                diagnostics, manifestPath,
+                mappingContext + ".backend.startLine must be after " +
+                    std::string(metadataContext) + " sidecar.mappings[" +
+                    std::to_string(backendSpans.size() - 1) + "].backend");
+            valid = false;
+            return false;
+          }
+        }
+        for (std::size_t priorIndex = 0; priorIndex < backendSpans.size();
+             ++priorIndex) {
+          if (crossTLBackendSourceMapSpansOverlap(backendSpans[priorIndex],
+                                                  backendSpan)) {
+            sourceBatchManifestError(
+                diagnostics, manifestPath,
+                mappingContext + ".backend overlaps " +
+                    std::string(metadataContext) + " sidecar.mappings[" +
+                    std::to_string(priorIndex) + "].backend");
+            valid = false;
+            return false;
+          }
+        }
+
+        const CrossTLBackendSourceMapMappingIdentity identity{
+            backendSpan, location, originalLocation};
+        for (const CrossTLBackendSourceMapMappingIdentity &seen :
+             seenMappings) {
+          if (crossTLBackendSourceMapMappingIdentitiesEqual(identity, seen)) {
+            sourceBatchManifestError(
+                diagnostics, manifestPath,
+                mappingContext +
+                    " duplicates a backend/location/original span tuple");
+            valid = false;
+            return false;
+          }
+        }
+
+        backendSpans.push_back(backendSpan);
+        seenMappings.push_back(identity);
+        ++sidecarMappingsLength;
+        return true;
+      });
+  if (!parsedMappings || !valid) {
+    if (!parsedMappings && valid) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          std::string(metadataContext) + " sidecar.mappings must be a JSON "
+                                         "array");
+    }
+    return false;
+  }
+  if (static_cast<std::uintmax_t>(sidecarMappingsLength) != mappingCount) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(metadataContext) +
+            ".mappingCount must match sidecar mappings");
+    return false;
+  }
+  return true;
+}
+
 bool parseCrossTLProjectReportBackendSourceMap(
     std::string_view backendSourceMapText, std::string_view context,
     const std::filesystem::path &projectRoot,
@@ -3111,22 +3446,15 @@ bool parseCrossTLProjectReportBackendSourceMap(
   const std::optional<std::string_view> mappingsText =
       crossgl::findObjectMemberValue(*sidecarText, "mappings");
   std::size_t sidecarMappingsLength = 0;
-  if (!mappingsText ||
-      !forEachSourceBatchJsonArrayElement(
-          *mappingsText,
-          [&](std::size_t, std::string_view) {
-            ++sidecarMappingsLength;
-            return true;
-          })) {
+  if (!mappingsText) {
     sourceBatchManifestError(
         diagnostics, manifestPath,
         metadataContext + " sidecar.mappings must be a JSON array");
     return false;
   }
-  if (static_cast<std::uintmax_t>(sidecarMappingsLength) != mappingCount) {
-    sourceBatchManifestError(
-        diagnostics, manifestPath,
-        metadataContext + ".mappingCount must match sidecar mappings");
+  if (!validateCrossTLBackendSourceMapSidecarMappings(
+          *mappingsText, metadataContext, mappingCount, backendLineCount,
+          manifestPath, diagnostics, sidecarMappingsLength)) {
     return false;
   }
 
