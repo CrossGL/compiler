@@ -1029,6 +1029,26 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableUnsigned(out, backendSourceMap.mappingRecordCount);
   out << ",\n" << indent << "    \"backendMaxMappedLine\": ";
   writeNullableUnsigned(out, backendSourceMap.backendMaxMappedLine);
+  out << ",\n" << indent << "    \"sourceRemapPresent\": "
+      << (backendSourceMap.sourceRemapPresent ? "true" : "false");
+  out << ",\n" << indent << "    \"sourceRemapPath\": ";
+  writeNullableString(out, backendSourceMap.sourceRemapPath);
+  out << ",\n" << indent << "    \"sourceRemapGeneratedFile\": ";
+  writeNullableString(out, backendSourceMap.sourceRemapGeneratedFile);
+  out << ",\n" << indent << "    \"sourceRemapTarget\": ";
+  writeNullableString(out, backendSourceMap.sourceRemapTarget);
+  out << ",\n" << indent << "    \"sourceRemapMappingGranularity\": ";
+  writeNullableString(out, backendSourceMap.sourceRemapMappingGranularity);
+  out << ",\n" << indent << "    \"sourceRemapMappingCount\": ";
+  writeNullableUnsigned(out, backendSourceMap.sourceRemapMappingCount);
+  out << ",\n" << indent << "    \"sourceRemapSourceBackend\": ";
+  writeNullableString(out, backendSourceMap.sourceRemapSourceBackend);
+  out << ",\n" << indent << "    \"sourceRemapVariant\": ";
+  writeNullableString(out, backendSourceMap.sourceRemapVariant);
+  out << ",\n" << indent << "    \"sourceRemapSha256\": ";
+  writeNullableString(out, backendSourceMap.sourceRemapSha256);
+  out << ",\n" << indent << "    \"sourceRemapSizeBytes\": ";
+  writeNullableUnsigned(out, backendSourceMap.sourceRemapSizeBytes);
   out << ",\n"
       << indent << "    \"checks\": {\n"
       << indent << "      \"identityMatchesContract\": ";
@@ -1057,6 +1077,13 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableBool(out, backendSourceMap.checks.backendSpansWithinSource);
   out << ",\n" << indent << "      \"mappingCountMatchesMappings\": ";
   writeNullableBool(out, backendSourceMap.checks.mappingCountMatchesMappings);
+  out << ",\n" << indent << "      \"sourceRemapHashPresent\": ";
+  writeNullableBool(out, backendSourceMap.checks.sourceRemapHashPresent);
+  out << ",\n" << indent << "      \"sourceRemapMappingCountPositive\": ";
+  writeNullableBool(out,
+                    backendSourceMap.checks.sourceRemapMappingCountPositive);
+  out << ",\n" << indent << "      \"sourceRemapMatchesProvenance\": ";
+  writeNullableBool(out, backendSourceMap.checks.sourceRemapMatchesProvenance);
   out << "\n" << indent << "    }\n" << indent << "  },\n"
       << indent << "  \"checks\": {\n"
       << indent << "    \"hirSourceLocationsMatch\": ";

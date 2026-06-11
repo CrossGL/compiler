@@ -559,7 +559,10 @@
         "backendLineCountPresent",
         "backendLineCountMatchesSource",
         "backendSpansWithinSource",
-        "mappingCountMatchesMappings"
+        "mappingCountMatchesMappings",
+        "sourceRemapHashPresent",
+        "sourceRemapMappingCountPositive",
+        "sourceRemapMatchesProvenance"
       ],
       "properties": {
         "identityMatchesContract": {
@@ -594,6 +597,15 @@
         },
         "mappingCountMatchesMappings": {
           "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapHashPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMappingCountPositive": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMatchesProvenance": {
+          "$ref": "#/$defs/nullableBoolean"
         }
       }
     },
@@ -616,6 +628,16 @@
         "mappingCount",
         "mappingRecordCount",
         "backendMaxMappedLine",
+        "sourceRemapPresent",
+        "sourceRemapPath",
+        "sourceRemapGeneratedFile",
+        "sourceRemapTarget",
+        "sourceRemapMappingGranularity",
+        "sourceRemapMappingCount",
+        "sourceRemapSourceBackend",
+        "sourceRemapVariant",
+        "sourceRemapSha256",
+        "sourceRemapSizeBytes",
         "checks"
       ],
       "properties": {
@@ -686,6 +708,54 @@
           "$ref": "#/$defs/nullableNonNegativeInteger"
         },
         "backendMaxMappedLine": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "sourceRemapPresent": {
+          "type": "boolean"
+        },
+        "sourceRemapPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRemapGeneratedFile": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRemapTarget": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRemapMappingGranularity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRemapMappingCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "sourceRemapSourceBackend": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRemapVariant": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRemapSha256": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "sourceRemapSizeBytes": {
           "$ref": "#/$defs/nullableNonNegativeInteger"
         },
         "checks": {

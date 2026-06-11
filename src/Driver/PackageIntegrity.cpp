@@ -2616,6 +2616,26 @@ void writeBackendSourceMapSummary(
   writeNullableUnsigned(out, health.mappingRecordCount);
   out << ",\n" << indent << "  \"backendMaxMappedLine\": ";
   writeNullableUnsigned(out, health.backendMaxMappedLine);
+  out << ",\n" << indent << "  \"sourceRemapPresent\": "
+      << (health.sourceRemapPresent ? "true" : "false");
+  out << ",\n" << indent << "  \"sourceRemapPath\": ";
+  writeNullableString(out, health.sourceRemapPath);
+  out << ",\n" << indent << "  \"sourceRemapGeneratedFile\": ";
+  writeNullableString(out, health.sourceRemapGeneratedFile);
+  out << ",\n" << indent << "  \"sourceRemapTarget\": ";
+  writeNullableString(out, health.sourceRemapTarget);
+  out << ",\n" << indent << "  \"sourceRemapMappingGranularity\": ";
+  writeNullableString(out, health.sourceRemapMappingGranularity);
+  out << ",\n" << indent << "  \"sourceRemapMappingCount\": ";
+  writeNullableUnsigned(out, health.sourceRemapMappingCount);
+  out << ",\n" << indent << "  \"sourceRemapSourceBackend\": ";
+  writeNullableString(out, health.sourceRemapSourceBackend);
+  out << ",\n" << indent << "  \"sourceRemapVariant\": ";
+  writeNullableString(out, health.sourceRemapVariant);
+  out << ",\n" << indent << "  \"sourceRemapSha256\": ";
+  writeNullableString(out, health.sourceRemapSha256);
+  out << ",\n" << indent << "  \"sourceRemapSizeBytes\": ";
+  writeNullableUnsigned(out, health.sourceRemapSizeBytes);
   out << ",\n"
       << indent << "  \"checks\": {\n"
       << indent << "    \"identityMatchesContract\": ";
@@ -2640,6 +2660,12 @@ void writeBackendSourceMapSummary(
   writeNullableBool(out, health.checks.backendSpansWithinSource);
   out << ",\n" << indent << "    \"mappingCountMatchesMappings\": ";
   writeNullableBool(out, health.checks.mappingCountMatchesMappings);
+  out << ",\n" << indent << "    \"sourceRemapHashPresent\": ";
+  writeNullableBool(out, health.checks.sourceRemapHashPresent);
+  out << ",\n" << indent << "    \"sourceRemapMappingCountPositive\": ";
+  writeNullableBool(out, health.checks.sourceRemapMappingCountPositive);
+  out << ",\n" << indent << "    \"sourceRemapMatchesProvenance\": ";
+  writeNullableBool(out, health.checks.sourceRemapMatchesProvenance);
   out << "\n" << indent << "  }\n" << indent << "}";
 }
 

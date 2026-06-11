@@ -49,6 +49,9 @@ struct PackageBackendSourceMapChecks {
   std::optional<bool> backendLineCountMatchesSource;
   std::optional<bool> backendSpansWithinSource;
   std::optional<bool> mappingCountMatchesMappings;
+  std::optional<bool> sourceRemapHashPresent;
+  std::optional<bool> sourceRemapMappingCountPositive;
+  std::optional<bool> sourceRemapMatchesProvenance;
 };
 
 struct PackageBackendSourceMapHealth {
@@ -69,6 +72,16 @@ struct PackageBackendSourceMapHealth {
   std::optional<std::uintmax_t> mappingCount;
   std::optional<std::uintmax_t> mappingRecordCount;
   std::optional<std::uintmax_t> backendMaxMappedLine;
+  bool sourceRemapPresent = false;
+  std::optional<std::string> sourceRemapPath;
+  std::optional<std::string> sourceRemapGeneratedFile;
+  std::optional<std::string> sourceRemapTarget;
+  std::optional<std::string> sourceRemapMappingGranularity;
+  std::optional<std::uintmax_t> sourceRemapMappingCount;
+  std::optional<std::string> sourceRemapSourceBackend;
+  std::optional<std::string> sourceRemapVariant;
+  std::optional<std::string> sourceRemapSha256;
+  std::optional<std::uintmax_t> sourceRemapSizeBytes;
   PackageBackendSourceMapChecks checks;
 };
 

@@ -34,6 +34,16 @@ bool isLowercaseSha256(std::string_view value) {
   });
 }
 
+bool optionalStringEquals(const std::optional<std::string> &left,
+                          const std::optional<std::string> &right) {
+  return left && right && *left == *right;
+}
+
+bool optionalUnsignedEquals(const std::optional<std::uintmax_t> &left,
+                            const std::optional<std::uintmax_t> &right) {
+  return left && right && *left == *right;
+}
+
 std::optional<NameCounts> parseNamedCountArray(std::string_view arrayText) {
   std::size_t position = 0;
   skipWhitespace(arrayText, position);
@@ -449,6 +459,41 @@ recordsTotalMatchesCategoryCounts(std::string_view hirSourceMap) {
   return *recordsTotal == *categoryTotal;
 }
 
+void collectBackendSourceMapSourceRemapHealth(
+    PackageBackendSourceMapHealth &health, std::string_view document) {
+  const std::optional<std::string_view> sourceRemap =
+      findObjectMemberValue(document, "sourceRemap");
+  if (!sourceRemap || *sourceRemap == "null") {
+    return;
+  }
+
+  health.sourceRemapPresent = true;
+  health.sourceRemapPath = objectStringMember(*sourceRemap, "path");
+  health.sourceRemapGeneratedFile =
+      objectStringMember(*sourceRemap, "generatedFile");
+  health.sourceRemapTarget = objectStringMember(*sourceRemap, "target");
+  health.sourceRemapMappingGranularity =
+      objectStringMember(*sourceRemap, "mappingGranularity");
+  health.sourceRemapMappingCount =
+      objectUnsignedMember(*sourceRemap, "mappingCount");
+  health.sourceRemapSourceBackend =
+      objectStringMember(*sourceRemap, "sourceBackend");
+  health.sourceRemapVariant = objectStringMember(*sourceRemap, "variant");
+  health.sourceRemapSizeBytes =
+      objectUnsignedMember(*sourceRemap, "sizeBytes");
+
+  const std::optional<std::string_view> sha256 =
+      findObjectMemberValue(*sourceRemap, "sha256");
+  if (sha256) {
+    health.sourceRemapSha256 = objectStringMember(*sha256, "value");
+  }
+
+  health.checks.sourceRemapHashPresent =
+      health.sourceRemapSha256 && isLowercaseSha256(*health.sourceRemapSha256);
+  health.checks.sourceRemapMappingCountPositive =
+      health.sourceRemapMappingCount && *health.sourceRemapMappingCount > 0;
+}
+
 std::optional<std::string>
 sourceRemapProvenanceHash(std::string_view sourceRemap) {
   const std::optional<std::string_view> sha256 =
@@ -584,6 +629,7 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
   health.sourceBackend = objectStringMember(*document, "sourceBackend");
   health.targetBackend = objectStringMember(*document, "targetBackend");
   health.mappingCount = objectUnsignedMember(*document, "mappingCount");
+  collectBackendSourceMapSourceRemapHealth(health, *document);
   const std::optional<std::string_view> backend =
       findObjectMemberValue(*document, "backend");
   if (backend) {
@@ -647,6 +693,8 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
   const std::vector<std::optional<bool>> sourceComparisonChecks = {
       health.checks.backendLineCountMatchesSource,
       health.checks.backendSpansWithinSource,
+      health.checks.sourceRemapHashPresent,
+      health.checks.sourceRemapMappingCountPositive,
   };
   const bool sourceComparisonChecksOk =
       std::all_of(sourceComparisonChecks.begin(),
@@ -665,6 +713,22 @@ collectPackageDebugArtifactHealth(const PackageMetadata &metadata) {
   health.hirSourceMapArtifactPresent = metadata.hirSourceMapArtifactPresent;
   health.sourceRemap = collectSourceRemapProvenanceHealth(metadata);
   health.backendSourceMap = collectBackendSourceMapHealth(metadata);
+  if (health.sourceRemap.artifactPresent &&
+      health.backendSourceMap.artifactPresent) {
+    health.backendSourceMap.checks.sourceRemapMatchesProvenance =
+        health.backendSourceMap.sourceRemapPresent &&
+        optionalStringEquals(health.backendSourceMap.sourceRemapGeneratedFile,
+                             health.sourceRemap.generatedFile) &&
+        optionalUnsignedEquals(health.backendSourceMap.sourceRemapMappingCount,
+                               health.sourceRemap.mappingCount) &&
+        optionalStringEquals(health.backendSourceMap.sourceRemapSha256,
+                             health.sourceRemap.sourceSha256) &&
+        optionalUnsignedEquals(health.backendSourceMap.sourceRemapSizeBytes,
+                               health.sourceRemap.sourceSizeBytes);
+    if (!*health.backendSourceMap.checks.sourceRemapMatchesProvenance) {
+      health.backendSourceMap.health = "drift";
+    }
+  }
 
   const PackageArtifactRecord *debugMetadata =
       findArtifact(metadata, "debugMetadata");

@@ -1115,7 +1115,10 @@
         "backendLineCountPresent",
         "backendLineCountMatchesSource",
         "backendSpansWithinSource",
-        "mappingCountMatchesMappings"
+        "mappingCountMatchesMappings",
+        "sourceRemapHashPresent",
+        "sourceRemapMappingCountPositive",
+        "sourceRemapMatchesProvenance"
       ],
       "properties": {
         "identityMatchesContract": {
@@ -1150,6 +1153,15 @@
         },
         "mappingCountMatchesMappings": {
           "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapHashPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMappingCountPositive": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMatchesProvenance": {
+          "$ref": "#/$defs/nullableBoolean"
         }
       }
     },
@@ -1174,6 +1186,16 @@
         "mappingCount",
         "mappingRecordCount",
         "backendMaxMappedLine",
+        "sourceRemapPresent",
+        "sourceRemapPath",
+        "sourceRemapGeneratedFile",
+        "sourceRemapTarget",
+        "sourceRemapMappingGranularity",
+        "sourceRemapMappingCount",
+        "sourceRemapSourceBackend",
+        "sourceRemapVariant",
+        "sourceRemapSha256",
+        "sourceRemapSizeBytes",
         "checks"
       ],
       "properties": {
@@ -1232,6 +1254,36 @@
           "$ref": "#/$defs/nullableInteger"
         },
         "backendMaxMappedLine": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "sourceRemapPresent": {
+          "type": "boolean"
+        },
+        "sourceRemapPath": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapGeneratedFile": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapTarget": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapMappingGranularity": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapMappingCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "sourceRemapSourceBackend": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapVariant": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapSha256": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapSizeBytes": {
           "$ref": "#/$defs/nullableInteger"
         },
         "checks": {
