@@ -18,6 +18,9 @@
       "target": "metal",
       "path": "out/metal/simple.metal",
       "status": "translated",
+      "requiredCapabilities": [
+        "repo.scan"
+      ],
       "provenance": {
         "pipeline": "single-file-translate",
         "intermediate": null

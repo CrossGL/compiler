@@ -1,0 +1,1 @@
+$.diagnostics[0].missingCapabilities[0]: expected missing capability 'metal.feature.bindless-texture' to appear in requiredCapabilities of a matching artifact

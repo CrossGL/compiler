@@ -447,6 +447,14 @@
         },
         "backendSourceMap": {
           "$ref": "#/$defs/backendSourceMapMetadata"
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "description": "Target capabilities required by this generated artifact. CrossTL emits an empty list when the artifact has no special target capability requirements."
         }
       }
     },

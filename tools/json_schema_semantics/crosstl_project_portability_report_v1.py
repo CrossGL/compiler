@@ -185,6 +185,30 @@ def _diagnostic_counts_by_missing_capability(diagnostics):
     return dict(sorted(counts.items()))
 
 
+def _artifact_matches_diagnostic(artifact, diagnostic):
+    for field_name in ("target", "sourceBackend", "variant"):
+        diagnostic_value = diagnostic.get(field_name)
+        if (
+            diagnostic_value is not None
+            and artifact.get(field_name) != diagnostic_value
+        ):
+            return False
+    return True
+
+
+def _matching_artifact_required_capabilities(artifacts, diagnostic):
+    capabilities = set()
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        if not _artifact_matches_diagnostic(artifact, diagnostic):
+            continue
+        for capability in artifact.get("requiredCapabilities", []):
+            if isinstance(capability, str):
+                capabilities.add(capability)
+    return capabilities
+
+
 def _runtime_reference_rollups(actions):
     count = 0
     by_kind = {}
@@ -778,6 +802,19 @@ def validate_semantics(instance):
                 f"$.diagnostics[{diagnostic_index}].target: expected to be "
                 "declared in $.project.targets"
             )
+        matching_required_capabilities = _matching_artifact_required_capabilities(
+            artifacts, diagnostic
+        )
+        for capability_index, capability in enumerate(
+            diagnostic.get("missingCapabilities", [])
+        ):
+            if capability not in matching_required_capabilities:
+                errors.append(
+                    f"$.diagnostics[{diagnostic_index}]."
+                    f"missingCapabilities[{capability_index}]: expected missing "
+                    f"capability {capability!r} to appear in requiredCapabilities "
+                    "of a matching artifact"
+                )
 
     if "runtimeReferences" in instance:
         errors.append(

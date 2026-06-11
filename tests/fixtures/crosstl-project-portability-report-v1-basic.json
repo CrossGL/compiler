@@ -96,6 +96,7 @@
       "target": "cgl",
       "path": "out/cgl/simple.cgl",
       "status": "translated",
+      "requiredCapabilities": [],
       "sourceHash": {
         "algorithm": "sha256",
         "value": "1111111111111111111111111111111111111111111111111111111111111111"
