@@ -16,7 +16,7 @@
       "sourceRemap": {
         "schemaVersion": 1,
         "path": "out/metal/simple.source-remap.json",
-        "target": "metal",
+        "target": "directx",
         "generatedFile": "out/metal/simple.metal",
         "mappingGranularity": "line",
         "mappingCount": 1,

@@ -395,9 +395,39 @@ std::optional<std::string> requiredSourceRemapMetadataString(
   return value;
 }
 
+bool isSourceRemapMetadataTargetSegmentChar(char c) {
+  return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+}
+
+bool isSourceRemapMetadataTargetSeparator(char c) {
+  return c == '.' || c == '_' || c == '/' || c == '-';
+}
+
+bool isSourceRemapMetadataTargetName(std::string_view target) {
+  if (target.empty() || target.front() < 'a' || target.front() > 'z') {
+    return false;
+  }
+
+  bool previousWasSeparator = false;
+  for (std::size_t index = 1; index < target.size(); ++index) {
+    const char c = target[index];
+    if (isSourceRemapMetadataTargetSegmentChar(c)) {
+      previousWasSeparator = false;
+      continue;
+    }
+    if (!isSourceRemapMetadataTargetSeparator(c) || previousWasSeparator ||
+        index + 1 == target.size()) {
+      return false;
+    }
+    previousWasSeparator = true;
+  }
+  return true;
+}
+
 bool validateOptionalSourceRemapMetadataTarget(
     std::string_view metadata, DiagnosticEngine &diagnostics,
-    const SourceLocation &metadataLocation) {
+    const SourceLocation &metadataLocation,
+    SourceRemapMetadataTargetPolicy targetPolicy) {
   const std::optional<std::string> target =
       objectStringMember(metadata, "target");
   if (!target) {
@@ -405,6 +435,16 @@ bool validateOptionalSourceRemapMetadataTarget(
   }
   if (*target == "cgl" || *target == "crossgl") {
     return true;
+  }
+  if (targetPolicy == SourceRemapMetadataTargetPolicy::Normalized &&
+      isSourceRemapMetadataTargetName(*target)) {
+    return true;
+  }
+  if (targetPolicy == SourceRemapMetadataTargetPolicy::Normalized) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.target must be a normalized target name",
+                       metadataLocation);
+    return false;
   }
   reportInvalidRemap(diagnostics,
                      "sourceRemap.target expected only for CrossGL target "
@@ -415,7 +455,8 @@ bool validateOptionalSourceRemapMetadataTarget(
 
 bool validateRequiredSourceRemapMetadataTarget(
     std::string_view metadata, DiagnosticEngine &diagnostics,
-    const SourceLocation &metadataLocation) {
+    const SourceLocation &metadataLocation,
+    SourceRemapMetadataTargetPolicy targetPolicy) {
   if (!findObjectMemberValue(metadata, "target")) {
     reportInvalidRemap(diagnostics, "sourceRemap.target must be recorded",
                        metadataLocation);
@@ -424,7 +465,8 @@ bool validateRequiredSourceRemapMetadataTarget(
   return validateOptionalSourceRemapMetadataString(metadata, "target", diagnostics,
                                                   metadataLocation) &&
          validateOptionalSourceRemapMetadataTarget(metadata, diagnostics,
-                                                  metadataLocation);
+                                                  metadataLocation,
+                                                  targetPolicy);
 }
 
 std::optional<std::string>
@@ -666,7 +708,8 @@ SourceLocation remapInsideEntry(const SourceRemapEntry &entry,
 
 std::optional<SourceRemap> loadSourceRemapMetadata(
     std::string_view metadata, const std::filesystem::path &baseDirectory,
-    SourceLocation metadataLocation, DiagnosticEngine &diagnostics) {
+    SourceLocation metadataLocation, DiagnosticEngine &diagnostics,
+    SourceRemapMetadataTargetPolicy targetPolicy) {
   if (!validateSourceRemapMetadataSchemaVersion(metadata, diagnostics,
                                                 metadataLocation) ||
       !validateSourceRemapMetadataGranularity(metadata, diagnostics,
@@ -695,7 +738,7 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
       requiredSourceRemapMetadataMappingCount(metadata, diagnostics,
                                              metadataLocation);
   const bool targetIsValid = validateRequiredSourceRemapMetadataTarget(
-      metadata, diagnostics, metadataLocation);
+      metadata, diagnostics, metadataLocation, targetPolicy);
   if (!expectedSize || !expectedHash || !expectedGeneratedFile ||
       !expectedMappingCount || !targetIsValid) {
     return std::nullopt;
@@ -762,7 +805,8 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
   if (!validateOptionalSourceRemapMetadataString(
           metadata, "target", diagnostics, metadataLocation) ||
       !validateOptionalSourceRemapMetadataTarget(metadata, diagnostics,
-                                                 metadataLocation) ||
+                                                 metadataLocation,
+                                                 targetPolicy) ||
       !validateOptionalSourceRemapMetadataString(
           metadata, "sourceBackend", diagnostics, metadataLocation) ||
       !validateOptionalSourceRemapMetadataString(

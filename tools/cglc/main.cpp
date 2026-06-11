@@ -4596,13 +4596,6 @@ bool parseCrossTLProjectReportArtifact(
                                context + ".sourceRemap must be a JSON object");
       return false;
     }
-    if (target && !crossTLProjectReportIsCrossGLTarget(*target)) {
-      sourceBatchManifestError(
-          diagnostics, manifest.path,
-          context +
-              ".sourceRemap expected only for CrossGL target artifacts");
-      return false;
-    }
     if (!parseOptionalSourceBatchStringMember(
             *sourceRemap, "target", context + ".sourceRemap", manifest.path,
             diagnostics, sourceRemapTarget)) {
@@ -4788,7 +4781,9 @@ bool parseCrossTLProjectReportArtifact(
     loadedSourceRemap =
         crossgl::loadSourceRemapMetadata(*sourceRemap, projectRoot,
                                          cliSourceLocation(manifest.path),
-                                         sourceRemapDiagnostics);
+                                         sourceRemapDiagnostics,
+                                         crossgl::SourceRemapMetadataTargetPolicy::
+                                             Normalized);
     const bool validSourceRemapDiagnostics =
         replayCrossTLProjectReportSourceRemapDiagnostics(
             sourceRemapDiagnostics, diagnostics, manifest.path);
@@ -5116,7 +5111,9 @@ void collectCrossTLProjectReportSourceRemapRecord(
   std::optional<crossgl::SourceRemap> remap =
       crossgl::loadSourceRemapMetadata(*sourceRemapText, projectRoot,
                                        cliSourceLocation(manifestPath),
-                                       ignoredDiagnostics);
+                                       ignoredDiagnostics,
+                                       crossgl::SourceRemapMetadataTargetPolicy::
+                                           Normalized);
   if (!remap || !remap->documentSha256 || !remap->documentSizeBytes) {
     return;
   }

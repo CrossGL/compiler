@@ -693,11 +693,6 @@ def validate_semantics(instance):
             )
         source_remap_paths.add(source_remap_path)
 
-        if target is not None and target not in CROSSGL_TARGETS:
-            errors.append(
-                f"{artifact_path}.sourceRemap: expected only for CrossGL target "
-                "artifacts"
-            )
         if target is not None and source_remap["target"] != target:
             errors.append(
                 f"{artifact_path}.sourceRemap.target: expected to match artifact "

@@ -213,6 +213,8 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_FILE
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-file.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_REMAP_METADATA
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-source-remap-metadata.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP
+  "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-non-cgl-source-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_SUCCESS
   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-project-portability-report-v1-source-batch-success.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BUILD_OUTPUT_DIR
@@ -333,7 +335,7 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_MISSING_ORIGINAL_LOCAT
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-missing-original-location.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ORIGINAL_LOCATION_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-original-location-mismatch.json")
-set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_GENERATED
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-non-cgl-source-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DUPLICATE_SOURCE_REMAP_PATH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-duplicate-source-remap-path.json")
@@ -2714,11 +2716,48 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SUMMARY_REMAP_MAPPING_COUNT_MIS
   ]
 }
 ")
-file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP}"
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_SIDECAR
+  "${CMAKE_CURRENT_BINARY_DIR}/out/metal/simple.source-remap.json")
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/out/metal")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_SIDECAR}"
+"{
+  \"schemaVersion\": 1,
+  \"generatedFile\": \"out/metal/simple.metal\",
+  \"mappings\": [
+    {
+      \"generated\": {
+        \"file\": \"out/metal/simple.metal\",
+        \"line\": 1,
+        \"column\": 1,
+        \"offset\": 0,
+        \"length\": 31,
+        \"endLine\": 1,
+        \"endColumn\": 32,
+        \"endOffset\": 31
+      },
+      \"original\": {
+        \"file\": \"simple.cgl\",
+        \"line\": 1,
+        \"column\": 1,
+        \"offset\": 0,
+        \"length\": 31,
+        \"endLine\": 1,
+        \"endColumn\": 32,
+        \"endOffset\": 31
+      }
+    }
+  ]
+}
+")
+file(SIZE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_SIDECAR}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_SIZE_BYTES)
+file(SHA256 "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_SIDECAR}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_SHA256)
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_GENERATED}"
 "{
   \"schemaVersion\": 1,
   \"kind\": \"crosstl-project-portability-report\",
-  \"project\": { \"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\" },
+  \"project\": { \"root\": \"${CMAKE_CURRENT_BINARY_DIR}\" },
   \"summary\": {
     \"artifactCount\": 1,
     \"sourceRemapCount\": 1,
@@ -2737,10 +2776,10 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP}"
         \"generatedFile\": \"out/metal/simple.metal\",
         \"mappingGranularity\": \"line\",
         \"mappingCount\": 1,
-        \"sizeBytes\": 128,
+        \"sizeBytes\": ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_SIZE_BYTES},
         \"hash\": {
           \"algorithm\": \"sha256\",
-          \"value\": \"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"
+          \"value\": \"${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP_SHA256}\"
         }
       }
     }
@@ -5309,6 +5348,17 @@ crossgl_add_python_expect_test(
     "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=1|diagnosticReport.diagnostics=0")
 
 crossgl_add_python_expect_test(
+  NAME cglc_cli_check_crosstl_project_report_non_cgl_source_remap_result_json_schema
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DMODE=source-batch-check-json
+    -DMANIFEST=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP}
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=1|entries.0.id=simple.cgl|entries.0.logicalInput=out/cgl/simple.cgl|entries.0.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE_SOURCE_REMAP}|entries.0.target=auto|entries.0.success=true|diagnosticReport.schemaVersion=1"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=1|diagnosticReport.diagnostics=0")
+
+crossgl_add_python_expect_test(
   NAME cglc_cli_check_crosstl_project_report_host_execution_plan_result_json_schema
   DEFINITIONS
     -DCGLC=$<TARGET_FILE:cglc>
@@ -5714,13 +5764,14 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_sourc
     "\"code\": \"project.source-batch.invalid-manifest\""
     "backendSourceMap.sourceRemap.sha256.value must match sourceRemap metadata")
 
-crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_non_cgl_source_remap_fails
-  EXPECTED_RESULT 1
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_non_cgl_source_remap_success_contract
+  EXPECTED_RESULT 0
   ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP}
     --diagnostics-json
   STDOUT_CONTAINS
-    "\"code\": \"project.source-batch.invalid-manifest\""
-    "sourceRemap expected only for CrossGL target artifacts")
+    "\"kind\": \"crossgl.sourceBatchResult\""
+    "\"success\": true"
+    "\"diagnostics\": []")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_duplicate_source_remap_path_fails
   EXPECTED_RESULT 1
