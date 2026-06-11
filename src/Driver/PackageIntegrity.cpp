@@ -2054,7 +2054,8 @@ void verifySourceRemapProvenanceHealth(
       !*checks.sourceRemapTargetMatchesContract) {
     diagnostics.error(
         diagnosticCode("source-remap-provenance-source-remap-target-invalid"),
-        label + " sourceRemap.target must be cgl or crossgl when recorded",
+        label + " sourceRemap.target must be a normalized target name when "
+                "recorded",
         location);
   }
   if (checks.sourceRemapMappingGranularityMatchesContract &&
@@ -2188,7 +2189,8 @@ void verifyBackendSourceMapHealth(
       !*checks.sourceRemapTargetMatchesContract) {
     emitError("backend-source-map-source-remap-target-invalid",
               label +
-                  " sourceRemap.target must be cgl or crossgl when recorded");
+                  " sourceRemap.target must be a normalized target name when "
+                  "recorded");
   }
   if (checks.sourceRemapMappingGranularityMatchesContract &&
       !*checks.sourceRemapMappingGranularityMatchesContract) {

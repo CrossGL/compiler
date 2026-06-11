@@ -6687,18 +6687,13 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadat
     "error io.invalid-source-remap"
     "sourceRemap.sourceBackend must be a string")
 
-crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_non_cgl_target_fails
-  EXPECTED_RESULT 1
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_non_cgl_target_resolves
+  EXPECTED_RESULT 0
   ARGS check ${CROSSGL_SIMPLE_SHADER}
     --logical-input out/cgl/simple.cgl
     --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_NON_CGL_TARGET}
-    --diagnostics-json
   STDOUT_CONTAINS
-    "\"code\": \"io.invalid-source-remap\""
-    "sourceRemap.target expected only for CrossGL target artifacts"
-  STDERR_CONTAINS
-    "error io.invalid-source-remap"
-    "sourceRemap.target expected only for CrossGL target artifacts")
+    "check passed:")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_order_drift_fails
   EXPECTED_RESULT 1

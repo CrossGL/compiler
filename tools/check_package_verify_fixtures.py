@@ -3617,8 +3617,8 @@ def run_cases(root, cglc, jobs=1):
             )
         )
 
-        package, _source, manifest = make_package(
-            tmp_dir, "source-remap-nested-target-drift"
+        package, source, manifest = make_package(
+            tmp_dir, "source-remap-nested-target-normalized"
         )
         source_remap_manifest = copy.deepcopy(manifest)
         source_remap_manifest["artifacts"]["sourceRemap"] = (
@@ -3631,9 +3631,44 @@ def run_cases(root, cglc, jobs=1):
             provenance,
         )
         rewrite_manifest(package, source_remap_manifest)
+        errors.extend(
+            expect_success(
+                cglc,
+                "source-remap-nested-target-normalized",
+                package,
+                "StorageBufferComputeShader for directx",
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_success(
+                root,
+                cglc,
+                tmp_dir,
+                "source-remap-nested-target-normalized-json",
+                package,
+                source_remap_manifest,
+                source=source,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir, "source-remap-nested-target-drift"
+        )
+        source_remap_manifest = copy.deepcopy(manifest)
+        source_remap_manifest["artifacts"]["sourceRemap"] = (
+            "ir/source-remap-provenance.json"
+        )
+        provenance = source_remap_provenance(source_remap_manifest)
+        provenance["sourceRemap"]["target"] = "Metal"
+        write_json(
+            package_path(package, source_remap_manifest["artifacts"]["sourceRemap"]),
+            provenance,
+        )
+        rewrite_manifest(package, source_remap_manifest)
         expected = (
             "sourceRemap 'ir/source-remap-provenance.json' "
-            "sourceRemap.target must be cgl or crossgl when recorded"
+            "sourceRemap.target must be a normalized target name when recorded"
         )
         errors.extend(
             expect_failure(
@@ -3770,12 +3805,12 @@ def run_cases(root, cglc, jobs=1):
         manifest["artifacts"]["sourceRemap"] = "ir/source-remap-provenance.json"
         source_remap = source_remap_metadata_from_provenance(manifest)
         del manifest["artifacts"]["sourceRemap"]
-        source_remap["target"] = "metal"
+        source_remap["target"] = "Metal"
         add_backend_source_map(package, manifest, source_remap=source_remap)
         expected = (
             "backendSourceMap "
             "'backend/directx/StorageBufferComputeShader.backend-source-map.json' "
-            "sourceRemap.target must be cgl or crossgl when recorded"
+            "sourceRemap.target must be a normalized target name when recorded"
         )
         errors.extend(
             expect_failure(
@@ -3797,6 +3832,35 @@ def run_cases(root, cglc, jobs=1):
                 expected_code=(
                     "package.verify.backend-source-map-source-remap-target-invalid"
                 ),
+            )
+        )
+
+        package, source, manifest = make_package(
+            tmp_dir, "backend-source-map-source-remap-target-normalized"
+        )
+        manifest["artifacts"]["sourceRemap"] = "ir/source-remap-provenance.json"
+        source_remap = source_remap_metadata_from_provenance(manifest)
+        del manifest["artifacts"]["sourceRemap"]
+        source_remap["target"] = "metal"
+        add_backend_source_map(package, manifest, source_remap=source_remap)
+        errors.extend(
+            expect_success(
+                cglc,
+                "backend-source-map-source-remap-target-normalized",
+                package,
+                "StorageBufferComputeShader for directx",
+                source=source,
+            )
+        )
+        errors.extend(
+            expect_json_success(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-source-remap-target-normalized-json",
+                package,
+                manifest,
+                source=source,
             )
         )
 

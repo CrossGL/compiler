@@ -165,7 +165,7 @@
         "sourceRemapSourceBackendValid": true,
         "sourceRemapVariantValid": true
       },
-      "sourceRemapTarget": "metal",
+      "sourceRemapTarget": "Metal",
       "sourceRemapMappingGranularity": null,
       "sourceRemapSourceBackend": null,
       "sourceRemapVariant": null

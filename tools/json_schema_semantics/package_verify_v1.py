@@ -49,7 +49,7 @@ TARGET_BACKEND_LANGUAGES = {
     "opengl": "glsl",
     "vulkan": "spvasm",
 }
-SOURCE_REMAP_METADATA_TARGETS = {"cgl", "crossgl"}
+SOURCE_REMAP_METADATA_TARGET_RE = re.compile(r"^[a-z](?:[a-z0-9]|[._/-](?=[a-z0-9]))*$")
 SOURCE_REMAP_METADATA_GRANULARITIES = {"file", "line", "statement", "token"}
 SOURCE_REMAP_PROVENANCE_CHECKS = (
     "identityMatchesContract",
@@ -157,7 +157,10 @@ def is_package_relative_artifact_path(value):
 
 
 def optional_source_remap_target_matches_contract(value):
-    return value is None or value in SOURCE_REMAP_METADATA_TARGETS
+    return value is None or (
+        isinstance(value, str)
+        and SOURCE_REMAP_METADATA_TARGET_RE.fullmatch(value) is not None
+    )
 
 
 def optional_source_remap_mapping_granularity_matches_contract(value):

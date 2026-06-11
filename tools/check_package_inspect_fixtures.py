@@ -3769,7 +3769,7 @@ def check_backend_source_map_source_remap_target_drift(_package, payload):
         "backend-source-map-source-remap-target-drift",
         "debugArtifacts.backendSourceMap.sourceRemapTarget",
         backend_source_map["sourceRemapTarget"],
-        "metal",
+        "Metal",
     )
     expect_equal(
         errors,
@@ -3777,6 +3777,41 @@ def check_backend_source_map_source_remap_target_drift(_package, payload):
         "debugArtifacts.backendSourceMap.checks.sourceRemapTargetMatchesContract",
         checks["sourceRemapTargetMatchesContract"],
         False,
+    )
+    return errors
+
+
+def check_backend_source_map_source_remap_target_normalized(_package, payload):
+    errors = []
+    backend_source_map = payload["debugArtifacts"]["backendSourceMap"]
+    checks = backend_source_map["checks"]
+    expect_equal(
+        errors,
+        "backend-source-map-source-remap-target-normalized",
+        "debugArtifacts.health",
+        payload["debugArtifacts"]["health"],
+        "ok",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-source-remap-target-normalized",
+        "debugArtifacts.backendSourceMap.health",
+        backend_source_map["health"],
+        "ok",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-source-remap-target-normalized",
+        "debugArtifacts.backendSourceMap.sourceRemapTarget",
+        backend_source_map["sourceRemapTarget"],
+        "metal",
+    )
+    expect_equal(
+        errors,
+        "backend-source-map-source-remap-target-normalized",
+        "debugArtifacts.backendSourceMap.checks.sourceRemapTargetMatchesContract",
+        checks["sourceRemapTargetMatchesContract"],
+        True,
     )
     return errors
 
@@ -3841,7 +3876,7 @@ def check_source_remap_nested_target_drift(_package, payload):
         "source-remap-nested-target-drift",
         "debugArtifacts.sourceRemap.sourceRemapTarget",
         source_remap["sourceRemapTarget"],
-        "metal",
+        "Metal",
     )
     expect_equal(
         errors,
@@ -3849,6 +3884,40 @@ def check_source_remap_nested_target_drift(_package, payload):
         "debugArtifacts.sourceRemap.checks.sourceRemapTargetMatchesContract",
         source_remap["checks"]["sourceRemapTargetMatchesContract"],
         False,
+    )
+    return errors
+
+
+def check_source_remap_nested_target_normalized(_package, payload):
+    errors = []
+    source_remap = payload["debugArtifacts"]["sourceRemap"]
+    expect_equal(
+        errors,
+        "source-remap-nested-target-normalized",
+        "debugArtifacts.health",
+        payload["debugArtifacts"]["health"],
+        "ok",
+    )
+    expect_equal(
+        errors,
+        "source-remap-nested-target-normalized",
+        "debugArtifacts.sourceRemap.health",
+        source_remap["health"],
+        "ok",
+    )
+    expect_equal(
+        errors,
+        "source-remap-nested-target-normalized",
+        "debugArtifacts.sourceRemap.sourceRemapTarget",
+        source_remap["sourceRemapTarget"],
+        "metal",
+    )
+    expect_equal(
+        errors,
+        "source-remap-nested-target-normalized",
+        "debugArtifacts.sourceRemap.checks.sourceRemapTargetMatchesContract",
+        source_remap["checks"]["sourceRemapTargetMatchesContract"],
+        True,
     )
     return errors
 
@@ -4702,7 +4771,7 @@ def run_cases(root, cglc, jobs=1):
         )
         manifest["artifacts"]["sourceRemap"] = "ir/source-remap-provenance.json"
         provenance = source_remap_provenance(manifest)
-        provenance["sourceRemap"]["target"] = "metal"
+        provenance["sourceRemap"]["target"] = "Metal"
         write_json(
             package_path(package, manifest["artifacts"]["sourceRemap"]),
             provenance,
@@ -4716,6 +4785,29 @@ def run_cases(root, cglc, jobs=1):
                 "source-remap-nested-target-drift",
                 package,
                 check_source_remap_nested_target_drift,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir,
+            "source-remap-nested-target-normalized",
+        )
+        manifest["artifacts"]["sourceRemap"] = "ir/source-remap-provenance.json"
+        provenance = source_remap_provenance(manifest)
+        provenance["sourceRemap"]["target"] = "metal"
+        write_json(
+            package_path(package, manifest["artifacts"]["sourceRemap"]),
+            provenance,
+        )
+        rewrite_manifest(package, manifest)
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "source-remap-nested-target-normalized",
+                package,
+                check_source_remap_nested_target_normalized,
             )
         )
 
@@ -4779,7 +4871,7 @@ def run_cases(root, cglc, jobs=1):
             "backend-source-map-source-remap-target-drift",
         )
         source_remap = source_remap_metadata_from_provenance(manifest)
-        source_remap["target"] = "metal"
+        source_remap["target"] = "Metal"
         add_backend_source_map(
             package,
             manifest,
@@ -4793,6 +4885,28 @@ def run_cases(root, cglc, jobs=1):
                 "backend-source-map-source-remap-target-drift",
                 package,
                 check_backend_source_map_source_remap_target_drift,
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir,
+            "backend-source-map-source-remap-target-normalized",
+        )
+        source_remap = source_remap_metadata_from_provenance(manifest)
+        source_remap["target"] = "metal"
+        add_backend_source_map(
+            package,
+            manifest,
+            mutate=lambda document: document.update({"sourceRemap": source_remap}),
+        )
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-source-remap-target-normalized",
+                package,
+                check_backend_source_map_source_remap_target_normalized,
             )
         )
 

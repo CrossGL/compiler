@@ -27,7 +27,7 @@
       "sourceRemapPresent": true,
       "sourceRemapPath": "ir/source-remap-provenance.json",
       "sourceRemapGeneratedFile": "generated/from-translator.cgl",
-      "sourceRemapTarget": "metal",
+      "sourceRemapTarget": "Metal",
       "sourceRemapMappingGranularity": null,
       "sourceRemapMappingCount": 1,
       "sourceRemapSourceBackend": null,

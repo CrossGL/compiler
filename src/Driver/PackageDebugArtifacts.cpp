@@ -1,6 +1,7 @@
 #include "PackageDebugArtifacts.h"
 
 #include "crossgl/Driver/PackageJson.h"
+#include "crossgl/Driver/SourceRemap.h"
 
 #include <algorithm>
 #include <cctype>
@@ -74,7 +75,7 @@ bool optionalSourceRemapTargetMatchesContract(std::string_view object) {
     return true;
   }
   const std::optional<std::string> target = objectStringMember(object, "target");
-  return target && (*target == "cgl" || *target == "crossgl");
+  return target && isNormalizedSourceRemapTargetName(*target);
 }
 
 bool optionalSourceRemapMappingGranularityMatchesContract(

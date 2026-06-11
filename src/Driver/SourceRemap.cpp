@@ -403,27 +403,6 @@ bool isSourceRemapMetadataTargetSeparator(char c) {
   return c == '.' || c == '_' || c == '/' || c == '-';
 }
 
-bool isSourceRemapMetadataTargetName(std::string_view target) {
-  if (target.empty() || target.front() < 'a' || target.front() > 'z') {
-    return false;
-  }
-
-  bool previousWasSeparator = false;
-  for (std::size_t index = 1; index < target.size(); ++index) {
-    const char c = target[index];
-    if (isSourceRemapMetadataTargetSegmentChar(c)) {
-      previousWasSeparator = false;
-      continue;
-    }
-    if (!isSourceRemapMetadataTargetSeparator(c) || previousWasSeparator ||
-        index + 1 == target.size()) {
-      return false;
-    }
-    previousWasSeparator = true;
-  }
-  return true;
-}
-
 bool validateOptionalSourceRemapMetadataTarget(
     std::string_view metadata, DiagnosticEngine &diagnostics,
     const SourceLocation &metadataLocation,
@@ -437,7 +416,7 @@ bool validateOptionalSourceRemapMetadataTarget(
     return true;
   }
   if (targetPolicy == SourceRemapMetadataTargetPolicy::Normalized &&
-      isSourceRemapMetadataTargetName(*target)) {
+      isNormalizedSourceRemapTargetName(*target)) {
     return true;
   }
   if (targetPolicy == SourceRemapMetadataTargetPolicy::Normalized) {
@@ -705,6 +684,27 @@ SourceLocation remapInsideEntry(const SourceRemapEntry &entry,
 }
 
 } // namespace
+
+bool isNormalizedSourceRemapTargetName(std::string_view target) {
+  if (target.empty() || target.front() < 'a' || target.front() > 'z') {
+    return false;
+  }
+
+  bool previousWasSeparator = false;
+  for (std::size_t index = 1; index < target.size(); ++index) {
+    const char c = target[index];
+    if (isSourceRemapMetadataTargetSegmentChar(c)) {
+      previousWasSeparator = false;
+      continue;
+    }
+    if (!isSourceRemapMetadataTargetSeparator(c) || previousWasSeparator ||
+        index + 1 == target.size()) {
+      return false;
+    }
+    previousWasSeparator = true;
+  }
+  return true;
+}
 
 std::optional<SourceRemap> loadSourceRemapMetadata(
     std::string_view metadata, const std::filesystem::path &baseDirectory,
@@ -1073,8 +1073,9 @@ std::optional<SourceRemap> loadSourceRemap(const std::filesystem::path &path,
     if (baseDirectory.empty()) {
       baseDirectory = ".";
     }
-    return loadSourceRemapMetadata(*text, baseDirectory,
-                                   documentStartLocation(path), diagnostics);
+    return loadSourceRemapMetadata(
+        *text, baseDirectory, documentStartLocation(path), diagnostics,
+        SourceRemapMetadataTargetPolicy::Normalized);
   }
   return parseLoadedSourceRemap(std::move(*text), path, diagnostics);
 }

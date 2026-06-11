@@ -34,6 +34,7 @@ enum class SourceRemapMetadataTargetPolicy {
   Normalized,
 };
 
+bool isNormalizedSourceRemapTargetName(std::string_view target);
 std::optional<SourceRemap> parseSourceRemap(std::string_view text,
                                             DiagnosticEngine &diagnostics,
                                             SourceLocation documentLocation = {});
