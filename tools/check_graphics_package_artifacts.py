@@ -938,12 +938,27 @@ def probe_directx_graphics_fake_dxc(root, tmp_dir, cglc):
         manifest.get("module"),
         DIRECTX_GRAPHICS_RESOURCE_MODULE,
     )
+    if "nativeBinaryStatus" in artifacts:
+        fail(
+            errors,
+            case_name,
+            "promoted native DirectX packages must not declare "
+            "manifest.artifacts.nativeBinaryStatus",
+        )
+    requirements = manifest.get("packageArtifactRequirements", {})
     expect_equal(
         errors,
         case_name,
-        "manifest.artifacts.nativeBinaryStatus",
-        artifacts.get("nativeBinaryStatus"),
-        "emitted",
+        "manifest.packageArtifactRequirements.packageMode",
+        requirements.get("packageMode"),
+        "native",
+    )
+    expect_equal(
+        errors,
+        case_name,
+        "manifest.packageArtifactRequirements.requiresNativeBinaryStatus",
+        requirements.get("requiresNativeBinaryStatus"),
+        False,
     )
     expect_equal(
         errors,

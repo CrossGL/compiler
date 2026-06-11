@@ -203,7 +203,7 @@ crossgl_add_package_verify_json_failure_schema_test(
   TOOLCHAIN_PATH ${CROSSGL_FAKE_DXC_SUCCESS_DIR}
   TOOLCHAIN_DISABLE_FALLBACK
   EXPECTED_JSON_FIELDS
-    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=emitted|summary.artifactCount=7|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.targetLegalizationEvidence.health=ok|summary.targetLegalizationEvidence.packageMode=source-package|summary.targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.missing-artifact"
+    "schemaVersion=1|success=false|summary.module=StorageBufferComputeShader|summary.target=directx|summary.nativeBinaryStatus=null|summary.artifactCount=7|summary.debugArtifactsPresent=true|summary.nativeArtifactDescriptor.artifactPresent=true|summary.nativeArtifactDescriptor.descriptorExists=true|summary.nativeArtifactDescriptor.health=ok|summary.targetLegalizationEvidence.health=ok|summary.targetLegalizationEvidence.packageMode=native|summary.targetLegalizationEvidence.packageModeSource=manifest.packageArtifactRequirements|diagnosticCounts.error=1|diagnostics.0.severity=error|diagnostics.0.code=package.verify.missing-artifact"
   EXPECTED_JSON_ARRAY_LENGTHS
     "diagnostics=1")
 
@@ -579,6 +579,18 @@ function(crossgl_add_directx_compute_fake_dxc_package_verify_test)
     "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.missingToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator")
   set(directx_fake_dxc_verify_manifest_array_lengths
     "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=2|targetLegalizationToolRequirements.toolRequirementEvidenceIds=5")
+  if(CROSSGL_DIRECTX_FAKE_DXC_VERIFY_EXPECTED_NATIVE_BINARY_STATUS STREQUAL
+     "emitted")
+    set(directx_fake_dxc_verify_summary_native_binary_status "null")
+    set(directx_fake_dxc_verify_manifest_native_binary_status_field "")
+    set(directx_fake_dxc_verify_raw_descriptor_native_binary_status_field "")
+    set(directx_fake_dxc_verify_manifest_package_fields
+      "targetLegalizationToolRequirements.packageMode=native|targetLegalizationToolRequirements.requiredToolCount=2|targetLegalizationToolRequirements.missingToolCount=0|targetLegalizationToolRequirements.optionalNativeToolMissing=false|targetLegalizationToolRequirements.optionalNativeToolStatus=not-required|packageArtifactRequirements.packageMode=native|packageArtifactRequirements.requiresNativeBinaryStatus=false|packageArtifactRequirements.allowsPlannedNativeBinary=false|packageArtifactRequirements.allowsPlannedNativeSourceEvidence=false")
+    set(directx_fake_dxc_verify_manifest_array_contains
+      "targetLegalizationToolRequirements.requiredToolIds=directx.toolchain.dxc|targetLegalizationToolRequirements.requiredToolIds=directx.validation.dxil-validator|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.toolchain.dxc|targetLegalizationToolRequirements.toolRequirementEvidenceIds=target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator")
+    set(directx_fake_dxc_verify_manifest_array_lengths
+      "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=0|targetLegalizationToolRequirements.toolRequirementEvidenceIds=3")
+  endif()
   set(verify_definitions
     -DCGLC=$<TARGET_FILE:cglc>
     "-DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}"

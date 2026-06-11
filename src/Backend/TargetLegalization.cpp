@@ -780,6 +780,7 @@ bool isNativePackageToolRequirementId(TargetKind target,
     return toolId == "vulkan.toolchain.spirv-as" ||
            toolId == "vulkan.validation.spirv-val";
   case TargetKind::DirectX:
+    return toolId == "directx.toolchain.dxc";
   case TargetKind::OpenGL:
   case TargetKind::WGSL:
   case TargetKind::Auto:
@@ -3042,6 +3043,31 @@ targetLegalizationSourcePackageFallbackProjection(const HIRModule &module,
     decision.packageMode = "source-package";
     decision.packageDecisionReason = "source-package-available";
     decision.packageRankScore = 1;
+    decision.diagnostics.clear();
+  }
+
+  TargetPackageSelection selection;
+  selection.preferredTarget = resolvedTarget;
+  selection.selectedTarget = resolvedTarget;
+  selection.selectedTargetBuildable = decision.packageBuildSupported;
+  return targetLegalizationContractProjection(
+      resultFromDecision(module, decision, selection, resolvedTarget));
+}
+
+TargetLegalizationContractProjection
+targetLegalizationDirectXNativePromotionProjection(const HIRModule &module,
+                                                   TargetKind target) {
+  const TargetKind resolvedTarget =
+      target == TargetKind::Auto ? TargetKind::DirectX : target;
+  TargetPackageDecision decision =
+      targetPackageDecision(module, resolvedTarget);
+  if (resolvedTarget == TargetKind::DirectX &&
+      decision.sourcePackageSupported) {
+    decision.packageBuildSupported = true;
+    decision.packageMode = "native";
+    decision.packageDecisionReason = "native-package-available";
+    decision.packageRankScore = 0;
+    decision.missingCapabilities.clear();
     decision.diagnostics.clear();
   }
 

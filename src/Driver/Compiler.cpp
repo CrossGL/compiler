@@ -3378,19 +3378,26 @@ CompileResult compile(const CompileRequest &request) {
         backendHIR, packageDir, diagnostics, legalization.resourceBindings,
         request.optimizationLevel);
     if (directx.success) {
+      std::error_code directxNativeArtifactError;
+      const bool directxNativeArtifactAvailable =
+          directx.nativeBinaryProduced &&
+          std::filesystem::is_regular_file(directx.nativeBinaryPath,
+                                           directxNativeArtifactError) &&
+          !directxNativeArtifactError;
       const TargetLegalizationContractProjection directxProjection =
-          directx.nativeBinaryProduced
-              ? admission->decision.projection
+          directxNativeArtifactAvailable
+              ? targetLegalizationDirectXNativePromotionProjection(backendHIR,
+                                                                   target)
               : targetLegalizationSourcePackageFallbackProjection(backendHIR,
                                                                   target);
       const bool shouldRewriteDirectXSidecars =
-          directx.nativeBinaryProduced ||
+          directxNativeArtifactAvailable ||
           admission->decision.projection.packageModeName == "native";
       if (shouldRewriteDirectXSidecars &&
           !rewriteDirectXTargetLegalizationSidecars(
               backendHIR, request.target, directxProjection, debugMetadataOptions,
               debugMetadataPath, targetExplanationPath, diagnostics,
-              directx.nativeBinaryProduced)) {
+              directxNativeArtifactAvailable)) {
         assignDiagnostics();
         return result;
       }

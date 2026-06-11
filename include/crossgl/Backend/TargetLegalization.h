@@ -533,6 +533,9 @@ targetLegalizationContractProjection(const TargetLegalizationResult &result);
 TargetLegalizationContractProjection
 targetLegalizationSourcePackageFallbackProjection(const HIRModule &module,
                                                   TargetKind target);
+TargetLegalizationContractProjection
+targetLegalizationDirectXNativePromotionProjection(const HIRModule &module,
+                                                  TargetKind target);
 TargetLegalizationAdmissionDecision
 targetLegalizationAdmissionDecision(const TargetLegalizationContract &contract);
 TargetLegalizationAdmissionDecision

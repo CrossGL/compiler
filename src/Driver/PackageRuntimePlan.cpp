@@ -150,13 +150,30 @@ bool targetSupportsSourcePackage(const PackageTargetContract &contract) {
          contract.allowsPlannedNativeSourceEvidence;
 }
 
+struct RuntimeArtifactPolicy {
+  bool requiresNativeBinaryStatus = false;
+  bool supportsSourcePackage = false;
+};
+
+RuntimeArtifactPolicy runtimeArtifactPolicy(
+    const PackageMetadata &metadata, const PackageTargetContract &contract) {
+  if (metadata.artifactRequirements) {
+    return RuntimeArtifactPolicy{
+        metadata.artifactRequirements->requiresNativeBinaryStatus,
+        metadata.artifactRequirements->packageMode == "source-package"};
+  }
+
+  return RuntimeArtifactPolicy{contract.requiresNativeBinaryStatus,
+                               targetSupportsSourcePackage(contract)};
+}
+
 bool nativeArtifactReady(const PackageMetadata &metadata,
-                         const PackageTargetContract &contract,
+                         const RuntimeArtifactPolicy &policy,
                          const PackageArtifactRecord *nativeArtifact) {
   if (!artifactUsable(nativeArtifact)) {
     return false;
   }
-  if (!contract.requiresNativeBinaryStatus) {
+  if (!policy.requiresNativeBinaryStatus) {
     return true;
   }
   return nativeStatusIsReady(effectivePackageNativeBinaryStatus(metadata));
@@ -223,14 +240,15 @@ Selection selectArtifact(const PackageMetadata &metadata,
                          const PackageTargetContract &contract,
                          RuntimeLoaderPackageMode requestedMode,
                          std::vector<Diagnostic> &diagnostics) {
+  const RuntimeArtifactPolicy policy = runtimeArtifactPolicy(metadata, contract);
   const PackageArtifactRecord *nativeArtifact =
       findArtifact(metadata, kNativeBinaryArtifact);
   const PackageArtifactRecord *sourceArtifact =
       findArtifact(metadata, kBackendSourceArtifact);
   const bool nativeReady =
-      nativeArtifactReady(metadata, contract, nativeArtifact);
+      nativeArtifactReady(metadata, policy, nativeArtifact);
   const bool sourceReady =
-      targetSupportsSourcePackage(contract) && artifactUsable(sourceArtifact);
+      policy.supportsSourcePackage && artifactUsable(sourceArtifact);
 
   if (requestedMode == RuntimeLoaderPackageMode::Native) {
     if (!nativeReady) {
