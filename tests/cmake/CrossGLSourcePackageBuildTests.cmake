@@ -57,6 +57,9 @@ crossgl_configure_fake_shader_tool(
   graphics-shadow-compare-lod)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_GRAPHICS_FAILURE_DIR dxc
                                    failure graphics)
+crossgl_configure_fake_shader_tool(
+  CROSSGL_FAKE_DXC_GRAPHICS_DIAGNOSTICS_FAILURE_DIR dxc diagnostics-failure
+  graphics)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_GLSLANG_SUCCESS_DIR
                                    glslangValidator success)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_GLSLANG_FAILURE_DIR
@@ -5155,6 +5158,43 @@ add_test(NAME cglc_build_directx_graphics_resources_fake_dxc_tool_failure
     "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=-O3 -T ps_6_0 -E fragment_main -Fo|backend/directx/DirectXGraphicsResourceShader.fragment.dxil|backend/directx/DirectXGraphicsResourceShader.graphics.hlsl"
     -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_FAILURE_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/DirectXGraphicsResourceShader.fragment.dxil"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_graphics_fake_dxc_diagnostics_tool_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SIMPLE_SHADER}
+    -DLOGICAL_INPUT=generated/from-translator.cgl
+    -DSOURCE_REMAP=${CROSSGL_SOURCE_REMAP_FULL_FILE_METADATA}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-graphics-fake-dxc-diagnostics-failure.cglb
+    -DMODE=source-package-build
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_GRAPHICS_DIAGNOSTICS_FAILURE_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    -DEXPECTED_SOURCE=backend/directx/SimpleShader.graphics.hlsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_DIRECTX_GRAPHICS_SOURCE_SNIPPET}"
+    -DEXPECTED_NATIVE_BINARY_ABSENT=backend/directx/SimpleShader.dxil
+    -DEXPECTED_NATIVE_BINARY_STATUS=planned
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=warning|diagnostics.1.code=directx.dxc-failed|diagnostics.2.severity=warning|diagnostics.2.code=directx.source-package-only"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=vertex=vs_6_0|diagnostics.0.message=fragment=ps_6_0|diagnostics.1.message=vertex dxc diagnostics: stderr:|diagnostics.1.message=fragment dxc diagnostics: stderr:|diagnostics.1.message=fake dxc mapped failure|diagnostics.1.message=partial DXIL outputs were discarded|diagnostics.2.message=planned native binary artifact: backend/directx/SimpleShader.dxil"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=3"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=SimpleShader|artifacts.backendSource=backend/directx/SimpleShader.graphics.hlsl|artifacts.nativeBinary=backend/directx/SimpleShader.dxil|artifacts.nativeBinaryStatus=planned|artifacts.sourceRemap=ir/source-remap-provenance.json|artifacts.backendSourceMap=backend/directx/SimpleShader.backend-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/SimpleShader.native-artifact.json"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/SimpleShader.graphics.hlsl|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=not-run|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=vertex=vs_6_0, fragment=ps_6_0|validationStatus=failed|nativeBinaryStatus=planned|validationDiagnostics.0.severity=error|validationDiagnostics.0.code=directx.dxc-error|validationDiagnostics.0.message=dxc error: fake dxc mapped failure (backend/directx/SimpleShader.graphics.hlsl:5:3)|validationDiagnostics.0.location.file=backend/directx/SimpleShader.graphics.hlsl|validationDiagnostics.0.location.line=5|validationDiagnostics.0.target=directx|validationDiagnostics.0.missingCapabilities.0=directx.backend.native-dxil-package|validationDiagnostics.1.severity=error|validationDiagnostics.1.code=directx.dxc-error|validationDiagnostics.1.message=dxc error: fake dxc mapped failure (backend/directx/SimpleShader.graphics.hlsl:5:3)|validationDiagnostics.1.location.file=backend/directx/SimpleShader.graphics.hlsl|validationDiagnostics.1.location.line=5|validationDiagnostics.1.target=directx|validationDiagnostics.1.missingCapabilities.0=directx.backend.native-dxil-package|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value|validationDiagnostics.0.location.column|validationDiagnostics.1.location.column"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=2|validationDiagnostics.0.missingCapabilities=1|validationDiagnostics.1.missingCapabilities=1"
+    "-DEXPECTED_BACKEND_SOURCE_MAP_JSON_FIELDS=sourceRemap.path=ir/source-remap-provenance.json|sourceRemap.generatedFile=generated/from-translator.cgl|sourceRemap.target=cgl|sourceRemap.mappingGranularity=file|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug|mappings.0.stage=vertex|mappings.0.backend.startLine=32|mappings.0.location.file=generated/from-translator.cgl|mappings.0.location.line=22|mappings.0.originalLocation.file=shaders/original.crossgl|mappings.0.originalLocation.line=61|mappings.4.stage=fragment|mappings.4.backend.startLine=39|mappings.4.location.file=generated/from-translator.cgl|mappings.4.location.line=31|mappings.4.originalLocation.file=shaders/original.crossgl|mappings.4.originalLocation.line=70"
+    "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=target=directx|generatedFile=generated/from-translator.cgl|sourceRemap.target=cgl|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug"
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl|hirSourceLocations.statements.0.location.file=generated/from-translator.cgl|hirSourceLocations.statements.0.originalLocation.file=shaders/original.crossgl"
+    "-DEXPECTED_HIR_SOURCE_MAP_JSON_FIELDS=hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl|hirSourceLocations.statements.0.stage=vertex|hirSourceLocations.statements.0.location.line=22|hirSourceLocations.statements.0.originalLocation.line=61"
+    -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
+    -DBACKEND_SOURCE_MAP_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
+    -DSOURCE_REMAP_PROVENANCE_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-provenance-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DPACKAGE_INTEGRITY_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_package_integrity.py
+    -DPYTHON3_EXECUTABLE=${CROSSGL_PYTHON3}
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_DIAGNOSTICS_FAILURE_DIR}/dxc.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T vs_6_0 -E vertex_main -Fo|backend/directx/SimpleShader.vertex.dxil|backend/directx/SimpleShader.graphics.hlsl"
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_DXC_GRAPHICS_DIAGNOSTICS_FAILURE_DIR}/dxc.log
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=-O3 -T ps_6_0 -E fragment_main -Fo|backend/directx/SimpleShader.fragment.dxil|backend/directx/SimpleShader.graphics.hlsl"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_graphics_resources_fake_dxc_unavailable
   COMMAND ${CMAKE_COMMAND}
