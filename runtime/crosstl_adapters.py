@@ -153,6 +153,56 @@ class CrossTLRuntimeAdapterNormalizationReport:
     diagnostics: tuple[CrossTLAdapterDiagnostic, ...]
 
 
+@dataclass(frozen=True)
+class CrossTLRuntimeAdapterLoadUnit:
+    id: str
+    target: str
+    adapter_kind: str
+    artifact_format: str
+    package_path: str
+    source_path: str | None
+    source_backend: str | None
+    stage: str | None
+    variant: str | None
+    defines: dict[str, Any]
+    source_remap: dict[str, Any] | None
+    host_interface: dict[str, Any] | None
+    required_tools: tuple[str, ...]
+    host_responsibilities: tuple[str, ...]
+    load_steps: tuple[dict[str, Any], ...]
+    blockers: tuple[dict[str, Any], ...]
+    validation: dict[str, Any]
+
+    def to_summary(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "target": self.target,
+            "adapterKind": self.adapter_kind,
+            "artifactFormat": self.artifact_format,
+            "packagePath": self.package_path,
+            "sourcePath": self.source_path,
+            "sourceBackend": self.source_backend,
+            "stage": self.stage,
+            "variant": self.variant,
+            "defines": _json_object_copy(self.defines),
+            "sourceRemap": (
+                _json_object_copy(self.source_remap)
+                if self.source_remap is not None
+                else None
+            ),
+            "hostInterface": (
+                _json_object_copy(self.host_interface)
+                if self.host_interface is not None
+                else None
+            ),
+            "requiredTools": list(self.required_tools),
+            "hostResponsibilities": list(self.host_responsibilities),
+            "loadSteps": [_json_object_copy(step) for step in self.load_steps],
+            "blockers": [_json_object_copy(blocker) for blocker in self.blockers],
+            "validation": _json_object_copy(self.validation),
+        }
+
+
 def read_crosstl_runtime_adapter_package(
     manifest_path: str | Path,
 ) -> CrossTLAdapterPackageReport:
@@ -257,6 +307,16 @@ def build_crosstl_runtime_adapter_normalization_report(
         candidates=tuple(candidates),
         skipped_descriptors=skipped,
         diagnostics=report.diagnostics,
+    )
+
+
+def build_crosstl_runtime_adapter_load_units(
+    report: CrossTLRuntimeAdapterNormalizationReport,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    """Project normalized CrossTL adapters into host-loader load units."""
+
+    return tuple(
+        _runtime_adapter_load_unit(candidate) for candidate in report.candidates
     )
 
 
@@ -982,6 +1042,191 @@ def _runtime_adapter_candidate(
         ),
         validation=_json_object_copy(descriptor.validation),
     )
+
+
+def _runtime_adapter_load_unit(
+    candidate: CrossTLRuntimeAdapterCandidate,
+) -> CrossTLRuntimeAdapterLoadUnit:
+    blockers = _runtime_adapter_load_unit_blockers(candidate)
+    validation = _json_object_copy(candidate.validation)
+    validation["hostInterface"] = candidate.host_interface_status or "not-inspected"
+    validation["loadReady"] = candidate.load_ready and not blockers
+    validation["metadataOnly"] = True
+    validation["sourceParsingRequired"] = False
+    validation["compilerInvocationRequired"] = False
+    validation["deviceExecutionRequired"] = False
+    return CrossTLRuntimeAdapterLoadUnit(
+        id=candidate.id,
+        target=candidate.target,
+        adapter_kind=candidate.adapter_kind,
+        artifact_format=candidate.artifact_format,
+        package_path=candidate.package_path,
+        source_path=candidate.source_path,
+        source_backend=candidate.source_backend,
+        stage=candidate.stage,
+        variant=candidate.variant,
+        defines=_json_object_copy(candidate.defines),
+        source_remap=(
+            _json_object_copy(candidate.source_remap)
+            if candidate.source_remap is not None
+            else None
+        ),
+        host_interface=(
+            _json_object_copy(candidate.host_interface)
+            if candidate.host_interface is not None
+            else None
+        ),
+        required_tools=candidate.required_tools,
+        host_responsibilities=candidate.host_responsibilities,
+        load_steps=_runtime_adapter_load_steps(candidate),
+        blockers=blockers,
+        validation=validation,
+    )
+
+
+def _runtime_adapter_load_steps(
+    candidate: CrossTLRuntimeAdapterCandidate,
+) -> tuple[dict[str, Any], ...]:
+    steps: list[dict[str, Any]] = [
+        {
+            "kind": "load-package-artifact",
+            "message": (
+                f"Load {candidate.artifact_format} artifact "
+                f"{candidate.package_path} for target {candidate.target}."
+            ),
+            "target": candidate.target,
+            "packagePath": candidate.package_path,
+            "tools": [],
+            "command": None,
+            "hostInterfaceStatus": candidate.host_interface_status,
+            "metadata": {
+                "source": {
+                    "field": "descriptor.packagePath",
+                    "path": candidate.package_path,
+                },
+                "artifact": {
+                    "name": candidate.artifact_name,
+                    "producerArtifactFormat": candidate.producer_artifact_format,
+                    "producerAdapterKind": candidate.producer_adapter_kind,
+                },
+            },
+        }
+    ]
+    source_remap_path = _source_remap_package_path(candidate.source_remap)
+    if source_remap_path is not None:
+        steps.append(
+            {
+                "kind": "load-source-remap",
+                "message": (
+                    "Load source-remap metadata "
+                    f"{source_remap_path} for diagnostics and provenance."
+                ),
+                "target": candidate.target,
+                "packagePath": source_remap_path,
+                "tools": [],
+                "command": None,
+                "hostInterfaceStatus": candidate.host_interface_status,
+                "metadata": {
+                    "source": {
+                        "field": "descriptor.sourceRemap.packagePath",
+                        "path": source_remap_path,
+                    }
+                },
+            }
+        )
+    if candidate.host_interface_status == "ready":
+        steps.append(
+            {
+                "kind": "bind-host-interface",
+                "message": (
+                    "Bind "
+                    f"{len(candidate.entry_points)} entry points and "
+                    f"{len(candidate.resources)} resources from CrossTL "
+                    "host-interface metadata."
+                ),
+                "target": candidate.target,
+                "packagePath": candidate.package_path,
+                "tools": [],
+                "command": None,
+                "hostInterfaceStatus": candidate.host_interface_status,
+                "metadata": {
+                    "hostInterface": {
+                        "entryPointCount": len(candidate.entry_points),
+                        "resourceCount": len(candidate.resources),
+                        "constantCount": len(candidate.constants),
+                        "targetResourceBindingMetadataCount": len(
+                            candidate.target_resource_binding_metadata
+                        ),
+                    }
+                },
+            }
+        )
+    if candidate.required_tools:
+        steps.append(
+            {
+                "kind": "validate-target-toolchain",
+                "message": (
+                    "Validate the loaded artifact with available target tools: "
+                    f"{', '.join(candidate.required_tools)}."
+                ),
+                "target": candidate.target,
+                "packagePath": candidate.package_path,
+                "tools": list(candidate.required_tools),
+                "command": None,
+                "hostInterfaceStatus": candidate.host_interface_status,
+                "metadata": {
+                    "toolRequirementSource": "descriptor.requiredTools",
+                },
+            }
+        )
+    return tuple(steps)
+
+
+def _runtime_adapter_load_unit_blockers(
+    candidate: CrossTLRuntimeAdapterCandidate,
+) -> tuple[dict[str, Any], ...]:
+    blockers: list[dict[str, Any]] = []
+    if candidate.host_interface_status != "ready":
+        blockers.append(
+            {
+                "kind": "resolve-host-interface-metadata",
+                "severity": "warning",
+                "source": "descriptor.hostInterface",
+                "message": (
+                    "CrossTL runtime adapter host-interface metadata is not ready "
+                    f"for {candidate.package_path}."
+                ),
+                "target": candidate.target,
+                "adapter": candidate.id,
+                "packagePath": candidate.package_path,
+            }
+        )
+    if not candidate.load_ready:
+        blockers.append(
+            {
+                "kind": "resolve-runtime-adapter-validation",
+                "severity": "warning",
+                "source": "descriptor.validation.loadReady",
+                "message": (
+                    "CrossTL runtime adapter validation did not mark the load unit "
+                    f"ready for {candidate.package_path}."
+                ),
+                "target": candidate.target,
+                "adapter": candidate.id,
+                "packagePath": candidate.package_path,
+            }
+        )
+    return tuple(blockers)
+
+
+def _source_remap_package_path(source_remap: dict[str, Any] | None) -> str | None:
+    if source_remap is None:
+        return None
+    for field_name in ("packagePath", "path"):
+        value = _optional_str(source_remap.get(field_name))
+        if value is not None:
+            return value
+    return None
 
 
 def _descriptor_field(

@@ -15,6 +15,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 
 from runtime.crosstl_adapters import (  # noqa: E402
+    build_crosstl_runtime_adapter_load_units,
     build_crosstl_runtime_adapter_normalization_report,
     normalize_crosstl_runtime_adapter_candidates,
     read_crosstl_runtime_adapter_package,
@@ -143,6 +144,33 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             self.assertEqual(normalization_report.skipped_descriptor_count, 0)
             self.assertEqual(normalization_report.unsupported_target_count, 0)
             self.assertEqual(normalization_report.targets, ("opengl",))
+            load_units = build_crosstl_runtime_adapter_load_units(normalization_report)
+            self.assertEqual(len(load_units), 1)
+            load_unit = load_units[0]
+            self.assertEqual(load_unit.id, "runtime-loader.opengl.OpenglMain")
+            self.assertEqual(load_unit.target, "opengl")
+            self.assertEqual(load_unit.adapter_kind, "backend-source-loader")
+            self.assertEqual(load_unit.artifact_format, "backend-source")
+            self.assertEqual(load_unit.package_path, "backend/opengl/main.glsl")
+            self.assertEqual(load_unit.blockers, ())
+            self.assertTrue(load_unit.validation["loadReady"])
+            self.assertEqual(load_unit.validation["hostInterface"], "ready")
+            self.assertEqual(
+                [step["kind"] for step in load_unit.load_steps],
+                [
+                    "load-package-artifact",
+                    "load-source-remap",
+                    "bind-host-interface",
+                    "validate-target-toolchain",
+                ],
+            )
+            summary = load_unit.to_summary()
+            self.assertEqual(summary["hostInterface"]["status"], "ready")
+            self.assertEqual(summary["requiredTools"], ["opengl.toolchain.compiler"])
+            self.assertEqual(
+                summary["loadSteps"][1]["packagePath"],
+                "source-remaps/opengl/main.source-remap.json",
+            )
 
     def test_reports_unsupported_descriptor_targets_without_invalidating_package(
         self,
@@ -293,6 +321,21 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
             self.assertEqual(normalization_report.candidate_count, 1)
             self.assertEqual(normalization_report.ready_candidate_count, 0)
             self.assertEqual(normalization_report.blocked_candidate_count, 1)
+            load_units = build_crosstl_runtime_adapter_load_units(normalization_report)
+            self.assertEqual(len(load_units), 1)
+            self.assertFalse(load_units[0].validation["loadReady"])
+            self.assertEqual(load_units[0].validation["hostInterface"], "blocked")
+            self.assertEqual(
+                [blocker["kind"] for blocker in load_units[0].blockers],
+                [
+                    "resolve-host-interface-metadata",
+                    "resolve-runtime-adapter-validation",
+                ],
+            )
+            self.assertNotIn(
+                "bind-host-interface",
+                {step["kind"] for step in load_units[0].load_steps},
+            )
 
     def test_invalid_report_does_not_create_candidates(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
