@@ -237,6 +237,27 @@ add_test(NAME cglc_build_vulkan_native_fake_structured_decorations_validate
     -DMODE=vulkan-build
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 
+add_test(NAME cglc_build_vulkan_crosstl_storage_buffer_overload_selection_fake_native
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_VULKAN_CROSSTL_STORAGE_BUFFER_OVERLOAD_SELECTION_SHADER}
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-crosstl-storage-buffer-overload-selection.cglb
+    -DEXPECTED_MODULE=VulkanCrossTLStorageBufferOverloadSelectionShader
+    -DEXPECTED_STORAGE_ELEMENT=Particle
+    -DEXPECTED_STORAGE_STRIDE=32
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_VULKAN_SUCCESS_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanCrossTLStorageBufferOverloadSelectionShader|artifacts.backendAssembly=backend/vulkan/VulkanCrossTLStorageBufferOverloadSelectionShader.spvasm|artifacts.nativeBinary=backend/vulkan/VulkanCrossTLStorageBufferOverloadSelectionShader.spv"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=vulkan|module=VulkanCrossTLStorageBufferOverloadSelectionShader|nativeBinary=backend/vulkan/VulkanCrossTLStorageBufferOverloadSelectionShader.spv|resources.0.name=scalars|resources.1.name=vectors|resources.2.name=particles|workgroupSizes.0.entryPoint=compute_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=resources=3|targetResourceBindings=3|structs=1|workgroupSizes=1"
+    "-DEXPECTED_REFLECTION_TARGET_FIELDS=scalars.sourceType=float*|scalars.bindingClass=storageBuffer|scalars.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER|scalars.binding=0|scalars.storageBufferLayout.arrayStrideBytes=4|vectors.sourceType=vec4*|vectors.binding=1|vectors.storageBufferLayout.arrayStrideBytes=16|particles.sourceType=Particle*|particles.binding=2|particles.storageBufferLayout.elementType=Particle|particles.storageBufferLayout.arrayStrideBytes=32|particles.storageBufferLayout.fields.0.name=position|particles.storageBufferLayout.fields.1.offsetBytes=16"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=compute-kernel.kind=stage|storage-buffer.kind=resource|vector-storage-buffer.kind=layout|index-access.kind=operation|vector-arithmetic.kind=operation|local-declaration.kind=operation|storage-buffer-write.kind=operation|vector-constructor.kind=operation"
+    "-DEXPECTED_SPVASM_CONTAINS=%func_crosstl_select_scalar = OpFunction %float None %fn_float_int__|%func_crosstl_select_vector = OpFunction %vec4 None %fn_vec4_int__|%func_crosstl_select_particle = OpFunction %vec4 None %fn_vec4_int__|OpAccessChain %ptr_StorageBuffer_float %resource_scalars %const_int__0 %param_crosstl_select_scalar_index|OpAccessChain %ptr_StorageBuffer_vec4 %resource_vectors %const_int__0 %param_crosstl_select_vector_index|OpAccessChain %ptr_StorageBuffer_vec4 %resource_particles %const_int__0 %param_crosstl_select_particle_index %const_int__0|OpFunctionCall %float %func_crosstl_select_scalar %const_int__0|OpFunctionCall %vec4 %func_crosstl_select_vector %const_int__0|OpFunctionCall %vec4 %func_crosstl_select_particle %const_int__0|OpAccessChain %ptr_StorageBuffer_vec4 %resource_vectors %const_int__0 %const_int__1"
+    "-DEXPECTED_SPVASM_ORDERED_CONTAINS=%func_crosstl_select_scalar = OpFunction|%func_crosstl_select_vector = OpFunction|%func_crosstl_select_particle = OpFunction|%compute_main = OpFunction|OpFunctionCall %float %func_crosstl_select_scalar|OpFunctionCall %vec4 %func_crosstl_select_vector|OpFunctionCall %vec4 %func_crosstl_select_particle"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=0"
+    -DMODE=vulkan-build
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+
 add_test(NAME cglc_build_vulkan_native_fake_disassembly_unavailable
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -509,6 +530,9 @@ crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_spirv_success vulkan)
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_intrinsics_import_closure vulkan)
+crossgl_label_optional_native_policy_test(
+  cglc_build_vulkan_crosstl_storage_buffer_overload_selection_fake_native
+  vulkan)
 crossgl_label_optional_native_policy_test(
   cglc_build_vulkan_native_fake_disassembly_unavailable vulkan)
 crossgl_label_optional_native_policy_test(

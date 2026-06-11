@@ -1,0 +1,52 @@
+shader OpenGLCrossTLReservedIdentifiersShader {
+    struct CrossTLVertexInput {
+        vec3 position;
+        vec2 sample;
+        float smooth;
+    }
+
+    struct CrossTLVertexOutput {
+        vec2 sample;
+        float smooth;
+        vec4 position;
+    }
+
+    struct CrossTLFragmentInput {
+        vec2 sample;
+        float smooth;
+    }
+
+    struct CrossTLFragmentTarget {
+        vec4 sample;
+    }
+
+    vertex {
+        fn lift(sample: vec2, smooth: float) -> vec2 {
+            var centroid: vec2 = sample + vec2(smooth, smooth);
+            return centroid;
+        }
+
+        fn main(input: CrossTLVertexInput) -> CrossTLVertexOutput {
+            CrossTLVertexOutput output;
+            var sample: vec2 = lift(input.sample, input.smooth);
+            output.sample = sample;
+            output.smooth = input.smooth;
+            output.position = vec4(input.position, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        fn shade(sample: vec2, smooth: float) -> vec4 {
+            var centroid: float = sample.x + smooth;
+            return vec4(centroid, sample.y, smooth, 1.0);
+        }
+
+        fn main(input: CrossTLFragmentInput) -> CrossTLFragmentTarget {
+            CrossTLFragmentTarget output;
+            var sample: vec4 = shade(input.sample, input.smooth);
+            output.sample = sample;
+            return output;
+        }
+    }
+}

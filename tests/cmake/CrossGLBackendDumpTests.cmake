@@ -368,6 +368,15 @@ add_test(NAME cglc_dump_backend_vulkan_resource_arrays
     -DMODE=dump-backend
     -DMUST_CONTAIN=descriptor_array_size
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_VULKAN_CROSSTL_STORAGE_BUFFER_OVERLOAD_BACKEND_REGEX [=[vulkan.descriptor @scalars set 0 binding 0 descriptor_type "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER" storage_class "StorageBuffer" binding_class "storageBuffer" spirv_type "OpTypeRuntimeArray<float>".*vulkan.descriptor @vectors set 0 binding 1 descriptor_type "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER" storage_class "StorageBuffer" binding_class "storageBuffer" spirv_type "OpTypeRuntimeArray<vec4>".*vulkan.descriptor @particles set 0 binding 2 descriptor_type "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER" storage_class "StorageBuffer" binding_class "storageBuffer" spirv_type "OpTypeRuntimeArray<Particle>".*crossgl\.func @crosstl_select_scalar\(%index: !crossgl\.i32\) -> !crossgl\.f32.*crossgl\.return "scalars\[index\]".*crossgl\.func @crosstl_select_vector\(%index: !crossgl\.i32\) -> !crossgl\.vec<4xf32>.*crossgl\.return "vectors\[index\]".*crossgl\.func @crosstl_select_particle\(%index: !crossgl\.i32\) -> !crossgl\.vec<4xf32>.*crossgl\.return "particles\[index\]\.position \+ particles\[index\]\.velocity".*crossgl\.decl %scalar : !crossgl\.f32 = "crosstl_select_scalar\(0\)".*crossgl\.decl %vectorValue : !crossgl\.vec<4xf32> = "crosstl_select_vector\(0\)".*crossgl\.decl %particleValue : !crossgl\.vec<4xf32> = "crosstl_select_particle\(0\)"]=])
+add_test(NAME cglc_dump_backend_vulkan_crosstl_storage_buffer_overload_selection
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_VULKAN_CROSSTL_STORAGE_BUFFER_OVERLOAD_SELECTION_SHADER}
+    -DTARGET=vulkan
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_VULKAN_CROSSTL_STORAGE_BUFFER_OVERLOAD_BACKEND_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_vulkan_spirv_skeleton
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -1026,6 +1035,29 @@ add_test(NAME cglc_dump_backend_opengl_graphics_stage_entrypoints
     -DTARGET=opengl
     -DMODE=dump-backend
     "-DMUST_CONTAIN=VertexOutput vertex_main\\(VertexInput crossgl_user_input\\).*FragmentOutput fragment_main\\(FragmentInput crossgl_user_input\\)"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_OPENGL_CROSSTL_RESERVED_IDENTIFIERS_REGEX [=[struct CrossTLVertexInput \{
+  vec3 position;
+  vec2 crossgl_user_sample;
+  float crossgl_user_smooth;
+\};.*vec2 lift\(vec2 crossgl_user_sample, float crossgl_user_smooth\) \{
+  vec2 crossgl_user_centroid = crossgl_user_sample \+ vec2\(crossgl_user_smooth, crossgl_user_smooth\);
+  return crossgl_user_centroid;
+\}.*CrossTLVertexOutput vertex_main\(CrossTLVertexInput crossgl_user_input\) \{
+  CrossTLVertexOutput crossgl_user_output;
+  vec2 crossgl_user_sample = lift\(crossgl_user_input\.crossgl_user_sample, crossgl_user_input\.crossgl_user_smooth\);
+  crossgl_user_output\.crossgl_user_sample = crossgl_user_sample;
+  crossgl_user_output\.crossgl_user_smooth = crossgl_user_input\.crossgl_user_smooth;.*CrossTLFragmentTarget fragment_main\(CrossTLFragmentInput crossgl_user_input\) \{
+  CrossTLFragmentTarget crossgl_user_output;
+  vec4 crossgl_user_sample = shade\(crossgl_user_input\.crossgl_user_sample, crossgl_user_input\.crossgl_user_smooth\);
+  crossgl_user_output\.crossgl_user_sample = crossgl_user_sample;]=])
+add_test(NAME cglc_dump_backend_opengl_crosstl_reserved_identifiers
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_CROSSTL_RESERVED_IDENTIFIERS_SHADER}
+    -DTARGET=opengl
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_OPENGL_CROSSTL_RESERVED_IDENTIFIERS_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 set(CROSSGL_OPENGL_GRAPHICS_VARYING_PACK_REGEX [=[layout\(location = 0\) in vec3 crossgl_attr_position;
 layout\(location = 1\) in vec2 crossgl_attr_texCoord;

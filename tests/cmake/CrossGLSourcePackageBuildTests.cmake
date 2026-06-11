@@ -5523,6 +5523,42 @@ if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   crossgl_label_optional_native_test(
     cglc_build_opengl_graphics_reserved_identifiers_glsl_validated opengl)
 endif()
+set(CROSSGL_OPENGL_CROSSTL_RESERVED_IDENTIFIERS_SOURCE_SNIPPET [=[vec2 crossgl_user_centroid = crossgl_user_sample + vec2(crossgl_user_smooth, crossgl_user_smooth);]=])
+add_test(NAME cglc_build_opengl_crosstl_reserved_identifiers_source_package
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_OPENGL_CROSSTL_RESERVED_IDENTIFIERS_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-crosstl-reserved-identifiers-source.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/opengl/OpenGLCrossTLReservedIdentifiersShader.vert.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_CROSSTL_RESERVED_IDENTIFIERS_SOURCE_SNIPPET}"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLCrossTLReservedIdentifiersShader|artifacts.backendSource=backend/opengl/OpenGLCrossTLReservedIdentifiersShader.graphics.glsl|artifacts.nativeBinary=backend/opengl/OpenGLCrossTLReservedIdentifiersShader.glsl"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLCrossTLReservedIdentifiersShader|nativeBinary=backend/opengl/OpenGLCrossTLReservedIdentifiersShader.glsl|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.0.parameters.0.name=input|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|entryPoints.1.parameters.0.name=input|structs.0.fields.1.name=sample|structs.0.fields.2.name=smooth|structs.3.fields.0.name=sample|vertexLayouts.0.attributes.1.name=sample|vertexLayouts.0.attributes.2.name=smooth"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|structs=4|resources=0|vertexLayouts=1|vertexLayouts.0.attributes=3|workgroupSizes=0"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|local-declaration.kind=operation|vector-arithmetic.kind=operation|vector-constructor.kind=operation|scalar-arithmetic.kind=operation"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
+  add_test(NAME cglc_build_opengl_crosstl_reserved_identifiers_glsl_validated
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_OPENGL_CROSSTL_RESERVED_IDENTIFIERS_SHADER}
+      -DTARGET=opengl
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-crosstl-reserved-identifiers-validated.cglb
+      -DMODE=source-package-build
+      -DEXPECTED_SOURCE=backend/opengl/OpenGLCrossTLReservedIdentifiersShader.vert.glsl
+      "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_CROSSTL_RESERVED_IDENTIFIERS_SOURCE_SNIPPET}"
+      "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLCrossTLReservedIdentifiersShader|artifacts.backendSource=backend/opengl/OpenGLCrossTLReservedIdentifiersShader.graphics.glsl|artifacts.nativeBinary=backend/opengl/OpenGLCrossTLReservedIdentifiersShader.glsl"
+      "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=OpenGLCrossTLReservedIdentifiersShader|nativeBinary=backend/opengl/OpenGLCrossTLReservedIdentifiersShader.glsl|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.0.parameters.0.name=input|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|entryPoints.1.parameters.0.name=input|structs.0.fields.1.name=sample|structs.0.fields.2.name=smooth|structs.3.fields.0.name=sample|vertexLayouts.0.attributes.1.name=sample|vertexLayouts.0.attributes.2.name=smooth"
+      "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|structs=4|resources=0|vertexLayouts=1|vertexLayouts.0.attributes=3|workgroupSizes=0"
+      "-DEXPECTED_REFLECTION_FEATURE_FIELDS=native-glsl-package.kind=backend|glsl-program-validation.kind=validation|vertex-shader.kind=stage|fragment-shader.kind=stage|local-declaration.kind=operation|vector-arithmetic.kind=operation|vector-constructor.kind=operation|scalar-arithmetic.kind=operation"
+      -DEXPECTED_NATIVE_BINARY=backend/opengl/OpenGLCrossTLReservedIdentifiersShader.glsl
+      -DEXPECTED_NATIVE_BINARY_STATUS=validated
+      -DEXPECTED_DIAGNOSTIC=opengl.glsl-validated
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+  crossgl_label_optional_native_test(
+    cglc_build_opengl_crosstl_reserved_identifiers_glsl_validated opengl)
+endif()
 add_test(NAME cglc_build_directx_resource_array_access_source_package
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
