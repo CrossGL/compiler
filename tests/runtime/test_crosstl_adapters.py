@@ -12,6 +12,7 @@ import unittest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
+FIXTURES_ROOT = REPO_ROOT / "tests" / "fixtures"
 
 
 from runtime.crosstl_adapters import (  # noqa: E402
@@ -185,6 +186,54 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                 discover_crosstl_runtime_adapter_load_units(root / "missing-package"),
                 (),
             )
+
+    def test_reads_cross_tl_materialized_runtime_adapter_fixture(self) -> None:
+        fixture_root = FIXTURES_ROOT / "crosstl-runtime-adapter-pr1308-opengl"
+        manifest = fixture_root / "runtime-adapters" / "runtime-adapters.json"
+
+        report = read_crosstl_runtime_adapter_package(manifest)
+        candidates = normalize_crosstl_runtime_adapter_candidates(report)
+        load_units = discover_crosstl_runtime_adapter_load_units(fixture_root)
+
+        self.assertTrue(report.valid, report.diagnostics)
+        self.assertTrue(report.compiler_supported, report.diagnostics)
+        self.assertEqual(report.descriptor_count, 1)
+        descriptor = report.descriptors[0]
+        self.assertEqual(descriptor.target, "opengl")
+        self.assertEqual(descriptor.artifact_format, "GLSL source")
+        self.assertEqual(
+            descriptor.package_path,
+            "artifacts/out/opengl/simple.glsl",
+        )
+        self.assertEqual(descriptor.source_backend, "cgl")
+        self.assertIsNone(descriptor.stage)
+        self.assertIsNone(descriptor.variant)
+        self.assertEqual(descriptor.host_interface_status, "ready")
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].required_tools, ("glslangValidator",))
+        self.assertEqual(
+            candidates[0].source_remap,
+            {
+                "packagePath": "source-remaps/out/opengl/simple.source-remap.json",
+                "sourcePath": "out/opengl/simple.source-remap.json",
+                "status": "ready",
+            },
+        )
+        self.assertEqual(len(load_units), 1)
+        load_unit = load_units[0]
+        self.assertEqual(load_unit.target, "opengl")
+        self.assertEqual(load_unit.package_path, "artifacts/out/opengl/simple.glsl")
+        self.assertEqual(load_unit.artifact_format, "backend-source")
+        self.assertTrue(load_unit.validation["loadReady"])
+        self.assertEqual(
+            [step["kind"] for step in load_unit.load_steps],
+            [
+                "load-package-artifact",
+                "load-source-remap",
+                "bind-host-interface",
+                "validate-target-toolchain",
+            ],
+        )
 
     def test_reports_unsupported_descriptor_targets_without_invalidating_package(
         self,
