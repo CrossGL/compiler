@@ -135,9 +135,12 @@ bool objectHasOnlyMembers(std::string_view object,
 
 bool looksLikeProjectReportSourceRemapMetadata(std::string_view object) {
   return findObjectMemberValue(object, "path").has_value() &&
-         findObjectMemberValue(object, "target").has_value() &&
-         findObjectMemberValue(object, "mappingGranularity").has_value() &&
-         findObjectMemberValue(object, "mappingCount").has_value();
+         (findObjectMemberValue(object, "target").has_value() ||
+          findObjectMemberValue(object, "generatedFile").has_value() ||
+          findObjectMemberValue(object, "mappingGranularity").has_value() ||
+          findObjectMemberValue(object, "mappingCount").has_value() ||
+          findObjectMemberValue(object, "sizeBytes").has_value() ||
+          findObjectMemberValue(object, "hash").has_value());
 }
 
 bool looksLikeCrossTLProjectPortabilityReport(std::string_view object) {
@@ -260,6 +263,27 @@ requiredSourceRemapMetadataSizeBytes(std::string_view metadata,
   return sourceRemapMetadataSizeBytes(metadata, diagnostics, metadataLocation);
 }
 
+std::optional<std::uintmax_t>
+requiredSourceRemapMetadataMappingCount(
+    std::string_view metadata, DiagnosticEngine &diagnostics,
+    const SourceLocation &metadataLocation) {
+  if (!findObjectMemberValue(metadata, "mappingCount")) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.mappingCount must be recorded",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  const std::optional<std::uintmax_t> mappingCount =
+      objectUnsignedMember(metadata, "mappingCount");
+  if (!mappingCount) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap.mappingCount must be a non-negative integer",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  return mappingCount;
+}
+
 bool validateSourceRemapMetadataSchemaVersion(
     std::string_view metadata, DiagnosticEngine &diagnostics,
     const SourceLocation &metadataLocation) {
@@ -352,6 +376,25 @@ bool validateOptionalSourceRemapMetadataString(
   return false;
 }
 
+std::optional<std::string> requiredSourceRemapMetadataString(
+    std::string_view metadata, std::string_view field,
+    DiagnosticEngine &diagnostics, const SourceLocation &metadataLocation) {
+  if (!findObjectMemberValue(metadata, field)) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap." + std::string(field) + " must be recorded",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  const std::optional<std::string> value = objectStringMember(metadata, field);
+  if (!value) {
+    reportInvalidRemap(diagnostics,
+                       "sourceRemap." + std::string(field) + " must be a string",
+                       metadataLocation);
+    return std::nullopt;
+  }
+  return value;
+}
+
 bool validateOptionalSourceRemapMetadataTarget(
     std::string_view metadata, DiagnosticEngine &diagnostics,
     const SourceLocation &metadataLocation) {
@@ -368,6 +411,20 @@ bool validateOptionalSourceRemapMetadataTarget(
                      "artifacts",
                      metadataLocation);
   return false;
+}
+
+bool validateRequiredSourceRemapMetadataTarget(
+    std::string_view metadata, DiagnosticEngine &diagnostics,
+    const SourceLocation &metadataLocation) {
+  if (!findObjectMemberValue(metadata, "target")) {
+    reportInvalidRemap(diagnostics, "sourceRemap.target must be recorded",
+                       metadataLocation);
+    return false;
+  }
+  return validateOptionalSourceRemapMetadataString(metadata, "target", diagnostics,
+                                                  metadataLocation) &&
+         validateOptionalSourceRemapMetadataTarget(metadata, diagnostics,
+                                                  metadataLocation);
 }
 
 std::optional<std::string>
@@ -631,7 +688,16 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
                                            metadataLocation);
   const std::optional<std::string> expectedHash =
       requiredSourceRemapMetadataHash(metadata, diagnostics, metadataLocation);
-  if (!expectedSize || !expectedHash) {
+  const std::optional<std::string> expectedGeneratedFile =
+      requiredSourceRemapMetadataString(metadata, "generatedFile", diagnostics,
+                                        metadataLocation);
+  const std::optional<std::uintmax_t> expectedMappingCount =
+      requiredSourceRemapMetadataMappingCount(metadata, diagnostics,
+                                             metadataLocation);
+  const bool targetIsValid = validateRequiredSourceRemapMetadataTarget(
+      metadata, diagnostics, metadataLocation);
+  if (!expectedSize || !expectedHash || !expectedGeneratedFile ||
+      !expectedMappingCount || !targetIsValid) {
     return std::nullopt;
   }
 
@@ -671,39 +737,19 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
   if (!remap) {
     return std::nullopt;
   }
-  const bool hasGeneratedFile =
-      findObjectMemberValue(metadata, "generatedFile").has_value();
-  const std::optional<std::string> generatedFile =
-      objectStringMember(metadata, "generatedFile");
-  if (hasGeneratedFile && !generatedFile) {
-    reportInvalidRemap(diagnostics,
-                       "sourceRemap.generatedFile must be a string",
-                       metadataLocation);
-    return std::nullopt;
-  }
-  if (generatedFile && *generatedFile != remap->generatedFile) {
+  if (*expectedGeneratedFile != remap->generatedFile) {
     reportInvalidRemap(
         diagnostics,
-        "sourceRemap.generatedFile '" + *generatedFile +
+        "sourceRemap.generatedFile '" + *expectedGeneratedFile +
             "' must match referenced sidecar generatedFile '" +
             remap->generatedFile + "'",
         metadataLocation);
     return std::nullopt;
   }
-  const bool hasMappingCount =
-      findObjectMemberValue(metadata, "mappingCount").has_value();
-  const std::optional<std::uintmax_t> mappingCount =
-      objectUnsignedMember(metadata, "mappingCount");
-  if (hasMappingCount && !mappingCount) {
-    reportInvalidRemap(diagnostics,
-                       "sourceRemap.mappingCount must be a non-negative integer",
-                       metadataLocation);
-    return std::nullopt;
-  }
-  if (mappingCount && *mappingCount != remap->mappings.size()) {
+  if (*expectedMappingCount != remap->mappings.size()) {
     reportInvalidRemap(
         diagnostics,
-        "sourceRemap.mappingCount " + std::to_string(*mappingCount) +
+        "sourceRemap.mappingCount " + std::to_string(*expectedMappingCount) +
             " must match referenced sidecar mapping count " +
             std::to_string(remap->mappings.size()),
         metadataLocation);

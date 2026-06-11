@@ -437,6 +437,14 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_GENERATED_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-generated-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_MAPPING_COUNT_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-mapping-count-mismatch.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_TARGET_MISSING
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-target-missing.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_GENERATED_MISSING
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-generated-missing.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_MAPPING_COUNT_MISSING
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-mapping-count-missing.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_HASH_MALFORMED
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-hash-malformed.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_SOURCE_BACKEND_TYPE
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-source-remap-metadata-source-backend-type.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_NON_CGL_TARGET
@@ -983,6 +991,63 @@ file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_MAPPING_COUNT_MI
   \"hash\": {
     \"algorithm\": \"sha256\",
     \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
+  }
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_TARGET_MISSING}"
+"{
+  \"schemaVersion\": 1,
+  \"path\": \"out/cgl/simple.source-remap.json\",
+  \"generatedFile\": \"out/cgl/simple.cgl\",
+  \"mappingGranularity\": \"line\",
+  \"mappingCount\": 2,
+  \"sizeBytes\": 982,
+  \"hash\": {
+    \"algorithm\": \"sha256\",
+    \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
+  }
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_GENERATED_MISSING}"
+"{
+  \"schemaVersion\": 1,
+  \"path\": \"out/cgl/simple.source-remap.json\",
+  \"target\": \"cgl\",
+  \"mappingGranularity\": \"line\",
+  \"mappingCount\": 2,
+  \"sizeBytes\": 982,
+  \"hash\": {
+    \"algorithm\": \"sha256\",
+    \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
+  }
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_MAPPING_COUNT_MISSING}"
+"{
+  \"schemaVersion\": 1,
+  \"path\": \"out/cgl/simple.source-remap.json\",
+  \"target\": \"cgl\",
+  \"generatedFile\": \"out/cgl/simple.cgl\",
+  \"mappingGranularity\": \"line\",
+  \"sizeBytes\": 982,
+  \"hash\": {
+    \"algorithm\": \"sha256\",
+    \"value\": \"eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92\"
+  }
+}
+")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_HASH_MALFORMED}"
+"{
+  \"schemaVersion\": 1,
+  \"path\": \"out/cgl/simple.source-remap.json\",
+  \"target\": \"cgl\",
+  \"generatedFile\": \"out/cgl/simple.cgl\",
+  \"mappingGranularity\": \"line\",
+  \"mappingCount\": 2,
+  \"sizeBytes\": 982,
+  \"hash\": {
+    \"algorithm\": \"sha1\",
+    \"value\": \"EB7D2B50594A5705CAFAF2CF88ECCD18975B597EB9E216CAEA824C63BEA9EC92\"
   }
 }
 ")
@@ -6505,6 +6570,58 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadat
   STDERR_CONTAINS
     "error io.invalid-source-remap"
     "sourceRemap.mappingCount 1 must match referenced sidecar mapping count 2")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_target_missing_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_TARGET_MISSING}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "sourceRemap.target must be recorded"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "sourceRemap.target must be recorded")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_generated_missing_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_GENERATED_MISSING}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "sourceRemap.generatedFile must be recorded"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "sourceRemap.generatedFile must be recorded")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_mapping_count_missing_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_MAPPING_COUNT_MISSING}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "sourceRemap.mappingCount must be recorded"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "sourceRemap.mappingCount must be recorded")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_hash_malformed_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_HASH_MALFORMED}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "sourceRemap.hash must contain sha256 algorithm and 64 lowercase hexadecimal value"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "sourceRemap.hash must contain sha256 algorithm and 64 lowercase hexadecimal value")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_source_backend_type_fails
   EXPECTED_RESULT 1

@@ -8,6 +8,12 @@ from .common import validate_source_location_span
 
 SOURCE_REMAP_GRANULARITIES = frozenset({"file", "line", "statement", "token"})
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+TARGET_BACKEND_LANGUAGES = {
+    "directx": "hlsl",
+    "metal": "msl",
+    "opengl": "glsl",
+    "vulkan": "spvasm",
+}
 
 
 def source_span_identity(span):
@@ -115,8 +121,15 @@ def validate_semantics(instance):
         mappings,
         "$.mappings length",
     )
-    if instance["target"] == "directx" and backend["language"] != "hlsl":
-        errors.append("$.backend.language: expected 'hlsl' for directx target")
+    expected_backend_language = TARGET_BACKEND_LANGUAGES.get(instance["target"])
+    if (
+        expected_backend_language is not None
+        and backend["language"] != expected_backend_language
+    ):
+        errors.append(
+            "$.backend.language: expected "
+            f"{expected_backend_language!r} for {instance['target']} target"
+        )
     if instance["mappingGranularity"] != "statement":
         errors.append("$.mappingGranularity: expected 'statement'")
     if instance["targetBackend"] != backend["language"]:

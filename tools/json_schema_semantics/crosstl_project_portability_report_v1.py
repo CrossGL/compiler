@@ -4,6 +4,12 @@ from .common import add_equal_error, validate_source_location_span
 
 
 CROSSGL_TARGETS = frozenset(("cgl", "crossgl"))
+TARGET_BACKEND_LANGUAGES = {
+    "directx": "hlsl",
+    "metal": "msl",
+    "opengl": "glsl",
+    "vulkan": "spvasm",
+}
 RUNTIME_REFERENCE_KINDS = frozenset(
     (
         "runtime-api",
@@ -98,6 +104,21 @@ def _validate_backend_source_remap_metadata(
     if referenced is None:
         errors.append(f"{path}.path: expected to match an artifact sourceRemap path")
         return
+
+    required_identity_fields = ("target", "mappingGranularity")
+    conditionally_required_identity_fields = ("sourceBackend", "variant")
+    for field_name in required_identity_fields:
+        if field_name not in source_remap:
+            errors.append(
+                f"{path}.{field_name}: expected to match sourceRemap metadata "
+                f"for {source_remap_path!r}"
+            )
+    for field_name in conditionally_required_identity_fields:
+        if field_name in referenced and field_name not in source_remap:
+            errors.append(
+                f"{path}.{field_name}: expected to match sourceRemap metadata "
+                f"for {source_remap_path!r}"
+            )
 
     for field_name in (
         "target",
@@ -608,6 +629,22 @@ def validate_semantics(instance):
                     f"{artifact_path}.backendSourceMap.backendLanguage: expected "
                     "to match targetBackend"
                 )
+            expected_backend_language = TARGET_BACKEND_LANGUAGES.get(
+                backend_source_map["target"]
+            )
+            if expected_backend_language is not None:
+                if backend_source_map["targetBackend"] != expected_backend_language:
+                    errors.append(
+                        f"{artifact_path}.backendSourceMap.targetBackend: expected "
+                        f"{expected_backend_language!r} for "
+                        f"{backend_source_map['target']} target"
+                    )
+                if backend_source_map["backendLanguage"] != expected_backend_language:
+                    errors.append(
+                        f"{artifact_path}.backendSourceMap.backendLanguage: expected "
+                        f"{expected_backend_language!r} for "
+                        f"{backend_source_map['target']} target"
+                    )
             backend_source_map_variant = backend_source_map.get("variant")
             if backend_source_map_variant is not None:
                 if variant is None:
