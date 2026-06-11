@@ -489,6 +489,85 @@ def source_remap_provenance(manifest, *, mapping_granularity="source-span"):
     }
 
 
+def backend_source_map(
+    manifest,
+    *,
+    target=None,
+    module=None,
+    mapping_granularity="statement",
+    source_backend="crossgl-hir",
+    target_backend="hlsl",
+    backend_language="hlsl",
+    backend_line_count=1,
+    mapping_count=1,
+    mapping_end_line=1,
+    source_remap=None,
+):
+    document = {
+        "schemaVersion": 1,
+        "kind": "crossgl.backendSourceMap",
+        "target": target or manifest["target"],
+        "module": module or manifest["module"],
+        "mappingGranularity": mapping_granularity,
+        "sourceBackend": source_backend,
+        "targetBackend": target_backend,
+        "backend": {
+            "language": backend_language,
+            "lineCount": backend_line_count,
+        },
+        "mappingCount": mapping_count,
+        "mappings": [
+            {
+                "index": 0,
+                "stage": "compute",
+                "entryPoint": "main",
+                "function": "main",
+                "statementKind": "return",
+                "backend": {
+                    "startLine": 1,
+                    "endLine": mapping_end_line,
+                },
+                "location": {
+                    "file": "StorageBufferComputeShader.cgl",
+                    "line": 1,
+                    "column": 1,
+                    "offset": 0,
+                    "length": 1,
+                    "endLine": 1,
+                    "endColumn": 2,
+                    "endOffset": 1,
+                },
+            }
+        ],
+    }
+    if source_remap is not None:
+        document["sourceRemap"] = source_remap
+    return document
+
+
+def source_remap_metadata_from_provenance(manifest):
+    provenance = source_remap_provenance(manifest)
+    source_remap = provenance["sourceRemap"]
+    return {
+        "path": manifest["artifacts"]["sourceRemap"],
+        "sha256": source_remap["sha256"],
+        "sizeBytes": source_remap["sizeBytes"],
+        "generatedFile": provenance["generatedFile"],
+        "mappingCount": provenance["mappingCount"],
+    }
+
+
+def add_backend_source_map(package, manifest, *, mutate=None, source_remap=None):
+    path = f"backend/{manifest['target']}/{manifest['module']}.backend-source-map.json"
+    manifest["artifacts"]["backendSourceMap"] = path
+    document = backend_source_map(manifest, source_remap=source_remap)
+    if mutate is not None:
+        mutate(document)
+    write_json(package_path(package, path), document)
+    rewrite_manifest(package, manifest)
+    return document
+
+
 def target_record(records, target):
     for record in records or []:
         if isinstance(record, dict) and record.get("target") == target:
@@ -3530,6 +3609,113 @@ def run_cases(root, cglc, jobs=1):
                 manifest=source_remap_manifest,
                 expected_code=(
                     "package.verify.source-remap-provenance-granularity-mismatch"
+                ),
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir, "backend-source-map-target-drift"
+        )
+        add_backend_source_map(
+            package,
+            manifest,
+            mutate=lambda document: document.update({"target": "metal"}),
+        )
+        expected = (
+            "backendSourceMap "
+            "'backend/directx/StorageBufferComputeShader.backend-source-map.json' "
+            "target must match package target 'directx'"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "backend-source-map-target-drift",
+                package,
+                expected,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-target-drift-json",
+                package,
+                expected,
+                manifest=manifest,
+                expected_code="package.verify.backend-source-map-target-mismatch",
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir, "backend-source-map-line-count-drift"
+        )
+        add_backend_source_map(
+            package,
+            manifest,
+            mutate=lambda document: document["backend"].update({"lineCount": 2}),
+        )
+        expected = (
+            "backendSourceMap "
+            "'backend/directx/StorageBufferComputeShader.backend-source-map.json' "
+            "backend.lineCount must match backend source line count"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "backend-source-map-line-count-drift",
+                package,
+                expected,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-line-count-drift-json",
+                package,
+                expected,
+                manifest=manifest,
+                expected_code=("package.verify.backend-source-map-line-count-mismatch"),
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir, "backend-source-map-source-remap-drift"
+        )
+        manifest["artifacts"]["sourceRemap"] = "ir/source-remap-provenance.json"
+        write_json(
+            package_path(package, manifest["artifacts"]["sourceRemap"]),
+            source_remap_provenance(manifest),
+        )
+        source_remap = source_remap_metadata_from_provenance(manifest)
+        source_remap["generatedFile"] = "generated/stale.cgl"
+        add_backend_source_map(package, manifest, source_remap=source_remap)
+        expected = (
+            "backendSourceMap "
+            "'backend/directx/StorageBufferComputeShader.backend-source-map.json' "
+            "sourceRemap metadata must match sourceRemap provenance"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "backend-source-map-source-remap-drift",
+                package,
+                expected,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-source-remap-drift-json",
+                package,
+                expected,
+                manifest=manifest,
+                expected_code=(
+                    "package.verify.backend-source-map-source-remap-provenance-mismatch"
                 ),
             )
         )

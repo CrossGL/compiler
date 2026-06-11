@@ -2052,6 +2052,106 @@ void verifySourceRemapProvenanceHealth(
   }
 }
 
+void verifyBackendSourceMapHealth(
+    const PackageMetadata &metadata,
+    const PackageBackendSourceMapHealth &health,
+    DiagnosticEngine &diagnostics) {
+  if (!health.artifactPresent || health.health == "ok") {
+    return;
+  }
+
+  const PackageArtifactRecord *backendSourceMap =
+      findArtifact(metadata, "backendSourceMap");
+  const SourceLocation location =
+      backendSourceMap ? artifactLocation(metadata, *backendSourceMap)
+                       : artifactsLocation(metadata);
+  const std::string label =
+      artifactLabel("backendSourceMap", backendSourceMap);
+  if (!health.exists) {
+    diagnostics.error(diagnosticCode("backend-source-map-missing"),
+                      label + " artifact does not exist", location);
+    return;
+  }
+
+  const PackageBackendSourceMapChecks &checks = health.checks;
+  bool emittedDiagnostic = false;
+  const auto emitError = [&](std::string_view suffix, std::string message) {
+    diagnostics.error(diagnosticCode(suffix), std::move(message), location);
+    emittedDiagnostic = true;
+  };
+  if (checks.identityMatchesContract && !*checks.identityMatchesContract) {
+    emitError("backend-source-map-contract-invalid",
+              label + " must use the backend-source-map-v1 contract");
+  }
+  if (checks.targetMatchesPackage && !*checks.targetMatchesPackage) {
+    emitError("backend-source-map-target-mismatch",
+              label + " target must match package target '" + metadata.target +
+                  "'");
+  }
+  if (checks.moduleMatchesPackage && !*checks.moduleMatchesPackage) {
+    emitError("backend-source-map-module-mismatch",
+              label + " module must match package module '" + metadata.module +
+                  "'");
+  }
+  if (checks.mappingGranularityMatchesContract &&
+      !*checks.mappingGranularityMatchesContract) {
+    emitError("backend-source-map-granularity-mismatch",
+              label + " mappingGranularity must be statement");
+  }
+  if (checks.sourceBackendPresent && !*checks.sourceBackendPresent) {
+    emitError("backend-source-map-source-missing",
+              label + " sourceBackend must be recorded");
+  }
+  if (checks.targetBackendMatchesBackendLanguage &&
+      !*checks.targetBackendMatchesBackendLanguage) {
+    emitError("backend-source-map-language-mismatch",
+              label + " targetBackend must match backend.language");
+  }
+  if (checks.backendLanguagePresent && !*checks.backendLanguagePresent) {
+    emitError("backend-source-map-language-missing",
+              label + " backend.language must be recorded");
+  }
+  if (checks.backendLineCountPresent && !*checks.backendLineCountPresent) {
+    emitError("backend-source-map-line-count-missing",
+              label + " backend.lineCount must be recorded");
+  }
+  if (checks.backendLineCountMatchesSource &&
+      !*checks.backendLineCountMatchesSource) {
+    emitError("backend-source-map-line-count-mismatch",
+              label +
+                  " backend.lineCount must match backend source line count");
+  }
+  if (checks.backendSpansWithinSource && !*checks.backendSpansWithinSource) {
+    emitError("backend-source-map-span-outside-source",
+              label +
+                  " backend spans must stay within backend source line count");
+  }
+  if (checks.mappingCountMatchesMappings &&
+      !*checks.mappingCountMatchesMappings) {
+    emitError("backend-source-map-mapping-count-mismatch",
+              label + " mappingCount must match mappings length");
+  }
+  if (checks.sourceRemapHashPresent && !*checks.sourceRemapHashPresent) {
+    emitError("backend-source-map-source-remap-hash-invalid",
+              label +
+                  " sourceRemap.sha256 must record a lowercase sha256 digest");
+  }
+  if (checks.sourceRemapMappingCountPositive &&
+      !*checks.sourceRemapMappingCountPositive) {
+    emitError("backend-source-map-source-remap-mapping-count-invalid",
+              label + " sourceRemap.mappingCount must be positive");
+  }
+  if (checks.sourceRemapMatchesProvenance &&
+      !*checks.sourceRemapMatchesProvenance) {
+    emitError("backend-source-map-source-remap-provenance-mismatch",
+              label +
+                  " sourceRemap metadata must match sourceRemap provenance");
+  }
+  if (!emittedDiagnostic) {
+    emitError("backend-source-map-invalid", label + " health must be ok");
+  }
+}
+
 void verifyDebugArtifactHealth(const PackageMetadata &metadata,
                                DiagnosticEngine &diagnostics) {
   if (!metadata.debugMetadataArtifactPresent ||
@@ -2114,17 +2214,7 @@ void verifyDebugArtifactHealth(const PackageMetadata &metadata,
         sourceMapLocation);
   }
   verifySourceRemapProvenanceHealth(metadata, health.sourceRemap, diagnostics);
-  if (health.backendSourceMap.artifactPresent &&
-      health.backendSourceMap.health != "ok") {
-    const PackageArtifactRecord *backendSourceMap =
-        findArtifact(metadata, "backendSourceMap");
-    diagnostics.error(diagnosticCode("backend-source-map-invalid"),
-                      artifactLabel("backendSourceMap", backendSourceMap) +
-                          " health must be ok",
-                      backendSourceMap
-                          ? artifactLocation(metadata, *backendSourceMap)
-                          : artifactsLocation(metadata));
-  }
+  verifyBackendSourceMapHealth(metadata, health.backendSourceMap, diagnostics);
 }
 
 void verifyVulkanNativeProfileHealth(const PackageMetadata &metadata,
