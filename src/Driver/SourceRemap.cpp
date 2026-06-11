@@ -352,6 +352,24 @@ bool validateOptionalSourceRemapMetadataString(
   return false;
 }
 
+bool validateOptionalSourceRemapMetadataTarget(
+    std::string_view metadata, DiagnosticEngine &diagnostics,
+    const SourceLocation &metadataLocation) {
+  const std::optional<std::string> target =
+      objectStringMember(metadata, "target");
+  if (!target) {
+    return true;
+  }
+  if (*target == "cgl" || *target == "crossgl") {
+    return true;
+  }
+  reportInvalidRemap(diagnostics,
+                     "sourceRemap.target expected only for CrossGL target "
+                     "artifacts",
+                     metadataLocation);
+  return false;
+}
+
 std::optional<std::string>
 readSourceRemapFileText(const std::filesystem::path &path,
                         DiagnosticEngine &diagnostics) {
@@ -697,6 +715,8 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
   }
   if (!validateOptionalSourceRemapMetadataString(
           metadata, "target", diagnostics, metadataLocation) ||
+      !validateOptionalSourceRemapMetadataTarget(metadata, diagnostics,
+                                                 metadataLocation) ||
       !validateOptionalSourceRemapMetadataString(
           metadata, "sourceBackend", diagnostics, metadataLocation) ||
       !validateOptionalSourceRemapMetadataString(
