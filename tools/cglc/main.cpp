@@ -5407,8 +5407,9 @@ std::vector<crossgl::Diagnostic> loadAndValidateSourceRemapDiagnostics(
       baseDirectory = ".";
     }
     sourceRemap = crossgl::loadSourceRemapMetadata(
-        *sourceRemapMetadata, baseDirectory, cliSourceLocation(metadataLocationPath),
-        remapDiagnostics);
+        *sourceRemapMetadata, baseDirectory,
+        cliSourceLocation(metadataLocationPath), remapDiagnostics,
+        crossgl::SourceRemapMetadataTargetPolicy::Normalized);
   } else {
     sourceRemap = crossgl::loadSourceRemap(sourceRemapPath, remapDiagnostics);
   }

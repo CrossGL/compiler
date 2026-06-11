@@ -5444,6 +5444,17 @@ crossgl_add_python_expect_test(
     "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=1|diagnosticReport.diagnostics=0")
 
 crossgl_add_python_expect_test(
+  NAME cglc_cli_check_crosstl_project_report_source_remap_metadata_result_json_schema
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DMODE=source-batch-check-json
+    -DMANIFEST=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_REMAP_METADATA}
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=1|entries.0.id=simple.cgl|entries.0.logicalInput=out/cgl/simple.cgl|entries.0.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE_SOURCE_REMAP}|entries.0.target=auto|entries.0.success=true|diagnosticReport.schemaVersion=1"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=1|diagnosticReport.diagnostics=0")
+
+crossgl_add_python_expect_test(
   NAME cglc_cli_check_crosstl_project_report_non_cgl_source_remap_result_json_schema
   DEFINITIONS
     -DCGLC=$<TARGET_FILE:cglc>
@@ -6824,6 +6835,27 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadat
     --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_NON_CGL_TARGET}
   STDOUT_CONTAINS
     "check passed:")
+
+crossgl_add_cli_surface_test(cglc_cli_dump_ir_crosstl_project_source_remap_metadata_non_cgl_target_resolves
+  EXPECTED_RESULT 0
+  ARGS dump-ir ${CROSSGL_SIMPLE_SHADER}
+    --stage hir
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_NON_CGL_TARGET}
+  STDOUT_CONTAINS
+    "module SimpleShader")
+
+crossgl_add_cli_surface_test(cglc_cli_build_crosstl_project_source_remap_metadata_non_cgl_target_resolves
+  EXPECTED_RESULT 0
+  ARGS build ${CROSSGL_SIMPLE_SHADER}
+    --target directx
+    --output ${CMAKE_CURRENT_BINARY_DIR}/cglc-cli-build-source-remap-metadata-non-cgl-target.cglb
+    --logical-input out/cgl/simple.cgl
+    --source-remap ${CROSSGL_CLI_CROSSTL_PROJECT_SOURCE_REMAP_METADATA_NON_CGL_TARGET}
+  STDOUT_CONTAINS
+    "built "
+    "cglc-cli-build-source-remap-metadata-non-cgl-target.cglb"
+    "for directx")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_order_drift_fails
   EXPECTED_RESULT 1
