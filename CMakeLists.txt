@@ -65,6 +65,15 @@ set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS
   tests/fixtures/mlir/storage_buffer_compute_builtin_module.mlir
   tests/fixtures/mlir/if_compute_builtin_module.mlir
   tests/fixtures/mlir/texture_sampler_compute_builtin_module.mlir
+  tests/fixtures/mlir/storage_buffer_descriptor_array_compute_builtin_module.mlir
+  tests/fixtures/mlir/texture_sampler_cube_array_compute_builtin_module.mlir
+  tests/fixtures/mlir/storage_image_compute_builtin_module.mlir
+  tests/fixtures/mlir/storage_image_descriptor_array_compute_builtin_module.mlir
+  tests/fixtures/mlir/storage_image_nonuniform_descriptor_array_compute_builtin_module.mlir
+  tests/fixtures/mlir/storage_image_access_qualifier_compute_builtin_module.mlir
+  tests/fixtures/mlir/storage_image_explicit_format_compute_builtin_module.mlir
+  tests/fixtures/mlir/storage_image_atomic_compute_builtin_module.mlir
+  tests/fixtures/mlir/graphics_provenance_builtin_module.mlir
 )
 list(LENGTH CROSSGL_MLIR_EXPERIMENT_SOURCES
   CROSSGL_MLIR_EXPERIMENT_SOURCE_COUNT)

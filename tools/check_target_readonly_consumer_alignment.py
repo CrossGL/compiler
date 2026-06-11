@@ -36,6 +36,9 @@ SOURCE_PACKAGE_OPTIONAL_NATIVE_CAPABILITIES = {
 
 REGISTRY_PATH = Path("docs/target-capability-registry-v1.json")
 CPP_TARGET_CAPABILITIES_PATH = Path("src/Backend/TargetCapabilities.cpp")
+CPP_PACKAGE_TARGET_CONTRACTS_PATH = Path(
+    "include/crossgl/Driver/PackageTargetContracts.h"
+)
 PACKAGE_TARGET_CONTRACTS_PATH = Path("tools/package_target_contracts.json")
 PACKAGE_ARTIFACT_REQUIREMENTS_SOURCE = "tools/package_target_contracts.json"
 TARGET_KIND_NAMES = {
@@ -56,6 +59,17 @@ CPP_REGISTRY_CONTRACT_RE = re.compile(
     r'"(?P<native_artifact_capability>[^"]+)"\s*,\s*'
     r"(?P<native_implemented>true|false)\s*,\s*"
     r"(?P<source_package_selectable>true|false)\s*"
+    r"\}",
+    re.MULTILINE,
+)
+CPP_PACKAGE_TARGET_CONTRACT_RE = re.compile(
+    r"\{\s*"
+    r'"(?P<target>[^"]+)"\s*,\s*'
+    r"\{(?P<artifacts>[^}]*)\}\s*,\s*"
+    r"(?P<artifact_count>[0-9]+)\s*,\s*"
+    r"(?P<requires_native_status>true|false)\s*,\s*"
+    r"(?P<allows_planned_native>true|false)\s*,\s*"
+    r"(?P<allows_planned_source>true|false)\s*"
     r"\}",
     re.MULTILINE,
 )
@@ -286,6 +300,53 @@ def parse_cpp_baseline_capabilities(
     return baselines
 
 
+def parse_cpp_package_target_contracts(
+    errors: list[str], case_name: str, root: Path
+) -> dict[str, dict[str, Any]]:
+    path = root / CPP_PACKAGE_TARGET_CONTRACTS_PATH
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        fail(errors, case_name, f"{path}: failed to read C++ header: {exc}")
+        return {}
+
+    contracts: dict[str, dict[str, Any]] = {}
+    for match in CPP_PACKAGE_TARGET_CONTRACT_RE.finditer(source):
+        target = match.group("target")
+        if target in contracts:
+            fail(errors, case_name, f"{path}: duplicate package contract for {target}")
+            continue
+        artifacts = [
+            value
+            for value in re.findall(r'"([^"]*)"', match.group("artifacts"))
+            if value
+        ]
+        artifact_count = int(match.group("artifact_count"))
+        if artifact_count != len(artifacts):
+            fail(
+                errors,
+                case_name,
+                f"{path}: {target} requiredArtifactCount={artifact_count} "
+                f"does not match {artifacts!r}",
+            )
+        contracts[target] = {
+            "target": target,
+            "requiredPathArtifacts": artifacts[:artifact_count],
+            "requiresNativeBinaryStatus": (
+                match.group("requires_native_status") == "true"
+            ),
+            "allowsPlannedNativeBinary": (
+                match.group("allows_planned_native") == "true"
+            ),
+            "allowsPlannedNativeSourceEvidence": (
+                match.group("allows_planned_source") == "true"
+            ),
+        }
+    if not contracts:
+        fail(errors, case_name, f"{path}: no package target contracts found")
+    return contracts
+
+
 def normalize_package_contract_entry(entry: Any) -> dict[str, Any]:
     return {
         "target": entry["target"],
@@ -433,8 +494,14 @@ def check_registry_static_contract_alignment(errors: list[str], root: Path) -> N
     registry_records = registry_targets_by_name(errors, case_name, registry)
     cpp_contracts = parse_cpp_registry_contracts(errors, case_name, root)
     cpp_baselines = parse_cpp_baseline_capabilities(errors, case_name, root)
+    cpp_package_contracts = parse_cpp_package_target_contracts(errors, case_name, root)
     tool_contracts, runtime_contracts = load_package_contracts(errors, case_name, root)
-    if not registry_records or not cpp_contracts or not cpp_baselines:
+    if (
+        not registry_records
+        or not cpp_contracts
+        or not cpp_baselines
+        or not cpp_package_contracts
+    ):
         return
 
     expected_target_order = list(cpp_contracts)
@@ -456,6 +523,20 @@ def check_registry_static_contract_alignment(errors: list[str], root: Path) -> N
         "tools.package_target_contracts targets",
         list(tool_contracts),
         expected_package_contract_targets,
+    )
+    expect_equal(
+        errors,
+        case_name,
+        "include PackageTargetContracts targets",
+        list(cpp_package_contracts),
+        expected_package_contract_targets,
+    )
+    expect_equal(
+        errors,
+        case_name,
+        "include PackageTargetContracts",
+        cpp_package_contracts,
+        tool_contracts,
     )
     expect_equal(
         errors,
@@ -1282,6 +1363,378 @@ def check_package_readonly_alignment(
     )
 
 
+def load_plan_runtime_json(
+    errors: list[str],
+    case_name: str,
+    root: Path,
+    command: list[Path | str],
+) -> dict[str, Any]:
+    result = run(command, root)
+    if result.returncode not in (0, 1):
+        fail(
+            errors,
+            case_name,
+            f"{' '.join(str(arg) for arg in command)} failed with "
+            f"{result.returncode}: {result.stderr}{result.stdout}".strip(),
+        )
+        return {}
+    try:
+        parsed = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        fail(
+            errors,
+            case_name,
+            f"{' '.join(str(arg) for arg in command)} did not emit JSON: {exc}",
+        )
+        return {}
+    if not isinstance(parsed, dict):
+        fail(errors, case_name, "package plan-runtime JSON root must be an object")
+        return {}
+    expected_returncode = 0 if parsed.get("success") is True else 1
+    expect_equal(
+        errors,
+        case_name,
+        "package plan-runtime return code",
+        result.returncode,
+        expected_returncode,
+    )
+    return parsed
+
+
+def normalize_selected_artifact(record: Any) -> dict[str, Any] | None:
+    if not isinstance(record, dict):
+        return None
+    return {
+        "name": record.get("name"),
+        "path": record.get("path"),
+        "packageMode": record.get("packageMode"),
+        "packageRelative": record.get("packageRelative"),
+        "exists": record.get("exists"),
+    }
+
+
+def normalize_plan_requirements(record: Any) -> dict[str, Any] | None:
+    if not isinstance(record, dict):
+        return None
+    return {
+        "target": record.get("target"),
+        "packageMode": record.get("packageMode"),
+        "requiredPathArtifacts": record.get("requiredPathArtifacts"),
+        "requiresNativeBinaryStatus": record.get("requiresNativeBinaryStatus"),
+        "allowsPlannedNativeBinary": record.get("allowsPlannedNativeBinary"),
+        "allowsPlannedNativeSourceEvidence": record.get(
+            "allowsPlannedNativeSourceEvidence"
+        ),
+    }
+
+
+def normalize_runtime_plan_selection(record: Any) -> dict[str, Any] | None:
+    if not isinstance(record, dict):
+        return None
+    return {
+        "requestedTarget": record.get("requestedTarget"),
+        "requestedPackageMode": record.get("requestedPackageMode"),
+        "packageTarget": record.get("packageTarget"),
+        "selectedTarget": record.get("selectedTarget"),
+        "selected": record.get("selected"),
+        "selectedPackageMode": record.get("selectedPackageMode"),
+        "artifact": normalize_selected_artifact(record.get("artifact")),
+    }
+
+
+def normalize_runtime_plan_contract(document: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "success": document.get("success"),
+        "packageTarget": document.get("packageTarget"),
+        "requestedLoaderTarget": document.get("requestedLoaderTarget"),
+        "targetMatchesPackage": document.get("targetMatchesPackage"),
+        "requestedPackageMode": document.get("requestedPackageMode"),
+        "selectedPackageMode": document.get("selectedPackageMode"),
+        "selectedArtifact": normalize_selected_artifact(
+            document.get("selectedArtifact")
+        ),
+        "requiredArtifacts": document.get("requiredArtifacts"),
+        "runtimeArtifactPath": document.get("runtimeArtifactPath"),
+        "runtimeArtifactSelection": normalize_runtime_plan_selection(
+            document.get("runtimeArtifactSelection")
+        ),
+        "packageArtifactRequirementsSource": document.get(
+            "packageArtifactRequirementsSource"
+        ),
+        "packageArtifactRequirements": normalize_plan_requirements(
+            document.get("packageArtifactRequirements")
+        ),
+    }
+
+
+def expected_package_mode(contract: dict[str, Any]) -> str:
+    if contract["allowsPlannedNativeBinary"]:
+        return "source-package"
+    return "native"
+
+
+def expected_selected_artifact(
+    manifest: dict[str, Any],
+    *,
+    target: str,
+    package_mode: str,
+    native_artifact_removed: bool,
+    contract: dict[str, Any],
+) -> tuple[bool, str | None, str | None]:
+    source_package = expected_package_mode(contract) == "source-package"
+    if source_package and package_mode in {"auto", "source-package"}:
+        return True, "source-package", manifest["artifacts"]["backendSource"]
+    if (
+        not source_package
+        and not native_artifact_removed
+        and package_mode
+        in {
+            "auto",
+            "native",
+        }
+    ):
+        return True, "native", manifest["artifacts"]["nativeBinary"]
+    return False, None, None
+
+
+def check_expected_runtime_plan_contract(
+    errors: list[str],
+    case_name: str,
+    label: str,
+    document: dict[str, Any],
+    *,
+    target: str,
+    package_mode: str,
+    manifest: dict[str, Any],
+    native_artifact_removed: bool,
+    contract: dict[str, Any],
+) -> None:
+    expected_success, expected_mode, expected_path = expected_selected_artifact(
+        manifest,
+        target=target,
+        package_mode=package_mode,
+        native_artifact_removed=native_artifact_removed,
+        contract=contract,
+    )
+    expected_artifact_name = None
+    if expected_mode == "native":
+        expected_artifact_name = "nativeBinary"
+    elif expected_mode == "source-package":
+        expected_artifact_name = "backendSource"
+
+    expect_equal(
+        errors, case_name, f"{label}.success", document["success"], expected_success
+    )
+    expect_equal(
+        errors, case_name, f"{label}.packageTarget", document["packageTarget"], target
+    )
+    expect_equal(
+        errors,
+        case_name,
+        f"{label}.requestedLoaderTarget",
+        document["requestedLoaderTarget"],
+        target,
+    )
+    expect_equal(
+        errors,
+        case_name,
+        f"{label}.requestedPackageMode",
+        document["requestedPackageMode"],
+        package_mode,
+    )
+    expect_equal(
+        errors,
+        case_name,
+        f"{label}.selectedPackageMode",
+        document["selectedPackageMode"],
+        expected_mode,
+    )
+    expect_equal(
+        errors,
+        case_name,
+        f"{label}.requiredArtifacts",
+        document["requiredArtifacts"],
+        contract["requiredPathArtifacts"],
+    )
+    expect_equal(
+        errors,
+        case_name,
+        f"{label}.runtimeArtifactPath",
+        document["runtimeArtifactPath"],
+        expected_path,
+    )
+    selected_artifact = document["selectedArtifact"]
+    expect_equal(
+        errors,
+        case_name,
+        f"{label}.selectedArtifact.name",
+        selected_artifact.get("name") if selected_artifact else None,
+        expected_artifact_name,
+    )
+    requirements = document["packageArtifactRequirements"]
+    expect_equal(
+        errors,
+        case_name,
+        f"{label}.packageArtifactRequirements",
+        requirements,
+        {
+            "target": target,
+            "packageMode": expected_package_mode(contract),
+            "requiredPathArtifacts": contract["requiredPathArtifacts"],
+            "requiresNativeBinaryStatus": contract["requiresNativeBinaryStatus"],
+            "allowsPlannedNativeBinary": contract["allowsPlannedNativeBinary"],
+            "allowsPlannedNativeSourceEvidence": (
+                contract["allowsPlannedNativeSourceEvidence"]
+            ),
+        },
+    )
+
+
+def check_package_runtime_plan_loader_parity(
+    errors: list[str],
+    root: Path,
+    cglc: Path,
+) -> None:
+    for import_path in (root, root / "tools"):
+        import_path_text = str(import_path)
+        if import_path_text not in sys.path:
+            sys.path.insert(0, import_path_text)
+
+    from check_package_integrity_fixtures import (
+        add_native_artifact_descriptor,
+        make_package,
+    )
+
+    try:
+        from runtime.loader import read_loader_plan
+    except ImportError as exc:
+        fail(
+            errors,
+            "runtime-plan-loader-target-contract-parity",
+            f"failed to import runtime.loader: {exc}",
+        )
+        return
+
+    tool_contracts, _runtime_contracts = load_package_contracts(
+        errors,
+        "runtime-plan-loader-target-contract-parity",
+        root,
+    )
+    if not tool_contracts:
+        return
+
+    cases = (
+        {
+            "name": "metal-native",
+            "target": "metal",
+            "status": "emitted",
+            "nativeDescriptor": True,
+            "removeNativeBinary": False,
+            "modes": ("auto", "native"),
+        },
+        {
+            "name": "vulkan-native",
+            "target": "vulkan",
+            "status": "emitted",
+            "nativeDescriptor": True,
+            "removeNativeBinary": False,
+            "modes": ("auto", "native"),
+        },
+        {
+            "name": "vulkan-planned-native-fallback-rejected",
+            "target": "vulkan",
+            "status": "emitted",
+            "nativeDescriptor": False,
+            "removeNativeBinary": True,
+            "modes": ("auto",),
+        },
+        {
+            "name": "directx-source-package",
+            "target": "directx",
+            "status": "planned",
+            "nativeDescriptor": False,
+            "removeNativeBinary": False,
+            "modes": ("auto", "source-package", "native"),
+        },
+        {
+            "name": "opengl-source-package",
+            "target": "opengl",
+            "status": "planned",
+            "nativeDescriptor": False,
+            "removeNativeBinary": False,
+            "modes": ("auto", "source-package", "native"),
+        },
+    )
+
+    with tempfile.TemporaryDirectory(prefix="runtime-plan-loader-parity-") as tmp:
+        tmp_dir = Path(tmp)
+        for case in cases:
+            target = case["target"]
+            package, _source, manifest = make_package(
+                tmp_dir,
+                case["name"],
+                status=case["status"],
+                target=target,
+            )
+            if case["nativeDescriptor"]:
+                add_native_artifact_descriptor(package, manifest)
+            if case["removeNativeBinary"]:
+                native_path = package / manifest["artifacts"]["nativeBinary"]
+                if native_path.exists():
+                    native_path.unlink()
+
+            contract = tool_contracts[target]
+            for package_mode in case["modes"]:
+                case_name = (
+                    "runtime-plan-loader-target-contract-parity."
+                    f"{case['name']}.{package_mode}"
+                )
+                cpp_plan = load_plan_runtime_json(
+                    errors,
+                    case_name,
+                    root,
+                    [
+                        cglc,
+                        "package",
+                        "plan-runtime",
+                        package,
+                        "--target",
+                        target,
+                        "--package-mode",
+                        package_mode,
+                        "--json",
+                    ],
+                )
+                if not cpp_plan:
+                    continue
+
+                py_plan = read_loader_plan(
+                    package,
+                    target,
+                    package_mode=package_mode,
+                ).to_runtime_loader_plan_contract()
+                cpp_normalized = normalize_runtime_plan_contract(cpp_plan)
+                py_normalized = normalize_runtime_plan_contract(py_plan)
+                expect_equal(
+                    errors,
+                    case_name,
+                    "C++ package plan-runtime vs Python runtime.loader",
+                    cpp_normalized,
+                    py_normalized,
+                )
+                check_expected_runtime_plan_contract(
+                    errors,
+                    case_name,
+                    "package plan-runtime",
+                    cpp_normalized,
+                    target=target,
+                    package_mode=package_mode,
+                    manifest=manifest,
+                    native_artifact_removed=case["removeNativeBinary"],
+                    contract=contract,
+                )
+
+
 def check_alignment_case(
     errors: list[str], root: Path, cglc: Path, case: AlignmentCase
 ) -> None:
@@ -1687,6 +2140,7 @@ def main() -> int:
         return 0
 
     cglc = args.cglc.resolve()
+    check_package_runtime_plan_loader_parity(errors, root, cglc)
     for case in alignment_cases():
         check_alignment_case(errors, root, cglc, case)
 

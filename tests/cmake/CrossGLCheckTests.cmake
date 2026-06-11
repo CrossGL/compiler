@@ -457,7 +457,7 @@ add_test(NAME cglc_check_colon_var_compute_hir_canonical_declaration
     -DINPUT=${CROSSGL_COLON_VAR_COMPUTE_SHADER}
     -DSTAGE=hir
     -DMODE=dump-stage
-    "-DMUST_CONTAIN=decl float base = values\\[1\\] : float[^\n]*\n      decl float scaled = base \\* 2\\.0 : float"
+    "-DMUST_CONTAIN=resource shared float scratch local[^\n]*\n    fn main\\(\\) -> void[^\n]*\n      assign scratch : float = values\\[1\\] : float[^\n]*\n      decl float base = scratch : float[^\n]*\n      decl float scaled = base \\* 2\\.0 : float"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_check_fn_style_function
   COMMAND cglc check ${CROSSGL_FN_STYLE_FUNCTION_SHADER})
@@ -1910,6 +1910,22 @@ crossgl_add_native_v0_unsupported_failure(
   3
   5
   "message=colon-style variable declarations|message=native v0|message=decl.colon-var")
+crossgl_add_native_v0_unsupported_failure(
+  cglc_check_unsupported_native_v0_stage_colon_array_failure
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadUnsupportedStageColonArrayShader.cgl
+  3
+  14
+  "message=stage-scope colon-style declarations|message=simple shared-memory value types|message=native v0|message=decl.stage-colon-shared")
+add_test(NAME cglc_check_stage_colon_storage_image_qualifier_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/tests/check-failures/BadStageColonStorageImageQualifierShader.cgl
+    -DMODE=check-failure
+    -DEXPECTED_DIAGNOSTIC=sema.storage-image-access-qualifier
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=1"
+    "-DEXPECTED_DIAGNOSTIC_FIELDS=severity=error|location.line=3|location.column=5"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=readonly|message=storage-image resources|message=scratch|message=float"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_add_native_v0_unsupported_failure(
   cglc_check_unsupported_native_v0_match_failure
   ${CROSSGL_CHECK_FAILURE_UNSUPPORTED_MATCH_SHADER}

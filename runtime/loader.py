@@ -12,6 +12,11 @@ from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+try:
+    from . import package_target_contracts as _generated_package_target_contracts
+except ImportError:  # pragma: no cover.
+    import package_target_contracts as _generated_package_target_contracts
+
 from .package_reader import (
     Artifact,
     CompatibilityDiagnostic,
@@ -36,7 +41,13 @@ _RUNTIME_LOADER_PLAN_REQUIRED_METADATA_INPUTS = [
     "reflection.json",
     "diagnostics.json",
 ]
-_RUNTIME_LOADER_PLAN_KNOWN_TARGETS = frozenset(("metal", "vulkan", "directx", "opengl"))
+_RUNTIME_LOADER_PLAN_KNOWN_TARGETS = frozenset(
+    entry["target"]
+    for entry in _generated_package_target_contracts.PACKAGE_TARGET_CONTRACTS
+    if isinstance(entry, dict)
+    and isinstance(entry.get("target"), str)
+    and entry["target"]
+)
 _RUNTIME_HOST_LOADER_INTEGRATION_KIND = "crossgl-runtime-host-loader-integration"
 _RUNTIME_HOST_LOADER_INTEGRATION_SCOPE = "host-loader-scaffold-generation"
 _RUNTIME_HOST_LOADER_INTEGRATION_NON_GOALS = [

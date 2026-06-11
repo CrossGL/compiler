@@ -1,0 +1,9 @@
+shader BadStageColonStorageImageQualifierShader {
+  compute {
+    readonly scratch: float;
+
+    void main() {
+      return;
+    }
+  }
+}

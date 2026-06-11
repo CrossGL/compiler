@@ -1,0 +1,9 @@
+shader BadUnsupportedStageColonArrayShader {
+  compute {
+    scratch: float[4];
+
+    void main() {
+      return;
+    }
+  }
+}

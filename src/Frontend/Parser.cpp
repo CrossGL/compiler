@@ -73,6 +73,10 @@ bool isColonStyleVarDeclarationStart(const Token &token, const Token &next,
          third.kind == TokenKind::Colon;
 }
 
+bool isBareColonStyleDeclarationStart(const Token &token, const Token &next) {
+  return isNameToken(token.kind) && next.kind == TokenKind::Colon;
+}
+
 bool isStorageImageAccessQualifier(TokenKind kind) {
   return kind == TokenKind::KeywordReadonly ||
          kind == TokenKind::KeywordWriteonly ||
@@ -103,6 +107,31 @@ std::string normalizeVarResourceTypeName(std::string name) {
     return "uint";
   }
   return name;
+}
+
+bool hasStageColonSharedTypeQualifier(std::string_view name) {
+  return name.rfind("uniform ", 0) == 0 || name.rfind("buffer ", 0) == 0 ||
+         name.rfind("shared ", 0) == 0;
+}
+
+bool isStageColonResourceHandleType(std::string_view name) {
+  const std::size_t genericStart = name.find('<');
+  if (genericStart != std::string_view::npos) {
+    name = name.substr(0, genericStart);
+  }
+  return name == "sampler" || name == "comparison_sampler" ||
+         name.rfind("sampler", 0) == 0 || name.rfind("isampler", 0) == 0 ||
+         name.rfind("usampler", 0) == 0 || name.rfind("texture", 0) == 0 ||
+         name.rfind("image", 0) == 0 || name.rfind("iimage", 0) == 0 ||
+         name.rfind("uimage", 0) == 0;
+}
+
+bool isSimpleStageColonSharedType(const TypeRef &type) {
+  return !type.arraySize.has_value() &&
+         type.name.find('<') == std::string::npos &&
+         type.name.find('*') == std::string::npos &&
+         !hasStageColonSharedTypeQualifier(type.name) &&
+         !isStageColonResourceHandleType(type.name);
 }
 
 void appendArrayDimension(TypeRef &type, std::string dimension) {
@@ -1074,6 +1103,69 @@ std::optional<ResourceDecl> Parser::parseResource(
     return resource;
   }
 
+  if (isBareColonStyleDeclarationStart(current(), peek())) {
+    ResourceDecl resource;
+    resource.name = current().text;
+    resource.location = current().location;
+    resource.nameSpan = current().location;
+    resource.storageImageAccessQualifier = storageImageAccessQualifier;
+    resource.storageImageAccessLocation = storageImageAccessLocation;
+    if (layout.has_value()) {
+      resource.set = layout->set;
+      resource.binding = layout->binding;
+      resource.bindingLocation = layout->bindingLocation;
+      resource.storageImageFormat = layout->storageImageFormat;
+      resource.storageImageFormatLocation = layout->storageImageFormatLocation;
+      resource.layoutSpan = layout->layoutSpan;
+      resource.setSpan = layout->setSpan;
+      resource.bindingSpan = layout->bindingSpan;
+    }
+
+    const SourceLocation nameLocation = current().location;
+    advance();
+    expect(TokenKind::Colon,
+           "expected ':' after stage-scope colon declaration name");
+    auto type = parseType();
+    if (!type) {
+      synchronize();
+      return std::nullopt;
+    }
+    if (!isSimpleStageColonSharedType(*type)) {
+      diagnoseUnsupportedNativeV0(
+          "stage-scope colon-style declarations outside simple shared-memory "
+          "value types (compatibility id decl.stage-colon-shared)",
+          type->location);
+      skipDeclarationOrBlock();
+      return std::nullopt;
+    }
+
+    type->name =
+        "shared " + normalizeVarResourceTypeName(std::move(type->name));
+    type->location = sourceSpan(nameLocation, type->location);
+    resource.type = std::move(*type);
+
+    if (!check(TokenKind::Semicolon)) {
+      diagnoseUnsupportedNativeV0(
+          "initialized stage-scope colon-style declarations "
+          "(compatibility id decl.colon-var)",
+          current().location);
+      skipDeclarationOrBlock();
+      return std::nullopt;
+    }
+
+    const SourceLocation declarationStart =
+        layout.has_value() ? layout->layoutSpan : nameLocation;
+    if (expect(TokenKind::Semicolon,
+               "expected ';' after stage-scope colon declaration")) {
+      resource.declarationSpan = sourceSpan(declarationStart, previous().location);
+    } else {
+      resource.declarationSpan =
+          sourceSpan(declarationStart, previous().location);
+      synchronize();
+    }
+    return resource;
+  }
+
   auto type = parseType();
   if (!type || !isNameToken(current().kind)) {
     synchronize();
@@ -1485,9 +1577,13 @@ bool Parser::looksLikeDeclaration() const {
   if (isVarResourceStart(current(), peek())) {
     return true;
   }
+  if (isBareColonStyleDeclarationStart(current(), peek())) {
+    return true;
+  }
   if (isStorageImageAccessQualifier(current().kind)) {
-    return peek().kind == TokenKind::KeywordUniform &&
-           peek(2).kind == TokenKind::Identifier;
+    return (peek().kind == TokenKind::KeywordUniform &&
+            peek(2).kind == TokenKind::Identifier) ||
+           isBareColonStyleDeclarationStart(peek(), peek(2));
   }
   return (current().kind == TokenKind::Identifier ||
           current().kind == TokenKind::KeywordUniform ||

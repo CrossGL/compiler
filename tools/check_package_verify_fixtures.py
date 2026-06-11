@@ -54,6 +54,11 @@ SYNTHETIC_STORAGE_IMAGE_ARRAY_SOURCE_COORDINATES = {
     "maskAtlases": {"stage": "compute", "set": 0, "binding": 1},
     "unsignedAtlases": {"stage": "compute", "set": 0, "binding": 1},
 }
+GRAPHICS_ABI_FIXTURE_PATH = "metadata/graphics-abi.json"
+GRAPHICS_ABI_FIXTURE_EVIDENCE_ID = (
+    "target-legalization.v1.directx.resource-binding.fragment.fragment_fs_main.albedo"
+)
+GRAPHICS_ABI_FIXTURE_DRIFTED_EVIDENCE_ID = GRAPHICS_ABI_FIXTURE_EVIDENCE_ID + ".stale"
 
 
 def positive_jobs(value):
@@ -206,6 +211,260 @@ def read_artifact_json(package, manifest, artifact_name):
     if not path.is_file():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def graphics_abi_source_map_ref(line=1):
+    return {
+        "file": "GraphicsAbiReleaseAuthority.cgl",
+        "line": line,
+        "column": 1,
+        "offset": line - 1,
+        "length": 1,
+        "endLine": line,
+        "endColumn": 2,
+        "endOffset": line,
+    }
+
+
+def graphics_abi_release_reflection(manifest):
+    return {
+        "schemaVersion": 1,
+        "module": manifest["module"],
+        "target": manifest["target"],
+        "nativeBinary": manifest["artifacts"]["nativeBinary"],
+        "entryPoints": [
+            {
+                "stage": "vertex",
+                "sourceName": "vs_main",
+                "backendName": "vertex_vs_main",
+                "returnType": "FragmentInput",
+                "parameters": [],
+            },
+            {
+                "stage": "fragment",
+                "sourceName": "fs_main",
+                "backendName": "fragment_fs_main",
+                "returnType": "FragmentOutput",
+                "parameters": [
+                    {
+                        "name": "input",
+                        "type": "FragmentInput",
+                    }
+                ],
+            },
+        ],
+        "structs": [
+            {
+                "name": "FragmentInput",
+                "fields": [
+                    {
+                        "name": "uv",
+                        "type": "float2",
+                    }
+                ],
+            },
+            {
+                "name": "FragmentOutput",
+                "fields": [
+                    {
+                        "name": "color",
+                        "type": "float4",
+                    }
+                ],
+            },
+        ],
+        "resources": [
+            {
+                "stage": "fragment",
+                "name": "albedo",
+                "kind": "texture",
+                "type": "Texture2D",
+                "set": 0,
+                "binding": 0,
+                "addressSpace": "shader-resource",
+            }
+        ],
+        "targetResourceBindings": [
+            {
+                "target": manifest["target"],
+                "stage": "fragment",
+                "entryPoint": "fragment_fs_main",
+                "name": "albedo",
+                "kind": "texture",
+                "sourceType": "Texture2D",
+                "addressSpace": "shader-resource",
+                "abi": "registerBinding",
+                "bindingClass": "srv",
+                "descriptorType": "SRV",
+                "set": 0,
+                "binding": 0,
+                "argumentIndex": 0,
+                "arrayDimensions": [],
+                "evidenceId": GRAPHICS_ABI_FIXTURE_EVIDENCE_ID,
+            }
+        ],
+        "pushConstants": [],
+        "functionConstants": [],
+        "vertexLayouts": [
+            {
+                "entryPoint": "vertex_vs_main",
+                "attributes": [
+                    {
+                        "name": "position",
+                        "type": "float3",
+                        "location": 0,
+                    },
+                    {
+                        "name": "uv",
+                        "type": "float2",
+                        "location": 1,
+                    },
+                ],
+            }
+        ],
+        "workgroupSizes": [],
+        "manualTextureCompareKernelSummary": {
+            "totalCount": 0,
+            "staticNormalizedCount": 0,
+            "staticNonNormalizedCount": 0,
+            "staticZeroSumCount": 0,
+            "dynamicCount": 0,
+        },
+        "manualTextureCompareKernels": [],
+        "targetFeatures": [],
+    }
+
+
+def graphics_abi_release_sidecar(manifest):
+    return {
+        "schemaVersion": 1,
+        "module": manifest["module"],
+        "target": manifest["target"],
+        "entryPoints": [
+            {
+                "stage": "vertex",
+                "sourceName": "vs_main",
+                "backendName": "vertex_vs_main",
+                "sourceMapRef": graphics_abi_source_map_ref(1),
+            },
+            {
+                "stage": "fragment",
+                "sourceName": "fs_main",
+                "backendName": "fragment_fs_main",
+                "sourceMapRef": graphics_abi_source_map_ref(2),
+            },
+        ],
+        "vertexInputs": [
+            {
+                "stage": "vertex",
+                "entryPoint": "vertex_vs_main",
+                "name": "position",
+                "type": "float3",
+                "location": 0,
+                "format": "float3",
+                "semantic": "POSITION",
+            },
+            {
+                "stage": "vertex",
+                "entryPoint": "vertex_vs_main",
+                "name": "uv",
+                "type": "float2",
+                "location": 1,
+                "format": "float2",
+                "semantic": "TEXCOORD0",
+            },
+        ],
+        "varyings": [
+            {
+                "interpolation": "smooth",
+                "producer": {
+                    "stage": "vertex",
+                    "entryPoint": "vertex_vs_main",
+                    "name": "uv",
+                    "type": "float2",
+                    "location": 0,
+                    "direction": "output",
+                },
+                "consumer": {
+                    "stage": "fragment",
+                    "entryPoint": "fragment_fs_main",
+                    "name": "uv",
+                    "type": "float2",
+                    "location": 0,
+                    "direction": "input",
+                },
+            }
+        ],
+        "fragmentOutputs": [
+            {
+                "stage": "fragment",
+                "entryPoint": "fragment_fs_main",
+                "name": "color",
+                "type": "float4",
+                "location": 0,
+                "format": "rgba32f",
+                "semantic": "SV_Target0",
+            }
+        ],
+        "builtins": [],
+        "resources": [
+            {
+                "stage": "fragment",
+                "name": "albedo",
+                "kind": "texture",
+                "type": "Texture2D",
+                "set": 0,
+                "binding": 0,
+                "addressSpace": "shader-resource",
+                "sourceMapRef": graphics_abi_source_map_ref(3),
+            }
+        ],
+        "abiRecords": [
+            {
+                "target": manifest["target"],
+                "stage": "fragment",
+                "entryPoint": "fragment_fs_main",
+                "name": "albedo",
+                "kind": "texture",
+                "sourceType": "Texture2D",
+                "addressSpace": "shader-resource",
+                "abi": "registerBinding",
+                "bindingClass": "srv",
+                "descriptorType": "SRV",
+                "set": 0,
+                "binding": 0,
+                "argumentIndex": 0,
+                "arrayDimensions": [],
+                "evidenceId": GRAPHICS_ABI_FIXTURE_EVIDENCE_ID,
+                "sourceMapRef": graphics_abi_source_map_ref(4),
+            }
+        ],
+    }
+
+
+def make_graphics_abi_release_package(tmp_dir, case_name, *, include_graphics_abi=True):
+    package, source, manifest = make_package(tmp_dir, case_name)
+    write_json(package / "reflection.json", graphics_abi_release_reflection(manifest))
+    if include_graphics_abi:
+        manifest["artifacts"]["graphicsAbi"] = GRAPHICS_ABI_FIXTURE_PATH
+        write_json(
+            package_path(package, GRAPHICS_ABI_FIXTURE_PATH),
+            graphics_abi_release_sidecar(manifest),
+        )
+        rewrite_manifest(package, manifest)
+    return package, source, manifest
+
+
+def drift_graphics_abi_evidence(package, manifest):
+    sidecar = read_artifact_json(package, manifest, "graphicsAbi")
+    if not isinstance(sidecar, dict):
+        raise AssertionError("graphics ABI fixture sidecar must be present")
+    records = sidecar.get("abiRecords")
+    if not isinstance(records, list) or not records:
+        raise AssertionError("graphics ABI fixture must contain abiRecords")
+    records[0]["evidenceId"] = GRAPHICS_ABI_FIXTURE_DRIFTED_EVIDENCE_ID
+    write_json(package_path(package, manifest["artifacts"]["graphicsAbi"]), sidecar)
+    return sidecar
 
 
 def source_remap_provenance(manifest, *, mapping_granularity="source-span"):
@@ -3836,6 +4095,43 @@ def run_cases(root, cglc, jobs=1):
                     "package.verify.reflection-target-resource-binding-"
                     "evidence-duplicate"
                 ),
+            )
+        )
+
+        package, _source, manifest = make_graphics_abi_release_package(
+            tmp_dir, "graphics-abi-target-evidence-mismatch"
+        )
+        drift_graphics_abi_evidence(package, manifest)
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "graphics-abi-target-evidence-mismatch-json",
+                package,
+                "field 'evidenceId' must match reflection",
+                manifest=manifest,
+                expected_code="package.verify.graphics-abi-target-evidence-mismatch",
+            )
+        )
+
+        package, _source, missing_graphics_abi_manifest = (
+            make_graphics_abi_release_package(
+                tmp_dir,
+                "graphics-abi-missing-artifact",
+                include_graphics_abi=False,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "graphics-abi-missing-artifact-json",
+                package,
+                "graphics package reflection requires manifest.artifacts.graphicsAbi",
+                manifest=missing_graphics_abi_manifest,
+                expected_code="package.verify.graphics-abi-missing-artifact",
             )
         )
 

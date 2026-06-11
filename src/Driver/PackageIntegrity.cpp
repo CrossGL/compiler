@@ -722,6 +722,662 @@ stringArrayMember(std::string_view object, std::string_view key) {
   return parseJsonStringArray(*value);
 }
 
+constexpr std::string_view kGraphicsAbiArtifactName = "graphicsAbi";
+constexpr std::string_view kGraphicsAbiDiagnosticPrefix =
+    "package.graphicsAbi.";
+
+bool isGraphicsAbiStage(std::string_view stage) {
+  return stage == "vertex" || stage == "fragment";
+}
+
+std::optional<std::vector<std::string_view>>
+arrayMemberElements(std::string_view object, std::string_view key) {
+  const std::optional<std::string_view> value =
+      findObjectMemberValue(object, key);
+  if (!value) {
+    return std::nullopt;
+  }
+  return jsonArrayElements(*value);
+}
+
+std::optional<std::string_view> objectMemberView(std::string_view object,
+                                                 std::string_view key) {
+  return findObjectMemberValue(object, key);
+}
+
+std::string stringMemberLabel(std::string_view object, std::string_view key) {
+  const std::optional<std::string> value = objectStringMember(object, key);
+  return value ? *value : std::string("<missing>");
+}
+
+std::string jsonStringLabel(std::string_view value) {
+  std::size_t position = 0;
+  std::string parsed;
+  if (parseJsonString(value, position, parsed)) {
+    skipWhitespace(value, position);
+    if (position == value.size()) {
+      return parsed;
+    }
+  }
+  return canonicalJson(value);
+}
+
+std::string unsignedMemberLabel(std::string_view object, std::string_view key) {
+  const std::optional<std::uintmax_t> value =
+      objectUnsignedMember(object, key);
+  return value ? std::to_string(*value) : std::string("<missing>");
+}
+
+std::string canonicalMemberLabel(std::string_view object, std::string_view key,
+                                 std::string_view defaultValue) {
+  const std::optional<std::string_view> value =
+      findObjectMemberValue(object, key);
+  return value ? canonicalJson(*value) : std::string(defaultValue);
+}
+
+struct GraphicsAbiField {
+  std::string name;
+  std::string value;
+};
+
+struct GraphicsAbiFact {
+  std::string key;
+  std::string label;
+  std::vector<GraphicsAbiField> fields;
+};
+
+void addGraphicsAbiField(GraphicsAbiFact &fact, std::string name,
+                         std::string value) {
+  fact.fields.push_back({std::move(name), std::move(value)});
+}
+
+const std::string *findGraphicsAbiField(const GraphicsAbiFact &fact,
+                                        std::string_view name) {
+  for (const GraphicsAbiField &field : fact.fields) {
+    if (field.name == name) {
+      return &field.value;
+    }
+  }
+  return nullptr;
+}
+
+const GraphicsAbiFact *findGraphicsAbiFact(
+    const std::vector<GraphicsAbiFact> &facts, std::string_view key) {
+  for (const GraphicsAbiFact &fact : facts) {
+    if (fact.key == key) {
+      return &fact;
+    }
+  }
+  return nullptr;
+}
+
+bool hasEarlierGraphicsAbiFact(const std::vector<GraphicsAbiFact> &facts,
+                               std::size_t index) {
+  for (std::size_t previous = 0; previous < index; ++previous) {
+    if (facts[previous].key == facts[index].key) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::string graphicsAbiDiagnosticCode(std::string_view suffix) {
+  return std::string(kGraphicsAbiDiagnosticPrefix) + std::string(suffix);
+}
+
+void addGraphicsAbiReleaseDiagnostic(PackageGraphicsAbiHealth &health,
+                                     std::string_view suffix,
+                                     std::string message) {
+  health.diagnostics.push_back(
+      {graphicsAbiDiagnosticCode(suffix), std::move(message)});
+}
+
+std::string entryPointKey(std::string_view stage, std::string_view sourceName) {
+  return std::string(stage) + "\n" + std::string(sourceName);
+}
+
+std::string entryPointLabel(std::string_view stage,
+                            std::string_view sourceName) {
+  return "entry point '" + std::string(stage) + ":" +
+         std::string(sourceName) + "'";
+}
+
+std::vector<GraphicsAbiFact>
+graphicsAbiEntryPointFacts(std::string_view document) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> entries =
+      arrayMemberElements(document, "entryPoints");
+  if (!entries) {
+    return facts;
+  }
+  for (std::string_view entry : *entries) {
+    const std::string stage = stringMemberLabel(entry, "stage");
+    const std::string sourceName = stringMemberLabel(entry, "sourceName");
+    GraphicsAbiFact fact;
+    fact.key = entryPointKey(stage, sourceName);
+    fact.label = entryPointLabel(stage, sourceName);
+    addGraphicsAbiField(fact, "stage", stage);
+    addGraphicsAbiField(fact, "sourceName", sourceName);
+    addGraphicsAbiField(fact, "backendName",
+                        stringMemberLabel(entry, "backendName"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+std::vector<GraphicsAbiFact>
+reflectionEntryPointFacts(std::string_view reflection) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> entries =
+      arrayMemberElements(reflection, "entryPoints");
+  if (!entries) {
+    return facts;
+  }
+  for (std::string_view entry : *entries) {
+    const std::string stage = stringMemberLabel(entry, "stage");
+    if (!isGraphicsAbiStage(stage)) {
+      continue;
+    }
+    const std::string sourceName = stringMemberLabel(entry, "sourceName");
+    GraphicsAbiFact fact;
+    fact.key = entryPointKey(stage, sourceName);
+    fact.label = entryPointLabel(stage, sourceName);
+    addGraphicsAbiField(fact, "stage", stage);
+    addGraphicsAbiField(fact, "sourceName", sourceName);
+    addGraphicsAbiField(fact, "backendName",
+                        stringMemberLabel(entry, "backendName"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+std::string vertexInputKey(std::string_view entryPoint,
+                           std::string_view name) {
+  return std::string(entryPoint) + "\n" + std::string(name);
+}
+
+std::string vertexInputLabel(std::string_view entryPoint,
+                             std::string_view name) {
+  return "vertex input '" + std::string(entryPoint) + ":" +
+         std::string(name) + "'";
+}
+
+std::vector<GraphicsAbiFact>
+graphicsAbiVertexInputFacts(std::string_view document) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> inputs =
+      arrayMemberElements(document, "vertexInputs");
+  if (!inputs) {
+    return facts;
+  }
+  for (std::string_view input : *inputs) {
+    const std::string entryPoint = stringMemberLabel(input, "entryPoint");
+    const std::string name = stringMemberLabel(input, "name");
+    GraphicsAbiFact fact;
+    fact.key = vertexInputKey(entryPoint, name);
+    fact.label = vertexInputLabel(entryPoint, name);
+    addGraphicsAbiField(fact, "stage", stringMemberLabel(input, "stage"));
+    addGraphicsAbiField(fact, "entryPoint", entryPoint);
+    addGraphicsAbiField(fact, "name", name);
+    addGraphicsAbiField(fact, "type", stringMemberLabel(input, "type"));
+    addGraphicsAbiField(fact, "location", unsignedMemberLabel(input, "location"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+std::vector<GraphicsAbiFact>
+reflectionVertexInputFacts(std::string_view reflection) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> layouts =
+      arrayMemberElements(reflection, "vertexLayouts");
+  if (!layouts) {
+    return facts;
+  }
+  for (std::string_view layout : *layouts) {
+    const std::string entryPoint = stringMemberLabel(layout, "entryPoint");
+    const std::optional<std::vector<std::string_view>> attributes =
+        arrayMemberElements(layout, "attributes");
+    if (!attributes) {
+      continue;
+    }
+    for (std::string_view attribute : *attributes) {
+      const std::string name = stringMemberLabel(attribute, "name");
+      GraphicsAbiFact fact;
+      fact.key = vertexInputKey(entryPoint, name);
+      fact.label = vertexInputLabel(entryPoint, name);
+      addGraphicsAbiField(fact, "stage", "vertex");
+      addGraphicsAbiField(fact, "entryPoint", entryPoint);
+      addGraphicsAbiField(fact, "name", name);
+      addGraphicsAbiField(fact, "type", stringMemberLabel(attribute, "type"));
+      addGraphicsAbiField(fact, "location",
+                          unsignedMemberLabel(attribute, "location"));
+      facts.push_back(std::move(fact));
+    }
+  }
+  return facts;
+}
+
+std::optional<std::string_view> findReflectionStruct(std::string_view reflection,
+                                                     std::string_view name) {
+  const std::optional<std::vector<std::string_view>> structs =
+      arrayMemberElements(reflection, "structs");
+  if (!structs) {
+    return std::nullopt;
+  }
+  for (std::string_view structure : *structs) {
+    const std::optional<std::string> structName =
+        objectStringMember(structure, "name");
+    if (structName && *structName == name) {
+      return structure;
+    }
+  }
+  return std::nullopt;
+}
+
+std::string fragmentOutputKey(std::string_view entryPoint,
+                              std::string_view name) {
+  return std::string(entryPoint) + "\n" + std::string(name);
+}
+
+std::string fragmentOutputLabel(std::string_view entryPoint,
+                                std::string_view name) {
+  return "fragment output '" + std::string(entryPoint) + ":" +
+         std::string(name) + "'";
+}
+
+std::vector<GraphicsAbiFact>
+graphicsAbiFragmentOutputFacts(std::string_view document) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> outputs =
+      arrayMemberElements(document, "fragmentOutputs");
+  if (!outputs) {
+    return facts;
+  }
+  for (std::string_view output : *outputs) {
+    const std::string entryPoint = stringMemberLabel(output, "entryPoint");
+    const std::string name = stringMemberLabel(output, "name");
+    GraphicsAbiFact fact;
+    fact.key = fragmentOutputKey(entryPoint, name);
+    fact.label = fragmentOutputLabel(entryPoint, name);
+    addGraphicsAbiField(fact, "stage", stringMemberLabel(output, "stage"));
+    addGraphicsAbiField(fact, "entryPoint", entryPoint);
+    addGraphicsAbiField(fact, "name", name);
+    addGraphicsAbiField(fact, "type", stringMemberLabel(output, "type"));
+    addGraphicsAbiField(fact, "location",
+                        unsignedMemberLabel(output, "location"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+std::vector<GraphicsAbiFact>
+reflectionFragmentOutputFacts(std::string_view reflection) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> entries =
+      arrayMemberElements(reflection, "entryPoints");
+  if (!entries) {
+    return facts;
+  }
+  for (std::string_view entry : *entries) {
+    const std::optional<std::string> stage = objectStringMember(entry, "stage");
+    if (!stage || *stage != "fragment") {
+      continue;
+    }
+    const std::string entryPoint = stringMemberLabel(entry, "backendName");
+    const std::optional<std::string> returnType =
+        objectStringMember(entry, "returnType");
+    if (!returnType || *returnType == "void") {
+      continue;
+    }
+    const std::optional<std::string_view> structure =
+        findReflectionStruct(reflection, *returnType);
+    if (!structure) {
+      continue;
+    }
+    const std::optional<std::vector<std::string_view>> fields =
+        arrayMemberElements(*structure, "fields");
+    if (!fields) {
+      continue;
+    }
+    for (std::size_t index = 0; index < fields->size(); ++index) {
+      const std::string_view field = (*fields)[index];
+      const std::string name = stringMemberLabel(field, "name");
+      GraphicsAbiFact fact;
+      fact.key = fragmentOutputKey(entryPoint, name);
+      fact.label = fragmentOutputLabel(entryPoint, name);
+      addGraphicsAbiField(fact, "stage", "fragment");
+      addGraphicsAbiField(fact, "entryPoint", entryPoint);
+      addGraphicsAbiField(fact, "name", name);
+      addGraphicsAbiField(fact, "type", stringMemberLabel(field, "type"));
+      addGraphicsAbiField(fact, "location", std::to_string(index));
+      facts.push_back(std::move(fact));
+    }
+  }
+  return facts;
+}
+
+std::string abiRecordKey(std::string_view stage, std::string_view entryPoint,
+                         std::string_view name, std::string_view kind) {
+  return std::string(stage) + "\n" + std::string(entryPoint) + "\n" +
+         std::string(name) + "\n" + std::string(kind);
+}
+
+std::string abiRecordLabel(std::string_view stage, std::string_view entryPoint,
+                           std::string_view name, std::string_view kind) {
+  return "ABI record '" + std::string(stage) + ":" +
+         std::string(entryPoint) + ":" + std::string(name) + ":" +
+         std::string(kind) + "'";
+}
+
+void addAbiRecordFields(GraphicsAbiFact &fact, std::string_view record) {
+  addGraphicsAbiField(fact, "target", stringMemberLabel(record, "target"));
+  addGraphicsAbiField(fact, "stage", stringMemberLabel(record, "stage"));
+  addGraphicsAbiField(fact, "entryPoint",
+                      stringMemberLabel(record, "entryPoint"));
+  addGraphicsAbiField(fact, "name", stringMemberLabel(record, "name"));
+  addGraphicsAbiField(fact, "kind", stringMemberLabel(record, "kind"));
+  addGraphicsAbiField(fact, "sourceType",
+                      stringMemberLabel(record, "sourceType"));
+  addGraphicsAbiField(fact, "addressSpace",
+                      stringMemberLabel(record, "addressSpace"));
+  addGraphicsAbiField(fact, "abi", stringMemberLabel(record, "abi"));
+  addGraphicsAbiField(fact, "bindingClass",
+                      stringMemberLabel(record, "bindingClass"));
+  addGraphicsAbiField(fact, "descriptorType",
+                      stringMemberLabel(record, "descriptorType"));
+  addGraphicsAbiField(fact, "set", unsignedMemberLabel(record, "set"));
+  addGraphicsAbiField(fact, "binding", unsignedMemberLabel(record, "binding"));
+  addGraphicsAbiField(fact, "argumentIndex",
+                      unsignedMemberLabel(record, "argumentIndex"));
+  addGraphicsAbiField(fact, "storageImageFormat",
+                      stringMemberLabel(record, "storageImageFormat"));
+  addGraphicsAbiField(fact, "storageImageAccess",
+                      stringMemberLabel(record, "storageImageAccess"));
+  addGraphicsAbiField(fact, "arrayElementCount",
+                      unsignedMemberLabel(record, "arrayElementCount"));
+  addGraphicsAbiField(fact, "arrayDimensions",
+                      canonicalMemberLabel(record, "arrayDimensions", "[]"));
+  addGraphicsAbiField(fact, "evidenceId",
+                      stringMemberLabel(record, "evidenceId"));
+}
+
+std::vector<GraphicsAbiFact> graphicsAbiRecordFacts(std::string_view document) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> records =
+      arrayMemberElements(document, "abiRecords");
+  if (!records) {
+    return facts;
+  }
+  for (std::string_view record : *records) {
+    const std::string stage = stringMemberLabel(record, "stage");
+    if (!isGraphicsAbiStage(stage)) {
+      continue;
+    }
+    const std::string entryPoint = stringMemberLabel(record, "entryPoint");
+    const std::string name = stringMemberLabel(record, "name");
+    const std::string kind = stringMemberLabel(record, "kind");
+    GraphicsAbiFact fact;
+    fact.key = abiRecordKey(stage, entryPoint, name, kind);
+    fact.label = abiRecordLabel(stage, entryPoint, name, kind);
+    addAbiRecordFields(fact, record);
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+bool hasReflectionTargetResourceBindingReportIdentity(
+    const PackageReflectionTargetResourceBindingRecord &binding);
+
+std::vector<GraphicsAbiFact>
+reflectionAbiRecordFacts(const PackageMetadata &metadata) {
+  std::vector<GraphicsAbiFact> facts;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target != metadata.target || !isGraphicsAbiStage(binding.stage) ||
+        !hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      continue;
+    }
+
+    GraphicsAbiFact fact;
+    fact.key =
+        abiRecordKey(binding.stage, binding.entryPoint, binding.name, binding.kind);
+    fact.label = abiRecordLabel(binding.stage, binding.entryPoint, binding.name,
+                                binding.kind);
+    addGraphicsAbiField(fact, "target", binding.target);
+    addGraphicsAbiField(fact, "stage", binding.stage);
+    addGraphicsAbiField(fact, "entryPoint", binding.entryPoint);
+    addGraphicsAbiField(fact, "name", binding.name);
+    addGraphicsAbiField(fact, "kind", binding.kind);
+    addGraphicsAbiField(fact, "sourceType", binding.sourceType);
+    addGraphicsAbiField(fact, "addressSpace",
+                        binding.addressSpace.value_or("<missing>"));
+    addGraphicsAbiField(fact, "abi", jsonStringLabel(binding.abiJson));
+    addGraphicsAbiField(fact, "bindingClass",
+                        binding.bindingClass.value_or("<missing>"));
+    addGraphicsAbiField(fact, "descriptorType",
+                        binding.descriptorType.value_or("<missing>"));
+    addGraphicsAbiField(fact, "set",
+                        binding.set ? std::to_string(*binding.set)
+                                    : std::string("<missing>"));
+    addGraphicsAbiField(fact, "binding",
+                        binding.binding ? std::to_string(*binding.binding)
+                                        : std::string("<missing>"));
+    addGraphicsAbiField(fact, "argumentIndex",
+                        binding.argumentIndex
+                            ? std::to_string(*binding.argumentIndex)
+                            : std::string("<missing>"));
+    addGraphicsAbiField(fact, "storageImageFormat",
+                        binding.storageImageFormat.value_or("<missing>"));
+    addGraphicsAbiField(fact, "storageImageAccess",
+                        binding.storageImageAccess.value_or("<missing>"));
+    addGraphicsAbiField(fact, "arrayElementCount",
+                        binding.arrayElementCount
+                            ? std::to_string(*binding.arrayElementCount)
+                            : std::string("<missing>"));
+    addGraphicsAbiField(fact, "arrayDimensions", binding.arrayDimensionsJson);
+    addGraphicsAbiField(fact, "evidenceId",
+                        binding.evidenceId.value_or("<missing>"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+void compareGraphicsAbiFacts(PackageGraphicsAbiHealth &health,
+                             std::string_view category,
+                             std::string_view codeSuffix,
+                             const std::vector<GraphicsAbiFact> &expected,
+                             const std::vector<GraphicsAbiFact> &actual) {
+  for (std::size_t index = 0; index < actual.size(); ++index) {
+    if (hasEarlierGraphicsAbiFact(actual, index)) {
+      addGraphicsAbiReleaseDiagnostic(
+          health, std::string("duplicate-") + std::string(codeSuffix),
+          "graphics ABI " + std::string(category) + " " + actual[index].label +
+              " duplicates an earlier sidecar record");
+    }
+  }
+
+  for (const GraphicsAbiFact &expectedFact : expected) {
+    const GraphicsAbiFact *actualFact =
+        findGraphicsAbiFact(actual, expectedFact.key);
+    if (actualFact == nullptr) {
+      addGraphicsAbiReleaseDiagnostic(
+          health, std::string(codeSuffix) + "-missing",
+          "graphics ABI " + std::string(category) + " " + expectedFact.label +
+              " is missing from the sidecar");
+      continue;
+    }
+    for (const GraphicsAbiField &expectedField : expectedFact.fields) {
+      const std::string *actualValue =
+          findGraphicsAbiField(*actualFact, expectedField.name);
+      if (actualValue == nullptr || *actualValue != expectedField.value) {
+        const std::string mismatchCode =
+            codeSuffix == "abi-record" && expectedField.name == "evidenceId"
+                ? "target-evidence-mismatch"
+                : std::string(codeSuffix) + "-mismatch";
+        addGraphicsAbiReleaseDiagnostic(
+            health, mismatchCode,
+            "graphics ABI " + std::string(category) + " " +
+                expectedFact.label + " field '" + expectedField.name +
+                "' must match reflection: expected '" + expectedField.value +
+                "', got '" +
+                (actualValue == nullptr ? std::string("<missing>") : *actualValue) +
+                "'");
+      }
+    }
+  }
+
+  for (const GraphicsAbiFact &actualFact : actual) {
+    if (findGraphicsAbiFact(expected, actualFact.key) == nullptr) {
+      addGraphicsAbiReleaseDiagnostic(
+          health, std::string(codeSuffix) + "-stale",
+          "graphics ABI " + std::string(category) + " " + actualFact.label +
+              " is not present in reflection");
+    }
+  }
+}
+
+void checkDuplicateGraphicsAbiCoordinates(PackageGraphicsAbiHealth &health,
+                                          std::string_view document) {
+  if (const std::optional<std::vector<std::string_view>> inputs =
+          arrayMemberElements(document, "vertexInputs")) {
+    std::vector<std::string> coordinates;
+    for (std::string_view input : *inputs) {
+      const std::string entryPoint = stringMemberLabel(input, "entryPoint");
+      const std::string location = unsignedMemberLabel(input, "location");
+      const std::string coordinate = entryPoint + "\n" + location;
+      if (std::find(coordinates.begin(), coordinates.end(), coordinate) !=
+          coordinates.end()) {
+        addGraphicsAbiReleaseDiagnostic(
+            health, "duplicate-vertex-coordinate",
+            "graphics ABI vertex input location " + entryPoint + ":" +
+                location + " duplicates an earlier sidecar coordinate");
+      } else {
+        coordinates.push_back(coordinate);
+      }
+    }
+  }
+
+  if (const std::optional<std::vector<std::string_view>> varyings =
+          arrayMemberElements(document, "varyings")) {
+    std::vector<std::string> coordinates;
+    for (std::string_view varying : *varyings) {
+      const std::optional<std::string_view> producer =
+          objectMemberView(varying, "producer");
+      const std::optional<std::string_view> consumer =
+          objectMemberView(varying, "consumer");
+      if (!producer || !consumer) {
+        continue;
+      }
+      const std::string coordinate =
+          stringMemberLabel(*producer, "entryPoint") + "\n" +
+          stringMemberLabel(*consumer, "entryPoint") + "\n" +
+          unsignedMemberLabel(*producer, "location");
+      if (std::find(coordinates.begin(), coordinates.end(), coordinate) !=
+          coordinates.end()) {
+        addGraphicsAbiReleaseDiagnostic(
+            health, "duplicate-varying-coordinate",
+            "graphics ABI varying location duplicates an earlier sidecar "
+            "producer/consumer coordinate");
+      } else {
+        coordinates.push_back(coordinate);
+      }
+    }
+  }
+}
+
+PackageGraphicsAbiHealth
+collectPackageGraphicsAbiReleaseHealth(const PackageMetadata &metadata) {
+  PackageGraphicsAbiHealth health = collectPackageGraphicsAbiHealth(metadata);
+  if (!health.artifactPresent || health.health != "ok") {
+    return health;
+  }
+
+  const PackageArtifactRecord *graphicsAbi =
+      findArtifact(metadata, kGraphicsAbiArtifactName);
+  const std::optional<std::string> document =
+      readArtifactDocument(metadata, graphicsAbi);
+  if (!document) {
+    return health;
+  }
+
+  compareGraphicsAbiFacts(health, "entry point", "entry-point",
+                          reflectionEntryPointFacts(metadata.documents.reflection),
+                          graphicsAbiEntryPointFacts(*document));
+  compareGraphicsAbiFacts(health, "vertex layout", "vertex-input",
+                          reflectionVertexInputFacts(metadata.documents.reflection),
+                          graphicsAbiVertexInputFacts(*document));
+  compareGraphicsAbiFacts(health, "fragment output", "fragment-output",
+                          reflectionFragmentOutputFacts(
+                              metadata.documents.reflection),
+                          graphicsAbiFragmentOutputFacts(*document));
+  compareGraphicsAbiFacts(health, "resource binding", "abi-record",
+                          reflectionAbiRecordFacts(metadata),
+                          graphicsAbiRecordFacts(*document));
+  checkDuplicateGraphicsAbiCoordinates(health, *document);
+
+  if (!health.diagnostics.empty()) {
+    health.health = "drift";
+  }
+  return health;
+}
+
+bool reflectionRequiresGraphicsAbi(const PackageMetadata &metadata) {
+  bool hasVertex = false;
+  bool hasFragment = false;
+  const std::optional<std::vector<std::string_view>> entries =
+      arrayMemberElements(metadata.documents.reflection, "entryPoints");
+  if (!entries) {
+    return false;
+  }
+  for (std::string_view entry : *entries) {
+    const std::optional<std::string> stage = objectStringMember(entry, "stage");
+    if (stage && *stage == "vertex") {
+      hasVertex = true;
+    } else if (stage && *stage == "fragment") {
+      hasFragment = true;
+    }
+  }
+  return hasVertex && hasFragment;
+}
+
+std::string packageVerifyGraphicsAbiDiagnosticSuffix(std::string_view code) {
+  if (code.starts_with(kGraphicsAbiDiagnosticPrefix)) {
+    return std::string(code.substr(kGraphicsAbiDiagnosticPrefix.size()));
+  }
+  return "health";
+}
+
+void verifyGraphicsAbiReleaseAuthority(const PackageMetadata &metadata,
+                                       DiagnosticEngine &diagnostics) {
+  const PackageArtifactRecord *graphicsAbi =
+      findArtifact(metadata, kGraphicsAbiArtifactName);
+  if (graphicsAbi == nullptr) {
+    if (reflectionRequiresGraphicsAbi(metadata)) {
+      diagnostics.error(
+          diagnosticCode("graphics-abi-missing-artifact"),
+          "graphics package reflection requires manifest.artifacts.graphicsAbi",
+          artifactsLocation(metadata));
+    }
+    return;
+  }
+
+  const PackageGraphicsAbiHealth health =
+      collectPackageGraphicsAbiReleaseHealth(metadata);
+  if (health.health == "ok") {
+    return;
+  }
+
+  const SourceLocation location = artifactLocation(metadata, *graphicsAbi);
+  for (const PackageGraphicsAbiDiagnostic &diagnostic : health.diagnostics) {
+    diagnostics.error(
+        diagnosticCode("graphics-abi-" +
+                       packageVerifyGraphicsAbiDiagnosticSuffix(
+                           diagnostic.code)),
+        diagnostic.message, location);
+  }
+}
+
 bool hasEvidenceIds(
     const std::optional<std::vector<std::string>> &evidenceIds) {
   return evidenceIds && !evidenceIds->empty();
@@ -3041,6 +3697,7 @@ void verifyPackageMetadata(
   verifyReflectionNativeBinary(metadata, diagnostics);
   verifyReflectionTargetResourceBindings(metadata, diagnostics);
   verifyReflectionTargetFeatureEvidence(metadata, diagnostics);
+  verifyGraphicsAbiReleaseAuthority(metadata, diagnostics);
   verifyPlannedNativeSourceEvidence(metadata, requirements, sourcePath,
                                     diagnostics);
   const bool sourceHashMetadataValid =
@@ -3162,6 +3819,12 @@ std::size_t countDiagnostics(const std::vector<Diagnostic> &diagnostics,
 
 } // namespace
 
+PackageGraphicsAbiHealth
+collectPackageGraphicsAbiReleaseHealthForInspect(
+    const PackageMetadata &metadata) {
+  return collectPackageGraphicsAbiReleaseHealth(metadata);
+}
+
 PackageIntegrityResult
 verifyPackage(const std::filesystem::path &packagePath,
               std::optional<std::filesystem::path> sourcePath) {
@@ -3202,7 +3865,7 @@ std::string packageVerifyJson(const PackageIntegrityResult &result,
   }
   if (result.metadata) {
     const PackageGraphicsAbiHealth graphicsAbi =
-        collectPackageGraphicsAbiHealth(*result.metadata);
+        collectPackageGraphicsAbiReleaseHealth(*result.metadata);
     if (graphicsAbi.artifactPresent) {
       out << ",\n"
           << "  \"graphicsAbi\": ";

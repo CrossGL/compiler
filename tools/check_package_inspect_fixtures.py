@@ -48,6 +48,10 @@ from source_location_fixture_checks import (
     expect_location_span_coherent,
     expect_location_text_equals,
 )
+from check_package_verify_fixtures import (
+    drift_graphics_abi_evidence,
+    make_graphics_abi_release_package,
+)
 
 
 EXPECTED_ROOT_FILES = {
@@ -2943,6 +2947,38 @@ def check_valid_target(case_name, manifest):
     return check
 
 
+def check_graphics_abi_target_evidence_drift(_package, payload):
+    errors = []
+    graphics_abi = expect_object(
+        errors,
+        "graphics-abi-target-evidence-mismatch",
+        "graphicsAbi",
+        payload.get("graphicsAbi"),
+    )
+    health = graphics_abi.get("health")
+    if health == "ok":
+        errors.append(
+            "graphics-abi-target-evidence-mismatch: expected "
+            "graphicsAbi.health to be degraded for stale ABI evidenceId"
+        )
+    diagnostics = expect_array(
+        errors,
+        "graphics-abi-target-evidence-mismatch",
+        "graphicsAbi.diagnostics",
+        graphics_abi.get("diagnostics"),
+    )
+    if not any(
+        isinstance(diagnostic, dict)
+        and "target-evidence-mismatch" in str(diagnostic.get("code", ""))
+        for diagnostic in diagnostics
+    ):
+        errors.append(
+            "graphics-abi-target-evidence-mismatch: expected graphicsAbi "
+            "diagnostics to include target-evidence-mismatch"
+        )
+    return errors
+
+
 def check_nonuniform_feature_metadata(case_name, manifest, expected_diagnostics):
     expected_features = nonuniform_target_features(manifest["target"])
     expected_native_status = expected_summary_native_binary_status(manifest)
@@ -4594,6 +4630,21 @@ def run_cases(root, cglc, jobs=1):
                 "escaping-artifact",
                 package,
                 check_escaping_artifact,
+            )
+        )
+
+        package, _source, manifest = make_graphics_abi_release_package(
+            tmp_dir, "graphics-abi-target-evidence-mismatch"
+        )
+        drift_graphics_abi_evidence(package, manifest)
+        errors.extend(
+            expect_success(
+                root,
+                cglc,
+                tmp_dir,
+                "graphics-abi-target-evidence-mismatch",
+                package,
+                check_graphics_abi_target_evidence_drift,
             )
         )
 

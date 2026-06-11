@@ -19,6 +19,17 @@
   "fixtures": [
     {
       "path": "tests/fixtures/IfComputeShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "if_compute",
+        "input": "tests/fixtures/mlir/if_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/IfComputeShader.cgl",
+        "ctest": "cglc_mlir_experiment_if_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -491,6 +502,17 @@
     },
     {
       "path": "tests/fixtures/MinimalComputeShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "minimal_compute",
+        "input": "tests/fixtures/mlir/minimal_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/MinimalComputeShader.cgl",
+        "ctest": "cglc_mlir_experiment_minimal_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -777,6 +799,17 @@
     },
     {
       "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "scalar_expression_compute",
+        "input": "tests/fixtures/mlir/scalar_expression_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "ctest": "cglc_mlir_experiment_scalar_expression_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -1135,6 +1168,17 @@
     },
     {
       "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "storage_buffer_compute",
+        "input": "tests/fixtures/mlir/storage_buffer_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/StorageBufferComputeShader.cgl",
+        "ctest": "cglc_mlir_experiment_storage_buffer_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -1553,6 +1597,15 @@
     },
     {
       "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+      "verifierInputCoverage": {
+        "status": "blocked",
+        "blocker": {
+          "id": "mlir-verifier-specialization-constants-deferred",
+          "reason": "Specialization-constant verifier marker coverage is deferred outside this bounded storage-image, descriptor-array, and graphics-provenance metadata-only verifier tranche.",
+          "nextStep": "Add a dedicated specialization-constant builtin MLIR verifier input when that tranche is admitted."
+        },
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -1995,6 +2048,17 @@
     },
     {
       "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "storage_buffer_descriptor_array_compute",
+        "input": "tests/fixtures/mlir/storage_buffer_descriptor_array_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "ctest": "cglc_mlir_experiment_storage_buffer_descriptor_array_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -2458,6 +2522,17 @@
     },
     {
       "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "texture_sampler_compute",
+        "input": "tests/fixtures/mlir/texture_sampler_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "ctest": "cglc_mlir_experiment_texture_sampler_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -3013,6 +3088,17 @@
     },
     {
       "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "texture_sampler_cube_array_compute",
+        "input": "tests/fixtures/mlir/texture_sampler_cube_array_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "ctest": "cglc_mlir_experiment_texture_sampler_cube_array_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -3636,6 +3722,17 @@
     },
     {
       "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "storage_image_compute",
+        "input": "tests/fixtures/mlir/storage_image_compute_builtin_module.mlir",
+        "fixture": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "ctest": "cglc_mlir_experiment_storage_image_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -4440,6 +4537,17 @@
     },
     {
       "path": "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "storage_image_descriptor_array_compute",
+        "input": "tests/fixtures/mlir/storage_image_descriptor_array_compute_builtin_module.mlir",
+        "fixture": "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "ctest": "cglc_mlir_experiment_storage_image_descriptor_array_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -5184,6 +5292,17 @@
     },
     {
       "path": "tests/frontend/fixtures/StorageImageNonUniformDescriptorArrayHIRShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "storage_image_nonuniform_descriptor_array_compute",
+        "input": "tests/fixtures/mlir/storage_image_nonuniform_descriptor_array_compute_builtin_module.mlir",
+        "fixture": "tests/frontend/fixtures/StorageImageNonUniformDescriptorArrayHIRShader.cgl",
+        "ctest": "cglc_mlir_experiment_storage_image_nonuniform_descriptor_array_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -5885,6 +6004,17 @@
     },
     {
       "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "storage_image_access_qualifier_compute",
+        "input": "tests/fixtures/mlir/storage_image_access_qualifier_compute_builtin_module.mlir",
+        "fixture": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "ctest": "cglc_mlir_experiment_storage_image_access_qualifier_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -6512,6 +6642,17 @@
     },
     {
       "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "storage_image_explicit_format_compute",
+        "input": "tests/fixtures/mlir/storage_image_explicit_format_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "ctest": "cglc_mlir_experiment_storage_image_explicit_format_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -7150,6 +7291,17 @@
     },
     {
       "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "storage_image_atomic_compute",
+        "input": "tests/fixtures/mlir/storage_image_atomic_compute_builtin_module.mlir",
+        "fixture": "tests/fixtures/StorageImageAtomicShader.cgl",
+        "ctest": "cglc_mlir_experiment_storage_image_atomic_compute_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",
@@ -7862,6 +8014,17 @@
     },
     {
       "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+      "verifierInputCoverage": {
+        "status": "covered",
+        "key": "graphics_provenance",
+        "input": "tests/fixtures/mlir/graphics_provenance_builtin_module.mlir",
+        "fixture": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "ctest": "cglc_mlir_experiment_graphics_provenance_verifier",
+        "sourceList": "CROSSGL_MLIR_EXPERIMENT_VERIFIER_INPUTS",
+        "mode": "metadata-only-builtin-mlir",
+        "optionalToolGated": true,
+        "productionLinked": false
+      },
       "productionFacing": false,
       "sourceLineage": {
         "sourceLanguage": "CrossGL",

@@ -506,7 +506,7 @@
           "root": "compiler",
           "path": "tests/check-failures/BadUnsupportedColonVarShader.cgl",
           "source_sha256": "85ac8c6b0fd0503822b17ab72adbabe32078a6856580826bb320b2528256f88e",
-          "reason": "CrossTL accepts colon-style variable declarations; native compiler v0 accepts function-body colon-style locals but rejects stage-scope unqualified colon-style var declarations.",
+          "reason": "CrossTL accepts colon-style variable declarations; native compiler v0 accepts function-body colon-style locals and bare uninitialized stage-scope shared value declarations, but still rejects initialized stage-scope var colon declarations.",
           "translator": {
             "status": "accepts",
             "ast_sha256": "325bb009e9eec8f4e7b23f3fecaef4c25eface14aa0f3746550bcb7dd51a4a52"
@@ -884,9 +884,9 @@
       "compiler_hir_sha256": "e466d33642aaeaf0fb786f3fe564856a48d4381c28658b95a4b798830c464753"
     },
     "compiler/tests/fixtures/ColonVarComputeShader.cgl": {
-      "source_sha256": "461bd00eac3dd95d5029042d241baa9f58340cfe9237ae54d8e6899e808cdf43",
-      "translator_ast_sha256": "e5fd0196cace939b67045717f28e75a61b4f8232bd03efbc043516db8efd2b3e",
-      "compiler_hir_sha256": "86d444b64d3e31eb22f6f1f16b334443003e9761a22257a03f5f66f6ec48c7b9"
+      "source_sha256": "626f9778a57ac9db26f3b698e7acd3d0010a931f58fe31ffe914ef8570ecf977",
+      "translator_ast_sha256": "866cc3dae08c8e8d773dd0173a38e22b94167556f1a724b1d42fe2a514644d67",
+      "compiler_hir_sha256": "2f210cf1dba900485e5d26a5df70d3cf982b9639f7ec47edf5b5d48844b75104"
     },
     "compiler/tests/fixtures/ComparisonComputeShader.cgl": {
       "source_sha256": "855de28fe1bb73bcc4e0ebe954f25afc0523748a8495d64843d716c435dc6a7e",

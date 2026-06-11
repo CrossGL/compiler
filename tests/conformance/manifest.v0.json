@@ -416,7 +416,7 @@
       "status": "accepted",
       "command_profile": "hir-dump",
       "fixture": "tests/fixtures/ColonVarComputeShader.cgl",
-      "fixture_sha256": "461bd00eac3dd95d5029042d241baa9f58340cfe9237ae54d8e6899e808cdf43",
+      "fixture_sha256": "626f9778a57ac9db26f3b698e7acd3d0010a931f58fe31ffe914ef8570ecf977",
       "evidence_tests": [
         "cglc_check_colon_var_compute_hir_canonical_declaration"
       ],

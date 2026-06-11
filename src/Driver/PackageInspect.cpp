@@ -19,6 +19,10 @@
 #include <vector>
 
 namespace crossgl {
+
+PackageGraphicsAbiHealth collectPackageGraphicsAbiReleaseHealthForInspect(
+    const PackageMetadata &metadata);
+
 namespace {
 
 void writeNullableSize(std::ostream &out,
@@ -1552,7 +1556,7 @@ std::string packageInspectJson(const PackageMetadata &metadata) {
   const PackageNativeArtifactDescriptorHealth nativeArtifactDescriptor =
       collectPackageNativeArtifactDescriptorHealth(metadata);
   const PackageGraphicsAbiHealth graphicsAbi =
-      collectPackageGraphicsAbiHealth(metadata);
+      collectPackageGraphicsAbiReleaseHealthForInspect(metadata);
   const PackageTargetLegalizationEvidence targetLegalizationEvidence =
       collectPackageTargetLegalizationEvidence(metadata);
   const PackagePublicationInfo publication =

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import Any
 
 
 MANIFEST_PATH = Path("experimental/mlir/experiment_manifest.json")
+FIXTURE_INVENTORY_PATH = Path("experimental/mlir/fixture_inventory.json")
 CTEST_PATH = Path("tests/cmake/CrossGLMLIRExperimentTests.cmake")
 CMAKE_PATH = Path("CMakeLists.txt")
 KIND = "crossgl-mlir-optional-tool-evidence-v0"
@@ -618,6 +620,295 @@ def load_json(path: Path) -> Any:
         raise ValueError(f"invalid JSON: {error}") from error
 
 
+def parse_cmake_values(body: str) -> list[str]:
+    values: list[str] = []
+    for raw in re.findall(r'"((?:[^"\\]|\\.)*)"|([^\s#)]+)', body):
+        value = raw[0] or raw[1]
+        if not value:
+            continue
+        values.append(value.replace(r"\"", '"').replace(r"\\", "\\"))
+    return values
+
+
+def iter_cmake_set_bodies(text: str) -> list[tuple[str, str]]:
+    bodies: list[tuple[str, str]] = []
+    for match in re.finditer(r"(?m)^set\(", text):
+        position = match.end()
+        while position < len(text) and text[position].isspace():
+            position += 1
+        name_start = position
+        while position < len(text) and (
+            text[position].isalnum() or text[position] == "_"
+        ):
+            position += 1
+        name = text[name_start:position]
+        if not name:
+            continue
+        body_start = position
+        depth = 1
+        in_quote = False
+        escaped = False
+        while position < len(text):
+            character = text[position]
+            if in_quote:
+                if escaped:
+                    escaped = False
+                elif character == "\\":
+                    escaped = True
+                elif character == '"':
+                    in_quote = False
+            else:
+                if character == '"':
+                    in_quote = True
+                elif character == "(":
+                    depth += 1
+                elif character == ")":
+                    depth -= 1
+                    if depth == 0:
+                        bodies.append((name, text[body_start:position]))
+                        break
+            position += 1
+    return bodies
+
+
+def cmake_list_values(text: str, name: str) -> list[str]:
+    for set_name, body in iter_cmake_set_bodies(text):
+        if set_name == name:
+            return parse_cmake_values(body)
+    return []
+
+
+def cmake_set_values(text: str) -> dict[str, list[str]]:
+    values: dict[str, list[str]] = {}
+    for name, body in iter_cmake_set_bodies(text):
+        values[name] = parse_cmake_values(body)
+    return values
+
+
+def resolve_cmake_value(value: str, variables: dict[str, list[str]]) -> str:
+    resolved = value
+    for _attempt in range(10):
+        changed = False
+
+        def replace(match: re.Match[str]) -> str:
+            nonlocal changed
+            name = match.group(1)
+            replacements = variables.get(name)
+            if not replacements:
+                return match.group(0)
+            changed = True
+            return replacements[0]
+
+        next_value = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", replace, resolved)
+        resolved = next_value
+        if not changed:
+            break
+    return resolved
+
+
+def cmake_verifier_inputs(root: Path, errors: list[str]) -> list[str]:
+    path = root / CMAKE_PATH
+    if not path.exists():
+        errors.append(f"missing {CMAKE_PATH}")
+        return []
+    values = cmake_list_values(read_text(path), VERIFIER_INPUT_LIST)
+    if not values:
+        errors.append(f"{CMAKE_PATH}: missing {VERIFIER_INPUT_LIST} entries")
+    return values
+
+
+def cmake_verifier_records(root: Path, errors: list[str]) -> list[dict[str, Any]]:
+    path = root / CTEST_PATH
+    if not path.exists():
+        errors.append(f"missing {CTEST_PATH}")
+        return []
+    text = read_text(path)
+    variables = cmake_set_values(text)
+    raw_records = variables.get("CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS", [])
+    if not raw_records:
+        errors.append(f"{CTEST_PATH}: missing CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS")
+        return []
+    records: list[dict[str, Any]] = []
+    for index, raw_record in enumerate(raw_records):
+        fields = [
+            resolve_cmake_value(field, variables) for field in raw_record.split("|")
+        ]
+        if len(fields) != 8:
+            errors.append(
+                f"{CTEST_PATH}: CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS[{index}] "
+                "must have 8 pipe-separated fields"
+            )
+            continue
+        key, ctest, fixture, input_path, _absolute_input = fields[:5]
+        required_markers_var = fields[5]
+        output_markers_var = fields[6]
+        required_markers = variables.get(required_markers_var, [])
+        if not required_markers:
+            errors.append(
+                f"{CTEST_PATH}: {required_markers_var} must list required verifier "
+                f"markers for {input_path}"
+            )
+        records.append(
+            {
+                "key": key,
+                "ctest": ctest,
+                "fixture": fixture,
+                "input": input_path,
+                "requiredMarkersVar": required_markers_var,
+                "requiredMarkers": required_markers,
+                "outputMarkersVar": output_markers_var,
+                "description": fields[7],
+            }
+        )
+    input_order = {
+        input_path: index
+        for index, input_path in enumerate(cmake_verifier_inputs(root, errors))
+    }
+    records.sort(
+        key=lambda record: input_order.get(str(record.get("input")), len(input_order))
+    )
+    return records
+
+
+def fixture_inventory_verifier_records(
+    root: Path, errors: list[str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    path = root / FIXTURE_INVENTORY_PATH
+    if not path.exists():
+        errors.append(f"missing {FIXTURE_INVENTORY_PATH}")
+        return [], []
+    try:
+        inventory = load_json(path)
+    except ValueError as error:
+        errors.append(f"{FIXTURE_INVENTORY_PATH}: {error}")
+        return [], []
+    inventory = require_object(inventory, str(FIXTURE_INVENTORY_PATH), errors)
+    fixtures = require_list(
+        inventory.get("fixtures"), f"{FIXTURE_INVENTORY_PATH}: fixtures", errors
+    )
+    cmake_inputs = cmake_verifier_inputs(root, errors)
+    cmake_input_set = set(cmake_inputs)
+    covered: list[dict[str, Any]] = []
+    blocked: list[dict[str, Any]] = []
+    seen_inputs: set[str] = set()
+    for index, item in enumerate(fixtures):
+        fixture = require_object(
+            item, f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]", errors
+        )
+        fixture_path = require_string(
+            fixture.get("path"),
+            f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}].path",
+            errors,
+        )
+        coverage = require_object(
+            fixture.get("verifierInputCoverage"),
+            f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}].verifierInputCoverage",
+            errors,
+        )
+        status = require_string(
+            coverage.get("status"),
+            f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}].verifierInputCoverage.status",
+            errors,
+        )
+        if status == "covered":
+            input_path = validate_relative_path(
+                coverage.get("input"),
+                f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                "verifierInputCoverage.input",
+                errors,
+            )
+            ctest = require_string(
+                coverage.get("ctest"),
+                f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                "verifierInputCoverage.ctest",
+                errors,
+            )
+            key = require_string(
+                coverage.get("key"),
+                f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                "verifierInputCoverage.key",
+                errors,
+            )
+            if coverage.get("sourceList") != VERIFIER_INPUT_LIST:
+                errors.append(
+                    f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                    f"verifierInputCoverage.sourceList must be {VERIFIER_INPUT_LIST!r}"
+                )
+            if coverage.get("fixture") != fixture_path:
+                errors.append(
+                    f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                    "verifierInputCoverage.fixture must match fixture path"
+                )
+            if input_path is not None:
+                if input_path not in cmake_input_set:
+                    errors.append(
+                        f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                        f"verifierInputCoverage.input {input_path!r} missing from "
+                        f"{VERIFIER_INPUT_LIST}"
+                    )
+                if input_path in seen_inputs:
+                    errors.append(
+                        f"{FIXTURE_INVENTORY_PATH}: duplicate verifier input "
+                        f"coverage for {input_path!r}"
+                    )
+                seen_inputs.add(input_path)
+            covered.append(
+                {
+                    "key": key,
+                    "ctest": ctest,
+                    "fixture": fixture_path,
+                    "input": input_path,
+                }
+            )
+        elif status == "blocked":
+            blocker = require_object(
+                coverage.get("blocker"),
+                f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                "verifierInputCoverage.blocker",
+                errors,
+            )
+            require_string(
+                blocker.get("id"),
+                f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                "verifierInputCoverage.blocker.id",
+                errors,
+            )
+            require_string(
+                blocker.get("reason"),
+                f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                "verifierInputCoverage.blocker.reason",
+                errors,
+            )
+            blocked.append({"fixture": fixture_path, "blocker": blocker})
+        else:
+            errors.append(
+                f"{FIXTURE_INVENTORY_PATH}: fixtures[{index}]."
+                "verifierInputCoverage.status must be 'covered' or 'blocked'"
+            )
+    missing_inputs = sorted(cmake_input_set - seen_inputs)
+    if missing_inputs:
+        errors.append(
+            f"{FIXTURE_INVENTORY_PATH}: {VERIFIER_INPUT_LIST} entries without "
+            "covered inventory fixtures: " + ", ".join(missing_inputs)
+        )
+    input_order = {input_path: index for index, input_path in enumerate(cmake_inputs)}
+    covered.sort(
+        key=lambda record: input_order.get(str(record.get("input")), len(input_order))
+    )
+    return covered, blocked
+
+
+def dynamic_required_gate_facts(verifier_fixtures: list[dict[str, Any]]) -> list[str]:
+    return [
+        f"{GATE_OPTION}=ON",
+        "MLIR_FOUND=TRUE",
+        f"target {GATE_TARGET}",
+        *(str(fixture["input"]) for fixture in verifier_fixtures),
+        "mlir-opt discovery",
+        "mlir-opt --version probe",
+    ]
+
+
 def require_object(value: object, field: str, errors: list[str]) -> dict[str, Any]:
     if not isinstance(value, dict):
         errors.append(f"{field} must be an object")
@@ -959,7 +1250,69 @@ def check_cmake_metadata_contract(root: Path, errors: list[str]) -> None:
 
 
 def check_verifier_input_markers(root: Path, errors: list[str]) -> None:
-    for input_path, required_markers in REQUIRED_VERIFIER_MARKERS_BY_INPUT.items():
+    covered_fixtures, _blocked_fixtures = fixture_inventory_verifier_records(
+        root, errors
+    )
+    verifier_records = cmake_verifier_records(root, errors)
+    records_by_input = {
+        str(record["input"]): record
+        for record in verifier_records
+        if isinstance(record.get("input"), str)
+    }
+    covered_inputs = {
+        str(fixture["input"])
+        for fixture in covered_fixtures
+        if isinstance(fixture.get("input"), str)
+    }
+    cmake_inputs = set(cmake_verifier_inputs(root, errors))
+    missing_record_inputs = sorted(cmake_inputs - set(records_by_input))
+    if missing_record_inputs:
+        errors.append(
+            f"{CTEST_PATH}: CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS missing "
+            "CMake verifier inputs: " + ", ".join(missing_record_inputs)
+        )
+    missing_coverage_inputs = sorted(cmake_inputs - covered_inputs)
+    if missing_coverage_inputs:
+        errors.append(
+            f"{FIXTURE_INVENTORY_PATH}: covered verifier inventory missing "
+            "CMake verifier inputs: " + ", ".join(missing_coverage_inputs)
+        )
+
+    for fixture in covered_fixtures:
+        input_path = fixture.get("input")
+        if not isinstance(input_path, str):
+            continue
+        record = records_by_input.get(input_path)
+        if record is None:
+            errors.append(f"{CTEST_PATH}: missing verifier record for {input_path}")
+            continue
+        for field in ("key", "ctest", "fixture"):
+            if fixture.get(field) != record.get(field):
+                errors.append(
+                    f"{FIXTURE_INVENTORY_PATH}: verifierInputCoverage for "
+                    f"{input_path} must match CMake verifier record field {field}"
+                )
+        required_markers = [
+            marker
+            for marker in record.get("requiredMarkers", [])
+            if isinstance(marker, str) and marker
+        ]
+        if not required_markers:
+            errors.append(
+                f"{CTEST_PATH}: {record.get('requiredMarkersVar')} must provide "
+                f"non-empty marker coverage for {input_path}"
+            )
+            continue
+        required_anchors = (
+            f'crossgl_fixture = "{fixture.get("fixture")}"',
+            "crossgl_real_mlir_smoke = true",
+        )
+        for marker in required_anchors:
+            if marker not in required_markers:
+                errors.append(
+                    f"{CTEST_PATH}: {record.get('requiredMarkersVar')} for "
+                    f"{input_path} must include marker {marker!r}"
+                )
         path = root / input_path
         if not path.exists():
             errors.append(f"missing MLIR verifier input {input_path}")
@@ -986,6 +1339,12 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
         errors.append(f"{evidence_path}: {error}")
         return
     evidence = require_object(evidence, str(evidence_path), errors)
+    verifier_fixtures, _blocked_verifier_fixtures = fixture_inventory_verifier_records(
+        root, errors
+    )
+    if not verifier_fixtures:
+        verifier_fixtures = list(VERIFIER_FIXTURES)
+    expected_required_gate_facts = dynamic_required_gate_facts(verifier_fixtures)
     if evidence.get("schemaVersion") != 1:
         errors.append(f"{evidence_path}: schemaVersion must be 1")
     if evidence.get("kind") != KIND:
@@ -1092,7 +1451,7 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
         if key is not None:
             verifier_inputs_by_key[key] = record
     verifier_input_present_by_key: dict[str, bool | None] = {}
-    for fixture in VERIFIER_FIXTURES:
+    for fixture in verifier_fixtures:
         key = str(fixture["key"])
         record = verifier_inputs_by_key.get(key)
         if record is None:
@@ -1244,7 +1603,7 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
         if key is not None:
             verifier_registrations_by_key[key] = record
     verifier_registration_infos: list[dict[str, Any]] = []
-    for fixture in VERIFIER_FIXTURES:
+    for fixture in verifier_fixtures:
         key = str(fixture["key"])
         record = verifier_registrations_by_key.get(key)
         if record is None:
@@ -1464,9 +1823,10 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
     skip_ctests = require_string_list(
         skip.get("ctests"), f"{evidence_path}: skipEvidence.ctests", errors
     )
-    if skip_ctests != list(VERIFIER_TESTS):
+    expected_verifier_tests = [str(fixture["ctest"]) for fixture in verifier_fixtures]
+    if skip_ctests != expected_verifier_tests:
         errors.append(
-            f"{evidence_path}: skipEvidence.ctests must be {list(VERIFIER_TESTS)!r}"
+            f"{evidence_path}: skipEvidence.ctests must be {expected_verifier_tests!r}"
         )
     reason = require_optional_string(
         skip.get("reason"), f"{evidence_path}: skipEvidence.reason", errors
@@ -1510,10 +1870,10 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
         f"{evidence_path}: skipDiagnostics.requiredGateFacts",
         errors,
     )
-    if required_gate_facts != list(REQUIRED_GATE_FACTS):
+    if required_gate_facts != expected_required_gate_facts:
         errors.append(
             f"{evidence_path}: skipDiagnostics.requiredGateFacts must be "
-            f"{list(REQUIRED_GATE_FACTS)!r}"
+            f"{expected_required_gate_facts!r}"
         )
     missing_reasons = require_string_list_allow_empty(
         skip_diagnostics.get("missingReasons"),
@@ -1700,7 +2060,7 @@ def check_evidence_file(root: Path, evidence_path: Path, errors: list[str]) -> N
 
     all_verifier_inputs_present = input_present is True and all(
         verifier_input_present_by_key.get(str(fixture["key"])) is True
-        for fixture in VERIFIER_FIXTURES
+        for fixture in verifier_fixtures
     )
 
     if status == "default-off":
@@ -1968,6 +2328,27 @@ set({VERIFIER_INPUT_LIST}
 """,
         encoding="utf-8",
     )
+    (root / FIXTURE_INVENTORY_PATH).write_text(
+        json.dumps(
+            {
+                "fixtures": [
+                    {
+                        "path": fixture["fixture"],
+                        "verifierInputCoverage": {
+                            "status": "covered",
+                            "key": fixture["key"],
+                            "input": fixture["input"],
+                            "fixture": fixture["fixture"],
+                            "ctest": fixture["ctest"],
+                            "sourceList": VERIFIER_INPUT_LIST,
+                        },
+                    }
+                    for fixture in VERIFIER_FIXTURES
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
     (root / MANIFEST_PATH).write_text(
         json.dumps(
             {
@@ -2172,11 +2553,11 @@ set({VERIFIER_INPUT_LIST}
         )
         + f"""
 set(CROSSGL_MLIR_EXPERIMENT_VERIFIER_RECORDS
-  "minimal_compute|{VERIFIER_TEST}|{MINIMAL_FIXTURE}|{VERIFIER_INPUT}"
-  "scalar_expression_compute|{SCALAR_EXPRESSION_VERIFIER_TEST}|{SCALAR_EXPRESSION_FIXTURE}|{SCALAR_EXPRESSION_VERIFIER_INPUT}"
-  "storage_buffer_compute|{STORAGE_BUFFER_VERIFIER_TEST}|{STORAGE_BUFFER_FIXTURE}|{STORAGE_BUFFER_VERIFIER_INPUT}"
-  "if_compute|{IF_COMPUTE_VERIFIER_TEST}|{IF_COMPUTE_FIXTURE}|{IF_COMPUTE_VERIFIER_INPUT}"
-  "texture_sampler_compute|{TEXTURE_SAMPLER_VERIFIER_TEST}|{TEXTURE_SAMPLER_FIXTURE}|{TEXTURE_SAMPLER_VERIFIER_INPUT}")
+  "minimal_compute|{VERIFIER_TEST}|{MINIMAL_FIXTURE}|{VERIFIER_INPUT}|{VERIFIER_INPUT}|CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_MINIMAL_VERIFY_OUTPUT_MARKERS|minimal compute"
+  "scalar_expression_compute|{SCALAR_EXPRESSION_VERIFIER_TEST}|{SCALAR_EXPRESSION_FIXTURE}|{SCALAR_EXPRESSION_VERIFIER_INPUT}|{SCALAR_EXPRESSION_VERIFIER_INPUT}|CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_SCALAR_EXPRESSION_VERIFY_OUTPUT_MARKERS|scalar-expression compute"
+  "storage_buffer_compute|{STORAGE_BUFFER_VERIFIER_TEST}|{STORAGE_BUFFER_FIXTURE}|{STORAGE_BUFFER_VERIFIER_INPUT}|{STORAGE_BUFFER_VERIFIER_INPUT}|CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_STORAGE_BUFFER_VERIFY_OUTPUT_MARKERS|storage-buffer compute"
+  "if_compute|{IF_COMPUTE_VERIFIER_TEST}|{IF_COMPUTE_FIXTURE}|{IF_COMPUTE_VERIFIER_INPUT}|{IF_COMPUTE_VERIFIER_INPUT}|CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_IF_COMPUTE_VERIFY_OUTPUT_MARKERS|if-compute"
+  "texture_sampler_compute|{TEXTURE_SAMPLER_VERIFIER_TEST}|{TEXTURE_SAMPLER_FIXTURE}|{TEXTURE_SAMPLER_VERIFIER_INPUT}|{TEXTURE_SAMPLER_VERIFIER_INPUT}|CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_REQUIRED_MARKERS|CROSSGL_MLIR_EXPERIMENT_TEXTURE_SAMPLER_VERIFY_OUTPUT_MARKERS|texture-sampler compute")
 set(CROSSGL_MLIR_EXPERIMENT_OPTIONAL_TOOL_EVIDENCE
   "${{CMAKE_CURRENT_BINARY_DIR}}/mlir/optional_tool_evidence.v0.json")
 function(crossgl_mlir_json_string_list out)
@@ -2513,6 +2894,14 @@ def run_self_test() -> list[str]:
             for error in run_checks(root, evidence_path)
         ):
             errors.append("self-test: verifier input missing fact marker was accepted")
+
+        evidence_path = write_minimal_repo(root)
+        (root / TEXTURE_SAMPLER_VERIFIER_INPUT).unlink()
+        if not any(
+            "missing MLIR verifier input" in error
+            for error in run_checks(root, evidence_path)
+        ):
+            errors.append("self-test: missing verifier input file was accepted")
 
         evidence_path = write_minimal_repo(root)
         ctest_text = read_text(root / CTEST_PATH).replace(
