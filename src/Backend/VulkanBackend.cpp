@@ -6159,6 +6159,20 @@ std::size_t vulkanBackendSourceLineCount(std::string_view text) {
   return newlineCount + (text.back() == '\n' ? 0 : 1);
 }
 
+SourceLocation vulkanTokenSpan(const std::vector<Token> &tokens) {
+  if (tokens.empty()) {
+    return {};
+  }
+  SourceLocation span = tokens.front().location;
+  const SourceLocation &end = tokens.back().location;
+  span.endLine = end.endLine;
+  span.endColumn = end.endColumn;
+  span.endOffset = end.endOffset;
+  span.length = span.endOffset >= span.offset ? span.endOffset - span.offset
+                                              : span.length;
+  return span;
+}
+
 std::string vulkanSourceMapExpressionName(const HIRExpression &expression) {
   switch (expression.kind) {
   case HIRExpressionKind::Identifier:
@@ -11135,18 +11149,13 @@ private:
     return std::nullopt;
   }
 
-  bool emitLoopUpdate(const std::vector<Token> &tokens) {
-    std::optional<PrototypeLoopUpdate> update = parseLoopUpdate(tokens);
-    if (!update.has_value()) {
-      return false;
-    }
-
-    const auto local = locals_.find(update->variableName);
+  bool emitLoopUpdate(const PrototypeLoopUpdate &update) {
+    const auto local = locals_.find(update.variableName);
     if (local == locals_.end()) {
       diagnostics_.error("vulkan.prototype-unsupported-loop",
                          "Vulkan prototype for loop update cannot resolve "
                          "local counter '" +
-                             update->variableName + "'");
+                             update.variableName + "'");
       return false;
     }
     if (local->second.variableId.empty()) {
@@ -11161,14 +11170,19 @@ private:
     instructionLines_.push_back(loaded + " = OpLoad " + typeId + " " +
                                 local->second.variableId);
     const std::string amount =
-        ensureNumericConstant(HIRType{"int", std::nullopt}, update->amount);
+        ensureNumericConstant(HIRType{"int", std::nullopt}, update.amount);
     const std::string updated = nextTemp();
-    const std::string opcode = update->increment ? "OpIAdd" : "OpISub";
+    const std::string opcode = update.increment ? "OpIAdd" : "OpISub";
     instructionLines_.push_back(updated + " = " + opcode + " " + typeId +
                                 " " + loaded + " " + amount);
     instructionLines_.push_back("OpStore " + local->second.variableId + " " +
                                 updated);
     return true;
+  }
+
+  bool emitLoopUpdate(const std::vector<Token> &tokens) {
+    std::optional<PrototypeLoopUpdate> update = parseLoopUpdate(tokens);
+    return update.has_value() && emitLoopUpdate(*update);
   }
 
   bool emitParsedLoopUpdate(const HIRStatement &statement) {
@@ -11198,6 +11212,28 @@ private:
     const bool success = emitParsedLoopUpdate(statement);
     if (success) {
       recordSourceMapStatement(statement, variableStartIndex,
+                               instructionStartIndex);
+    }
+    return success;
+  }
+
+  bool emitSourceMappedTokenLoopUpdate(const std::vector<Token> &tokens) {
+    std::optional<PrototypeLoopUpdate> update = parseLoopUpdate(tokens);
+    if (!update.has_value()) {
+      return false;
+    }
+
+    const std::size_t variableStartIndex = variableLines_.size();
+    const std::size_t instructionStartIndex = instructionLines_.size();
+    const bool success = emitLoopUpdate(*update);
+    if (success) {
+      HIRStatement updateStatement;
+      updateStatement.kind = HIRStatementKind::Assignment;
+      updateStatement.location = vulkanTokenSpan(tokens);
+      updateStatement.target.kind = HIRExpressionKind::Identifier;
+      updateStatement.target.value = update->variableName;
+      updateStatement.target.location = updateStatement.location;
+      recordSourceMapStatement(updateStatement, variableStartIndex,
                                instructionStartIndex);
     }
     return success;
@@ -11262,7 +11298,7 @@ private:
           return {};
         }
       } else {
-        if (!emitLoopUpdate(statement.updateTokens)) {
+        if (!emitSourceMappedTokenLoopUpdate(statement.updateTokens)) {
           locals_ = std::move(outerLocals);
           return {};
         }
