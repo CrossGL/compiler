@@ -53,6 +53,8 @@ struct PackageBackendSourceMapChecks {
   std::optional<bool> backendLineCountMatchesSource;
   std::optional<bool> backendSpansWithinSource;
   std::optional<bool> mappingCountMatchesMappings;
+  std::optional<bool> sourceRemapPathPackageRelative;
+  std::optional<bool> sourceRemapGeneratedFilePackageRelative;
   std::optional<bool> sourceRemapHashPresent;
   std::optional<bool> sourceRemapMappingCountPositive;
   std::optional<bool> sourceRemapMatchesProvenance;

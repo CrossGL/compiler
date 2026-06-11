@@ -500,6 +500,11 @@ void collectBackendSourceMapSourceRemapHealth(
       health.sourceRemapSha256 && isLowercaseSha256(*health.sourceRemapSha256);
   health.checks.sourceRemapMappingCountPositive =
       health.sourceRemapMappingCount && *health.sourceRemapMappingCount > 0;
+  health.checks.sourceRemapPathPackageRelative =
+      health.sourceRemapPath && isPackageRelativePath(*health.sourceRemapPath);
+  health.checks.sourceRemapGeneratedFilePackageRelative =
+      health.sourceRemapGeneratedFile &&
+      isPackageRelativePath(*health.sourceRemapGeneratedFile);
 }
 
 std::optional<std::string>

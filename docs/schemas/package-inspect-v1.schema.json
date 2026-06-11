@@ -1128,6 +1128,8 @@
         "backendLineCountMatchesSource",
         "backendSpansWithinSource",
         "mappingCountMatchesMappings",
+        "sourceRemapPathPackageRelative",
+        "sourceRemapGeneratedFilePackageRelative",
         "sourceRemapHashPresent",
         "sourceRemapMappingCountPositive",
         "sourceRemapMatchesProvenance"
@@ -1164,6 +1166,12 @@
           "$ref": "#/$defs/nullableBoolean"
         },
         "mappingCountMatchesMappings": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapPathPackageRelative": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapGeneratedFilePackageRelative": {
           "$ref": "#/$defs/nullableBoolean"
         },
         "sourceRemapHashPresent": {

@@ -1085,6 +1085,13 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableBool(out, backendSourceMap.checks.backendSpansWithinSource);
   out << ",\n" << indent << "      \"mappingCountMatchesMappings\": ";
   writeNullableBool(out, backendSourceMap.checks.mappingCountMatchesMappings);
+  out << ",\n" << indent << "      \"sourceRemapPathPackageRelative\": ";
+  writeNullableBool(out,
+                    backendSourceMap.checks.sourceRemapPathPackageRelative);
+  out << ",\n"
+      << indent << "      \"sourceRemapGeneratedFilePackageRelative\": ";
+  writeNullableBool(
+      out, backendSourceMap.checks.sourceRemapGeneratedFilePackageRelative);
   out << ",\n" << indent << "      \"sourceRemapHashPresent\": ";
   writeNullableBool(out, backendSourceMap.checks.sourceRemapHashPresent);
   out << ",\n" << indent << "      \"sourceRemapMappingCountPositive\": ";

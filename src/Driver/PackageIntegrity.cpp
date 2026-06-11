@@ -2668,6 +2668,12 @@ void writeBackendSourceMapSummary(
   writeNullableBool(out, health.checks.backendSpansWithinSource);
   out << ",\n" << indent << "    \"mappingCountMatchesMappings\": ";
   writeNullableBool(out, health.checks.mappingCountMatchesMappings);
+  out << ",\n" << indent << "    \"sourceRemapPathPackageRelative\": ";
+  writeNullableBool(out, health.checks.sourceRemapPathPackageRelative);
+  out << ",\n"
+      << indent << "    \"sourceRemapGeneratedFilePackageRelative\": ";
+  writeNullableBool(out,
+                    health.checks.sourceRemapGeneratedFilePackageRelative);
   out << ",\n" << indent << "    \"sourceRemapHashPresent\": ";
   writeNullableBool(out, health.checks.sourceRemapHashPresent);
   out << ",\n" << indent << "    \"sourceRemapMappingCountPositive\": ";
