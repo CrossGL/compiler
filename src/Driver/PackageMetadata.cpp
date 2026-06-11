@@ -2213,17 +2213,101 @@ bool validateInvocationObject(std::string_view value) {
          environmentSha256 && isLowercaseSha256(*environmentSha256);
 }
 
+bool isKnownNativeArtifactDiagnosticSeverity(std::string_view severity) {
+  return severity == "note" || severity == "warning" || severity == "error";
+}
+
+bool validateNativeArtifactDiagnosticLocation(std::string_view value) {
+  const std::optional<std::vector<JsonObjectMemberRange>> members =
+      collectObjectMemberRanges(value);
+  if (!members ||
+      !membersAreAllowed(
+          *members, {"file", "line", "column", "offset", "length", "endLine",
+                     "endColumn", "endOffset"}) ||
+      !hasAllMembers(*members, {"file", "line", "column", "offset", "length",
+                                "endLine", "endColumn", "endOffset"})) {
+    return false;
+  }
+  const std::optional<std::string> file = objectStringMember(value, "file");
+  const std::optional<std::uintmax_t> line =
+      objectUnsignedMember(value, "line");
+  const std::optional<std::uintmax_t> column =
+      objectUnsignedMember(value, "column");
+  const std::optional<std::uintmax_t> offset =
+      objectUnsignedMember(value, "offset");
+  const std::optional<std::uintmax_t> length =
+      objectUnsignedMember(value, "length");
+  const std::optional<std::uintmax_t> endLine =
+      objectUnsignedMember(value, "endLine");
+  const std::optional<std::uintmax_t> endColumn =
+      objectUnsignedMember(value, "endColumn");
+  const std::optional<std::uintmax_t> endOffset =
+      objectUnsignedMember(value, "endOffset");
+  if (!file || !isPackageRelativePath(*file) || !line || *line == 0 ||
+      !column || *column == 0 || !offset || !length || !endLine ||
+      *endLine == 0 || !endColumn || *endColumn == 0 || !endOffset) {
+    return false;
+  }
+  if (*endLine < *line || (*endLine == *line && *endColumn < *column)) {
+    return false;
+  }
+  return *endOffset >= *offset;
+}
+
 bool validateDiagnosticObject(std::string_view value) {
   const std::optional<std::vector<JsonObjectMemberRange>> members =
       collectObjectMemberRanges(value);
-  if (!members || !membersAreAllowed(*members, {"code", "message"}) ||
+  if (!members ||
+      !membersAreAllowed(*members, {"severity", "code", "message", "location",
+                                    "originalLocation", "target",
+                                    "missingCapabilities"}) ||
       !hasAllMembers(*members, {"code", "message"})) {
     return false;
   }
   const std::optional<std::string> code = objectStringMember(value, "code");
   const std::optional<std::string> message =
       objectStringMember(value, "message");
-  return code && !code->empty() && message && !message->empty();
+  if (!code || !isValidDiagnosticCode(*code) || !message || message->empty()) {
+    return false;
+  }
+  if (hasMember(*members, "severity")) {
+    const std::optional<std::string> severity =
+        objectStringMember(value, "severity");
+    if (!severity || !isKnownNativeArtifactDiagnosticSeverity(*severity)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "location")) {
+    const std::optional<std::string_view> location =
+        findObjectMemberValue(value, "location");
+    if (!location || !validateNativeArtifactDiagnosticLocation(*location)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "originalLocation")) {
+    const std::optional<std::string_view> originalLocation =
+        findObjectMemberValue(value, "originalLocation");
+    if (!originalLocation ||
+        !validateNativeArtifactDiagnosticLocation(*originalLocation)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "target")) {
+    const std::optional<std::string> target =
+        objectStringMember(value, "target");
+    if (!target || !isKnownPackageTargetName(*target)) {
+      return false;
+    }
+  }
+  if (hasMember(*members, "missingCapabilities")) {
+    const std::optional<std::string_view> missingCapabilities =
+        findObjectMemberValue(value, "missingCapabilities");
+    if (!missingCapabilities || !validateStringArray(*missingCapabilities) ||
+        arrayLength(*missingCapabilities).value_or(0) == 0) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool validateToolRecord(std::string_view value,
@@ -2550,6 +2634,11 @@ bool nativeArtifactDescriptorMatchesContract(
         if (!openglPlannedValidationFailureToolsMatch(tools)) {
           return false;
         }
+      } else if (*health.validationStatus == "failed" &&
+                 directxPlannedDxcEvidence) {
+        if (validationDiagnosticCount == 0) {
+          return false;
+        }
       } else {
         return false;
       }
@@ -2576,8 +2665,14 @@ bool nativeArtifactDescriptorMatchesContract(
       !requiredNativeArtifactRolesPresent(*health.binaryKind, tools)) {
     return false;
   }
+  const bool directxPlannedCompilerFailure =
+      health.nativeBinaryStatus && *health.nativeBinaryStatus == "planned" &&
+      *health.validationStatus == "failed" && *health.target == "directx" &&
+      *health.binaryKind == "directx.dxil" &&
+      directxPlannedDxcToolsMatch(tools);
   if ((*health.validationStatus == "validated" ||
        *health.validationStatus == "failed") &&
+      !directxPlannedCompilerFailure &&
       !hasToolRole(tools, "validator")) {
     return false;
   }

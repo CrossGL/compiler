@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "crossgl/Backend/Toolchain.h"
 #include "crossgl/Basic/Diagnostic.h"
@@ -28,6 +29,7 @@ struct DirectXSourcePackageResult {
   std::string optimizationStatus = "unavailable";
   std::string shaderProfileSummary;
   std::optional<ToolInvocationProvenance> dxcProvenance;
+  std::vector<Diagnostic> validationDiagnostics;
 };
 
 struct DirectXDxcOptimizationProfile {
@@ -92,11 +94,13 @@ buildDirectXSourcePackage(const HIRModule &module,
                           const std::filesystem::path &packageDir,
                           DiagnosticEngine &diagnostics,
                           OptimizationLevel optimizationLevel =
-                              OptimizationLevel::O1);
+                              OptimizationLevel::O1,
+                          const SourceRemap *sourceRemap = nullptr);
 DirectXSourcePackageResult buildDirectXSourcePackage(
     const HIRModule &module, const std::filesystem::path &packageDir,
     DiagnosticEngine &diagnostics,
     const TargetLegalizationResourceBindingFacts &resourceBindings,
-    OptimizationLevel optimizationLevel = OptimizationLevel::O1);
+    OptimizationLevel optimizationLevel = OptimizationLevel::O1,
+    const SourceRemap *sourceRemap = nullptr);
 
 } // namespace crossgl

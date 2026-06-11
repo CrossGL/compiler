@@ -127,6 +127,16 @@ function(fake_tool_expect_source_suffix args expected_suffix)
   endif()
 endfunction()
 
+function(fake_tool_source_path args out_var)
+  list(LENGTH args arg_count)
+  if(arg_count EQUAL 0)
+    message(FATAL_ERROR "fake ${FAKE_TOOL_NAME} expected a source path")
+  endif()
+  math(EXPR source_index "${arg_count} - 1")
+  list(GET args ${source_index} source_path)
+  set(${out_var} "${source_path}" PARENT_SCOPE)
+endfunction()
+
 function(fake_glslang_write_partial_native_artifact)
   if(NOT DEFINED fake_glslang_source)
     return()
@@ -178,6 +188,7 @@ if(FAKE_TOOL_NAME STREQUAL "dxc")
             "fake dxc expected profile cs_6_0, cs_6_7, vs_6_0, ps_6_0, vs_6_7, or ps_6_7, got ${fake_dxc_profile}")
   endif()
   fake_tool_expect_source_suffix("${fake_tool_args}" "\\.hlsl")
+  fake_tool_source_path("${fake_tool_args}" fake_dxc_source)
 elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator")
   list(LENGTH fake_tool_args fake_glslang_arg_count)
   math(EXPR fake_glslang_source_index "${fake_glslang_arg_count} - 1")
@@ -294,6 +305,11 @@ elseif(FAKE_TOOL_NAME STREQUAL "dxc" AND
        FAKE_TOOL_BEHAVIOR STREQUAL "failure")
   file(WRITE "${fake_output}" "fake partial dxil from failed dxc\n")
   message(FATAL_ERROR "fake ${FAKE_TOOL_NAME} failure")
+elseif(FAKE_TOOL_NAME STREQUAL "dxc" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "diagnostics-failure")
+  file(WRITE "${fake_output}" "fake partial dxil from diagnostic dxc failure\n")
+  message("${fake_dxc_source}(5,3): error: fake dxc mapped failure")
+  message(FATAL_ERROR "fake dxc mapped failure")
 elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator" AND
        FAKE_TOOL_BEHAVIOR STREQUAL "failure")
   fake_glslang_write_partial_native_artifact()
@@ -317,6 +333,7 @@ elseif(NOT FAKE_TOOL_BEHAVIOR STREQUAL "success" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-no-output" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "no-output" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "empty-output" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "diagnostics-failure" AND
        NOT FAKE_TOOL_BEHAVIOR STREQUAL "fragment-failure")
   message(FATAL_ERROR
           "unknown fake ${FAKE_TOOL_NAME} behavior: ${FAKE_TOOL_BEHAVIOR}")

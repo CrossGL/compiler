@@ -331,6 +331,10 @@ def validate_native_binary_status(errors, instance):
         if (
             validation_status != "unavailable"
             and not is_opengl_planned_validation_failure(instance)
+            and not (
+                validation_status == "failed"
+                and is_directx_planned_dxc_evidence(instance)
+            )
         ):
             errors.append(
                 "$.validationStatus: planned source-package descriptors require "

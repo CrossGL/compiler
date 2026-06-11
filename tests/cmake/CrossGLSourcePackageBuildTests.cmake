@@ -36,6 +36,8 @@ endfunction()
 
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_SUCCESS_DIR dxc success)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_FAILURE_DIR dxc failure)
+crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_DIAGNOSTICS_FAILURE_DIR dxc
+                                   diagnostics-failure)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_NO_OUTPUT_DIR dxc
                                    no-output)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_DXC_EMPTY_OUTPUT_DIR dxc
@@ -64,6 +66,10 @@ crossgl_configure_fake_shader_tool(CROSSGL_FAKE_GLSLANG_FRAGMENT_FAILURE_DIR
 set(CROSSGL_FAKE_TOOL_UNAVAILABLE_DIR
     "${CMAKE_CURRENT_BINARY_DIR}/fake-toolchain/unavailable")
 file(MAKE_DIRECTORY "${CROSSGL_FAKE_TOOL_UNAVAILABLE_DIR}")
+set(CROSSGL_SOURCE_REMAP_FULL_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json")
+set(CROSSGL_SOURCE_REMAP_FULL_FILE_METADATA
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json")
 
 add_test(NAME cglc_build_directx_storage_buffer_source_package
   COMMAND ${CMAKE_COMMAND}
@@ -207,6 +213,40 @@ add_test(NAME cglc_build_directx_source_package_fake_dxc_tool_failure
     "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=backend/directx/StorageBufferComputeShader.dxil"
     -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_FAILURE_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/StorageBufferComputeShader.hlsl"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_directx_source_package_fake_dxc_diagnostics_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DLOGICAL_INPUT=generated/from-translator.cgl
+    -DSOURCE_REMAP=${CROSSGL_SOURCE_REMAP_FULL_FILE_METADATA}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-fake-dxc-diagnostics-failure.cglb
+    -DMODE=source-package-build
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_DXC_DIAGNOSTICS_FAILURE_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    -DEXPECTED_SOURCE=backend/directx/StorageBufferComputeShader.hlsl
+    -DEXPECTED_NATIVE_BINARY_ABSENT=backend/directx/StorageBufferComputeShader.dxil
+    -DEXPECTED_NATIVE_BINARY_STATUS=planned
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=note|diagnostics.0.code=directx.source-package-emitted|diagnostics.1.severity=warning|diagnostics.1.code=directx.dxc-failed|diagnostics.2.severity=warning|diagnostics.2.code=directx.source-package-only"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.1.message=dxc diagnostics: stderr:|diagnostics.1.message=fake dxc mapped failure|diagnostics.1.message=partial DXIL output was discarded"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=3"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=StorageBufferComputeShader|artifacts.sourceRemap=ir/source-remap-provenance.json|artifacts.backendSourceMap=backend/directx/StorageBufferComputeShader.backend-source-map.json|artifacts.nativeArtifactDescriptor=backend/directx/StorageBufferComputeShader.native-artifact.json|artifacts.nativeBinaryStatus=planned"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=directx|binaryKind=directx.dxil|sourcePath=backend/directx/StorageBufferComputeShader.hlsl|sourceHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=unknown|optimizationEvidence.policy=crossgl-to-dxc-optimization-map|optimizationEvidence.status=not-run|optimizationEvidence.tool=dxc|optimizationEvidence.toolFlag=-O3|optimizationEvidence.profile=compute=cs_6_0|validationStatus=failed|nativeBinaryStatus=planned|validationDiagnostics.0.severity=error|validationDiagnostics.0.code=directx.dxc-error|validationDiagnostics.0.message=dxc error: fake dxc mapped failure (backend/directx/StorageBufferComputeShader.hlsl:5:3)|validationDiagnostics.0.location.file=generated/from-translator.cgl|validationDiagnostics.0.location.line=8|validationDiagnostics.0.originalLocation.file=shaders/original.crossgl|validationDiagnostics.0.originalLocation.line=47|validationDiagnostics.0.target=directx|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=dxc|toolchainProvenance.tools.1.role=compiler|toolchainProvenance.tools.1.executable=dxc|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value|validationDiagnostics.0.location.column|validationDiagnostics.0.originalLocation.column"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=1|validationDiagnostics.0.missingCapabilities=1"
+    "-DEXPECTED_BACKEND_SOURCE_MAP_JSON_FIELDS=mappings.0.backend.startLine=5|mappings.0.location.file=generated/from-translator.cgl|mappings.0.originalLocation.file=shaders/original.crossgl|mappings.0.originalLocation.line=47"
+    "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=target=directx|generatedFile=generated/from-translator.cgl|sourceRemap.target=cgl|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug"
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+    "-DEXPECTED_HIR_SOURCE_MAP_JSON_FIELDS=hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+    -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
+    -DBACKEND_SOURCE_MAP_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
+    -DSOURCE_REMAP_PROVENANCE_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-provenance-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DPACKAGE_INTEGRITY_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_package_integrity.py
+    -DPYTHON3_EXECUTABLE=${CROSSGL_PYTHON3}
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_DXC_DIAGNOSTICS_FAILURE_DIR}/dxc.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=-O3 -T cs_6_0 -E compute_main -Fo|backend/directx/StorageBufferComputeShader.dxil|backend/directx/StorageBufferComputeShader.hlsl"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_directx_source_package_fake_dxc_no_output
   COMMAND ${CMAKE_COMMAND}
@@ -562,10 +602,6 @@ crossgl_add_python_expect_test(
     -DPACKAGE_SCHEMA_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     -DPACKAGE_INTEGRITY_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_package_integrity.py)
-set(CROSSGL_SOURCE_REMAP_FULL_FILE
-    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json")
-set(CROSSGL_SOURCE_REMAP_FULL_FILE_METADATA
-    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json")
 file(SHA256 "${CROSSGL_SOURCE_REMAP_FULL_FILE}"
      CROSSGL_SOURCE_REMAP_FULL_FILE_SHA256)
 file(SIZE "${CROSSGL_SOURCE_REMAP_FULL_FILE}"

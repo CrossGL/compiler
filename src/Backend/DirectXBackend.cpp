@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -6501,6 +6502,246 @@ std::string directxDxcDiagnostics(const ProcessCaptureResult &result) {
   return out.str();
 }
 
+struct DirectXDxcParsedDiagnostic {
+  std::filesystem::path path;
+  std::size_t line = 1;
+  std::size_t column = 1;
+  DiagnosticSeverity severity = DiagnosticSeverity::Error;
+  std::string message;
+};
+
+bool isDirectXDxcSpace(char c) {
+  return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
+std::string_view trimDirectXDxcText(std::string_view text) {
+  while (!text.empty() && isDirectXDxcSpace(text.front())) {
+    text.remove_prefix(1);
+  }
+  while (!text.empty() && isDirectXDxcSpace(text.back())) {
+    text.remove_suffix(1);
+  }
+  return text;
+}
+
+std::optional<std::size_t>
+parseDirectXDxcPositiveInteger(std::string_view text) {
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  std::size_t value = 0;
+  for (char c : text) {
+    if (c < '0' || c > '9') {
+      return std::nullopt;
+    }
+    const std::size_t digit = static_cast<std::size_t>(c - '0');
+    if (value > (std::numeric_limits<std::size_t>::max() - digit) / 10) {
+      return std::nullopt;
+    }
+    value = value * 10 + digit;
+  }
+  if (value == 0) {
+    return std::nullopt;
+  }
+  return value;
+}
+
+std::optional<DiagnosticSeverity>
+directxDxcSeverity(std::string_view text) {
+  const std::string_view trimmed = trimDirectXDxcText(text);
+  const std::size_t tokenEnd = trimmed.find(' ');
+  const std::string_view token =
+      tokenEnd == std::string_view::npos ? trimmed : trimmed.substr(0, tokenEnd);
+  if (token == "error") {
+    return DiagnosticSeverity::Error;
+  }
+  if (token == "warning") {
+    return DiagnosticSeverity::Warning;
+  }
+  if (token == "note") {
+    return DiagnosticSeverity::Note;
+  }
+  return std::nullopt;
+}
+
+std::optional<DirectXDxcParsedDiagnostic>
+parseDirectXDxcDiagnosticLine(std::string_view line) {
+  line = trimDirectXDxcText(line);
+  std::size_t searchOffset = 0;
+  while (searchOffset < line.size()) {
+    const std::size_t closeLocation = line.find("):", searchOffset);
+    if (closeLocation == std::string_view::npos) {
+      return std::nullopt;
+    }
+    const std::size_t openLocation = line.rfind('(', closeLocation);
+    if (openLocation == std::string_view::npos || openLocation == 0) {
+      searchOffset = closeLocation + 2;
+      continue;
+    }
+    const std::string_view coordinates =
+        line.substr(openLocation + 1, closeLocation - openLocation - 1);
+    const std::size_t comma = coordinates.find(',');
+    if (comma == std::string_view::npos) {
+      searchOffset = closeLocation + 2;
+      continue;
+    }
+    const std::optional<std::size_t> parsedLine =
+        parseDirectXDxcPositiveInteger(coordinates.substr(0, comma));
+    const std::optional<std::size_t> parsedColumn =
+        parseDirectXDxcPositiveInteger(coordinates.substr(comma + 1));
+    if (!parsedLine || !parsedColumn) {
+      searchOffset = closeLocation + 2;
+      continue;
+    }
+    std::string_view detail =
+        trimDirectXDxcText(line.substr(closeLocation + 2));
+    const std::size_t severityEnd = detail.find(':');
+    if (severityEnd == std::string_view::npos) {
+      return std::nullopt;
+    }
+    const std::optional<DiagnosticSeverity> severity =
+        directxDxcSeverity(detail.substr(0, severityEnd));
+    if (!severity) {
+      searchOffset = closeLocation + 2;
+      continue;
+    }
+    detail = trimDirectXDxcText(detail.substr(severityEnd + 1));
+    if (detail.empty()) {
+      return std::nullopt;
+    }
+
+    DirectXDxcParsedDiagnostic diagnostic;
+    diagnostic.path =
+        std::filesystem::path(std::string(line.substr(0, openLocation)));
+    diagnostic.line = *parsedLine;
+    diagnostic.column = *parsedColumn;
+    diagnostic.severity = *severity;
+    diagnostic.message = std::string(detail);
+    return diagnostic;
+  }
+  return std::nullopt;
+}
+
+std::string directxDxcDiagnosticCode(DiagnosticSeverity severity) {
+  switch (severity) {
+  case DiagnosticSeverity::Error:
+    return "directx.dxc-error";
+  case DiagnosticSeverity::Warning:
+    return "directx.dxc-warning";
+  case DiagnosticSeverity::Note:
+    return "directx.dxc-note";
+  }
+  return "directx.dxc-message";
+}
+
+SourceLocation directxDxcGeneratedLocation(
+    const std::filesystem::path &packageRelativeSource,
+    const DirectXDxcParsedDiagnostic &parsed) {
+  SourceLocation location;
+  location.file = packageRelativeSource.generic_string();
+  location.line = parsed.line;
+  location.column = parsed.column;
+  location.endLine = parsed.line;
+  location.endColumn = parsed.column;
+  return location;
+}
+
+const DirectXBackendSourceMapRecord *directxSourceMapRecordForBackendLine(
+    const DirectXBackendSourceMapCollector &sourceMap, std::size_t line) {
+  for (const DirectXBackendSourceMapRecord &record : sourceMap.records) {
+    if (line >= record.backendStartLine && line <= record.backendEndLine) {
+      return &record;
+    }
+  }
+  return nullptr;
+}
+
+bool isDirectXStableDiagnosticPath(std::string_view path) {
+  if (path.empty() || path.starts_with("/") || path.starts_with("\\") ||
+      path.find('\\') != std::string_view::npos) {
+    return false;
+  }
+  if (path.size() >= 2 && path[1] == ':' &&
+      ((path[0] >= 'A' && path[0] <= 'Z') ||
+       (path[0] >= 'a' && path[0] <= 'z'))) {
+    return false;
+  }
+  std::size_t segmentBegin = 0;
+  while (segmentBegin <= path.size()) {
+    const std::size_t segmentEnd = path.find('/', segmentBegin);
+    const std::string_view segment =
+        segmentEnd == std::string_view::npos
+            ? path.substr(segmentBegin)
+            : path.substr(segmentBegin, segmentEnd - segmentBegin);
+    if (segment == "..") {
+      return false;
+    }
+    if (segmentEnd == std::string_view::npos) {
+      break;
+    }
+    segmentBegin = segmentEnd + 1;
+  }
+  return true;
+}
+
+Diagnostic directxDxcValidationDiagnostic(
+    const DirectXDxcParsedDiagnostic &parsed,
+    const DirectXBackendSourceMapCollector &sourceMap,
+    const std::filesystem::path &packageRelativeSource) {
+  Diagnostic diagnostic;
+  diagnostic.severity = parsed.severity;
+  diagnostic.code = directxDxcDiagnosticCode(parsed.severity);
+  diagnostic.message =
+      "dxc " + std::string(toString(parsed.severity)) + ": " + parsed.message +
+      " (" + packageRelativeSource.generic_string() + ":" +
+      std::to_string(parsed.line) + ":" + std::to_string(parsed.column) + ")";
+  diagnostic.location =
+      directxDxcGeneratedLocation(packageRelativeSource, parsed);
+  if (const DirectXBackendSourceMapRecord *record =
+          directxSourceMapRecordForBackendLine(sourceMap, parsed.line)) {
+    if (isDirectXStableDiagnosticPath(record->location.file)) {
+      diagnostic.location = record->location;
+    }
+    if (record->originalLocation &&
+        isDirectXStableDiagnosticPath(record->originalLocation->file)) {
+      diagnostic.originalLocation = record->originalLocation;
+    }
+  }
+  diagnostic.target = "directx";
+  diagnostic.missingCapabilities = {"directx.backend.native-dxil-package"};
+  return diagnostic;
+}
+
+void appendDirectXDxcValidationDiagnostics(
+    std::vector<Diagnostic> &diagnostics, std::string_view output,
+    const DirectXBackendSourceMapCollector &sourceMap,
+    const std::filesystem::path &packageRelativeSource) {
+  while (!output.empty()) {
+    const std::size_t lineEnd = output.find('\n');
+    const std::string_view line =
+        lineEnd == std::string_view::npos ? output : output.substr(0, lineEnd);
+    if (std::optional<DirectXDxcParsedDiagnostic> parsed =
+            parseDirectXDxcDiagnosticLine(line)) {
+      diagnostics.push_back(
+          directxDxcValidationDiagnostic(*parsed, sourceMap, packageRelativeSource));
+    }
+    if (lineEnd == std::string_view::npos) {
+      break;
+    }
+    output.remove_prefix(lineEnd + 1);
+  }
+}
+
+void appendDirectXDxcValidationDiagnostics(
+    std::vector<Diagnostic> &diagnostics, const ProcessCaptureResult &result,
+    const DirectXBackendSourceMapCollector &sourceMap,
+    const std::filesystem::path &packageRelativeSource) {
+  appendDirectXDxcValidationDiagnostics(diagnostics, result.stderrText,
+                                        sourceMap, packageRelativeSource);
+  appendDirectXDxcValidationDiagnostics(diagnostics, result.stdoutText,
+                                        sourceMap, packageRelativeSource);
+}
+
 std::string directxDxilArtifactStatus(const std::filesystem::path &path) {
   std::error_code error;
   if (!std::filesystem::exists(path, error)) {
@@ -6539,7 +6780,8 @@ buildDirectXSourcePackage(const HIRModule &module,
                           DiagnosticEngine &diagnostics,
                           const TargetLegalizationResourceBindingFacts
                               *resourceBindings,
-                          OptimizationLevel optimizationLevel) {
+                          OptimizationLevel optimizationLevel,
+                          const SourceRemap *sourceRemap) {
   DirectXSourcePackageResult result;
   const DirectXDxcOptimizationProfile optimizationProfile =
       directxDxcOptimizationProfile(optimizationLevel);
@@ -6577,7 +6819,10 @@ buildDirectXSourcePackage(const HIRModule &module,
       directxPackageRelativePath(result.nativeBinaryPath, packageDir);
   std::filesystem::remove(result.nativeBinaryPath, error);
 
-  const std::string sourceText = generateDirectXSource(module, resourceBindings);
+  DirectXBackendSourceMapCollector sourceMap;
+  sourceMap.sourceRemap = sourceRemap;
+  const std::string sourceText =
+      generateDirectXSource(module, resourceBindings, &sourceMap);
   std::ofstream source(result.sourcePath, std::ios::binary);
   if (!source) {
     diagnostics.error("directx.write-source",
@@ -6652,6 +6897,12 @@ buildDirectXSourcePackage(const HIRModule &module,
     const ProcessCaptureResult vertexResult = runProcessCapture(vertexCommand);
     const ProcessCaptureResult fragmentResult =
         runProcessCapture(fragmentCommand);
+    appendDirectXDxcValidationDiagnostics(
+        result.validationDiagnostics, vertexResult, sourceMap,
+        packageRelativeSource);
+    appendDirectXDxcValidationDiagnostics(
+        result.validationDiagnostics, fragmentResult, sourceMap,
+        packageRelativeSource);
     completeToolInvocationProvenance(vertexProvenance, vertexResult);
     completeToolInvocationProvenance(fragmentProvenance, fragmentResult);
     result.dxcProvenance = combineDirectXGraphicsDxcProvenance(
@@ -6738,6 +6989,8 @@ buildDirectXSourcePackage(const HIRModule &module,
   result.dxcProvenance = captureToolInvocationProvenance(
       "dxc", command, result.nativeBinaryPath.string());
   const ProcessCaptureResult dxcResult = runProcessCapture(command);
+  appendDirectXDxcValidationDiagnostics(
+      result.validationDiagnostics, dxcResult, sourceMap, packageRelativeSource);
   completeToolInvocationProvenance(*result.dxcProvenance, dxcResult);
   const std::string dxilStatus =
       directxDxilArtifactStatus(result.nativeBinaryPath);
@@ -6788,22 +7041,24 @@ DirectXSourcePackageResult
 buildDirectXSourcePackage(const HIRModule &module,
                           const std::filesystem::path &packageDir,
                           DiagnosticEngine &diagnostics,
-                          OptimizationLevel optimizationLevel) {
+                          OptimizationLevel optimizationLevel,
+                          const SourceRemap *sourceRemap) {
   const std::optional<TargetLegalizationResourceBindingFacts> resourceBindings =
       directxLegalizedResourceBindingsForEmission(module);
   return buildDirectXSourcePackage(
       module, packageDir, diagnostics,
       resourceBindings.has_value() ? &*resourceBindings : nullptr,
-      optimizationLevel);
+      optimizationLevel, sourceRemap);
 }
 
 DirectXSourcePackageResult buildDirectXSourcePackage(
     const HIRModule &module, const std::filesystem::path &packageDir,
     DiagnosticEngine &diagnostics,
     const TargetLegalizationResourceBindingFacts &resourceBindings,
-    OptimizationLevel optimizationLevel) {
+    OptimizationLevel optimizationLevel, const SourceRemap *sourceRemap) {
   return buildDirectXSourcePackage(module, packageDir, diagnostics,
-                                   &resourceBindings, optimizationLevel);
+                                   &resourceBindings, optimizationLevel,
+                                   sourceRemap);
 }
 
 } // namespace crossgl

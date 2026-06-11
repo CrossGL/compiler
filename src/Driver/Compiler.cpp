@@ -1265,14 +1265,70 @@ void writeJsonStringArray(std::ostringstream &out,
   out << "]";
 }
 
+void writeNativeArtifactSourceLocation(std::ostringstream &out,
+                                       const SourceLocation &location,
+                                       std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"file\": \"" << escapeJson(location.file) << "\",\n"
+      << indent << "  \"line\": " << location.line << ",\n"
+      << indent << "  \"column\": " << location.column << ",\n"
+      << indent << "  \"offset\": " << location.offset << ",\n"
+      << indent << "  \"length\": " << location.length << ",\n"
+      << indent << "  \"endLine\": " << location.endLine << ",\n"
+      << indent << "  \"endColumn\": " << location.endColumn << ",\n"
+      << indent << "  \"endOffset\": " << location.endOffset << "\n"
+      << indent << "}";
+}
+
 void writeNativeArtifactValidationDiagnostic(std::ostringstream &out,
                                              const Diagnostic &diagnostic,
                                              std::string_view indent) {
   out << indent << "{\n"
+      << indent << "  \"severity\": \""
+      << escapeJson(toString(diagnostic.severity)) << "\",\n"
       << indent << "  \"code\": \"" << escapeJson(diagnostic.code) << "\",\n"
       << indent << "  \"message\": \"" << escapeJson(diagnostic.message)
-      << "\"\n"
-      << indent << "}";
+      << "\"";
+  if (!diagnostic.location.file.empty()) {
+    out << ",\n" << indent << "  \"location\": ";
+    writeNativeArtifactSourceLocation(out, diagnostic.location,
+                                      std::string(indent) + "  ");
+  }
+  if (diagnostic.originalLocation) {
+    out << ",\n" << indent << "  \"originalLocation\": ";
+    writeNativeArtifactSourceLocation(out, *diagnostic.originalLocation,
+                                      std::string(indent) + "  ");
+  }
+  if (!diagnostic.target.empty()) {
+    out << ",\n"
+        << indent << "  \"target\": \"" << escapeJson(diagnostic.target)
+        << "\"";
+  }
+  if (!diagnostic.missingCapabilities.empty()) {
+    out << ",\n" << indent << "  \"missingCapabilities\": ";
+    writeJsonStringArray(out, diagnostic.missingCapabilities);
+  }
+  out << "\n" << indent << "}";
+}
+
+void appendNativeArtifactSourceLocationFingerprint(
+    std::string &fingerprint, const SourceLocation &location) {
+  fingerprint += location.file;
+  fingerprint += "\n";
+  fingerprint += std::to_string(location.line);
+  fingerprint += "\n";
+  fingerprint += std::to_string(location.column);
+  fingerprint += "\n";
+  fingerprint += std::to_string(location.offset);
+  fingerprint += "\n";
+  fingerprint += std::to_string(location.length);
+  fingerprint += "\n";
+  fingerprint += std::to_string(location.endLine);
+  fingerprint += "\n";
+  fingerprint += std::to_string(location.endColumn);
+  fingerprint += "\n";
+  fingerprint += std::to_string(location.endOffset);
+  fingerprint += "\n";
 }
 
 void appendTargetLegalizationToolRequirementsJson(
@@ -1498,10 +1554,24 @@ std::string nativeArtifactDescriptorJson(
   }
   std::string validationDiagnosticFingerprint;
   for (const Diagnostic &diagnostic : spec.validationDiagnostics) {
+    validationDiagnosticFingerprint += toString(diagnostic.severity);
+    validationDiagnosticFingerprint += "\n";
     validationDiagnosticFingerprint += diagnostic.code;
     validationDiagnosticFingerprint += "\n";
     validationDiagnosticFingerprint += diagnostic.message;
     validationDiagnosticFingerprint += "\n";
+    appendNativeArtifactSourceLocationFingerprint(validationDiagnosticFingerprint,
+                                                  diagnostic.location);
+    if (diagnostic.originalLocation) {
+      appendNativeArtifactSourceLocationFingerprint(
+          validationDiagnosticFingerprint, *diagnostic.originalLocation);
+    }
+    validationDiagnosticFingerprint += diagnostic.target;
+    validationDiagnosticFingerprint += "\n";
+    for (const std::string &capability : diagnostic.missingCapabilities) {
+      validationDiagnosticFingerprint += capability;
+      validationDiagnosticFingerprint += "\n";
+    }
   }
   std::string toolInvocationFingerprint;
   for (const NativeArtifactToolProvenance &tool : descriptorTools) {
@@ -1899,6 +1969,7 @@ directxNativeDescriptorSpec(const DirectXSourcePackageResult &directxResult,
     applyInvocationProvenance(descriptorSpec.tools, "dxc", "compiler",
                               *directxResult.dxcProvenance, packageDir);
   }
+  descriptorSpec.validationDiagnostics = directxResult.validationDiagnostics;
   return descriptorSpec;
 }
 
@@ -2560,6 +2631,10 @@ bool finalizeSourcePackageBuild(
     if (directxResult->dxcProvenance) {
       applyInvocationProvenance(descriptorSpec.tools, "dxc", "compiler",
                                 *directxResult->dxcProvenance, packageDir);
+    }
+    if (!directxResult->validationDiagnostics.empty()) {
+      descriptorSpec.validationStatus = "failed";
+      descriptorSpec.validationDiagnostics = directxResult->validationDiagnostics;
     }
   }
   if (target == TargetKind::OpenGL && sourceValidationDiagnostics != nullptr &&
@@ -3469,7 +3544,8 @@ CompileResult compile(const CompileRequest &request) {
   if (target == TargetKind::DirectX) {
     DirectXSourcePackageResult directx = buildDirectXSourcePackage(
         backendHIR, packageDir, diagnostics, legalization.resourceBindings,
-        request.optimizationLevel);
+        request.optimizationLevel,
+        sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap : nullptr);
     if (directx.success) {
       std::error_code directxNativeArtifactError;
       const bool directxNativeArtifactAvailable =
