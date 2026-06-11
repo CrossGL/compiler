@@ -1409,6 +1409,20 @@ std::string emitCallWithArgumentOverrides(
   if (isOpenGLWorkgroupBarrierCall(expression)) {
     return "barrier()";
   }
+  if (expression.value == "textureSize" &&
+      (expression.children.size() == 1 || expression.children.size() == 2)) {
+    return "textureSize(" + emitExpression(expression.children[0], context) +
+           ", " +
+           (expression.children.size() == 2
+                ? emitExpression(expression.children[1], context)
+                : std::string("0")) +
+           ")";
+  }
+  if (expression.value == "textureQueryLevels" &&
+      expression.children.size() == 1) {
+    return "textureQueryLevels(" +
+           emitExpression(expression.children[0], context) + ")";
+  }
   const std::optional<std::string> callee =
       backendIntrinsicNameForCall(TargetKind::OpenGL, expression);
   const std::string calleeName = callee.value_or(expression.value);
@@ -3433,12 +3447,47 @@ bool openGLStorageImageCallSupported(const HIRExpression &expression,
          openGLStorageImageAtomicSupported(expression, context);
 }
 
+bool openGLTextureQueryOperandSupported(const HIRExpression &expression,
+                                        const OpenGLSupportContext &context) {
+  if (!isResourceReferenceExpression(expression)) {
+    return false;
+  }
+  return isTextureResourceType(baseTypeName(expression.type)) &&
+         !glslTextureType(expression.type).empty() &&
+         expressionSupported(expression, context);
+}
+
+bool openGLTextureQueryCallSupported(const HIRExpression &expression,
+                                     const OpenGLSupportContext &context) {
+  if (expression.kind != HIRExpressionKind::Call ||
+      (expression.value != "textureSize" &&
+       expression.value != "textureQueryLevels")) {
+    return false;
+  }
+  if (expression.value == "textureSize") {
+    if ((expression.children.size() != 1 && expression.children.size() != 2) ||
+        !isSupportedValueType(expression.type) ||
+        !openGLTextureQueryOperandSupported(expression.children[0], context)) {
+      return false;
+    }
+    return expression.children.size() == 1 ||
+           (isIntegerScalarType(expression.children[1].type) &&
+            expressionSupported(expression.children[1], context));
+  }
+  return expression.children.size() == 1 && expression.type.name == "int" &&
+         !expression.type.arraySize.has_value() &&
+         openGLTextureQueryOperandSupported(expression.children[0], context);
+}
+
 bool intrinsicCallSupported(const HIRExpression &expression,
                             const OpenGLSupportContext &context) {
   if (isOpenGLWorkgroupBarrierCall(expression)) {
     return true;
   }
   if (openGLStorageImageCallSupported(expression, context)) {
+    return true;
+  }
+  if (openGLTextureQueryCallSupported(expression, context)) {
     return true;
   }
   if (isOpenGLAtomicIntegerCallName(expression.value)) {

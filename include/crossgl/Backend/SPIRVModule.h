@@ -49,6 +49,7 @@ enum class SPIRVStorageClass {
 
 enum class SPIRVCapability {
   Shader,
+  ImageQuery,
   RuntimeDescriptorArrayEXT,
   ShaderNonUniformEXT,
   SampledImageArrayNonUniformIndexingEXT,

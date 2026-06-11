@@ -14,7 +14,7 @@ using TypeCategory = HIRDialectTypeCategory;
 using Scalar = HIRDialectScalarKind;
 using IntrinsicCategory = HIRDialectIntrinsicCategory;
 
-constexpr std::array<HIRDialectOperationRecord, 58> kHIRDialectOperations = {{
+constexpr std::array<HIRDialectOperationRecord, 60> kHIRDialectOperations = {{
     {"hir.empty", "Empty", OpKind::ExpressionNode, OpCategory::Core,
      Effect::Pure, "hir.empty"},
     {"hir.identifier", "Identifier", OpKind::ExpressionNode,
@@ -111,6 +111,10 @@ constexpr std::array<HIRDialectOperationRecord, 58> kHIRDialectOperations = {{
      OpCategory::Texture, Effect::ResourceRead, "hir.texture_gather_offset"},
     {"hir.texture_lod", "textureLod", OpKind::BuiltinCall,
      OpCategory::Texture, Effect::ResourceRead, "hir.texture_lod"},
+    {"hir.texture_query_levels", "textureQueryLevels", OpKind::BuiltinCall,
+     OpCategory::Texture, Effect::ResourceRead, "hir.texture_query_levels"},
+    {"hir.texture_size", "textureSize", OpKind::BuiltinCall,
+     OpCategory::Texture, Effect::ResourceRead, "hir.texture_size"},
     {"hir.texture_compare_call", "textureCompare", OpKind::BuiltinCall,
      OpCategory::Texture, Effect::ResourceRead, "hir.texture_compare_call"},
     {"hir.texture_compare_lod", "textureCompareLod", OpKind::BuiltinCall,

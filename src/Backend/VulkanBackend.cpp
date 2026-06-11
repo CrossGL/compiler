@@ -187,6 +187,28 @@ bool isComparisonTextureType(std::string_view name) {
          name == "samplerCubeShadow" || name == "samplerCubeArrayShadow";
 }
 
+bool isVulkanTextureQueryCallName(std::string_view name) {
+  return name == "textureSize" || name == "textureQueryLevels";
+}
+
+std::size_t vulkanTextureSizeResultComponentCount(const HIRType &type) {
+  const std::string name = baseTypeName(type);
+  const std::string dimension = textureDimension(name);
+  if (!isTextureResourceType(name)) {
+    return 0;
+  }
+  if (dimension == "2D" && !isArrayTextureType(name)) {
+    return 2;
+  }
+  if (dimension == "Cube" && !isArrayTextureType(name)) {
+    return 2;
+  }
+  if (dimension == "2D" || dimension == "3D" || dimension == "Cube") {
+    return 3;
+  }
+  return 0;
+}
+
 bool isManualCompareOffsetTextureType(std::string_view name) {
   return name == "sampler2DShadow" || name == "sampler2DArrayShadow";
 }
@@ -3926,6 +3948,83 @@ bool prototypeStorageImageAtomicCaptureSupported(
   return true;
 }
 
+bool prototypeTextureQuerySupported(
+    const HIRExpression &expression,
+    const std::unordered_map<std::string, HIRType> &locals,
+    const std::unordered_map<std::string, HIRResource> &resources,
+    const PrototypeConstantMap &constants,
+    const PrototypeStructMap &structs,
+    DiagnosticEngine &diagnostics) {
+  const bool textureSize = expression.value == "textureSize";
+  if (expression.children.empty() ||
+      (textureSize && expression.children.size() > 2) ||
+      (!textureSize && expression.children.size() != 1)) {
+    diagnostics.error("vulkan.prototype-unsupported-texture-query",
+                      textureSize
+                          ? "Vulkan prototype textureSize lowering requires "
+                            "a texture plus optional integer lod operand"
+                          : "Vulkan prototype textureQueryLevels lowering "
+                            "requires exactly one texture operand");
+    return false;
+  }
+
+  if (!prototypeDescriptorExpressionSupported(
+          expression.children[0], HIRResourceKind::Texture, resources, locals,
+          constants, structs, diagnostics)) {
+    return false;
+  }
+
+  const HIRType textureType =
+      prototypeExpressionType(expression.children[0], locals, resources,
+                              constants);
+  const std::size_t textureSizeComponents =
+      vulkanTextureSizeResultComponentCount(textureType);
+  if (textureSizeComponents == 0) {
+    diagnostics.error("vulkan.prototype-unsupported-texture-query",
+                      "Vulkan prototype texture queries require 2D, 2D-array, "
+                      "3D, cube, or cube-array texture operands");
+    return false;
+  }
+
+  if (textureSize) {
+    if (expression.children.size() == 2) {
+      if (!prototypeExpressionSupported(expression.children[1], locals,
+                                        resources, constants, structs,
+                                        diagnostics)) {
+        return false;
+      }
+      const HIRType lodType =
+          prototypeExpressionType(expression.children[1], locals, resources,
+                                  constants);
+      if (lodType.arraySize.has_value() ||
+          (lodType.name != "int" && lodType.name != "uint")) {
+        diagnostics.error("vulkan.prototype-unsupported-texture-query",
+                          "Vulkan prototype textureSize lod operand must be "
+                          "a scalar integer");
+        return false;
+      }
+    }
+
+    const HIRType expectedResult{
+        textureSizeComponents == 2 ? "ivec2" : "ivec3", std::nullopt};
+    if (!samePrototypeType(expression.type, expectedResult)) {
+      diagnostics.error("vulkan.prototype-unsupported-texture-query",
+                        "Vulkan prototype textureSize result for '" +
+                            formatType(textureType) + "' must be " +
+                            formatType(expectedResult));
+      return false;
+    }
+    return true;
+  }
+
+  if (expression.type.arraySize.has_value() || expression.type.name != "int") {
+    diagnostics.error("vulkan.prototype-unsupported-texture-query",
+                      "Vulkan prototype textureQueryLevels result must be int");
+    return false;
+  }
+  return true;
+}
+
 bool prototypeTextureSampleSupported(
     const HIRExpression &expression,
     const std::unordered_map<std::string, HIRType> &locals,
@@ -4725,6 +4824,10 @@ bool prototypeExpressionSupported(
     }
     if (isPrototypeWorkgroupBarrierCall(expression)) {
       return prototypeWorkgroupBarrierCallSupported(expression, diagnostics);
+    }
+    if (isVulkanTextureQueryCallName(expression.value)) {
+      return prototypeTextureQuerySupported(expression, locals, resources,
+                                           constants, structs, diagnostics);
     }
     if (prototypeIntrinsicLoweringForCall(expression).has_value()) {
       return prototypeGLSLStd450IntrinsicCallSupported(
@@ -6141,6 +6244,9 @@ public:
     }
     if (usesRuntimeDescriptorArray_ || usesNonUniformDescriptorIndex_) {
       module_.addExtension(SPIRVExtension::SPV_EXT_descriptor_indexing);
+    }
+    if (usesImageQuery_) {
+      module_.addCapability(SPIRVCapability::ImageQuery);
     }
     module_.setMemoryModel(SPIRVAddressingModel::Logical,
                            SPIRVMemoryModel::GLSL450);
@@ -9244,6 +9350,60 @@ private:
     return sampledImage;
   }
 
+  std::optional<PrototypeSPIRVValue> emitTextureQuery(
+      const HIRExpression &expression) {
+    const bool textureSize = expression.value == "textureSize";
+    if (expression.children.empty() ||
+        (textureSize && expression.children.size() > 2) ||
+        (!textureSize && expression.children.size() != 1)) {
+      diagnostics_.error("vulkan.prototype-unsupported-texture-query",
+                         textureSize
+                             ? "Vulkan prototype textureSize lowering "
+                               "requires a texture plus optional integer lod "
+                               "operand"
+                             : "Vulkan prototype textureQueryLevels lowering "
+                               "requires exactly one texture operand");
+      return std::nullopt;
+    }
+
+    std::optional<PrototypeSPIRVValue> texture =
+        emitUniformConstantDescriptorLoad(expression.children[0],
+                                          HIRResourceKind::Texture);
+    if (!texture.has_value()) {
+      return std::nullopt;
+    }
+
+    const std::string resultTypeId = ensureType(expression.type);
+    if (resultTypeId.empty()) {
+      return std::nullopt;
+    }
+
+    const std::string resultId = nextTemp();
+    if (textureSize) {
+      std::optional<PrototypeSPIRVValue> explicitLod =
+          expression.children.size() == 2 ? emitExpression(expression.children[1])
+                                          : std::nullopt;
+      if (expression.children.size() == 2 && !explicitLod.has_value()) {
+        return std::nullopt;
+      }
+      const std::string lod =
+          explicitLod.has_value()
+              ? explicitLod->id
+              : ensureNumericConstant(HIRType{"int", std::nullopt}, "0");
+      if (lod.empty()) {
+        return std::nullopt;
+      }
+      instructionLines_.push_back(resultId + " = OpImageQuerySizeLod " +
+                                  resultTypeId + " " + texture->id + " " +
+                                  lod);
+    } else {
+      instructionLines_.push_back(resultId + " = OpImageQueryLevels " +
+                                  resultTypeId + " " + texture->id);
+    }
+    usesImageQuery_ = true;
+    return PrototypeSPIRVValue{expression.type, resultId};
+  }
+
   std::optional<PrototypeSPIRVValue> emitTextureGather(
       const HIRExpression &expression) {
     const bool offsetGather = expression.value == "textureGatherOffset";
@@ -10237,6 +10397,9 @@ private:
                            "lowered only as expression statements");
         return std::nullopt;
       }
+      if (isVulkanTextureQueryCallName(expression.value)) {
+        return emitTextureQuery(expression);
+      }
       if (prototypeIntrinsicLoweringForCall(expression).has_value()) {
         return emitIntrinsicCall(expression);
       }
@@ -11072,6 +11235,7 @@ private:
   bool usesSampledImageArrayNonUniformIndexing_ = false;
   bool usesStorageImageArrayNonUniformIndexing_ = false;
   bool usesStorageBufferArrayNonUniformIndexing_ = false;
+  bool usesImageQuery_ = false;
 };
 
 bool vulkanGraphicsTypeEquals(const HIRType &lhs, const HIRType &rhs) {

@@ -1113,6 +1113,82 @@ bool isDirectXTextureGatherTextureType(const HIRType &type) {
          name == "isampler2D" || name == "usampler2D";
 }
 
+bool isDirectXTextureQueryCallName(std::string_view name) {
+  return name == "textureSize" || name == "textureQueryLevels";
+}
+
+std::string directxTextureQueryDimensionSuffix(const HIRType &type) {
+  const std::string name = baseTypeName(type);
+  if (name == "sampler2D" || name == "sampler2DShadow" ||
+      name == "isampler2D" || name == "usampler2D" || name == "texture2D") {
+    return "2d";
+  }
+  if (name == "sampler2DArray" || name == "sampler2DArrayShadow" ||
+      name == "isampler2DArray" || name == "usampler2DArray" ||
+      name == "texture2DArray") {
+    return "2d_array";
+  }
+  if (name == "sampler3D" || name == "isampler3D" ||
+      name == "usampler3D" || name == "texture3D") {
+    return "3d";
+  }
+  if (name == "samplerCube" || name == "samplerCubeShadow" ||
+      name == "isamplerCube" || name == "usamplerCube" ||
+      name == "textureCube") {
+    return "cube";
+  }
+  if (name == "samplerCubeArray" || name == "samplerCubeArrayShadow" ||
+      name == "isamplerCubeArray" || name == "usamplerCubeArray" ||
+      name == "textureCubeArray") {
+    return "cube_array";
+  }
+  return "";
+}
+
+std::string directxTextureQueryPayloadSuffix(const HIRType &type) {
+  const std::string name = baseTypeName(type);
+  if (isSignedIntegerTextureTypeName(name)) {
+    return "i";
+  }
+  if (isUnsignedIntegerTextureTypeName(name)) {
+    return "u";
+  }
+  if (isComparisonTextureTypeName(name)) {
+    return "shadow";
+  }
+  return "f";
+}
+
+std::size_t directxTextureSizeResultComponentCount(const HIRType &type) {
+  const std::string dimension = directxTextureQueryDimensionSuffix(type);
+  if (dimension == "2d" || dimension == "cube") {
+    return 2;
+  }
+  if (dimension == "2d_array" || dimension == "3d" ||
+      dimension == "cube_array") {
+    return 3;
+  }
+  return 0;
+}
+
+std::string directxTextureQueryHelperSuffix(const HIRType &type) {
+  const std::string dimension = directxTextureQueryDimensionSuffix(type);
+  if (dimension.empty() || hlslTextureType(type).empty()) {
+    return "";
+  }
+  return dimension + "_" + directxTextureQueryPayloadSuffix(type);
+}
+
+std::string directxTextureSizeHelperName(const HIRType &type) {
+  const std::string suffix = directxTextureQueryHelperSuffix(type);
+  return suffix.empty() ? "" : "cglTextureSize_" + suffix;
+}
+
+std::string directxTextureQueryLevelsHelperName(const HIRType &type) {
+  const std::string suffix = directxTextureQueryHelperSuffix(type);
+  return suffix.empty() ? "" : "cglTextureQueryLevels_" + suffix;
+}
+
 struct DirectXTextureSampleOperands {
   const HIRExpression *texture = nullptr;
   const HIRExpression *sampler = nullptr;
@@ -1391,6 +1467,33 @@ bool textureCompareSupported(const HIRExpression &expression,
       [](const HIRExpression &) { return true; });
 }
 
+bool textureQueryCallSupported(const HIRExpression &expression,
+                               const DirectXTextualSupportContext &context) {
+  if (expression.kind != HIRExpressionKind::Call ||
+      !isDirectXTextureQueryCallName(expression.value) ||
+      expression.children.empty()) {
+    return false;
+  }
+  const HIRExpression &texture = expression.children.front();
+  if (!isResourceReferenceExpression(texture) ||
+      hlslTextureType(texture.type).empty() ||
+      !expressionSupported(texture, context)) {
+    return false;
+  }
+  if (expression.value == "textureSize") {
+    if ((expression.children.size() != 1 && expression.children.size() != 2) ||
+        directxTextureSizeResultComponentCount(texture.type) == 0 ||
+        !isSupportedValueType(expression.type)) {
+      return false;
+    }
+    return expression.children.size() == 1 ||
+           (isIntegerScalarType(expression.children[1].type) &&
+            expressionSupported(expression.children[1], context));
+  }
+  return expression.children.size() == 1 && expression.type.name == "int" &&
+         !expression.type.arraySize.has_value();
+}
+
 bool isDirectXInterlockedAtomicCall(const HIRExpression &expression);
 
 bool intrinsicCallSupported(const HIRExpression &expression,
@@ -1427,6 +1530,7 @@ bool userFunctionCallSupported(const HIRExpression &expression,
 bool callExpressionSupported(const HIRExpression &expression,
                              const DirectXTextualSupportContext &context) {
   return storageImageCallSupported(expression, context) ||
+         textureQueryCallSupported(expression, context) ||
          intrinsicCallSupported(expression, context) ||
          userFunctionCallSupported(expression, context);
 }
@@ -1990,6 +2094,38 @@ std::string emitStorageImageStore(const HIRExpression &expression,
          "] = " + valueExpression;
 }
 
+std::optional<std::string> emitDirectXTextureQueryCall(
+    const HIRExpression &expression, const DirectXEmitContext &context) {
+  if (expression.kind != HIRExpressionKind::Call ||
+      !isDirectXTextureQueryCallName(expression.value) ||
+      expression.children.empty()) {
+    return std::nullopt;
+  }
+  const HIRExpression &texture = expression.children.front();
+  if (expression.value == "textureSize") {
+    if (expression.children.size() != 1 && expression.children.size() != 2) {
+      return std::nullopt;
+    }
+    const std::string helper = directxTextureSizeHelperName(texture.type);
+    if (helper.empty()) {
+      return std::nullopt;
+    }
+    const std::string lod = expression.children.size() == 2
+                                ? emitExpression(expression.children[1], context)
+                                : std::string("0");
+    return helper + "(" + emitExpression(texture, context) + ", " + lod + ")";
+  }
+  if (expression.value == "textureQueryLevels" &&
+      expression.children.size() == 1) {
+    const std::string helper = directxTextureQueryLevelsHelperName(texture.type);
+    if (helper.empty()) {
+      return std::nullopt;
+    }
+    return helper + "(" + emitExpression(texture, context) + ")";
+  }
+  return std::nullopt;
+}
+
 std::optional<std::string> directxCallArgumentOverride(
     std::size_t index,
     const std::vector<std::pair<std::size_t, std::string>> &overrides) {
@@ -2012,6 +2148,10 @@ std::string emitCallWithArgumentOverrides(
   }
   if (expression.value == "imageStore") {
     return emitStorageImageStore(expression, context);
+  }
+  if (const std::optional<std::string> textureQuery =
+          emitDirectXTextureQueryCall(expression, context)) {
+    return *textureQuery;
   }
   const std::optional<std::string> callee =
       backendIntrinsicNameForCall(TargetKind::DirectX, expression);
@@ -4159,6 +4299,88 @@ void emitManualCompareHelper(std::ostringstream &out) {
   out << "}\n\n";
 }
 
+std::map<std::string, HIRType>
+directxTextureQueryHelperTypes(const HIRModule &module) {
+  std::map<std::string, HIRType> types;
+  auto visitor = [&](const HIRExpression &expression) {
+    if (expression.kind != HIRExpressionKind::Call ||
+        !isDirectXTextureQueryCallName(expression.value) ||
+        expression.children.empty()) {
+      return;
+    }
+    HIRType textureType = expression.children.front().type;
+    textureType.arraySize.reset();
+    const std::string suffix = directxTextureQueryHelperSuffix(textureType);
+    if (!suffix.empty()) {
+      types.emplace(suffix, textureType);
+    }
+  };
+  visitModuleExpressions(module, visitor, true);
+  return types;
+}
+
+void emitDirectXTextureQueryHelper(std::ostringstream &out,
+                                   const HIRType &textureType) {
+  const std::string hlslTexture = hlslTextureType(textureType);
+  const std::string sizeHelper = directxTextureSizeHelperName(textureType);
+  const std::string levelsHelper =
+      directxTextureQueryLevelsHelperName(textureType);
+  const std::size_t components =
+      directxTextureSizeResultComponentCount(textureType);
+  if (hlslTexture.empty() || sizeHelper.empty() || levelsHelper.empty() ||
+      (components != 2 && components != 3)) {
+    return;
+  }
+
+  const std::string dimension = directxTextureQueryDimensionSuffix(textureType);
+  const bool threeComponent = components == 3;
+  const std::string thirdName = dimension == "3d" ? "depth" : "elements";
+  out << "int" << components << " " << sizeHelper << "(" << hlslTexture
+      << " tex, int lod) {\n";
+  out << "  uint width;\n";
+  out << "  uint height;\n";
+  if (threeComponent) {
+    out << "  uint " << thirdName << ";\n";
+  }
+  out << "  uint levels;\n";
+  out << "  tex.GetDimensions(uint(lod), width, height";
+  if (threeComponent) {
+    out << ", " << thirdName;
+  }
+  out << ", levels);\n";
+  out << "  return int" << components << "(int(width), int(height)";
+  if (threeComponent) {
+    out << ", int(" << thirdName << ")";
+  }
+  out << ");\n";
+  out << "}\n\n";
+
+  out << "int " << levelsHelper << "(" << hlslTexture << " tex) {\n";
+  out << "  uint width;\n";
+  out << "  uint height;\n";
+  if (threeComponent) {
+    out << "  uint " << thirdName << ";\n";
+  }
+  out << "  uint levels;\n";
+  out << "  tex.GetDimensions(uint(0), width, height";
+  if (threeComponent) {
+    out << ", " << thirdName;
+  }
+  out << ", levels);\n";
+  out << "  return int(levels);\n";
+  out << "}\n\n";
+}
+
+void emitDirectXTextureQueryHelpers(std::ostringstream &out,
+                                    const HIRModule &module) {
+  const std::map<std::string, HIRType> helperTypes =
+      directxTextureQueryHelperTypes(module);
+  for (const auto &[suffix, textureType] : helperTypes) {
+    (void)suffix;
+    emitDirectXTextureQueryHelper(out, textureType);
+  }
+}
+
 bool hasResources(const HIRStage &stage) {
   for (const HIRResource &resource : stage.resources) {
     if (resource.kind != HIRResourceKind::Value) {
@@ -5482,6 +5704,7 @@ std::string generateDirectXComputeSource(
   if (moduleUsesManualTextureCompare(module)) {
     emitManualCompareHelper(out);
   }
+  emitDirectXTextureQueryHelpers(out, module);
 
   for (const HIRFunction &function : module.functions) {
     DirectXEmitContext functionContext = emitContext;
@@ -5708,6 +5931,7 @@ std::string generateDirectXGraphicsSource(
   if (moduleUsesManualTextureCompare(module)) {
     emitManualCompareHelper(out);
   }
+  emitDirectXTextureQueryHelpers(out, module);
 
   const std::string vertexInputWrapper =
       directxGraphicsWrapperStructName("vertex", "input");

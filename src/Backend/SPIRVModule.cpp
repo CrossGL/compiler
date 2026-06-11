@@ -171,6 +171,8 @@ std::string_view spirvCapabilityName(SPIRVCapability capability) {
   switch (capability) {
   case SPIRVCapability::Shader:
     return "Shader";
+  case SPIRVCapability::ImageQuery:
+    return "ImageQuery";
   case SPIRVCapability::RuntimeDescriptorArrayEXT:
     return "RuntimeDescriptorArrayEXT";
   case SPIRVCapability::ShaderNonUniformEXT:

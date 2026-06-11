@@ -363,6 +363,58 @@ HIRType textureGatherResultType(const HIRType &textureType) {
   return makeType("vec4");
 }
 
+bool isTextureQueryCallName(std::string_view name) {
+  return name == "textureSize" || name == "textureQueryLevels";
+}
+
+std::size_t textureSizeResultComponentCount(const HIRType &textureType) {
+  const std::string name = baseTypeName(textureType);
+  if (name == "sampler2D" || name == "sampler2DShadow" ||
+      name == "isampler2D" || name == "usampler2D" || name == "texture2D" ||
+      name == "samplerCube" || name == "samplerCubeShadow" ||
+      name == "isamplerCube" || name == "usamplerCube" ||
+      name == "textureCube") {
+    return 2;
+  }
+  if (name == "sampler2DArray" || name == "sampler2DArrayShadow" ||
+      name == "isampler2DArray" || name == "usampler2DArray" ||
+      name == "texture2DArray" || name == "sampler3D" ||
+      name == "isampler3D" || name == "usampler3D" ||
+      name == "texture3D" || name == "samplerCubeArray" ||
+      name == "samplerCubeArrayShadow" || name == "isamplerCubeArray" ||
+      name == "usamplerCubeArray" || name == "textureCubeArray") {
+    return 3;
+  }
+  return 0;
+}
+
+HIRType textureSizeResultType(const HIRType &textureType,
+                              SourceLocation location = {}) {
+  const std::size_t components = textureSizeResultComponentCount(textureType);
+  if (components == 0) {
+    return {};
+  }
+  return HIRType{"ivec" + std::to_string(components), std::nullopt,
+                 std::move(location)};
+}
+
+HIRType inferTextureQueryCallType(std::string_view name,
+                                  const std::vector<HIRExpression> &arguments,
+                                  SourceLocation location) {
+  if (name == "textureSize" &&
+      (arguments.size() == 1 || arguments.size() == 2) &&
+      isTextureType(arguments.front().type) &&
+      (arguments.size() == 1 || arguments[1].type.name.empty() ||
+       isIntegerScalarType(arguments[1].type))) {
+    return textureSizeResultType(arguments.front().type, std::move(location));
+  }
+  if (name == "textureQueryLevels" && arguments.size() == 1 &&
+      isTextureType(arguments.front().type)) {
+    return HIRType{"int", std::nullopt, std::move(location)};
+  }
+  return {};
+}
+
 bool isImageLoadCallName(std::string_view name) { return name == "imageLoad"; }
 
 bool isImageStoreCallName(std::string_view name) {
@@ -1603,6 +1655,11 @@ private:
         isImageAccessCallName(callee.value)) {
       return inferImageAccessCallType(callee.value, arguments,
                                       callee.location);
+    }
+    if (kind == HIRExpressionKind::Call &&
+        isTextureQueryCallName(callee.value)) {
+      return inferTextureQueryCallType(callee.value, arguments,
+                                       callee.location);
     }
     if (const std::optional<HIRType> intrinsicType =
             inferHIRIntrinsicResultType(callee.value, arguments,
@@ -4306,6 +4363,84 @@ void validateTextureCompareExpression(const HIRExpression &expression,
   }
 }
 
+void validateTextureQueryExpression(const HIRExpression &expression,
+                                    std::string_view stage,
+                                    DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::Call &&
+      isTextureQueryCallName(expression.value)) {
+    const bool sizeQuery = expression.value == "textureSize";
+    bool valid = true;
+    if (!stageAllowsTextureSampling(stage)) {
+      diagnostics.error("sema.texture-query-stage",
+                        "texture queries are not legal in stage '" +
+                            std::string(stage) + "'",
+                        expression.location);
+      valid = false;
+    }
+
+    const bool validArity =
+        sizeQuery ? (expression.children.size() == 1 ||
+                     expression.children.size() == 2)
+                  : expression.children.size() == 1;
+    if (!validArity) {
+      diagnostics.error(
+          "sema.texture-query-arity",
+          sizeQuery
+              ? "textureSize expects texture and optional lod; got " +
+                    std::to_string(expression.children.size()) + " operand(s)"
+              : "textureQueryLevels expects texture; got " +
+                    std::to_string(expression.children.size()) + " operand(s)",
+          expression.location);
+      valid = false;
+    }
+
+    if (!expression.children.empty() &&
+        !expression.children.front().type.name.empty() &&
+        !isTextureType(expression.children.front().type)) {
+      diagnostics.error(
+          "sema.texture-query-texture",
+          expression.value + " first operand must be a texture, got '" +
+              formatType(expression.children.front().type) + "'",
+          expression.children.front().location);
+      valid = false;
+    }
+
+    if (sizeQuery && expression.children.size() == 2 &&
+        !expression.children[1].type.name.empty() &&
+        !isIntegerScalarType(expression.children[1].type)) {
+      diagnostics.error(
+          "sema.texture-query-lod",
+          "textureSize lod operand must be a scalar integer value, got '" +
+              formatType(expression.children[1].type) + "'",
+          expression.children[1].location);
+      valid = false;
+    }
+
+    if (valid && !expression.children.empty()) {
+      const HIRType expectedResult =
+          sizeQuery
+              ? textureSizeResultType(expression.children.front().type,
+                                      expression.location)
+              : HIRType{"int", std::nullopt, expression.location};
+      if (!expectedResult.name.empty() &&
+          (expression.type.name != expectedResult.name ||
+           expression.type.arraySize != expectedResult.arraySize)) {
+        diagnostics.error(
+            "sema.texture-query-result",
+            expression.value + " result for '" +
+                formatType(expression.children.front().type) + "' must be '" +
+                formatType(expectedResult) + "', got '" +
+                formatType(expression.type) + "'",
+            expression.location);
+      }
+    }
+  }
+
+  for (const HIRExpression &child : expression.children) {
+    validateTextureQueryExpression(child, stage, diagnostics);
+  }
+}
+
 const HIRResource *storageImageOperandResource(
     const HIRExpression &expression,
     const std::unordered_map<std::string, HIRResource> &resources) {
@@ -5489,6 +5624,7 @@ void validateExpressionSemantics(const HIRExpression &expression,
                                      emptyUserFunctionSignatures()) {
   validateTextureSampleExpression(expression, stage, diagnostics);
   validateTextureCompareExpression(expression, stage, diagnostics);
+  validateTextureQueryExpression(expression, stage, diagnostics);
   validateImageAccessExpression(expression, resources, diagnostics);
   validateVectorSwizzleExpression(expression, diagnostics);
   validateVectorScalarArithmeticExpression(expression, diagnostics);

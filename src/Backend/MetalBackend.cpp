@@ -2152,6 +2152,64 @@ void appendMetalHelperResourceArguments(std::ostringstream &out,
   }
 }
 
+bool isMetalTextureQueryCall(const HIRExpression &expression) {
+  return expression.kind == HIRExpressionKind::Call &&
+         (expression.value == "textureSize" ||
+          expression.value == "textureQueryLevels");
+}
+
+std::string renderMetalTextureQueryLod(const HIRExpression &expression,
+                                       const MetalRenderContext &context) {
+  if (expression.children.size() == 2) {
+    return "uint(" + renderMetalExpression(expression.children[1], context) + ")";
+  }
+  return "uint(0)";
+}
+
+std::optional<std::string>
+renderMetalTextureQuery(const HIRExpression &expression,
+                        const MetalRenderContext &context) {
+  if (!isMetalTextureQueryCall(expression) || expression.children.empty()) {
+    return std::nullopt;
+  }
+  const std::string texture =
+      renderMetalExpression(expression.children.front(), context);
+  if (expression.value == "textureQueryLevels") {
+    if (expression.children.size() != 1) {
+      return std::nullopt;
+    }
+    return "int(" + texture + ".get_num_mip_levels())";
+  }
+  if (expression.value != "textureSize" ||
+      (expression.children.size() != 1 && expression.children.size() != 2)) {
+    return std::nullopt;
+  }
+
+  const std::string lod = renderMetalTextureQueryLod(expression, context);
+  const std::string textureType = metalBaseTypeName(expression.children[0].type);
+  std::vector<std::string> components = {
+      "int(" + texture + ".get_width(" + lod + "))",
+      "int(" + texture + ".get_height(" + lod + "))"};
+  if (isMetal2DArrayTexture(textureType) ||
+      isMetalCubeArrayTexture(textureType)) {
+    components.push_back("int(" + texture + ".get_array_size())");
+  } else if (textureType == "sampler3D" || textureType == "texture3D" ||
+             textureType == "isampler3D" || textureType == "usampler3D") {
+    components.push_back("int(" + texture + ".get_depth(" + lod + "))");
+  }
+
+  std::ostringstream out;
+  out << mapMetalType(expression.type) << "(";
+  for (std::size_t index = 0; index < components.size(); ++index) {
+    if (index != 0) {
+      out << ", ";
+    }
+    out << components[index];
+  }
+  out << ")";
+  return out.str();
+}
+
 std::string renderMetalExpression(const HIRExpression &expression,
                                   const MetalRenderContext &context) {
   switch (expression.kind) {
@@ -2216,6 +2274,10 @@ std::string renderMetalExpression(const HIRExpression &expression,
     if (const std::optional<std::string> imageAtomic =
             renderMetalImageAtomicCall(expression, context)) {
       return *imageAtomic;
+    }
+    if (const std::optional<std::string> textureQuery =
+            renderMetalTextureQuery(expression, context)) {
+      return *textureQuery;
     }
     const std::optional<std::string> intrinsicName =
         backendIntrinsicNameForCall(TargetKind::Metal, expression);

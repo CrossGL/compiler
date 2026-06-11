@@ -539,6 +539,10 @@ void addExpressionCapabilities(
           isAtomicIntegerType(expression.children.front().type)) {
         collector.add("type", "atomic-integer");
       }
+    } else if (expression.value == "textureSize") {
+      collector.add("operation", "texture-size");
+    } else if (expression.value == "textureQueryLevels") {
+      collector.add("operation", "texture-query-levels");
     }
     break;
   case HIRExpressionKind::Constructor:
@@ -810,6 +814,8 @@ bool capabilitySatisfiedByTextualScaffold(const HIRModule &module,
            capability.name == "texture-sample" ||
            capability.name == "texture-gather" ||
            capability.name == "texture-gather-offset" ||
+           capability.name == "texture-size" ||
+           capability.name == "texture-query-levels" ||
            capability.name == "texture-explicit-lod" ||
            capability.name == "texture-shadow-compare" ||
            capability.name == "texture-shadow-compare-explicit-lod" ||

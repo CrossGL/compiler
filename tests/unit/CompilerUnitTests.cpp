@@ -2496,6 +2496,10 @@ void testHIRIntrinsicRegistry() {
       crossgl::lookupHIRCallBuiltinEffect("textureGather");
   const std::optional<crossgl::HIRBuiltinEffect> textureGatherOffsetEffect =
       crossgl::lookupHIRCallBuiltinEffect("textureGatherOffset");
+  const std::optional<crossgl::HIRBuiltinEffect> textureSizeEffect =
+      crossgl::lookupHIRCallBuiltinEffect("textureSize");
+  const std::optional<crossgl::HIRBuiltinEffect> textureQueryLevelsEffect =
+      crossgl::lookupHIRCallBuiltinEffect("textureQueryLevels");
   const std::optional<crossgl::HIRBuiltinEffect> manualKernelEffect =
       crossgl::lookupHIRCallBuiltinEffect("textureCompareLodManualKernel");
   const std::optional<crossgl::HIRBuiltinEffect> kernelBuilderEffect =
@@ -2517,6 +2521,10 @@ void testHIRIntrinsicRegistry() {
              textureGatherOffsetEffect.has_value() &&
              *textureGatherOffsetEffect ==
                  crossgl::HIRBuiltinEffect::Opaque &&
+             textureSizeEffect.has_value() &&
+             *textureSizeEffect == crossgl::HIRBuiltinEffect::Opaque &&
+             textureQueryLevelsEffect.has_value() &&
+             *textureQueryLevelsEffect == crossgl::HIRBuiltinEffect::Opaque &&
              manualKernelEffect.has_value() &&
              *manualKernelEffect == crossgl::HIRBuiltinEffect::Opaque &&
              kernelBuilderEffect.has_value() &&
@@ -2525,6 +2533,8 @@ void testHIRIntrinsicRegistry() {
              crossgl::isHIRImageAccessBuiltinCall("imageStore") &&
              crossgl::isHIRTextureAccessBuiltinCall("textureGather") &&
              crossgl::isHIRTextureAccessBuiltinCall("textureGatherOffset") &&
+             crossgl::isHIRTextureAccessBuiltinCall("textureSize") &&
+             crossgl::isHIRTextureAccessBuiltinCall("textureQueryLevels") &&
              crossgl::isHIRTextureCompareKernelBuiltinCall(
                  "textureCompareKernel") &&
              !unknownEffect.has_value(),
@@ -29077,6 +29087,130 @@ shader TextureGatherIntegerShader {
          "Vulkan prototype assembly preserves unsigned integer textureGather result type");
 }
 
+void testTextureQueryHIRFrontend() {
+  constexpr std::string_view source = R"(
+shader TextureQueryShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform texture2D colorMap;
+    layout(set = 0, binding = 1) uniform sampler2DArray atlasMap;
+    void main() {
+      ivec2 colorSize = textureSize(colorMap, 0);
+      ivec3 atlasSize = textureSize(atlasMap, 1);
+      int mipLevels = textureQueryLevels(colorMap);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "texture query source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  const crossgl::HIRFunction &main = hir->stages.front().functions.front();
+  expect(main.body.size() == 4,
+         "texture query test has three declarations and return");
+  const crossgl::HIRExpression &colorSize = main.body[0].value;
+  expect(colorSize.kind == crossgl::HIRExpressionKind::Call &&
+             colorSize.value == "textureSize" && colorSize.type.name == "ivec2" &&
+             colorSize.children.size() == 2 &&
+             colorSize.children[0].type.name == "texture2D" &&
+             colorSize.children[1].type.name == "int",
+         "textureSize 2D query infers ivec2");
+  const crossgl::HIRExpression &atlasSize = main.body[1].value;
+  expect(atlasSize.kind == crossgl::HIRExpressionKind::Call &&
+             atlasSize.value == "textureSize" && atlasSize.type.name == "ivec3" &&
+             atlasSize.children.size() == 2 &&
+             atlasSize.children[0].type.name == "sampler2DArray",
+         "textureSize array query infers ivec3");
+  const crossgl::HIRExpression &mipLevels = main.body[2].value;
+  expect(mipLevels.kind == crossgl::HIRExpressionKind::Call &&
+             mipLevels.value == "textureQueryLevels" &&
+             mipLevels.type.name == "int" && mipLevels.children.size() == 1,
+         "textureQueryLevels infers int");
+
+  const std::string hirDump = crossgl::printHIR(*hir);
+  expect(hirDump.find("textureSize(colorMap, 0)") != std::string::npos &&
+             hirDump.find("textureSize(atlasMap, 1)") != std::string::npos &&
+             hirDump.find("textureQueryLevels(colorMap)") != std::string::npos,
+         "HIR dump preserves texture query calls");
+
+  for (const crossgl::TargetKind target :
+       {crossgl::TargetKind::DirectX, crossgl::TargetKind::Metal,
+        crossgl::TargetKind::OpenGL, crossgl::TargetKind::Vulkan}) {
+    const std::vector<crossgl::TargetCapability> required =
+        crossgl::targetFeatureRequirements(*hir, target);
+    expect(hasCapability(required, target, "operation", "texture-size"),
+           "textureSize records a distinct target capability");
+    expect(hasCapability(required, target, "operation", "texture-query-levels"),
+           "textureQueryLevels records a distinct target capability");
+  }
+
+  const std::string directx =
+      crossgl::printBackendIR(*hir, crossgl::TargetKind::DirectX);
+  expect(directx.find("int2 cglTextureSize_2d_f(Texture2D<float4> tex, "
+                      "int lod)") != std::string::npos,
+         "DirectX backend emits 2D textureSize helper");
+  expect(directx.find("int3 cglTextureSize_2d_array_f("
+                      "Texture2DArray<float4> tex, int lod)") !=
+             std::string::npos,
+         "DirectX backend emits array textureSize helper");
+  expect(directx.find("int2 colorSize = cglTextureSize_2d_f(colorMap, 0);") !=
+             std::string::npos,
+         "DirectX backend lowers textureSize 2D query");
+  expect(directx.find(
+             "int3 atlasSize = cglTextureSize_2d_array_f(atlasMap, 1);") !=
+             std::string::npos,
+         "DirectX backend lowers textureSize array query");
+  expect(directx.find(
+             "int mipLevels = cglTextureQueryLevels_2d_f(colorMap);") !=
+             std::string::npos,
+         "DirectX backend lowers textureQueryLevels");
+
+  const std::string opengl =
+      crossgl::printBackendIR(*hir, crossgl::TargetKind::OpenGL);
+  expect(opengl.find("ivec2 colorSize = textureSize(colorMap, 0);") !=
+             std::string::npos,
+         "OpenGL backend lowers textureSize 2D query");
+  expect(opengl.find("ivec3 atlasSize = textureSize(atlasMap, 1);") !=
+             std::string::npos,
+         "OpenGL backend lowers textureSize array query");
+  expect(opengl.find("int mipLevels = textureQueryLevels(colorMap);") !=
+             std::string::npos,
+         "OpenGL backend lowers textureQueryLevels");
+
+  const std::string metal = crossgl::generateMetalSource(*hir);
+  expect(metal.find("int2 colorSize = int2(int(colorMap.get_width(uint(0))), "
+                    "int(colorMap.get_height(uint(0))));") !=
+             std::string::npos,
+         "Metal backend lowers textureSize 2D query");
+  expect(metal.find("int3 atlasSize = int3(int(atlasMap.get_width(uint(1))), "
+                    "int(atlasMap.get_height(uint(1))), "
+                    "int(atlasMap.get_array_size()));") !=
+             std::string::npos,
+         "Metal backend lowers textureSize array query");
+  expect(metal.find("int mipLevels = int(colorMap.get_num_mip_levels());") !=
+             std::string::npos,
+         "Metal backend lowers textureQueryLevels");
+
+  crossgl::DiagnosticEngine assemblyDiagnostics;
+  const std::string assembly =
+      crossgl::generateVulkanPrototypeAssembly(*hir, assemblyDiagnostics);
+  expect(!assemblyDiagnostics.hasErrors(),
+         "texture query Vulkan prototype assembly has no diagnostics");
+  expect(assembly.find("OpCapability ImageQuery") != std::string::npos,
+         "Vulkan prototype assembly declares ImageQuery capability");
+  expect(assembly.find("OpImageQuerySizeLod %ivec2") != std::string::npos,
+         "Vulkan prototype assembly lowers 2D textureSize query");
+  expect(assembly.find("OpImageQuerySizeLod %ivec3") != std::string::npos,
+         "Vulkan prototype assembly lowers array textureSize query");
+  expect(assembly.find("OpImageQueryLevels %int") != std::string::npos,
+         "Vulkan prototype assembly lowers textureQueryLevels");
+}
+
 void testExpressionSourceLocations() {
   constexpr std::string_view source = R"(shader ExpressionLocationShader {
   compute {
@@ -54132,6 +54266,57 @@ shader BadTextureGatherOffsetComponentShader {
                        "sema.texture-gather-component"),
          "textureGatherOffset rejects component operands outside 0..3");
 
+  constexpr std::string_view queryAritySource = R"(
+shader BadTextureQueryArityShader {
+  compute {
+    uniform texture2D colorMap;
+    void main() {
+      int levels = textureQueryLevels(colorMap, 0);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> queryArityDiagnostics =
+      collectDiagnostics(queryAritySource);
+  expect(hasDiagnostic(queryArityDiagnostics, "sema.texture-query-arity"),
+         "textureQueryLevels rejects extra operands");
+
+  constexpr std::string_view queryTextureSource = R"(
+shader BadTextureQueryTextureShader {
+  compute {
+    sampler linearSampler;
+    void main() {
+      ivec2 size = textureSize(linearSampler, 0);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> queryTextureDiagnostics =
+      collectDiagnostics(queryTextureSource);
+  expect(hasDiagnostic(queryTextureDiagnostics, "sema.texture-query-texture"),
+         "textureSize rejects non-texture operands");
+
+  constexpr std::string_view queryLodSource = R"(
+shader BadTextureQueryLodShader {
+  compute {
+    uniform texture2D colorMap;
+    void main() {
+      ivec2 size = textureSize(colorMap, true);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> queryLodDiagnostics =
+      collectDiagnostics(queryLodSource);
+  expect(hasDiagnostic(queryLodDiagnostics, "sema.texture-query-lod"),
+         "textureSize rejects non-integer lod operands");
+
   constexpr std::string_view shadowTextureSource = R"(
 shader BadShadowTextureSampleShader {
   compute {
@@ -55219,6 +55404,7 @@ int main() {
   testCBufferResourceHIR();
   testTextureSampleForms();
   testTextureGatherHIRFrontend();
+  testTextureQueryHIRFrontend();
   testExpressionSourceLocations();
   testTextureArrayDimensionHIRAndBackends();
   testTextureCompareHIRAndNativeBackends();

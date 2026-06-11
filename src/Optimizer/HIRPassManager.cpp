@@ -1361,6 +1361,10 @@ bool isHIRTextureGatherOffset(std::string_view value) {
   return value == "textureGatherOffset";
 }
 
+bool isHIRTextureQuery(std::string_view value) {
+  return value == "textureSize" || value == "textureQueryLevels";
+}
+
 bool isExplicitHIRTextureCompareLod(std::string_view value) {
   return value == "textureCompareLod";
 }
@@ -1408,6 +1412,38 @@ HIRType hirTextureGatherResultType(const HIRType &textureType,
     return HIRType{"uvec4", std::nullopt, std::move(location)};
   }
   return HIRType{"vec4", std::nullopt, std::move(location)};
+}
+
+std::size_t hirTextureSizeResultComponentCount(const HIRType &textureType) {
+  const std::string name = baseTypeName(textureType);
+  if (name == "sampler2D" || name == "sampler2DShadow" ||
+      name == "isampler2D" || name == "usampler2D" || name == "texture2D" ||
+      name == "samplerCube" || name == "samplerCubeShadow" ||
+      name == "isamplerCube" || name == "usamplerCube" ||
+      name == "textureCube") {
+    return 2;
+  }
+  if (name == "sampler2DArray" || name == "sampler2DArrayShadow" ||
+      name == "isampler2DArray" || name == "usampler2DArray" ||
+      name == "texture2DArray" || name == "sampler3D" ||
+      name == "isampler3D" || name == "usampler3D" ||
+      name == "texture3D" || name == "samplerCubeArray" ||
+      name == "samplerCubeArrayShadow" || name == "isamplerCubeArray" ||
+      name == "usamplerCubeArray" || name == "textureCubeArray") {
+    return 3;
+  }
+  return 0;
+}
+
+HIRType hirTextureSizeResultType(const HIRType &textureType,
+                                 SourceLocation location = {}) {
+  const std::size_t components =
+      hirTextureSizeResultComponentCount(textureType);
+  if (components == 0) {
+    return {};
+  }
+  return HIRType{"ivec" + std::to_string(components), std::nullopt,
+                 std::move(location)};
 }
 
 bool isHIRStaticIntegerOffsetComponent(const HIRExpression &expression) {
@@ -1800,6 +1836,67 @@ void validateHIRTextureCompareTypedExpression(
         expression, HIRType{"float", std::nullopt, expression.location},
         context, "opt.hir-texture-expression-type", typedContext,
         diagnostics);
+  }
+}
+
+void validateHIRTextureQueryTypedExpression(
+    const HIRExpression &expression, const std::string &context,
+    const HIRSymbolTable &symbols, const HIRTypedSymbolContext &typedContext,
+    DiagnosticEngine &diagnostics) {
+  if (expression.kind != HIRExpressionKind::Call ||
+      !isHIRTextureQuery(expression.value)) {
+    return;
+  }
+  const bool sizeQuery = expression.value == "textureSize";
+  const bool validArity =
+      sizeQuery ? (expression.children.size() == 1 ||
+                   expression.children.size() == 2)
+                : expression.children.size() == 1;
+  if (!validArity) {
+    reportHIRTextureExpressionType(
+        expression, context,
+        sizeQuery
+            ? "textureSize must have 1 or 2 child expression(s), got " +
+                  std::to_string(expression.children.size())
+            : "textureQueryLevels must have 1 child expression, got " +
+                  std::to_string(expression.children.size()),
+        diagnostics);
+    return;
+  }
+
+  const std::optional<HIRType> textureType =
+      hirExpressionEffectiveType(expression.children.front(), symbols);
+  bool valid = true;
+  if (textureType.has_value() &&
+      !isTextureResourceType(baseTypeName(*textureType))) {
+    reportHIRTextureExpressionType(
+        expression, context,
+        expression.value + " first operand must be a texture resource, got '" +
+            formatType(*textureType) + "'",
+        diagnostics);
+    valid = false;
+  }
+
+  if (sizeQuery && expression.children.size() == 2) {
+    const std::optional<HIRType> lodType =
+        hirExpressionEffectiveType(expression.children[1], symbols);
+    if (lodType.has_value() && !isIntegerScalarType(*lodType)) {
+      reportHIRTextureExpressionType(
+          expression, context,
+          "textureSize lod operand must be scalar integer, got '" +
+              formatType(*lodType) + "'",
+          diagnostics);
+      valid = false;
+    }
+  }
+
+  if (valid && textureType.has_value() &&
+      isTextureResourceType(baseTypeName(*textureType))) {
+    reportHIRExpressionResultTypeMismatch(
+        expression,
+        sizeQuery ? hirTextureSizeResultType(*textureType, expression.location)
+                  : HIRType{"int", std::nullopt, expression.location},
+        context, "opt.hir-texture-expression-type", typedContext, diagnostics);
   }
 }
 
@@ -2830,6 +2927,8 @@ void validateHIRExpressionTypedSymbols(
                                           typedContext, diagnostics);
   validateHIRTextureCompareTypedExpression(expression, context, symbols,
                                            typedContext, diagnostics);
+  validateHIRTextureQueryTypedExpression(expression, context, symbols,
+                                         typedContext, diagnostics);
 
   if (expression.kind == HIRExpressionKind::MemberAccess &&
       expression.children.size() == 1) {
