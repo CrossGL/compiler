@@ -480,47 +480,9 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/out/cgl/simple.cgl"
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/out/cgl/simple.source-remap.json"
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_SOURCE_BATCH_STAGE_DIR}/out/cgl/simple.source-remap.json"
   COPYONLY)
-file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR}"
-"{
-  \"schemaVersion\": 1,
-  \"kind\": \"crossgl.backendSourceMap\",
-  \"target\": \"directx\",
-  \"module\": \"SimpleShader\",
-  \"mappingGranularity\": \"statement\",
-  \"sourceBackend\": \"crossgl-hir\",
-  \"targetBackend\": \"hlsl\",
-  \"backend\": {
-    \"language\": \"hlsl\",
-    \"lineCount\": 1
-  },
-  \"sourceRemap\": null,
-  \"mappingCount\": 1,
-  \"mappings\": [
-    {
-      \"index\": 0,
-      \"stage\": \"compute\",
-      \"entryPoint\": \"main\",
-      \"function\": \"main\",
-      \"statementKind\": \"assign\",
-      \"name\": \"value\",
-      \"backend\": {
-        \"startLine\": 1,
-        \"endLine\": 1
-      },
-      \"location\": {
-        \"file\": \"out/cgl/simple.cgl\",
-        \"line\": 1,
-        \"column\": 1,
-        \"offset\": 0,
-        \"length\": 31,
-        \"endLine\": 1,
-        \"endColumn\": 32,
-        \"endOffset\": 31
-      }
-    }
-  ]
-}
-")
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/out/directx/simple.backend-source-map.json"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR}"
+  COPYONLY)
 file(SIZE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR}"
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIZE_BYTES)
 file(SHA256 "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR}"
