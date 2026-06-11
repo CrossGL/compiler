@@ -297,6 +297,8 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_ARTIFACTS_BY_TARGET_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-artifacts-by-target-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_RUNTIME_REFERENCE_PATH_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-runtime-reference-path-mismatch.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-host-execution-plan.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_NON_CGL_SOURCE_REMAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-non-cgl-source-remap.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_DUPLICATE_SOURCE_REMAP_PATH
@@ -1110,6 +1112,63 @@ string(REPLACE "\"root\": \".\""
   "\"root\": \"${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures\""
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_JSON}")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BASIC_GENERATED_JSON}")
+string(REPLACE [=["runtimeReferenceCount": 1]=]
+  [=["runtimeReferenceCount": 2]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON}")
+string(REPLACE [=["runtimeReferencesByKind": {
+      "runtime-api": 1
+    }]=] [=["runtimeReferencesByKind": {
+      "host-integration-execution-plan": 1,
+      "runtime-api": 1
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON}")
+string(REPLACE [=["runtimeReferencesByBackend": {
+      "cuda": 1
+    }]=] [=["runtimeReferencesByBackend": {
+      "cuda": 1,
+      "directx": 1
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON}")
+string(REPLACE [=["runtimeReferencesByPath": {
+      "host.cpp": 1
+    }]=] [=["runtimeReferencesByPath": {
+      "crosstl-host-integration/execution-plan.json": 1,
+      "host.cpp": 1
+    }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON}")
+string(REPLACE [=[          {
+            "path": "host.cpp",
+            "line": 4,
+            "column": 3,
+            "backend": "cuda",
+            "kind": "runtime-api",
+            "symbol": "cudaMalloc"
+          }]=] [=[          {
+            "path": "crosstl-host-integration/execution-plan.json",
+            "line": 1,
+            "column": 1,
+            "backend": "directx",
+            "kind": "host-integration-execution-plan",
+            "symbol": "crosstl-runtime-host-integration-execution-plan"
+          },
+          {
+            "path": "host.cpp",
+            "line": 4,
+            "column": 3,
+            "backend": "cuda",
+            "kind": "runtime-api",
+            "symbol": "cudaMalloc"
+          }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN_JSON}")
 string(REPLACE "\"unitCount\": 0"
   "\"unitCount\": 1"
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_UNIT_COUNT_MISMATCH_JSON
@@ -4262,6 +4321,30 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_crossgl_targe
     "\"diagnostics\": []")
 
 crossgl_add_required_python_test(
+  NAME cglc_crosstl_project_report_host_execution_plan_json_schema
+  COMMAND
+    "${CROSSGL_PYTHON3}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py"
+    --schema
+    "${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/crosstl-project-portability-report-v1.schema.json"
+    --instance
+    "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN}")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_host_execution_plan_success_contract
+  EXPECTED_RESULT 0
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"kind\": \"crossgl.sourceBatchResult\""
+    "\"entryCount\": 1"
+    "\"id\": \"simple.cgl\""
+    "\"logicalInput\": \"out/cgl/simple.cgl\""
+    "\"sourceRemap\": \"${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE_SOURCE_REMAP}\""
+    "\"target\": \"auto\""
+    "\"success\": true"
+    "\"diagnostics\": []")
+
+crossgl_add_required_python_test(
   NAME cglc_crosstl_project_report_unknown_target_summary_json_schema
   COMMAND
     "${CROSSGL_PYTHON3}"
@@ -4316,6 +4399,17 @@ crossgl_add_python_expect_test(
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
     "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=1|entries.0.id=simple.cgl|entries.0.logicalInput=out/cgl/simple.cgl|entries.0.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_FILE_SOURCE_REMAP}|entries.0.target=auto|entries.0.success=true|diagnosticReport.schemaVersion=1"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=1|diagnosticReport.diagnostics=0")
+
+crossgl_add_python_expect_test(
+  NAME cglc_cli_check_crosstl_project_report_host_execution_plan_result_json_schema
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DMODE=source-batch-check-json
+    -DMANIFEST=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_HOST_EXECUTION_PLAN}
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-batch-result-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceBatchResult|success=true|entryCount=1|entries.0.id=simple.cgl|entries.0.logicalInput=out/cgl/simple.cgl|entries.0.sourceRemap=${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_LINE_SOURCE_REMAP}|entries.0.target=auto|entries.0.success=true|diagnosticReport.schemaVersion=1"
     "-DEXPECTED_JSON_ARRAY_LENGTHS=entries=1|diagnosticReport.diagnostics=0")
 
 if(CROSSGL_PYTHON3)

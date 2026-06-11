@@ -2960,7 +2960,8 @@ bool crossTLProjectReportRuntimeReferenceKindKnown(std::string_view kind) {
   return kind == "runtime-api" || kind == "kernel-launch" ||
          kind == "build-system" || kind == "runtime-loader-plan" ||
          kind == "host-integration-handoff" ||
-         kind == "host-integration-handoff-inspection";
+         kind == "host-integration-handoff-inspection" ||
+         kind == "host-integration-execution-plan";
 }
 
 bool validateCrossTLProjectReportRuntimeRollupCountMap(
@@ -3081,7 +3082,8 @@ bool parseCrossTLProjectReportRuntimeReference(
         std::string(context) +
             ".kind must be runtime-api, kernel-launch, build-system, "
             "runtime-loader-plan, host-integration-handoff, or "
-            "host-integration-handoff-inspection");
+            "host-integration-handoff-inspection, or "
+            "host-integration-execution-plan");
     return false;
   }
 

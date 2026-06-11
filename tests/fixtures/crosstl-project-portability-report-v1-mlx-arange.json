@@ -75,16 +75,18 @@
     "sourceRemapsByTarget": {},
     "sourceRemapsBySourceBackend": {},
     "sourceRemapsByVariant": {},
-    "runtimeReferenceCount": 3,
+    "runtimeReferenceCount": 4,
     "runtimeReferencesByKind": {
+      "host-integration-execution-plan": 1,
       "host-integration-handoff": 1,
       "host-integration-handoff-inspection": 1,
       "runtime-loader-plan": 1
     },
     "runtimeReferencesByBackend": {
-      "directx": 3
+      "directx": 4
     },
     "runtimeReferencesByPath": {
+      "crosstl-host-integration/execution-plan.json": 1,
       "crosstl-host-integration/host-integration.json": 1,
       "crosstl-host-integration/inspection.json": 1,
       "runtime/directx-loader-plan.json": 1
@@ -187,16 +189,18 @@
   "diagnostics": [],
   "validation": {},
   "migration": {
-    "runtimeReferenceCount": 3,
+    "runtimeReferenceCount": 4,
     "runtimeReferencesByKind": {
+      "host-integration-execution-plan": 1,
       "host-integration-handoff": 1,
       "host-integration-handoff-inspection": 1,
       "runtime-loader-plan": 1
     },
     "runtimeReferencesByBackend": {
-      "directx": 3
+      "directx": 4
     },
     "runtimeReferencesByPath": {
+      "crosstl-host-integration/execution-plan.json": 1,
       "crosstl-host-integration/host-integration.json": 1,
       "crosstl-host-integration/inspection.json": 1,
       "runtime/directx-loader-plan.json": 1
@@ -234,6 +238,14 @@
             "backend": "directx",
             "kind": "host-integration-handoff-inspection",
             "symbol": "crosstl-runtime-host-integration-handoff-inspection"
+          },
+          {
+            "path": "crosstl-host-integration/execution-plan.json",
+            "line": 1,
+            "column": 1,
+            "backend": "directx",
+            "kind": "host-integration-execution-plan",
+            "symbol": "crosstl-runtime-host-integration-execution-plan"
           }
         ]
       }

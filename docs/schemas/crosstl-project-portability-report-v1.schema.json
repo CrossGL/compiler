@@ -558,7 +558,8 @@
             "build-system",
             "runtime-loader-plan",
             "host-integration-handoff",
-            "host-integration-handoff-inspection"
+            "host-integration-handoff-inspection",
+            "host-integration-execution-plan"
           ]
         },
         "symbol": {

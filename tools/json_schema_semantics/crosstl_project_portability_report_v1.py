@@ -12,6 +12,7 @@ RUNTIME_REFERENCE_KINDS = frozenset(
         "runtime-loader-plan",
         "host-integration-handoff",
         "host-integration-handoff-inspection",
+        "host-integration-execution-plan",
     )
 )
 RUNTIME_REFERENCE_KIND_DESCRIPTION = ", ".join(sorted(RUNTIME_REFERENCE_KINDS))
