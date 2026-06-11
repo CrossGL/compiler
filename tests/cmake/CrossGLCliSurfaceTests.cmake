@@ -5279,6 +5279,19 @@ crossgl_add_cli_surface_test(cglc_cli_dump_ir_source_remap_logical_input_mismatc
     "error io.invalid-source-remap"
     "source remap generatedFile 'generated/from-translator.cgl' must match compiler input path 'generated/other-source.cgl'")
 
+crossgl_add_cli_surface_test(cglc_cli_check_source_remap_generated_span_order_drift
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input generated/remapped-source.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/schema-failures/source-remap-v1/generated-span-order-drift.json
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "source remap mappings[1].generated.offset must be >= mappings[0].generated.endOffset"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "source remap mappings[1].generated.offset must be >= mappings[0].generated.endOffset")
+
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_sidecar
   EXPECTED_RESULT 0
   ARGS check ${CROSSGL_SIMPLE_SHADER}
@@ -5328,6 +5341,19 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadat
   STDERR_CONTAINS
     "error io.invalid-source-remap"
     "sourceRemap.mappingGranularity must be file, line, statement, or token")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_order_drift_fails
+  EXPECTED_RESULT 1
+  ARGS check ${CROSSGL_SIMPLE_SHADER}
+    --logical-input generated/remapped-source.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-generated-span-order-drift-report-metadata.json
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"io.invalid-source-remap\""
+    "source remap mappings[1].generated.offset must be >= mappings[0].generated.endOffset"
+  STDERR_CONTAINS
+    "error io.invalid-source-remap"
+    "source remap mappings[1].generated.offset must be >= mappings[0].generated.endOffset")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_missing_sidecar_fails
   EXPECTED_RESULT 1

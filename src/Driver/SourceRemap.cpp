@@ -518,6 +518,14 @@ bool generatedSpansOverlap(const SourceLocation &left,
   return left.offset < right.endOffset && right.offset < left.endOffset;
 }
 
+bool generatedSpanOrderDrifts(const SourceLocation &previous,
+                              const SourceLocation &current) {
+  if (previous.file != current.file) {
+    return false;
+  }
+  return current.offset < previous.endOffset;
+}
+
 std::size_t translateLine(const SourceLocation &generated,
                           const SourceLocation &original, std::size_t line) {
   return original.line + (line - generated.line);
@@ -840,6 +848,24 @@ std::optional<SourceRemap> parseSourceRemap(std::string_view text,
                                             ".generated overlaps mappings[" +
                                             std::to_string(priorIndex) +
                                             "].generated",
+                                        documentLocation);
+                                    return;
+                                  }
+                                }
+                                if (!remap.mappings.empty()) {
+                                  const SourceRemapEntry &previous =
+                                      remap.mappings.back();
+                                  if (generatedSpanOrderDrifts(
+                                          previous.generated, *generated)) {
+                                    validMappings = false;
+                                    reportInvalidRemap(
+                                        diagnostics,
+                                        "source remap " + path +
+                                            ".generated.offset must be >= "
+                                            "mappings[" +
+                                            std::to_string(
+                                                remap.mappings.size() - 1) +
+                                            "].generated.endOffset",
                                         documentLocation);
                                     return;
                                   }

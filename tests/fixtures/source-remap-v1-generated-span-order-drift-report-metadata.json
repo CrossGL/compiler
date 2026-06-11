@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "path": "source-remap-v1-generated-span-order-drift.json",
+  "hash": {
+    "algorithm": "sha256",
+    "value": "aad78137df10a41d9348ecd6c1fbbd631d13325aa3741839ca57345bf13362de"
+  },
+  "sizeBytes": 1060,
+  "target": "cgl",
+  "generatedFile": "generated/remapped-source.cgl",
+  "sourceBackend": "glsl",
+  "variant": "debug",
+  "mappingGranularity": "line",
+  "mappingCount": 2
+}
