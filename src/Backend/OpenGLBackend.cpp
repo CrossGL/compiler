@@ -5748,6 +5748,242 @@ std::string openGLPackageRelativePath(
   return artifactPath.generic_string();
 }
 
+std::string openGLTrimCapturedText(std::string text) {
+  while (!text.empty() &&
+         (text.back() == '\n' || text.back() == '\r' ||
+          text.back() == ' ' || text.back() == '\t')) {
+    text.pop_back();
+  }
+  std::size_t start = 0;
+  while (start < text.size() &&
+         (text[start] == '\n' || text[start] == '\r' ||
+          text[start] == ' ' || text[start] == '\t')) {
+    ++start;
+  }
+  if (start != 0) {
+    text.erase(0, start);
+  }
+  for (char &ch : text) {
+    if (ch == '\n' || ch == '\r') {
+      ch = ' ';
+    }
+  }
+  constexpr std::size_t maxCapturedDiagnosticLength = 1200;
+  if (text.size() > maxCapturedDiagnosticLength) {
+    text.resize(maxCapturedDiagnosticLength);
+    text += "...";
+  }
+  return text;
+}
+
+std::string openGLGlslangExitStatus(const ProcessCaptureResult &result) {
+  if (result.started) {
+    return std::to_string(result.exitCode);
+  }
+  if (!result.error.empty()) {
+    return "not-started: " + result.error;
+  }
+  return "not-started";
+}
+
+std::string openGLGlslangDiagnostics(const ProcessCaptureResult &result) {
+  std::vector<std::string> parts;
+  if (!result.stderrText.empty()) {
+    parts.push_back("stderr: " + openGLTrimCapturedText(result.stderrText));
+  }
+  if (!result.stdoutText.empty()) {
+    parts.push_back("stdout: " + openGLTrimCapturedText(result.stdoutText));
+  }
+  if (!result.error.empty()) {
+    parts.push_back("error: " + result.error);
+  }
+  if (parts.empty()) {
+    return "no glslangValidator diagnostic output captured";
+  }
+
+  std::ostringstream out;
+  for (std::size_t index = 0; index < parts.size(); ++index) {
+    if (index != 0) {
+      out << "; ";
+    }
+    out << parts[index];
+  }
+  return out.str();
+}
+
+std::string_view trimOpenGLToolText(std::string_view text) {
+  while (!text.empty() &&
+         (text.front() == ' ' || text.front() == '\t' ||
+          text.front() == '\r' || text.front() == '\n')) {
+    text.remove_prefix(1);
+  }
+  while (!text.empty() &&
+         (text.back() == ' ' || text.back() == '\t' ||
+          text.back() == '\r' || text.back() == '\n')) {
+    text.remove_suffix(1);
+  }
+  return text;
+}
+
+std::optional<std::size_t>
+parseOpenGLToolPositiveInteger(std::string_view text) {
+  text = trimOpenGLToolText(text);
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  std::size_t value = 0;
+  for (char ch : text) {
+    if (ch < '0' || ch > '9') {
+      return std::nullopt;
+    }
+    const std::size_t digit = static_cast<std::size_t>(ch - '0');
+    if (value > (static_cast<std::size_t>(-1) - digit) / 10) {
+      return std::nullopt;
+    }
+    value = value * 10 + digit;
+  }
+  if (value == 0) {
+    return std::nullopt;
+  }
+  return value;
+}
+
+std::optional<DiagnosticSeverity>
+openGLToolSeverity(std::string_view text) {
+  const std::string_view trimmed = trimOpenGLToolText(text);
+  const std::size_t tokenEnd = trimmed.find(' ');
+  const std::string_view token =
+      tokenEnd == std::string_view::npos ? trimmed : trimmed.substr(0, tokenEnd);
+  if (token == "error") {
+    return DiagnosticSeverity::Error;
+  }
+  if (token == "warning") {
+    return DiagnosticSeverity::Warning;
+  }
+  if (token == "note") {
+    return DiagnosticSeverity::Note;
+  }
+  return std::nullopt;
+}
+
+struct OpenGLToolParsedDiagnostic {
+  std::size_t line = 0;
+  std::size_t column = 0;
+  DiagnosticSeverity severity = DiagnosticSeverity::Error;
+  std::string message;
+};
+
+std::optional<OpenGLToolParsedDiagnostic>
+parseOpenGLToolDiagnosticLine(std::string_view line) {
+  line = trimOpenGLToolText(line);
+  constexpr std::string_view markers[] = {": error:", ": warning:", ": note:"};
+  for (std::string_view marker : markers) {
+    const std::size_t markerPosition = line.find(marker);
+    if (markerPosition == std::string_view::npos) {
+      continue;
+    }
+    const std::optional<DiagnosticSeverity> severity =
+        openGLToolSeverity(marker.substr(2, marker.size() - 3));
+    if (!severity) {
+      continue;
+    }
+    const std::string_view coordinatePrefix = line.substr(0, markerPosition);
+    const std::size_t columnSeparator = coordinatePrefix.rfind(':');
+    if (columnSeparator == std::string_view::npos || columnSeparator == 0) {
+      continue;
+    }
+    const std::size_t lineSeparator =
+        coordinatePrefix.rfind(':', columnSeparator - 1);
+    if (lineSeparator == std::string_view::npos || lineSeparator == 0) {
+      continue;
+    }
+    const std::optional<std::size_t> parsedLine =
+        parseOpenGLToolPositiveInteger(
+            coordinatePrefix.substr(lineSeparator + 1,
+                                    columnSeparator - lineSeparator - 1));
+    const std::optional<std::size_t> parsedColumn =
+        parseOpenGLToolPositiveInteger(
+            coordinatePrefix.substr(columnSeparator + 1));
+    if (!parsedLine || !parsedColumn) {
+      continue;
+    }
+    const std::string_view detail =
+        trimOpenGLToolText(line.substr(markerPosition + marker.size()));
+    if (detail.empty()) {
+      return std::nullopt;
+    }
+
+    OpenGLToolParsedDiagnostic diagnostic;
+    diagnostic.line = *parsedLine;
+    diagnostic.column = *parsedColumn;
+    diagnostic.severity = *severity;
+    diagnostic.message = std::string(detail);
+    return diagnostic;
+  }
+  return std::nullopt;
+}
+
+std::string openGLGlslangDiagnosticCode(DiagnosticSeverity severity) {
+  switch (severity) {
+  case DiagnosticSeverity::Error:
+    return "opengl.glslang-error";
+  case DiagnosticSeverity::Warning:
+    return "opengl.glslang-warning";
+  case DiagnosticSeverity::Note:
+    return "opengl.glslang-note";
+  }
+  return "opengl.glslang-message";
+}
+
+Diagnostic openGLGlslangValidationDiagnostic(
+    const OpenGLToolParsedDiagnostic &parsed,
+    const std::filesystem::path &packageRelativeSource) {
+  Diagnostic diagnostic;
+  diagnostic.severity = parsed.severity;
+  diagnostic.code = openGLGlslangDiagnosticCode(parsed.severity);
+  diagnostic.message =
+      "glslangValidator " + std::string(toString(parsed.severity)) + ": " +
+      parsed.message + " (" + packageRelativeSource.generic_string() + ":" +
+      std::to_string(parsed.line) + ":" + std::to_string(parsed.column) + ")";
+  diagnostic.location.file = packageRelativeSource.generic_string();
+  diagnostic.location.line = parsed.line;
+  diagnostic.location.column = parsed.column;
+  diagnostic.location.endLine = parsed.line;
+  diagnostic.location.endColumn = parsed.column;
+  diagnostic.target = "opengl";
+  diagnostic.missingCapabilities = {"opengl.backend.native-glsl-package",
+                                    "opengl.validation.glsl-program-validation"};
+  return diagnostic;
+}
+
+void appendOpenGLGlslangValidationDiagnostics(
+    std::vector<Diagnostic> &diagnostics, std::string_view output,
+    const std::filesystem::path &packageRelativeSource) {
+  while (!output.empty()) {
+    const std::size_t lineEnd = output.find('\n');
+    const std::string_view line =
+        lineEnd == std::string_view::npos ? output : output.substr(0, lineEnd);
+    if (std::optional<OpenGLToolParsedDiagnostic> parsed =
+            parseOpenGLToolDiagnosticLine(line)) {
+      diagnostics.push_back(
+          openGLGlslangValidationDiagnostic(*parsed, packageRelativeSource));
+    }
+    if (lineEnd == std::string_view::npos) {
+      break;
+    }
+    output.remove_prefix(lineEnd + 1);
+  }
+}
+
+void appendOpenGLGlslangValidationDiagnostics(
+    std::vector<Diagnostic> &diagnostics, const ProcessCaptureResult &result,
+    const std::filesystem::path &packageRelativeSource) {
+  appendOpenGLGlslangValidationDiagnostics(
+      diagnostics, result.stderrText, packageRelativeSource);
+  appendOpenGLGlslangValidationDiagnostics(
+      diagnostics, result.stdoutText, packageRelativeSource);
+}
+
 bool writeOpenGLTextFile(const std::filesystem::path &path,
                          std::string_view text,
                          DiagnosticEngine &diagnostics,
@@ -5933,10 +6169,16 @@ buildOpenGLSourcePackage(const HIRModule &module,
   const std::string sourceKind = graphicsSource ? "graphics" : "compute";
   result.sourcePath = openglDir / (module.name + sourceSuffix);
   result.nativeBinaryPath = openglDir / (module.name + ".glsl");
+  const std::filesystem::path packageRelativeSource =
+      openGLPackageRelativePath(packageDir, result.sourcePath);
   const std::filesystem::path vertexSourcePath =
       openglDir / (module.name + ".vert.glsl");
   const std::filesystem::path fragmentSourcePath =
       openglDir / (module.name + ".frag.glsl");
+  const std::filesystem::path packageRelativeVertexSource =
+      openGLPackageRelativePath(packageDir, vertexSourcePath);
+  const std::filesystem::path packageRelativeFragmentSource =
+      openGLPackageRelativePath(packageDir, fragmentSourcePath);
   const std::filesystem::path validatedVertexPath =
       openglDir / (module.name + ".validated.vert.glsl");
   const std::filesystem::path validatedFragmentPath =
@@ -5980,14 +6222,42 @@ buildOpenGLSourcePackage(const HIRModule &module,
   }
 
   int status = 0;
+  std::string glslangDiagnosticSummary;
   if (graphicsSource) {
-    const int vertexStatus =
-        runProcess({*glslang, "-S", "vert", vertexSourcePath.string()});
-    const int fragmentStatus =
-        runProcess({*glslang, "-S", "frag", fragmentSourcePath.string()});
-    status = vertexStatus == 0 && fragmentStatus == 0 ? 0 : 1;
+    const std::vector<std::string> vertexCommand = {
+        *glslang, "-S", "vert", vertexSourcePath.string()};
+    const std::vector<std::string> fragmentCommand = {
+        *glslang, "-S", "frag", fragmentSourcePath.string()};
+    const ProcessCaptureResult vertexResult = runProcessCapture(vertexCommand);
+    const ProcessCaptureResult fragmentResult =
+        runProcessCapture(fragmentCommand);
+    appendOpenGLGlslangValidationDiagnostics(
+        result.validationDiagnostics, vertexResult, packageRelativeVertexSource);
+    appendOpenGLGlslangValidationDiagnostics(
+        result.validationDiagnostics, fragmentResult,
+        packageRelativeFragmentSource);
+    status = vertexResult.started && vertexResult.exitCode == 0 &&
+                     fragmentResult.started && fragmentResult.exitCode == 0
+                 ? 0
+                 : 1;
+    glslangDiagnosticSummary =
+        "vertex exit status: " + openGLGlslangExitStatus(vertexResult) +
+        "; fragment exit status: " +
+        openGLGlslangExitStatus(fragmentResult) +
+        "; vertex glslang diagnostics: " +
+        openGLGlslangDiagnostics(vertexResult) +
+        "; fragment glslang diagnostics: " +
+        openGLGlslangDiagnostics(fragmentResult);
   } else {
-    status = runProcess({*glslang, "-S", "comp", result.sourcePath.string()});
+    const std::vector<std::string> command = {
+        *glslang, "-S", "comp", result.sourcePath.string()};
+    const ProcessCaptureResult glslangResult = runProcessCapture(command);
+    appendOpenGLGlslangValidationDiagnostics(
+        result.validationDiagnostics, glslangResult, packageRelativeSource);
+    status = glslangResult.started && glslangResult.exitCode == 0 ? 0 : 1;
+    glslangDiagnosticSummary =
+        "exit status: " + openGLGlslangExitStatus(glslangResult) +
+        "; glslang diagnostics: " + openGLGlslangDiagnostics(glslangResult);
   }
   if (status == 0) {
     if (graphicsSource) {
@@ -6036,11 +6306,14 @@ buildOpenGLSourcePackage(const HIRModule &module,
   diagnostic.code = "opengl.glslang-failed";
   diagnostic.message =
       "glslangValidator was found but failed to validate generated GLSL " +
-      sourceKind + " source (" + glslEvidence + ")";
+      sourceKind + " source (" + glslEvidence + "); " +
+      glslangDiagnosticSummary;
   diagnostic.target = "opengl";
   diagnostic.missingCapabilities = {"opengl.backend.native-glsl-package",
                                     "opengl.validation.glsl-program-validation"};
-  result.validationDiagnostics.push_back(diagnostic);
+  if (result.validationDiagnostics.empty()) {
+    result.validationDiagnostics.push_back(diagnostic);
+  }
   diagnostics.report(std::move(diagnostic));
   diagnostics.warning("opengl.source-package-only",
                       "kept GLSL source package; native OpenGL validation "

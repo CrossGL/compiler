@@ -64,6 +64,8 @@ crossgl_configure_fake_shader_tool(CROSSGL_FAKE_GLSLANG_SUCCESS_DIR
                                    glslangValidator success)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_GLSLANG_FAILURE_DIR
                                    glslangValidator failure)
+crossgl_configure_fake_shader_tool(CROSSGL_FAKE_GLSLANG_DIAGNOSTICS_FAILURE_DIR
+                                   glslangValidator diagnostics-failure)
 crossgl_configure_fake_shader_tool(CROSSGL_FAKE_GLSLANG_FRAGMENT_FAILURE_DIR
                                    glslangValidator fragment-failure)
 set(CROSSGL_FAKE_TOOL_UNAVAILABLE_DIR
@@ -1145,6 +1147,31 @@ add_test(NAME cglc_build_opengl_source_package_fake_glslang_tool_failure
     -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FAILURE_DIR}/glslangValidator.log
     "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator failure: -S comp"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_opengl_source_package_fake_glslang_diagnostics_tool_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-fake-glslang-diagnostics-failure.cglb
+    -DMODE=source-package-build
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_GLSLANG_DIAGNOSTICS_FAILURE_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    -DEXPECTED_SOURCE=backend/opengl/StorageBufferComputeShader.comp.glsl
+    -DEXPECTED_NATIVE_BINARY_ABSENT=backend/opengl/StorageBufferComputeShader.glsl
+    -DEXPECTED_NATIVE_BINARY_STATUS=planned
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=sourcePackageValidation.target=opengl|sourcePackageValidation.tool=glslangValidator|sourcePackageValidation.policy=use-when-available|sourcePackageValidation.status=failed"
+    -DEXPECTED_DIAGNOSTIC=opengl.glslang-failed
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=warning|diagnostics.0.code=opengl.glslang-failed|diagnostics.0.target=opengl|diagnostics.1.severity=warning|diagnostics.1.code=opengl.source-package-only"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=fake glslang mapped failure"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450"
+    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=opengl.backend.native-glsl-package|missingCapabilities=opengl.validation.glsl-program-validation"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2|diagnostics.0.missingCapabilities=2"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/StorageBufferComputeShader.comp.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=failed|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|validationDiagnostics.0.severity=error|validationDiagnostics.0.code=opengl.glslang-error|validationDiagnostics.0.message=glslangValidator error: fake glslang mapped failure (backend/opengl/StorageBufferComputeShader.comp.glsl:5:3)|validationDiagnostics.0.location.file=backend/opengl/StorageBufferComputeShader.comp.glsl|validationDiagnostics.0.location.line=5|validationDiagnostics.0.location.column=3|validationDiagnostics.0.target=opengl|validationDiagnostics.0.missingCapabilities.0=opengl.backend.native-glsl-package|validationDiagnostics.0.missingCapabilities.1=opengl.validation.glsl-program-validation"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=1|validationDiagnostics.0.missingCapabilities=2"
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_DIAGNOSTICS_FAILURE_DIR}/glslangValidator.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator diagnostics-failure: -S comp"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_build_opengl_source_package_fake_glslang_unavailable
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -1169,6 +1196,9 @@ add_test(NAME cglc_build_opengl_source_package_fake_glslang_unavailable
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_label_optional_native_policy_test(
   cglc_build_opengl_source_package_fake_glslang_tool_failure opengl)
+crossgl_label_optional_native_policy_test(
+  cglc_build_opengl_source_package_fake_glslang_diagnostics_tool_failure
+  opengl)
 crossgl_label_optional_native_policy_test(
   cglc_build_opengl_source_package_fake_glslang_unavailable opengl)
 if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
@@ -5289,8 +5319,42 @@ add_test(NAME cglc_build_opengl_graphics_fake_glslang_fragment_tool_failure
     -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_FRAGMENT_FAILURE_DIR}/glslangValidator.log
     "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator fragment-failure: -S frag"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+add_test(NAME cglc_build_opengl_graphics_fake_glslang_diagnostics_tool_failure
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_SIMPLE_SHADER}
+    -DTARGET=opengl
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-opengl-graphics-fake-glslang-diagnostics-failure.cglb
+    -DMODE=source-package-build
+    -DTOOLCHAIN_PATH=${CROSSGL_FAKE_GLSLANG_DIAGNOSTICS_FAILURE_DIR}
+    -DTOOLCHAIN_DISABLE_FALLBACK=ON
+    -DEXPECTED_SOURCE=backend/opengl/SimpleShader.graphics.glsl
+    "-DEXPECTED_SOURCE_SNIPPET=${CROSSGL_OPENGL_GRAPHICS_SOURCE_SNIPPET}"
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=opengl|module=SimpleShader|artifacts.backendSource=backend/opengl/SimpleShader.graphics.glsl|artifacts.nativeBinary=backend/opengl/SimpleShader.glsl|artifacts.nativeBinaryStatus=planned"
+    "-DEXPECTED_REFLECTION_JSON_FIELDS=schemaVersion=1|target=opengl|module=SimpleShader|nativeBinary=backend/opengl/SimpleShader.glsl|entryPoints.0.stage=vertex|entryPoints.0.backendName=vertex_main|entryPoints.1.stage=fragment|entryPoints.1.backendName=fragment_main|vertexLayouts.0.entryPoint=vertex_main"
+    "-DEXPECTED_REFLECTION_JSON_ARRAY_LENGTHS=entryPoints=2|vertexLayouts=1|workgroupSizes=0"
+    "-DEXPECTED_REFLECTION_FEATURE_FIELDS=glsl-lowering.kind=backend|vertex-shader.kind=stage|fragment-shader.kind=stage|local-declaration.kind=operation|vector-constructor.kind=operation"
+    -DEXPECTED_NATIVE_BINARY_ABSENT=backend/opengl/SimpleShader.glsl
+    -DEXPECTED_NATIVE_BINARY_STATUS=planned
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=sourcePackageValidation.target=opengl|sourcePackageValidation.tool=glslangValidator|sourcePackageValidation.policy=use-when-available|sourcePackageValidation.status=failed"
+    -DEXPECTED_DIAGNOSTIC=opengl.glslang-failed
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELDS=diagnostics.0.severity=warning|diagnostics.0.code=opengl.glslang-failed|diagnostics.0.target=opengl|diagnostics.1.severity=warning|diagnostics.1.code=opengl.source-package-only"
+    "-DEXPECTED_DIAGNOSTICS_JSON_FIELD_CONTAINS=diagnostics.0.message=vertex glslang diagnostics: stderr:|diagnostics.0.message=fragment glslang diagnostics: stderr:|diagnostics.0.message=fake glslang mapped failure"
+    "-DEXPECTED_DIAGNOSTIC_FIELD_CONTAINS=message=GLSL 450"
+    "-DEXPECTED_DIAGNOSTIC_ARRAY_CONTAINS=missingCapabilities=opengl.backend.native-glsl-package|missingCapabilities=opengl.validation.glsl-program-validation"
+    "-DEXPECTED_DIAGNOSTICS_JSON_ARRAY_LENGTHS=diagnostics=2|diagnostics.0.missingCapabilities=2"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=target=opengl|binaryKind=opengl.source|sourcePath=backend/opengl/SimpleShader.graphics.glsl|sourceHash.algorithm=sha256|nativeBinaryStatus=planned|validationStatus=failed|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|validationDiagnostics.0.severity=error|validationDiagnostics.0.code=opengl.glslang-error|validationDiagnostics.0.message=glslangValidator error: fake glslang mapped failure (backend/opengl/SimpleShader.vert.glsl:5:3)|validationDiagnostics.0.location.file=backend/opengl/SimpleShader.vert.glsl|validationDiagnostics.0.location.line=5|validationDiagnostics.0.location.column=3|validationDiagnostics.0.target=opengl|validationDiagnostics.0.missingCapabilities.0=opengl.backend.native-glsl-package|validationDiagnostics.1.severity=error|validationDiagnostics.1.code=opengl.glslang-error|validationDiagnostics.1.message=glslangValidator error: fake glslang mapped failure (backend/opengl/SimpleShader.frag.glsl:5:3)|validationDiagnostics.1.location.file=backend/opengl/SimpleShader.frag.glsl|validationDiagnostics.1.location.line=5|validationDiagnostics.1.location.column=3|validationDiagnostics.1.target=opengl|validationDiagnostics.1.missingCapabilities.0=opengl.backend.native-glsl-package"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=sourceHash.value"
+    "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=toolchainProvenance.tools=2|validationDiagnostics=2|validationDiagnostics.0.missingCapabilities=2|validationDiagnostics.1.missingCapabilities=2"
+    -DEXPECTED_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_DIAGNOSTICS_FAILURE_DIR}/glslangValidator.log
+    "-DEXPECTED_TOOL_LOG_CONTAINS=glslangValidator diagnostics-failure: -S vert"
+    -DEXPECTED_SECOND_TOOL_LOG=${CROSSGL_FAKE_GLSLANG_DIAGNOSTICS_FAILURE_DIR}/glslangValidator.log
+    "-DEXPECTED_SECOND_TOOL_LOG_CONTAINS=glslangValidator diagnostics-failure: -S frag"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 crossgl_label_optional_native_policy_test(
   cglc_build_opengl_graphics_fake_glslang_fragment_tool_failure opengl)
+crossgl_label_optional_native_policy_test(
+  cglc_build_opengl_graphics_fake_glslang_diagnostics_tool_failure opengl)
 if(CROSSGL_HAS_OPENGL_NATIVE_VALIDATOR)
   add_test(NAME cglc_build_opengl_graphics_glsl_validated
     COMMAND ${CMAKE_COMMAND}

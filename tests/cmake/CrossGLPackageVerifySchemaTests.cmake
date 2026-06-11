@@ -663,6 +663,8 @@ function(crossgl_add_opengl_compute_fake_glslang_package_verify_test)
     TOOLCHAIN_PATH
     EXPECTED_NATIVE_BINARY_STATUS
     EXPECTED_VALIDATION_STATUS
+    EXPECTED_FAILED_VALIDATION_DIAGNOSTIC_FIELDS
+    EXPECTED_FAILED_VALIDATION_DIAGNOSTIC_ARRAY_LENGTHS
     EXPECTED_TOOL_LOG
     EXPECTED_TOOL_LOG_CONTAINS)
   cmake_parse_arguments(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY
@@ -700,12 +702,24 @@ function(crossgl_add_opengl_compute_fake_glslang_package_verify_test)
       "toolchainProvenance.tools=2|validationDiagnostics=0")
   elseif(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_VALIDATION_STATUS
          STREQUAL "failed")
+    set(opengl_fake_glslang_verify_failed_diagnostic_fields
+      "validationDiagnostics.0.code=opengl.glslang-failed")
+    if(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_FAILED_VALIDATION_DIAGNOSTIC_FIELDS)
+      set(opengl_fake_glslang_verify_failed_diagnostic_fields
+        "${CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_FAILED_VALIDATION_DIAGNOSTIC_FIELDS}")
+    endif()
+    set(opengl_fake_glslang_verify_failed_diagnostic_array_lengths
+      "toolchainProvenance.tools=2|validationDiagnostics=1")
+    if(CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_FAILED_VALIDATION_DIAGNOSTIC_ARRAY_LENGTHS)
+      set(opengl_fake_glslang_verify_failed_diagnostic_array_lengths
+        "${CROSSGL_OPENGL_FAKE_GLSLANG_VERIFY_EXPECTED_FAILED_VALIDATION_DIAGNOSTIC_ARRAY_LENGTHS}")
+    endif()
     set(opengl_fake_glslang_verify_native_descriptor_paths
       "sourceHash.value|toolchainProvenance.tools.1.resolvedExecutable|toolchainProvenance.tools.1.versionDetail")
     set(opengl_fake_glslang_verify_native_descriptor_fields
-      "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=glslangValidator|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed|validationStatus=failed|validationDiagnostics.0.code=opengl.glslang-failed")
+      "|sourceHash.algorithm=sha256|toolchainProvenance.tools.0.name=CrossGL-Compiler|toolchainProvenance.tools.0.role=generator|toolchainProvenance.tools.1.name=glslangValidator|toolchainProvenance.tools.1.role=validator|toolchainProvenance.tools.1.version=unknown|toolchainProvenance.tools.1.executable=glslangValidator|toolchainProvenance.tools.1.executableSource=PATH|toolchainProvenance.tools.1.versionProbeStatus=failed|validationStatus=failed|${opengl_fake_glslang_verify_failed_diagnostic_fields}")
     set(opengl_fake_glslang_verify_native_descriptor_array_lengths
-      "toolchainProvenance.tools=2|validationDiagnostics=1")
+      "${opengl_fake_glslang_verify_failed_diagnostic_array_lengths}")
   endif()
 
   set(verify_definitions
@@ -766,6 +780,19 @@ crossgl_add_opengl_compute_fake_glslang_package_verify_test(
   EXPECTED_TOOL_LOG_CONTAINS "glslangValidator failure: -S comp")
 
 crossgl_add_opengl_compute_fake_glslang_package_verify_test(
+  NAME cglc_package_verify_opengl_compute_fake_glslang_source_package_diagnostics_tool_failure
+  TOOLCHAIN_PATH ${CROSSGL_FAKE_GLSLANG_DIAGNOSTICS_FAILURE_DIR}
+  TOOLCHAIN_DISABLE_FALLBACK
+  EXPECTED_NATIVE_BINARY_STATUS planned
+  EXPECTED_VALIDATION_STATUS failed
+  EXPECTED_FAILED_VALIDATION_DIAGNOSTIC_FIELDS
+    "validationDiagnostics.0.severity=error|validationDiagnostics.0.code=opengl.glslang-error|validationDiagnostics.0.message=glslangValidator error: fake glslang mapped failure (backend/opengl/StorageBufferComputeShader.comp.glsl:5:3)|validationDiagnostics.0.location.file=backend/opengl/StorageBufferComputeShader.comp.glsl|validationDiagnostics.0.location.line=5|validationDiagnostics.0.location.column=3|validationDiagnostics.0.target=opengl|validationDiagnostics.0.missingCapabilities.0=opengl.backend.native-glsl-package|validationDiagnostics.0.missingCapabilities.1=opengl.validation.glsl-program-validation"
+  EXPECTED_FAILED_VALIDATION_DIAGNOSTIC_ARRAY_LENGTHS
+    "toolchainProvenance.tools=2|validationDiagnostics=1|validationDiagnostics.0.missingCapabilities=2"
+  EXPECTED_TOOL_LOG ${CROSSGL_FAKE_GLSLANG_DIAGNOSTICS_FAILURE_DIR}/glslangValidator.log
+  EXPECTED_TOOL_LOG_CONTAINS "glslangValidator diagnostics-failure: -S comp")
+
+crossgl_add_opengl_compute_fake_glslang_package_verify_test(
   NAME cglc_package_verify_opengl_compute_fake_glslang_source_package_unavailable
   TOOLCHAIN_PATH ${CROSSGL_FAKE_TOOL_UNAVAILABLE_DIR}
   TOOLCHAIN_DISABLE_FALLBACK
@@ -775,14 +802,19 @@ crossgl_label_optional_native_policy_test(
   cglc_package_verify_opengl_compute_fake_glslang_source_package_tool_failure
   opengl)
 crossgl_label_optional_native_policy_test(
+  cglc_package_verify_opengl_compute_fake_glslang_source_package_diagnostics_tool_failure
+  opengl)
+crossgl_label_optional_native_policy_test(
   cglc_package_verify_opengl_compute_fake_glslang_source_package_unavailable
   opengl)
 set_tests_properties(
   cglc_package_verify_opengl_compute_fake_glslang_source_package_tool_failure
+  cglc_package_verify_opengl_compute_fake_glslang_source_package_diagnostics_tool_failure
   cglc_package_verify_opengl_compute_fake_glslang_source_package_unavailable
   PROPERTIES PROCESSORS 2)
 set_property(TEST
   cglc_package_verify_opengl_compute_fake_glslang_source_package_tool_failure
+  cglc_package_verify_opengl_compute_fake_glslang_source_package_diagnostics_tool_failure
   cglc_package_verify_opengl_compute_fake_glslang_source_package_unavailable
   APPEND PROPERTY LABELS package-verify-build)
 

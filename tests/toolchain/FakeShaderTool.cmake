@@ -338,6 +338,11 @@ elseif(FAKE_TOOL_NAME STREQUAL "spirv-val" AND
   message("${fake_module}:7:2: error: fake spirv-val mapped failure")
   message(FATAL_ERROR "fake spirv-val mapped failure")
 elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "diagnostics-failure")
+  fake_glslang_write_partial_native_artifact()
+  message("${fake_glslang_source}:5:3: error: fake glslang mapped failure")
+  message(FATAL_ERROR "fake glslangValidator mapped failure")
+elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator" AND
        FAKE_TOOL_BEHAVIOR STREQUAL "failure")
   fake_glslang_write_partial_native_artifact()
   message(FATAL_ERROR "fake ${FAKE_TOOL_NAME} failure")
