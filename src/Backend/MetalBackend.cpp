@@ -1217,37 +1217,28 @@ std::string renderMetalArrayTextureLayer(const HIRExpression &coordinates,
 
 bool isMetalTextureGather(const HIRExpression &expression) {
   return expression.kind == HIRExpressionKind::TextureSample &&
-         expression.value == "textureGather";
+         (expression.value == "textureGather" ||
+          expression.value == "textureGatherOffset");
 }
 
 std::optional<std::size_t>
-metalTextureGatherComponentIndex(const HIRExpression &component) {
-  if (component.kind != HIRExpressionKind::Literal) {
+metalTextureGatherComponentIndex(
+    const HIRExpression &component,
+    const std::vector<HIRConstant> *constants = nullptr) {
+  const std::optional<std::size_t> index =
+      staticResourceArrayIndexValue(component, constants);
+  if (!index.has_value() || *index > 3) {
     return std::nullopt;
   }
-
-  std::string_view text = component.value;
-  if (!text.empty() && (text.back() == 'u' || text.back() == 'U')) {
-    text.remove_suffix(1);
-  }
-  if (text.empty()) {
-    return std::nullopt;
-  }
-
-  std::size_t value = 0;
-  for (const char character : text) {
-    if (character < '0' || character > '9') {
-      return std::nullopt;
-    }
-    value = value * 10 + static_cast<std::size_t>(character - '0');
-  }
-  return value <= 3 ? std::optional<std::size_t>{value} : std::nullopt;
+  return index;
 }
 
 std::optional<std::string_view>
-metalTextureGatherComponentName(const HIRExpression &component) {
+metalTextureGatherComponentName(
+    const HIRExpression &component,
+    const std::vector<HIRConstant> *constants = nullptr) {
   const std::optional<std::size_t> index =
-      metalTextureGatherComponentIndex(component);
+      metalTextureGatherComponentIndex(component, constants);
   if (!index.has_value()) {
     return std::nullopt;
   }
@@ -1276,9 +1267,57 @@ HIRType metalTextureGatherResultType(const HIRType &textureType) {
   return {};
 }
 
+bool isMetalStaticIntegerOffsetComponent(const HIRExpression &expression) {
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return isMetalStaticIntegerOffsetComponent(expression.children.front());
+  }
+  if (expression.kind == HIRExpressionKind::Unary &&
+      (expression.value == "-" || expression.value == "+") &&
+      expression.children.size() == 1) {
+    return isMetalStaticIntegerOffsetComponent(expression.children.front());
+  }
+  std::string_view text = expression.value;
+  if (!text.empty() && (text.front() == '-' || text.front() == '+')) {
+    text.remove_prefix(1);
+  }
+  if (expression.kind != HIRExpressionKind::Literal ||
+      metalBaseTypeName(expression.type) != "int" ||
+      expression.type.arraySize.has_value() || text.empty()) {
+    return false;
+  }
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool isMetalStaticIvec2OffsetExpression(const HIRExpression &expression) {
+  if (metalBaseTypeName(expression.type) != "ivec2" ||
+      expression.type.arraySize.has_value()) {
+    return false;
+  }
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return isMetalStaticIvec2OffsetExpression(expression.children.front());
+  }
+  return expression.kind == HIRExpressionKind::Constructor &&
+         expression.value == "ivec2" && expression.children.size() == 2 &&
+         isMetalStaticIntegerOffsetComponent(expression.children[0]) &&
+         isMetalStaticIntegerOffsetComponent(expression.children[1]);
+}
+
 std::string renderMetalTextureGather(const HIRExpression &expression,
                                      const MetalRenderContext &context) {
-  if (expression.children.size() != 3 && expression.children.size() != 4) {
+  const bool offsetGather = expression.value == "textureGatherOffset";
+  const bool validArity =
+      offsetGather ? (expression.children.size() == 4 ||
+                      expression.children.size() == 5)
+                   : (expression.children.size() == 3 ||
+                      expression.children.size() == 4);
+  if (!validArity) {
     return "";
   }
 
@@ -1286,13 +1325,21 @@ std::string renderMetalTextureGather(const HIRExpression &expression,
   out << renderMetalExpression(expression.children[0], context) << ".gather("
       << renderMetalExpression(expression.children[1], context) << ", "
       << renderMetalExpression(expression.children[2], context);
-  if (expression.children.size() == 4) {
+  if (offsetGather) {
+    out << ", " << renderMetalExpression(expression.children[3], context);
+  }
+  const std::size_t componentIndex = offsetGather ? 4 : 3;
+  if (expression.children.size() > componentIndex) {
     const std::optional<std::string_view> component =
-        metalTextureGatherComponentName(expression.children[3]);
+        metalTextureGatherComponentName(expression.children[componentIndex],
+                                        context.constants);
     if (!component.has_value()) {
       return "";
     }
-    out << ", int2(0), component::" << *component;
+    if (!offsetGather) {
+      out << ", int2(0)";
+    }
+    out << ", component::" << *component;
   }
   out << ")";
   return out.str();
@@ -4179,13 +4226,19 @@ bool validateMetalTextureGatherExpressions(const HIRModule &module,
       return;
     }
 
+    const bool offsetGather = expression.value == "textureGatherOffset";
     const bool validArity =
-        expression.children.size() == 3 || expression.children.size() == 4;
+        offsetGather ? (expression.children.size() == 4 ||
+                        expression.children.size() == 5)
+                     : (expression.children.size() == 3 ||
+                        expression.children.size() == 4);
     if (!validArity) {
       diagnostics.error(
           "metal.unsupported-texture-gather",
-          "Metal textureGather lowering supports texture, sampler, "
-          "coordinates, and optional literal component; got " +
+          "Metal " + expression.value +
+              " lowering supports texture, sampler, coordinates" +
+              (offsetGather ? ", ivec2 offset" : "") +
+              ", and optional static component; got " +
               std::to_string(expression.children.size()) + " operand(s)");
       valid = false;
       return;
@@ -4222,11 +4275,34 @@ bool validateMetalTextureGatherExpressions(const HIRModule &module,
         valid = false;
       }
     }
-    if (expression.children.size() == 4 &&
-        !metalTextureGatherComponentIndex(expression.children[3]).has_value()) {
+    if (offsetGather) {
+      const HIRExpression &offset = expression.children[3];
+      if (!offset.type.name.empty() &&
+          (metalBaseTypeName(offset.type) != "ivec2" ||
+           offset.type.arraySize.has_value())) {
+        diagnostics.error(
+            "metal.unsupported-texture-gather",
+            "Metal textureGatherOffset lowering supports only ivec2 offsets, "
+            "got '" +
+                formatType(offset.type) + "'");
+        valid = false;
+      } else if (!offset.type.name.empty() &&
+                 !isMetalStaticIvec2OffsetExpression(offset)) {
+        diagnostics.error(
+            "metal.unsupported-texture-gather",
+            "Metal textureGatherOffset lowering supports only static ivec2 "
+            "integer literal offsets");
+        valid = false;
+      }
+    }
+    const std::size_t componentIndex = offsetGather ? 4 : 3;
+    if (expression.children.size() > componentIndex &&
+        !metalTextureGatherComponentIndex(expression.children[componentIndex],
+                                         &module.constants)
+             .has_value()) {
       diagnostics.error(
           "metal.unsupported-texture-gather",
-          "Metal textureGather lowering supports only literal integer "
+          "Metal textureGather lowering supports only static integer "
           "components 0, 1, 2, or 3");
       valid = false;
     }

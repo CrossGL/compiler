@@ -1124,8 +1124,51 @@ struct DirectXTextureGatherOperands {
   const HIRExpression *texture = nullptr;
   const HIRExpression *sampler = nullptr;
   const HIRExpression *coordinate = nullptr;
+  const HIRExpression *offset = nullptr;
   std::optional<std::size_t> component;
 };
+
+bool isDirectXStaticIntegerOffsetComponent(const HIRExpression &expression) {
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return isDirectXStaticIntegerOffsetComponent(expression.children.front());
+  }
+  if (expression.kind == HIRExpressionKind::Unary &&
+      (expression.value == "-" || expression.value == "+") &&
+      expression.children.size() == 1) {
+    return isDirectXStaticIntegerOffsetComponent(expression.children.front());
+  }
+  std::string_view text = expression.value;
+  if (!text.empty() && (text.front() == '-' || text.front() == '+')) {
+    text.remove_prefix(1);
+  }
+  if (expression.kind != HIRExpressionKind::Literal ||
+      baseTypeName(expression.type) != "int" ||
+      expression.type.arraySize.has_value() || text.empty()) {
+    return false;
+  }
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool isDirectXStaticIvec2OffsetExpression(const HIRExpression &expression) {
+  if (baseTypeName(expression.type) != "ivec2" ||
+      expression.type.arraySize.has_value()) {
+    return false;
+  }
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return isDirectXStaticIvec2OffsetExpression(expression.children.front());
+  }
+  return expression.kind == HIRExpressionKind::Constructor &&
+         expression.value == "ivec2" && expression.children.size() == 2 &&
+         isDirectXStaticIntegerOffsetComponent(expression.children[0]) &&
+         isDirectXStaticIntegerOffsetComponent(expression.children[1]);
+}
 
 std::optional<DirectXTextureSampleOperands>
 directxTextureSampleOperands(const HIRExpression &expression) {
@@ -1150,17 +1193,34 @@ std::optional<DirectXTextureGatherOperands>
 directxTextureGatherOperands(const HIRExpression &expression,
                              const HIRModule *module = nullptr) {
   if (expression.kind != HIRExpressionKind::TextureSample ||
-      expression.value != "textureGather" ||
-      (expression.children.size() != 3 && expression.children.size() != 4)) {
+      (expression.value != "textureGather" &&
+       expression.value != "textureGatherOffset")) {
+    return std::nullopt;
+  }
+  const bool offsetGather = expression.value == "textureGatherOffset";
+  const bool validArity =
+      offsetGather ? (expression.children.size() == 4 ||
+                      expression.children.size() == 5)
+                   : (expression.children.size() == 3 ||
+                      expression.children.size() == 4);
+  if (!validArity) {
     return std::nullopt;
   }
 
   DirectXTextureGatherOperands operands{&expression.children[0],
                                         &expression.children[1],
-                                        &expression.children[2], std::nullopt};
-  if (expression.children.size() == 4) {
+                                        &expression.children[2], nullptr,
+                                        std::nullopt};
+  if (offsetGather) {
+    if (!isDirectXStaticIvec2OffsetExpression(expression.children[3])) {
+      return std::nullopt;
+    }
+    operands.offset = &expression.children[3];
+  }
+  const std::size_t componentIndex = offsetGather ? 4 : 3;
+  if (expression.children.size() > componentIndex) {
     const std::optional<std::size_t> component =
-        staticResourceArrayIndexValue(expression.children[3],
+        staticResourceArrayIndexValue(expression.children[componentIndex],
                                       module == nullptr ? nullptr
                                                         : &module->constants);
     if (!component.has_value() || *component > 3) {
@@ -1275,14 +1335,17 @@ bool storageImageCallSupported(const HIRExpression &expression,
 
 bool textureSampleSupported(const HIRExpression &expression,
                             const DirectXTextualSupportContext &context) {
-  if (expression.value == "textureGather") {
+  if (expression.value == "textureGather" ||
+      expression.value == "textureGatherOffset") {
     const std::optional<DirectXTextureGatherOperands> operands =
         directxTextureGatherOperands(expression, context.module);
     return operands.has_value() && isSupportedValueType(expression.type) &&
            isDirectXTextureGatherTextureType(operands->texture->type) &&
            textureOperandSupported(*operands->texture, context) &&
            rawSamplerOperandSupported(*operands->sampler, context) &&
-           expressionSupported(*operands->coordinate, context);
+           expressionSupported(*operands->coordinate, context) &&
+           (operands->offset == nullptr ||
+            expressionSupported(*operands->offset, context));
   }
 
   const std::optional<DirectXTextureSampleOperands> operands =
@@ -2045,7 +2108,8 @@ void emitInterlockedAtomicStatement(std::ostringstream &out,
 
 std::string emitTextureSample(const HIRExpression &expression,
                               const DirectXEmitContext &context) {
-  if (expression.value == "textureGather") {
+  if (expression.value == "textureGather" ||
+      expression.value == "textureGatherOffset") {
     const std::optional<DirectXTextureGatherOperands> operands =
         directxTextureGatherOperands(expression, context.module);
     if (!operands.has_value()) {
@@ -2054,10 +2118,15 @@ std::string emitTextureSample(const HIRExpression &expression,
     static constexpr std::string_view kGatherMethods[] = {
         "GatherRed", "GatherGreen", "GatherBlue", "GatherAlpha"};
     const std::size_t component = operands->component.value_or(0);
-    return emitExpression(*operands->texture, context) + "." +
-           std::string(kGatherMethods[component]) + "(" +
-           emitExpression(*operands->sampler, context) + ", " +
-           emitExpression(*operands->coordinate, context) + ")";
+    std::string result = emitExpression(*operands->texture, context) + "." +
+                         std::string(kGatherMethods[component]) + "(" +
+                         emitExpression(*operands->sampler, context) + ", " +
+                         emitExpression(*operands->coordinate, context);
+    if (operands->offset != nullptr) {
+      result += ", " + emitExpression(*operands->offset, context);
+    }
+    result += ")";
+    return result;
   }
 
   const std::optional<DirectXTextureSampleOperands> operands =

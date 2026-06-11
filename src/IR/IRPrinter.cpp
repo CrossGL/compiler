@@ -74,8 +74,11 @@ std::string formatHIRExpression(const HIRExpression &expression) {
     std::ostringstream out;
     out << (expression.value == "textureLod"
                 ? "texture_sample_lod("
-                : expression.value == "textureGather" ? "texture_gather("
-                                                       : "texture_sample(");
+                : expression.value == "textureGather"
+                      ? "texture_gather("
+                      : expression.value == "textureGatherOffset"
+                            ? "texture_gather_offset("
+                            : "texture_sample(");
     for (std::size_t i = 0; i < expression.children.size(); ++i) {
       if (i != 0) {
         out << ", ";

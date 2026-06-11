@@ -478,8 +478,16 @@ bool isExplicitLodTextureSample(std::string_view sampleName) {
 }
 
 bool isTextureGatherSample(std::string_view sampleName) {
-  return sampleName == "textureGather";
+  return sampleName == "textureGather" || sampleName == "textureGatherOffset";
 }
+
+bool isTextureGatherOffsetSample(std::string_view sampleName) {
+  return sampleName == "textureGatherOffset";
+}
+
+bool isStaticIvec2OffsetExpression(const HIRExpression &expression);
+std::optional<std::size_t>
+staticTextureGatherComponentValue(const HIRExpression &expression);
 
 bool textureSampleHasExplicitSampler(std::size_t argumentCount, bool explicitLod) {
   return explicitLod ? argumentCount == 4 : argumentCount == 3;
@@ -705,8 +713,13 @@ HIRType inferTextureSampleType(const std::vector<HIRExpression> &arguments,
   return textureSampleResultType(arguments.front().type);
 }
 
-HIRType inferTextureGatherType(const std::vector<HIRExpression> &arguments) {
-  if (arguments.size() != 3 && arguments.size() != 4) {
+HIRType inferTextureGatherType(const std::vector<HIRExpression> &arguments,
+                               std::string_view sampleName) {
+  const bool offsetGather = isTextureGatherOffsetSample(sampleName);
+  const bool validArity =
+      offsetGather ? (arguments.size() == 4 || arguments.size() == 5)
+                   : (arguments.size() == 3 || arguments.size() == 4);
+  if (!validArity) {
     return {};
   }
   if (arguments.empty() || !isTextureGatherTextureType(arguments.front().type)) {
@@ -715,9 +728,22 @@ HIRType inferTextureGatherType(const std::vector<HIRExpression> &arguments) {
   if (!arguments[1].type.name.empty() && !isRawSamplerType(arguments[1].type)) {
     return {};
   }
-  if (arguments.size() == 4 && !arguments[3].type.name.empty() &&
-      !isIntegerScalarType(arguments[3].type)) {
+  if (offsetGather && !isStaticIvec2OffsetExpression(arguments[3])) {
     return {};
+  }
+  const std::size_t componentIndex = offsetGather ? 4 : 3;
+  if (arguments.size() > componentIndex &&
+      !arguments[componentIndex].type.name.empty() &&
+      !isIntegerScalarType(arguments[componentIndex].type)) {
+    return {};
+  }
+  if (arguments.size() > componentIndex &&
+      !arguments[componentIndex].type.name.empty()) {
+    const std::optional<std::size_t> component =
+        staticTextureGatherComponentValue(arguments[componentIndex]);
+    if (!component.has_value() || *component > 3) {
+      return {};
+    }
   }
   return textureGatherResultType(arguments.front().type);
 }
@@ -880,6 +906,37 @@ bool isStaticIvec2OffsetExpression(const HIRExpression &expression) {
   }
   return isStaticIntegerOffsetComponent(expression.children[0]) &&
          isStaticIntegerOffsetComponent(expression.children[1]);
+}
+
+std::optional<std::size_t>
+staticTextureGatherComponentValue(const HIRExpression &expression) {
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return staticTextureGatherComponentValue(expression.children.front());
+  }
+  if (expression.kind == HIRExpressionKind::Unary && expression.value == "+" &&
+      expression.children.size() == 1) {
+    return staticTextureGatherComponentValue(expression.children.front());
+  }
+  if (expression.kind != HIRExpressionKind::Literal ||
+      !isIntegerScalarType(expression.type)) {
+    return std::nullopt;
+  }
+  std::string_view text = expression.value;
+  if (!text.empty() && (text.back() == 'u' || text.back() == 'U')) {
+    text.remove_suffix(1);
+  }
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  std::size_t value = 0;
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return std::nullopt;
+    }
+    value = value * 10 + static_cast<std::size_t>(character - '0');
+  }
+  return value;
 }
 
 bool isManualTextureCompareOpName(std::string_view name) {
@@ -1367,6 +1424,7 @@ private:
         if (expression.kind == HIRExpressionKind::Identifier &&
             (expression.value == "texture" || expression.value == "textureLod" ||
              expression.value == "textureGather" ||
+             expression.value == "textureGatherOffset" ||
              isTextureCompareOperation(expression.value))) {
           if (isTextureCompareOperation(expression.value)) {
             HIRExpression compare;
@@ -1388,7 +1446,8 @@ private:
           sample.location = expression.location;
           sample.children = std::move(arguments);
           sample.type = isTextureGatherSample(sample.value)
-                            ? inferTextureGatherType(sample.children)
+                            ? inferTextureGatherType(sample.children,
+                                                     sample.value)
                             : inferTextureSampleType(
                                   sample.children,
                                   isExplicitLodTextureSample(sample.value));
@@ -3671,6 +3730,9 @@ void validateTextureSampleExpression(const HIRExpression &expression,
   if (expression.kind == HIRExpressionKind::TextureSample) {
     const bool explicitLod = isExplicitLodTextureSample(expression.value);
     const bool gather = isTextureGatherSample(expression.value);
+    const bool gatherOffset = isTextureGatherOffsetSample(expression.value);
+    const std::string textureGatherName =
+        gather ? expression.value : "textureGather";
     bool valid = true;
     if (!stageAllowsTextureSampling(stage)) {
       diagnostics.error("sema.texture-sample-stage",
@@ -3681,8 +3743,10 @@ void validateTextureSampleExpression(const HIRExpression &expression,
     }
 
     const bool validArity =
-        gather ? (expression.children.size() == 3 ||
-                  expression.children.size() == 4)
+        gather ? (gatherOffset ? (expression.children.size() == 4 ||
+                                  expression.children.size() == 5)
+                               : (expression.children.size() == 3 ||
+                                  expression.children.size() == 4))
                : explicitLod ? (expression.children.size() == 3 ||
                                 expression.children.size() == 4)
                              : (expression.children.size() == 2 ||
@@ -3690,8 +3754,12 @@ void validateTextureSampleExpression(const HIRExpression &expression,
     if (!validArity) {
       diagnostics.error(
           gather ? "sema.texture-gather-arity" : "sema.texture-sample-arity",
-          gather ? "textureGather expects texture, sampler, coordinates, and "
-                   "optional component; got " +
+          gather ? textureGatherName +
+                       (gatherOffset
+                            ? " expects texture, sampler, coordinates, "
+                              "ivec2 offset, and optional component; got "
+                            : " expects texture, sampler, coordinates, and "
+                              "optional component; got ") +
                        std::to_string(expression.children.size()) + " operand(s)"
                  : explicitLod
                        ? "textureLod expects texture, coordinates, and lod or "
@@ -3713,7 +3781,8 @@ void validateTextureSampleExpression(const HIRExpression &expression,
       diagnostics.error(
           gather ? "sema.texture-gather-texture" : "sema.texture-sample-texture",
           gather
-              ? "textureGather first operand must be a non-comparison 2D "
+              ? textureGatherName +
+                    " first operand must be a non-comparison 2D "
                 "texture, got '" +
                     formatType(expression.children.front().type) + "'"
               : "texture sample first operand must be a texture, got '" +
@@ -3742,7 +3811,8 @@ void validateTextureSampleExpression(const HIRExpression &expression,
       diagnostics.error(
           gather ? "sema.texture-gather-sampler" : "sema.texture-sample-sampler",
           gather
-              ? "textureGather second operand must be a raw sampler, got '" +
+              ? textureGatherName +
+                    " second operand must be a raw sampler, got '" +
                     formatType(expression.children[1].type) + "'"
               : "texture sample second operand must be a raw sampler in the "
                 "explicit sampler form, got '" +
@@ -3767,7 +3837,7 @@ void validateTextureSampleExpression(const HIRExpression &expression,
           diagnostics.error(
               gather ? "sema.texture-gather-coordinates"
                      : "sema.texture-sample-coordinates",
-              (gather ? "textureGather" : "texture sample") +
+              (gather ? textureGatherName : "texture sample") +
                   std::string(" coordinates for '") + formatType(texture.type) +
                   "' must be vec" + std::to_string(expectedComponents) +
                   ", got '" + formatType(coordinates.type) + "'",
@@ -3777,15 +3847,55 @@ void validateTextureSampleExpression(const HIRExpression &expression,
       }
     }
 
-    if (gather && expression.children.size() == 4 &&
-        !expression.children[3].type.name.empty() &&
-        !isIntegerScalarType(expression.children[3].type)) {
-      diagnostics.error(
-          "sema.texture-gather-component",
-          "textureGather component operand must be a scalar integer value, got '" +
-              formatType(expression.children[3].type) + "'",
-          expression.children[3].location);
-      valid = false;
+    if (gatherOffset && expression.children.size() >= 4) {
+      const HIRExpression &offset = expression.children[3];
+      if (!offset.type.name.empty() &&
+          (baseTypeName(offset.type) != "ivec2" ||
+           offset.type.arraySize.has_value())) {
+        diagnostics.error(
+            "sema.texture-gather-offset",
+            textureGatherName + " offset operand must be ivec2, got '" +
+                formatType(offset.type) + "'",
+            offset.location);
+        valid = false;
+      } else if (!offset.type.name.empty() &&
+                 !isStaticIvec2OffsetExpression(offset)) {
+        diagnostics.error(
+            "sema.texture-gather-offset-static",
+            textureGatherName +
+                " offset operand must be a static ivec2 integer literal "
+                "constructor",
+            offset.location);
+        valid = false;
+      }
+    }
+
+    if (gather) {
+      const std::size_t componentIndex = gatherOffset ? 4 : 3;
+      if (expression.children.size() > componentIndex &&
+          !expression.children[componentIndex].type.name.empty()) {
+        const HIRExpression &component = expression.children[componentIndex];
+        if (!isIntegerScalarType(component.type)) {
+          diagnostics.error(
+              "sema.texture-gather-component",
+              textureGatherName +
+                  " component operand must be a scalar integer value, got '" +
+                  formatType(component.type) + "'",
+              component.location);
+          valid = false;
+        } else {
+          const std::optional<std::size_t> componentValue =
+              staticTextureGatherComponentValue(component);
+          if (!componentValue.has_value() || *componentValue > 3) {
+            diagnostics.error(
+                "sema.texture-gather-component",
+                textureGatherName +
+                    " component operand must be a static integer in range 0..3",
+                component.location);
+            valid = false;
+          }
+        }
+      }
     }
 
     const std::optional<std::size_t> lodIndex =
@@ -3811,7 +3921,7 @@ void validateTextureSampleExpression(const HIRExpression &expression,
          expression.type.arraySize != expectedResult.arraySize)) {
       diagnostics.error(
           gather ? "sema.texture-gather-result" : "sema.texture-sample-result",
-          (gather ? "textureGather" : "texture sample") +
+          (gather ? textureGatherName : "texture sample") +
               std::string(" result for '") +
               formatType(expression.children.front().type) + "' must be '" +
               formatType(expectedResult) + "', got '" +

@@ -1465,8 +1465,51 @@ struct OpenGLTextureGatherOperands {
   const HIRExpression *texture = nullptr;
   const HIRExpression *sampler = nullptr;
   const HIRExpression *coordinate = nullptr;
+  const HIRExpression *offset = nullptr;
   const HIRExpression *component = nullptr;
 };
+
+bool isOpenGLStaticIntegerOffsetComponent(const HIRExpression &expression) {
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return isOpenGLStaticIntegerOffsetComponent(expression.children.front());
+  }
+  if (expression.kind == HIRExpressionKind::Unary &&
+      (expression.value == "-" || expression.value == "+") &&
+      expression.children.size() == 1) {
+    return isOpenGLStaticIntegerOffsetComponent(expression.children.front());
+  }
+  std::string_view text = expression.value;
+  if (!text.empty() && (text.front() == '-' || text.front() == '+')) {
+    text.remove_prefix(1);
+  }
+  if (expression.kind != HIRExpressionKind::Literal ||
+      baseTypeName(expression.type) != "int" ||
+      expression.type.arraySize.has_value() || text.empty()) {
+    return false;
+  }
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool isOpenGLStaticIvec2OffsetExpression(const HIRExpression &expression) {
+  if (baseTypeName(expression.type) != "ivec2" ||
+      expression.type.arraySize.has_value()) {
+    return false;
+  }
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return isOpenGLStaticIvec2OffsetExpression(expression.children.front());
+  }
+  return expression.kind == HIRExpressionKind::Constructor &&
+         expression.value == "ivec2" && expression.children.size() == 2 &&
+         isOpenGLStaticIntegerOffsetComponent(expression.children[0]) &&
+         isOpenGLStaticIntegerOffsetComponent(expression.children[1]);
+}
 
 std::optional<OpenGLTextureSampleOperands>
 openGLTextureSampleOperands(const HIRExpression &expression) {
@@ -1491,13 +1534,27 @@ std::optional<OpenGLTextureGatherOperands>
 openGLTextureGatherOperands(const HIRExpression &expression,
                             const HIRModule *module = nullptr) {
   if (expression.kind != HIRExpressionKind::TextureSample ||
-      expression.value != "textureGather" ||
-      (expression.children.size() != 3 && expression.children.size() != 4)) {
+      (expression.value != "textureGather" &&
+       expression.value != "textureGatherOffset")) {
     return std::nullopt;
   }
-  if (expression.children.size() == 4) {
+  const bool offsetGather = expression.value == "textureGatherOffset";
+  const bool validArity =
+      offsetGather ? (expression.children.size() == 4 ||
+                      expression.children.size() == 5)
+                   : (expression.children.size() == 3 ||
+                      expression.children.size() == 4);
+  if (!validArity) {
+    return std::nullopt;
+  }
+  if (offsetGather &&
+      !isOpenGLStaticIvec2OffsetExpression(expression.children[3])) {
+    return std::nullopt;
+  }
+  const std::size_t componentIndex = offsetGather ? 4 : 3;
+  if (expression.children.size() > componentIndex) {
     const std::optional<std::size_t> component =
-        staticResourceArrayIndexValue(expression.children[3],
+        staticResourceArrayIndexValue(expression.children[componentIndex],
                                       module == nullptr ? nullptr
                                                         : &module->constants);
     if (!component.has_value() || *component > 3) {
@@ -1506,12 +1563,16 @@ openGLTextureGatherOperands(const HIRExpression &expression,
   }
   return OpenGLTextureGatherOperands{
       &expression.children[0], &expression.children[1], &expression.children[2],
-      expression.children.size() == 4 ? &expression.children[3] : nullptr};
+      offsetGather ? &expression.children[3] : nullptr,
+      expression.children.size() > componentIndex
+          ? &expression.children[componentIndex]
+          : nullptr};
 }
 
 std::string emitTextureSample(const HIRExpression &expression,
                               const OpenGLEmitContext &context) {
-  if (expression.value == "textureGather") {
+  if (expression.value == "textureGather" ||
+      expression.value == "textureGatherOffset") {
     const std::optional<OpenGLTextureGatherOperands> operands =
         openGLTextureGatherOperands(expression, context.module);
     if (!operands.has_value()) {
@@ -1524,11 +1585,18 @@ std::string emitTextureSample(const HIRExpression &expression,
     }
     std::string result =
         context.useCombinedSamplerResources
-            ? "textureGather(" + emitExpression(*operands->texture, context)
-            : "textureGather(" + combinedSampler + "(" +
+            ? std::string(operands->offset == nullptr ? "textureGather("
+                                                       : "textureGatherOffset(") +
+                  emitExpression(*operands->texture, context)
+            : std::string(operands->offset == nullptr ? "textureGather("
+                                                       : "textureGatherOffset(") +
+                  combinedSampler + "(" +
                   emitExpression(*operands->texture, context) + ", " +
                   emitExpression(*operands->sampler, context) + ")";
     result += ", " + emitExpression(*operands->coordinate, context);
+    if (operands->offset != nullptr) {
+      result += ", " + emitExpression(*operands->offset, context);
+    }
     if (operands->component != nullptr) {
       result += ", " + emitExpression(*operands->component, context);
     }
@@ -3183,7 +3251,8 @@ bool rawSamplerOperandSupported(const HIRExpression &expression,
 
 bool textureSampleSupported(const HIRExpression &expression,
                             const OpenGLSupportContext &context) {
-  if (expression.value == "textureGather") {
+  if (expression.value == "textureGather" ||
+      expression.value == "textureGatherOffset") {
     const std::optional<OpenGLTextureGatherOperands> operands =
         openGLTextureGatherOperands(expression,
                                     context.module == nullptr ? nullptr
@@ -3192,7 +3261,9 @@ bool textureSampleSupported(const HIRExpression &expression,
            isOpenGLTextureGatherTextureType(operands->texture->type) &&
            textureOperandSupported(*operands->texture, context) &&
            rawSamplerOperandSupported(*operands->sampler, context) &&
-           expressionSupported(*operands->coordinate, context);
+           expressionSupported(*operands->coordinate, context) &&
+           (operands->offset == nullptr ||
+            expressionSupported(*operands->offset, context));
   }
 
   const std::optional<OpenGLTextureSampleOperands> operands =

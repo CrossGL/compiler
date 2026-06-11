@@ -179,12 +179,21 @@ void validateHIRTextureSampleShape(const HIRExpression &expression,
     return;
   }
 
-  if (expression.value == "textureGather") {
-    if (expression.children.size() != 3 && expression.children.size() != 4) {
+  if (expression.value == "textureGather" ||
+      expression.value == "textureGatherOffset") {
+    const bool offsetGather = expression.value == "textureGatherOffset";
+    const bool validArity =
+        offsetGather ? (expression.children.size() == 4 ||
+                        expression.children.size() == 5)
+                     : (expression.children.size() == 3 ||
+                        expression.children.size() == 4);
+    if (!validArity) {
       reportHIRTextureExpressionShape(
           expression, context,
-          "with value 'textureGather' must have 3 or 4 child expression(s), "
-          "got " +
+          "with value '" + expression.value +
+              (offsetGather
+                   ? "' must have 4 or 5 child expression(s), got "
+                   : "' must have 3 or 4 child expression(s), got ") +
               std::to_string(expression.children.size()),
           diagnostics);
     }
@@ -193,8 +202,8 @@ void validateHIRTextureSampleShape(const HIRExpression &expression,
 
   reportHIRTextureExpressionShape(
       expression, context,
-      "must use value 'texture', 'sample', 'textureLod', or 'textureGather', "
-      "got '" +
+      "must use value 'texture', 'sample', 'textureLod', 'textureGather', or "
+      "'textureGatherOffset', got '" +
           expression.value + "'",
       diagnostics);
 }
@@ -1345,7 +1354,11 @@ bool isExplicitHIRTextureSampleLod(std::string_view value) {
 }
 
 bool isHIRTextureGather(std::string_view value) {
-  return value == "textureGather";
+  return value == "textureGather" || value == "textureGatherOffset";
+}
+
+bool isHIRTextureGatherOffset(std::string_view value) {
+  return value == "textureGatherOffset";
 }
 
 bool isExplicitHIRTextureCompareLod(std::string_view value) {
@@ -1395,6 +1408,82 @@ HIRType hirTextureGatherResultType(const HIRType &textureType,
     return HIRType{"uvec4", std::nullopt, std::move(location)};
   }
   return HIRType{"vec4", std::nullopt, std::move(location)};
+}
+
+bool isHIRStaticIntegerOffsetComponent(const HIRExpression &expression) {
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return isHIRStaticIntegerOffsetComponent(expression.children.front());
+  }
+  if (expression.kind == HIRExpressionKind::Unary &&
+      (expression.value == "-" || expression.value == "+") &&
+      expression.children.size() == 1) {
+    return isHIRStaticIntegerOffsetComponent(expression.children.front());
+  }
+  const std::string name = baseTypeName(expression.type);
+  if (expression.kind != HIRExpressionKind::Literal || name != "int" ||
+      expression.type.arraySize.has_value()) {
+    return false;
+  }
+  std::string_view text = expression.value;
+  if (!text.empty() && (text.front() == '-' || text.front() == '+')) {
+    text.remove_prefix(1);
+  }
+  if (text.empty()) {
+    return false;
+  }
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool isHIRStaticIvec2OffsetExpression(const HIRExpression &expression) {
+  if (baseTypeName(expression.type) != "ivec2" ||
+      expression.type.arraySize.has_value()) {
+    return false;
+  }
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return isHIRStaticIvec2OffsetExpression(expression.children.front());
+  }
+  return expression.kind == HIRExpressionKind::Constructor &&
+         expression.value == "ivec2" && expression.children.size() == 2 &&
+         isHIRStaticIntegerOffsetComponent(expression.children[0]) &&
+         isHIRStaticIntegerOffsetComponent(expression.children[1]);
+}
+
+std::optional<std::size_t>
+hirStaticTextureGatherComponentValue(const HIRExpression &expression) {
+  if (expression.kind == HIRExpressionKind::Group &&
+      !expression.children.empty()) {
+    return hirStaticTextureGatherComponentValue(expression.children.front());
+  }
+  if (expression.kind == HIRExpressionKind::Unary && expression.value == "+" &&
+      expression.children.size() == 1) {
+    return hirStaticTextureGatherComponentValue(expression.children.front());
+  }
+  if (expression.kind != HIRExpressionKind::Literal ||
+      !isIntegerScalarType(expression.type) || expression.type.arraySize.has_value()) {
+    return std::nullopt;
+  }
+  std::string_view text = expression.value;
+  if (!text.empty() && (text.back() == 'u' || text.back() == 'U')) {
+    text.remove_suffix(1);
+  }
+  if (text.empty()) {
+    return std::nullopt;
+  }
+  std::size_t value = 0;
+  for (const char character : text) {
+    if (character < '0' || character > '9') {
+      return std::nullopt;
+    }
+    value = value * 10 + static_cast<std::size_t>(character - '0');
+  }
+  return value;
 }
 
 std::size_t expectedHIRTextureCoordinateComponents(const HIRType &textureType) {
@@ -1481,13 +1570,18 @@ void validateHIRTextureSampleTypedExpression(
   if (expression.kind != HIRExpressionKind::TextureSample ||
       (expression.value != "texture" && expression.value != "sample" &&
        expression.value != "textureLod" &&
-       expression.value != "textureGather")) {
+       expression.value != "textureGather" &&
+       expression.value != "textureGatherOffset")) {
     return;
   }
   const bool explicitLod = isExplicitHIRTextureSampleLod(expression.value);
   const bool gather = isHIRTextureGather(expression.value);
+  const bool gatherOffset = isHIRTextureGatherOffset(expression.value);
   if (gather) {
-    if (expression.children.size() != 3 && expression.children.size() != 4) {
+    if (gatherOffset ? (expression.children.size() != 4 &&
+                        expression.children.size() != 5)
+                     : (expression.children.size() != 3 &&
+                        expression.children.size() != 4)) {
       return;
     }
   } else if (explicitLod) {
@@ -1548,16 +1642,56 @@ void validateHIRTextureSampleTypedExpression(
                                      diagnostics);
   }
 
-  if (gather && expression.children.size() == 4) {
-    const std::optional<HIRType> componentType =
+  if (gatherOffset) {
+    const std::optional<HIRType> offsetType =
         hirExpressionEffectiveType(expression.children[3], symbols);
-    if (componentType.has_value() && !isIntegerScalarType(*componentType)) {
+    if (offsetType.has_value() &&
+        (baseTypeName(*offsetType) != "ivec2" ||
+         offsetType->arraySize.has_value())) {
       reportHIRTextureExpressionType(
           expression, context,
-          expression.value + " component operand must be scalar integer, got '" +
-              formatType(*componentType) + "'",
+          expression.value + " offset operand must be ivec2, got '" +
+              formatType(*offsetType) + "'",
           diagnostics);
       valid = false;
+    } else if (offsetType.has_value() &&
+               !isHIRStaticIvec2OffsetExpression(expression.children[3])) {
+      reportHIRTextureExpressionType(
+          expression, context,
+          expression.value +
+              " offset operand must be a static ivec2 integer literal "
+              "constructor",
+          diagnostics);
+      valid = false;
+    }
+  }
+
+  if (gather) {
+    const std::size_t componentIndex = gatherOffset ? 4 : 3;
+    if (expression.children.size() > componentIndex) {
+      const std::optional<HIRType> componentType =
+          hirExpressionEffectiveType(expression.children[componentIndex],
+                                     symbols);
+      if (componentType.has_value() && !isIntegerScalarType(*componentType)) {
+        reportHIRTextureExpressionType(
+            expression, context,
+            expression.value + " component operand must be scalar integer, got '" +
+                formatType(*componentType) + "'",
+            diagnostics);
+        valid = false;
+      } else if (componentType.has_value()) {
+        const std::optional<std::size_t> componentValue =
+            hirStaticTextureGatherComponentValue(
+                expression.children[componentIndex]);
+        if (!componentValue.has_value() || *componentValue > 3) {
+          reportHIRTextureExpressionType(
+              expression, context,
+              expression.value +
+                  " component operand must be a static integer in range 0..3",
+              diagnostics);
+          valid = false;
+        }
+      }
     }
   }
 

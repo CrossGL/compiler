@@ -3934,12 +3934,20 @@ bool prototypeTextureSampleSupported(
     const PrototypeStructMap &structs,
     DiagnosticEngine &diagnostics) {
   if (expression.kind == HIRExpressionKind::TextureSample &&
-      expression.value == "textureGather") {
-    if (expression.children.size() != 3 && expression.children.size() != 4) {
+      (expression.value == "textureGather" ||
+       expression.value == "textureGatherOffset")) {
+    const bool offsetGather = expression.value == "textureGatherOffset";
+    const bool validArity =
+        offsetGather ? (expression.children.size() == 4 ||
+                        expression.children.size() == 5)
+                     : (expression.children.size() == 3 ||
+                        expression.children.size() == 4);
+    if (!validArity) {
       diagnostics.error("vulkan.prototype-unsupported-texture-gather",
-                        "Vulkan prototype textureGather lowering requires "
-                        "texture, sampler, coordinates, and optional "
-                        "component operands");
+                        "Vulkan prototype " + expression.value +
+                            " lowering requires texture, sampler, coordinates" +
+                            (offsetGather ? ", static ivec2 offset" : "") +
+                            ", and optional component operands");
       return false;
     }
     const HIRType textureType =
@@ -3982,15 +3990,23 @@ bool prototypeTextureSampleSupported(
                         "vec2 for non-comparison 2D textures");
       return false;
     }
-    if (expression.children.size() == 4) {
-      if (!prototypeExpressionSupported(expression.children[3], locals,
-                                        resources, constants, structs,
+    if (offsetGather &&
+        !staticIvec2TextureOffset(expression.children[3]).has_value()) {
+      diagnostics.error("vulkan.prototype-unsupported-texture-gather",
+                        "Vulkan prototype textureGatherOffset requires a "
+                        "static ivec2 integer literal offset");
+      return false;
+    }
+    const std::size_t componentIndex = offsetGather ? 4 : 3;
+    if (expression.children.size() > componentIndex) {
+      if (!prototypeExpressionSupported(expression.children[componentIndex],
+                                        locals, resources, constants, structs,
                                         diagnostics)) {
         return false;
       }
       const HIRType componentType =
-          prototypeExpressionType(expression.children[3], locals, resources,
-                                  constants);
+          prototypeExpressionType(expression.children[componentIndex], locals,
+                                  resources, constants);
       if (componentType.arraySize.has_value() ||
           (componentType.name != "int" && componentType.name != "uint")) {
         diagnostics.error("vulkan.prototype-unsupported-texture-gather",
@@ -3999,7 +4015,8 @@ bool prototypeTextureSampleSupported(
         return false;
       }
       const std::optional<std::size_t> component =
-          prototypeStaticArrayIndexValue(expression.children[3], constants);
+          prototypeStaticArrayIndexValue(expression.children[componentIndex],
+                                         constants);
       if (!component.has_value() || *component > 3) {
         diagnostics.error("vulkan.prototype-unsupported-texture-gather",
                           "Vulkan prototype textureGather component operand "
@@ -9229,11 +9246,19 @@ private:
 
   std::optional<PrototypeSPIRVValue> emitTextureGather(
       const HIRExpression &expression) {
-    if (expression.children.size() != 3 && expression.children.size() != 4) {
+    const bool offsetGather = expression.value == "textureGatherOffset";
+    const bool validArity =
+        offsetGather ? (expression.children.size() == 4 ||
+                        expression.children.size() == 5)
+                     : (expression.children.size() == 3 ||
+                        expression.children.size() == 4);
+    if (!validArity) {
       diagnostics_.error("vulkan.prototype-unsupported-texture-gather",
-                         "Vulkan prototype textureGather lowering requires "
-                         "texture, sampler, coordinates, and optional "
-                         "component operands");
+                         "Vulkan prototype " + expression.value +
+                             " lowering requires texture, sampler, "
+                             "coordinates" +
+                             (offsetGather ? ", static ivec2 offset" : "") +
+                             ", and optional component operands");
       return std::nullopt;
     }
 
@@ -9245,18 +9270,32 @@ private:
                                           HIRResourceKind::Sampler);
     std::optional<PrototypeSPIRVValue> coordinates =
         emitExpression(expression.children[2]);
+    const std::size_t componentIndex = offsetGather ? 4 : 3;
     std::optional<PrototypeSPIRVValue> component =
-        expression.children.size() == 4 ? emitExpression(expression.children[3])
-                                        : std::nullopt;
+        expression.children.size() > componentIndex
+            ? emitExpression(expression.children[componentIndex])
+            : std::nullopt;
     if (!texture.has_value() || !sampler.has_value() ||
         !coordinates.has_value() ||
-        (expression.children.size() == 4 && !component.has_value())) {
+        (expression.children.size() > componentIndex && !component.has_value())) {
       return std::nullopt;
     }
 
-    if (expression.children.size() == 4) {
+    std::optional<PrototypeTextureOffset> offset;
+    if (offsetGather) {
+      offset = staticIvec2TextureOffset(expression.children[3]);
+      if (!offset.has_value()) {
+        diagnostics_.error("vulkan.prototype-unsupported-texture-gather",
+                           "Vulkan prototype textureGatherOffset requires a "
+                           "static ivec2 integer literal offset");
+        return std::nullopt;
+      }
+    }
+
+    if (expression.children.size() > componentIndex) {
       const std::optional<std::size_t> componentValue =
-          prototypeStaticArrayIndexValue(expression.children[3], constants_);
+          prototypeStaticArrayIndexValue(expression.children[componentIndex],
+                                         constants_);
       if (!componentValue.has_value() || *componentValue > 3) {
         diagnostics_.error("vulkan.prototype-unsupported-texture-gather",
                            "Vulkan prototype textureGather component operand "
@@ -9280,9 +9319,13 @@ private:
     const std::string sampledImage =
         emitSampledImageValue(*texture, *sampler, sampledImageTypeId);
     const std::string resultId = nextTemp();
-    instructionLines_.push_back(resultId + " = OpImageGather " +
-                                resultTypeId + " " + sampledImage + " " +
-                                coordinates->id + " " + componentId);
+    std::string instruction = resultId + " = OpImageGather " + resultTypeId +
+                              " " + sampledImage + " " + coordinates->id +
+                              " " + componentId;
+    if (offset.has_value()) {
+      instruction += " ConstOffset " + ensureIvec2Constant(*offset);
+    }
+    instructionLines_.push_back(std::move(instruction));
     return PrototypeSPIRVValue{expression.type, resultId};
   }
 
@@ -10207,7 +10250,8 @@ private:
                              "' expressions yet");
       return std::nullopt;
     case HIRExpressionKind::TextureSample:
-      if (expression.value == "textureGather") {
+      if (expression.value == "textureGather" ||
+          expression.value == "textureGatherOffset") {
         return emitTextureGather(expression);
       }
       return emitTextureSample(expression);

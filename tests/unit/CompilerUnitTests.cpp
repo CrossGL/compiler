@@ -2494,6 +2494,8 @@ void testHIRIntrinsicRegistry() {
       crossgl::lookupHIRCallBuiltinEffect("textureLod");
   const std::optional<crossgl::HIRBuiltinEffect> textureGatherEffect =
       crossgl::lookupHIRCallBuiltinEffect("textureGather");
+  const std::optional<crossgl::HIRBuiltinEffect> textureGatherOffsetEffect =
+      crossgl::lookupHIRCallBuiltinEffect("textureGatherOffset");
   const std::optional<crossgl::HIRBuiltinEffect> manualKernelEffect =
       crossgl::lookupHIRCallBuiltinEffect("textureCompareLodManualKernel");
   const std::optional<crossgl::HIRBuiltinEffect> kernelBuilderEffect =
@@ -2512,6 +2514,9 @@ void testHIRIntrinsicRegistry() {
              *textureLodEffect == crossgl::HIRBuiltinEffect::Opaque &&
              textureGatherEffect.has_value() &&
              *textureGatherEffect == crossgl::HIRBuiltinEffect::Opaque &&
+             textureGatherOffsetEffect.has_value() &&
+             *textureGatherOffsetEffect ==
+                 crossgl::HIRBuiltinEffect::Opaque &&
              manualKernelEffect.has_value() &&
              *manualKernelEffect == crossgl::HIRBuiltinEffect::Opaque &&
              kernelBuilderEffect.has_value() &&
@@ -2519,6 +2524,7 @@ void testHIRIntrinsicRegistry() {
              crossgl::isHIRImageAccessBuiltinCall("imageLoad") &&
              crossgl::isHIRImageAccessBuiltinCall("imageStore") &&
              crossgl::isHIRTextureAccessBuiltinCall("textureGather") &&
+             crossgl::isHIRTextureAccessBuiltinCall("textureGatherOffset") &&
              crossgl::isHIRTextureCompareKernelBuiltinCall(
                  "textureCompareKernel") &&
              !unknownEffect.has_value(),
@@ -28848,6 +28854,10 @@ shader TextureGatherShader {
       vec4 gatheredRed = textureGather(colorMap, linearSampler, vec2(0.25, 0.75));
       vec4 gatheredGreen = textureGather(colorMap, linearSampler,
                                          vec2(0.5, 0.5), 1);
+      vec4 gatheredOffsetRed = textureGatherOffset(
+          colorMap, linearSampler, vec2(0.125, 0.875), ivec2(1, -1));
+      vec4 gatheredOffsetGreen = textureGatherOffset(
+          colorMap, linearSampler, vec2(0.375, 0.625), ivec2(0, 1), 1);
       return;
     }
   }
@@ -28861,8 +28871,8 @@ shader TextureGatherShader {
   }
 
   const crossgl::HIRFunction &main = hir->stages.front().functions.front();
-  expect(main.body.size() == 3,
-         "textureGather test has two declarations and return");
+  expect(main.body.size() == 5,
+         "textureGather test has four declarations and return");
   const crossgl::HIRExpression &implicitComponent = main.body[0].value;
   expect(implicitComponent.kind == crossgl::HIRExpressionKind::TextureSample &&
              implicitComponent.value == "textureGather" &&
@@ -28881,11 +28891,35 @@ shader TextureGatherShader {
              explicitComponent.children[3].type.name == "int",
          "textureGather preserves optional component operand");
 
+  const crossgl::HIRExpression &offsetComponent = main.body[2].value;
+  expect(offsetComponent.kind == crossgl::HIRExpressionKind::TextureSample &&
+             offsetComponent.value == "textureGatherOffset" &&
+             offsetComponent.type.name == "vec4" &&
+             offsetComponent.children.size() == 4 &&
+             offsetComponent.children[3].type.name == "ivec2",
+         "textureGatherOffset preserves static offset operand");
+
+  const crossgl::HIRExpression &offsetExplicitComponent = main.body[3].value;
+  expect(offsetExplicitComponent.kind ==
+                 crossgl::HIRExpressionKind::TextureSample &&
+             offsetExplicitComponent.value == "textureGatherOffset" &&
+             offsetExplicitComponent.type.name == "vec4" &&
+             offsetExplicitComponent.children.size() == 5 &&
+             offsetExplicitComponent.children[3].type.name == "ivec2" &&
+             offsetExplicitComponent.children[4].type.name == "int",
+         "textureGatherOffset preserves offset and component operands");
+
   const std::string hirDump = crossgl::printHIR(*hir);
   expect(hirDump.find("texture_gather(colorMap, linearSampler, "
                       "vec2(0.25, 0.75))") != std::string::npos &&
              hirDump.find("texture_gather(colorMap, linearSampler, "
-                          "vec2(0.5, 0.5), 1)") != std::string::npos,
+                          "vec2(0.5, 0.5), 1)") != std::string::npos &&
+             hirDump.find("texture_gather_offset(colorMap, linearSampler, "
+                          "vec2(0.125, 0.875), ivec2(1, -1))") !=
+                 std::string::npos &&
+             hirDump.find("texture_gather_offset(colorMap, linearSampler, "
+                          "vec2(0.375, 0.625), ivec2(0, 1), 1)") !=
+                 std::string::npos,
          "HIR dump prints canonical textureGather operations");
 
   for (const crossgl::TargetKind target :
@@ -28895,6 +28929,8 @@ shader TextureGatherShader {
         crossgl::targetFeatureRequirements(*hir, target);
     expect(hasCapability(required, target, "operation", "texture-gather"),
            "textureGather records a distinct target capability");
+    expect(hasCapability(required, target, "operation", "texture-gather-offset"),
+           "textureGatherOffset records a distinct target capability");
 
     const crossgl::TargetPackageDecision decision =
         crossgl::targetPackageDecision(*hir, target);
@@ -28912,6 +28948,14 @@ shader TextureGatherShader {
                       "linearSampler, float2(0.5, 0.5));") !=
              std::string::npos,
          "DirectX backend lowers textureGather explicit component");
+  expect(directx.find("float4 gatheredOffsetRed = colorMap.GatherRed("
+                      "linearSampler, float2(0.125, 0.875), int2(1, -1));") !=
+             std::string::npos,
+         "DirectX backend lowers textureGatherOffset default component");
+  expect(directx.find("float4 gatheredOffsetGreen = colorMap.GatherGreen("
+                      "linearSampler, float2(0.375, 0.625), int2(0, 1));") !=
+             std::string::npos,
+         "DirectX backend lowers textureGatherOffset explicit component");
 
   const std::string opengl =
       crossgl::printBackendIR(*hir, crossgl::TargetKind::OpenGL);
@@ -28923,6 +28967,16 @@ shader TextureGatherShader {
                      "linearSampler), vec2(0.5, 0.5), 1);") !=
              std::string::npos,
          "OpenGL backend lowers textureGather explicit component");
+  expect(opengl.find("vec4 gatheredOffsetRed = textureGatherOffset("
+                     "sampler2D(colorMap, linearSampler), "
+                     "vec2(0.125, 0.875), ivec2(1, -1));") !=
+             std::string::npos,
+         "OpenGL backend lowers textureGatherOffset default component");
+  expect(opengl.find("vec4 gatheredOffsetGreen = textureGatherOffset("
+                     "sampler2D(colorMap, linearSampler), "
+                     "vec2(0.375, 0.625), ivec2(0, 1), 1);") !=
+             std::string::npos,
+         "OpenGL backend lowers textureGatherOffset explicit component");
 
   const std::string metal = crossgl::generateMetalSource(*hir);
   expect(metal.find("float4 gatheredRed = colorMap.gather(linearSampler, "
@@ -28932,6 +28986,14 @@ shader TextureGatherShader {
                     "float2(0.5, 0.5), int2(0), component::y);") !=
              std::string::npos,
          "Metal backend lowers textureGather explicit component");
+  expect(metal.find("float4 gatheredOffsetRed = colorMap.gather(linearSampler, "
+                    "float2(0.125, 0.875), int2(1, -1));") !=
+             std::string::npos,
+         "Metal backend lowers textureGatherOffset default component");
+  expect(metal.find("float4 gatheredOffsetGreen = colorMap.gather("
+                    "linearSampler, float2(0.375, 0.625), int2(0, 1), "
+                    "component::y);") != std::string::npos,
+         "Metal backend lowers textureGatherOffset explicit component");
 
   crossgl::DiagnosticEngine assemblyDiagnostics;
   const std::string assembly =
@@ -28940,6 +29002,9 @@ shader TextureGatherShader {
          "textureGather Vulkan prototype assembly has no diagnostics");
   expect(assembly.find("OpImageGather %vec4") != std::string::npos,
          "Vulkan prototype assembly lowers textureGather to OpImageGather");
+  expect(assembly.find("OpImageGather %vec4") != std::string::npos &&
+             assembly.find("ConstOffset") != std::string::npos,
+         "Vulkan prototype assembly lowers textureGatherOffset with ConstOffset");
 
   constexpr std::string_view integerSource = R"(
 shader TextureGatherIntegerShader {
@@ -53987,6 +54052,85 @@ shader BadTextureGatherComponentShader {
   expect(hasDiagnostic(gatherComponentDiagnostics,
                        "sema.texture-gather-component"),
          "textureGather rejects non-integer component operands");
+
+  constexpr std::string_view gatherComponentRangeSource = R"(
+shader BadTextureGatherComponentRangeShader {
+  compute {
+    uniform texture2D colorMap;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureGather(colorMap, linearSampler, vec2(0.5, 0.5), 4);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherComponentRangeDiagnostics =
+      collectDiagnostics(gatherComponentRangeSource);
+  expect(hasDiagnostic(gatherComponentRangeDiagnostics,
+                       "sema.texture-gather-component"),
+         "textureGather rejects component operands outside 0..3");
+
+  constexpr std::string_view gatherOffsetTypeSource = R"(
+shader BadTextureGatherOffsetTypeShader {
+  compute {
+    uniform texture2D colorMap;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureGatherOffset(colorMap, linearSampler, vec2(0.5, 0.5),
+                                       vec2(1.0, 0.0));
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherOffsetTypeDiagnostics =
+      collectDiagnostics(gatherOffsetTypeSource);
+  expect(hasDiagnostic(gatherOffsetTypeDiagnostics, "sema.texture-gather-offset"),
+         "textureGatherOffset rejects non-ivec2 offset operands");
+
+  constexpr std::string_view gatherOffsetDynamicSource = R"(
+shader BadTextureGatherDynamicOffsetShader {
+  compute {
+    uniform texture2D colorMap;
+    sampler linearSampler;
+    void main() {
+      int dx = 1;
+      vec4 color = textureGatherOffset(colorMap, linearSampler, vec2(0.5, 0.5),
+                                       ivec2(dx, 0));
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherOffsetDynamicDiagnostics =
+      collectDiagnostics(gatherOffsetDynamicSource);
+  expect(hasDiagnostic(gatherOffsetDynamicDiagnostics,
+                       "sema.texture-gather-offset-static"),
+         "textureGatherOffset rejects dynamic offset operands");
+
+  constexpr std::string_view gatherOffsetComponentSource = R"(
+shader BadTextureGatherOffsetComponentShader {
+  compute {
+    uniform texture2D colorMap;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureGatherOffset(colorMap, linearSampler, vec2(0.5, 0.5),
+                                       ivec2(0, 1), 7);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherOffsetComponentDiagnostics =
+      collectDiagnostics(gatherOffsetComponentSource);
+  expect(hasDiagnostic(gatherOffsetComponentDiagnostics,
+                       "sema.texture-gather-component"),
+         "textureGatherOffset rejects component operands outside 0..3");
 
   constexpr std::string_view shadowTextureSource = R"(
 shader BadShadowTextureSampleShader {

@@ -583,6 +583,9 @@ void addExpressionCapabilities(
       collector.add("operation", "texture-explicit-lod");
     } else if (expression.value == "textureGather") {
       collector.add("operation", "texture-gather");
+    } else if (expression.value == "textureGatherOffset") {
+      collector.add("operation", "texture-gather");
+      collector.add("operation", "texture-gather-offset");
     }
     break;
   case HIRExpressionKind::TextureCompare:
@@ -806,6 +809,7 @@ bool capabilitySatisfiedByTextualScaffold(const HIRModule &module,
            capability.name == "nonuniform-storage-buffer-descriptor-index" ||
            capability.name == "texture-sample" ||
            capability.name == "texture-gather" ||
+           capability.name == "texture-gather-offset" ||
            capability.name == "texture-explicit-lod" ||
            capability.name == "texture-shadow-compare" ||
            capability.name == "texture-shadow-compare-explicit-lod" ||

@@ -8,7 +8,7 @@
 namespace crossgl {
 namespace {
 
-constexpr std::array<HIRCallBuiltinEffectRecord, 31> kHIRCallBuiltinEffects = {{
+constexpr std::array<HIRCallBuiltinEffectRecord, 32> kHIRCallBuiltinEffects = {{
     {"atomicAdd", HIRBuiltinEffect::Opaque},
     {"atomicAnd", HIRBuiltinEffect::Opaque},
     {"atomicExchange", HIRBuiltinEffect::Opaque},
@@ -29,6 +29,7 @@ constexpr std::array<HIRCallBuiltinEffectRecord, 31> kHIRCallBuiltinEffects = {{
     {"sample", HIRBuiltinEffect::Opaque},
     {"texture", HIRBuiltinEffect::Opaque},
     {"textureGather", HIRBuiltinEffect::Opaque},
+    {"textureGatherOffset", HIRBuiltinEffect::Opaque},
     {"textureLod", HIRBuiltinEffect::Opaque},
     {"textureCompare", HIRBuiltinEffect::Opaque},
     {"textureCompareKernel", HIRBuiltinEffect::Structural},
@@ -141,7 +142,8 @@ bool isHIRResourceWriteBuiltinCall(std::string_view name) {
 
 bool isHIRTextureAccessBuiltinCall(std::string_view name) {
   return name == "sample" || name == "texture" ||
-         name == "textureGather" || name == "textureLod" ||
+         name == "textureGather" || name == "textureGatherOffset" ||
+         name == "textureLod" ||
          name == "textureCompare" || name == "textureCompareLod" ||
          name == "textureCompareLodManual" ||
          name == "textureCompareLodManualGather2x2" ||
