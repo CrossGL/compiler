@@ -1258,6 +1258,18 @@ struct CrossTLProjectReportSummary {
   std::optional<CountMap> runtimeReferencesByPath;
 };
 
+struct CrossTLProjectReportSourceRemapRecord {
+  std::string path;
+  std::string sha256;
+  std::uintmax_t sizeBytes = 0;
+  std::string generatedFile;
+  std::uintmax_t mappingCount = 0;
+  std::optional<std::string> target;
+  std::optional<std::string> mappingGranularity;
+  std::optional<std::string> sourceBackend;
+  std::optional<std::string> variant;
+};
+
 struct CrossTLProjectReportStats {
   std::uintmax_t unitCount = 0;
   std::uintmax_t skippedCount = 0;
@@ -1305,6 +1317,7 @@ struct CrossTLProjectReportStats {
   CrossTLProjectReportSummary::CountMap runtimeReferencesByPath;
   std::vector<std::string> sourceRemapPaths;
   std::vector<std::string> backendSourceMapPaths;
+  std::vector<CrossTLProjectReportSourceRemapRecord> sourceRemapRecords;
 };
 
 struct CrossTLProjectReportRuntimeReferenceRollups {
@@ -2413,6 +2426,18 @@ void incrementCrossTLProjectReportCountMap(
   counts.push_back({key, 1});
 }
 
+const CrossTLProjectReportSourceRemapRecord *
+findCrossTLProjectReportSourceRemapRecord(
+    const CrossTLProjectReportStats &stats, std::string_view path) {
+  for (const CrossTLProjectReportSourceRemapRecord &record :
+       stats.sourceRemapRecords) {
+    if (record.path == path) {
+      return &record;
+    }
+  }
+  return nullptr;
+}
+
 CrossTLProjectReportSummary::CountMap *
 findCrossTLProjectReportNestedCountMapRow(
     CrossTLProjectReportSummary::NestedCountMap &counts,
@@ -2855,6 +2880,193 @@ bool parseCrossTLProjectReportHash(
   }
   hashValue = std::move(value);
   return true;
+}
+
+bool parseCrossTLProjectReportSha256Member(
+    std::string_view objectText, std::string_view key,
+    std::string_view context, const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics, std::string &hashValue) {
+  const std::optional<std::string_view> hashText =
+      crossgl::findObjectMemberValue(objectText, key);
+  const std::string hashContext =
+      std::string(context) + "." + std::string(key);
+  if (!hashText || !crossgl::isJsonObjectDocument(*hashText)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        hashContext +
+            " must contain sha256 algorithm and 64 lowercase hexadecimal value");
+    return false;
+  }
+
+  std::string algorithm;
+  std::string value;
+  if (!parseRequiredSourceBatchStringMember(*hashText, "algorithm",
+                                            hashContext, manifestPath,
+                                            diagnostics, algorithm) ||
+      !parseRequiredSourceBatchStringMember(*hashText, "value", hashContext,
+                                            manifestPath, diagnostics,
+                                            value)) {
+    return false;
+  }
+  if (algorithm != "sha256" || !crossTLProjectReportIsLowercaseSha256(value)) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        hashContext +
+            " must contain sha256 algorithm and 64 lowercase hexadecimal value");
+    return false;
+  }
+  hashValue = std::move(value);
+  return true;
+}
+
+struct CrossTLBackendSourceMapSourceRemapReference {
+  std::string path;
+  std::string sha256;
+  std::uintmax_t sizeBytes = 0;
+  std::string generatedFile;
+  std::uintmax_t mappingCount = 0;
+  std::optional<std::string> target;
+  std::optional<std::string> mappingGranularity;
+  std::optional<std::string> sourceBackend;
+  std::optional<std::string> variant;
+};
+
+bool parseCrossTLBackendSourceMapSourceRemapReference(
+    std::string_view sourceRemapText, std::string_view context,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics,
+    CrossTLBackendSourceMapSourceRemapReference &reference) {
+  if (!crossgl::isJsonObjectDocument(sourceRemapText)) {
+    sourceBatchManifestError(diagnostics, manifestPath,
+                             std::string(context) + " must be a JSON object");
+    return false;
+  }
+  return parseRequiredSourceBatchStableRelativePathMember(
+             sourceRemapText, "path", context, manifestPath, diagnostics,
+             reference.path) &&
+         parseCrossTLProjectReportSha256Member(sourceRemapText, "sha256",
+                                               context, manifestPath,
+                                               diagnostics,
+                                               reference.sha256) &&
+         parseRequiredSourceBatchUnsignedMember(
+             sourceRemapText, "sizeBytes", context, manifestPath, diagnostics,
+             reference.sizeBytes) &&
+         parseRequiredSourceBatchStableRelativePathMember(
+             sourceRemapText, "generatedFile", context, manifestPath,
+             diagnostics, reference.generatedFile) &&
+         parseRequiredSourceBatchUnsignedMember(
+             sourceRemapText, "mappingCount", context, manifestPath,
+             diagnostics, reference.mappingCount) &&
+         parseOptionalSourceBatchStringMember(
+             sourceRemapText, "target", context, manifestPath, diagnostics,
+             reference.target) &&
+         parseOptionalSourceBatchStringMember(
+             sourceRemapText, "mappingGranularity", context, manifestPath,
+             diagnostics, reference.mappingGranularity) &&
+         parseOptionalSourceBatchStringMember(
+             sourceRemapText, "sourceBackend", context, manifestPath,
+             diagnostics, reference.sourceBackend) &&
+         parseOptionalSourceBatchStringMember(
+             sourceRemapText, "variant", context, manifestPath, diagnostics,
+             reference.variant);
+}
+
+bool validateCrossTLBackendSourceMapSourceRemapReference(
+    const CrossTLBackendSourceMapSourceRemapReference &reference,
+    std::string_view context, const CrossTLProjectReportStats &stats,
+    const std::filesystem::path &manifestPath,
+    crossgl::DiagnosticEngine &diagnostics) {
+  const CrossTLProjectReportSourceRemapRecord *record =
+      findCrossTLProjectReportSourceRemapRecord(stats, reference.path);
+  if (!record) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".path must reference sourceRemap metadata recorded by CrossTL "
+            "project report");
+    return false;
+  }
+  if (reference.sha256 != record->sha256) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".sha256.value must match sourceRemap metadata for '" +
+            reference.path + "'");
+    return false;
+  }
+  if (reference.sizeBytes != record->sizeBytes) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".sizeBytes must match sourceRemap metadata for '" +
+            reference.path + "'");
+    return false;
+  }
+  if (reference.generatedFile != record->generatedFile) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".generatedFile must match sourceRemap metadata for '" +
+            reference.path + "'");
+    return false;
+  }
+  if (reference.mappingCount != record->mappingCount) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".mappingCount must match sourceRemap metadata for '" +
+            reference.path + "'");
+    return false;
+  }
+  if (reference.target && record->target && *reference.target != *record->target) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".target must match sourceRemap metadata for '" + reference.path +
+            "'");
+    return false;
+  }
+  if (reference.mappingGranularity && record->mappingGranularity &&
+      *reference.mappingGranularity != *record->mappingGranularity) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".mappingGranularity must match sourceRemap metadata for '" +
+            reference.path + "'");
+    return false;
+  }
+  if (reference.sourceBackend && record->sourceBackend &&
+      *reference.sourceBackend != *record->sourceBackend) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".sourceBackend must match sourceRemap metadata for '" +
+            reference.path + "'");
+    return false;
+  }
+  if (reference.variant && record->variant &&
+      *reference.variant != *record->variant) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            ".variant must match sourceRemap metadata for '" + reference.path +
+            "'");
+    return false;
+  }
+  return true;
+}
+
+bool crossTLBackendSourceMapSourceRemapReferencesMatch(
+    const CrossTLBackendSourceMapSourceRemapReference &left,
+    const CrossTLBackendSourceMapSourceRemapReference &right) {
+  return left.path == right.path && left.sha256 == right.sha256 &&
+         left.sizeBytes == right.sizeBytes &&
+         left.generatedFile == right.generatedFile &&
+         left.mappingCount == right.mappingCount &&
+         left.target == right.target &&
+         left.mappingGranularity == right.mappingGranularity &&
+         left.sourceBackend == right.sourceBackend &&
+         left.variant == right.variant;
 }
 
 struct CrossTLBackendSourceMapSpan {
@@ -3387,6 +3599,24 @@ bool parseCrossTLProjectReportBackendSourceMap(
     }
   }
 
+  std::optional<CrossTLBackendSourceMapSourceRemapReference>
+      metadataSourceRemap;
+  const std::optional<std::string_view> metadataSourceRemapText =
+      crossgl::findObjectMemberValue(backendSourceMapText, "sourceRemap");
+  if (metadataSourceRemapText &&
+      !isSourceBatchJsonNullValue(*metadataSourceRemapText)) {
+    CrossTLBackendSourceMapSourceRemapReference reference;
+    if (!parseCrossTLBackendSourceMapSourceRemapReference(
+            *metadataSourceRemapText, metadataContext + ".sourceRemap",
+            manifestPath, diagnostics, reference) ||
+        !validateCrossTLBackendSourceMapSourceRemapReference(
+            reference, metadataContext + ".sourceRemap", stats, manifestPath,
+            diagnostics)) {
+      return false;
+    }
+    metadataSourceRemap = std::move(reference);
+  }
+
   const std::filesystem::path resolvedPath =
       resolveManifestPath(projectRoot, path);
   std::optional<std::string> sidecarText =
@@ -3492,6 +3722,41 @@ bool parseCrossTLProjectReportBackendSourceMap(
       crossgl::findObjectMemberValue(*sidecarText, "sourceRemap");
   const bool hasSourceRemap =
       sourceRemapText && !isSourceBatchJsonNullValue(*sourceRemapText);
+  if (!hasSourceRemap && metadataSourceRemap) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        metadataContext +
+            ".sourceRemap must be omitted or null when sidecar.sourceRemap is "
+            "null");
+    return false;
+  }
+  if (hasSourceRemap) {
+    if (!metadataSourceRemap) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          metadataContext +
+              ".sourceRemap must be recorded when sidecar.sourceRemap is "
+              "recorded");
+      return false;
+    }
+    CrossTLBackendSourceMapSourceRemapReference sidecarSourceRemap;
+    if (!parseCrossTLBackendSourceMapSourceRemapReference(
+            *sourceRemapText, metadataContext + " sidecar.sourceRemap",
+            manifestPath, diagnostics, sidecarSourceRemap) ||
+        !validateCrossTLBackendSourceMapSourceRemapReference(
+            sidecarSourceRemap, metadataContext + " sidecar.sourceRemap",
+            stats, manifestPath, diagnostics)) {
+      return false;
+    }
+    if (!crossTLBackendSourceMapSourceRemapReferencesMatch(
+            *metadataSourceRemap, sidecarSourceRemap)) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          metadataContext +
+              ".sourceRemap metadata must match referenced sidecar.sourceRemap");
+      return false;
+    }
+  }
   const std::optional<std::string_view> mappingsText =
       crossgl::findObjectMemberValue(*sidecarText, "mappings");
   std::size_t sidecarMappingsLength = 0;
@@ -4768,6 +5033,45 @@ bool validateCrossTLProjectReportRootDiagnosticCounts(
   return false;
 }
 
+void collectCrossTLProjectReportSourceRemapRecord(
+    std::string_view artifactText, const std::filesystem::path &projectRoot,
+    const std::filesystem::path &manifestPath, CrossTLProjectReportStats &stats) {
+  const std::optional<std::string_view> sourceRemapText =
+      crossgl::findObjectMemberValue(artifactText, "sourceRemap");
+  if (!sourceRemapText || isSourceBatchJsonNullValue(*sourceRemapText) ||
+      !crossgl::isJsonObjectDocument(*sourceRemapText)) {
+    return;
+  }
+
+  const std::optional<std::string> path =
+      crossgl::objectStringMember(*sourceRemapText, "path");
+  if (!path || !isSourceBatchStableRelativePath(*path) ||
+      findCrossTLProjectReportSourceRemapRecord(stats, *path)) {
+    return;
+  }
+
+  crossgl::DiagnosticEngine ignoredDiagnostics;
+  std::optional<crossgl::SourceRemap> remap =
+      crossgl::loadSourceRemapMetadata(*sourceRemapText, projectRoot,
+                                       cliSourceLocation(manifestPath),
+                                       ignoredDiagnostics);
+  if (!remap || !remap->documentSha256 || !remap->documentSizeBytes) {
+    return;
+  }
+
+  CrossTLProjectReportSourceRemapRecord record;
+  record.path = *path;
+  record.sha256 = *remap->documentSha256;
+  record.sizeBytes = *remap->documentSizeBytes;
+  record.generatedFile = remap->generatedFile;
+  record.mappingCount = remap->mappings.size();
+  record.target = remap->metadataTarget;
+  record.mappingGranularity = remap->metadataMappingGranularity;
+  record.sourceBackend = remap->metadataSourceBackend;
+  record.variant = remap->metadataVariant;
+  stats.sourceRemapRecords.push_back(std::move(record));
+}
+
 std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
     std::string_view document, const std::filesystem::path &manifestPath,
     crossgl::DiagnosticEngine &diagnostics) {
@@ -4854,6 +5158,13 @@ std::optional<SourceBatchManifest> loadCrossTLProjectReportSourceBatchManifest(
                              "CrossTL project report requires artifacts array");
     return std::nullopt;
   }
+
+  (void)forEachSourceBatchJsonArrayElement(
+      *artifacts, [&](std::size_t, std::string_view artifactText) {
+        collectCrossTLProjectReportSourceRemapRecord(
+            artifactText, projectRoot, manifestPath, stats);
+        return true;
+      });
 
   bool valid = true;
   const bool parsedArtifacts = forEachSourceBatchJsonArrayElement(

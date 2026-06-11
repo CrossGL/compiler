@@ -799,11 +799,55 @@
         "mappingCount": {
           "$ref": "#/$defs/nonNegativeInteger"
         },
+        "sourceRemap": {
+          "$ref": "#/$defs/backendSourceMapSourceRemapMetadata",
+          "description": "Optional source-remap sidecar provenance used by the backend source map for remapping diagnostics through compiler lowering."
+        },
         "sizeBytes": {
           "$ref": "#/$defs/nonNegativeInteger"
         },
         "hash": {
           "$ref": "#/$defs/sha256Hash"
+        }
+      }
+    },
+    "backendSourceMapSourceRemapMetadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "path",
+        "sha256",
+        "sizeBytes",
+        "generatedFile",
+        "mappingCount"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256Hash"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "generatedFile": {
+          "$ref": "#/$defs/stableRelativePath"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/mappingGranularity"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "variant": {
+          "$ref": "#/$defs/nonEmptyString"
         }
       }
     },

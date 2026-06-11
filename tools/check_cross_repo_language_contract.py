@@ -90,7 +90,7 @@ FEATURE_SPEC_SELF_TEST_FILES = (
 PROJECT_PORTING_CONTRACT_SEALS = (
     {
         "path": "docs/schemas/crosstl-project-portability-report-v1.schema.json",
-        "sha256": "11e60a7c0138d0bbb8becfe454c73865bac47e4ac7327c92fec1a3550b7cb28c",
+        "sha256": "5bdc77ec1e4de7b80919a6dbdb06e78b3d14fc6dab6c77adb5ae75cab13668df",
     },
     {
         "path": "docs/schemas/source-remap-v1.schema.json",
