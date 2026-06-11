@@ -127,6 +127,9 @@ def validate_semantics(instance):
     if "sourceRemap" in instance:
         validate_source_remap(errors, instance["sourceRemap"])
     has_source_remap = instance.get("sourceRemap") is not None
+    source_remap_generated_file = None
+    if isinstance(instance.get("sourceRemap"), dict):
+        source_remap_generated_file = instance["sourceRemap"].get("generatedFile")
 
     line_count = backend["lineCount"]
     backend_spans = []
@@ -145,6 +148,15 @@ def validate_semantics(instance):
         validate_source_location_range(
             errors, f"{mapping_path}.location", mapping["location"]
         )
+        if (
+            has_source_remap
+            and isinstance(source_remap_generated_file, str)
+            and mapping["location"]["file"] != source_remap_generated_file
+        ):
+            errors.append(
+                f"{mapping_path}.location.file: expected to match "
+                f"$.sourceRemap.generatedFile {source_remap_generated_file!r}"
+            )
         if "originalLocation" in mapping:
             validate_source_location_range(
                 errors,
