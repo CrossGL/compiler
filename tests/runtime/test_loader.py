@@ -1685,8 +1685,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
 
             plan = read_loader_plan(package_dir, "metal")
             summary = plan.to_summary()
+            contract = plan.to_runtime_loader_plan_contract()
 
             self.assertTrue(plan.loadable, summary["diagnostics"])
+            self.assertRuntimeLoaderPlanContractValid(contract)
             self.assertEqual(
                 plan.required_artifacts,
                 ("backendSource", "intermediate", "nativeBinary"),
@@ -1696,6 +1698,19 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 ["backendSource", "intermediate", "nativeBinary"],
             )
             self.assertEqual(plan.require_runtime_artifact().name, "nativeBinary")
+            self.assertEqual(contract["selectedArtifact"]["name"], "nativeBinary")
+            load_unit = contract["hostLoaderIntegration"]["loadUnits"][0]
+            self.assertEqual(load_unit["artifact"], contract["selectedArtifact"])
+            self.assertEqual(load_unit["artifactFormat"], "native-binary")
+            self.assertEqual(load_unit["adapterKind"], "native-binary-loader")
+            self.assertEqual(
+                load_unit["loadSteps"][0]["metadata"]["artifact"],
+                {
+                    "name": "nativeBinary",
+                    "packageMode": "native",
+                    "artifactFormat": "native-binary",
+                },
+            )
             self.assertEqual(
                 summary["compatibilityReport"]["packageArtifactRequirements"][
                     "requirementsSource"
