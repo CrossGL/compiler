@@ -3227,9 +3227,18 @@ bool expressionIsManualTextureCompare(const HIRExpression &expression) {
   return textureCompareManualOperands(expression).has_value();
 }
 
+bool expressionIsTextureGather(const HIRExpression &expression) {
+  return expression.kind == HIRExpressionKind::TextureSample &&
+         expression.value == "textureGather";
+}
+
 bool moduleUsesManualTextureCompare(const HIRModule &module) {
   return moduleExpressionsContain(module, expressionIsManualTextureCompare,
                                   true);
+}
+
+bool moduleUsesTextureGather(const HIRModule &module) {
+  return moduleExpressionsContain(module, expressionIsTextureGather, true);
 }
 
 bool constantsSupported(const HIRModule &module) {
@@ -4802,6 +4811,18 @@ bool directxHasUnsupportedRuntimeResourceArray(const HIRModule &module) {
   return !directxUnsupportedRuntimeResourceArrayLabels(module).empty();
 }
 
+bool diagnoseDirectXUnsupportedTextureGather(const HIRModule &module,
+                                             DiagnosticEngine &diagnostics) {
+  if (!moduleUsesTextureGather(module)) {
+    return false;
+  }
+  diagnostics.error(
+      "directx.unsupported-texture-gather",
+      "DirectX textureGather lowering is not implemented yet; keep this module "
+      "in HIR form or target a backend with native texture gather support");
+  return true;
+}
+
 bool diagnoseDirectXUnsupportedGraphicsResources(const HIRModule &module,
                                                  DiagnosticEngine &diagnostics) {
   const std::set<std::string> unsupportedResources =
@@ -4973,6 +4994,9 @@ bool directxSourcePackageSupported(const HIRModule &module,
   }
   if (directxTextualBackendSupported(module)) {
     return true;
+  }
+  if (diagnoseDirectXUnsupportedTextureGather(module, diagnostics)) {
+    return false;
   }
   if (diagnoseDirectXMixedSamplerStateUsage(module, diagnostics)) {
     return false;

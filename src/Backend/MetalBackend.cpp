@@ -2305,9 +2305,18 @@ bool expressionIsManualTextureCompare(const HIRExpression &expression) {
   return textureCompareManualOperands(expression).has_value();
 }
 
+bool expressionIsTextureGather(const HIRExpression &expression) {
+  return expression.kind == HIRExpressionKind::TextureSample &&
+         expression.value == "textureGather";
+}
+
 bool moduleUsesManualTextureCompare(const HIRModule &module) {
   return moduleExpressionsContain(module, expressionIsManualTextureCompare,
                                   true);
+}
+
+bool moduleUsesTextureGather(const HIRModule &module) {
+  return moduleExpressionsContain(module, expressionIsTextureGather, true);
 }
 
 void renderMetalManualCompareHelper(std::ostringstream &out) {
@@ -4206,6 +4215,14 @@ bool validateMetalResources(const HIRModule &module,
 bool metalNativeBackendSupported(const HIRModule &module,
                                  DiagnosticEngine &diagnostics) {
   if (diagnoseRawStatementBackendInput(module, diagnostics)) {
+    return false;
+  }
+  if (moduleUsesTextureGather(module)) {
+    diagnostics.error(
+        "metal.unsupported-texture-gather",
+        "Metal native textureGather lowering is not implemented yet; keep this "
+        "module in HIR/source-package form or target a backend with native "
+        "texture gather support");
     return false;
   }
   return validateMetalResources(module, diagnostics);

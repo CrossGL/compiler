@@ -581,6 +581,8 @@ void addExpressionCapabilities(
     collector.add("operation", "texture-sample");
     if (expression.value == "textureLod") {
       collector.add("operation", "texture-explicit-lod");
+    } else if (expression.value == "textureGather") {
+      collector.add("operation", "texture-gather");
     }
     break;
   case HIRExpressionKind::TextureCompare:

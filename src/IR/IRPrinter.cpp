@@ -72,8 +72,10 @@ std::string formatHIRExpression(const HIRExpression &expression) {
            formatHIRExpression(expression.children[2]);
   case HIRExpressionKind::TextureSample: {
     std::ostringstream out;
-    out << (expression.value == "textureLod" ? "texture_sample_lod("
-                                              : "texture_sample(");
+    out << (expression.value == "textureLod"
+                ? "texture_sample_lod("
+                : expression.value == "textureGather" ? "texture_gather("
+                                                       : "texture_sample(");
     for (std::size_t i = 0; i < expression.children.size(); ++i) {
       if (i != 0) {
         out << ", ";

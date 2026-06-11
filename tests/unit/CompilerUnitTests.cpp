@@ -2492,6 +2492,8 @@ void testHIRIntrinsicRegistry() {
                   });
   const std::optional<crossgl::HIRBuiltinEffect> textureLodEffect =
       crossgl::lookupHIRCallBuiltinEffect("textureLod");
+  const std::optional<crossgl::HIRBuiltinEffect> textureGatherEffect =
+      crossgl::lookupHIRCallBuiltinEffect("textureGather");
   const std::optional<crossgl::HIRBuiltinEffect> manualKernelEffect =
       crossgl::lookupHIRCallBuiltinEffect("textureCompareLodManualKernel");
   const std::optional<crossgl::HIRBuiltinEffect> kernelBuilderEffect =
@@ -2508,12 +2510,15 @@ void testHIRIntrinsicRegistry() {
              imageAtomicBuiltinsRegistered &&
              textureLodEffect.has_value() &&
              *textureLodEffect == crossgl::HIRBuiltinEffect::Opaque &&
+             textureGatherEffect.has_value() &&
+             *textureGatherEffect == crossgl::HIRBuiltinEffect::Opaque &&
              manualKernelEffect.has_value() &&
              *manualKernelEffect == crossgl::HIRBuiltinEffect::Opaque &&
              kernelBuilderEffect.has_value() &&
              *kernelBuilderEffect == crossgl::HIRBuiltinEffect::Structural &&
              crossgl::isHIRImageAccessBuiltinCall("imageLoad") &&
              crossgl::isHIRImageAccessBuiltinCall("imageStore") &&
+             crossgl::isHIRTextureAccessBuiltinCall("textureGather") &&
              crossgl::isHIRTextureCompareKernelBuiltinCall(
                  "textureCompareKernel") &&
              !unknownEffect.has_value(),
@@ -5370,6 +5375,7 @@ void testHIROptimizationPipelineExpressionShapeValidation() {
       {crossgl::HIRExpressionKind::TextureSample, "texture", 1},
       {crossgl::HIRExpressionKind::TextureSample, "badTextureSample", 2},
       {crossgl::HIRExpressionKind::TextureSample, "textureLod", 5},
+      {crossgl::HIRExpressionKind::TextureSample, "textureGather", 2},
       {crossgl::HIRExpressionKind::TextureCompare, "textureCompare", 3},
       {crossgl::HIRExpressionKind::TextureCompare, "badTextureCompare", 4},
       {crossgl::HIRExpressionKind::TextureCompare, "textureCompareLod", 4},
@@ -28828,7 +28834,72 @@ shader TextureSampleShader {
   expect(metal.find(
              "float4 explicitSample = colorMap.sample(linearSampler, "
              "float2(0.25, 0.75));") != std::string::npos,
-           "Metal backend lowers method texture sample with explicit sampler");
+         "Metal backend lowers method texture sample with explicit sampler");
+}
+
+void testTextureGatherHIRFrontend() {
+  constexpr std::string_view source = R"(
+shader TextureGatherShader {
+  compute {
+    layout(set = 0, binding = 0) uniform texture2D colorMap;
+    layout(set = 0, binding = 1) sampler linearSampler;
+    void main() {
+      vec4 gatheredRed = textureGather(colorMap, linearSampler, vec2(0.25, 0.75));
+      vec4 gatheredGreen = textureGather(colorMap, linearSampler,
+                                         vec2(0.5, 0.5), 1);
+      return;
+    }
+  }
+}
+)";
+
+  std::optional<crossgl::HIRModule> hir = parseHIR(source);
+  expect(hir.has_value(), "textureGather source builds HIR");
+  if (!hir) {
+    return;
+  }
+
+  const crossgl::HIRFunction &main = hir->stages.front().functions.front();
+  expect(main.body.size() == 3,
+         "textureGather test has two declarations and return");
+  const crossgl::HIRExpression &implicitComponent = main.body[0].value;
+  expect(implicitComponent.kind == crossgl::HIRExpressionKind::TextureSample &&
+             implicitComponent.value == "textureGather" &&
+             implicitComponent.type.name == "vec4" &&
+             implicitComponent.children.size() == 3 &&
+             implicitComponent.children[0].type.name == "texture2D" &&
+             implicitComponent.children[1].type.name == "sampler" &&
+             implicitComponent.children[2].type.name == "vec2",
+         "textureGather is represented as native texture sample HIR");
+
+  const crossgl::HIRExpression &explicitComponent = main.body[1].value;
+  expect(explicitComponent.kind == crossgl::HIRExpressionKind::TextureSample &&
+             explicitComponent.value == "textureGather" &&
+             explicitComponent.type.name == "vec4" &&
+             explicitComponent.children.size() == 4 &&
+             explicitComponent.children[3].type.name == "int",
+         "textureGather preserves optional component operand");
+
+  const std::string hirDump = crossgl::printHIR(*hir);
+  expect(hirDump.find("texture_gather(colorMap, linearSampler, "
+                      "vec2(0.25, 0.75))") != std::string::npos &&
+             hirDump.find("texture_gather(colorMap, linearSampler, "
+                          "vec2(0.5, 0.5), 1)") != std::string::npos,
+         "HIR dump prints canonical textureGather operations");
+
+  for (const crossgl::TargetKind target :
+       {crossgl::TargetKind::DirectX, crossgl::TargetKind::Metal,
+        crossgl::TargetKind::OpenGL, crossgl::TargetKind::Vulkan}) {
+    const std::vector<crossgl::TargetCapability> required =
+        crossgl::targetFeatureRequirements(*hir, target);
+    expect(hasCapability(required, target, "operation", "texture-gather"),
+           "textureGather records a distinct target capability");
+
+    const crossgl::TargetPackageDecision decision =
+        crossgl::targetPackageDecision(*hir, target);
+    expect(!decision.packageBuildSupported,
+           "textureGather is target-gated until native backend lowering exists");
+  }
 }
 
 void testExpressionSourceLocations() {
@@ -53696,6 +53767,117 @@ shader BadArrayTextureCoordinatesShader {
                        "sema.texture-sample-coordinates"),
          "2D array texture samples require layer-bearing vec3 coordinates");
 
+  constexpr std::string_view gatherAritySource = R"(
+shader BadTextureGatherArityShader {
+  compute {
+    uniform texture2D colorMap;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureGather(colorMap, linearSampler);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherArityDiagnostics =
+      collectDiagnostics(gatherAritySource);
+  expect(hasDiagnostic(gatherArityDiagnostics, "sema.texture-gather-arity"),
+         "textureGather with missing coordinates produces an arity diagnostic");
+
+  constexpr std::string_view gatherTextureSource = R"(
+shader BadTextureGatherTextureShader {
+  compute {
+    uniform samplerCube colorCube;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureGather(colorCube, linearSampler, vec3(0.0, 1.0, 0.0));
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherTextureDiagnostics =
+      collectDiagnostics(gatherTextureSource);
+  expect(hasDiagnostic(gatherTextureDiagnostics, "sema.texture-gather-texture"),
+         "textureGather rejects non-2D texture operands");
+
+  constexpr std::string_view gatherShadowTextureSource = R"(
+shader BadTextureGatherShadowShader {
+  compute {
+    uniform sampler2DShadow shadowMap;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureGather(shadowMap, linearSampler, vec2(0.5, 0.5));
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherShadowTextureDiagnostics =
+      collectDiagnostics(gatherShadowTextureSource);
+  expect(hasDiagnostic(gatherShadowTextureDiagnostics,
+                       "sema.texture-gather-texture"),
+         "textureGather rejects comparison texture operands");
+
+  constexpr std::string_view gatherSamplerSource = R"(
+shader BadTextureGatherSamplerShader {
+  compute {
+    uniform texture2D colorMap;
+    comparison_sampler shadowCompareSampler;
+    void main() {
+      vec4 color = textureGather(colorMap, shadowCompareSampler, vec2(0.5, 0.5));
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherSamplerDiagnostics =
+      collectDiagnostics(gatherSamplerSource);
+  expect(hasDiagnostic(gatherSamplerDiagnostics, "sema.texture-gather-sampler"),
+         "textureGather rejects comparison_sampler operands");
+
+  constexpr std::string_view gatherCoordinatesSource = R"(
+shader BadTextureGatherCoordinatesShader {
+  compute {
+    uniform texture2D colorMap;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureGather(colorMap, linearSampler, vec3(0.25, 0.5, 0.75));
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherCoordinateDiagnostics =
+      collectDiagnostics(gatherCoordinatesSource);
+  expect(hasDiagnostic(gatherCoordinateDiagnostics,
+                       "sema.texture-gather-coordinates"),
+         "textureGather requires vec2 coordinates");
+
+  constexpr std::string_view gatherComponentSource = R"(
+shader BadTextureGatherComponentShader {
+  compute {
+    uniform texture2D colorMap;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureGather(colorMap, linearSampler, vec2(0.5, 0.5), true);
+      return;
+    }
+  }
+}
+)";
+
+  const std::vector<crossgl::Diagnostic> gatherComponentDiagnostics =
+      collectDiagnostics(gatherComponentSource);
+  expect(hasDiagnostic(gatherComponentDiagnostics,
+                       "sema.texture-gather-component"),
+         "textureGather rejects non-integer component operands");
+
   constexpr std::string_view shadowTextureSource = R"(
 shader BadShadowTextureSampleShader {
   compute {
@@ -54782,6 +54964,7 @@ int main() {
   testMetalRawStatementBackendEmissionRejected();
   testCBufferResourceHIR();
   testTextureSampleForms();
+  testTextureGatherHIRFrontend();
   testExpressionSourceLocations();
   testTextureArrayDimensionHIRAndBackends();
   testTextureCompareHIRAndNativeBackends();

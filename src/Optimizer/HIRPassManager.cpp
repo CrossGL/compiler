@@ -179,9 +179,22 @@ void validateHIRTextureSampleShape(const HIRExpression &expression,
     return;
   }
 
+  if (expression.value == "textureGather") {
+    if (expression.children.size() != 3 && expression.children.size() != 4) {
+      reportHIRTextureExpressionShape(
+          expression, context,
+          "with value 'textureGather' must have 3 or 4 child expression(s), "
+          "got " +
+              std::to_string(expression.children.size()),
+          diagnostics);
+    }
+    return;
+  }
+
   reportHIRTextureExpressionShape(
       expression, context,
-      "must use value 'texture', 'sample', or 'textureLod', got '" +
+      "must use value 'texture', 'sample', 'textureLod', or 'textureGather', "
+      "got '" +
           expression.value + "'",
       diagnostics);
 }
@@ -1331,6 +1344,10 @@ bool isExplicitHIRTextureSampleLod(std::string_view value) {
   return value == "textureLod";
 }
 
+bool isHIRTextureGather(std::string_view value) {
+  return value == "textureGather";
+}
+
 bool isExplicitHIRTextureCompareLod(std::string_view value) {
   return value == "textureCompareLod";
 }
@@ -1354,6 +1371,27 @@ HIRType hirTextureSampleResultType(const HIRType &textureType,
     return HIRType{"ivec4", std::nullopt, std::move(location)};
   }
   if (name.rfind("usampler", 0) == 0) {
+    return HIRType{"uvec4", std::nullopt, std::move(location)};
+  }
+  return HIRType{"vec4", std::nullopt, std::move(location)};
+}
+
+bool isHIRTextureGatherTextureType(const HIRType &textureType) {
+  const std::string name = baseTypeName(textureType);
+  return name == "sampler2D" || name == "texture2D" ||
+         name == "isampler2D" || name == "usampler2D";
+}
+
+HIRType hirTextureGatherResultType(const HIRType &textureType,
+                                   SourceLocation location = {}) {
+  if (!isHIRTextureGatherTextureType(textureType)) {
+    return {};
+  }
+  const std::string name = baseTypeName(textureType);
+  if (name == "isampler2D") {
+    return HIRType{"ivec4", std::nullopt, std::move(location)};
+  }
+  if (name == "usampler2D") {
     return HIRType{"uvec4", std::nullopt, std::move(location)};
   }
   return HIRType{"vec4", std::nullopt, std::move(location)};
@@ -1442,11 +1480,17 @@ void validateHIRTextureSampleTypedExpression(
     DiagnosticEngine &diagnostics) {
   if (expression.kind != HIRExpressionKind::TextureSample ||
       (expression.value != "texture" && expression.value != "sample" &&
-       expression.value != "textureLod")) {
+       expression.value != "textureLod" &&
+       expression.value != "textureGather")) {
     return;
   }
   const bool explicitLod = isExplicitHIRTextureSampleLod(expression.value);
-  if (explicitLod) {
+  const bool gather = isHIRTextureGather(expression.value);
+  if (gather) {
+    if (expression.children.size() != 3 && expression.children.size() != 4) {
+      return;
+    }
+  } else if (explicitLod) {
     if (expression.children.size() != 3 && expression.children.size() != 4) {
       return;
     }
@@ -1459,17 +1503,24 @@ void validateHIRTextureSampleTypedExpression(
       hirExpressionEffectiveType(expression.children.front(), symbols);
   bool valid = true;
   if (textureType.has_value() &&
-      !isTextureResourceType(baseTypeName(*textureType))) {
+      (gather ? !isHIRTextureGatherTextureType(*textureType)
+              : !isTextureResourceType(baseTypeName(*textureType)))) {
     reportHIRTextureExpressionType(
         expression, context,
-        expression.value + " first operand must be a texture resource, got '" +
-            formatType(*textureType) + "'",
+        gather ? expression.value +
+                     " first operand must be a non-comparison 2D texture "
+                     "resource, got '" +
+                     formatType(*textureType) + "'"
+               : expression.value +
+                     " first operand must be a texture resource, got '" +
+                     formatType(*textureType) + "'",
         diagnostics);
     valid = false;
   }
 
   const bool hasExplicitSampler =
-      explicitLod ? expression.children.size() == 4
+      gather ? true
+             : explicitLod ? expression.children.size() == 4
                   : expression.children.size() == 3;
   if (hasExplicitSampler) {
     const std::optional<HIRType> samplerType =
@@ -1488,15 +1539,31 @@ void validateHIRTextureSampleTypedExpression(
   if (textureType.has_value() &&
       isTextureResourceType(baseTypeName(*textureType))) {
     const std::size_t coordinateIndex =
-        hirTextureSampleCoordinateIndex(expression.children.size(), explicitLod);
+        gather ? 2
+               : hirTextureSampleCoordinateIndex(expression.children.size(),
+                                                 explicitLod);
     validateHIRTextureCoordinateType(expression, *textureType,
                                      expression.children[coordinateIndex],
                                      expression.value, context, symbols,
                                      diagnostics);
   }
 
+  if (gather && expression.children.size() == 4) {
+    const std::optional<HIRType> componentType =
+        hirExpressionEffectiveType(expression.children[3], symbols);
+    if (componentType.has_value() && !isIntegerScalarType(*componentType)) {
+      reportHIRTextureExpressionType(
+          expression, context,
+          expression.value + " component operand must be scalar integer, got '" +
+              formatType(*componentType) + "'",
+          diagnostics);
+      valid = false;
+    }
+  }
+
   const std::optional<std::size_t> lodIndex =
-      hirTextureSampleLodIndex(expression.children.size(), explicitLod);
+      gather ? std::nullopt
+             : hirTextureSampleLodIndex(expression.children.size(), explicitLod);
   if (lodIndex.has_value()) {
     const std::optional<HIRType> lodType =
         hirExpressionEffectiveType(expression.children[*lodIndex], symbols);
@@ -1514,7 +1581,9 @@ void validateHIRTextureSampleTypedExpression(
       isTextureResourceType(baseTypeName(*textureType))) {
     reportHIRExpressionResultTypeMismatch(
         expression,
-        hirTextureSampleResultType(*textureType, expression.location), context,
+        gather ? hirTextureGatherResultType(*textureType, expression.location)
+               : hirTextureSampleResultType(*textureType, expression.location),
+        context,
         "opt.hir-texture-expression-type", typedContext, diagnostics);
   }
 }

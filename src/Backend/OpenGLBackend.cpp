@@ -1652,6 +1652,15 @@ bool expressionIsManualTextureCompare(const HIRExpression &expression) {
   return textureCompareManualOperands(expression).has_value();
 }
 
+bool expressionIsTextureGather(const HIRExpression &expression) {
+  return expression.kind == HIRExpressionKind::TextureSample &&
+         expression.value == "textureGather";
+}
+
+bool moduleUsesTextureGather(const HIRModule &module) {
+  return moduleExpressionsContain(module, expressionIsTextureGather, true);
+}
+
 bool isStorageBufferArrayDescriptorIndex(const HIRExpression &expression,
                                          const OpenGLEmitContext &context) {
   return expression.kind == HIRExpressionKind::IndexAccess &&
@@ -4391,6 +4400,18 @@ bool openglTextualBackendSupported(const HIRModule &module) {
          openGLGraphicsTextualBackendSupported(module);
 }
 
+bool diagnoseOpenGLUnsupportedTextureGather(const HIRModule &module,
+                                            DiagnosticEngine &diagnostics) {
+  if (!moduleUsesTextureGather(module)) {
+    return false;
+  }
+  diagnostics.error(
+      "opengl.unsupported-texture-gather",
+      "OpenGL textureGather lowering is not implemented yet; keep this module "
+      "in HIR form or target a backend with native texture gather support");
+  return true;
+}
+
 bool openglHasUnsupportedShadowCompareExplicitLodShape(
     const HIRModule &module) {
   return !unsupportedShadowCompareExplicitLodShapeLabels(module).empty();
@@ -4638,6 +4659,9 @@ bool openGLSourcePackageSupported(const HIRModule &module,
   }
   if (openglTextualBackendSupported(module)) {
     return true;
+  }
+  if (diagnoseOpenGLUnsupportedTextureGather(module, diagnostics)) {
+    return false;
   }
   if (diagnoseOpenGLUnsupportedShadowCompareExplicitLodShape(module,
                                                              diagnostics)) {

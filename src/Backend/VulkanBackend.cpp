@@ -3914,6 +3914,15 @@ bool prototypeTextureSampleSupported(
     const PrototypeConstantMap &constants,
     const PrototypeStructMap &structs,
     DiagnosticEngine &diagnostics) {
+  if (expression.kind == HIRExpressionKind::TextureSample &&
+      expression.value == "textureGather") {
+    diagnostics.error(
+        "vulkan.prototype-unsupported-texture-gather",
+        "Vulkan prototype textureGather lowering is not implemented yet; keep "
+        "this module in HIR form until OpImageGather emission is available");
+    return false;
+  }
+
   const bool explicitLod = isPrototypeExplicitLodTextureSample(expression);
   const bool implicitSamplerSample =
       isPrototypeImplicitSamplerTextureSample(expression);
