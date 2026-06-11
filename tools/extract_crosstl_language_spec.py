@@ -27,6 +27,15 @@ LANGUAGE_AUTHORITY_REFERENCES = (
         "headCommit": "19557a4b4e6ccca55622e819c795963d7f3a0a59",
         "languageAuthorityImpact": "no-sealed-source-drift",
     },
+    {
+        "id": "authority.pr724-project-porting-reference",
+        "kind": "merged-pr",
+        "repository": "CrossGL/crosstl",
+        "url": "https://github.com/CrossGL/crosstl/pull/724",
+        "state": "MERGED",
+        "headCommit": "ffc1d88519589a7b11c45a18a9c3cac9bddb0604",
+        "languageAuthorityImpact": "project-porting-source-remap-contract",
+    },
 )
 
 PRIMITIVE_TYPE_TOKENS = (

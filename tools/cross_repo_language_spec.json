@@ -11,7 +11,7 @@
     "id": "crosstl-frontend-language-spec-v0",
     "path": "docs/language/crosstl-frontend-language-spec-v0.json",
     "schema_version": 0,
-    "sha256": "e95282525ab1310b81ac4242d8721d48b2beb0d4e0645024725043eb15dcf055",
+    "sha256": "63ca4f8a531149e68357e23bf8ef8a86bcae208cb2e5ef396c370104873250e8",
     "authority_references": [
       {
         "id": "authority.pr720-merged-reference",
@@ -21,6 +21,15 @@
         "state": "MERGED",
         "headCommit": "19557a4b4e6ccca55622e819c795963d7f3a0a59",
         "languageAuthorityImpact": "no-sealed-source-drift"
+      },
+      {
+        "id": "authority.pr724-project-porting-reference",
+        "kind": "merged-pr",
+        "repository": "CrossGL/crosstl",
+        "url": "https://github.com/CrossGL/crosstl/pull/724",
+        "state": "MERGED",
+        "headCommit": "ffc1d88519589a7b11c45a18a9c3cac9bddb0604",
+        "languageAuthorityImpact": "project-porting-source-remap-contract"
       }
     ],
     "source_files": [

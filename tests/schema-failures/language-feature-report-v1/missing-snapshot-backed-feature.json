@@ -21,7 +21,7 @@
   "crossTLSnapshotSeal": {
     "snapshotId": "crosstl-frontend-language-spec-v0",
     "snapshotPath": "docs/language/crosstl-frontend-language-spec-v0.json",
-    "snapshotSha256": "e95282525ab1310b81ac4242d8721d48b2beb0d4e0645024725043eb15dcf055",
+    "snapshotSha256": "63ca4f8a531149e68357e23bf8ef8a86bcae208cb2e5ef396c370104873250e8",
     "snapshotSchemaVersion": 0
   },
   "compatibilityBucketSummary": {
