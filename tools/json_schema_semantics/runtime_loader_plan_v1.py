@@ -709,6 +709,148 @@ def validate_host_loader_load_step_provenance(
     )
 
 
+def validate_host_loader_source_remap(errors, load_unit, source_remap):
+    if source_remap is None:
+        return
+
+    provenance = source_remap["provenance"]
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance.target",
+        provenance["target"],
+        load_unit["target"],
+        "$.hostLoaderIntegration.loadUnits[0].target",
+    )
+
+
+def validate_host_loader_backend_source_map(errors, load_unit, source_remap):
+    backend_source_map = load_unit["backendSourceMap"]
+    if backend_source_map is None:
+        return
+
+    provenance = backend_source_map["provenance"]
+    add_equal_error(
+        errors,
+        "$.hostLoaderIntegration.loadUnits[0].backendSourceMap.provenance.target",
+        provenance["target"],
+        load_unit["target"],
+        "$.hostLoaderIntegration.loadUnits[0].target",
+    )
+
+    source_remap_path = (
+        "$.hostLoaderIntegration.loadUnits[0].backendSourceMap.provenance"
+    )
+    if source_remap is None:
+        add_equal_error(
+            errors,
+            f"{source_remap_path}.sourceRemapPresent",
+            provenance["sourceRemapPresent"],
+            False,
+            "absent sourceRemap sidecar",
+        )
+        for field in (
+            "sourceRemapPath",
+            "sourceRemapGeneratedFile",
+            "sourceRemapTarget",
+            "sourceRemapMappingGranularity",
+            "sourceRemapMappingCount",
+            "sourceRemapSourceBackend",
+            "sourceRemapVariant",
+            "sourceRemapSha256",
+            "sourceRemapSizeBytes",
+        ):
+            add_equal_error(
+                errors,
+                f"{source_remap_path}.{field}",
+                provenance[field],
+                None,
+                "absent sourceRemap sidecar metadata",
+            )
+        return
+
+    source_remap_provenance = source_remap["provenance"]
+    expected_fields = (
+        ("sourceRemapPresent", True, "present sourceRemap sidecar"),
+        (
+            "sourceRemapPath",
+            source_remap["packagePath"],
+            "$.hostLoaderIntegration.loadUnits[0].sourceRemap.packagePath",
+        ),
+        (
+            "sourceRemapGeneratedFile",
+            source_remap_provenance["generatedFile"],
+            (
+                "$.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance."
+                "generatedFile"
+            ),
+        ),
+        (
+            "sourceRemapTarget",
+            source_remap_provenance["sourceRemapTarget"],
+            (
+                "$.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance."
+                "sourceRemapTarget"
+            ),
+        ),
+        (
+            "sourceRemapMappingGranularity",
+            source_remap_provenance["sourceRemapMappingGranularity"],
+            (
+                "$.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance."
+                "sourceRemapMappingGranularity"
+            ),
+        ),
+        (
+            "sourceRemapMappingCount",
+            source_remap_provenance["mappingCount"],
+            (
+                "$.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance."
+                "mappingCount"
+            ),
+        ),
+        (
+            "sourceRemapSourceBackend",
+            source_remap_provenance["sourceRemapSourceBackend"],
+            (
+                "$.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance."
+                "sourceRemapSourceBackend"
+            ),
+        ),
+        (
+            "sourceRemapVariant",
+            source_remap_provenance["sourceRemapVariant"],
+            (
+                "$.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance."
+                "sourceRemapVariant"
+            ),
+        ),
+        (
+            "sourceRemapSha256",
+            source_remap_provenance["sourceSha256"],
+            (
+                "$.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance."
+                "sourceSha256"
+            ),
+        ),
+        (
+            "sourceRemapSizeBytes",
+            source_remap_provenance["sourceSizeBytes"],
+            (
+                "$.hostLoaderIntegration.loadUnits[0].sourceRemap.provenance."
+                "sourceSizeBytes"
+            ),
+        ),
+    )
+    for field, expected, expected_label in expected_fields:
+        add_equal_error(
+            errors,
+            f"{source_remap_path}.{field}",
+            provenance[field],
+            expected,
+            expected_label,
+        )
+
+
 def validate_host_loader_load_step_metadata(
     errors,
     index,
@@ -1104,6 +1246,8 @@ def validate_host_loader_integration(errors, instance):
     )
     source_remap = load_unit["sourceRemap"]
     backend_source_map = load_unit["backendSourceMap"]
+    validate_host_loader_source_remap(errors, load_unit, source_remap)
+    validate_host_loader_backend_source_map(errors, load_unit, source_remap)
     expected_step_kinds = ["load-package-artifact"]
     if source_remap is not None:
         expected_step_kinds.append("load-source-remap")
