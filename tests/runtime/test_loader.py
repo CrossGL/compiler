@@ -634,20 +634,89 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 plan.to_runtime_loader_plan_contract()
             )
 
-    def test_zip_loader_plan_skips_crosstl_adapter_sidecar_discovery(self) -> None:
+    def test_zip_loader_plan_discovers_crosstl_adapter_sidecar(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
             self._write_valid_package(package_dir, target="directx")
+            package_path = "backend/directx/RuntimeLoaderFixture.hlsl"
             self._write_crosstl_runtime_adapter_package(
                 package_dir,
                 target="directx",
                 artifact_format="HLSL source",
-                package_path="backend/directx/RuntimeLoaderFixture.hlsl",
+                package_path=package_path,
             )
             zip_path = package_dir.with_suffix(".zip")
             self._write_zip_package(package_dir, zip_path)
 
-            plan = read_loader_plan(zip_path, "directx")
+            with self._guard_crossgl_source_archive_reads():
+                plan = read_loader_plan(zip_path, "directx")
+            contract = plan.to_runtime_loader_plan_contract()
+            load_units = plan.crosstl_adapter_load_unit_records()
+
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(len(load_units), 1)
+            load_unit = load_units[0]
+            self.assertEqual(
+                load_unit.id,
+                "runtime-loader.directx.DirectxRuntimeLoaderFixture",
+            )
+            self.assertEqual(load_unit.target, "directx")
+            self.assertEqual(load_unit.artifact_format, "backend-source")
+            self.assertEqual(load_unit.package_path, package_path)
+            self.assertEqual(load_unit.source_path, "source/RuntimeLoaderFixture.cgl")
+            self.assertEqual(
+                load_unit.required_tools,
+                ("directx.toolchain.compiler",),
+            )
+            self.assertEqual(plan.crosstl_adapter_load_unit(package_path), load_unit)
+            self.assertEqual(
+                contract["hostLoaderIntegration"]["loadUnits"][0]["id"],
+                "runtime-loader.directx.backendSource",
+            )
+
+    def test_prefixed_zip_loader_plan_discovers_crosstl_adapter_sidecar(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            package_path = "backend/directx/RuntimeLoaderFixture.hlsl"
+            self._write_crosstl_runtime_adapter_package(
+                package_dir,
+                target="directx",
+                artifact_format="HLSL source",
+                package_path=package_path,
+            )
+            zip_path = package_dir.with_suffix(".zip")
+            self._write_zip_package(package_dir, zip_path, prefix=zip_path.name)
+
+            with self._guard_crossgl_source_archive_reads():
+                plan = read_loader_plan(zip_path, "directx")
+            load_units = plan.crosstl_adapter_load_unit_records()
+
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertEqual(len(load_units), 1)
+            self.assertEqual(load_units[0].package_path, package_path)
+            self.assertRuntimeLoaderPlanContractValid(
+                plan.to_runtime_loader_plan_contract()
+            )
+
+    def test_invalid_zip_crosstl_adapter_manifest_does_not_block_runtime_plan(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            (package_dir / "runtime-adapters.json").write_text(
+                "{not json",
+                encoding="utf-8",
+            )
+            zip_path = package_dir.with_suffix(".zip")
+            self._write_zip_package(package_dir, zip_path)
+
+            with self._guard_crossgl_source_archive_reads():
+                plan = read_loader_plan(zip_path, "directx")
 
             self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
             self.assertEqual(plan.crosstl_adapter_load_unit_records(), ())

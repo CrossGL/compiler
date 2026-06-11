@@ -1351,7 +1351,7 @@ def _select_crosstl_adapter_load_units(
     artifact = runtime_artifact_selection.artifact
     if artifact is None or not runtime_artifact_selection.selected:
         return ()
-    if report.package_format != "directory":
+    if report.package_format not in {"directory", "zip"}:
         return ()
 
     selected_artifact_format = _runtime_loader_plan_artifact_format_for_name(

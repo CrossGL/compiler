@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import copy
 from dataclasses import dataclass
 import hashlib
@@ -9,6 +10,22 @@ import json
 from pathlib import Path
 import re
 from typing import Any
+import zipfile
+
+try:
+    from .package_reader import (
+        PackageReadError,
+        _index_zip_members,
+        _parse_json_object_payload,
+        _read_zip_json_payload,
+    )
+except ImportError:  # pragma: no cover - supports direct module execution.
+    from package_reader import (
+        PackageReadError,
+        _index_zip_members,
+        _parse_json_object_payload,
+        _read_zip_json_payload,
+    )
 
 
 CROSSTL_RUNTIME_ADAPTER_PACKAGE_KIND = "crosstl-runtime-adapter-package"
@@ -203,6 +220,12 @@ class CrossTLRuntimeAdapterLoadUnit:
         }
 
 
+DescriptorDocumentReader = Callable[
+    [Path, str, str, list[CrossTLAdapterDiagnostic]],
+    tuple[dict[str, Any] | None, bytes | None],
+]
+
+
 def read_crosstl_runtime_adapter_package(
     manifest_path: str | Path,
 ) -> CrossTLAdapterPackageReport:
@@ -216,6 +239,20 @@ def read_crosstl_runtime_adapter_package(
 
     _validate_package_header(document, diagnostics)
     descriptors = _read_descriptors(path.parent, document, diagnostics)
+    return _adapter_package_report_from_document(
+        path,
+        document,
+        descriptors,
+        diagnostics,
+    )
+
+
+def _adapter_package_report_from_document(
+    manifest_path: Path,
+    document: dict[str, Any],
+    descriptors: list[CrossTLAdapterDescriptor],
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> CrossTLAdapterPackageReport:
     supported_targets = sorted(
         {
             descriptor.target
@@ -247,7 +284,7 @@ def read_crosstl_runtime_adapter_package(
         diagnostic for diagnostic in diagnostics if diagnostic.severity == "error"
     ]
     return CrossTLAdapterPackageReport(
-        manifest_path=path,
+        manifest_path=manifest_path,
         package_kind=_optional_str(document.get("kind")),
         source_package=_optional_str(document.get("sourcePackage")),
         adapter_manifest=_optional_str(document.get("adapterManifest")),
@@ -333,12 +370,73 @@ def read_crosstl_runtime_adapter_load_units(
 def discover_crosstl_runtime_adapter_load_units(
     package_root: str | Path,
 ) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
-    """Return CrossTL adapter load units when a directory package carries them."""
+    """Return CrossTL adapter load units when a package carries them."""
 
-    manifest_path = _runtime_adapter_manifest_path(Path(package_root))
+    package_path = Path(package_root)
+    if package_path.is_file() and zipfile.is_zipfile(package_path):
+        return _read_crosstl_runtime_adapter_load_units_from_zip(package_path)
+
+    manifest_path = _runtime_adapter_manifest_path(package_path)
     if manifest_path is None:
         return ()
     return read_crosstl_runtime_adapter_load_units(manifest_path)
+
+
+def _read_crosstl_runtime_adapter_load_units_from_zip(
+    package_path: Path,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    try:
+        members = _index_zip_members(package_path)
+    except (OSError, PackageReadError, zipfile.BadZipFile):
+        return ()
+
+    manifest_info = members.get("runtime-adapters.json")
+    if manifest_info is None:
+        return ()
+
+    diagnostics: list[CrossTLAdapterDiagnostic] = []
+    manifest_path = Path(f"{package_path}!/runtime-adapters.json")
+    try:
+        with zipfile.ZipFile(package_path) as archive:
+            manifest_payload = _read_zip_json_payload(
+                archive,
+                manifest_info,
+                root_file_name="runtime-adapters.json",
+            )
+        document = _parse_json_object_payload(
+            manifest_payload,
+            root_file_name="runtime-adapters.json",
+        )
+    except (OSError, PackageReadError, zipfile.BadZipFile) as exc:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.unreadable_json",
+                message=f"failed to read JSON object: {exc}",
+                path="$",
+            )
+        )
+        return build_crosstl_runtime_adapter_load_units(
+            build_crosstl_runtime_adapter_normalization_report(
+                _empty_report(manifest_path, diagnostics)
+            )
+        )
+
+    _validate_package_header(document, diagnostics)
+    descriptors = _read_descriptors(
+        package_path,
+        document,
+        diagnostics,
+        descriptor_reader=_zip_descriptor_document_reader(members),
+    )
+    report = _adapter_package_report_from_document(
+        manifest_path,
+        document,
+        descriptors,
+        diagnostics,
+    )
+    normalization = build_crosstl_runtime_adapter_normalization_report(report)
+    return build_crosstl_runtime_adapter_load_units(normalization)
 
 
 def _empty_report(
@@ -398,6 +496,82 @@ def _read_json_object(
     return document
 
 
+def _read_descriptor_document_from_directory(
+    root: Path,
+    descriptor_path: str,
+    json_path: str,
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> tuple[dict[str, Any] | None, bytes | None]:
+    path = root / descriptor_path
+    try:
+        payload = path.read_bytes()
+        document = _parse_json_object_payload(
+            payload,
+            root_file_name=descriptor_path,
+        )
+    except (OSError, PackageReadError) as exc:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.unreadable_json",
+                message=f"failed to read JSON object: {exc}",
+                path=json_path,
+            )
+        )
+        return None, None
+    return document, payload
+
+
+def _zip_descriptor_document_reader(
+    members: dict[str, zipfile.ZipInfo],
+) -> DescriptorDocumentReader:
+    def read_descriptor(
+        root: Path,
+        descriptor_path: str,
+        json_path: str,
+        diagnostics: list[CrossTLAdapterDiagnostic],
+    ) -> tuple[dict[str, Any] | None, bytes | None]:
+        info = members.get(descriptor_path)
+        if info is None:
+            diagnostics.append(
+                CrossTLAdapterDiagnostic(
+                    severity="error",
+                    code="crosstl.adapter.unreadable_json",
+                    message=(
+                        "failed to read JSON object: missing archive member "
+                        f"{descriptor_path!r}"
+                    ),
+                    path=json_path,
+                )
+            )
+            return None, None
+
+        try:
+            with zipfile.ZipFile(root) as archive:
+                payload = _read_zip_json_payload(
+                    archive,
+                    info,
+                    root_file_name=descriptor_path,
+                )
+            document = _parse_json_object_payload(
+                payload,
+                root_file_name=descriptor_path,
+            )
+        except (OSError, PackageReadError, zipfile.BadZipFile) as exc:
+            diagnostics.append(
+                CrossTLAdapterDiagnostic(
+                    severity="error",
+                    code="crosstl.adapter.unreadable_json",
+                    message=f"failed to read JSON object: {exc}",
+                    path=json_path,
+                )
+            )
+            return None, None
+        return document, payload
+
+    return read_descriptor
+
+
 def _validate_package_header(
     document: dict[str, Any],
     diagnostics: list[CrossTLAdapterDiagnostic],
@@ -454,6 +628,7 @@ def _read_descriptors(
     root: Path,
     document: dict[str, Any],
     diagnostics: list[CrossTLAdapterDiagnostic],
+    descriptor_reader: DescriptorDocumentReader | None = None,
 ) -> list[CrossTLAdapterDescriptor]:
     records = document.get("descriptors")
     if not isinstance(records, list):
@@ -496,15 +671,17 @@ def _read_descriptors(
         descriptor_path_valid = _validate_descriptor_path(
             descriptor_path, f"{record_path}.descriptorPath", seen_paths, diagnostics
         )
-        descriptor_file = root / descriptor_path
         descriptor_document = None
+        descriptor_payload = None
         if descriptor_path_valid:
-            descriptor_document = _read_json_object(
-                descriptor_file,
+            reader = descriptor_reader or _read_descriptor_document_from_directory
+            descriptor_document, descriptor_payload = reader(
+                root,
+                descriptor_path,
                 f"{record_path}.descriptorPath",
                 diagnostics,
             )
-        if descriptor_document is not None:
+        if descriptor_document is not None and descriptor_payload is not None:
             _validate_descriptor_document(
                 descriptor_document,
                 record,
@@ -512,7 +689,7 @@ def _read_descriptors(
                 diagnostics,
             )
             _validate_descriptor_file_identity(
-                descriptor_file,
+                descriptor_payload,
                 record,
                 record_path,
                 diagnostics,
@@ -698,7 +875,7 @@ def _validate_descriptor_document(
 
 
 def _validate_descriptor_file_identity(
-    path: Path,
+    payload: bytes,
     record: dict[str, Any],
     record_path: str,
     diagnostics: list[CrossTLAdapterDiagnostic],
@@ -722,7 +899,7 @@ def _validate_descriptor_file_identity(
             )
         )
     else:
-        actual_hash = _file_sha256(path)
+        actual_hash = hashlib.sha256(payload).hexdigest()
         _expect_equal(
             diagnostics,
             f"{record_path}.descriptorHash.value",
@@ -746,7 +923,7 @@ def _validate_descriptor_file_identity(
             diagnostics,
             f"{record_path}.descriptorSizeBytes",
             size_bytes,
-            path.stat().st_size,
+            len(payload),
             "crosstl.adapter.descriptor_size_drift",
         )
 
@@ -1398,11 +1575,3 @@ def _runtime_loader_member_name(value: str) -> str:
     if not member[0].isalpha():
         member = f"Adapter{member}"
     return member
-
-
-def _file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(65536), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
