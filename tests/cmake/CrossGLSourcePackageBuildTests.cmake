@@ -214,7 +214,7 @@ add_test(NAME cglc_build_directx_source_package_fake_dxc_tool_failure
     -DEXPECTED_THIRD_TOOL_LOG=${CROSSGL_FAKE_DXC_FAILURE_DIR}/dxc.log
     "-DEXPECTED_THIRD_TOOL_LOG_CONTAINS=backend/directx/StorageBufferComputeShader.hlsl"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
-add_test(NAME cglc_build_directx_source_package_fake_dxc_diagnostics_failure
+add_test(NAME cglc_build_directx_source_package_fake_dxc_diagnostics_tool_failure
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
