@@ -311,6 +311,10 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_WITH_SOURCE_REMAP
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-with-source-remap.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_MISSING_METADATA
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-source-remap-missing-metadata.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_HASH_MISMATCH
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-source-remap-hash-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_HASH_MISMATCH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-hash-mismatch.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_GENERATED_MISMATCH
@@ -1702,6 +1706,12 @@ crossgl_write_crosstl_backend_source_map_report_variant(
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_WITH_SOURCE_REMAP_SIZE_BYTES}"
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_WITH_SOURCE_REMAP_SHA256}"
   "1" "1")
+crossgl_write_crosstl_backend_source_map_report_variant(
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_MISSING_METADATA}"
+  "out/directx/simple-with-source-remap.backend-source-map.json"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_WITH_SOURCE_REMAP_SIZE_BYTES}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_WITH_SOURCE_REMAP_SHA256}"
+  "1" "1")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_METADATA
 "        \"sourceRemap\": {
           \"path\": \"out/cgl/simple.source-remap.json\",
@@ -1726,6 +1736,21 @@ ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_METADATA}
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_WITH_SOURCE_REMAP_JSON}")
 file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_WITH_SOURCE_REMAP}"
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_WITH_SOURCE_REMAP_JSON}")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_BAD_SHA
+  "0000000000000000000000000000000000000000000000000000000000000000")
+string(REPLACE
+  "\"sha256\": {
+            \"algorithm\": \"sha256\",
+            \"value\": \"${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_SHA256}\"
+          }"
+  "\"sha256\": {
+            \"algorithm\": \"sha256\",
+            \"value\": \"${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_BAD_SHA}\"
+          }"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_HASH_MISMATCH_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_WITH_SOURCE_REMAP_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_HASH_MISMATCH}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_HASH_MISMATCH_JSON}")
 
 crossgl_write_crosstl_backend_source_map_report_variant(
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BAD_INDEX}"
@@ -5569,6 +5594,22 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_sourc
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
     "sidecar.mappings[0].originalLocation is required when sidecar.sourceRemap is non-null")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_source_map_source_remap_missing_metadata_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_MISSING_METADATA}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "backendSourceMap.sourceRemap must be recorded when sidecar.sourceRemap is recorded")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_source_map_source_remap_hash_mismatch_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SOURCE_REMAP_HASH_MISMATCH}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "backendSourceMap.sourceRemap.sha256.value must match sourceRemap metadata")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_non_cgl_source_remap_fails
   EXPECTED_RESULT 1
