@@ -351,6 +351,43 @@ class CrossTLRuntimeAdapterPackageReaderTests(unittest.TestCase):
                 {step["kind"] for step in load_units[0].load_steps},
             )
 
+    def test_cross_tl_non_ready_host_statuses_keep_candidate_unready(self) -> None:
+        for host_interface_status in ("not-inspected", "failed"):
+            with self.subTest(host_interface_status=host_interface_status):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    root = Path(temp_dir)
+                    manifest = self._write_adapter_bundle(
+                        root,
+                        target="vulkan",
+                        adapter_kind="vulkan-shader-adapter",
+                        artifact_format="Vulkan-targeted shader source",
+                        package_path="backend/vulkan/main.spvasm",
+                        host_interface_status=host_interface_status,
+                        load_ready=False,
+                    )
+
+                    report = read_crosstl_runtime_adapter_package(manifest)
+                    normalization_report = (
+                        build_crosstl_runtime_adapter_normalization_report(report)
+                    )
+                    load_units = build_crosstl_runtime_adapter_load_units(
+                        normalization_report
+                    )
+
+                    self.assertTrue(report.valid, report.diagnostics)
+                    self.assertEqual(normalization_report.ready_candidate_count, 0)
+                    self.assertEqual(normalization_report.blocked_candidate_count, 1)
+                    self.assertEqual(len(load_units), 1)
+                    self.assertFalse(load_units[0].validation["loadReady"])
+                    self.assertEqual(
+                        load_units[0].validation["hostInterface"],
+                        host_interface_status,
+                    )
+                    self.assertEqual(
+                        load_units[0].blockers[0]["kind"],
+                        "resolve-host-interface-metadata",
+                    )
+
     def test_invalid_report_does_not_create_candidates(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

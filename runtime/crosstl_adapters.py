@@ -68,6 +68,9 @@ NATIVE_BINARY_ARTIFACT_FORMATS = frozenset(
         "spirv module",
     }
 )
+BLOCKED_HOST_INTERFACE_STATUSES = frozenset(
+    {"blocked", "unavailable", "not-inspected", "failed"}
+)
 
 
 @dataclass(frozen=True)
@@ -1001,7 +1004,9 @@ def _validate_host_interface_status(
     status = host_interface.get("status")
     load_ready = validation.get("loadReady")
     if isinstance(status, str) and isinstance(load_ready, bool):
-        expected_statuses = ("ready",) if load_ready else ("blocked", "unavailable")
+        expected_statuses = (
+            frozenset({"ready"}) if load_ready else BLOCKED_HOST_INTERFACE_STATUSES
+        )
         if status not in expected_statuses:
             diagnostics.append(
                 CrossTLAdapterDiagnostic(
