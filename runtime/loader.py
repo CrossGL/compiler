@@ -18,6 +18,10 @@ try:
 except ImportError:  # pragma: no cover.
     import package_target_contracts as _generated_package_target_contracts
 
+from .crosstl_adapters import (
+    CrossTLRuntimeAdapterLoadUnit,
+    discover_crosstl_runtime_adapter_load_units,
+)
 from .package_reader import (
     Artifact,
     CompatibilityDiagnostic,
@@ -258,6 +262,7 @@ class RuntimeLoaderPlan:
     compatibility_report: PackageCompatibilityReport
     runtime_artifact_selection: RuntimeArtifactSelection
     selected_artifacts: tuple[LoaderArtifactPlan, ...]
+    crosstl_adapter_load_units: tuple[CrossTLRuntimeAdapterLoadUnit, ...] = ()
 
     @property
     def loadable(self) -> bool:
@@ -1078,6 +1083,46 @@ class RuntimeLoaderPlan:
             )
         return record
 
+    def crosstl_adapter_load_unit_records(
+        self,
+        *,
+        target: str | None = None,
+    ) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+        """Return selected CrossTL adapter load units visible to runtime loaders."""
+        expected_target = self.loader_target if target is None else target
+        return tuple(
+            unit
+            for unit in self.crosstl_adapter_load_units
+            if unit.target == expected_target
+        )
+
+    def crosstl_adapter_load_unit(
+        self,
+        package_path: str,
+        *,
+        target: str | None = None,
+    ) -> CrossTLRuntimeAdapterLoadUnit | None:
+        """Find a selected CrossTL adapter load unit by package artifact path."""
+        for unit in self.crosstl_adapter_load_unit_records(target=target):
+            if unit.package_path == package_path:
+                return unit
+        return None
+
+    def require_crosstl_adapter_load_unit(
+        self,
+        package_path: str,
+        *,
+        target: str | None = None,
+    ) -> CrossTLRuntimeAdapterLoadUnit:
+        unit = self.crosstl_adapter_load_unit(package_path, target=target)
+        if unit is None:
+            expected_target = self.loader_target if target is None else target
+            raise PackageReadError(
+                "missing CrossTL runtime adapter load unit: "
+                f"target={expected_target} packagePath={package_path}"
+            )
+        return unit
+
     @property
     def workgroup_sizes(self) -> tuple[dict[str, Any], ...]:
         """Return reflected compute workgroup sizes from package metadata."""
@@ -1279,6 +1324,11 @@ def read_loader_plan(
     selected_artifacts = _select_loader_artifacts(report)
     if not runtime_artifact_selection.selected:
         selected_artifacts = ()
+    crosstl_adapter_load_units = _select_crosstl_adapter_load_units(
+        report,
+        loader_target=loader_target,
+        runtime_artifact_selection=runtime_artifact_selection,
+    )
 
     return RuntimeLoaderPlan(
         root=report.root,
@@ -1288,6 +1338,34 @@ def read_loader_plan(
         compatibility_report=report,
         runtime_artifact_selection=runtime_artifact_selection,
         selected_artifacts=selected_artifacts,
+        crosstl_adapter_load_units=crosstl_adapter_load_units,
+    )
+
+
+def _select_crosstl_adapter_load_units(
+    report: PackageCompatibilityReport,
+    *,
+    loader_target: str,
+    runtime_artifact_selection: RuntimeArtifactSelection,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    artifact = runtime_artifact_selection.artifact
+    if artifact is None or not runtime_artifact_selection.selected:
+        return ()
+    if report.package_format != "directory":
+        return ()
+
+    selected_artifact_format = _runtime_loader_plan_artifact_format_for_name(
+        artifact.name
+    )
+    if selected_artifact_format is None:
+        return ()
+
+    return tuple(
+        unit
+        for unit in discover_crosstl_runtime_adapter_load_units(report.root)
+        if unit.target == loader_target
+        and unit.package_path == artifact.package_path
+        and unit.artifact_format == selected_artifact_format
     )
 
 
@@ -1529,9 +1607,8 @@ def _runtime_loader_plan_host_loader_load_unit(
     )
     host_interface_status = "ready" if host_interface_ready else "unavailable"
     selected_artifact_format = (
-        "native-binary"
-        if selected_artifact["name"] == "nativeBinary"
-        else "backend-source"
+        _runtime_loader_plan_artifact_format_for_name(selected_artifact["name"])
+        or "unknown"
     )
     load_steps = [
         {
@@ -1679,6 +1756,14 @@ def _runtime_loader_plan_load_unit_id(
 ) -> str:
     target = selected_target if selected_target is not None else "unselected"
     return f"runtime-loader.{target}.{selected_artifact['name']}"
+
+
+def _runtime_loader_plan_artifact_format_for_name(name: str) -> str | None:
+    if name == "backendSource":
+        return "backend-source"
+    if name == "nativeBinary":
+        return "native-binary"
+    return None
 
 
 def _runtime_loader_plan_source_remap(

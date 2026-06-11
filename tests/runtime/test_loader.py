@@ -519,6 +519,142 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 },
             )
 
+    def test_crosstl_adapter_load_units_are_selected_for_runtime_artifact(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            package_path = "backend/directx/RuntimeLoaderFixture.hlsl"
+            self._write_crosstl_runtime_adapter_package(
+                package_dir,
+                target="directx",
+                artifact_format="HLSL source",
+                package_path=package_path,
+            )
+
+            plan = read_loader_plan(package_dir, "directx")
+            contract = plan.to_runtime_loader_plan_contract()
+            load_units = plan.crosstl_adapter_load_unit_records()
+
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(len(load_units), 1)
+            load_unit = load_units[0]
+            self.assertEqual(
+                load_unit.id,
+                "runtime-loader.directx.DirectxRuntimeLoaderFixture",
+            )
+            self.assertEqual(load_unit.target, "directx")
+            self.assertEqual(load_unit.artifact_format, "backend-source")
+            self.assertEqual(load_unit.package_path, plan.runtime_artifact_path)
+            self.assertEqual(load_unit.source_path, "source/RuntimeLoaderFixture.cgl")
+            self.assertEqual(load_unit.source_backend, "crossgl")
+            self.assertEqual(load_unit.stage, "compute")
+            self.assertEqual(load_unit.variant, "debug")
+            self.assertEqual(
+                load_unit.required_tools,
+                ("directx.toolchain.compiler",),
+            )
+            self.assertEqual(load_unit.validation["loadReady"], True)
+            self.assertEqual(
+                [step["kind"] for step in load_unit.load_steps],
+                [
+                    "load-package-artifact",
+                    "load-source-remap",
+                    "bind-host-interface",
+                    "validate-target-toolchain",
+                ],
+            )
+            self.assertEqual(
+                plan.crosstl_adapter_load_unit(package_path),
+                load_unit,
+            )
+            self.assertEqual(
+                plan.require_crosstl_adapter_load_unit(package_path),
+                load_unit,
+            )
+            self.assertEqual(
+                plan.crosstl_adapter_load_unit_records(target="metal"),
+                (),
+            )
+            with self.assertRaisesRegex(
+                PackageReadError,
+                "missing CrossTL runtime adapter load unit",
+            ):
+                plan.require_crosstl_adapter_load_unit(
+                    "backend/directx/Missing.hlsl",
+                )
+            self.assertEqual(
+                contract["hostLoaderIntegration"]["loadUnits"][0]["id"],
+                "runtime-loader.directx.backendSource",
+            )
+
+    def test_crosstl_adapter_load_units_filter_to_selected_artifact_path(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            self._write_crosstl_runtime_adapter_package(
+                package_dir,
+                target="directx",
+                artifact_format="HLSL source",
+                package_path="backend/directx/UnselectedFixture.hlsl",
+            )
+
+            plan = read_loader_plan(package_dir, "directx")
+
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertEqual(
+                plan.runtime_artifact_path,
+                "backend/directx/RuntimeLoaderFixture.hlsl",
+            )
+            self.assertEqual(plan.crosstl_adapter_load_unit_records(), ())
+            self.assertRuntimeLoaderPlanContractValid(
+                plan.to_runtime_loader_plan_contract()
+            )
+
+    def test_invalid_crosstl_adapter_manifest_does_not_block_runtime_plan(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            (package_dir / "runtime-adapters.json").write_text(
+                "{not json",
+                encoding="utf-8",
+            )
+
+            plan = read_loader_plan(package_dir, "directx")
+
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertEqual(plan.crosstl_adapter_load_unit_records(), ())
+            self.assertRuntimeLoaderPlanContractValid(
+                plan.to_runtime_loader_plan_contract()
+            )
+
+    def test_zip_loader_plan_skips_crosstl_adapter_sidecar_discovery(self) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            self._write_crosstl_runtime_adapter_package(
+                package_dir,
+                target="directx",
+                artifact_format="HLSL source",
+                package_path="backend/directx/RuntimeLoaderFixture.hlsl",
+            )
+            zip_path = package_dir.with_suffix(".zip")
+            self._write_zip_package(package_dir, zip_path)
+
+            plan = read_loader_plan(zip_path, "directx")
+
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertEqual(plan.crosstl_adapter_load_unit_records(), ())
+            self.assertRuntimeLoaderPlanContractValid(
+                plan.to_runtime_loader_plan_contract()
+            )
+
     def test_backend_source_map_artifact_is_exposed_as_host_loader_load_step(
         self,
     ) -> None:
@@ -5620,6 +5756,157 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
         if native_status is not None:
             descriptor["nativeBinaryStatus"] = native_status
         self._write_json(descriptor_file, descriptor)
+
+    def _write_crosstl_runtime_adapter_package(
+        self,
+        package_dir: Path,
+        *,
+        target: str,
+        artifact_format: str,
+        package_path: str,
+    ) -> None:
+        descriptor_path = f"adapters/{target}/runtime-loader-fixture.adapter.json"
+        descriptor_file = package_dir / descriptor_path
+        descriptor_file.parent.mkdir(parents=True, exist_ok=True)
+        adapter_id = f"{target}.runtime-loader-fixture"
+        adapter_kind = f"{target}-runtime-loader-adapter"
+        descriptor = {
+            "schemaVersion": 1,
+            "kind": "crosstl-runtime-adapter-descriptor",
+            "sourcePackage": str(package_dir / "runtime-package.json"),
+            "sourcePackageHash": {"algorithm": "sha256", "value": "1" * 64},
+            "packageRoot": str(package_dir),
+            "adapterPlan": {
+                "kind": "crosstl-runtime-adapter-plan",
+                "success": True,
+                "scope": "runtime-adapter-integration-planning",
+            },
+            "id": adapter_id,
+            "target": target,
+            "adapterKind": adapter_kind,
+            "artifactFormat": artifact_format,
+            "binding": {"kind": "runtime-adapter"},
+            "artifact": {"name": "backendSource"},
+            "packagePath": package_path,
+            "sourcePath": "source/RuntimeLoaderFixture.cgl",
+            "sourceBackend": "crossgl",
+            "stage": "compute",
+            "variant": "debug",
+            "defines": {"TEST_FIXTURE": "1"},
+            "sourceRemap": {
+                "packagePath": "source-remaps/RuntimeLoaderFixture.source-remap.json"
+            },
+            "hostInterface": {
+                "status": "ready",
+                "source": "package-artifact",
+                "parser": target,
+                "artifactFormat": artifact_format,
+                "entryPointCount": 1,
+                "resourceCount": 1,
+                "constantCount": 1,
+                "entryPoints": [
+                    {
+                        "name": "main",
+                        "stage": "compute",
+                        "executionConfig": {"workgroupSize": [8, 1, 1]},
+                    }
+                ],
+                "resources": [
+                    {
+                        "name": "OutputBuffer",
+                        "kind": "storageBuffer",
+                        "type": "RWStructuredBuffer<float4>",
+                        "set": 0,
+                        "binding": 0,
+                        "access": "read-write",
+                    }
+                ],
+                "constants": [
+                    {
+                        "name": "ParticleCount",
+                        "kind": "specialization-constant",
+                        "dtype": "uint",
+                        "id": 0,
+                        "required": False,
+                    }
+                ],
+                "diagnostics": [],
+            },
+            "requiredTools": [f"{target}.toolchain.compiler"],
+            "hostResponsibilities": ["load-package-artifact"],
+            "validation": {"loadReady": True},
+        }
+        self._write_json(descriptor_file, descriptor)
+        descriptor_bytes = descriptor_file.read_bytes()
+        descriptor_record = {
+            "id": adapter_id,
+            "target": target,
+            "adapterKind": adapter_kind,
+            "artifactFormat": artifact_format,
+            "binding": descriptor["binding"],
+            "artifact": descriptor["artifact"],
+            "packagePath": package_path,
+            "descriptorPath": descriptor_path,
+            "descriptorHash": {
+                "algorithm": "sha256",
+                "value": hashlib.sha256(descriptor_bytes).hexdigest(),
+            },
+            "descriptorSizeBytes": len(descriptor_bytes),
+            "hostInterfaceStatus": "ready",
+            "requiredTools": descriptor["requiredTools"],
+        }
+        self._write_json(
+            package_dir / "runtime-adapters.json",
+            {
+                "schemaVersion": 1,
+                "kind": "crosstl-runtime-adapter-package",
+                "sourcePackage": str(package_dir / "runtime-package.json"),
+                "sourcePackageHash": {"algorithm": "sha256", "value": "1" * 64},
+                "generatedAt": 1,
+                "success": True,
+                "scope": "runtime-adapter-descriptor-package",
+                "nonGoals": ["host-code-rewriting"],
+                "packageRoot": str(package_dir),
+                "adapterRoot": str(package_dir),
+                "adapterManifest": "runtime-adapters.json",
+                "project": {"targets": [target]},
+                "summary": {
+                    "targetCount": 1,
+                    "adapterCount": 1,
+                    "descriptorCount": 1,
+                    "readyDescriptorCount": 1,
+                    "blockedDescriptorCount": 0,
+                    "actionCount": 0,
+                    "runtimeReferenceCount": 1,
+                },
+                "targets": [
+                    {
+                        "target": target,
+                        "adapterKind": adapter_kind,
+                        "adapterCount": 1,
+                        "descriptorCount": 1,
+                        "readyDescriptorCount": 1,
+                        "blockedDescriptorCount": 0,
+                        "runtimeReferenceCount": 1,
+                        "requiredTools": descriptor["requiredTools"],
+                        "descriptors": [adapter_id],
+                        "packagePaths": [package_path],
+                    }
+                ],
+                "descriptors": [descriptor_record],
+                "actions": [],
+                "runtimePlan": {"kind": "crosstl-runtime-plan"},
+                "adapterPlan": {
+                    "kind": "crosstl-runtime-adapter-plan",
+                    "success": True,
+                    "adapterCount": 1,
+                    "actionCount": 0,
+                },
+                "packageInspection": {"success": True},
+                "diagnosticCounts": {"note": 0, "warning": 0, "error": 0},
+                "diagnostics": [],
+            },
+        )
 
     @staticmethod
     def _target_resource_binding_abi(target: str) -> dict[str, object]:
