@@ -13,6 +13,7 @@
     "compatibilityBucketSummary",
     "targetFeatureGates",
     "resourceMemoryLayoutFeatures",
+    "crossTLLanguageSurfaceFeatures",
     "facts",
     "evidence",
     "generation"
@@ -46,6 +47,9 @@
     },
     "resourceMemoryLayoutFeatures": {
       "$ref": "#/$defs/resourceMemoryLayoutFeatures"
+    },
+    "crossTLLanguageSurfaceFeatures": {
+      "$ref": "#/$defs/crossTLLanguageSurfaceFeatures"
     },
     "facts": {
       "$ref": "#/$defs/facts"
@@ -227,7 +231,8 @@
         "directx",
         "metal",
         "opengl",
-        "vulkan"
+        "vulkan",
+        "wgsl"
       ]
     },
     "packageMode": {
@@ -404,6 +409,12 @@
         },
         "evidenceIds": {
           "$ref": "#/$defs/evidenceIdList"
+        },
+        "snapshotRefs": {
+          "$ref": "#/$defs/stringList"
+        },
+        "inventoryCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
         }
       }
     },
@@ -429,6 +440,30 @@
           "$ref": "#/$defs/featureRecordList"
         },
         "layout": {
+          "$ref": "#/$defs/featureRecordList"
+        }
+      }
+    },
+    "crossTLLanguageSurfaceFeatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stages",
+        "types",
+        "intrinsics",
+        "ast"
+      ],
+      "properties": {
+        "stages": {
+          "$ref": "#/$defs/featureRecordList"
+        },
+        "types": {
+          "$ref": "#/$defs/featureRecordList"
+        },
+        "intrinsics": {
+          "$ref": "#/$defs/featureRecordList"
+        },
+        "ast": {
           "$ref": "#/$defs/featureRecordList"
         }
       }

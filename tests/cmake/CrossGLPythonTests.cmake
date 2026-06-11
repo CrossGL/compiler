@@ -536,6 +536,12 @@ crossgl_add_python_script_test(
     --root ${CMAKE_CURRENT_SOURCE_DIR}
     --cglc $<TARGET_FILE:cglc>)
 crossgl_add_python_script_test(
+  NAME cglc_language_feature_report_cli
+  SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tests/language-feature-report/check_cli_report.py
+  ARGS
+    --root ${CMAKE_CURRENT_SOURCE_DIR}
+    --cglc $<TARGET_FILE:cglc>)
+crossgl_add_python_script_test(
   NAME cglc_benchmark_harness_self_test
   SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/tools/benchmark_cglc.py
   ARGS

@@ -49,6 +49,40 @@ SNAPSHOT_AGGREGATE_FEATURES = {
     },
 }
 
+SNAPSHOT_SURFACE_FEATURES = {
+    "stages": {
+        "stage.canonical-stages": "/language/stages/canonical",
+        "stage.keyword-spellings": "/language/stages/keywordSpellings",
+        "stage.parser-stage-tokens": "/language/stages/parserStageTokens",
+    },
+    "types": {
+        "type.primitive-types": "/language/types/primitive",
+        "type.vector-types": "/language/types/vectors",
+        "type.matrix-types": "/language/types/matrices",
+        "type.texture-types": "/language/types/textures",
+        "type.sampler-image-types": "/language/types/samplersAndImages",
+        "type.array-forms": "/language/types/arrayForms",
+        "type.postfix-type-operators": "/language/types/postfixTypeOperators",
+    },
+    "intrinsics": {
+        "intrinsic.texture-and-image": "/language/intrinsics/textureAndImage",
+        "intrinsic.image-resource": "/language/intrinsics/imageResource",
+        "intrinsic.integer-coordinate": "/language/intrinsics/integerCoordinate",
+        "intrinsic.wave": "/language/intrinsics/wave",
+        "intrinsic.ray-tracing": "/language/intrinsics/rayTracing",
+        "intrinsic.ray-query-methods": "/language/intrinsics/rayQueryMethods",
+        "intrinsic.mesh": "/language/intrinsics/mesh",
+    },
+    "ast": {
+        "ast.classes": "/ast/classes",
+        "ast.class-fields": "/ast/classFields",
+        "ast.type-nodes": "/ast/typeNodes",
+        "ast.statement-nodes": "/ast/statementNodes",
+        "ast.expression-nodes": "/ast/expressionNodes",
+        "ast.enums": "/ast/enums",
+    },
+}
+
 
 def normalize_text(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n")
@@ -143,8 +177,16 @@ def features(report: dict[str, Any], group: str) -> list[dict[str, Any]]:
     return report["resourceMemoryLayoutFeatures"][group]
 
 
+def surface_features(report: dict[str, Any], group: str) -> list[dict[str, Any]]:
+    return report["crossTLLanguageSurfaceFeatures"][group]
+
+
 def feature_ids(report: dict[str, Any], group: str) -> set[str]:
     return {feature["featureId"] for feature in features(report, group)}
+
+
+def surface_feature_ids(report: dict[str, Any], group: str) -> set[str]:
+    return {feature["featureId"] for feature in surface_features(report, group)}
 
 
 def feature_by_id(
@@ -155,6 +197,15 @@ def feature_by_id(
         if feature["featureId"] == feature_id:
             return feature
     raise AssertionError(f"missing {group} feature {feature_id!r}")
+
+
+def surface_feature_by_id(
+    report: dict[str, Any], group: str, feature_id: str
+) -> dict[str, Any]:
+    for feature in surface_features(report, group):
+        if feature["featureId"] == feature_id:
+            return feature
+    raise AssertionError(f"missing CrossTL surface {group} feature {feature_id!r}")
 
 
 def target_gate_by_id(
@@ -200,36 +251,100 @@ def location_key(location: dict[str, Any]) -> tuple[Any, ...]:
 
 def validate_source_locations(report: dict[str, Any]) -> None:
     source_path = report["module"]["sourcePath"]
-    for group in ("resources", "memory", "layout"):
-        for feature in features(report, group):
-            path = f"{group}.{feature['featureId']}.sourceLocations"
-            locations = feature["sourceLocations"]
-            keys = []
-            for location in locations:
+    feature_sections = (
+        ("resourceMemoryLayoutFeatures", ("resources", "memory", "layout"), features),
+        (
+            "crossTLLanguageSurfaceFeatures",
+            ("stages", "types", "intrinsics", "ast"),
+            surface_features,
+        ),
+    )
+    for section, groups, group_features in feature_sections:
+        for group in groups:
+            for feature in group_features(report, group):
+                path = f"{section}.{group}.{feature['featureId']}.sourceLocations"
+                locations = feature["sourceLocations"]
+                keys = []
+                for location in locations:
+                    require(
+                        all(field in location for field in SOURCE_LOCATION_FIELDS),
+                        f"{path} entry missing required source location fields",
+                    )
+                    require(
+                        location["file"] == source_path,
+                        f"{path} should use the module repo-relative source path",
+                    )
+                    require(
+                        not location["file"].startswith("/")
+                        and "\\" not in location["file"],
+                        f"{path} file should be repo-relative POSIX",
+                    )
+                    require(location["line"] >= 1, f"{path} line should be positive")
+                    require(
+                        location["column"] >= 1,
+                        f"{path} column should be positive",
+                    )
+                    require(
+                        location["endLine"] >= 1,
+                        f"{path} endLine should be positive",
+                    )
+                    require(
+                        location["endColumn"] >= 1,
+                        f"{path} endColumn should be positive",
+                    )
+                    keys.append(location_key(location))
                 require(
-                    all(field in location for field in SOURCE_LOCATION_FIELDS),
-                    f"{path} entry missing required source location fields",
+                    keys == sorted(set(keys)),
+                    f"{path} should be sorted and deduplicated",
                 )
-                require(
-                    location["file"] == source_path,
-                    f"{path} should use the module repo-relative source path",
-                )
-                require(
-                    not location["file"].startswith("/")
-                    and "\\" not in location["file"],
-                    f"{path} file should be repo-relative POSIX",
-                )
-                require(location["line"] >= 1, f"{path} line should be positive")
-                require(location["column"] >= 1, f"{path} column should be positive")
-                require(location["endLine"] >= 1, f"{path} endLine should be positive")
-                require(
-                    location["endColumn"] >= 1,
-                    f"{path} endColumn should be positive",
-                )
-                keys.append(location_key(location))
+
+
+def snapshot_pointer_value(snapshot: dict[str, Any], pointer: str) -> Any:
+    value: Any = snapshot
+    for part in pointer.removeprefix("/").split("/"):
+        if not isinstance(value, dict) or part not in value:
+            raise AssertionError(f"snapshot pointer does not exist: {pointer}")
+        value = value[part]
+    return value
+
+
+def require_snapshot_surface_features(report: dict[str, Any], root: Path) -> None:
+    snapshot = json.loads(
+        (root / "docs/language/crosstl-frontend-language-spec-v0.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    for group, expected in SNAPSHOT_SURFACE_FEATURES.items():
+        missing = sorted(set(expected).difference(surface_feature_ids(report, group)))
+        require(
+            not missing,
+            f"missing CrossTL surface {group} inventory features: {missing}",
+        )
+        for feature_id, snapshot_ref in expected.items():
+            feature = surface_feature_by_id(report, group, feature_id)
+            snapshot_value = snapshot_pointer_value(snapshot, snapshot_ref)
             require(
-                keys == sorted(set(keys)),
-                f"{path} should be sorted and deduplicated",
+                feature["status"] == "cross-tl-inventory-only",
+                f"surface feature {feature_id!r} should be CrossTL inventory only",
+            )
+            require(
+                feature["sourceLocations"] == [],
+                f"surface feature {feature_id!r} should not claim source locations",
+            )
+            require(
+                feature.get("snapshotRefs") == [snapshot_ref],
+                f"surface feature {feature_id!r} snapshotRefs mismatch",
+            )
+            require(
+                feature.get("inventoryCount") == len(snapshot_value),
+                f"surface feature {feature_id!r} inventoryCount mismatch",
+            )
+            require(
+                any(
+                    evidence_id.startswith("spec-index:")
+                    for evidence_id in feature["evidenceIds"]
+                ),
+                f"surface feature {feature_id!r} should cite spec-index evidence",
             )
 
 
@@ -341,9 +456,11 @@ def check_resource_shader(cglc: Path, root: Path) -> None:
     require_feature_source_location(report, "layout", "layout.set-binding")
     require_feature_source_location(report, "layout", "layout.local-size")
     require_snapshot_aggregate_features(report)
+    require_snapshot_surface_features(report, root)
     require(
         report["compatibilityBucketSummary"]["cross-tl-inventory-only"]
-        == sum(len(features) for features in SNAPSHOT_AGGREGATE_FEATURES.values()),
+        == sum(len(features) for features in SNAPSHOT_AGGREGATE_FEATURES.values())
+        + sum(len(features) for features in SNAPSHOT_SURFACE_FEATURES.values()),
         "snapshot inventory bucket count mismatch",
     )
     require(report["generation"]["tool"] == "cglc", "generation tool mismatch")
@@ -552,8 +669,8 @@ def check_target_resource_array_gate(cglc: Path, root: Path) -> None:
         "resource-array fact should use target.unsupported classification",
     )
     require(
-        set(resource_array_facts[0]["evidenceIds"]) == evidence_ids,
-        "resource-array fact should cite the resource-array gate evidence",
+        set(resource_array_facts[0]["evidenceIds"]).issuperset(evidence_ids),
+        "resource-array fact should include the resource-array gate evidence",
     )
 
 

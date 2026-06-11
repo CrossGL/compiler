@@ -65,12 +65,21 @@ struct FeatureRecord {
   std::string status;
   std::vector<SourceLocation> sourceLocations;
   std::vector<std::string> evidenceIds;
+  std::vector<std::string> snapshotRefs;
+  std::optional<std::size_t> inventoryCount;
 };
 
 struct FeatureRecordGroups {
   std::vector<FeatureRecord> resources;
   std::vector<FeatureRecord> memory;
   std::vector<FeatureRecord> layout;
+};
+
+struct SurfaceFeatureRecordGroups {
+  std::vector<FeatureRecord> stages;
+  std::vector<FeatureRecord> types;
+  std::vector<FeatureRecord> intrinsics;
+  std::vector<FeatureRecord> ast;
 };
 
 struct TargetGateRecord {
@@ -395,6 +404,38 @@ public:
         std::move(evidenceIds), std::move(sourceLocations));
   }
 
+  void addStageSurfaceInventory(std::string featureId,
+                                std::vector<std::string> evidenceIds,
+                                std::string snapshotRef,
+                                std::size_t inventoryCount) {
+    addInventory(stages_, std::move(featureId), std::move(evidenceIds),
+                 std::move(snapshotRef), inventoryCount);
+  }
+
+  void addTypeSurfaceInventory(std::string featureId,
+                               std::vector<std::string> evidenceIds,
+                               std::string snapshotRef,
+                               std::size_t inventoryCount) {
+    addInventory(types_, std::move(featureId), std::move(evidenceIds),
+                 std::move(snapshotRef), inventoryCount);
+  }
+
+  void addIntrinsicSurfaceInventory(std::string featureId,
+                                    std::vector<std::string> evidenceIds,
+                                    std::string snapshotRef,
+                                    std::size_t inventoryCount) {
+    addInventory(intrinsics_, std::move(featureId), std::move(evidenceIds),
+                 std::move(snapshotRef), inventoryCount);
+  }
+
+  void addAstSurfaceInventory(std::string featureId,
+                              std::vector<std::string> evidenceIds,
+                              std::string snapshotRef,
+                              std::size_t inventoryCount) {
+    addInventory(ast_, std::move(featureId), std::move(evidenceIds),
+                 std::move(snapshotRef), inventoryCount);
+  }
+
   void addLayoutLocation(std::string_view featureId,
                          SourceLocation sourceLocation) {
     addLocation(layout_, featureId, std::move(sourceLocation));
@@ -403,6 +444,11 @@ public:
   FeatureRecordGroups groups() const {
     return FeatureRecordGroups{records(resources_), records(memory_),
                                records(layout_)};
+  }
+
+  SurfaceFeatureRecordGroups surfaceGroups() const {
+    return SurfaceFeatureRecordGroups{records(stages_), records(types_),
+                                      records(intrinsics_), records(ast_)};
   }
 
 private:
@@ -435,6 +481,21 @@ private:
     for (SourceLocation &location : sourceLocations) {
       appendLocation(record, std::move(location));
     }
+    for (const std::string &evidenceId : evidenceIds) {
+      appendUnique(record.evidenceIds, evidenceId);
+    }
+  }
+
+  void addInventory(FeatureMap &features, std::string featureId,
+                    std::vector<std::string> evidenceIds,
+                    std::string snapshotRef, std::size_t inventoryCount) {
+    FeatureRecord &record = features[featureId];
+    if (record.featureId.empty()) {
+      record.featureId = std::move(featureId);
+      record.status = std::string(kCrossTLInventoryOnly);
+      record.inventoryCount = inventoryCount;
+    }
+    appendUnique(record.snapshotRefs, snapshotRef);
     for (const std::string &evidenceId : evidenceIds) {
       appendUnique(record.evidenceIds, evidenceId);
     }
@@ -489,7 +550,112 @@ private:
   FeatureMap resources_;
   FeatureMap memory_;
   FeatureMap layout_;
+  FeatureMap stages_;
+  FeatureMap types_;
+  FeatureMap intrinsics_;
+  FeatureMap ast_;
 };
+
+std::optional<std::size_t> objectMemberCount(std::string_view objectText) {
+  std::size_t position = 0;
+  skipWhitespace(objectText, position);
+  if (position >= objectText.size() || objectText[position] != '{') {
+    return std::nullopt;
+  }
+  ++position;
+  skipWhitespace(objectText, position);
+  if (position < objectText.size() && objectText[position] == '}') {
+    ++position;
+    skipWhitespace(objectText, position);
+    return position == objectText.size() ? std::optional<std::size_t>(0)
+                                         : std::nullopt;
+  }
+
+  std::size_t count = 0;
+  while (position < objectText.size()) {
+    std::string key;
+    if (!parseJsonString(objectText, position, key)) {
+      return std::nullopt;
+    }
+    skipWhitespace(objectText, position);
+    if (position >= objectText.size() || objectText[position] != ':') {
+      return std::nullopt;
+    }
+    ++position;
+    skipWhitespace(objectText, position);
+    if (!skipJsonValue(objectText, position)) {
+      return std::nullopt;
+    }
+    ++count;
+    skipWhitespace(objectText, position);
+    if (position < objectText.size() && objectText[position] == ',') {
+      ++position;
+      skipWhitespace(objectText, position);
+      continue;
+    }
+    if (position < objectText.size() && objectText[position] == '}') {
+      ++position;
+      skipWhitespace(objectText, position);
+      return position == objectText.size() ? std::optional<std::size_t>(count)
+                                           : std::nullopt;
+    }
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+std::optional<std::string_view>
+snapshotPointerValue(std::string_view snapshotText,
+                     std::string_view pointer) {
+  if (pointer.empty() || pointer.front() != '/') {
+    return std::nullopt;
+  }
+
+  std::string_view value = snapshotText;
+  std::size_t cursor = 1;
+  while (cursor <= pointer.size()) {
+    const std::size_t slash = pointer.find('/', cursor);
+    const std::size_t end =
+        slash == std::string_view::npos ? pointer.size() : slash;
+    const std::string key(pointer.substr(cursor, end - cursor));
+    const std::optional<std::string_view> child =
+        findObjectMemberValue(value, key);
+    if (!child) {
+      return std::nullopt;
+    }
+    value = *child;
+    if (slash == std::string_view::npos) {
+      break;
+    }
+    cursor = slash + 1;
+  }
+  return value;
+}
+
+std::optional<std::size_t>
+snapshotInventoryCount(std::string_view snapshotText,
+                       std::string_view pointer) {
+  const std::optional<std::string_view> value =
+      snapshotPointerValue(snapshotText, pointer);
+  if (!value) {
+    return std::nullopt;
+  }
+  std::size_t position = 0;
+  skipWhitespace(*value, position);
+  if (position >= value->size()) {
+    return std::nullopt;
+  }
+  if ((*value)[position] == '[') {
+    return arrayLength(*value);
+  }
+  if ((*value)[position] == '{') {
+    return objectMemberCount(*value);
+  }
+  if ((*value)[position] == '"') {
+    return std::optional<std::size_t>(1);
+  }
+  return std::nullopt;
+}
 
 std::string resourceFeatureId(const HIRResource &resource) {
   switch (resource.kind) {
@@ -565,6 +731,101 @@ void collectStatementFeatures(const HIRStatement &statement,
   }
   for (const HIRStatement &child : statement.elseBody) {
     collectStatementFeatures(child, features, resourceEvidence, memoryEvidence);
+  }
+}
+
+void addSnapshotInventoryFeature(
+    FeatureCollector &features, std::string_view group,
+    std::string_view featureId, std::string_view snapshotRef,
+    const std::vector<std::string> &evidenceIds,
+    std::string_view snapshotText) {
+  const std::optional<std::size_t> count =
+      snapshotInventoryCount(snapshotText, snapshotRef);
+  if (!count || *count == 0) {
+    return;
+  }
+
+  if (group == "stages") {
+    features.addStageSurfaceInventory(std::string(featureId), evidenceIds,
+                                      std::string(snapshotRef), *count);
+  } else if (group == "types") {
+    features.addTypeSurfaceInventory(std::string(featureId), evidenceIds,
+                                     std::string(snapshotRef), *count);
+  } else if (group == "intrinsics") {
+    features.addIntrinsicSurfaceInventory(std::string(featureId), evidenceIds,
+                                          std::string(snapshotRef), *count);
+  } else if (group == "ast") {
+    features.addAstSurfaceInventory(std::string(featureId), evidenceIds,
+                                    std::string(snapshotRef), *count);
+  }
+}
+
+void collectCrossTLSurfaceInventoryFeatures(FeatureCollector &features,
+                                            EvidenceBuilder &evidence,
+                                            std::string_view snapshotText) {
+  evidence.addSpecIndex("language.stages");
+  evidence.addSpecIndex("language.types");
+  evidence.addSpecIndex("language.intrinsics");
+  evidence.addSpecIndex("ast.surface");
+
+  const std::vector<std::string> stageEvidence = {"spec-index:language.stages"};
+  const std::vector<std::string> typeEvidence = {"spec-index:language.types"};
+  const std::vector<std::string> intrinsicEvidence = {
+      "spec-index:language.intrinsics"};
+  const std::vector<std::string> astEvidence = {"spec-index:ast.surface"};
+
+  const struct {
+    std::string_view group;
+    std::string_view featureId;
+    std::string_view snapshotRef;
+    const std::vector<std::string> *evidenceIds;
+  } inventoryFeatures[] = {
+      {"stages", "stage.canonical-stages", "/language/stages/canonical",
+       &stageEvidence},
+      {"stages", "stage.keyword-spellings",
+       "/language/stages/keywordSpellings", &stageEvidence},
+      {"stages", "stage.parser-stage-tokens",
+       "/language/stages/parserStageTokens", &stageEvidence},
+      {"types", "type.primitive-types", "/language/types/primitive",
+       &typeEvidence},
+      {"types", "type.vector-types", "/language/types/vectors",
+       &typeEvidence},
+      {"types", "type.matrix-types", "/language/types/matrices",
+       &typeEvidence},
+      {"types", "type.texture-types", "/language/types/textures",
+       &typeEvidence},
+      {"types", "type.sampler-image-types",
+       "/language/types/samplersAndImages", &typeEvidence},
+      {"types", "type.array-forms", "/language/types/arrayForms",
+       &typeEvidence},
+      {"types", "type.postfix-type-operators",
+       "/language/types/postfixTypeOperators", &typeEvidence},
+      {"intrinsics", "intrinsic.texture-and-image",
+       "/language/intrinsics/textureAndImage", &intrinsicEvidence},
+      {"intrinsics", "intrinsic.image-resource",
+       "/language/intrinsics/imageResource", &intrinsicEvidence},
+      {"intrinsics", "intrinsic.integer-coordinate",
+       "/language/intrinsics/integerCoordinate", &intrinsicEvidence},
+      {"intrinsics", "intrinsic.wave", "/language/intrinsics/wave",
+       &intrinsicEvidence},
+      {"intrinsics", "intrinsic.ray-tracing",
+       "/language/intrinsics/rayTracing", &intrinsicEvidence},
+      {"intrinsics", "intrinsic.ray-query-methods",
+       "/language/intrinsics/rayQueryMethods", &intrinsicEvidence},
+      {"intrinsics", "intrinsic.mesh", "/language/intrinsics/mesh",
+       &intrinsicEvidence},
+      {"ast", "ast.classes", "/ast/classes", &astEvidence},
+      {"ast", "ast.class-fields", "/ast/classFields", &astEvidence},
+      {"ast", "ast.type-nodes", "/ast/typeNodes", &astEvidence},
+      {"ast", "ast.statement-nodes", "/ast/statementNodes", &astEvidence},
+      {"ast", "ast.expression-nodes", "/ast/expressionNodes", &astEvidence},
+      {"ast", "ast.enums", "/ast/enums", &astEvidence},
+  };
+
+  for (const auto &feature : inventoryFeatures) {
+    addSnapshotInventoryFeature(features, feature.group, feature.featureId,
+                                feature.snapshotRef, *feature.evidenceIds,
+                                snapshotText);
   }
 }
 
@@ -887,6 +1148,7 @@ targetGates(const HIRModule &module, EvidenceBuilder &evidence,
 
 std::map<std::string, std::size_t>
 bucketSummary(const FeatureRecordGroups &features,
+              const SurfaceFeatureRecordGroups &surfaceFeatures,
               const std::vector<FactRecord> &unsupportedFacts,
               const std::vector<FactRecord> &deprecatedFacts,
               const std::vector<FactRecord> &errorFacts) {
@@ -904,6 +1166,18 @@ bucketSummary(const FeatureRecordGroups &features,
     countFeature(record);
   }
   for (const FeatureRecord &record : features.layout) {
+    countFeature(record);
+  }
+  for (const FeatureRecord &record : surfaceFeatures.stages) {
+    countFeature(record);
+  }
+  for (const FeatureRecord &record : surfaceFeatures.types) {
+    countFeature(record);
+  }
+  for (const FeatureRecord &record : surfaceFeatures.intrinsics) {
+    countFeature(record);
+  }
+  for (const FeatureRecord &record : surfaceFeatures.ast) {
     countFeature(record);
   }
   const auto countFact = [&counts](const FactRecord &record) {
@@ -1025,6 +1299,15 @@ void appendFeatureRecordArray(std::ostringstream &out,
                               std::string(indent) + "    ");
     out << ",\n" << indent << "    \"evidenceIds\": ";
     appendStringArray(out, record.evidenceIds, std::string(indent) + "    ");
+    if (!record.snapshotRefs.empty()) {
+      out << ",\n" << indent << "    \"snapshotRefs\": ";
+      appendStringArray(out, record.snapshotRefs,
+                        std::string(indent) + "    ");
+    }
+    if (record.inventoryCount.has_value()) {
+      out << ",\n"
+          << indent << "    \"inventoryCount\": " << *record.inventoryCount;
+    }
     out << "\n" << indent << "  }";
     if (index + 1 != records.size()) {
       out << ",";
@@ -1191,11 +1474,14 @@ std::optional<std::string> languageFeatureReportJson(
   evidence.addFixture(fixtureEvidenceId, sourcePath);
 
   FeatureCollector featureCollector(sourcePath);
+  collectCrossTLSurfaceInventoryFeatures(featureCollector, evidence,
+                                         *snapshotText);
   collectModuleFeatures(module->hir, featureCollector, evidence,
                         fixtureEvidenceId);
   collectFrontendMetadataFeatures(module->ast, featureCollector,
                                   fixtureEvidenceId);
   FeatureRecordGroups features = featureCollector.groups();
+  SurfaceFeatureRecordGroups surfaceFeatures = featureCollector.surfaceGroups();
 
   std::map<std::string, FactRecord> unsupportedFactMap;
   std::vector<TargetGateRecord> gates =
@@ -1204,7 +1490,8 @@ std::optional<std::string> languageFeatureReportJson(
   const std::vector<FactRecord> deprecatedFacts;
   const std::vector<FactRecord> errorFacts;
   const std::map<std::string, std::size_t> summary =
-      bucketSummary(features, unsupportedFacts, deprecatedFacts, errorFacts);
+      bucketSummary(features, surfaceFeatures, unsupportedFacts, deprecatedFacts,
+                    errorFacts);
   const std::vector<StageEntryPoint> entries = stageEntryPoints(module->hir);
   const std::vector<std::string> command =
       generationCommand(options, sourcePath);
@@ -1272,6 +1559,20 @@ std::optional<std::string> languageFeatureReportJson(
   out << ",\n"
       << "    \"layout\": ";
   appendFeatureRecordArray(out, features.layout, "    ");
+  out << "\n"
+      << "  },\n"
+      << "  \"crossTLLanguageSurfaceFeatures\": {\n"
+      << "    \"stages\": ";
+  appendFeatureRecordArray(out, surfaceFeatures.stages, "    ");
+  out << ",\n"
+      << "    \"types\": ";
+  appendFeatureRecordArray(out, surfaceFeatures.types, "    ");
+  out << ",\n"
+      << "    \"intrinsics\": ";
+  appendFeatureRecordArray(out, surfaceFeatures.intrinsics, "    ");
+  out << ",\n"
+      << "    \"ast\": ";
+  appendFeatureRecordArray(out, surfaceFeatures.ast, "    ");
   out << "\n"
       << "  },\n"
       << "  \"facts\": {\n"
