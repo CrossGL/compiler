@@ -45,6 +45,9 @@
       "type": "string",
       "minLength": 1
     },
+    "sourceRemap": {
+      "$ref": "#/$defs/sourceRemap"
+    },
     "targetBackend": {
       "type": "string",
       "minLength": 1
@@ -70,6 +73,88 @@
     "positiveInteger": {
       "type": "integer",
       "minimum": 1
+    },
+    "sha256Value": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha256": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "value": {
+          "$ref": "#/$defs/sha256Value"
+        }
+      }
+    },
+    "sourceRemapMappingGranularity": {
+      "type": "string",
+      "enum": [
+        "file",
+        "line",
+        "statement",
+        "token"
+      ]
+    },
+    "sourceRemap": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "sizeBytes",
+            "generatedFile",
+            "mappingCount"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "sizeBytes": {
+              "$ref": "#/$defs/nonNegativeInteger"
+            },
+            "generatedFile": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mappingCount": {
+              "$ref": "#/$defs/nonNegativeInteger"
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mappingGranularity": {
+              "$ref": "#/$defs/sourceRemapMappingGranularity"
+            },
+            "sourceBackend": {
+              "type": "string",
+              "minLength": 1
+            },
+            "variant": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
     },
     "backend": {
       "type": "object",

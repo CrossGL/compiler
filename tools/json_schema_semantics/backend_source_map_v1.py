@@ -1,7 +1,13 @@
 """Semantic checks for backend-source-map-v1.schema.json."""
 
+import re
+
 from .common import add_length_count_error
 from .common import validate_source_location_span
+
+
+SOURCE_REMAP_GRANULARITIES = frozenset({"file", "line", "statement", "token"})
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 def source_span_identity(span):
@@ -71,6 +77,33 @@ def validate_mapping_context(errors, path, mapping):
         errors.append(f"{path}.function: expected non-empty mapped function")
 
 
+def validate_source_remap(errors, source_remap):
+    if source_remap is None:
+        return
+
+    sha256 = source_remap["sha256"]
+    if sha256["algorithm"] != "sha256":
+        errors.append("$.sourceRemap.sha256.algorithm: expected 'sha256'")
+    if not SHA256_PATTERN.match(sha256["value"]):
+        errors.append(
+            "$.sourceRemap.sha256.value: expected 64 lowercase hexadecimal sha256"
+        )
+
+    mapping_granularity = source_remap.get("mappingGranularity")
+    if (
+        mapping_granularity is not None
+        and mapping_granularity not in SOURCE_REMAP_GRANULARITIES
+    ):
+        errors.append(
+            "$.sourceRemap.mappingGranularity: expected file, line, statement, or token"
+        )
+
+    for field_name in ("sourceBackend", "variant"):
+        value = source_remap.get(field_name)
+        if value is not None and value.strip() == "":
+            errors.append(f"$.sourceRemap.{field_name}: expected non-empty string")
+
+
 def validate_semantics(instance):
     errors = []
     mappings = instance["mappings"]
@@ -91,6 +124,8 @@ def validate_semantics(instance):
             "$.targetBackend: expected to match $.backend.language "
             f"{backend['language']!r}, got {instance['targetBackend']!r}"
         )
+    if "sourceRemap" in instance:
+        validate_source_remap(errors, instance["sourceRemap"])
 
     line_count = backend["lineCount"]
     backend_spans = []

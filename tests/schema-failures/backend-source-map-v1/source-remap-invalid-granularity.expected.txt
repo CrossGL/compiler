@@ -1,0 +1,1 @@
+$.sourceRemap.mappingGranularity: expected one of ['file', 'line', 'statement', 'token'], got 'expression'

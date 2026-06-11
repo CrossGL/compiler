@@ -695,7 +695,20 @@ crossgl_add_python_expect_test(
     -DMODE=dump-stage
     "-DSOURCE_MAP_FILTER_ARGS=--logical-input|generated/from-translator.cgl|--source-remap|${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json"
     "-DEXPECTED_JSON_ARRAY_LENGTHS=mappings=2"
-    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=directx|module=StorageBufferComputeShader|mappingGranularity=statement|sourceBackend=crossgl-hir|targetBackend=hlsl|backend.language=hlsl|backend.lineCount=7|mappingCount=2|mappings.0.stage=compute|mappings.0.entryPoint=main|mappings.0.function=main|mappings.0.statementKind=assign|mappings.0.name=values[0]|mappings.0.backend.startLine=5|mappings.0.backend.endLine=5|mappings.0.location.file=generated/from-translator.cgl|mappings.0.location.line=8|mappings.0.originalLocation.file=shaders/original.crossgl|mappings.0.originalLocation.line=47|mappings.1.statementKind=return|mappings.1.backend.startLine=6|mappings.1.originalLocation.line=48"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=directx|module=StorageBufferComputeShader|mappingGranularity=statement|sourceBackend=crossgl-hir|targetBackend=hlsl|backend.language=hlsl|backend.lineCount=7|sourceRemap.generatedFile=generated/from-translator.cgl|sourceRemap.mappingCount=1|sourceRemap.sizeBytes=592|mappingCount=2|mappings.0.stage=compute|mappings.0.entryPoint=main|mappings.0.function=main|mappings.0.statementKind=assign|mappings.0.name=values[0]|mappings.0.backend.startLine=5|mappings.0.backend.endLine=5|mappings.0.location.file=generated/from-translator.cgl|mappings.0.location.line=8|mappings.0.originalLocation.file=shaders/original.crossgl|mappings.0.originalLocation.line=47|mappings.1.statementKind=return|mappings.1.backend.startLine=6|mappings.1.originalLocation.line=48"
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+crossgl_add_python_expect_test(
+  NAME cglc_dump_backend_source_map_directx_crosstl_metadata_source_remap
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DTARGET=directx
+    -DSTAGE=backend-source-map
+    -DMODE=dump-stage
+    "-DSOURCE_MAP_FILTER_ARGS=--logical-input|generated/from-translator.cgl|--source-remap|${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=mappings=2"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=directx|module=StorageBufferComputeShader|mappingGranularity=statement|sourceBackend=crossgl-hir|targetBackend=hlsl|backend.language=hlsl|backend.lineCount=7|sourceRemap.target=cgl|sourceRemap.generatedFile=generated/from-translator.cgl|sourceRemap.mappingGranularity=file|sourceRemap.mappingCount=1|sourceRemap.sizeBytes=592|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug|mappings.0.originalLocation.file=shaders/original.crossgl|mappings.1.originalLocation.line=48"
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
 add_test(NAME cglc_dump_hir_source_map_while_lowered_for_provenance

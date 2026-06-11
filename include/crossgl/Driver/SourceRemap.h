@@ -23,6 +23,10 @@ struct SourceRemap {
   std::optional<std::string> documentPath;
   std::optional<std::string> documentSha256;
   std::optional<std::uintmax_t> documentSizeBytes;
+  std::optional<std::string> metadataTarget;
+  std::optional<std::string> metadataSourceBackend;
+  std::optional<std::string> metadataVariant;
+  std::optional<std::string> metadataMappingGranularity;
 };
 
 std::optional<SourceRemap> parseSourceRemap(std::string_view text,

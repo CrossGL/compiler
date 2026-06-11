@@ -5697,6 +5697,46 @@ void appendBackendSourceLocationJson(std::ostringstream &out,
       << indent << "}";
 }
 
+void appendBackendSourceMapSourceRemapJson(std::ostringstream &out,
+                                           const SourceRemap &sourceRemap,
+                                           std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"path\": \""
+      << escapeJson(sourceRemap.documentPath.value_or("")) << "\",\n"
+      << indent << "  \"sha256\": {\n"
+      << indent << "    \"algorithm\": \"sha256\",\n"
+      << indent << "    \"value\": \""
+      << escapeJson(sourceRemap.documentSha256.value_or("")) << "\"\n"
+      << indent << "  },\n"
+      << indent << "  \"sizeBytes\": "
+      << sourceRemap.documentSizeBytes.value_or(static_cast<std::uintmax_t>(0))
+      << ",\n"
+      << indent << "  \"generatedFile\": \""
+      << escapeJson(sourceRemap.generatedFile) << "\",\n"
+      << indent << "  \"mappingCount\": " << sourceRemap.mappings.size();
+  if (sourceRemap.metadataTarget) {
+    out << ",\n"
+        << indent << "  \"target\": \""
+        << escapeJson(*sourceRemap.metadataTarget) << "\"";
+  }
+  if (sourceRemap.metadataMappingGranularity) {
+    out << ",\n"
+        << indent << "  \"mappingGranularity\": \""
+        << escapeJson(*sourceRemap.metadataMappingGranularity) << "\"";
+  }
+  if (sourceRemap.metadataSourceBackend) {
+    out << ",\n"
+        << indent << "  \"sourceBackend\": \""
+        << escapeJson(*sourceRemap.metadataSourceBackend) << "\"";
+  }
+  if (sourceRemap.metadataVariant) {
+    out << ",\n"
+        << indent << "  \"variant\": \""
+        << escapeJson(*sourceRemap.metadataVariant) << "\"";
+  }
+  out << "\n" << indent << "}";
+}
+
 std::string directxBackendSourceMapJson(
     const HIRModule &module, std::string_view sourceText,
     const DirectXBackendSourceMapCollector &sourceMap) {
@@ -5713,6 +5753,16 @@ std::string directxBackendSourceMapJson(
       << "    \"language\": \"hlsl\",\n"
       << "    \"lineCount\": " << backendSourceLineCount(sourceText) << "\n"
       << "  },\n"
+      << "  \"sourceRemap\": ";
+  if (sourceMap.sourceRemap != nullptr &&
+      sourceMap.sourceRemap->documentPath &&
+      sourceMap.sourceRemap->documentSha256 &&
+      sourceMap.sourceRemap->documentSizeBytes) {
+    appendBackendSourceMapSourceRemapJson(out, *sourceMap.sourceRemap, "  ");
+  } else {
+    out << "null";
+  }
+  out << ",\n"
       << "  \"mappingCount\": " << sourceMap.records.size() << ",\n"
       << "  \"mappings\": [";
   for (std::size_t i = 0; i < sourceMap.records.size(); ++i) {

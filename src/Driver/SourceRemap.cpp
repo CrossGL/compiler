@@ -653,6 +653,11 @@ std::optional<SourceRemap> loadSourceRemapMetadata(
           metadata, *remap, diagnostics, metadataLocation)) {
     return std::nullopt;
   }
+  remap->metadataTarget = objectStringMember(metadata, "target");
+  remap->metadataSourceBackend = objectStringMember(metadata, "sourceBackend");
+  remap->metadataVariant = objectStringMember(metadata, "variant");
+  remap->metadataMappingGranularity =
+      objectStringMember(metadata, "mappingGranularity");
   return remap;
 }
 
