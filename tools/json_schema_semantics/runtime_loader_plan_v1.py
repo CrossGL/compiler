@@ -1359,6 +1359,96 @@ def validate_host_loader_integration(errors, instance):
         )
 
 
+def validate_crosstl_runtime_adapters(errors, instance):
+    if "crosstlRuntimeAdapters" not in instance:
+        return
+
+    adapters = instance["crosstlRuntimeAdapters"]
+    load_units = adapters["loadUnits"]
+    ready_count = sum(
+        1 for unit in load_units if unit["validation"].get("loadReady") is True
+    )
+    add_equal_error(
+        errors,
+        "$.crosstlRuntimeAdapters.target",
+        adapters["target"],
+        instance["selectedTarget"],
+        "$.selectedTarget",
+    )
+    add_equal_error(
+        errors,
+        "$.crosstlRuntimeAdapters.runtimeArtifactPath",
+        adapters["runtimeArtifactPath"],
+        instance["runtimeArtifactPath"],
+        "$.runtimeArtifactPath",
+    )
+    add_equal_error(
+        errors,
+        "$.crosstlRuntimeAdapters.loadUnitCount",
+        adapters["loadUnitCount"],
+        len(load_units),
+        "CrossTL runtime adapter loadUnits length",
+    )
+    add_equal_error(
+        errors,
+        "$.crosstlRuntimeAdapters.readyLoadUnitCount",
+        adapters["readyLoadUnitCount"],
+        ready_count,
+        "ready CrossTL runtime adapter load-unit count",
+    )
+    add_equal_error(
+        errors,
+        "$.crosstlRuntimeAdapters.blockedLoadUnitCount",
+        adapters["blockedLoadUnitCount"],
+        len(load_units) - ready_count,
+        "blocked CrossTL runtime adapter load-unit count",
+    )
+    expected_targets = sorted({unit["target"] for unit in load_units})
+    add_equal_error(
+        errors,
+        "$.crosstlRuntimeAdapters.targets",
+        adapters["targets"],
+        expected_targets,
+        "CrossTL runtime adapter load-unit targets",
+    )
+
+    selected_artifact = instance["selectedArtifact"]
+    selected_artifact_format = (
+        host_loader_artifact_format(selected_artifact)
+        if selected_artifact is not None
+        else None
+    )
+    for index, unit in enumerate(load_units):
+        path = f"$.crosstlRuntimeAdapters.loadUnits[{index}]"
+        add_equal_error(
+            errors,
+            f"{path}.target",
+            unit["target"],
+            instance["selectedTarget"],
+            "$.selectedTarget",
+        )
+        add_equal_error(
+            errors,
+            f"{path}.packagePath",
+            unit["packagePath"],
+            instance["runtimeArtifactPath"],
+            "$.runtimeArtifactPath",
+        )
+        if selected_artifact_format is not None:
+            add_equal_error(
+                errors,
+                f"{path}.artifactFormat",
+                unit["artifactFormat"],
+                selected_artifact_format,
+                "selected artifact format",
+            )
+        load_ready = unit["validation"].get("loadReady")
+        if load_ready and unit["blockers"]:
+            errors.append(f"{path}.blockers: expected [] for ready load unit")
+        if load_ready is False and not unit["blockers"]:
+            errors.append(f"{path}.blockers: blocked load unit requires blocker")
+
+
 def validate_semantics(instance):
     errors = []
     counts = validate_diagnostic_counts(errors, instance)
@@ -1370,6 +1460,7 @@ def validate_semantics(instance):
     validate_reflection_inputs(errors, instance)
     validate_target_resource_binding_metadata(errors, instance)
     validate_host_loader_integration(errors, instance)
+    validate_crosstl_runtime_adapters(errors, instance)
 
     add_equal_error(
         errors,

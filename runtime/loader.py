@@ -454,6 +454,7 @@ class RuntimeLoaderPlan:
                     success=success,
                 )
             ),
+            "crosstlRuntimeAdapters": self.crosstl_runtime_adapter_summary,
             "diagnosticCounts": diagnostic_counts,
             "diagnostics": diagnostics,
         }
@@ -1130,7 +1131,7 @@ class RuntimeLoaderPlan:
             1 for unit in load_units if unit.validation.get("loadReady") is True
         )
         return {
-            "target": self.loader_target,
+            "target": self.selected_target,
             "runtimeArtifactPath": self.runtime_artifact_path,
             "loadUnitCount": len(load_units),
             "readyLoadUnitCount": ready_count,

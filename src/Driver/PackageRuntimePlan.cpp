@@ -1457,6 +1457,26 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
   out << "\n" << indent << "}";
 }
 
+void writeCrossTLRuntimeAdapters(
+    std::ostream &out, const Selection &selection,
+    const std::optional<std::string> &selectedTarget, std::string_view indent) {
+  out << "{\n" << indent << "  \"target\": ";
+  writeNullableString(out, selectedTarget);
+  out << ",\n" << indent << "  \"runtimeArtifactPath\": ";
+  if (selection.artifact != nullptr && !selection.artifact->path.empty()) {
+    out << "\"" << escapeJson(selection.artifact->path) << "\"";
+  } else {
+    out << "null";
+  }
+  out << ",\n"
+      << indent << "  \"loadUnitCount\": 0,\n"
+      << indent << "  \"readyLoadUnitCount\": 0,\n"
+      << indent << "  \"blockedLoadUnitCount\": 0,\n"
+      << indent << "  \"targets\": [],\n"
+      << indent << "  \"loadUnits\": []\n"
+      << indent << "}";
+}
+
 void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
                    const PackageMetadata *metadata,
                    const PackageTargetContract *contract,
@@ -1590,6 +1610,9 @@ void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
       << "  \"hostLoaderIntegration\": ";
   writeHostLoaderIntegration(out, metadata, selection, selectedTarget,
                              reflectionFilterTarget, success, "  ");
+  out << ",\n"
+      << "  \"crosstlRuntimeAdapters\": ";
+  writeCrossTLRuntimeAdapters(out, selection, selectedTarget, "  ");
   out << ",\n"
       << "  \"diagnosticCounts\": {\n"
       << "    \"note\": " << countDiagnostics(diagnostics, DiagnosticSeverity::Note)

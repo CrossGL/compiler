@@ -198,6 +198,9 @@
     "hostLoaderIntegration": {
       "$ref": "#/$defs/hostLoaderIntegration"
     },
+    "crosstlRuntimeAdapters": {
+      "$ref": "#/$defs/crosstlRuntimeAdapters"
+    },
     "diagnosticCounts": {
       "$ref": "#/$defs/diagnosticCounts"
     },
@@ -976,6 +979,209 @@
           "items": {
             "$ref": "#/$defs/hostLoaderLoadUnit"
           }
+        }
+      }
+    },
+    "crosstlRuntimeAdapters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "runtimeArtifactPath",
+        "loadUnitCount",
+        "readyLoadUnitCount",
+        "blockedLoadUnitCount",
+        "targets",
+        "loadUnits"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/packageTargetOrNull"
+        },
+        "runtimeArtifactPath": {
+          "$ref": "#/$defs/artifactPathOrNull"
+        },
+        "loadUnitCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "readyLoadUnitCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "blockedLoadUnitCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "targets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/packageTargetName"
+          }
+        },
+        "loadUnits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/crosstlRuntimeAdapterLoadUnit"
+          }
+        }
+      }
+    },
+    "crosstlRuntimeAdapterLoadUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "target",
+        "adapterKind",
+        "artifactFormat",
+        "packagePath",
+        "sourcePath",
+        "sourceBackend",
+        "stage",
+        "variant",
+        "defines",
+        "sourceRemap",
+        "hostInterface",
+        "requiredTools",
+        "hostResponsibilities",
+        "loadSteps",
+        "blockers",
+        "validation"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^runtime-loader\\.[a-z0-9-]+\\.[A-Za-z][A-Za-z0-9]*$"
+        },
+        "target": {
+          "$ref": "#/$defs/packageTargetName"
+        },
+        "adapterKind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifactFormat": {
+          "type": "string",
+          "enum": [
+            "backend-source",
+            "native-binary"
+          ]
+        },
+        "packagePath": {
+          "$ref": "#/$defs/artifactPath"
+        },
+        "sourcePath": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "stage": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "variant": {
+          "$ref": "#/$defs/stringOrNull"
+        },
+        "defines": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "sourceRemap": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hostInterface": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": true
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requiredTools": {
+          "$ref": "#/$defs/stringList"
+        },
+        "hostResponsibilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "loadSteps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/crosstlRuntimeAdapterRecord"
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/crosstlRuntimeAdapterRecord"
+          }
+        },
+        "validation": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "loadReady",
+            "metadataOnly",
+            "sourceParsingRequired",
+            "compilerInvocationRequired",
+            "deviceExecutionRequired"
+          ],
+          "properties": {
+            "loadReady": {
+              "type": "boolean"
+            },
+            "hostInterface": {
+              "$ref": "#/$defs/stringOrNull"
+            },
+            "metadataOnly": {
+              "type": "boolean",
+              "const": true
+            },
+            "sourceParsingRequired": {
+              "type": "boolean",
+              "const": false
+            },
+            "compilerInvocationRequired": {
+              "type": "boolean",
+              "const": false
+            },
+            "deviceExecutionRequired": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    "crosstlRuntimeAdapterRecord": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "target",
+        "packagePath"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "$ref": "#/$defs/packageTargetName"
+        },
+        "packagePath": {
+          "$ref": "#/$defs/artifactPath"
         }
       }
     },

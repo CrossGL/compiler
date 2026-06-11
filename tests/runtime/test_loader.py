@@ -603,6 +603,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 summary["crosstlRuntimeAdapters"]["loadUnits"][0]["id"],
                 load_unit.id,
             )
+            self.assertEqual(
+                contract["crosstlRuntimeAdapters"],
+                summary["crosstlRuntimeAdapters"],
+            )
 
     def test_non_ready_crosstl_adapter_load_units_are_selected_as_blocked(
         self,
@@ -676,6 +680,10 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                         ],
                         host_interface_status,
                     )
+                    self.assertEqual(
+                        contract["crosstlRuntimeAdapters"],
+                        summary["crosstlRuntimeAdapters"],
+                    )
 
     def test_crosstl_adapter_load_units_filter_to_selected_artifact_path(
         self,
@@ -691,6 +699,7 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             )
 
             plan = read_loader_plan(package_dir, "directx")
+            contract = plan.to_runtime_loader_plan_contract()
 
             self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
             self.assertEqual(
@@ -698,9 +707,9 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 "backend/directx/RuntimeLoaderFixture.hlsl",
             )
             self.assertEqual(plan.crosstl_adapter_load_unit_records(), ())
-            self.assertRuntimeLoaderPlanContractValid(
-                plan.to_runtime_loader_plan_contract()
-            )
+            self.assertRuntimeLoaderPlanContractValid(contract)
+            self.assertEqual(contract["crosstlRuntimeAdapters"]["loadUnitCount"], 0)
+            self.assertEqual(contract["crosstlRuntimeAdapters"]["loadUnits"], [])
 
     def test_invalid_crosstl_adapter_manifest_does_not_block_runtime_plan(
         self,
