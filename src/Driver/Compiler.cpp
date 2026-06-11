@@ -2377,8 +2377,26 @@ std::string sourceRemapProvenanceJson(const SourceRemap &remap,
       << "\"\n"
       << "    },\n"
       << "    \"sizeBytes\": "
-      << remap.documentSizeBytes.value_or(static_cast<std::uintmax_t>(0))
-      << "\n"
+      << remap.documentSizeBytes.value_or(static_cast<std::uintmax_t>(0));
+  if (remap.metadataTarget) {
+    out << ",\n"
+        << "    \"target\": \"" << escapeJson(*remap.metadataTarget) << "\"";
+  }
+  if (remap.metadataMappingGranularity) {
+    out << ",\n"
+        << "    \"mappingGranularity\": \""
+        << escapeJson(*remap.metadataMappingGranularity) << "\"";
+  }
+  if (remap.metadataSourceBackend) {
+    out << ",\n"
+        << "    \"sourceBackend\": \""
+        << escapeJson(*remap.metadataSourceBackend) << "\"";
+  }
+  if (remap.metadataVariant) {
+    out << ",\n"
+        << "    \"variant\": \"" << escapeJson(*remap.metadataVariant) << "\"";
+  }
+  out << "\n"
       << "  }\n"
       << "}\n";
   return out.str();

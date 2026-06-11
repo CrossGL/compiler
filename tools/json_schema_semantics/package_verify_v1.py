@@ -61,6 +61,10 @@ SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS = (
     "sourcePath",
     "sourceSha256",
     "sourceSizeBytes",
+    "sourceRemapTarget",
+    "sourceRemapMappingGranularity",
+    "sourceRemapSourceBackend",
+    "sourceRemapVariant",
 )
 BACKEND_SOURCE_MAP_CHECKS = (
     "identityMatchesContract",
@@ -343,7 +347,7 @@ def validate_source_remap_summary(errors, summary):
         expected_health = "not-present"
         expected_checks = [None] * len(check_values)
         for field in ("path", *SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS):
-            if source_remap[field] is not None:
+            if source_remap.get(field) is not None:
                 errors.append(
                     f"$.summary.sourceRemap.{field}: expected null when absent"
                 )
@@ -351,7 +355,7 @@ def validate_source_remap_summary(errors, summary):
         expected_health = "incomplete"
         expected_checks = [None] * len(check_values)
         for field in SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS:
-            if source_remap[field] is not None:
+            if source_remap.get(field) is not None:
                 errors.append(
                     f"$.summary.sourceRemap.{field}: expected null when unreadable"
                 )

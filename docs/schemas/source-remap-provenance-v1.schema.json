@@ -85,6 +85,15 @@
         }
       }
     },
+    "sourceRemapMappingGranularity": {
+      "type": "string",
+      "enum": [
+        "file",
+        "line",
+        "statement",
+        "token"
+      ]
+    },
     "sourceRemapIdentity": {
       "type": "object",
       "additionalProperties": false,
@@ -103,6 +112,21 @@
         "sizeBytes": {
           "type": "integer",
           "minimum": 0
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/sourceRemapMappingGranularity"
+        },
+        "sourceBackend": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variant": {
+          "type": "string",
+          "minLength": 1
         }
       }
     }

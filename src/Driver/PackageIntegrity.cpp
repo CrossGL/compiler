@@ -2561,6 +2561,14 @@ void writeSourceRemapProvenanceSummary(
   writeNullableString(out, health.sourceSha256);
   out << ",\n" << indent << "  \"sourceSizeBytes\": ";
   writeNullableUnsigned(out, health.sourceSizeBytes);
+  out << ",\n" << indent << "  \"sourceRemapTarget\": ";
+  writeNullableString(out, health.sourceRemapTarget);
+  out << ",\n" << indent << "  \"sourceRemapMappingGranularity\": ";
+  writeNullableString(out, health.sourceRemapMappingGranularity);
+  out << ",\n" << indent << "  \"sourceRemapSourceBackend\": ";
+  writeNullableString(out, health.sourceRemapSourceBackend);
+  out << ",\n" << indent << "  \"sourceRemapVariant\": ";
+  writeNullableString(out, health.sourceRemapVariant);
   out << ",\n"
       << indent << "  \"checks\": {\n"
       << indent << "    \"identityMatchesContract\": ";

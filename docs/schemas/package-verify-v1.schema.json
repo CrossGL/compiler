@@ -540,6 +540,30 @@
         "sourceSizeBytes": {
           "$ref": "#/$defs/nullableNonNegativeInteger"
         },
+        "sourceRemapTarget": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRemapMappingGranularity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRemapSourceBackend": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRemapVariant": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "checks": {
           "$ref": "#/$defs/sourceRemapChecks"
         }

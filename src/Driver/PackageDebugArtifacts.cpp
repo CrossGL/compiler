@@ -39,6 +39,14 @@ bool optionalStringEquals(const std::optional<std::string> &left,
   return left && right && *left == *right;
 }
 
+bool optionalStringMetadataMatches(const std::optional<std::string> &left,
+                                   const std::optional<std::string> &right) {
+  if (!left || !right) {
+    return !left && !right;
+  }
+  return *left == *right;
+}
+
 bool optionalUnsignedEquals(const std::optional<std::uintmax_t> &left,
                             const std::optional<std::uintmax_t> &right) {
   return left && right && *left == *right;
@@ -549,6 +557,12 @@ collectSourceRemapProvenanceHealth(const PackageMetadata &metadata) {
     health.sourcePath = objectStringMember(*sourceRemap, "path");
     health.sourceSha256 = sourceRemapProvenanceHash(*sourceRemap);
     health.sourceSizeBytes = objectUnsignedMember(*sourceRemap, "sizeBytes");
+    health.sourceRemapTarget = objectStringMember(*sourceRemap, "target");
+    health.sourceRemapMappingGranularity =
+        objectStringMember(*sourceRemap, "mappingGranularity");
+    health.sourceRemapSourceBackend =
+        objectStringMember(*sourceRemap, "sourceBackend");
+    health.sourceRemapVariant = objectStringMember(*sourceRemap, "variant");
   }
 
   health.checks.identityMatchesContract =
@@ -724,7 +738,19 @@ collectPackageDebugArtifactHealth(const PackageMetadata &metadata) {
         optionalStringEquals(health.backendSourceMap.sourceRemapSha256,
                              health.sourceRemap.sourceSha256) &&
         optionalUnsignedEquals(health.backendSourceMap.sourceRemapSizeBytes,
-                               health.sourceRemap.sourceSizeBytes);
+                               health.sourceRemap.sourceSizeBytes) &&
+        optionalStringMetadataMatches(
+            health.backendSourceMap.sourceRemapTarget,
+            health.sourceRemap.sourceRemapTarget) &&
+        optionalStringMetadataMatches(
+            health.backendSourceMap.sourceRemapMappingGranularity,
+            health.sourceRemap.sourceRemapMappingGranularity) &&
+        optionalStringMetadataMatches(
+            health.backendSourceMap.sourceRemapSourceBackend,
+            health.sourceRemap.sourceRemapSourceBackend) &&
+        optionalStringMetadataMatches(
+            health.backendSourceMap.sourceRemapVariant,
+            health.sourceRemap.sourceRemapVariant);
     if (!*health.backendSourceMap.checks.sourceRemapMatchesProvenance) {
       health.backendSourceMap.health = "drift";
     }

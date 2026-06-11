@@ -75,6 +75,10 @@ SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS = (
     "sourcePath",
     "sourceSha256",
     "sourceSizeBytes",
+    "sourceRemapTarget",
+    "sourceRemapMappingGranularity",
+    "sourceRemapSourceBackend",
+    "sourceRemapVariant",
 )
 
 BACKEND_SOURCE_MAP_CHECKS = (
@@ -885,7 +889,7 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
             expected_source_remap_health = "not-present"
             expected_source_remap_checks = [None] * len(source_remap_check_values)
             for field in SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS:
-                if source_remap[field] is not None:
+                if source_remap.get(field) is not None:
                     errors.append(
                         f"$.debugArtifacts.sourceRemap.{field}: "
                         "expected null when absent"

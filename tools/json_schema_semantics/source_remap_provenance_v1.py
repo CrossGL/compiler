@@ -4,6 +4,7 @@ import re
 
 
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+SOURCE_REMAP_GRANULARITIES = {"file", "line", "statement", "token"}
 
 
 def is_stable_relative_path(path):
@@ -33,5 +34,14 @@ def validate_semantics(instance):
     if not SHA256_PATTERN.match(sha256["value"]):
         errors.append(
             "$.sourceRemap.sha256.value: expected 64 lowercase hexadecimal sha256"
+        )
+    for field in ("target", "sourceBackend", "variant"):
+        value = source_remap.get(field)
+        if value is not None and not value.strip():
+            errors.append(f"$.sourceRemap.{field}: expected non-empty metadata")
+    granularity = source_remap.get("mappingGranularity")
+    if granularity is not None and granularity not in SOURCE_REMAP_GRANULARITIES:
+        errors.append(
+            "$.sourceRemap.mappingGranularity: expected file, line, statement, or token"
         )
     return errors

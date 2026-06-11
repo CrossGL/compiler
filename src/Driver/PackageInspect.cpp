@@ -974,6 +974,14 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableString(out, sourceRemap.sourceSha256);
   out << ",\n" << indent << "    \"sourceSizeBytes\": ";
   writeNullableUnsigned(out, sourceRemap.sourceSizeBytes);
+  out << ",\n" << indent << "    \"sourceRemapTarget\": ";
+  writeNullableString(out, sourceRemap.sourceRemapTarget);
+  out << ",\n" << indent << "    \"sourceRemapMappingGranularity\": ";
+  writeNullableString(out, sourceRemap.sourceRemapMappingGranularity);
+  out << ",\n" << indent << "    \"sourceRemapSourceBackend\": ";
+  writeNullableString(out, sourceRemap.sourceRemapSourceBackend);
+  out << ",\n" << indent << "    \"sourceRemapVariant\": ";
+  writeNullableString(out, sourceRemap.sourceRemapVariant);
   out << ",\n"
       << indent << "    \"checks\": {\n"
       << indent << "      \"identityMatchesContract\": ";

@@ -34,6 +34,10 @@ struct PackageSourceRemapProvenanceHealth {
   std::optional<std::string> sourcePath;
   std::optional<std::string> sourceSha256;
   std::optional<std::uintmax_t> sourceSizeBytes;
+  std::optional<std::string> sourceRemapTarget;
+  std::optional<std::string> sourceRemapMappingGranularity;
+  std::optional<std::string> sourceRemapSourceBackend;
+  std::optional<std::string> sourceRemapVariant;
   PackageSourceRemapProvenanceChecks checks;
 };
 

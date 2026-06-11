@@ -1096,6 +1096,18 @@
         "sourceSizeBytes": {
           "$ref": "#/$defs/nullableInteger"
         },
+        "sourceRemapTarget": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapMappingGranularity": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapSourceBackend": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapVariant": {
+          "$ref": "#/$defs/nullableString"
+        },
         "checks": {
           "$ref": "#/$defs/sourceRemapProvenanceChecks"
         }
