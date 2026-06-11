@@ -634,6 +634,30 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
                 plan.to_runtime_loader_plan_contract()
             )
 
+    def test_nested_crosstl_adapter_manifest_is_discovered_for_runtime_plan(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            package_path = "backend/directx/RuntimeLoaderFixture.hlsl"
+            self._write_crosstl_runtime_adapter_package(
+                package_dir / "runtime-adapters",
+                target="directx",
+                artifact_format="HLSL source",
+                package_path=package_path,
+            )
+
+            plan = read_loader_plan(package_dir, "directx")
+            load_units = plan.crosstl_adapter_load_unit_records()
+
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertEqual(len(load_units), 1)
+            self.assertEqual(load_units[0].package_path, package_path)
+            self.assertRuntimeLoaderPlanContractValid(
+                plan.to_runtime_loader_plan_contract()
+            )
+
     def test_zip_loader_plan_discovers_crosstl_adapter_sidecar(self) -> None:
         with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
             package_dir = Path(temp_dir)
@@ -684,6 +708,33 @@ class RuntimeLoaderFacadeTests(unittest.TestCase):
             package_path = "backend/directx/RuntimeLoaderFixture.hlsl"
             self._write_crosstl_runtime_adapter_package(
                 package_dir,
+                target="directx",
+                artifact_format="HLSL source",
+                package_path=package_path,
+            )
+            zip_path = package_dir.with_suffix(".zip")
+            self._write_zip_package(package_dir, zip_path, prefix=zip_path.name)
+
+            with self._guard_crossgl_source_archive_reads():
+                plan = read_loader_plan(zip_path, "directx")
+            load_units = plan.crosstl_adapter_load_unit_records()
+
+            self.assertTrue(plan.loadable, plan.to_summary()["diagnostics"])
+            self.assertEqual(len(load_units), 1)
+            self.assertEqual(load_units[0].package_path, package_path)
+            self.assertRuntimeLoaderPlanContractValid(
+                plan.to_runtime_loader_plan_contract()
+            )
+
+    def test_nested_zip_loader_plan_discovers_crosstl_adapter_sidecar(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(suffix=".cglb") as temp_dir:
+            package_dir = Path(temp_dir)
+            self._write_valid_package(package_dir, target="directx")
+            package_path = "backend/directx/RuntimeLoaderFixture.hlsl"
+            self._write_crosstl_runtime_adapter_package(
+                package_dir / "runtime-adapters",
                 target="directx",
                 artifact_format="HLSL source",
                 package_path=package_path,

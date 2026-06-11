@@ -376,10 +376,11 @@ def discover_crosstl_runtime_adapter_load_units(
     if package_path.is_file() and zipfile.is_zipfile(package_path):
         return _read_crosstl_runtime_adapter_load_units_from_zip(package_path)
 
-    manifest_path = _runtime_adapter_manifest_path(package_path)
-    if manifest_path is None:
-        return ()
-    return read_crosstl_runtime_adapter_load_units(manifest_path)
+    return tuple(
+        unit
+        for manifest_path in _runtime_adapter_manifest_paths(package_path)
+        for unit in read_crosstl_runtime_adapter_load_units(manifest_path)
+    )
 
 
 def _read_crosstl_runtime_adapter_load_units_from_zip(
@@ -390,22 +391,41 @@ def _read_crosstl_runtime_adapter_load_units_from_zip(
     except (OSError, PackageReadError, zipfile.BadZipFile):
         return ()
 
-    manifest_info = members.get("runtime-adapters.json")
-    if manifest_info is None:
+    manifest_records = _zip_runtime_adapter_manifest_records(members)
+    if not manifest_records:
         return ()
 
+    load_units: list[CrossTLRuntimeAdapterLoadUnit] = []
+    for manifest_member, manifest_info in manifest_records:
+        load_units.extend(
+            _read_crosstl_runtime_adapter_load_units_from_zip_manifest(
+                package_path,
+                manifest_member,
+                manifest_info,
+                members,
+            )
+        )
+    return tuple(load_units)
+
+
+def _read_crosstl_runtime_adapter_load_units_from_zip_manifest(
+    package_path: Path,
+    manifest_member: str,
+    manifest_info: zipfile.ZipInfo,
+    members: dict[str, zipfile.ZipInfo],
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
     diagnostics: list[CrossTLAdapterDiagnostic] = []
-    manifest_path = Path(f"{package_path}!/runtime-adapters.json")
+    manifest_path = Path(f"{package_path}!/{manifest_member}")
     try:
         with zipfile.ZipFile(package_path) as archive:
             manifest_payload = _read_zip_json_payload(
                 archive,
                 manifest_info,
-                root_file_name="runtime-adapters.json",
+                root_file_name=manifest_member,
             )
         document = _parse_json_object_payload(
             manifest_payload,
-            root_file_name="runtime-adapters.json",
+            root_file_name=manifest_member,
         )
     except (OSError, PackageReadError, zipfile.BadZipFile) as exc:
         diagnostics.append(
@@ -427,7 +447,10 @@ def _read_crosstl_runtime_adapter_load_units_from_zip(
         package_path,
         document,
         diagnostics,
-        descriptor_reader=_zip_descriptor_document_reader(members),
+        descriptor_reader=_zip_descriptor_document_reader(
+            members,
+            _zip_member_parent_prefix(manifest_member),
+        ),
     )
     report = _adapter_package_report_from_document(
         manifest_path,
@@ -457,13 +480,52 @@ def _empty_report(
     )
 
 
-def _runtime_adapter_manifest_path(path: Path) -> Path | None:
+def _runtime_adapter_manifest_paths(path: Path) -> tuple[Path, ...]:
     if path.is_file() and path.name == "runtime-adapters.json":
-        return path
-    manifest_path = path / "runtime-adapters.json"
-    if path.is_dir() and manifest_path.is_file():
-        return manifest_path
-    return None
+        return (path,)
+    if not path.is_dir():
+        return ()
+
+    root_manifest_path = path / "runtime-adapters.json"
+    if root_manifest_path.is_file():
+        return (root_manifest_path,)
+
+    nested_manifest_path = path / "runtime-adapters" / "runtime-adapters.json"
+    if nested_manifest_path.is_file():
+        return (nested_manifest_path,)
+
+    discovered = sorted(
+        candidate
+        for candidate in path.rglob("runtime-adapters.json")
+        if candidate.is_file()
+    )
+    return tuple(discovered[:1])
+
+
+def _zip_runtime_adapter_manifest_records(
+    members: dict[str, zipfile.ZipInfo],
+) -> tuple[tuple[str, zipfile.ZipInfo], ...]:
+    root_manifest = members.get("runtime-adapters.json")
+    if root_manifest is not None:
+        return (("runtime-adapters.json", root_manifest),)
+
+    nested_manifest = members.get("runtime-adapters/runtime-adapters.json")
+    if nested_manifest is not None:
+        return (("runtime-adapters/runtime-adapters.json", nested_manifest),)
+
+    discovered = tuple(
+        sorted(
+            (member_name, info)
+            for member_name, info in members.items()
+            if member_name.endswith("/runtime-adapters.json")
+        )
+    )
+    return discovered[:1]
+
+
+def _zip_member_parent_prefix(member_name: str) -> str:
+    parent = member_name.rsplit("/", 1)[0] if "/" in member_name else ""
+    return f"{parent}/" if parent else ""
 
 
 def _read_json_object(
@@ -524,6 +586,7 @@ def _read_descriptor_document_from_directory(
 
 def _zip_descriptor_document_reader(
     members: dict[str, zipfile.ZipInfo],
+    member_prefix: str = "",
 ) -> DescriptorDocumentReader:
     def read_descriptor(
         root: Path,
@@ -531,7 +594,8 @@ def _zip_descriptor_document_reader(
         json_path: str,
         diagnostics: list[CrossTLAdapterDiagnostic],
     ) -> tuple[dict[str, Any] | None, bytes | None]:
-        info = members.get(descriptor_path)
+        member_name = f"{member_prefix}{descriptor_path}"
+        info = members.get(member_name)
         if info is None:
             diagnostics.append(
                 CrossTLAdapterDiagnostic(
@@ -539,7 +603,7 @@ def _zip_descriptor_document_reader(
                     code="crosstl.adapter.unreadable_json",
                     message=(
                         "failed to read JSON object: missing archive member "
-                        f"{descriptor_path!r}"
+                        f"{member_name!r}"
                     ),
                     path=json_path,
                 )
