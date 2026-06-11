@@ -453,6 +453,8 @@ struct SourceBatchEntry {
   std::optional<crossgl::OptimizationLevel> optimizationLevel;
   std::optional<bool> debugIR;
   std::optional<std::filesystem::path> sourceRemap;
+  std::optional<std::string> sourceRemapMetadata;
+  std::optional<std::filesystem::path> sourceRemapMetadataBaseDirectory;
 };
 
 struct SourceBatchManifest {
@@ -3692,6 +3694,8 @@ bool parseCrossTLProjectReportArtifact(
   } else {
     entry.sourceRemap = resolveManifestPath(projectRoot, *sourceRemapPath);
   }
+  entry.sourceRemapMetadata = std::string(*sourceRemap);
+  entry.sourceRemapMetadataBaseDirectory = projectRoot;
   manifest.sources.push_back(std::move(entry));
   return true;
 }
@@ -4163,9 +4167,23 @@ sourceRemapDocumentLocation(const std::filesystem::path &requestedPath,
 std::vector<crossgl::Diagnostic> loadAndValidateSourceRemapDiagnostics(
     const std::filesystem::path &sourceRemapPath,
     const std::filesystem::path &compilerInputPath,
+    const std::optional<std::string> &sourceRemapMetadata,
+    const std::optional<std::filesystem::path> &sourceRemapMetadataBaseDirectory,
+    const std::filesystem::path &metadataLocationPath,
     std::optional<crossgl::SourceRemap> &sourceRemap) {
   crossgl::DiagnosticEngine remapDiagnostics;
-  sourceRemap = crossgl::loadSourceRemap(sourceRemapPath, remapDiagnostics);
+  if (sourceRemapMetadata) {
+    std::filesystem::path baseDirectory =
+        sourceRemapMetadataBaseDirectory.value_or(sourceRemapPath.parent_path());
+    if (baseDirectory.empty()) {
+      baseDirectory = ".";
+    }
+    sourceRemap = crossgl::loadSourceRemapMetadata(
+        *sourceRemapMetadata, baseDirectory, cliSourceLocation(metadataLocationPath),
+        remapDiagnostics);
+  } else {
+    sourceRemap = crossgl::loadSourceRemap(sourceRemapPath, remapDiagnostics);
+  }
   if (!sourceRemap) {
     return remapDiagnostics.diagnostics();
   }
@@ -4173,6 +4191,15 @@ std::vector<crossgl::Diagnostic> loadAndValidateSourceRemapDiagnostics(
       *sourceRemap, compilerInputPath, remapDiagnostics,
       sourceRemapDocumentLocation(sourceRemapPath, *sourceRemap));
   return remapDiagnostics.diagnostics();
+}
+
+std::vector<crossgl::Diagnostic> loadAndValidateSourceRemapDiagnostics(
+    const std::filesystem::path &sourceRemapPath,
+    const std::filesystem::path &compilerInputPath,
+    std::optional<crossgl::SourceRemap> &sourceRemap) {
+  return loadAndValidateSourceRemapDiagnostics(
+      sourceRemapPath, compilerInputPath, std::nullopt, std::nullopt,
+      sourceRemapPath, sourceRemap);
 }
 
 bool hasErrorDiagnostics(const std::vector<crossgl::Diagnostic> &diagnostics) {
@@ -4430,8 +4457,10 @@ int commandCheckSourceBatch(const std::vector<std::string> &args,
       const std::filesystem::path compilerInputPath =
           entry.logicalInput.value_or(entry.path);
       std::vector<crossgl::Diagnostic> remapDiagnostics =
-          loadAndValidateSourceRemapDiagnostics(*entry.sourceRemap,
-                                                compilerInputPath, sourceRemap);
+          loadAndValidateSourceRemapDiagnostics(
+              *entry.sourceRemap, compilerInputPath, entry.sourceRemapMetadata,
+              entry.sourceRemapMetadataBaseDirectory, manifest->path,
+              sourceRemap);
       if (hasErrorDiagnostics(remapDiagnostics)) {
         entryDiagnostics = std::move(remapDiagnostics);
       } else if (sourceRemap) {
@@ -4535,8 +4564,10 @@ int commandBuildSourceBatch(const std::vector<std::string> &args,
       const std::filesystem::path compilerInputPath =
           entry.logicalInput.value_or(entry.path);
       std::vector<crossgl::Diagnostic> remapDiagnostics =
-          loadAndValidateSourceRemapDiagnostics(*entry.sourceRemap,
-                                                compilerInputPath, sourceRemap);
+          loadAndValidateSourceRemapDiagnostics(
+              *entry.sourceRemap, compilerInputPath, entry.sourceRemapMetadata,
+              entry.sourceRemapMetadataBaseDirectory, manifest->path,
+              sourceRemap);
       if (hasErrorDiagnostics(remapDiagnostics)) {
         appendDiagnostics(allDiagnostics, remapDiagnostics);
         entryResults.push_back(std::move(entryResult));
