@@ -1,0 +1,37 @@
+shader MetalCrossTLVertexReturnStructShader {
+    struct CrossTLVertexInput {
+        vec3 position;
+        vec2 texCoord;
+        vec4 color;
+    }
+
+    struct CrossTLVertexOutput {
+        vec2 uv;
+        vec4 position;
+        vec4 color;
+        float fog;
+    }
+
+    struct CrossTLFragmentTarget {
+        vec4 color;
+    }
+
+    vertex {
+        CrossTLVertexOutput main(CrossTLVertexInput input) {
+            CrossTLVertexOutput output;
+            output.uv = input.texCoord;
+            output.position = vec4(input.position, 1.0);
+            output.color = input.color;
+            output.fog = input.position.z;
+            return output;
+        }
+    }
+
+    fragment {
+        CrossTLFragmentTarget main(CrossTLVertexOutput input) {
+            CrossTLFragmentTarget output;
+            output.color = vec4(input.uv, input.fog, 1.0) * input.color;
+            return output;
+        }
+    }
+}

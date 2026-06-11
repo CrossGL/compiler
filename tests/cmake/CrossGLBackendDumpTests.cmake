@@ -92,6 +92,34 @@ add_test(NAME cglc_dump_backend_metal_graphics_vertex_attribute_varying_shape
     -DMODE=dump-backend
     "-DMUST_CONTAIN=${CROSSGL_METAL_GRAPHICS_VARYING_PACK_REGEX}"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_METAL_CROSSTL_VERTEX_RETURN_STRUCT_REGEX [=[struct CrossTLVertexOutput \{
+  float2 uv;
+  float4 position \[\[position\]\];
+  float4 color;
+  float fog;
+\};
+
+struct CrossTLFragmentTarget \{
+  float4 color \[\[color\(0\)\]\];
+\};.*vertex CrossTLVertexOutput vertex_main\(CrossTLVertexInput input \[\[stage_in\]\]\) \{
+  CrossTLVertexOutput output;
+  output\.uv = input\.texCoord;
+  output\.position = float4\(input\.position, 1\.0\);
+  output\.color = input\.color;
+  output\.fog = input\.position\.z;
+  return output;
+\}.*fragment CrossTLFragmentTarget fragment_main\(CrossTLVertexOutput input \[\[stage_in\]\]\) \{
+  CrossTLFragmentTarget output;
+  output\.color = float4\(input\.uv, input\.fog, 1\.0\) \* input\.color;
+  return output;]=])
+add_test(NAME cglc_dump_backend_metal_crosstl_vertex_return_struct_preserved
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_METAL_CROSSTL_VERTEX_RETURN_STRUCT_SHADER}
+    -DTARGET=metal
+    -DMODE=dump-backend
+    "-DMUST_CONTAIN=${CROSSGL_METAL_CROSSTL_VERTEX_RETURN_STRUCT_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_backend_metal_graphics_vertex_uniform_resource
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>

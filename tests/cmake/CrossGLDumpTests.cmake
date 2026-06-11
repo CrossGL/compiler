@@ -109,6 +109,15 @@ add_test(NAME cglc_dump_hir_source_map_graphics_fragment_member_provenance
     "-DEXPECTED_JSON_ARRAY_LENGTHS=hirSourceLocations.expressions=7|hirSourceLocations.types=0|hirSourceLocations.statements=0|categoryCounts.expressionKinds=1|categoryCounts.typeOwnerKinds=0"
     "-DEXPECTED_JSON_FIELDS=schemaVersion=7|filters.activeCount=2|filters.stage=fragment|filters.expressionKind=member|pagination.activeCount=0|categoryCounts.expressionTotalCount=7|categoryCounts.typeTotalCount=0|categoryCounts.statementTotalCount=0|categoryCounts.recordTotalCount=7|categoryCounts.expressionKinds.0.name=member|categoryCounts.expressionKinds.0.count=7|records.enabled=false|records.totalCount=7|hirSourceLocations.expressionCount=7|hirSourceLocations.expressionWithLocationCount=7|hirSourceLocations.typeCount=0|hirSourceLocations.typeWithLocationCount=0|hirSourceLocations.expressions.0.stage=fragment|hirSourceLocations.expressions.0.entryPoint=main|hirSourceLocations.expressions.0.function=main|hirSourceLocations.expressions.0.statementKind=assign|hirSourceLocations.expressions.0.kind=member|hirSourceLocations.expressions.0.value=color|hirSourceLocations.expressions.0.type=vec4|hirSourceLocations.expressions.0.location.line=36|hirSourceLocations.expressions.0.location.column=20|hirSourceLocations.expressions.1.value=x|hirSourceLocations.expressions.1.type=float|hirSourceLocations.expressions.1.location.line=36|hirSourceLocations.expressions.2.value=uv|hirSourceLocations.expressions.2.type=vec2|hirSourceLocations.expressions.2.location.line=36|hirSourceLocations.expressions.3.value=y|hirSourceLocations.expressions.3.type=float|hirSourceLocations.expressions.4.value=uv|hirSourceLocations.expressions.4.type=vec2|hirSourceLocations.expressions.5.value=z|hirSourceLocations.expressions.5.type=float|hirSourceLocations.expressions.6.value=tint|hirSourceLocations.expressions.6.type=vec4"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
+set(CROSSGL_METAL_CROSSTL_VERTEX_RETURN_STRUCT_HIR_REGEX [=[struct CrossTLVertexOutput.*vec2 uv.*vec4 position.*vec4 color.*float fog.*struct CrossTLFragmentTarget.*vec4 color.*stage vertex entry main.*fn main\(CrossTLVertexInput input\) -> CrossTLVertexOutput.*decl CrossTLVertexOutput output.*assign output\.uv : vec2 = input\.texCoord : vec2.*assign output\.position : vec4 = vec4\(input\.position, 1\.0\) : vec4.*assign output\.color : vec4 = input\.color : vec4.*assign output\.fog : float = input\.position\.z : float.*return output : CrossTLVertexOutput.*stage fragment entry main.*fn main\(CrossTLVertexOutput input\) -> CrossTLFragmentTarget]=])
+add_test(NAME cglc_dump_hir_metal_crosstl_vertex_return_struct_preserved
+  COMMAND ${CMAKE_COMMAND}
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_METAL_CROSSTL_VERTEX_RETURN_STRUCT_SHADER}
+    -DSTAGE=hir
+    -DMODE=dump-stage
+    "-DMUST_CONTAIN=${CROSSGL_METAL_CROSSTL_VERTEX_RETURN_STRUCT_HIR_REGEX}"
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_hir_source_map_control_transfer_statement_provenance
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
