@@ -6378,6 +6378,26 @@ crossgl_add_cli_surface_test(cglc_cli_dump_backend_source_map_opengl_source_rema
     "\"originalLocation\""
     "\"file\": \"shaders/original.crossgl\"")
 
+crossgl_add_cli_surface_test(cglc_cli_dump_backend_source_map_metal_source_remap_original_location
+  EXPECTED_RESULT 0
+  ARGS dump-ir ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    --stage backend-source-map
+    --target metal
+    --logical-input generated/from-translator.cgl
+    --source-remap ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json
+  STDOUT_CONTAINS
+    "\"kind\": \"crossgl.backendSourceMap\""
+    "\"target\": \"metal\""
+    "\"mappingGranularity\": \"statement\""
+    "\"sourceBackend\": \"crossgl-hir\""
+    "\"targetBackend\": \"msl\""
+    "\"language\": \"msl\""
+    "\"sourceRemap\""
+    "\"generatedFile\": \"generated/from-translator.cgl\""
+    "\"sourceBackend\": \"cgl\""
+    "\"originalLocation\""
+    "\"file\": \"shaders/original.crossgl\"")
+
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_source_remap_metadata_missing_sidecar_fails
   EXPECTED_RESULT 1
   ARGS check ${CROSSGL_SIMPLE_SHADER}

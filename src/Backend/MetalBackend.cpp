@@ -8,10 +8,12 @@
 #include "crossgl/Backend/TargetLegalization.h"
 #include "crossgl/Backend/TextureCompare.h"
 #include "crossgl/Basic/Json.h"
+#include "crossgl/Driver/SourceRemap.h"
 #include "crossgl/Driver/StorageLayout.h"
 #include "crossgl/Frontend/TokenText.h"
 #include "crossgl/HIR/TypeSemantics.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -494,6 +496,8 @@ metalResourceAttributeNamespace(const HIRResource &resource) {
 using MetalFunctionResourceParameterMap =
     std::map<std::string, std::vector<const HIRResource *>>;
 
+struct MetalBackendSourceMapCollector;
+
 struct MetalRenderContext {
   const std::vector<HIRStruct> *structs = nullptr;
   const std::vector<HIRConstant> *constants = nullptr;
@@ -502,6 +506,9 @@ struct MetalRenderContext {
   std::string_view stageName;
   std::set<std::string> localIdentifiers;
   std::set<std::string> localZeroIndexIdentifiers;
+  const HIRFunction *function = nullptr;
+  MetalBackendSourceMapCollector *sourceMap = nullptr;
+  std::string backendEntryPoint;
 };
 
 const HIRResource *findMetalResource(const MetalRenderContext &context,
@@ -2387,11 +2394,151 @@ std::string renderMetalForUpdate(const HIRStatement &statement,
              : renderMetalStatementInline(statement.update.front(), context);
 }
 
-std::string renderMetalStatement(const HIRStatement &statement,
-                                 const MetalRenderContext &context,
-                                 std::size_t indentation) {
+struct MetalBackendSourceMapRecord {
+  std::size_t index = 0;
+  std::size_t backendStartLine = 1;
+  std::size_t backendEndLine = 1;
+  std::string stage;
+  std::string entryPoint;
+  std::string function;
+  std::string statementKind;
+  std::string name;
+  SourceLocation location;
+  std::optional<SourceLocation> originalLocation;
+};
+
+std::size_t metalLineForOffset(std::string_view text, std::size_t offset) {
+  const std::size_t boundedOffset = std::min(offset, text.size());
+  return static_cast<std::size_t>(
+             std::count(text.begin(), text.begin() + boundedOffset, '\n')) +
+         1;
+}
+
+std::size_t metalEmittedEndLine(std::string_view text,
+                                std::size_t beginOffset) {
+  if (beginOffset >= text.size()) {
+    return metalLineForOffset(text, beginOffset);
+  }
+  const std::string_view emitted = text.substr(beginOffset);
+  const std::size_t startLine = metalLineForOffset(text, beginOffset);
+  const std::size_t newlineCount = static_cast<std::size_t>(
+      std::count(emitted.begin(), emitted.end(), '\n'));
+  if (newlineCount == 0) {
+    return startLine;
+  }
+  return startLine + newlineCount - (emitted.back() == '\n' ? 1 : 0);
+}
+
+std::size_t metalBackendSourceLineCount(std::string_view text) {
+  if (text.empty()) {
+    return 0;
+  }
+  const std::size_t newlineCount =
+      static_cast<std::size_t>(std::count(text.begin(), text.end(), '\n'));
+  return newlineCount + (text.back() == '\n' ? 0 : 1);
+}
+
+bool metalSourceMapRecordsStatement(HIRStatementKind kind) {
+  return kind != HIRStatementKind::Block && kind != HIRStatementKind::If &&
+         kind != HIRStatementKind::For;
+}
+
+std::string metalSourceMapStatementName(const HIRStatement &statement,
+                                        const MetalRenderContext &context) {
+  switch (statement.kind) {
+  case HIRStatementKind::Declaration:
+    return mapMetalIdentifier(statement.name);
+  case HIRStatementKind::Assignment:
+    return renderMetalExpression(statement.target, context);
+  case HIRStatementKind::Return:
+    return "return";
+  case HIRStatementKind::Expression:
+    return renderMetalExpression(statement.value, context);
+  case HIRStatementKind::Break:
+    return "break";
+  case HIRStatementKind::Continue:
+    return "continue";
+  case HIRStatementKind::Discard:
+    return "discard";
+  case HIRStatementKind::Block:
+    return "block";
+  case HIRStatementKind::If:
+  case HIRStatementKind::For:
+    return renderMetalExpression(statement.value, context);
+  case HIRStatementKind::Raw:
+    return "raw";
+  }
+  return "";
+}
+
+struct MetalBackendSourceMapCollector {
+  const SourceRemap *sourceRemap = nullptr;
+  std::size_t lineOffset = 0;
+  std::vector<MetalBackendSourceMapRecord> records;
+
+  void recordStatement(const HIRStatement &statement,
+                       const MetalRenderContext &context,
+                       std::size_t beginOffset, std::string_view sourceText) {
+    if (!metalSourceMapRecordsStatement(statement.kind) ||
+        sourceText.size() <= beginOffset) {
+      return;
+    }
+
+    MetalBackendSourceMapRecord record;
+    record.index = records.size();
+    record.backendStartLine =
+        lineOffset + metalLineForOffset(sourceText, beginOffset);
+    record.backendEndLine =
+        lineOffset + metalEmittedEndLine(sourceText, beginOffset);
+    record.stage = std::string(context.stageName);
+    record.entryPoint = context.backendEntryPoint;
+    record.function =
+        context.function == nullptr ? "" : context.function->name;
+    record.statementKind = statementKindName(statement.kind);
+    record.name = metalSourceMapStatementName(statement, context);
+    record.location = statement.location;
+    if (sourceRemap != nullptr) {
+      record.originalLocation =
+          remapSourceLocation(*sourceRemap, statement.location);
+    }
+    records.push_back(std::move(record));
+  }
+};
+
+struct MetalStatementSourceMapScope {
+  std::ostringstream &out;
+  const HIRStatement &statement;
+  const MetalRenderContext &context;
+  std::size_t beginOffset = 0;
+  bool active = false;
+
+  MetalStatementSourceMapScope(std::ostringstream &out,
+                               const HIRStatement &statement,
+                               const MetalRenderContext &context)
+      : out(out), statement(statement), context(context) {
+    active = context.sourceMap != nullptr &&
+             metalSourceMapRecordsStatement(statement.kind);
+    if (active) {
+      beginOffset = out.str().size();
+    }
+  }
+
+  ~MetalStatementSourceMapScope() {
+    if (!active || context.sourceMap == nullptr) {
+      return;
+    }
+    const std::string sourceText = out.str();
+    context.sourceMap->recordStatement(statement, context, beginOffset,
+                                       sourceText);
+  }
+};
+
+void renderMetalStatement(std::ostringstream &out,
+                          const HIRStatement &statement,
+                          const MetalRenderContext &context,
+                          std::size_t indentation) {
   const std::string spaces(indentation, ' ');
-  std::ostringstream out;
+  const MetalStatementSourceMapScope sourceMapScope(out, statement, context);
   switch (statement.kind) {
   case HIRStatementKind::Declaration:
     out << spaces << mapMetalType(statement.declaredType) << " "
@@ -2428,7 +2575,8 @@ std::string renderMetalStatement(const HIRStatement &statement,
   case HIRStatementKind::Block:
     out << spaces << "{\n";
     for (const HIRStatement &child : statement.body) {
-      out << renderMetalStatement(child, context, indentation + 2) << "\n";
+      renderMetalStatement(out, child, context, indentation + 2);
+      out << "\n";
     }
     out << spaces << "}";
     break;
@@ -2436,12 +2584,14 @@ std::string renderMetalStatement(const HIRStatement &statement,
     out << spaces << "if (" << renderMetalExpression(statement.value, context)
         << ") {\n";
     for (const HIRStatement &child : statement.body) {
-      out << renderMetalStatement(child, context, indentation + 2) << "\n";
+      renderMetalStatement(out, child, context, indentation + 2);
+      out << "\n";
     }
     if (!statement.elseBody.empty()) {
       out << spaces << "} else {\n";
       for (const HIRStatement &child : statement.elseBody) {
-        out << renderMetalStatement(child, context, indentation + 2) << "\n";
+        renderMetalStatement(out, child, context, indentation + 2);
+        out << "\n";
       }
     }
     out << spaces << "}";
@@ -2456,7 +2606,8 @@ std::string renderMetalStatement(const HIRStatement &statement,
         << renderMetalExpression(statement.value, context) << "; "
         << renderMetalForUpdate(statement, context) << ") {\n";
     for (const HIRStatement &child : statement.body) {
-      out << renderMetalStatement(child, context, indentation + 2) << "\n";
+      renderMetalStatement(out, child, context, indentation + 2);
+      out << "\n";
     }
     out << spaces << "}";
     break;
@@ -2467,7 +2618,6 @@ std::string renderMetalStatement(const HIRStatement &statement,
            "statement must be lowered to structured HIR */";
     break;
   }
-  return out.str();
 }
 
 std::string renderMetalBody(const HIRStage *stage, const HIRFunction &function,
@@ -2491,7 +2641,8 @@ std::string renderMetalBody(const HIRStage *stage, const HIRFunction &function,
   }
 
   for (const HIRStatement &statement : function.body) {
-    out << renderMetalStatement(statement, context, bodyIndentation) << "\n";
+    renderMetalStatement(out, statement, context, bodyIndentation);
+    out << "\n";
   }
   return out.str();
 }
@@ -2678,6 +2829,7 @@ void collectMetalLocalZeroIndexMetadata(
 MetalRenderContext metalFunctionRenderContext(
     const MetalRenderContext &baseContext, const HIRFunction &function) {
   MetalRenderContext context = baseContext;
+  context.function = &function;
   for (const HIRParameter &parameter : function.parameters) {
     context.localIdentifiers.insert(parameter.name);
   }
@@ -2697,18 +2849,31 @@ MetalRenderContext metalFunctionRenderContext(
   return context;
 }
 
+std::string metalBackendEntryPointName(const HIRStage *stage) {
+  if (stage == nullptr) {
+    return "";
+  }
+  const HIRFunction *entry = entryFunction(*stage);
+  if (entry != nullptr) {
+    return stageFunctionName(stage->stage, *entry);
+  }
+  return stage->stage + "_" + stage->entryPointName;
+}
+
 std::string renderFunction(const HIRStage *stage, const HIRFunction &function,
                            const HIRModule &module,
                            const MetalGraphicsIORoles &graphicsIORoles,
                            bool entryPoint,
                            const MetalFunctionResourceParameterMap
-                               *functionResourceParameters = nullptr) {
+                               *functionResourceParameters = nullptr,
+                           MetalBackendSourceMapCollector *sourceMap =
+                               nullptr) {
   const std::vector<HIRResource> *resources =
       stage == nullptr ? nullptr : &stage->resources;
-  const MetalRenderContext context{
+  MetalRenderContext context{
       &module.structs, &module.constants, resources, functionResourceParameters,
       stage == nullptr ? std::string_view{} : std::string_view{stage->stage},
-      {}, {}};
+      {}, {}, nullptr, sourceMap, metalBackendEntryPointName(stage)};
   const MetalRenderContext functionContext =
       metalFunctionRenderContext(context, function);
   std::ostringstream out;
@@ -2787,8 +2952,11 @@ std::string renderFunction(const HIRStage *stage, const HIRFunction &function,
                                           &module.constants, firstParameter);
     }
   }
-  out << ") {\n"
-      << renderMetalBody(stage, function, functionContext, entryPoint)
+  out << ") {\n";
+  if (sourceMap != nullptr) {
+    sourceMap->lineOffset += 1;
+  }
+  out << renderMetalBody(stage, function, functionContext, entryPoint)
       << "}\n\n";
   return out.str();
 }
@@ -2896,7 +3064,10 @@ metalCompileOptionsForOptimizationLevel(OptimizationLevel level) {
   return options;
 }
 
-std::string generateMetalSource(const HIRModule &module) {
+namespace {
+
+std::string generateMetalSourceWithSourceMap(
+    const HIRModule &module, MetalBackendSourceMapCollector *sourceMap) {
   if (moduleContainsRawStatement(module)) {
     return "// error: opt.hir-raw-statement-backend-input: Metal backend "
            "input cannot contain HIR raw statements; lower them to "
@@ -2926,7 +3097,8 @@ std::string generateMetalSource(const HIRModule &module) {
   }
 
   const MetalRenderContext moduleContext{
-      &module.structs, &module.constants, nullptr, nullptr, {}, {}, {}};
+      &module.structs, &module.constants, nullptr, nullptr, {}, {}, {},
+      nullptr, nullptr, ""};
   for (const HIRConstant &constant : module.constants) {
     out << "constant " << mapMetalType(constant.type) << " " << constant.name
         << " = " << renderMetalExpression(constant.value, moduleContext)
@@ -2959,8 +3131,19 @@ std::string generateMetalSource(const HIRModule &module) {
     }
   }
 
+  auto appendFunction = [&](const HIRStage *stage,
+                            const HIRFunction &function, bool entryPoint,
+                            const MetalFunctionResourceParameterMap
+                                *functionResourceParameters) {
+    if (sourceMap != nullptr) {
+      sourceMap->lineOffset = metalBackendSourceLineCount(out.str());
+    }
+    out << renderFunction(stage, function, module, graphicsIORoles, entryPoint,
+                          functionResourceParameters, sourceMap);
+  };
+
   for (const HIRFunction &function : module.functions) {
-    out << renderFunction(nullptr, function, module, graphicsIORoles, false);
+    appendFunction(nullptr, function, false, nullptr);
   }
 
   for (const HIRStage &stage : module.stages) {
@@ -2968,18 +3151,153 @@ std::string generateMetalSource(const HIRModule &module) {
         metalStageFunctionResourceParameters(stage);
     for (const HIRFunction &function : stage.functions) {
       if (function.name != stage.entryPointName) {
-        out << renderFunction(&stage, function, module, graphicsIORoles, false,
-                              &functionResourceParameters);
+        appendFunction(&stage, function, false, &functionResourceParameters);
       }
     }
     const HIRFunction *entry = entryFunction(stage);
     if (entry != nullptr) {
-      out << renderFunction(&stage, *entry, module, graphicsIORoles, true,
-                            &functionResourceParameters);
+      appendFunction(&stage, *entry, true, &functionResourceParameters);
     }
   }
 
   return out.str();
+}
+
+void appendMetalBackendSourceLocationJson(std::ostringstream &out,
+                                          const SourceLocation &location,
+                                          std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"file\": \"" << escapeJson(location.file) << "\",\n"
+      << indent << "  \"line\": " << location.line << ",\n"
+      << indent << "  \"column\": " << location.column << ",\n"
+      << indent << "  \"offset\": " << location.offset << ",\n"
+      << indent << "  \"length\": " << location.length << ",\n"
+      << indent << "  \"endLine\": " << location.endLine << ",\n"
+      << indent << "  \"endColumn\": " << location.endColumn << ",\n"
+      << indent << "  \"endOffset\": " << location.endOffset << "\n"
+      << indent << "}";
+}
+
+void appendMetalBackendSourceMapSourceRemapJson(
+    std::ostringstream &out, const SourceRemap &sourceRemap,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"path\": \""
+      << escapeJson(sourceRemap.documentPath.value_or("")) << "\",\n"
+      << indent << "  \"sha256\": {\n"
+      << indent << "    \"algorithm\": \"sha256\",\n"
+      << indent << "    \"value\": \""
+      << escapeJson(sourceRemap.documentSha256.value_or("")) << "\"\n"
+      << indent << "  },\n"
+      << indent << "  \"sizeBytes\": "
+      << sourceRemap.documentSizeBytes.value_or(static_cast<std::uintmax_t>(0))
+      << ",\n"
+      << indent << "  \"generatedFile\": \""
+      << escapeJson(sourceRemap.generatedFile) << "\",\n"
+      << indent << "  \"mappingCount\": " << sourceRemap.mappings.size();
+  if (sourceRemap.metadataTarget) {
+    out << ",\n"
+        << indent << "  \"target\": \""
+        << escapeJson(*sourceRemap.metadataTarget) << "\"";
+  }
+  if (sourceRemap.metadataMappingGranularity) {
+    out << ",\n"
+        << indent << "  \"mappingGranularity\": \""
+        << escapeJson(*sourceRemap.metadataMappingGranularity) << "\"";
+  }
+  if (sourceRemap.metadataSourceBackend) {
+    out << ",\n"
+        << indent << "  \"sourceBackend\": \""
+        << escapeJson(*sourceRemap.metadataSourceBackend) << "\"";
+  }
+  if (sourceRemap.metadataVariant) {
+    out << ",\n"
+        << indent << "  \"variant\": \""
+        << escapeJson(*sourceRemap.metadataVariant) << "\"";
+  }
+  out << "\n" << indent << "}";
+}
+
+std::string metalBackendSourceMapJson(
+    const HIRModule &module, std::string_view sourceText,
+    const MetalBackendSourceMapCollector &sourceMap) {
+  std::ostringstream out;
+  out << "{\n"
+      << "  \"schemaVersion\": 1,\n"
+      << "  \"kind\": \"crossgl.backendSourceMap\",\n"
+      << "  \"target\": \"metal\",\n"
+      << "  \"module\": \"" << escapeJson(module.name) << "\",\n"
+      << "  \"mappingGranularity\": \"statement\",\n"
+      << "  \"sourceBackend\": \"crossgl-hir\",\n"
+      << "  \"targetBackend\": \"msl\",\n"
+      << "  \"backend\": {\n"
+      << "    \"language\": \"msl\",\n"
+      << "    \"lineCount\": " << metalBackendSourceLineCount(sourceText)
+      << "\n"
+      << "  },\n"
+      << "  \"sourceRemap\": ";
+  if (sourceMap.sourceRemap != nullptr &&
+      sourceMap.sourceRemap->documentPath &&
+      sourceMap.sourceRemap->documentSha256 &&
+      sourceMap.sourceRemap->documentSizeBytes) {
+    appendMetalBackendSourceMapSourceRemapJson(out, *sourceMap.sourceRemap,
+                                               "  ");
+  } else {
+    out << "null";
+  }
+  out << ",\n"
+      << "  \"mappingCount\": " << sourceMap.records.size() << ",\n"
+      << "  \"mappings\": [";
+  for (std::size_t i = 0; i < sourceMap.records.size(); ++i) {
+    const MetalBackendSourceMapRecord &record = sourceMap.records[i];
+    if (i != 0) {
+      out << ",";
+    }
+    out << "\n    {\n"
+        << "      \"index\": " << record.index << ",\n"
+        << "      \"stage\": \"" << escapeJson(record.stage) << "\",\n"
+        << "      \"entryPoint\": \"" << escapeJson(record.entryPoint)
+        << "\",\n"
+        << "      \"function\": \"" << escapeJson(record.function) << "\",\n"
+        << "      \"statementKind\": \"" << escapeJson(record.statementKind)
+        << "\",\n"
+        << "      \"name\": \"" << escapeJson(record.name) << "\",\n"
+        << "      \"backend\": {\n"
+        << "        \"startLine\": " << record.backendStartLine << ",\n"
+        << "        \"endLine\": " << record.backendEndLine << "\n"
+        << "      },\n"
+        << "      \"location\": ";
+    appendMetalBackendSourceLocationJson(out, record.location, "      ");
+    if (record.originalLocation) {
+      out << ",\n"
+          << "      \"originalLocation\": ";
+      appendMetalBackendSourceLocationJson(out, *record.originalLocation,
+                                           "      ");
+    }
+    out << "\n"
+        << "    }";
+  }
+  if (!sourceMap.records.empty()) {
+    out << "\n  ";
+  }
+  out << "]\n"
+      << "}\n";
+  return out.str();
+}
+
+} // namespace
+
+std::string generateMetalSource(const HIRModule &module) {
+  return generateMetalSourceWithSourceMap(module, nullptr);
+}
+
+std::string generateMetalBackendSourceMapJson(
+    const HIRModule &module, const SourceRemap *sourceRemap) {
+  MetalBackendSourceMapCollector sourceMap;
+  sourceMap.sourceRemap = sourceRemap;
+  const std::string sourceText =
+      generateMetalSourceWithSourceMap(module, &sourceMap);
+  return metalBackendSourceMapJson(module, sourceText, sourceMap);
 }
 
 std::string metalResourceABIType(const HIRResource &resource) {
@@ -3401,7 +3719,7 @@ bool validateMetalRuntimeTailBlockIndexes(const HIRModule &module,
     }
     const MetalRenderContext context{&module.structs, &module.constants,
                                      &stage.resources, nullptr, stage.stage,
-                                     {}, {}};
+                                     {}, {}, nullptr, nullptr, ""};
     for (const HIRFunction &function : stage.functions) {
       const MetalRenderContext functionContext =
           metalFunctionRenderContext(context, function);
@@ -3476,7 +3794,7 @@ bool validateMetalStorageBufferArrayIndexes(const HIRModule &module,
   for (const HIRStage &stage : module.stages) {
     const MetalRenderContext context{&module.structs, &module.constants,
                                      &stage.resources, nullptr, stage.stage,
-                                     {}, {}};
+                                     {}, {}, nullptr, nullptr, ""};
     for (const HIRFunction &function : stage.functions) {
       const MetalRenderContext functionContext =
           metalFunctionRenderContext(context, function);
@@ -3635,7 +3953,7 @@ std::string joinMetalLabels(const std::set<std::string> &labels) {
 bool metalIsStaticArrayIndexExpression(const HIRModule &module,
                                        const HIRExpression &expression) {
   const MetalRenderContext context{nullptr, &module.constants, nullptr, nullptr,
-                                   {}, {}, {}};
+                                   {}, {}, {}, nullptr, nullptr, ""};
   return metalDescriptorArrayIndexValue(expression, context).has_value();
 }
 
@@ -4224,7 +4542,8 @@ bool validateMetalNonUniformDescriptorIndexes(const HIRModule &module,
   bool valid = true;
   bool reported = false;
   const MetalRenderContext moduleContext{
-      &module.structs, &module.constants, nullptr, nullptr, {}, {}, {}};
+      &module.structs, &module.constants, nullptr, nullptr, {}, {}, {},
+      nullptr, nullptr, ""};
   for (const HIRConstant &constant : module.constants) {
     valid = validateMetalNonUniformDescriptorIndexExpression(
                 constant.value, moduleContext, diagnostics, reported, false,
@@ -4239,7 +4558,8 @@ bool validateMetalNonUniformDescriptorIndexes(const HIRModule &module,
   for (const HIRStage &stage : module.stages) {
     const MetalRenderContext stageContext{&module.structs, &module.constants,
                                           &stage.resources, nullptr,
-                                          stage.stage, {}, {}};
+                                          stage.stage, {}, {}, nullptr,
+                                          nullptr, ""};
     for (const HIRFunction &function : stage.functions) {
       valid = validateMetalNonUniformDescriptorIndexFunction(
                   function, stageContext, diagnostics, reported) &&

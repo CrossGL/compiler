@@ -751,6 +751,19 @@ crossgl_add_python_expect_test(
     "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=opengl|module=StorageBufferComputeShader|mappingGranularity=statement|sourceBackend=crossgl-hir|targetBackend=glsl|backend.language=glsl|backend.lineCount=13|sourceRemap.target=cgl|sourceRemap.generatedFile=generated/from-translator.cgl|sourceRemap.mappingGranularity=file|sourceRemap.mappingCount=1|sourceRemap.sizeBytes=592|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug|mappingCount=2|mappings.0.stage=compute|mappings.0.entryPoint=compute_main|mappings.0.function=main|mappings.0.statementKind=assign|mappings.0.name=values[0]|mappings.0.backend.startLine=10|mappings.0.backend.endLine=10|mappings.0.location.file=generated/from-translator.cgl|mappings.0.location.line=8|mappings.0.originalLocation.file=shaders/original.crossgl|mappings.0.originalLocation.line=47|mappings.1.statementKind=return|mappings.1.backend.startLine=11|mappings.1.backend.endLine=11|mappings.1.originalLocation.line=48"
     -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
+crossgl_add_python_expect_test(
+  NAME cglc_dump_backend_source_map_metal_logical_source_remap
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DTARGET=metal
+    -DSTAGE=backend-source-map
+    -DMODE=dump-stage
+    "-DSOURCE_MAP_FILTER_ARGS=--logical-input|generated/from-translator.cgl|--source-remap|${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json"
+    "-DEXPECTED_JSON_ARRAY_LENGTHS=mappings=2"
+    "-DEXPECTED_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=metal|module=StorageBufferComputeShader|mappingGranularity=statement|sourceBackend=crossgl-hir|targetBackend=msl|backend.language=msl|backend.lineCount=8|sourceRemap.target=cgl|sourceRemap.generatedFile=generated/from-translator.cgl|sourceRemap.mappingGranularity=file|sourceRemap.mappingCount=1|sourceRemap.sizeBytes=592|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug|mappingCount=2|mappings.0.stage=compute|mappings.0.entryPoint=compute_main|mappings.0.function=main|mappings.0.statementKind=assign|mappings.0.name=values[0]|mappings.0.backend.startLine=5|mappings.0.backend.endLine=5|mappings.0.location.file=generated/from-translator.cgl|mappings.0.location.line=8|mappings.0.originalLocation.file=shaders/original.crossgl|mappings.0.originalLocation.line=47|mappings.1.statementKind=return|mappings.1.backend.startLine=6|mappings.1.backend.endLine=6|mappings.1.originalLocation.line=48"
+    -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
 add_test(NAME cglc_dump_hir_source_map_while_lowered_for_provenance
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
@@ -1422,11 +1435,11 @@ add_test(NAME cglc_dump_backend_source_map_rejects_unsupported_target
   COMMAND ${CMAKE_COMMAND}
     -DCGLC=$<TARGET_FILE:cglc>
     -DINPUT=${CROSSGL_SIMPLE_SHADER}
-    -DTARGET=metal
+    -DTARGET=vulkan
     -DSTAGE=backend-source-map
     -DMODE=dump-stage-failure
     -DEXPECTED_DIAGNOSTIC=dump.backend-source-map.unsupported-target
-    "-DEXPECTED_STDERR_FRAGMENT=backend source maps currently support directx and opengl only"
+    "-DEXPECTED_STDERR_FRAGMENT=backend source maps currently support directx, metal, and opengl only"
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ExpectCommand.cmake)
 add_test(NAME cglc_dump_hir_source_map_records
   COMMAND ${CMAKE_COMMAND}

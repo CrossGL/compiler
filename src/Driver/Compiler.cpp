@@ -2881,14 +2881,21 @@ std::optional<std::string> dumpIRFromCompilerModule(
     }
     return std::nullopt;
   case DumpStage::BackendSourceMap:
-    if (target != TargetKind::DirectX && target != TargetKind::OpenGL) {
+    if (target != TargetKind::DirectX && target != TargetKind::Metal &&
+        target != TargetKind::OpenGL) {
       diagnostics.error("dump.backend-source-map.unsupported-target",
-                        "backend source maps currently support directx and "
-                        "opengl only");
+                        "backend source maps currently support directx, "
+                        "metal, and opengl only");
       return std::nullopt;
     }
     if (std::optional<BackendAdmission> admission =
             requireAdmittedBackendInput(parsed, target, diagnostics)) {
+      if (admission->legalization.target == TargetKind::Metal) {
+        return generateMetalBackendSourceMapJson(
+            *admission->input.module,
+            sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
+                                         : nullptr);
+      }
       if (admission->legalization.target == TargetKind::OpenGL) {
         return generateOpenGLBackendSourceMapJson(
             *admission->input.module, admission->legalization.resourceBindings,
@@ -3282,13 +3289,35 @@ CompileResult compile(const CompileRequest &request) {
         assignDiagnostics();
         return result;
       }
+      if (request.debugIR) {
+        backendSourceMapPath =
+            metal.sourcePath.parent_path() /
+            (backendHIR.name + ".backend-source-map.json");
+        const SourceRemap *backendSourceMapRemap =
+            sourceMapOptions.sourceRemap ? &*sourceMapOptions.sourceRemap
+                                         : nullptr;
+        std::optional<SourceRemap> packageLocalSourceRemap;
+        if (sourceMapOptions.sourceRemap && sourceRemapProvenancePath) {
+          packageLocalSourceRemap = packageLocalBackendSourceMapRemap(
+              *sourceMapOptions.sourceRemap, packageDir,
+              *sourceRemapProvenancePath);
+          backendSourceMapRemap = &*packageLocalSourceRemap;
+        }
+        if (!writeText(*backendSourceMapPath,
+                       generateMetalBackendSourceMapJson(
+                           backendHIR, backendSourceMapRemap),
+                       diagnostics, "artifact.write-backend-source-map")) {
+          assignDiagnostics();
+          return result;
+        }
+      }
       const std::string manifest = manifestJson(
           backendHIR, target, sourceHash, packageDir,
           projection.packageArtifactRequirements, projection, &metal, nullptr,
           nullptr, nullptr, nullptr, &*descriptorPath,
           debugMetadataPath ? &*debugMetadataPath : nullptr,
           hirSourceMapPath ? &*hirSourceMapPath : nullptr,
-          nullptr,
+          backendSourceMapPath ? &*backendSourceMapPath : nullptr,
           sourceRemapProvenancePath ? &*sourceRemapProvenancePath : nullptr,
           targetExplanationPath ? &*targetExplanationPath : nullptr,
           graphicsAbiSidecarPath ? &*graphicsAbiSidecarPath : nullptr,

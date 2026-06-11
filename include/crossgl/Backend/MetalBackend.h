@@ -14,6 +14,7 @@
 namespace crossgl {
 
 struct TargetLegalizationResourceBindingFacts;
+struct SourceRemap;
 
 struct MetalBuildResult {
   bool success = false;
@@ -52,6 +53,9 @@ MetalCompileOptions metalCompileOptionsForOptimizationLevel(
     OptimizationLevel level);
 
 std::string generateMetalSource(const HIRModule &module);
+std::string
+generateMetalBackendSourceMapJson(const HIRModule &module,
+                                  const SourceRemap *sourceRemap = nullptr);
 
 std::string metalResourceABIType(const HIRResource &resource);
 std::string metalResourceAddressSpace(const HIRResource &resource);
