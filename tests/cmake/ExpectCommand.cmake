@@ -1590,13 +1590,26 @@ function(crossgl_expect_manifest_debug_artifacts manifest)
     endif()
     file(READ "${backend_source_map_path}" backend_source_map)
     if(DEFINED JSON_SCHEMA_VALIDATOR)
-      crossgl_validate_json_schema_file(
-        "${backend_source_map}"
-        "${CROSSGL_EXPECT_REPO_ROOT}/docs/schemas/backend-source-map-v1.schema.json")
+      if(DEFINED BACKEND_SOURCE_MAP_JSON_SCHEMA)
+        crossgl_validate_json_schema_file("${backend_source_map}"
+                                          "${BACKEND_SOURCE_MAP_JSON_SCHEMA}")
+      else()
+        crossgl_validate_json_schema_file(
+          "${backend_source_map}"
+          "${CROSSGL_EXPECT_REPO_ROOT}/docs/schemas/backend-source-map-v1.schema.json")
+      endif()
     endif()
     crossgl_expect_json_field("${backend_source_map}" "schemaVersion" "1")
     crossgl_expect_json_field("${backend_source_map}" "kind" "crossgl.backendSourceMap")
     crossgl_expect_json_field("${backend_source_map}" "target" "directx")
+    if(DEFINED EXPECTED_BACKEND_SOURCE_MAP_JSON_FIELDS)
+      string(REPLACE "|" ";" backend_source_map_expectations
+             "${EXPECTED_BACKEND_SOURCE_MAP_JSON_FIELDS}")
+      foreach(expectation IN LISTS backend_source_map_expectations)
+        crossgl_split_json_expectation("${expectation}" path expected)
+        crossgl_expect_json_field("${backend_source_map}" "${path}" "${expected}")
+      endforeach()
+    endif()
   endif()
 
   crossgl_manifest_artifact_path("${manifest}" targetExplanation

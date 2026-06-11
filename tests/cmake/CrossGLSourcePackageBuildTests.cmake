@@ -564,6 +564,8 @@ crossgl_add_python_expect_test(
     -DPACKAGE_INTEGRITY_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_package_integrity.py)
 set(CROSSGL_SOURCE_REMAP_FULL_FILE
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json")
+set(CROSSGL_SOURCE_REMAP_FULL_FILE_METADATA
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json")
 file(SHA256 "${CROSSGL_SOURCE_REMAP_FULL_FILE}"
      CROSSGL_SOURCE_REMAP_FULL_FILE_SHA256)
 file(SIZE "${CROSSGL_SOURCE_REMAP_FULL_FILE}"
@@ -589,6 +591,31 @@ crossgl_add_python_expect_test(
     "-DEXPECTED_PACKAGE_INSPECT_JSON_FIELDS=summary.artifactCount=8|debugArtifacts.health=ok|${CROSSGL_DIRECTX_COMPUTE_BACKEND_SOURCE_MAP_PACKAGE_INSPECT_FIELDS}|debugArtifacts.sourceRemap.artifactPresent=true|debugArtifacts.sourceRemap.exists=true|debugArtifacts.sourceRemap.health=ok|debugArtifacts.sourceRemap.path=ir/source-remap-provenance.json|debugArtifacts.sourceRemap.target=directx|debugArtifacts.sourceRemap.generatedFile=generated/from-translator.cgl|debugArtifacts.sourceRemap.mappingCount=1|debugArtifacts.sourceRemap.sourceSha256=${CROSSGL_SOURCE_REMAP_FULL_FILE_SHA256}|debugArtifacts.sourceRemap.sourceSizeBytes=${CROSSGL_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}|debugArtifacts.sourceRemap.checks.identityMatchesContract=true|debugArtifacts.sourceRemap.checks.targetMatchesPackage=true|debugArtifacts.sourceRemap.checks.mappingGranularityMatchesContract=true|debugArtifacts.sourceRemap.checks.sourceHashPresent=true"
     -DDEBUG_METADATA_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/debug-metadata-v11.schema.json
     -DHIR_SOURCE_MAP_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/hir-source-map-v7.schema.json
+    -DSOURCE_REMAP_PROVENANCE_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-provenance-v1.schema.json
+    -DPACKAGE_INSPECT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
+    -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
+    -DPACKAGE_INTEGRITY_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_package_integrity.py)
+crossgl_add_python_expect_test(
+  NAME cglc_build_directx_source_package_crosstl_metadata_source_remap
+  DEFINITIONS
+    -DCGLC=$<TARGET_FILE:cglc>
+    -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+    -DLOGICAL_INPUT=generated/from-translator.cgl
+    -DSOURCE_REMAP=${CROSSGL_SOURCE_REMAP_FULL_FILE_METADATA}
+    -DTARGET=directx
+    -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-directx-source-remap-metadata-debug.cglb
+    -DMODE=source-package-build
+    -DEXPECTED_SOURCE=backend/directx/StorageBufferComputeShader.hlsl
+    -DEXPECTED_SOURCE_SNIPPET=RWStructuredBuffer
+    "-DEXPECTED_MANIFEST_JSON_FIELDS=schemaVersion=1|target=directx|module=StorageBufferComputeShader|artifacts.sourceRemap=ir/source-remap-provenance.json|artifacts.backendSourceMap=backend/directx/StorageBufferComputeShader.backend-source-map.json"
+    "-DEXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS=schemaVersion=1|kind=crossgl.sourceRemapProvenance|contractVersion=source-remap-provenance-v1|target=directx|generatedFile=generated/from-translator.cgl|mappingGranularity=source-span|mappingCount=1|sourceRemap.sha256.algorithm=sha256|sourceRemap.sha256.value=${CROSSGL_SOURCE_REMAP_FULL_FILE_SHA256}|sourceRemap.sizeBytes=${CROSSGL_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}"
+    "-DEXPECTED_DEBUG_METADATA_JSON_FIELDS=hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+    "-DEXPECTED_HIR_SOURCE_MAP_JSON_FIELDS=hirSourceLocations.types.0.location.file=generated/from-translator.cgl|hirSourceLocations.types.0.originalLocation.file=shaders/original.crossgl"
+    "-DEXPECTED_BACKEND_SOURCE_MAP_JSON_FIELDS=schemaVersion=1|kind=crossgl.backendSourceMap|target=directx|module=StorageBufferComputeShader|sourceRemap.target=cgl|sourceRemap.sourceBackend=cgl|sourceRemap.variant=debug|sourceRemap.mappingGranularity=file|sourceRemap.generatedFile=generated/from-translator.cgl|sourceRemap.mappingCount=1|sourceRemap.sha256.value=${CROSSGL_SOURCE_REMAP_FULL_FILE_SHA256}|sourceRemap.sizeBytes=${CROSSGL_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}"
+    "-DEXPECTED_PACKAGE_INSPECT_JSON_FIELDS=summary.artifactCount=8|debugArtifacts.health=ok|${CROSSGL_DIRECTX_COMPUTE_BACKEND_SOURCE_MAP_PACKAGE_INSPECT_FIELDS}|debugArtifacts.backendSourceMap.sourceRemapPresent=true|debugArtifacts.backendSourceMap.sourceRemapGeneratedFile=generated/from-translator.cgl|debugArtifacts.backendSourceMap.sourceRemapTarget=cgl|debugArtifacts.backendSourceMap.sourceRemapMappingGranularity=file|debugArtifacts.backendSourceMap.sourceRemapMappingCount=1|debugArtifacts.backendSourceMap.sourceRemapSourceBackend=cgl|debugArtifacts.backendSourceMap.sourceRemapVariant=debug|debugArtifacts.backendSourceMap.sourceRemapSha256=${CROSSGL_SOURCE_REMAP_FULL_FILE_SHA256}|debugArtifacts.backendSourceMap.sourceRemapSizeBytes=${CROSSGL_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}|debugArtifacts.backendSourceMap.checks.sourceRemapHashPresent=true|debugArtifacts.backendSourceMap.checks.sourceRemapMappingCountPositive=true|debugArtifacts.backendSourceMap.checks.sourceRemapMatchesProvenance=true|debugArtifacts.sourceRemap.artifactPresent=true|debugArtifacts.sourceRemap.exists=true|debugArtifacts.sourceRemap.health=ok|debugArtifacts.sourceRemap.path=ir/source-remap-provenance.json|debugArtifacts.sourceRemap.target=directx|debugArtifacts.sourceRemap.generatedFile=generated/from-translator.cgl|debugArtifacts.sourceRemap.mappingCount=1|debugArtifacts.sourceRemap.sourceSha256=${CROSSGL_SOURCE_REMAP_FULL_FILE_SHA256}|debugArtifacts.sourceRemap.sourceSizeBytes=${CROSSGL_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}|debugArtifacts.sourceRemap.checks.identityMatchesContract=true|debugArtifacts.sourceRemap.checks.targetMatchesPackage=true|debugArtifacts.sourceRemap.checks.mappingGranularityMatchesContract=true|debugArtifacts.sourceRemap.checks.sourceHashPresent=true"
+    -DDEBUG_METADATA_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/debug-metadata-v11.schema.json
+    -DHIR_SOURCE_MAP_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/hir-source-map-v7.schema.json
+    -DBACKEND_SOURCE_MAP_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/backend-source-map-v1.schema.json
     -DSOURCE_REMAP_PROVENANCE_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/source-remap-provenance-v1.schema.json
     -DPACKAGE_INSPECT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-inspect-v1.schema.json
     -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py
