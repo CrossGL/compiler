@@ -108,8 +108,19 @@ PROJECT_PORTING_CONTRACT_SEALS = (
         "sha256": "4b9d3f90360d024b44468242081c48d4832aaa9b59a0bc86080117317fcde6b8",
     },
     {
+        "path": (
+            "tests/fixtures/"
+            "crosstl-project-portability-report-v1-non-cgl-source-remap.json"
+        ),
+        "sha256": "37e3d8c25e3ff5132ddd92b315ce588202b4c6f1df1ca25b61cb3ccadb673dfa",
+    },
+    {
         "path": "tests/fixtures/source-remap-v1-crosstl-project-line.json",
         "sha256": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92",
+    },
+    {
+        "path": "tests/fixtures/source-remap-v1-crosstl-project-directx-line.json",
+        "sha256": "6024fb5f723fb243cd8b261eadda888f68217c8d7436b6c2f163de81b188995a",
     },
     {
         "path": "tests/fixtures/source-remap-v1-crosstl-project-file.json",
@@ -255,7 +266,16 @@ def validate_project_porting_contract_files(compiler_root):
             project_report_schema,
         ),
         (
+            "tests/fixtures/"
+            "crosstl-project-portability-report-v1-non-cgl-source-remap.json",
+            project_report_schema,
+        ),
+        (
             "tests/fixtures/source-remap-v1-crosstl-project-line.json",
+            source_remap_schema,
+        ),
+        (
+            "tests/fixtures/source-remap-v1-crosstl-project-directx-line.json",
             source_remap_schema,
         ),
         (
