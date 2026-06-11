@@ -159,7 +159,11 @@
         "mappingCountPositive": true,
         "sourcePathPresent": true,
         "sourceHashPresent": true,
-        "sourceSizeBytesPresent": true
+        "sourceSizeBytesPresent": true,
+        "sourceRemapTargetMatchesContract": true,
+        "sourceRemapMappingGranularityMatchesContract": true,
+        "sourceRemapSourceBackendValid": true,
+        "sourceRemapVariantValid": true
       }
     },
     "checks": {

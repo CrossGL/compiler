@@ -2050,6 +2050,37 @@ void verifySourceRemapProvenanceHealth(
         diagnosticCode("source-remap-provenance-source-size-missing"),
         label + " sourceRemap.sizeBytes must be recorded", location);
   }
+  if (checks.sourceRemapTargetMatchesContract &&
+      !*checks.sourceRemapTargetMatchesContract) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-remap-target-invalid"),
+        label + " sourceRemap.target must be cgl or crossgl when recorded",
+        location);
+  }
+  if (checks.sourceRemapMappingGranularityMatchesContract &&
+      !*checks.sourceRemapMappingGranularityMatchesContract) {
+    diagnostics.error(
+        diagnosticCode(
+            "source-remap-provenance-source-remap-granularity-invalid"),
+        label +
+            " sourceRemap.mappingGranularity must be file, line, statement, "
+            "or token when recorded",
+        location);
+  }
+  if (checks.sourceRemapSourceBackendValid &&
+      !*checks.sourceRemapSourceBackendValid) {
+    diagnostics.error(
+        diagnosticCode(
+            "source-remap-provenance-source-remap-source-backend-invalid"),
+        label + " sourceRemap.sourceBackend must be non-empty when recorded",
+        location);
+  }
+  if (checks.sourceRemapVariantValid && !*checks.sourceRemapVariantValid) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-remap-variant-invalid"),
+        label + " sourceRemap.variant must be non-empty when recorded",
+        location);
+  }
 }
 
 void verifyBackendSourceMapHealth(
@@ -2132,6 +2163,17 @@ void verifyBackendSourceMapHealth(
     emitError("backend-source-map-mapping-count-mismatch",
               label + " mappingCount must match mappings length");
   }
+  if (checks.sourceRemapPathPackageRelative &&
+      !*checks.sourceRemapPathPackageRelative) {
+    emitError("backend-source-map-source-remap-path-invalid",
+              label + " sourceRemap.path must be package-relative");
+  }
+  if (checks.sourceRemapGeneratedFilePackageRelative &&
+      !*checks.sourceRemapGeneratedFilePackageRelative) {
+    emitError("backend-source-map-source-remap-generated-file-invalid",
+              label +
+                  " sourceRemap.generatedFile must be package-relative");
+  }
   if (checks.sourceRemapHashPresent && !*checks.sourceRemapHashPresent) {
     emitError("backend-source-map-source-remap-hash-invalid",
               label +
@@ -2141,6 +2183,29 @@ void verifyBackendSourceMapHealth(
       !*checks.sourceRemapMappingCountPositive) {
     emitError("backend-source-map-source-remap-mapping-count-invalid",
               label + " sourceRemap.mappingCount must be positive");
+  }
+  if (checks.sourceRemapTargetMatchesContract &&
+      !*checks.sourceRemapTargetMatchesContract) {
+    emitError("backend-source-map-source-remap-target-invalid",
+              label +
+                  " sourceRemap.target must be cgl or crossgl when recorded");
+  }
+  if (checks.sourceRemapMappingGranularityMatchesContract &&
+      !*checks.sourceRemapMappingGranularityMatchesContract) {
+    emitError("backend-source-map-source-remap-granularity-invalid",
+              label +
+                  " sourceRemap.mappingGranularity must be file, line, "
+                  "statement, or token when recorded");
+  }
+  if (checks.sourceRemapSourceBackendValid &&
+      !*checks.sourceRemapSourceBackendValid) {
+    emitError("backend-source-map-source-remap-source-backend-invalid",
+              label +
+                  " sourceRemap.sourceBackend must be non-empty when recorded");
+  }
+  if (checks.sourceRemapVariantValid && !*checks.sourceRemapVariantValid) {
+    emitError("backend-source-map-source-remap-variant-invalid",
+              label + " sourceRemap.variant must be non-empty when recorded");
   }
   if (checks.sourceRemapMatchesProvenance &&
       !*checks.sourceRemapMatchesProvenance) {
@@ -3334,6 +3399,16 @@ void writeSourceRemapProvenanceSummary(
   writeNullableBool(out, health.checks.sourceHashPresent);
   out << ",\n" << indent << "    \"sourceSizeBytesPresent\": ";
   writeNullableBool(out, health.checks.sourceSizeBytesPresent);
+  out << ",\n" << indent << "    \"sourceRemapTargetMatchesContract\": ";
+  writeNullableBool(out, health.checks.sourceRemapTargetMatchesContract);
+  out << ",\n"
+      << indent << "    \"sourceRemapMappingGranularityMatchesContract\": ";
+  writeNullableBool(
+      out, health.checks.sourceRemapMappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"sourceRemapSourceBackendValid\": ";
+  writeNullableBool(out, health.checks.sourceRemapSourceBackendValid);
+  out << ",\n" << indent << "    \"sourceRemapVariantValid\": ";
+  writeNullableBool(out, health.checks.sourceRemapVariantValid);
   out << "\n" << indent << "  }\n" << indent << "}";
 }
 
@@ -3425,6 +3500,16 @@ void writeBackendSourceMapSummary(
   writeNullableBool(out, health.checks.sourceRemapHashPresent);
   out << ",\n" << indent << "    \"sourceRemapMappingCountPositive\": ";
   writeNullableBool(out, health.checks.sourceRemapMappingCountPositive);
+  out << ",\n" << indent << "    \"sourceRemapTargetMatchesContract\": ";
+  writeNullableBool(out, health.checks.sourceRemapTargetMatchesContract);
+  out << ",\n"
+      << indent << "    \"sourceRemapMappingGranularityMatchesContract\": ";
+  writeNullableBool(
+      out, health.checks.sourceRemapMappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"sourceRemapSourceBackendValid\": ";
+  writeNullableBool(out, health.checks.sourceRemapSourceBackendValid);
+  out << ",\n" << indent << "    \"sourceRemapVariantValid\": ";
+  writeNullableBool(out, health.checks.sourceRemapVariantValid);
   out << ",\n" << indent << "    \"sourceRemapMatchesProvenance\": ";
   writeNullableBool(out, health.checks.sourceRemapMatchesProvenance);
   out << "\n" << indent << "  }\n" << indent << "}";

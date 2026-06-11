@@ -67,6 +67,41 @@ bool optionalUnsignedEquals(const std::optional<std::uintmax_t> &left,
   return left && right && *left == *right;
 }
 
+bool optionalSourceRemapTargetMatchesContract(std::string_view object) {
+  const std::optional<std::string_view> member =
+      findObjectMemberValue(object, "target");
+  if (!member) {
+    return true;
+  }
+  const std::optional<std::string> target = objectStringMember(object, "target");
+  return target && (*target == "cgl" || *target == "crossgl");
+}
+
+bool optionalSourceRemapMappingGranularityMatchesContract(
+    std::string_view object) {
+  const std::optional<std::string_view> member =
+      findObjectMemberValue(object, "mappingGranularity");
+  if (!member) {
+    return true;
+  }
+  const std::optional<std::string> granularity =
+      objectStringMember(object, "mappingGranularity");
+  return granularity &&
+         (*granularity == "file" || *granularity == "line" ||
+          *granularity == "statement" || *granularity == "token");
+}
+
+bool optionalNonEmptyStringMember(std::string_view object,
+                                  std::string_view field) {
+  const std::optional<std::string_view> member =
+      findObjectMemberValue(object, field);
+  if (!member) {
+    return true;
+  }
+  const std::optional<std::string> value = objectStringMember(object, field);
+  return value && !value->empty();
+}
+
 std::optional<NameCounts> parseNamedCountArray(std::string_view arrayText) {
   std::size_t position = 0;
   skipWhitespace(arrayText, position);
@@ -507,6 +542,14 @@ void collectBackendSourceMapSourceRemapHealth(
   health.checks.sourceRemapGeneratedFilePackageRelative =
       health.sourceRemapGeneratedFile &&
       isPackageRelativePath(*health.sourceRemapGeneratedFile);
+  health.checks.sourceRemapTargetMatchesContract =
+      optionalSourceRemapTargetMatchesContract(*sourceRemap);
+  health.checks.sourceRemapMappingGranularityMatchesContract =
+      optionalSourceRemapMappingGranularityMatchesContract(*sourceRemap);
+  health.checks.sourceRemapSourceBackendValid =
+      optionalNonEmptyStringMember(*sourceRemap, "sourceBackend");
+  health.checks.sourceRemapVariantValid =
+      optionalNonEmptyStringMember(*sourceRemap, "variant");
 }
 
 std::optional<std::string>
@@ -570,6 +613,14 @@ collectSourceRemapProvenanceHealth(const PackageMetadata &metadata) {
     health.sourceRemapSourceBackend =
         objectStringMember(*sourceRemap, "sourceBackend");
     health.sourceRemapVariant = objectStringMember(*sourceRemap, "variant");
+    health.checks.sourceRemapTargetMatchesContract =
+        optionalSourceRemapTargetMatchesContract(*sourceRemap);
+    health.checks.sourceRemapMappingGranularityMatchesContract =
+        optionalSourceRemapMappingGranularityMatchesContract(*sourceRemap);
+    health.checks.sourceRemapSourceBackendValid =
+        optionalNonEmptyStringMember(*sourceRemap, "sourceBackend");
+    health.checks.sourceRemapVariantValid =
+        optionalNonEmptyStringMember(*sourceRemap, "variant");
   }
 
   health.checks.identityMatchesContract =
@@ -600,6 +651,10 @@ collectSourceRemapProvenanceHealth(const PackageMetadata &metadata) {
       health.checks.sourcePathPresent,
       health.checks.sourceHashPresent,
       health.checks.sourceSizeBytesPresent,
+      health.checks.sourceRemapTargetMatchesContract,
+      health.checks.sourceRemapMappingGranularityMatchesContract,
+      health.checks.sourceRemapSourceBackendValid,
+      health.checks.sourceRemapVariantValid,
   };
   const bool allTrue = std::all_of(checks.begin(), checks.end(), [](auto value) {
     return value.has_value() && *value;
@@ -721,8 +776,14 @@ collectBackendSourceMapHealth(const PackageMetadata &metadata) {
   const std::vector<std::optional<bool>> sourceComparisonChecks = {
       health.checks.backendLineCountMatchesSource,
       health.checks.backendSpansWithinSource,
+      health.checks.sourceRemapPathPackageRelative,
+      health.checks.sourceRemapGeneratedFilePackageRelative,
       health.checks.sourceRemapHashPresent,
       health.checks.sourceRemapMappingCountPositive,
+      health.checks.sourceRemapTargetMatchesContract,
+      health.checks.sourceRemapMappingGranularityMatchesContract,
+      health.checks.sourceRemapSourceBackendValid,
+      health.checks.sourceRemapVariantValid,
   };
   const bool sourceComparisonChecksOk =
       std::all_of(sourceComparisonChecks.begin(),

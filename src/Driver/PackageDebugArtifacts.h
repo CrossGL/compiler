@@ -17,6 +17,10 @@ struct PackageSourceRemapProvenanceChecks {
   std::optional<bool> sourcePathPresent;
   std::optional<bool> sourceHashPresent;
   std::optional<bool> sourceSizeBytesPresent;
+  std::optional<bool> sourceRemapTargetMatchesContract;
+  std::optional<bool> sourceRemapMappingGranularityMatchesContract;
+  std::optional<bool> sourceRemapSourceBackendValid;
+  std::optional<bool> sourceRemapVariantValid;
 };
 
 struct PackageSourceRemapProvenanceHealth {
@@ -57,6 +61,10 @@ struct PackageBackendSourceMapChecks {
   std::optional<bool> sourceRemapGeneratedFilePackageRelative;
   std::optional<bool> sourceRemapHashPresent;
   std::optional<bool> sourceRemapMappingCountPositive;
+  std::optional<bool> sourceRemapTargetMatchesContract;
+  std::optional<bool> sourceRemapMappingGranularityMatchesContract;
+  std::optional<bool> sourceRemapSourceBackendValid;
+  std::optional<bool> sourceRemapVariantValid;
   std::optional<bool> sourceRemapMatchesProvenance;
 };
 

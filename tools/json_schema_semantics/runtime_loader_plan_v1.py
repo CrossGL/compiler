@@ -15,6 +15,12 @@ HOST_LOADER_NON_GOALS = [
     "target-sdk-installation",
 ]
 SEVERITIES = ("note", "warning", "error")
+TARGET_BACKEND_LANGUAGES = {
+    "directx": "hlsl",
+    "metal": "msl",
+    "opengl": "glsl",
+    "vulkan": "spvasm",
+}
 TARGET_RESOURCE_BINDING_METADATA_PARITY_FIELDS = (
     "bindingClass",
     "descriptorType",
@@ -723,6 +729,26 @@ def validate_host_loader_source_remap(errors, load_unit, source_remap):
     )
 
 
+def validate_host_loader_backend_source_map_language(errors, provenance, target):
+    provenance_path = "$.hostLoaderIntegration.loadUnits[0].backendSourceMap.provenance"
+    expected_backend_language = TARGET_BACKEND_LANGUAGES.get(target)
+    if (
+        expected_backend_language is not None
+        and provenance["backendLanguage"] != expected_backend_language
+    ):
+        errors.append(
+            f"{provenance_path}.backendLanguage: expected "
+            f"{expected_backend_language!r} for {target} target"
+        )
+    if provenance["targetBackend"] != provenance["backendLanguage"]:
+        errors.append(
+            f"{provenance_path}.targetBackend: expected to match "
+            f"{provenance_path}.backendLanguage "
+            f"{provenance['backendLanguage']!r}, "
+            f"got {provenance['targetBackend']!r}"
+        )
+
+
 def validate_host_loader_backend_source_map(errors, load_unit, source_remap):
     backend_source_map = load_unit["backendSourceMap"]
     if backend_source_map is None:
@@ -735,6 +761,11 @@ def validate_host_loader_backend_source_map(errors, load_unit, source_remap):
         provenance["target"],
         load_unit["target"],
         "$.hostLoaderIntegration.loadUnits[0].target",
+    )
+    validate_host_loader_backend_source_map_language(
+        errors,
+        provenance,
+        load_unit["target"],
     )
 
     source_remap_path = (

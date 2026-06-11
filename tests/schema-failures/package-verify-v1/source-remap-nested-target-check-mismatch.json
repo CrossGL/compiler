@@ -11,7 +11,7 @@
     "sourceRemap": {
       "artifactPresent": true,
       "exists": true,
-      "health": "drift",
+      "health": "ok",
       "path": "ir/source-remap-provenance.json",
       "target": "directx",
       "generatedFile": "generated/from-translator.cgl",
@@ -33,7 +33,11 @@
         "sourceRemapMappingGranularityMatchesContract": true,
         "sourceRemapSourceBackendValid": true,
         "sourceRemapVariantValid": true
-      }
+      },
+      "sourceRemapTarget": "metal",
+      "sourceRemapMappingGranularity": null,
+      "sourceRemapSourceBackend": null,
+      "sourceRemapVariant": null
     },
     "nativeArtifactDescriptor": {
       "artifactPresent": false,

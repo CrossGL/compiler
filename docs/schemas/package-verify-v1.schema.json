@@ -436,7 +436,11 @@
         "mappingCountPositive",
         "sourcePathPresent",
         "sourceHashPresent",
-        "sourceSizeBytesPresent"
+        "sourceSizeBytesPresent",
+        "sourceRemapTargetMatchesContract",
+        "sourceRemapMappingGranularityMatchesContract",
+        "sourceRemapSourceBackendValid",
+        "sourceRemapVariantValid"
       ],
       "properties": {
         "identityMatchesContract": {
@@ -461,6 +465,18 @@
           "$ref": "#/$defs/nullableBoolean"
         },
         "sourceSizeBytesPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapTargetMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapSourceBackendValid": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapVariantValid": {
           "$ref": "#/$defs/nullableBoolean"
         }
       }
@@ -588,6 +604,10 @@
         "sourceRemapGeneratedFilePackageRelative",
         "sourceRemapHashPresent",
         "sourceRemapMappingCountPositive",
+        "sourceRemapTargetMatchesContract",
+        "sourceRemapMappingGranularityMatchesContract",
+        "sourceRemapSourceBackendValid",
+        "sourceRemapVariantValid",
         "sourceRemapMatchesProvenance"
       ],
       "properties": {
@@ -634,6 +654,18 @@
           "$ref": "#/$defs/nullableBoolean"
         },
         "sourceRemapMappingCountPositive": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapTargetMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapSourceBackendValid": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapVariantValid": {
           "$ref": "#/$defs/nullableBoolean"
         },
         "sourceRemapMatchesProvenance": {

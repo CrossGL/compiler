@@ -29,6 +29,8 @@ TARGET_BACKEND_LANGUAGES = {
     "opengl": "glsl",
     "vulkan": "spvasm",
 }
+SOURCE_REMAP_METADATA_TARGETS = {"cgl", "crossgl"}
+SOURCE_REMAP_METADATA_GRANULARITIES = {"file", "line", "statement", "token"}
 
 NATIVE_ARTIFACT_DESCRIPTOR_CHECKS = (
     "descriptorIdentityMatchesContract",
@@ -68,6 +70,10 @@ SOURCE_REMAP_PROVENANCE_CHECKS = (
     "sourcePathPresent",
     "sourceHashPresent",
     "sourceSizeBytesPresent",
+    "sourceRemapTargetMatchesContract",
+    "sourceRemapMappingGranularityMatchesContract",
+    "sourceRemapSourceBackendValid",
+    "sourceRemapVariantValid",
 )
 
 SOURCE_REMAP_PROVENANCE_CONTENT_FIELDS = (
@@ -99,6 +105,15 @@ BACKEND_SOURCE_MAP_CHECKS = (
     "backendLineCountMatchesSource",
     "backendSpansWithinSource",
     "mappingCountMatchesMappings",
+    "sourceRemapPathPackageRelative",
+    "sourceRemapGeneratedFilePackageRelative",
+    "sourceRemapHashPresent",
+    "sourceRemapMappingCountPositive",
+    "sourceRemapTargetMatchesContract",
+    "sourceRemapMappingGranularityMatchesContract",
+    "sourceRemapSourceBackendValid",
+    "sourceRemapVariantValid",
+    "sourceRemapMatchesProvenance",
 )
 
 BACKEND_SOURCE_MAP_CONTENT_FIELDS = (
@@ -206,6 +221,8 @@ def validate_record_file_state(errors, path, record):
 
 
 def is_package_relative_artifact_path(value):
+    if not isinstance(value, str):
+        return False
     if value == "":
         return False
     if "\\" in value:
@@ -215,6 +232,18 @@ def is_package_relative_artifact_path(value):
     if ".." in value.split("/"):
         return False
     return True
+
+
+def optional_source_remap_target_matches_contract(value):
+    return value is None or value in SOURCE_REMAP_METADATA_TARGETS
+
+
+def optional_source_remap_mapping_granularity_matches_contract(value):
+    return value is None or value in SOURCE_REMAP_METADATA_GRANULARITIES
+
+
+def optional_non_empty_string(value):
+    return value is None or (isinstance(value, str) and bool(value))
 
 
 def validate_artifact_path_identity(errors, path, record):
@@ -1116,6 +1145,132 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
                 == backend_source_map["mappingRecordCount"],
                 "backendSourceMap mapping count agreement",
             )
+            if backend_source_map["sourceRemapPresent"]:
+                add_equal_error(
+                    errors,
+                    "$.debugArtifacts.backendSourceMap.checks."
+                    "sourceRemapPathPackageRelative",
+                    backend_source_map_checks["sourceRemapPathPackageRelative"],
+                    is_package_relative_artifact_path(
+                        backend_source_map["sourceRemapPath"]
+                    ),
+                    "backendSourceMap sourceRemap package-relative path",
+                )
+                add_equal_error(
+                    errors,
+                    "$.debugArtifacts.backendSourceMap.checks."
+                    "sourceRemapGeneratedFilePackageRelative",
+                    backend_source_map_checks[
+                        "sourceRemapGeneratedFilePackageRelative"
+                    ],
+                    is_package_relative_artifact_path(
+                        backend_source_map["sourceRemapGeneratedFile"]
+                    ),
+                    "backendSourceMap sourceRemap generated file path",
+                )
+                add_equal_error(
+                    errors,
+                    "$.debugArtifacts.backendSourceMap.checks.sourceRemapHashPresent",
+                    backend_source_map_checks["sourceRemapHashPresent"],
+                    backend_source_map["sourceRemapSha256"] is not None
+                    and LOWERCASE_SHA256.fullmatch(
+                        backend_source_map["sourceRemapSha256"]
+                    )
+                    is not None,
+                    "backendSourceMap sourceRemap hash presence",
+                )
+                add_equal_error(
+                    errors,
+                    "$.debugArtifacts.backendSourceMap.checks."
+                    "sourceRemapMappingCountPositive",
+                    backend_source_map_checks["sourceRemapMappingCountPositive"],
+                    backend_source_map["sourceRemapMappingCount"] is not None
+                    and backend_source_map["sourceRemapMappingCount"] > 0,
+                    "backendSourceMap sourceRemap positive mapping count",
+                )
+                add_equal_error(
+                    errors,
+                    "$.debugArtifacts.backendSourceMap.checks."
+                    "sourceRemapTargetMatchesContract",
+                    backend_source_map_checks["sourceRemapTargetMatchesContract"],
+                    optional_source_remap_target_matches_contract(
+                        backend_source_map["sourceRemapTarget"]
+                    ),
+                    "backendSourceMap sourceRemap target contract",
+                )
+                add_equal_error(
+                    errors,
+                    "$.debugArtifacts.backendSourceMap.checks."
+                    "sourceRemapMappingGranularityMatchesContract",
+                    backend_source_map_checks[
+                        "sourceRemapMappingGranularityMatchesContract"
+                    ],
+                    optional_source_remap_mapping_granularity_matches_contract(
+                        backend_source_map["sourceRemapMappingGranularity"]
+                    ),
+                    "backendSourceMap sourceRemap mapping granularity contract",
+                )
+                add_equal_error(
+                    errors,
+                    "$.debugArtifacts.backendSourceMap.checks."
+                    "sourceRemapSourceBackendValid",
+                    backend_source_map_checks["sourceRemapSourceBackendValid"],
+                    optional_non_empty_string(
+                        backend_source_map["sourceRemapSourceBackend"]
+                    ),
+                    "backendSourceMap sourceRemap source backend",
+                )
+                add_equal_error(
+                    errors,
+                    "$.debugArtifacts.backendSourceMap.checks.sourceRemapVariantValid",
+                    backend_source_map_checks["sourceRemapVariantValid"],
+                    optional_non_empty_string(backend_source_map["sourceRemapVariant"]),
+                    "backendSourceMap sourceRemap variant",
+                )
+            else:
+                for check_name in BACKEND_SOURCE_MAP_CHECKS:
+                    if check_name.startswith("sourceRemap"):
+                        add_equal_error(
+                            errors,
+                            f"$.debugArtifacts.backendSourceMap.checks.{check_name}",
+                            backend_source_map_checks[check_name],
+                            None,
+                            "absent backendSourceMap sourceRemap check",
+                        )
+            expected_source_remap_matches_provenance = None
+            if (
+                backend_source_map["sourceRemapPresent"]
+                and isinstance(source_remap, dict)
+                and source_remap["artifactPresent"]
+                and backend_source_map_checks["sourceRemapMatchesProvenance"]
+                is not None
+            ):
+                expected_source_remap_matches_provenance = (
+                    backend_source_map["sourceRemapPath"] == source_remap["path"]
+                    and backend_source_map["sourceRemapGeneratedFile"]
+                    == source_remap["generatedFile"]
+                    and backend_source_map["sourceRemapMappingCount"]
+                    == source_remap["mappingCount"]
+                    and backend_source_map["sourceRemapSha256"]
+                    == source_remap["sourceSha256"]
+                    and backend_source_map["sourceRemapSizeBytes"]
+                    == source_remap["sourceSizeBytes"]
+                    and backend_source_map["sourceRemapTarget"]
+                    == source_remap.get("sourceRemapTarget")
+                    and backend_source_map["sourceRemapMappingGranularity"]
+                    == source_remap.get("sourceRemapMappingGranularity")
+                    and backend_source_map["sourceRemapSourceBackend"]
+                    == source_remap.get("sourceRemapSourceBackend")
+                    and backend_source_map["sourceRemapVariant"]
+                    == source_remap.get("sourceRemapVariant")
+                )
+            add_equal_error(
+                errors,
+                "$.debugArtifacts.backendSourceMap.checks.sourceRemapMatchesProvenance",
+                backend_source_map_checks["sourceRemapMatchesProvenance"],
+                expected_source_remap_matches_provenance,
+                "backendSourceMap sourceRemap provenance match",
+            )
             required_backend_source_map_checks = [
                 backend_source_map_checks[name]
                 for name in BACKEND_SOURCE_MAP_CHECKS
@@ -1123,11 +1278,31 @@ def validate_debug_artifacts(errors, debug_artifacts, summary, artifacts):
                 not in (
                     "backendLineCountMatchesSource",
                     "backendSpansWithinSource",
+                    "sourceRemapPathPackageRelative",
+                    "sourceRemapGeneratedFilePackageRelative",
+                    "sourceRemapHashPresent",
+                    "sourceRemapMappingCountPositive",
+                    "sourceRemapTargetMatchesContract",
+                    "sourceRemapMappingGranularityMatchesContract",
+                    "sourceRemapSourceBackendValid",
+                    "sourceRemapVariantValid",
+                    "sourceRemapMatchesProvenance",
                 )
             ]
             source_comparison_checks = [
                 backend_source_map_checks["backendLineCountMatchesSource"],
                 backend_source_map_checks["backendSpansWithinSource"],
+                backend_source_map_checks["sourceRemapPathPackageRelative"],
+                backend_source_map_checks["sourceRemapGeneratedFilePackageRelative"],
+                backend_source_map_checks["sourceRemapHashPresent"],
+                backend_source_map_checks["sourceRemapMappingCountPositive"],
+                backend_source_map_checks["sourceRemapTargetMatchesContract"],
+                backend_source_map_checks[
+                    "sourceRemapMappingGranularityMatchesContract"
+                ],
+                backend_source_map_checks["sourceRemapSourceBackendValid"],
+                backend_source_map_checks["sourceRemapVariantValid"],
+                backend_source_map_checks["sourceRemapMatchesProvenance"],
             ]
             if all(
                 value is True for value in required_backend_source_map_checks
@@ -1218,6 +1393,22 @@ def expected_source_remap_provenance_checks(source_remap, summary):
             and LOWERCASE_SHA256.fullmatch(source_remap["sourceSha256"]) is not None
         ),
         "sourceSizeBytesPresent": source_remap["sourceSizeBytes"] is not None,
+        "sourceRemapTargetMatchesContract": (
+            optional_source_remap_target_matches_contract(
+                source_remap.get("sourceRemapTarget")
+            )
+        ),
+        "sourceRemapMappingGranularityMatchesContract": (
+            optional_source_remap_mapping_granularity_matches_contract(
+                source_remap.get("sourceRemapMappingGranularity")
+            )
+        ),
+        "sourceRemapSourceBackendValid": optional_non_empty_string(
+            source_remap.get("sourceRemapSourceBackend")
+        ),
+        "sourceRemapVariantValid": optional_non_empty_string(
+            source_remap.get("sourceRemapVariant")
+        ),
     }
 
 

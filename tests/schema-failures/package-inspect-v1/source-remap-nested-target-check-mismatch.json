@@ -150,7 +150,7 @@
       "mappingCount": 1,
       "sourcePath": "tests/fixtures/source-remap-v1-full-file.json",
       "sourceSha256": "7ebc4d584f4b6f19b8eef3c47c1fe799361dd44e397d969df7899f9e05b6041b",
-      "sourceSizeBytes": null,
+      "sourceSizeBytes": 592,
       "checks": {
         "identityMatchesContract": true,
         "targetMatchesPackage": true,
@@ -164,7 +164,11 @@
         "sourceRemapMappingGranularityMatchesContract": true,
         "sourceRemapSourceBackendValid": true,
         "sourceRemapVariantValid": true
-      }
+      },
+      "sourceRemapTarget": "metal",
+      "sourceRemapMappingGranularity": null,
+      "sourceRemapSourceBackend": null,
+      "sourceRemapVariant": null
     },
     "checks": {
       "hirSourceLocationsMatch": true,

@@ -1005,6 +1005,19 @@ void writeDebugArtifactHealth(std::ostream &out,
   writeNullableBool(out, sourceRemap.checks.sourceHashPresent);
   out << ",\n" << indent << "      \"sourceSizeBytesPresent\": ";
   writeNullableBool(out, sourceRemap.checks.sourceSizeBytesPresent);
+  out << ",\n"
+      << indent << "      \"sourceRemapTargetMatchesContract\": ";
+  writeNullableBool(out,
+                    sourceRemap.checks.sourceRemapTargetMatchesContract);
+  out << ",\n"
+      << indent
+      << "      \"sourceRemapMappingGranularityMatchesContract\": ";
+  writeNullableBool(
+      out, sourceRemap.checks.sourceRemapMappingGranularityMatchesContract);
+  out << ",\n" << indent << "      \"sourceRemapSourceBackendValid\": ";
+  writeNullableBool(out, sourceRemap.checks.sourceRemapSourceBackendValid);
+  out << ",\n" << indent << "      \"sourceRemapVariantValid\": ";
+  writeNullableBool(out, sourceRemap.checks.sourceRemapVariantValid);
   out << "\n" << indent << "    }\n" << indent << "  },\n"
       << indent << "  \"backendSourceMap\": {\n"
       << indent << "    \"artifactPresent\": "
@@ -1101,6 +1114,21 @@ void writeDebugArtifactHealth(std::ostream &out,
   out << ",\n" << indent << "      \"sourceRemapMappingCountPositive\": ";
   writeNullableBool(out,
                     backendSourceMap.checks.sourceRemapMappingCountPositive);
+  out << ",\n"
+      << indent << "      \"sourceRemapTargetMatchesContract\": ";
+  writeNullableBool(
+      out, backendSourceMap.checks.sourceRemapTargetMatchesContract);
+  out << ",\n"
+      << indent
+      << "      \"sourceRemapMappingGranularityMatchesContract\": ";
+  writeNullableBool(
+      out,
+      backendSourceMap.checks.sourceRemapMappingGranularityMatchesContract);
+  out << ",\n" << indent << "      \"sourceRemapSourceBackendValid\": ";
+  writeNullableBool(
+      out, backendSourceMap.checks.sourceRemapSourceBackendValid);
+  out << ",\n" << indent << "      \"sourceRemapVariantValid\": ";
+  writeNullableBool(out, backendSourceMap.checks.sourceRemapVariantValid);
   out << ",\n" << indent << "      \"sourceRemapMatchesProvenance\": ";
   writeNullableBool(out, backendSourceMap.checks.sourceRemapMatchesProvenance);
   out << "\n" << indent << "    }\n" << indent << "  },\n"

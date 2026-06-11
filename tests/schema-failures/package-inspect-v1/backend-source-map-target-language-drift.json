@@ -180,7 +180,11 @@
         "sourceRemapGeneratedFilePackageRelative": null,
         "sourceRemapHashPresent": null,
         "sourceRemapMappingCountPositive": null,
-        "sourceRemapMatchesProvenance": null
+        "sourceRemapMatchesProvenance": null,
+        "sourceRemapTargetMatchesContract": null,
+        "sourceRemapMappingGranularityMatchesContract": null,
+        "sourceRemapSourceBackendValid": null,
+        "sourceRemapVariantValid": null
       }
     },
     "checks": {

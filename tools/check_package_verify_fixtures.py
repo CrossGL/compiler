@@ -548,13 +548,17 @@ def backend_source_map(
 def source_remap_metadata_from_provenance(manifest):
     provenance = source_remap_provenance(manifest)
     source_remap = provenance["sourceRemap"]
-    return {
+    metadata = {
         "path": manifest["artifacts"]["sourceRemap"],
         "sha256": source_remap["sha256"],
         "sizeBytes": source_remap["sizeBytes"],
         "generatedFile": provenance["generatedFile"],
         "mappingCount": provenance["mappingCount"],
     }
+    for field in ("target", "mappingGranularity", "sourceBackend", "variant"):
+        if field in source_remap:
+            metadata[field] = source_remap[field]
+    return metadata
 
 
 def add_backend_source_map(package, manifest, *, mutate=None, source_remap=None):
@@ -3614,6 +3618,47 @@ def run_cases(root, cglc, jobs=1):
         )
 
         package, _source, manifest = make_package(
+            tmp_dir, "source-remap-nested-target-drift"
+        )
+        source_remap_manifest = copy.deepcopy(manifest)
+        source_remap_manifest["artifacts"]["sourceRemap"] = (
+            "ir/source-remap-provenance.json"
+        )
+        provenance = source_remap_provenance(source_remap_manifest)
+        provenance["sourceRemap"]["target"] = "metal"
+        write_json(
+            package_path(package, source_remap_manifest["artifacts"]["sourceRemap"]),
+            provenance,
+        )
+        rewrite_manifest(package, source_remap_manifest)
+        expected = (
+            "sourceRemap 'ir/source-remap-provenance.json' "
+            "sourceRemap.target must be cgl or crossgl when recorded"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "source-remap-nested-target-drift",
+                package,
+                expected,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "source-remap-nested-target-drift-json",
+                package,
+                expected,
+                manifest=source_remap_manifest,
+                expected_code=(
+                    "package.verify.source-remap-provenance-source-remap-target-invalid"
+                ),
+            )
+        )
+
+        package, _source, manifest = make_package(
             tmp_dir, "backend-source-map-target-drift"
         )
         add_backend_source_map(
@@ -3716,6 +3761,42 @@ def run_cases(root, cglc, jobs=1):
                 expected,
                 manifest=manifest,
                 expected_code=("package.verify.backend-source-map-line-count-mismatch"),
+            )
+        )
+
+        package, _source, manifest = make_package(
+            tmp_dir, "backend-source-map-source-remap-target-drift"
+        )
+        manifest["artifacts"]["sourceRemap"] = "ir/source-remap-provenance.json"
+        source_remap = source_remap_metadata_from_provenance(manifest)
+        del manifest["artifacts"]["sourceRemap"]
+        source_remap["target"] = "metal"
+        add_backend_source_map(package, manifest, source_remap=source_remap)
+        expected = (
+            "backendSourceMap "
+            "'backend/directx/StorageBufferComputeShader.backend-source-map.json' "
+            "sourceRemap.target must be cgl or crossgl when recorded"
+        )
+        errors.extend(
+            expect_failure(
+                cglc,
+                "backend-source-map-source-remap-target-drift",
+                package,
+                expected,
+            )
+        )
+        errors.extend(
+            expect_json_failure(
+                root,
+                cglc,
+                tmp_dir,
+                "backend-source-map-source-remap-target-drift-json",
+                package,
+                expected,
+                manifest=manifest,
+                expected_code=(
+                    "package.verify.backend-source-map-source-remap-target-invalid"
+                ),
             )
         )
 
