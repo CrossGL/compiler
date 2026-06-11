@@ -9,6 +9,8 @@ function(crossgl_add_runtime_loader_plan_schema_test)
     PACKAGE_MODE
     PACKAGE_FORMAT
     EXPECTED_RESULT
+    LOGICAL_INPUT
+    SOURCE_REMAP
     TOOLCHAIN_PATH)
   set(multi_value_args
     EXPECTED_JSON_FIELDS
@@ -61,6 +63,14 @@ function(crossgl_add_runtime_loader_plan_schema_test)
     list(APPEND runtime_plan_definitions
       "-DEXPECTED_RESULT=${CROSSGL_RUNTIME_PLAN_EXPECTED_RESULT}")
   endif()
+  if(CROSSGL_RUNTIME_PLAN_LOGICAL_INPUT)
+    list(APPEND runtime_plan_definitions
+      "-DLOGICAL_INPUT=${CROSSGL_RUNTIME_PLAN_LOGICAL_INPUT}")
+  endif()
+  if(CROSSGL_RUNTIME_PLAN_SOURCE_REMAP)
+    list(APPEND runtime_plan_definitions
+      "-DSOURCE_REMAP=${CROSSGL_RUNTIME_PLAN_SOURCE_REMAP}")
+  endif()
   if(CROSSGL_RUNTIME_PLAN_TOOLCHAIN_PATH)
     list(APPEND runtime_plan_definitions
       "-DTOOLCHAIN_PATH=${CROSSGL_RUNTIME_PLAN_TOOLCHAIN_PATH}")
@@ -108,6 +118,31 @@ crossgl_add_runtime_loader_plan_schema_test(
     "targetLegalizationEvidenceSummary.requiredToolIds=directx.toolchain.dxc|targetLegalizationEvidenceSummary.requiredToolIds=directx.validation.dxil-validator|hostLoaderIntegration.loadUnits.0.requiredTools=directx.toolchain.dxc|hostLoaderIntegration.loadUnits.0.requiredTools=directx.validation.dxil-validator|hostLoaderIntegration.loadUnits.0.hostResponsibilities=load-package-artifact|hostLoaderIntegration.loadUnits.0.hostResponsibilities=load-backend-source-map|hostLoaderIntegration.loadUnits.0.hostResponsibilities=bind-reflected-entry-points|hostLoaderIntegration.loadUnits.0.hostResponsibilities=bind-reflected-resources|hostLoaderIntegration.loadUnits.0.hostResponsibilities=bind-workgroup-shape|hostLoaderIntegration.loadUnits.0.hostResponsibilities=review-target-tool-requirements"
   EXPECTED_JSON_ARRAY_LENGTHS
     "requiredMetadataInputs=3|packageArtifactRequirements.requiredPathArtifacts=2|hostLoaderIntegration.loadUnits.0.requiredTools=2|hostLoaderIntegration.loadUnits.0.hostResponsibilities=6|hostLoaderIntegration.loadUnits.0.loadSteps=3|hostLoaderIntegration.loadUnits.0.blockers=0|diagnostics=0")
+
+set(CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json")
+set(CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE_METADATA
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file-report-metadata.json")
+file(SHA256 "${CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE}"
+     CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE_SHA256)
+file(SIZE "${CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE}"
+     CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE_SIZE_BYTES)
+
+crossgl_add_runtime_loader_plan_schema_test(
+  NAME cglc_package_runtime_plan_directx_source_remap_schema
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/runtime-plan-directx-source-remap.cglb
+  PACKAGE_MODE auto
+  LOGICAL_INPUT generated/from-translator.cgl
+  SOURCE_REMAP ${CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE_METADATA}
+  EXPECTED_RESULT 0
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|kind=crossgl-runtime-loader-plan|success=true|metadataOnly=true|compilerInvocationRequired=false|deviceExecutionRequired=false|packageFormat=directory|packageTarget=directx|requestedLoaderTarget=directx|targetMatchesPackage=true|requestedPackageMode=auto|selectedPackageMode=source-package|selectedArtifact.name=backendSource|selectedArtifact.path=backend/directx/StorageBufferComputeShader.hlsl|selectedArtifact.packageMode=source-package|selectedArtifact.packageRelative=true|selectedArtifact.exists=true|hostLoaderIntegration.loadUnits.0.sourceRemap.source=manifest.artifacts.sourceRemap|hostLoaderIntegration.loadUnits.0.sourceRemap.packagePath=ir/source-remap-provenance.json|hostLoaderIntegration.loadUnits.0.sourceRemap.exists=true|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.available=true|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.health=ok|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.target=directx|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.generatedFile=generated/from-translator.cgl|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.mappingGranularity=source-span|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.mappingCount=1|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.sourceSha256=${CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE_SHA256}|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.sourceSizeBytes=${CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.sourceRemapTarget=cgl|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.sourceRemapMappingGranularity=file|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.sourceRemapSourceBackend=cgl|hostLoaderIntegration.loadUnits.0.sourceRemap.provenance.sourceRemapVariant=debug|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapPresent=true|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapPath=ir/source-remap-provenance.json|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapGeneratedFile=generated/from-translator.cgl|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapTarget=cgl|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapMappingGranularity=file|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapMappingCount=1|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapSourceBackend=cgl|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapVariant=debug|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapSha256=${CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE_SHA256}|hostLoaderIntegration.loadUnits.0.backendSourceMap.provenance.sourceRemapSizeBytes=${CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE_SIZE_BYTES}|hostLoaderIntegration.loadUnits.0.loadSteps.1.kind=load-source-remap|hostLoaderIntegration.loadUnits.0.loadSteps.1.packagePath=ir/source-remap-provenance.json|hostLoaderIntegration.loadUnits.0.loadSteps.1.metadata.source.field=manifest.artifacts.sourceRemap|hostLoaderIntegration.loadUnits.0.loadSteps.1.metadata.source.path=ir/source-remap-provenance.json|hostLoaderIntegration.loadUnits.0.loadSteps.1.metadata.provenance.source=loadUnit.sourceRemap.provenance|hostLoaderIntegration.loadUnits.0.loadSteps.1.metadata.provenance.available=true|hostLoaderIntegration.loadUnits.0.loadSteps.1.metadata.provenance.health=ok|hostLoaderIntegration.loadUnits.0.loadSteps.2.kind=load-backend-source-map|hostLoaderIntegration.loadUnits.0.loadSteps.2.packagePath=backend/directx/StorageBufferComputeShader.backend-source-map.json|hostLoaderIntegration.loadUnits.0.loadSteps.2.metadata.source.field=manifest.artifacts.backendSourceMap|hostLoaderIntegration.loadUnits.0.loadSteps.2.metadata.source.path=backend/directx/StorageBufferComputeShader.backend-source-map.json|hostLoaderIntegration.loadUnits.0.loadSteps.2.metadata.provenance.source=loadUnit.backendSourceMap.provenance|hostLoaderIntegration.loadUnits.0.loadSteps.2.metadata.provenance.available=true|hostLoaderIntegration.loadUnits.0.loadSteps.2.metadata.provenance.health=ok|hostLoaderIntegration.loadUnits.0.loadSteps.3.kind=bind-host-interface|diagnosticCounts.error=0"
+  EXPECTED_JSON_ARRAY_CONTAINS
+    "hostLoaderIntegration.loadUnits.0.hostResponsibilities=load-package-artifact|hostLoaderIntegration.loadUnits.0.hostResponsibilities=load-source-remap|hostLoaderIntegration.loadUnits.0.hostResponsibilities=load-backend-source-map|hostLoaderIntegration.loadUnits.0.hostResponsibilities=bind-reflected-entry-points|hostLoaderIntegration.loadUnits.0.hostResponsibilities=bind-reflected-resources|hostLoaderIntegration.loadUnits.0.hostResponsibilities=bind-workgroup-shape|hostLoaderIntegration.loadUnits.0.hostResponsibilities=review-target-tool-requirements"
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "requiredMetadataInputs=3|packageArtifactRequirements.requiredPathArtifacts=2|hostLoaderIntegration.loadUnits.0.requiredTools=2|hostLoaderIntegration.loadUnits.0.hostResponsibilities=7|hostLoaderIntegration.loadUnits.0.loadSteps=4|hostLoaderIntegration.loadUnits.0.blockers=0|diagnostics=0")
 
 crossgl_add_runtime_loader_plan_schema_test(
   NAME cglc_package_runtime_plan_directx_native_fake_dxc_schema
