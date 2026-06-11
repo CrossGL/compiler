@@ -1,0 +1,514 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-runtime-loader-plan",
+  "success": true,
+  "metadataOnly": true,
+  "sourceParsingRequired": false,
+  "compilerInvocationRequired": false,
+  "deviceExecutionRequired": false,
+  "packageFormat": "directory",
+  "packageVersion": 1,
+  "packageTarget": "directx",
+  "requestedLoaderTarget": "directx",
+  "selectedTarget": "directx",
+  "targetMatchesPackage": true,
+  "loadable": true,
+  "requestedPackageMode": "auto",
+  "selectedPackageMode": "source-package",
+  "selectedArtifact": {
+    "name": "backendSource",
+    "path": "backend/directx/StorageBufferComputeShader.hlsl",
+    "packageMode": "source-package",
+    "packageRelative": true,
+    "exists": true
+  },
+  "requiredArtifacts": [
+    "backendSource",
+    "nativeBinary"
+  ],
+  "requiredArtifactPaths": {
+    "backendSource": "backend/directx/StorageBufferComputeShader.hlsl",
+    "nativeBinary": "backend/directx/StorageBufferComputeShader.dxil"
+  },
+  "runtimeArtifactPath": "backend/directx/StorageBufferComputeShader.hlsl",
+  "runtimeArtifactSelection": {
+    "schemaVersion": 1,
+    "requestedTarget": "directx",
+    "requestedPackageMode": "auto",
+    "packageTarget": "directx",
+    "selectedTarget": "directx",
+    "selected": true,
+    "selectedPackageMode": "source-package",
+    "sourceParsingRequired": false,
+    "compilerInvocationRequired": false,
+    "deviceExecutionRequired": false,
+    "sourceInputs": [],
+    "artifact": {
+      "name": "backendSource",
+      "path": "backend/directx/StorageBufferComputeShader.hlsl",
+      "packageMode": "source-package",
+      "packageRelative": true,
+      "exists": true
+    }
+  },
+  "requiredMetadataInputs": [
+    "manifest.json",
+    "reflection.json",
+    "diagnostics.json"
+  ],
+  "packageArtifactRequirementsSource": "manifest.packageArtifactRequirements",
+  "packageArtifactRequirements": {
+    "target": "directx",
+    "packageMode": "source-package",
+    "requiredPathArtifacts": [
+      "backendSource",
+      "nativeBinary"
+    ],
+    "requiresNativeBinaryStatus": true,
+    "allowsPlannedNativeBinary": true,
+    "allowsPlannedNativeSourceEvidence": true,
+    "evidenceIds": [
+      "target-legalization.v1.directx.package-artifacts.source-package",
+      "target-legalization.v1.directx.package-artifact.required.backendSource",
+      "target-legalization.v1.directx.package-artifact.required.nativeBinary",
+      "target-legalization.v1.directx.package-artifact.native-binary-status.required",
+      "target-legalization.v1.directx.package-artifact.planned-native-binary.allowed",
+      "target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
+    ]
+  },
+  "targetLegalizationEvidenceSummary": {
+    "toolRequirementsPresent": true,
+    "target": "directx",
+    "packageMode": "source-package",
+    "requiredToolCount": 2,
+    "missingToolCount": 2,
+    "requiredToolIds": [
+      "directx.toolchain.dxc",
+      "directx.validation.dxil-validator"
+    ],
+    "missingToolIds": [
+      "directx.toolchain.dxc",
+      "directx.validation.dxil-validator"
+    ],
+    "toolRequirementEvidenceIds": [
+      "target-legalization.v1.directx.tool-requirements.present",
+      "target-legalization.v1.directx.tool-requirement.required.toolchain.dxc",
+      "target-legalization.v1.directx.tool-requirement.required.validation.dxil-validator",
+      "target-legalization.v1.directx.tool-requirement.missing.toolchain.dxc",
+      "target-legalization.v1.directx.tool-requirement.missing.validation.dxil-validator"
+    ]
+  },
+  "reflectionSummary": {
+    "resourceCount": 1,
+    "targetResourceBindingCount": 1,
+    "targetFeatureCount": 9,
+    "entryPointCount": 1,
+    "workgroupSizeCount": 1,
+    "functionConstantCount": 0,
+    "specializationConstantCount": 0,
+    "threadgroupShapeSource": "reflection.workgroupSizes"
+  },
+  "reflectionInputs": {
+    "schemaVersion": 1,
+    "selectedTarget": "directx",
+    "entryPointCount": 1,
+    "resourceCount": 1,
+    "targetResourceBindingCount": 1,
+    "targetFeatureCount": 9,
+    "workgroupSizeCount": 1,
+    "functionConstantCount": 0,
+    "specializationConstantCount": 0,
+    "workgroupSizesAvailable": true,
+    "functionConstantsAvailable": false,
+    "skippedTargetResourceBindingCount": 0,
+    "skippedTargetFeatureCount": 0,
+    "entryPoints": [
+      {
+        "stage": "compute",
+        "sourceName": "main",
+        "backendName": "compute_main",
+        "returnType": "void",
+        "parameters": []
+      }
+    ],
+    "resources": [
+      {
+        "stage": "compute",
+        "name": "values",
+        "kind": "buffer",
+        "type": "float*",
+        "storageImageFormat": null,
+        "storageImageAccess": null,
+        "arrayDimensions": [],
+        "arrayElementCount": null,
+        "set": 0,
+        "binding": 0
+      }
+    ],
+    "targetResourceBindings": [
+      {
+        "target": "directx",
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "name": "values",
+        "kind": "buffer",
+        "bindingClass": "uav",
+        "descriptorType": "UAV",
+        "set": 0,
+        "binding": 0,
+        "argumentIndex": 0,
+        "storageImageFormat": null,
+        "storageImageAccess": null,
+        "arrayDimensions": [],
+        "arrayElementCount": null,
+        "abi": "registerBinding",
+        "evidenceId": "target-legalization.v1.directx.resource-binding.compute.compute_main.values"
+      }
+    ],
+    "targetFeatures": [
+      {
+        "target": "directx",
+        "kind": "backend",
+        "name": "hlsl-lowering",
+        "evidenceIds": [
+          "target-legalization.v1.directx.capability.required.directx.backend.hlsl-lowering",
+          "target-legalization.v1.directx.abi.required.backend.hlsl-lowering"
+        ]
+      },
+      {
+        "target": "directx",
+        "kind": "backend",
+        "name": "native-dxil-package",
+        "evidenceIds": [
+          "target-legalization.v1.directx.capability.required.directx.backend.native-dxil-package",
+          "target-legalization.v1.directx.abi.required.backend.native-dxil-package",
+          "target-legalization.v1.directx.capability.missing.directx.backend.native-dxil-package",
+          "target-legalization.v1.directx.abi.missing.backend.native-dxil-package"
+        ]
+      },
+      {
+        "target": "directx",
+        "kind": "toolchain",
+        "name": "dxc",
+        "evidenceIds": [
+          "target-legalization.v1.directx.capability.required.directx.toolchain.dxc",
+          "target-legalization.v1.directx.abi.required.toolchain.dxc",
+          "target-legalization.v1.directx.capability.missing.directx.toolchain.dxc",
+          "target-legalization.v1.directx.abi.missing.toolchain.dxc"
+        ]
+      },
+      {
+        "target": "directx",
+        "kind": "validation",
+        "name": "dxil-validator",
+        "evidenceIds": [
+          "target-legalization.v1.directx.capability.required.directx.validation.dxil-validator",
+          "target-legalization.v1.directx.abi.required.validation.dxil-validator",
+          "target-legalization.v1.directx.capability.missing.directx.validation.dxil-validator",
+          "target-legalization.v1.directx.abi.missing.validation.dxil-validator"
+        ]
+      },
+      {
+        "target": "directx",
+        "kind": "stage",
+        "name": "compute-kernel",
+        "evidenceIds": [
+          "target-legalization.v1.directx.capability.required.directx.stage.compute-kernel"
+        ]
+      },
+      {
+        "target": "directx",
+        "kind": "execution",
+        "name": "workgroup-size",
+        "evidenceIds": [
+          "target-legalization.v1.directx.capability.required.directx.execution.workgroup-size"
+        ]
+      },
+      {
+        "target": "directx",
+        "kind": "resource",
+        "name": "storage-buffer",
+        "evidenceIds": [
+          "target-legalization.v1.directx.capability.required.directx.resource.storage-buffer"
+        ]
+      },
+      {
+        "target": "directx",
+        "kind": "operation",
+        "name": "storage-buffer-write",
+        "evidenceIds": [
+          "target-legalization.v1.directx.capability.required.directx.operation.storage-buffer-write"
+        ]
+      },
+      {
+        "target": "directx",
+        "kind": "operation",
+        "name": "index-access",
+        "evidenceIds": [
+          "target-legalization.v1.directx.capability.required.directx.operation.index-access"
+        ]
+      }
+    ],
+    "workgroupSizes": [
+      {
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "x": "1",
+        "y": "1",
+        "z": "1",
+        "sourceX": "1",
+        "sourceY": "1",
+        "sourceZ": "1"
+      }
+    ],
+    "functionConstants": []
+  },
+  "targetResourceBindingMetadata": {
+    "schemaVersion": 1,
+    "selectedTarget": "directx",
+    "loaderTarget": "directx",
+    "packageTarget": "directx",
+    "bindingCount": 1,
+    "skippedBindingCount": 0,
+    "bindings": [
+      {
+        "target": "directx",
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "name": "values",
+        "kind": "buffer",
+        "bindingClass": "uav",
+        "descriptorType": "UAV",
+        "set": 0,
+        "binding": 0,
+        "argumentIndex": 0,
+        "abi": "registerBinding",
+        "identity": {
+          "target": "directx",
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "name": "values",
+          "kind": "buffer"
+        },
+        "evidenceId": "target-legalization.v1.directx.resource-binding.compute.compute_main.values",
+        "arrayDimensions": [],
+        "arrayElementCount": null,
+        "storageImageFormat": null,
+        "storageImageAccess": null
+      }
+    ]
+  },
+  "hostLoaderIntegration": {
+    "schemaVersion": 1,
+    "kind": "crossgl-runtime-host-loader-integration",
+    "status": "ready",
+    "scope": "host-loader-scaffold-generation",
+    "nonGoals": [
+      "host-code-rewriting",
+      "device-execution",
+      "runtime-framework-generation",
+      "target-sdk-installation"
+    ],
+    "summary": {
+      "targetCount": 1,
+      "loadUnitCount": 1,
+      "readyLoadUnitCount": 1,
+      "blockedLoadUnitCount": 0,
+      "entryPointCount": 1,
+      "resourceBindingCount": 1,
+      "workgroupSizeCount": 1,
+      "functionConstantCount": 0,
+      "specializationConstantCount": 0
+    },
+    "loadUnits": [
+      {
+        "id": "runtime-loader.directx.backendSource",
+        "target": "directx",
+        "packageMode": "source-package",
+        "artifact": {
+          "name": "backendSource",
+          "path": "backend/directx/StorageBufferComputeShader.hlsl",
+          "packageMode": "source-package",
+          "packageRelative": true,
+          "exists": true
+        },
+        "packagePath": "backend/directx/StorageBufferComputeShader.hlsl",
+        "artifactFormat": "backend-source",
+        "adapterKind": "backend-source-loader",
+        "status": "ready",
+        "sourceRemap": null,
+        "backendSourceMap": {
+          "source": "manifest.artifacts.backendSourceMap",
+          "packagePath": "backend/directx/StorageBufferComputeShader.backend-source-map.json",
+          "exists": true,
+          "provenance": {
+            "available": true,
+            "health": "ok",
+            "schemaVersion": 1,
+            "kind": "crossgl.backendSourceMap",
+            "target": "directx",
+            "module": "StorageBufferComputeShader",
+            "mappingGranularity": "statement",
+            "sourceBackend": "crossgl-hir",
+            "targetBackend": "hlsl",
+            "backendLanguage": "hlsl",
+            "backendLineCount": 7,
+            "mappingCount": 2,
+            "mappingRecordCount": 2,
+            "sourceRemapPresent": false,
+            "sourceRemapPath": null,
+            "sourceRemapGeneratedFile": null,
+            "sourceRemapTarget": null,
+            "sourceRemapMappingGranularity": null,
+            "sourceRemapMappingCount": null,
+            "sourceRemapSourceBackend": null,
+            "sourceRemapVariant": null,
+            "sourceRemapSha256": null,
+            "sourceRemapSizeBytes": null
+          }
+        },
+        "requiredTools": [
+          "directx.toolchain.dxc",
+          "directx.validation.dxil-validator"
+        ],
+        "hostResponsibilities": [
+          "load-package-artifact",
+          "load-backend-source-map",
+          "bind-reflected-entry-points",
+          "bind-reflected-resources",
+          "bind-workgroup-shape",
+          "review-target-tool-requirements"
+        ],
+        "hostInterface": {
+          "status": "ready",
+          "source": "reflectionInputs",
+          "entryPointCount": 1,
+          "resourceBindingCount": 1,
+          "workgroupSizeCount": 1,
+          "functionConstantCount": 0,
+          "specializationConstantCount": 0
+        },
+        "validation": {
+          "loadReady": true,
+          "metadataOnly": true,
+          "sourceParsingRequired": false,
+          "compilerInvocationRequired": false,
+          "deviceExecutionRequired": false
+        },
+        "loadSteps": [
+          {
+            "kind": "load-package-artifact",
+            "message": "Load the selected runtime package artifact.",
+            "target": "directx",
+            "packagePath": "backend/directx/StorageBufferComputeShader.hlsl",
+            "hostInterfaceStatus": "ready",
+            "command": null,
+            "tools": [],
+            "metadata": {
+              "source": {
+                "field": "selectedArtifact.path",
+                "path": "backend/directx/StorageBufferComputeShader.hlsl"
+              },
+              "artifact": {
+                "name": "backendSource",
+                "packageMode": "source-package",
+                "artifactFormat": "backend-source"
+              }
+            }
+          },
+          {
+            "kind": "load-backend-source-map",
+            "message": "Load backend source map metadata for diagnostics.",
+            "target": "directx",
+            "packagePath": "backend/directx/StorageBufferComputeShader.backend-source-map.json",
+            "hostInterfaceStatus": "ready",
+            "command": null,
+            "tools": [],
+            "metadata": {
+              "source": {
+                "field": "manifest.artifacts.backendSourceMap",
+                "path": "backend/directx/StorageBufferComputeShader.backend-source-map.json"
+              },
+              "provenance": {
+                "source": "loadUnit.backendSourceMap.provenance",
+                "available": true,
+                "health": "ok"
+              }
+            }
+          },
+          {
+            "kind": "bind-host-interface",
+            "message": "Bind reflected host interface metadata.",
+            "target": "directx",
+            "packagePath": "backend/directx/StorageBufferComputeShader.hlsl",
+            "hostInterfaceStatus": "ready",
+            "command": null,
+            "tools": [],
+            "metadata": {
+              "source": {
+                "field": "reflectionInputs"
+              },
+              "entryPointCount": 1,
+              "resourceBindingCount": 1,
+              "workgroupSizeCount": 1,
+              "functionConstantCount": 0,
+              "specializationConstantCount": 0
+            }
+          }
+        ],
+        "blockers": []
+      }
+    ]
+  },
+  "crosstlRuntimeAdapters": {
+    "target": "directx",
+    "runtimeArtifactPath": "backend/directx/StorageBufferComputeShader.hlsl",
+    "loadUnitCount": 1,
+    "readyLoadUnitCount": 1,
+    "blockedLoadUnitCount": 0,
+    "targets": [
+      "directx"
+    ],
+    "loadUnits": [
+      {
+        "id": "runtime-loader.directx.BackendSource",
+        "target": "directx",
+        "adapterKind": "crosstl-runtime-adapter",
+        "artifactFormat": "backend-source",
+        "packagePath": "backend/directx/OtherShader.hlsl",
+        "sourcePath": "StorageBufferComputeShader.cgl",
+        "sourceBackend": "cgl",
+        "stage": "compute",
+        "variant": "default",
+        "defines": {},
+        "sourceRemap": null,
+        "hostInterface": null,
+        "requiredTools": [],
+        "hostResponsibilities": [
+          "load-package-artifact"
+        ],
+        "loadSteps": [
+          {
+            "kind": "load-package-artifact",
+            "target": "directx",
+            "packagePath": "backend/directx/StorageBufferComputeShader.hlsl"
+          }
+        ],
+        "blockers": [],
+        "validation": {
+          "loadReady": true,
+          "metadataOnly": true,
+          "sourceParsingRequired": false,
+          "compilerInvocationRequired": false,
+          "deviceExecutionRequired": false
+        }
+      }
+    ]
+  },
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}
