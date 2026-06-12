@@ -167,6 +167,21 @@ function(crossgl_expect_json_array_length json path expected)
   endif()
 endfunction()
 
+function(crossgl_expect_json_array_length_one_of json path expected_values)
+  crossgl_json_path_to_list("${path}" json_path)
+  string(JSON array_length ERROR_VARIABLE json_error LENGTH "${json}" ${json_path})
+  if(NOT json_error STREQUAL "NOTFOUND")
+    message(FATAL_ERROR "expected JSON array '${path}', but lookup failed: ${json_error}. Output: ${json}")
+  endif()
+  string(REPLACE "," ";" expected_value_list "${expected_values}")
+  foreach(expected IN LISTS expected_value_list)
+    if(array_length STREQUAL "${expected}")
+      return()
+    endif()
+  endforeach()
+  message(FATAL_ERROR "expected JSON array '${path}' to have length one of '${expected_values}', got '${array_length}'. Output: ${json}")
+endfunction()
+
 function(crossgl_expect_hir_pass_trace_metrics json)
   string(JSON pass_count ERROR_VARIABLE json_error LENGTH "${json}" passes)
   if(NOT json_error STREQUAL "NOTFOUND")
@@ -707,6 +722,142 @@ function(crossgl_mutate_package_manifest package_path mutation_kind)
       "failed to mutate package manifest for ${mutation_kind}: ${manifest_error}")
   endif()
   file(WRITE "${manifest_path}" "${mutated_manifest}")
+endfunction()
+
+function(crossgl_install_crosstl_runtime_adapter_fixture package_path fixture_path target)
+  set(source_sidecar "${fixture_path}/runtime-adapters")
+  if(NOT EXISTS "${source_sidecar}/runtime-adapters.json")
+    message(FATAL_ERROR
+      "CrossTL runtime adapter fixture is missing runtime-adapters.json: "
+      "${source_sidecar}")
+  endif()
+
+  file(REMOVE_RECURSE "${package_path}/runtime-adapters")
+  file(COPY "${source_sidecar}" DESTINATION "${package_path}")
+
+  file(READ "${package_path}/manifest.json" package_manifest)
+  string(JSON runtime_backend_source ERROR_VARIABLE runtime_backend_source_error
+         GET "${package_manifest}" artifacts backendSource)
+  if(NOT runtime_backend_source_error STREQUAL "NOTFOUND")
+    message(FATAL_ERROR
+      "failed to read backendSource artifact path for CrossTL adapter fixture: "
+      "${runtime_backend_source_error}")
+  endif()
+
+  if(target STREQUAL "directx")
+    set(adapter_artifact_format "HLSL source")
+    set(adapter_kind "directx-hlsl-adapter")
+    set(adapter_required_tools "[\"directx.toolchain.dxc\"]")
+  elseif(target STREQUAL "metal")
+    set(adapter_artifact_format "Metal source")
+    set(adapter_kind "metal-msl-adapter")
+    set(adapter_required_tools "[\"metal.toolchain.xcrun-metal\"]")
+  elseif(target STREQUAL "opengl")
+    set(adapter_artifact_format "GLSL source")
+    set(adapter_kind "opengl-glsl-adapter")
+    set(adapter_required_tools "[\"glslangValidator\"]")
+  elseif(target STREQUAL "vulkan")
+    set(adapter_artifact_format "SPIR-V source")
+    set(adapter_kind "vulkan-spirv-adapter")
+    set(adapter_required_tools "[\"vulkan.toolchain.spirv-as\"]")
+  else()
+    message(FATAL_ERROR
+      "unsupported CrossTL runtime adapter fixture target: ${target}")
+  endif()
+
+  set(adapter_manifest_path "${package_path}/runtime-adapters/runtime-adapters.json")
+  file(READ "${adapter_manifest_path}" adapter_manifest)
+  string(JSON descriptor_count ERROR_VARIABLE descriptor_count_error
+         LENGTH "${adapter_manifest}" descriptors)
+  if(NOT descriptor_count_error STREQUAL "NOTFOUND")
+    message(FATAL_ERROR
+      "failed to read CrossTL adapter descriptor count: "
+      "${descriptor_count_error}")
+  endif()
+
+  string(JSON adapter_manifest ERROR_VARIABLE adapter_manifest_error
+         SET "${adapter_manifest}" project targets "[\"${target}\"]")
+  if(NOT adapter_manifest_error STREQUAL "NOTFOUND")
+    message(FATAL_ERROR
+      "failed to patch CrossTL adapter project targets: "
+      "${adapter_manifest_error}")
+  endif()
+
+  if(descriptor_count GREATER 0)
+    math(EXPR descriptor_last "${descriptor_count} - 1")
+    foreach(descriptor_index RANGE 0 ${descriptor_last})
+      string(JSON descriptor_path ERROR_VARIABLE descriptor_path_error
+             GET "${adapter_manifest}" descriptors ${descriptor_index}
+             descriptorPath)
+      if(NOT descriptor_path_error STREQUAL "NOTFOUND")
+        message(FATAL_ERROR
+          "failed to read CrossTL adapter descriptor path: "
+          "${descriptor_path_error}")
+      endif()
+
+      set(descriptor_file
+          "${package_path}/runtime-adapters/${descriptor_path}")
+      file(READ "${descriptor_file}" descriptor_json)
+      string(JSON descriptor_json ERROR_VARIABLE descriptor_error
+             SET "${descriptor_json}" target "\"${target}\"")
+      if(descriptor_error STREQUAL "NOTFOUND")
+        string(JSON descriptor_json ERROR_VARIABLE descriptor_error
+               SET "${descriptor_json}" packagePath
+               "\"${runtime_backend_source}\"")
+      endif()
+      if(descriptor_error STREQUAL "NOTFOUND")
+        string(JSON descriptor_json ERROR_VARIABLE descriptor_error
+               SET "${descriptor_json}" artifactFormat
+               "\"${adapter_artifact_format}\"")
+      endif()
+      if(descriptor_error STREQUAL "NOTFOUND")
+        string(JSON descriptor_json ERROR_VARIABLE descriptor_error
+               SET "${descriptor_json}" adapterKind
+               "\"${adapter_kind}\"")
+      endif()
+      if(descriptor_error STREQUAL "NOTFOUND")
+        string(JSON descriptor_json ERROR_VARIABLE descriptor_error
+               SET "${descriptor_json}" requiredTools
+               "${adapter_required_tools}")
+      endif()
+      if(NOT descriptor_error STREQUAL "NOTFOUND")
+        message(FATAL_ERROR
+          "failed to patch CrossTL adapter descriptor: ${descriptor_error}")
+      endif()
+      file(WRITE "${descriptor_file}" "${descriptor_json}")
+
+      string(JSON adapter_manifest ERROR_VARIABLE adapter_manifest_error
+             SET "${adapter_manifest}" descriptors ${descriptor_index}
+             target "\"${target}\"")
+      if(adapter_manifest_error STREQUAL "NOTFOUND")
+        string(JSON adapter_manifest ERROR_VARIABLE adapter_manifest_error
+               SET "${adapter_manifest}" descriptors ${descriptor_index}
+               packagePath "\"${runtime_backend_source}\"")
+      endif()
+      if(adapter_manifest_error STREQUAL "NOTFOUND")
+        string(JSON adapter_manifest ERROR_VARIABLE adapter_manifest_error
+               SET "${adapter_manifest}" descriptors ${descriptor_index}
+               artifactFormat "\"${adapter_artifact_format}\"")
+      endif()
+      if(adapter_manifest_error STREQUAL "NOTFOUND")
+        string(JSON adapter_manifest ERROR_VARIABLE adapter_manifest_error
+               SET "${adapter_manifest}" descriptors ${descriptor_index}
+               adapterKind "\"${adapter_kind}\"")
+      endif()
+      if(adapter_manifest_error STREQUAL "NOTFOUND")
+        string(JSON adapter_manifest ERROR_VARIABLE adapter_manifest_error
+               SET "${adapter_manifest}" descriptors ${descriptor_index}
+               requiredTools "${adapter_required_tools}")
+      endif()
+      if(NOT adapter_manifest_error STREQUAL "NOTFOUND")
+        message(FATAL_ERROR
+          "failed to patch CrossTL adapter manifest descriptor: "
+          "${adapter_manifest_error}")
+      endif()
+    endforeach()
+  endif()
+
+  file(WRITE "${adapter_manifest_path}" "${adapter_manifest}")
 endfunction()
 
 function(crossgl_mutate_package_reflection package_path mutation_kind)
@@ -1381,12 +1532,31 @@ function(crossgl_apply_native_artifact_descriptor_json_expectations json)
     endforeach()
   endif()
 
+  if(DEFINED EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELD_ONE_OF)
+    string(REPLACE "|" ";" json_one_of_expectations
+           "${EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELD_ONE_OF}")
+    foreach(expectation IN LISTS json_one_of_expectations)
+      crossgl_split_json_expectation("${expectation}" path expected_values)
+      crossgl_expect_json_field_one_of("${json}" "${path}" "${expected_values}")
+    endforeach()
+  endif()
+
   if(DEFINED EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS)
     string(REPLACE "|" ";" json_array_length_expectations
            "${EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS}")
     foreach(expectation IN LISTS json_array_length_expectations)
       crossgl_split_json_expectation("${expectation}" path expected)
       crossgl_expect_json_array_length("${json}" "${path}" "${expected}")
+    endforeach()
+  endif()
+
+  if(DEFINED EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTH_ONE_OF)
+    string(REPLACE "|" ";" json_array_length_one_of_expectations
+           "${EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTH_ONE_OF}")
+    foreach(expectation IN LISTS json_array_length_one_of_expectations)
+      crossgl_split_json_expectation("${expectation}" path expected_values)
+      crossgl_expect_json_array_length_one_of("${json}" "${path}"
+                                             "${expected_values}")
     endforeach()
   endif()
 
@@ -3033,6 +3203,11 @@ elseif(MODE STREQUAL "package-verify-text")
 elseif(MODE STREQUAL "package-runtime-plan")
   if(NOT result EQUAL 0)
     message(FATAL_ERROR "${TARGET} package runtime plan build failed: ${stderr}")
+  endif()
+
+  if(DEFINED CROSSTL_RUNTIME_ADAPTER_FIXTURE)
+    crossgl_install_crosstl_runtime_adapter_fixture(
+      "${OUTPUT}" "${CROSSTL_RUNTIME_ADAPTER_FIXTURE}" "${TARGET}")
   endif()
 
   set(package_path "${OUTPUT}")

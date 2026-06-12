@@ -18,8 +18,10 @@ function(crossgl_add_package_verify_json_schema_test)
     EXPECTED_HIR_SOURCE_MAP_JSON_FIELDS
     EXPECTED_SOURCE_REMAP_PROVENANCE_JSON_FIELDS
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
+    EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELD_ONE_OF
     EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS
-    EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS)
+    EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
+    EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTH_ONE_OF)
   cmake_parse_arguments(CROSSGL_VERIFY_SCHEMA "" "${one_value_args}"
     "${multi_value_args}" ${ARGN})
   if(NOT CROSSGL_VERIFY_SCHEMA_NAME)
@@ -52,8 +54,10 @@ function(crossgl_add_package_verify_json_schema_test)
       "-DEXPECTED_MANIFEST_JSON_ARRAY_CONTAINS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_MANIFEST_JSON_ARRAY_CONTAINS}"
       "-DEXPECTED_MANIFEST_JSON_ARRAY_LENGTHS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS}"
       "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELD_ONE_OF=${CROSSGL_VERIFY_SCHEMA_EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELD_ONE_OF}"
       "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_PATHS}"
       "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS=${CROSSGL_VERIFY_SCHEMA_EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS}"
+      "-DEXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTH_ONE_OF=${CROSSGL_VERIFY_SCHEMA_EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTH_ONE_OF}"
       -DJSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/package-verify-v1.schema.json
       -DNATIVE_ARTIFACT_JSON_SCHEMA=${CMAKE_CURRENT_SOURCE_DIR}/docs/schemas/native-artifact-v0.schema.json
       -DJSON_SCHEMA_VALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_json_schema.py)
@@ -1018,6 +1022,13 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
 
     set(metal_descriptor_array_module
         "${CROSSGL_METAL_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_MODULE}")
+    set(metal_descriptor_array_validation_statuses "not-run")
+    set(metal_descriptor_array_validation_diagnostic_counts "0")
+    if(metal_descriptor_array_module STREQUAL
+       "MetalStorageImageAtomicDescriptorArrayShader")
+      set(metal_descriptor_array_validation_statuses "not-run,failed")
+      set(metal_descriptor_array_validation_diagnostic_counts "0,2")
+    endif()
     crossgl_add_package_verify_json_schema_test(
       NAME ${CROSSGL_METAL_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_NAME}
       TARGET metal
@@ -1034,9 +1045,13 @@ if(CROSSGL_HAS_METAL_NATIVE_TOOLS)
       EXPECTED_MANIFEST_JSON_ARRAY_LENGTHS
         "targetLegalizationToolRequirements.requiredToolIds=2|targetLegalizationToolRequirements.missingToolIds=0|targetLegalizationToolRequirements.toolRequirementEvidenceIds=3|packageArtifactRequirements.requiredPathArtifacts=3|packageArtifactRequirements.evidenceIds=4"
       EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELDS
-        "target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/${metal_descriptor_array_module}.metal|artifactPath=backend/metal/${metal_descriptor_array_module}.metallib|sourceHash.algorithm=sha256|artifactHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2|validationStatus=not-run"
+        "target=metal|binaryKind=metal.metallib|sourcePath=backend/metal/${metal_descriptor_array_module}.metal|artifactPath=backend/metal/${metal_descriptor_array_module}.metallib|sourceHash.algorithm=sha256|artifactHash.algorithm=sha256|optimizationLevel=O1|optimizationEvidence.requestedLevel=O1|optimizationEvidence.effectiveLevel=O2|optimizationEvidence.policy=metal-conservative-native-package-v1|optimizationEvidence.status=applied|optimizationEvidence.tool=xcrun metal|optimizationEvidence.toolFlag=-O2|optimizationEvidence.debugInfo=false|optimizationEvidence.profile=release|optimizationEvidence.flags.0=-O2"
+      EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_FIELD_ONE_OF
+        "validationStatus=${metal_descriptor_array_validation_statuses}"
       EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTHS
-        "toolchainProvenance.tools=3|validationDiagnostics=0")
+        "toolchainProvenance.tools=3"
+      EXPECTED_NATIVE_ARTIFACT_DESCRIPTOR_JSON_ARRAY_LENGTH_ONE_OF
+        "validationDiagnostics=${metal_descriptor_array_validation_diagnostic_counts}")
     crossgl_label_optional_native_test(
       ${CROSSGL_METAL_DESCRIPTOR_ARRAY_PACKAGE_SCHEMA_NAME} metal)
   endfunction()

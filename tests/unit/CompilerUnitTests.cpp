@@ -16176,6 +16176,27 @@ std::string readTextFileOrEmpty(const std::filesystem::path &path) {
                      std::istreambuf_iterator<char>());
 }
 
+std::string readRepoTextFileOrEmpty(const std::filesystem::path &repoPath) {
+  const std::string direct = readTextFileOrEmpty(repoPath);
+  if (!direct.empty()) {
+    return direct;
+  }
+
+  std::error_code error;
+  std::filesystem::path directory = std::filesystem::current_path(error);
+  for (std::size_t depth = 0; !error && depth < 8; ++depth) {
+    const std::string text = readTextFileOrEmpty(directory / repoPath);
+    if (!text.empty()) {
+      return text;
+    }
+    if (!directory.has_parent_path()) {
+      break;
+    }
+    directory = directory.parent_path();
+  }
+  return "";
+}
+
 bool hasPackageSidecarPath(const std::filesystem::path &outputPath) {
   std::filesystem::path parent = outputPath.parent_path();
   if (parent.empty()) {
@@ -17377,6 +17398,70 @@ shader RemappedSourceMapShader {
              parsedRemap->generatedFile == generatedFile &&
              parsedRemap->mappings.size() == 1,
          "source remap parser accepts schema v1 mappings");
+  const std::string crosstlPr747RemapJson = readRepoTextFileOrEmpty(
+      "tests/fixtures/source-remap-v1-crosstl-pr747-demo.json");
+  crossgl::DiagnosticEngine crosstlPr747Diagnostics;
+  const std::optional<crossgl::SourceRemap> crosstlPr747Remap =
+      crossgl::parseSourceRemap(crosstlPr747RemapJson,
+                                crosstlPr747Diagnostics);
+  expect(crosstlPr747Remap.has_value() && !crosstlPr747Diagnostics.hasErrors() &&
+             crosstlPr747Remap->generatedFile ==
+                 "crosstl-out/cgl/shaders.cgl" &&
+             crosstlPr747Remap->mappings.size() == 1,
+         "source remap parser accepts CrossTL PR747 project-porting fixture");
+  if (crosstlPr747Remap && !crosstlPr747Remap->mappings.empty()) {
+    const crossgl::SourceRemapEntry &entry =
+        crosstlPr747Remap->mappings.front();
+    expect(entry.generated.offset == 0 && entry.generated.length == 96 &&
+               entry.generated.endOffset == 96 && entry.original.offset == 240 &&
+               entry.original.length == 96 && entry.original.endOffset == 336,
+           "CrossTL PR747 source-remap fixture preserves span offsets");
+
+    crossgl::DiagnosticEngine crosstlPr747FileDiagnostics;
+    expect(crossgl::validateSourceRemapGeneratedFile(
+               *crosstlPr747Remap, "crosstl-out/cgl/shaders.cgl",
+               crosstlPr747FileDiagnostics) &&
+               !crosstlPr747FileDiagnostics.hasErrors(),
+           "CrossTL PR747 source-remap fixture validates its generated file");
+
+    crossgl::SourceLocation generatedInsideFixture;
+    generatedInsideFixture.file = "crosstl-out/cgl/shaders.cgl";
+    generatedInsideFixture.line = 3;
+    generatedInsideFixture.column = 5;
+    generatedInsideFixture.offset = 40;
+    generatedInsideFixture.length = 7;
+    generatedInsideFixture.endLine = 3;
+    generatedInsideFixture.endColumn = 12;
+    generatedInsideFixture.endOffset = 47;
+    const std::optional<crossgl::SourceLocation> originalInsideFixture =
+        crossgl::remapSourceLocation(*crosstlPr747Remap,
+                                     generatedInsideFixture);
+    expect(originalInsideFixture.has_value() &&
+               originalInsideFixture->file == "src/shaders.metal" &&
+               originalInsideFixture->line == 12 &&
+               originalInsideFixture->column == 5 &&
+               originalInsideFixture->offset == 280 &&
+               originalInsideFixture->length == 7 &&
+               originalInsideFixture->endLine == 12 &&
+               originalInsideFixture->endColumn == 12 &&
+               originalInsideFixture->endOffset == 287,
+           "CrossTL PR747 source-remap fixture remaps diagnostics by offset");
+
+    crossgl::SourceRemap driftedPr747Remap = *crosstlPr747Remap;
+    driftedPr747Remap.mappings.front().original.offset += 5;
+    driftedPr747Remap.mappings.front().original.endOffset += 5;
+    const std::optional<crossgl::SourceLocation> driftedOriginal =
+        crossgl::remapSourceLocation(driftedPr747Remap,
+                                     generatedInsideFixture);
+    expect(driftedOriginal.has_value() &&
+               driftedOriginal->line == originalInsideFixture->line &&
+               driftedOriginal->column == originalInsideFixture->column &&
+               driftedOriginal->offset == originalInsideFixture->offset + 5 &&
+               driftedOriginal->endOffset ==
+                   originalInsideFixture->endOffset + 5,
+           "CrossTL PR747 source-remap remapping detects offset drift even "
+           "when line and column stay stable");
+  }
   crossgl::DiagnosticEngine unknownMemberDiagnostics;
   const std::optional<crossgl::SourceRemap> unknownMemberRemap =
       crossgl::parseSourceRemap(R"({

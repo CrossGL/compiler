@@ -11,5 +11,6 @@ runtime/examples/fixtures/source-free-opengl-validated-source.cglb/backend/openg
 # Source-map and remap fixtures contain byte offsets and recorded hashes.
 tests/fixtures/*.cgl text eol=lf
 tests/fixtures/*.json text eol=lf
+tests/fixtures/**/*.json text eol=lf
 tests/fixtures/out/cgl/*.cgl text eol=lf
 tests/fixtures/out/cgl/*.json text eol=lf

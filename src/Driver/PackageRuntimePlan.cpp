@@ -8,8 +8,10 @@
 #include "PackageDebugArtifacts.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <optional>
 #include <ostream>
 #include <sstream>
@@ -1030,6 +1032,440 @@ std::string_view adapterKindForHostLoader(const PackageArtifactRecord &artifact)
   return "backend-source-loader";
 }
 
+bool jsonValueHasKind(std::string_view value, char kind) {
+  std::size_t position = 0;
+  skipWhitespace(value, position);
+  return position < value.size() && value[position] == kind;
+}
+
+std::string rawObjectMemberOr(std::string_view object, std::string_view key,
+                              std::string_view fallback) {
+  const std::optional<std::string_view> value = findObjectMemberValue(object, key);
+  if (value && jsonValueHasKind(*value, '{')) {
+    return std::string(*value);
+  }
+  return std::string(fallback);
+}
+
+std::vector<std::string_view> jsonArrayValues(std::string_view arrayText) {
+  std::vector<std::string_view> values;
+  std::size_t position = 0;
+  skipWhitespace(arrayText, position);
+  if (position >= arrayText.size() || arrayText[position] != '[') {
+    return values;
+  }
+  ++position;
+  while (position < arrayText.size()) {
+    skipWhitespace(arrayText, position);
+    if (position < arrayText.size() && arrayText[position] == ']') {
+      break;
+    }
+    const std::size_t valueBegin = position;
+    if (!skipJsonValue(arrayText, position)) {
+      values.clear();
+      return values;
+    }
+    values.emplace_back(arrayText.data() + valueBegin, position - valueBegin);
+    skipWhitespace(arrayText, position);
+    if (position < arrayText.size() && arrayText[position] == ',') {
+      ++position;
+      continue;
+    }
+    if (position < arrayText.size() && arrayText[position] == ']') {
+      break;
+    }
+  }
+  return values;
+}
+
+std::vector<std::string> jsonStringArrayValues(std::string_view arrayText) {
+  std::vector<std::string> values;
+  for (std::string_view value : jsonArrayValues(arrayText)) {
+    std::size_t position = 0;
+    std::string parsed;
+    if (parseJsonString(value, position, parsed)) {
+      skipWhitespace(value, position);
+      if (position == value.size()) {
+        values.push_back(std::move(parsed));
+      }
+    }
+  }
+  return values;
+}
+
+std::vector<std::string> objectStringArrayMember(std::string_view object,
+                                                 std::string_view key) {
+  const std::optional<std::string_view> array = findObjectMemberValue(object, key);
+  if (!array || !jsonValueHasKind(*array, '[')) {
+    return {};
+  }
+  return jsonStringArrayValues(*array);
+}
+
+std::optional<std::string>
+stringMemberFromRecordOrDocument(std::string_view record,
+                                 std::string_view document,
+                                 std::string_view key) {
+  std::optional<std::string> value = objectStringMember(record, key);
+  if (value && !value->empty()) {
+    return value;
+  }
+  value = objectStringMember(document, key);
+  if (value && !value->empty()) {
+    return value;
+  }
+  return std::nullopt;
+}
+
+std::string normalizeArtifactFormatAlias(std::string_view value) {
+  std::string normalized;
+  bool pendingSpace = false;
+  for (const char ch : value) {
+    if (std::isspace(static_cast<unsigned char>(ch))) {
+      pendingSpace = !normalized.empty();
+      continue;
+    }
+    if (pendingSpace) {
+      normalized.push_back(' ');
+      pendingSpace = false;
+    }
+    normalized.push_back(static_cast<char>(
+        std::tolower(static_cast<unsigned char>(ch))));
+  }
+  return normalized;
+}
+
+std::optional<std::string>
+compilerArtifactFormat(std::string_view producerArtifactFormat) {
+  const std::string normalized =
+      normalizeArtifactFormatAlias(producerArtifactFormat);
+  if (normalized == "backend-source" || normalized == "glsl source" ||
+      normalized == "glsl-source" || normalized == "hlsl source" ||
+      normalized == "hlsl-source" || normalized == "metal source" ||
+      normalized == "msl source" || normalized == "msl-source" ||
+      normalized == "spir-v source" || normalized == "spirv source" ||
+      normalized == "vulkan-targeted shader source" ||
+      normalized == "wgsl source" || normalized == "wgsl-source") {
+    return std::string("backend-source");
+  }
+  if (normalized == "dxbc" || normalized == "dxil" ||
+      normalized == "dxil binary" || normalized == "metallib" ||
+      normalized == "metallib binary" || normalized == "native-binary" ||
+      normalized == "spir-v" || normalized == "spir-v binary" ||
+      normalized == "spir-v module" || normalized == "spirv" ||
+      normalized == "spirv binary" || normalized == "spirv module") {
+    return std::string("native-binary");
+  }
+  return std::nullopt;
+}
+
+std::string runtimeLoaderMemberName(std::string_view value) {
+  std::vector<std::string> parts;
+  std::string current;
+  for (const char ch : value) {
+    if (std::isalnum(static_cast<unsigned char>(ch))) {
+      current.push_back(ch);
+    } else if (!current.empty()) {
+      parts.push_back(std::move(current));
+      current.clear();
+    }
+  }
+  if (!current.empty()) {
+    parts.push_back(std::move(current));
+  }
+
+  std::string member;
+  for (std::string &part : parts) {
+    part.front() =
+        static_cast<char>(std::toupper(static_cast<unsigned char>(part.front())));
+    member += part;
+  }
+  if (member.empty()) {
+    return "Adapter";
+  }
+  if (!std::isalpha(static_cast<unsigned char>(member.front()))) {
+    member.insert(0, "Adapter");
+  }
+  return member;
+}
+
+std::optional<std::string>
+readJsonObjectFile(const std::filesystem::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return std::nullopt;
+  }
+  std::ostringstream contents;
+  contents << input.rdbuf();
+  std::string text = contents.str();
+  if (!isJsonObjectDocument(text)) {
+    return std::nullopt;
+  }
+  return text;
+}
+
+std::optional<std::filesystem::path>
+findCrossTLRuntimeAdapterManifest(const std::filesystem::path &packagePath) {
+  std::error_code error;
+  if (!std::filesystem::is_directory(packagePath, error) || error) {
+    return std::nullopt;
+  }
+
+  const std::filesystem::path rootManifest =
+      packagePath / "runtime-adapters.json";
+  if (std::filesystem::is_regular_file(rootManifest, error) && !error) {
+    return rootManifest;
+  }
+  error.clear();
+
+  const std::filesystem::path nestedManifest =
+      packagePath / "runtime-adapters" / "runtime-adapters.json";
+  if (std::filesystem::is_regular_file(nestedManifest, error) && !error) {
+    return nestedManifest;
+  }
+  error.clear();
+
+  std::vector<std::filesystem::path> discovered;
+  std::filesystem::recursive_directory_iterator iterator(
+      packagePath, std::filesystem::directory_options::skip_permission_denied,
+      error);
+  const std::filesystem::recursive_directory_iterator end;
+  while (!error && iterator != end) {
+    const std::filesystem::path candidate = iterator->path();
+    if (candidate.filename() == "runtime-adapters.json" &&
+        std::filesystem::is_regular_file(candidate, error) && !error) {
+      discovered.push_back(candidate);
+    }
+    iterator.increment(error);
+  }
+  if (discovered.empty()) {
+    return std::nullopt;
+  }
+  std::sort(discovered.begin(), discovered.end(),
+            [](const std::filesystem::path &lhs,
+               const std::filesystem::path &rhs) {
+              return lhs.generic_string() < rhs.generic_string();
+            });
+  return discovered.front();
+}
+
+std::optional<std::string>
+sourceRemapPackagePath(std::string_view sourceRemapJson) {
+  if (!jsonValueHasKind(sourceRemapJson, '{')) {
+    return std::nullopt;
+  }
+  std::optional<std::string> path =
+      objectStringMember(sourceRemapJson, "packagePath");
+  if (path && !path->empty()) {
+    return path;
+  }
+  path = objectStringMember(sourceRemapJson, "path");
+  if (path && !path->empty()) {
+    return path;
+  }
+  return std::nullopt;
+}
+
+struct CrossTLRuntimeAdapterLoadUnit {
+  std::string id;
+  std::string target;
+  std::string adapterKind;
+  std::string artifactFormat;
+  std::string packagePath;
+  std::optional<std::string> sourcePath;
+  std::optional<std::string> sourceBackend;
+  std::optional<std::string> stage;
+  std::optional<std::string> variant;
+  std::string definesJson = "{}";
+  std::string sourceRemapJson = "null";
+  std::string hostInterfaceJson = "null";
+  std::vector<std::string> requiredTools;
+  std::vector<std::string> hostResponsibilities;
+  std::string hostInterfaceStatus = "not-inspected";
+  std::string artifactName;
+  std::string producerAdapterKind;
+  std::string producerArtifactFormat;
+  bool candidateLoadReady = false;
+  bool validationLoadReady = false;
+  std::optional<std::string> sourceRemapPackagePath;
+  std::size_t entryPointCount = 0;
+  std::size_t resourceCount = 0;
+  std::size_t constantCount = 0;
+};
+
+std::optional<CrossTLRuntimeAdapterLoadUnit>
+crossTLRuntimeAdapterLoadUnitFromDescriptor(std::string_view record,
+                                            std::string_view document) {
+  const std::optional<std::string> target =
+      stringMemberFromRecordOrDocument(record, document, "target");
+  const std::optional<std::string> packagePath =
+      stringMemberFromRecordOrDocument(record, document, "packagePath");
+  const std::optional<std::string> producerAdapterKind =
+      stringMemberFromRecordOrDocument(record, document, "adapterKind");
+  const std::optional<std::string> producerArtifactFormat =
+      stringMemberFromRecordOrDocument(record, document, "artifactFormat");
+  if (!target || !isKnownPackageTarget(*target) || !packagePath ||
+      !isPackageRelativePath(*packagePath) || !producerAdapterKind ||
+      !producerArtifactFormat) {
+    return std::nullopt;
+  }
+
+  const std::optional<std::string> artifactFormat =
+      compilerArtifactFormat(*producerArtifactFormat);
+  if (!artifactFormat) {
+    return std::nullopt;
+  }
+
+  CrossTLRuntimeAdapterLoadUnit unit;
+  unit.target = *target;
+  unit.adapterKind =
+      *artifactFormat == "native-binary" ? "native-binary-loader"
+                                         : "backend-source-loader";
+  unit.artifactName =
+      *artifactFormat == "native-binary" ? std::string(kNativeBinaryArtifact)
+                                         : std::string(kBackendSourceArtifact);
+  unit.artifactFormat = *artifactFormat;
+  unit.packagePath = *packagePath;
+  unit.producerAdapterKind = *producerAdapterKind;
+  unit.producerArtifactFormat = *producerArtifactFormat;
+
+  const std::optional<std::string> descriptorId =
+      stringMemberFromRecordOrDocument(record, document, "id");
+  const std::string idSeed =
+      descriptorId ? *descriptorId
+                   : (packagePath ? *packagePath
+                                  : objectStringMember(record, "descriptorPath")
+                                        .value_or("adapter"));
+  unit.id = "runtime-loader." + unit.target + "." +
+            runtimeLoaderMemberName(idSeed);
+
+  unit.sourcePath = stringMemberFromRecordOrDocument(record, document,
+                                                     "sourcePath");
+  unit.sourceBackend =
+      stringMemberFromRecordOrDocument(record, document, "sourceBackend");
+  unit.stage = stringMemberFromRecordOrDocument(record, document, "stage");
+  unit.variant = stringMemberFromRecordOrDocument(record, document, "variant");
+  unit.definesJson = rawObjectMemberOr(document, "defines", "{}");
+  unit.sourceRemapJson = rawObjectMemberOr(document, "sourceRemap", "null");
+  unit.hostInterfaceJson = rawObjectMemberOr(document, "hostInterface", "null");
+  unit.sourceRemapPackagePath =
+      sourceRemapPackagePath(unit.sourceRemapJson);
+
+  unit.requiredTools = objectStringArrayMember(record, "requiredTools");
+  if (unit.requiredTools.empty()) {
+    unit.requiredTools = objectStringArrayMember(document, "requiredTools");
+  }
+  unit.hostResponsibilities =
+      objectStringArrayMember(document, "hostResponsibilities");
+
+  if (jsonValueHasKind(unit.hostInterfaceJson, '{')) {
+    unit.hostInterfaceStatus =
+        objectStringMember(unit.hostInterfaceJson, "status")
+            .value_or(unit.hostInterfaceStatus);
+    unit.entryPointCount =
+        jsonArraySize(unit.hostInterfaceJson, "entryPoints").value_or(0);
+    unit.resourceCount =
+        jsonArraySize(unit.hostInterfaceJson, "resources").value_or(0);
+    unit.constantCount =
+        jsonArraySize(unit.hostInterfaceJson, "constants").value_or(0);
+  }
+  if (unit.hostInterfaceStatus == "not-inspected") {
+    unit.hostInterfaceStatus =
+        stringMemberFromRecordOrDocument(record, document, "hostInterfaceStatus")
+            .value_or(unit.hostInterfaceStatus);
+  }
+
+  const std::string validationJson =
+      rawObjectMemberOr(document, "validation", "{}");
+  const std::optional<bool> descriptorLoadReady =
+      objectBoolMember(validationJson, "loadReady");
+  const bool hostInterfaceReady = unit.hostInterfaceStatus == "ready";
+  unit.candidateLoadReady =
+      descriptorLoadReady ? (*descriptorLoadReady && hostInterfaceReady)
+                          : hostInterfaceReady;
+  unit.validationLoadReady =
+      hostInterfaceReady && unit.candidateLoadReady;
+  return unit;
+}
+
+std::vector<CrossTLRuntimeAdapterLoadUnit>
+readCrossTLRuntimeAdapterLoadUnits(const PackageMetadata *metadata,
+                                   const Selection &selection,
+                                   const std::optional<std::string>
+                                       &selectedTarget) {
+  if (metadata == nullptr || metadata->packageFormat != "directory" ||
+      selection.artifact == nullptr || !selectedTarget) {
+    return {};
+  }
+
+  const std::string selectedArtifactFormat =
+      std::string(artifactFormatForHostLoader(selection.artifact));
+  if (selectedArtifactFormat != "backend-source" &&
+      selectedArtifactFormat != "native-binary") {
+    return {};
+  }
+
+  const std::optional<std::filesystem::path> manifestPath =
+      findCrossTLRuntimeAdapterManifest(metadata->packagePath);
+  if (!manifestPath) {
+    return {};
+  }
+  const std::optional<std::string> manifest = readJsonObjectFile(*manifestPath);
+  if (!manifest ||
+      objectUnsignedMember(*manifest, "schemaVersion").value_or(0) != 1 ||
+      objectStringMember(*manifest, "kind") !=
+          "crosstl-runtime-adapter-package") {
+    return {};
+  }
+
+  const std::optional<std::string_view> descriptors =
+      findObjectMemberValue(*manifest, "descriptors");
+  if (!descriptors || !jsonValueHasKind(*descriptors, '[')) {
+    return {};
+  }
+
+  std::vector<CrossTLRuntimeAdapterLoadUnit> loadUnits;
+  const std::filesystem::path descriptorRoot = manifestPath->parent_path();
+  for (const std::string_view record : jsonArrayValues(*descriptors)) {
+    if (!jsonValueHasKind(record, '{')) {
+      continue;
+    }
+    const std::optional<std::string> descriptorPath =
+        objectStringMember(record, "descriptorPath");
+    if (!descriptorPath || !isPackageRelativePath(*descriptorPath)) {
+      continue;
+    }
+    const std::optional<std::string> descriptor =
+        readJsonObjectFile(descriptorRoot / *descriptorPath);
+    if (!descriptor ||
+        objectStringMember(*descriptor, "kind") !=
+            "crosstl-runtime-adapter-descriptor") {
+      continue;
+    }
+    std::optional<CrossTLRuntimeAdapterLoadUnit> unit =
+        crossTLRuntimeAdapterLoadUnitFromDescriptor(record, *descriptor);
+    if (!unit || unit->target != *selectedTarget ||
+        unit->packagePath != selection.artifact->path ||
+        unit->artifactFormat != selectedArtifactFormat) {
+      continue;
+    }
+    loadUnits.push_back(std::move(*unit));
+  }
+
+  std::sort(loadUnits.begin(), loadUnits.end(),
+            [](const CrossTLRuntimeAdapterLoadUnit &lhs,
+               const CrossTLRuntimeAdapterLoadUnit &rhs) {
+              if (lhs.target != rhs.target) {
+                return lhs.target < rhs.target;
+              }
+              if (lhs.packagePath != rhs.packagePath) {
+                return lhs.packagePath < rhs.packagePath;
+              }
+              return lhs.id < rhs.id;
+            });
+  return loadUnits;
+}
+
 void writeHostLoaderLoadStepMetadataSource(std::ostream &out,
                                            std::string_view field,
                                            const std::string *path,
@@ -1457,9 +1893,240 @@ void writeHostLoaderIntegration(std::ostream &out, const PackageMetadata *metada
   out << "\n" << indent << "}";
 }
 
+void writeCrossTLRuntimeAdapterLoadStepHeader(
+    std::ostream &out, std::string_view kind, std::string_view message,
+    std::string_view target, std::string_view packagePath,
+    std::string_view hostInterfaceStatus,
+    const std::vector<std::string> &tools, std::string_view indent) {
+  out << indent << "{\n"
+      << indent << "  \"kind\": \"" << escapeJson(kind) << "\",\n"
+      << indent << "  \"message\": \"" << escapeJson(message) << "\",\n"
+      << indent << "  \"target\": \"" << escapeJson(target) << "\",\n"
+      << indent << "  \"packagePath\": \"" << escapeJson(packagePath)
+      << "\",\n"
+      << indent << "  \"tools\": ";
+  writeStringArray(out, tools);
+  out << ",\n"
+      << indent << "  \"command\": null,\n"
+      << indent << "  \"hostInterfaceStatus\": \""
+      << escapeJson(hostInterfaceStatus) << "\",\n";
+}
+
+void writeCrossTLRuntimeAdapterLoadSteps(
+    std::ostream &out, const CrossTLRuntimeAdapterLoadUnit &unit,
+    std::string_view indent) {
+  out << "[\n";
+  const std::string loadMessage = "Load " + unit.artifactFormat + " artifact " +
+                                  unit.packagePath + " for target " +
+                                  unit.target + ".";
+  writeCrossTLRuntimeAdapterLoadStepHeader(
+      out, "load-package-artifact", loadMessage, unit.target, unit.packagePath,
+      unit.hostInterfaceStatus, {}, std::string(indent) + "  ");
+  out << std::string(indent) + "  " << "  \"metadata\": {\n"
+      << std::string(indent) + "  " << "    \"source\": {\n"
+      << std::string(indent) + "  " << "      \"field\": "
+      << "\"descriptor.packagePath\",\n"
+      << std::string(indent) + "  " << "      \"path\": \""
+      << escapeJson(unit.packagePath) << "\"\n"
+      << std::string(indent) + "  " << "    },\n"
+      << std::string(indent) + "  " << "    \"artifact\": {\n"
+      << std::string(indent) + "  " << "      \"name\": \""
+      << escapeJson(unit.artifactName) << "\",\n"
+      << std::string(indent) + "  "
+      << "      \"producerArtifactFormat\": \""
+      << escapeJson(unit.producerArtifactFormat) << "\",\n"
+      << std::string(indent) + "  " << "      \"producerAdapterKind\": \""
+      << escapeJson(unit.producerAdapterKind) << "\"\n"
+      << std::string(indent) + "  " << "    }\n"
+      << std::string(indent) + "  " << "  }\n"
+      << std::string(indent) + "  " << "}";
+
+  if (unit.sourceRemapPackagePath) {
+    const std::string sourceRemapMessage =
+        "Load source-remap metadata " + *unit.sourceRemapPackagePath +
+        " for diagnostics and provenance.";
+    out << ",\n";
+    writeCrossTLRuntimeAdapterLoadStepHeader(
+        out, "load-source-remap", sourceRemapMessage, unit.target,
+        *unit.sourceRemapPackagePath, unit.hostInterfaceStatus, {},
+        std::string(indent) + "  ");
+    out << std::string(indent) + "  " << "  \"metadata\": {\n"
+        << std::string(indent) + "  " << "    \"source\": {\n"
+        << std::string(indent) + "  " << "      \"field\": "
+        << "\"descriptor.sourceRemap.packagePath\",\n"
+        << std::string(indent) + "  " << "      \"path\": \""
+        << escapeJson(*unit.sourceRemapPackagePath) << "\"\n"
+        << std::string(indent) + "  " << "    }\n"
+        << std::string(indent) + "  " << "  }\n"
+        << std::string(indent) + "  " << "}";
+  }
+
+  if (unit.hostInterfaceStatus == "ready") {
+    const std::string hostMessage =
+        "Bind " + std::to_string(unit.entryPointCount) +
+        " entry points and " + std::to_string(unit.resourceCount) +
+        " resources from CrossTL host-interface metadata.";
+    out << ",\n";
+    writeCrossTLRuntimeAdapterLoadStepHeader(
+        out, "bind-host-interface", hostMessage, unit.target, unit.packagePath,
+        unit.hostInterfaceStatus, {}, std::string(indent) + "  ");
+    out << std::string(indent) + "  " << "  \"metadata\": {\n"
+        << std::string(indent) + "  " << "    \"hostInterface\": {\n"
+        << std::string(indent) + "  " << "      \"entryPointCount\": "
+        << unit.entryPointCount << ",\n"
+        << std::string(indent) + "  " << "      \"resourceCount\": "
+        << unit.resourceCount << ",\n"
+        << std::string(indent) + "  " << "      \"constantCount\": "
+        << unit.constantCount << ",\n"
+        << std::string(indent) + "  "
+        << "      \"targetResourceBindingMetadataCount\": "
+        << unit.resourceCount << "\n"
+        << std::string(indent) + "  " << "    }\n"
+        << std::string(indent) + "  " << "  }\n"
+        << std::string(indent) + "  " << "}";
+  }
+
+  if (!unit.requiredTools.empty()) {
+    std::ostringstream toolMessage;
+    toolMessage << "Validate the loaded artifact with available target tools: ";
+    for (std::size_t index = 0; index < unit.requiredTools.size(); ++index) {
+      if (index != 0) {
+        toolMessage << ", ";
+      }
+      toolMessage << unit.requiredTools[index];
+    }
+    toolMessage << ".";
+    out << ",\n";
+    writeCrossTLRuntimeAdapterLoadStepHeader(
+        out, "validate-target-toolchain", toolMessage.str(), unit.target,
+        unit.packagePath, unit.hostInterfaceStatus, unit.requiredTools,
+        std::string(indent) + "  ");
+    out << std::string(indent) + "  " << "  \"metadata\": {\n"
+        << std::string(indent) + "  "
+        << "    \"toolRequirementSource\": \"descriptor.requiredTools\"\n"
+        << std::string(indent) + "  " << "  }\n"
+        << std::string(indent) + "  " << "}";
+  }
+
+  out << "\n" << indent << "]";
+}
+
+void writeCrossTLRuntimeAdapterBlocker(
+    std::ostream &out, std::string_view kind, std::string_view source,
+    std::string_view message, const CrossTLRuntimeAdapterLoadUnit &unit,
+    std::string_view indent) {
+  out << indent << "{\n"
+      << indent << "  \"kind\": \"" << escapeJson(kind) << "\",\n"
+      << indent << "  \"severity\": \"warning\",\n"
+      << indent << "  \"source\": \"" << escapeJson(source) << "\",\n"
+      << indent << "  \"message\": \"" << escapeJson(message) << "\",\n"
+      << indent << "  \"target\": \"" << escapeJson(unit.target) << "\",\n"
+      << indent << "  \"adapter\": \"" << escapeJson(unit.id) << "\",\n"
+      << indent << "  \"packagePath\": \"" << escapeJson(unit.packagePath)
+      << "\"\n"
+      << indent << "}";
+}
+
+void writeCrossTLRuntimeAdapterBlockers(
+    std::ostream &out, const CrossTLRuntimeAdapterLoadUnit &unit,
+    std::string_view indent) {
+  const bool hostBlocked = unit.hostInterfaceStatus != "ready";
+  const bool validationBlocked = !unit.candidateLoadReady;
+  if (!hostBlocked && !validationBlocked) {
+    out << "[]";
+    return;
+  }
+  out << "[\n";
+  bool emitted = false;
+  if (hostBlocked) {
+    const std::string message =
+        "CrossTL runtime adapter host-interface metadata is not ready for " +
+        unit.packagePath + ".";
+    writeCrossTLRuntimeAdapterBlocker(
+        out, "resolve-host-interface-metadata", "descriptor.hostInterface",
+        message, unit, std::string(indent) + "  ");
+    emitted = true;
+  }
+  if (validationBlocked) {
+    if (emitted) {
+      out << ",\n";
+    }
+    const std::string message =
+        "CrossTL runtime adapter validation did not mark the load unit ready "
+        "for " +
+        unit.packagePath + ".";
+    writeCrossTLRuntimeAdapterBlocker(
+        out, "resolve-runtime-adapter-validation",
+        "descriptor.validation.loadReady", message, unit,
+        std::string(indent) + "  ");
+  }
+  out << "\n" << indent << "]";
+}
+
+void writeCrossTLRuntimeAdapterLoadUnit(
+    std::ostream &out, const CrossTLRuntimeAdapterLoadUnit &unit,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"id\": \"" << escapeJson(unit.id) << "\",\n"
+      << indent << "  \"target\": \"" << escapeJson(unit.target) << "\",\n"
+      << indent << "  \"adapterKind\": \"" << escapeJson(unit.adapterKind)
+      << "\",\n"
+      << indent << "  \"artifactFormat\": \""
+      << escapeJson(unit.artifactFormat) << "\",\n"
+      << indent << "  \"packagePath\": \"" << escapeJson(unit.packagePath)
+      << "\",\n"
+      << indent << "  \"sourcePath\": ";
+  writeNullableString(out, unit.sourcePath);
+  out << ",\n" << indent << "  \"sourceBackend\": ";
+  writeNullableString(out, unit.sourceBackend);
+  out << ",\n" << indent << "  \"stage\": ";
+  writeNullableString(out, unit.stage);
+  out << ",\n" << indent << "  \"variant\": ";
+  writeNullableString(out, unit.variant);
+  out << ",\n"
+      << indent << "  \"defines\": " << unit.definesJson << ",\n"
+      << indent << "  \"sourceRemap\": " << unit.sourceRemapJson << ",\n"
+      << indent << "  \"hostInterface\": " << unit.hostInterfaceJson << ",\n"
+      << indent << "  \"requiredTools\": ";
+  writeStringArray(out, unit.requiredTools);
+  out << ",\n" << indent << "  \"hostResponsibilities\": ";
+  writeStringArray(out, unit.hostResponsibilities);
+  out << ",\n" << indent << "  \"loadSteps\": ";
+  writeCrossTLRuntimeAdapterLoadSteps(out, unit, std::string(indent) + "  ");
+  out << ",\n" << indent << "  \"blockers\": ";
+  writeCrossTLRuntimeAdapterBlockers(out, unit, std::string(indent) + "  ");
+  out << ",\n"
+      << indent << "  \"validation\": {\n"
+      << indent << "    \"hostInterface\": \""
+      << escapeJson(unit.hostInterfaceStatus) << "\",\n"
+      << indent << "    \"loadReady\": "
+      << (unit.validationLoadReady ? "true" : "false") << ",\n"
+      << indent << "    \"metadataOnly\": true,\n"
+      << indent << "    \"sourceParsingRequired\": false,\n"
+      << indent << "    \"compilerInvocationRequired\": false,\n"
+      << indent << "    \"deviceExecutionRequired\": false\n"
+      << indent << "  }\n"
+      << indent << "}";
+}
+
 void writeCrossTLRuntimeAdapters(
-    std::ostream &out, const Selection &selection,
+    std::ostream &out, const PackageMetadata *metadata, const Selection &selection,
     const std::optional<std::string> &selectedTarget, std::string_view indent) {
+  const std::vector<CrossTLRuntimeAdapterLoadUnit> loadUnits =
+      readCrossTLRuntimeAdapterLoadUnits(metadata, selection, selectedTarget);
+  const std::size_t readyLoadUnitCount =
+      std::count_if(loadUnits.begin(), loadUnits.end(),
+                    [](const CrossTLRuntimeAdapterLoadUnit &unit) {
+                      return unit.validationLoadReady;
+                    });
+  std::vector<std::string> targets;
+  for (const CrossTLRuntimeAdapterLoadUnit &unit : loadUnits) {
+    if (std::find(targets.begin(), targets.end(), unit.target) == targets.end()) {
+      targets.push_back(unit.target);
+    }
+  }
+  std::sort(targets.begin(), targets.end());
+
   out << "{\n" << indent << "  \"target\": ";
   writeNullableString(out, selectedTarget);
   out << ",\n" << indent << "  \"runtimeArtifactPath\": ";
@@ -1469,11 +2136,25 @@ void writeCrossTLRuntimeAdapters(
     out << "null";
   }
   out << ",\n"
-      << indent << "  \"loadUnitCount\": 0,\n"
-      << indent << "  \"readyLoadUnitCount\": 0,\n"
-      << indent << "  \"blockedLoadUnitCount\": 0,\n"
-      << indent << "  \"targets\": [],\n"
-      << indent << "  \"loadUnits\": []\n"
+      << indent << "  \"loadUnitCount\": " << loadUnits.size() << ",\n"
+      << indent << "  \"readyLoadUnitCount\": " << readyLoadUnitCount << ",\n"
+      << indent << "  \"blockedLoadUnitCount\": "
+      << (loadUnits.size() - readyLoadUnitCount) << ",\n"
+      << indent << "  \"targets\": ";
+  writeStringArray(out, targets);
+  out << ",\n" << indent << "  \"loadUnits\": ";
+  if (loadUnits.empty()) {
+    out << "[]";
+  } else {
+    out << "[";
+    for (std::size_t index = 0; index < loadUnits.size(); ++index) {
+      out << (index == 0 ? "\n" : ",\n");
+      writeCrossTLRuntimeAdapterLoadUnit(out, loadUnits[index],
+                                         std::string(indent) + "    ");
+    }
+    out << "\n" << indent << "  ]";
+  }
+  out << "\n"
       << indent << "}";
 }
 
@@ -1612,7 +2293,7 @@ void writePlanJson(std::ostream &out, const PackageRuntimePlanOptions &options,
                              reflectionFilterTarget, success, "  ");
   out << ",\n"
       << "  \"crosstlRuntimeAdapters\": ";
-  writeCrossTLRuntimeAdapters(out, selection, selectedTarget, "  ");
+  writeCrossTLRuntimeAdapters(out, metadata, selection, selectedTarget, "  ");
   out << ",\n"
       << "  \"diagnosticCounts\": {\n"
       << "    \"note\": " << countDiagnostics(diagnostics, DiagnosticSeverity::Note)
