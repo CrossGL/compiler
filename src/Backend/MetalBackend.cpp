@@ -2398,7 +2398,12 @@ std::string renderMetalForUpdate(const HIRStatement &statement,
 struct MetalBackendSourceMapRecord {
   std::size_t index = 0;
   std::size_t backendStartLine = 1;
+  std::size_t backendStartColumn = 1;
+  std::size_t backendOffset = 0;
+  std::size_t backendLength = 0;
   std::size_t backendEndLine = 1;
+  std::size_t backendEndColumn = 1;
+  std::size_t backendEndOffset = 0;
   std::string stage;
   std::string entryPoint;
   std::string function;
@@ -2415,19 +2420,24 @@ std::size_t metalLineForOffset(std::string_view text, std::size_t offset) {
          1;
 }
 
-std::size_t metalEmittedEndLine(std::string_view text,
-                                std::size_t beginOffset) {
-  if (beginOffset >= text.size()) {
-    return metalLineForOffset(text, beginOffset);
+std::size_t metalColumnForOffset(std::string_view text, std::size_t offset) {
+  const std::size_t boundedOffset = std::min(offset, text.size());
+  const std::size_t previousNewline =
+      boundedOffset == 0 ? std::string_view::npos
+                         : text.rfind('\n', boundedOffset - 1);
+  const std::size_t lineStart =
+      previousNewline == std::string_view::npos ? 0 : previousNewline + 1;
+  return boundedOffset - lineStart + 1;
+}
+
+std::size_t metalEmittedEndOffset(std::string_view text,
+                                  std::size_t beginOffset) {
+  std::size_t endOffset = text.size();
+  while (endOffset > beginOffset &&
+         (text[endOffset - 1] == '\n' || text[endOffset - 1] == '\r')) {
+    --endOffset;
   }
-  const std::string_view emitted = text.substr(beginOffset);
-  const std::size_t startLine = metalLineForOffset(text, beginOffset);
-  const std::size_t newlineCount = static_cast<std::size_t>(
-      std::count(emitted.begin(), emitted.end(), '\n'));
-  if (newlineCount == 0) {
-    return startLine;
-  }
-  return startLine + newlineCount - (emitted.back() == '\n' ? 1 : 0);
+  return endOffset;
 }
 
 std::size_t metalBackendSourceLineCount(std::string_view text) {
@@ -2475,6 +2485,7 @@ std::string metalSourceMapStatementName(const HIRStatement &statement,
 struct MetalBackendSourceMapCollector {
   const SourceRemap *sourceRemap = nullptr;
   std::size_t lineOffset = 0;
+  std::size_t byteOffset = 0;
   std::vector<MetalBackendSourceMapRecord> records;
 
   void recordStatement(const HIRStatement &statement,
@@ -2485,12 +2496,22 @@ struct MetalBackendSourceMapCollector {
       return;
     }
 
+    const std::size_t endOffset = metalEmittedEndOffset(sourceText, beginOffset);
+    if (endOffset <= beginOffset) {
+      return;
+    }
+
     MetalBackendSourceMapRecord record;
     record.index = records.size();
     record.backendStartLine =
         lineOffset + metalLineForOffset(sourceText, beginOffset);
+    record.backendStartColumn = metalColumnForOffset(sourceText, beginOffset);
+    record.backendOffset = byteOffset + beginOffset;
+    record.backendLength = endOffset - beginOffset;
     record.backendEndLine =
-        lineOffset + metalEmittedEndLine(sourceText, beginOffset);
+        lineOffset + metalLineForOffset(sourceText, endOffset);
+    record.backendEndColumn = metalColumnForOffset(sourceText, endOffset);
+    record.backendEndOffset = byteOffset + endOffset;
     record.stage = std::string(context.stageName);
     record.entryPoint = context.backendEntryPoint;
     record.function =
@@ -3138,6 +3159,7 @@ std::string generateMetalSourceWithSourceMap(
                                 *functionResourceParameters) {
     if (sourceMap != nullptr) {
       sourceMap->lineOffset = metalBackendSourceLineCount(out.str());
+      sourceMap->byteOffset = out.str().size();
     }
     out << renderFunction(stage, function, module, graphicsIORoles, entryPoint,
                           functionResourceParameters, sourceMap);
@@ -3265,7 +3287,12 @@ std::string metalBackendSourceMapJson(
         << "      \"name\": \"" << escapeJson(record.name) << "\",\n"
         << "      \"backend\": {\n"
         << "        \"startLine\": " << record.backendStartLine << ",\n"
-        << "        \"endLine\": " << record.backendEndLine << "\n"
+        << "        \"startColumn\": " << record.backendStartColumn << ",\n"
+        << "        \"offset\": " << record.backendOffset << ",\n"
+        << "        \"length\": " << record.backendLength << ",\n"
+        << "        \"endLine\": " << record.backendEndLine << ",\n"
+        << "        \"endColumn\": " << record.backendEndColumn << ",\n"
+        << "        \"endOffset\": " << record.backendEndOffset << "\n"
         << "      },\n"
         << "      \"location\": ";
     appendMetalBackendSourceLocationJson(out, record.location, "      ");

@@ -12,7 +12,8 @@ function(crossgl_add_runtime_loader_plan_schema_test)
     LOGICAL_INPUT
     SOURCE_REMAP
     TOOLCHAIN_PATH
-    CROSSTL_RUNTIME_ADAPTER_FIXTURE)
+    CROSSTL_RUNTIME_ADAPTER_FIXTURE
+    CROSSTL_RUNTIME_ADAPTER_LOAD_READY)
   set(multi_value_args
     EXPECTED_JSON_FIELDS
     EXPECTED_JSON_ARRAY_CONTAINS
@@ -80,6 +81,10 @@ function(crossgl_add_runtime_loader_plan_schema_test)
     list(APPEND runtime_plan_definitions
       "-DCROSSTL_RUNTIME_ADAPTER_FIXTURE=${CROSSGL_RUNTIME_PLAN_CROSSTL_RUNTIME_ADAPTER_FIXTURE}")
   endif()
+  if(DEFINED CROSSGL_RUNTIME_PLAN_CROSSTL_RUNTIME_ADAPTER_LOAD_READY)
+    list(APPEND runtime_plan_definitions
+      "-DCROSSTL_RUNTIME_ADAPTER_LOAD_READY=${CROSSGL_RUNTIME_PLAN_CROSSTL_RUNTIME_ADAPTER_LOAD_READY}")
+  endif()
   if(CROSSGL_RUNTIME_PLAN_TOOLCHAIN_DISABLE_FALLBACK)
     list(APPEND runtime_plan_definitions -DTOOLCHAIN_DISABLE_FALLBACK=ON)
   endif()
@@ -139,6 +144,23 @@ crossgl_add_runtime_loader_plan_schema_test(
     "crosstlRuntimeAdapters.loadUnits.0.hostResponsibilities=Load the packaged GLSL artifact with the existing OpenGL shader creation path.|crosstlRuntimeAdapters.loadUnits.0.hostResponsibilities=Bind uniforms, buffers, textures, and dispatch or draw state in host code."
   EXPECTED_JSON_ARRAY_LENGTHS
     "requiredMetadataInputs=3|crosstlRuntimeAdapters.targets=1|crosstlRuntimeAdapters.loadUnits=1|crosstlRuntimeAdapters.loadUnits.0.requiredTools=1|crosstlRuntimeAdapters.loadUnits.0.hostResponsibilities=2|crosstlRuntimeAdapters.loadUnits.0.loadSteps=4|crosstlRuntimeAdapters.loadUnits.0.blockers=0|diagnostics=0")
+
+crossgl_add_runtime_loader_plan_schema_test(
+  NAME cglc_package_runtime_plan_directx_crosstl_runtime_adapter_sidecar_blocked_schema
+  TARGET directx
+  INPUT ${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/runtime-plan-directx-crosstl-adapter-blocked.cglb
+  PACKAGE_MODE auto
+  CROSSTL_RUNTIME_ADAPTER_FIXTURE
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crosstl-runtime-adapter-pr1308-opengl
+  CROSSTL_RUNTIME_ADAPTER_LOAD_READY false
+  EXPECTED_RESULT 0
+  EXPECTED_JSON_FIELDS
+    "schemaVersion=1|kind=crossgl-runtime-loader-plan|success=true|metadataOnly=true|compilerInvocationRequired=false|deviceExecutionRequired=false|packageFormat=directory|packageTarget=directx|requestedLoaderTarget=directx|selectedPackageMode=source-package|selectedArtifact.path=backend/directx/StorageBufferComputeShader.hlsl|runtimeArtifactPath=backend/directx/StorageBufferComputeShader.hlsl|crosstlRuntimeAdapters.target=directx|crosstlRuntimeAdapters.runtimeArtifactPath=backend/directx/StorageBufferComputeShader.hlsl|crosstlRuntimeAdapters.loadUnitCount=1|crosstlRuntimeAdapters.readyLoadUnitCount=0|crosstlRuntimeAdapters.blockedLoadUnitCount=1|crosstlRuntimeAdapters.targets.0=directx|crosstlRuntimeAdapters.loadUnits.0.target=directx|crosstlRuntimeAdapters.loadUnits.0.adapterKind=backend-source-loader|crosstlRuntimeAdapters.loadUnits.0.artifactFormat=backend-source|crosstlRuntimeAdapters.loadUnits.0.packagePath=backend/directx/StorageBufferComputeShader.hlsl|crosstlRuntimeAdapters.loadUnits.0.sourceBackend=cgl|crosstlRuntimeAdapters.loadUnits.0.hostInterface.status=ready|crosstlRuntimeAdapters.loadUnits.0.hostInterface.entryPointCount=1|crosstlRuntimeAdapters.loadUnits.0.requiredTools.0=directx.toolchain.dxc|crosstlRuntimeAdapters.loadUnits.0.loadSteps.0.kind=load-package-artifact|crosstlRuntimeAdapters.loadUnits.0.loadSteps.1.kind=load-source-remap|crosstlRuntimeAdapters.loadUnits.0.loadSteps.2.kind=bind-host-interface|crosstlRuntimeAdapters.loadUnits.0.loadSteps.3.kind=validate-target-toolchain|crosstlRuntimeAdapters.loadUnits.0.blockers.0.kind=resolve-runtime-adapter-validation|crosstlRuntimeAdapters.loadUnits.0.blockers.0.severity=warning|crosstlRuntimeAdapters.loadUnits.0.blockers.0.source=descriptor.validation.loadReady|crosstlRuntimeAdapters.loadUnits.0.blockers.0.target=directx|crosstlRuntimeAdapters.loadUnits.0.blockers.0.packagePath=backend/directx/StorageBufferComputeShader.hlsl|crosstlRuntimeAdapters.loadUnits.0.validation.hostInterface=ready|crosstlRuntimeAdapters.loadUnits.0.validation.loadReady=false|crosstlRuntimeAdapters.loadUnits.0.validation.metadataOnly=true|crosstlRuntimeAdapters.loadUnits.0.validation.compilerInvocationRequired=false|crosstlRuntimeAdapters.loadUnits.0.validation.deviceExecutionRequired=false|diagnosticCounts.error=0"
+  EXPECTED_JSON_ARRAY_CONTAINS
+    "crosstlRuntimeAdapters.loadUnits.0.hostResponsibilities=Load the packaged GLSL artifact with the existing OpenGL shader creation path.|crosstlRuntimeAdapters.loadUnits.0.hostResponsibilities=Bind uniforms, buffers, textures, and dispatch or draw state in host code."
+  EXPECTED_JSON_ARRAY_LENGTHS
+    "requiredMetadataInputs=3|crosstlRuntimeAdapters.targets=1|crosstlRuntimeAdapters.loadUnits=1|crosstlRuntimeAdapters.loadUnits.0.requiredTools=1|crosstlRuntimeAdapters.loadUnits.0.hostResponsibilities=2|crosstlRuntimeAdapters.loadUnits.0.loadSteps=4|crosstlRuntimeAdapters.loadUnits.0.blockers=1|diagnostics=0")
 
 set(CROSSGL_RUNTIME_PLAN_SOURCE_REMAP_FULL_FILE
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/source-remap-v1-full-file.json")

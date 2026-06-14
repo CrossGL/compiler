@@ -8,6 +8,9 @@ from .common import validate_source_location_span
 
 SOURCE_REMAP_GRANULARITIES = frozenset({"file", "line", "statement", "token"})
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+BACKEND_SPAN_DETAIL_FIELDS = frozenset(
+    {"startColumn", "offset", "length", "endColumn", "endOffset"}
+)
 TARGET_BACKEND_LANGUAGES = {
     "directx": "hlsl",
     "metal": "msl",
@@ -59,6 +62,26 @@ def validate_source_location_range(errors, path, location):
 def validate_backend_span(errors, path, span, line_count):
     if span["endLine"] < span["startLine"]:
         errors.append(f"{path}.endLine: expected >= startLine")
+    present_span_detail_fields = BACKEND_SPAN_DETAIL_FIELDS.intersection(span)
+    if (
+        present_span_detail_fields
+        and present_span_detail_fields != BACKEND_SPAN_DETAIL_FIELDS
+    ):
+        missing = sorted(BACKEND_SPAN_DETAIL_FIELDS.difference(span))
+        errors.append(
+            f"{path}: backend byte span fields must be emitted together; "
+            f"missing {missing!r}"
+        )
+    if present_span_detail_fields == BACKEND_SPAN_DETAIL_FIELDS:
+        if span["endOffset"] != span["offset"] + span["length"]:
+            errors.append(f"{path}.endOffset: expected offset + length")
+        if (
+            span["endLine"] == span["startLine"]
+            and span["endColumn"] <= span["startColumn"]
+        ):
+            errors.append(
+                f"{path}.endColumn: expected > startColumn for same-line span"
+            )
     if line_count == 0:
         errors.append(f"{path}: backend lineCount 0 cannot contain mapped spans")
         return

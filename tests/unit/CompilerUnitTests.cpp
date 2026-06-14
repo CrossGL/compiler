@@ -17739,6 +17739,19 @@ shader CompileRequestRemapShader {
          "CompileRequest package HIR source maps record generated and original "
          "source provenance");
 
+  const std::string backendSourceMap = readTextFileOrEmpty(
+      outputPath / "backend" / "directx" /
+      "CompileRequestRemapShader.backend-source-map.json");
+  expect(backendSourceMap.find("\"startColumn\"") != std::string::npos &&
+             backendSourceMap.find("\"offset\"") != std::string::npos &&
+             backendSourceMap.find("\"length\"") != std::string::npos &&
+             backendSourceMap.find("\"endOffset\"") != std::string::npos &&
+             backendSourceMap.find("\"originalLocation\"") !=
+                 std::string::npos &&
+             backendSourceMap.find(originalFile) != std::string::npos,
+         "CompileRequest package backend source maps record generated backend "
+         "byte spans and original source provenance");
+
   constexpr std::string_view invalidSource = R"(
 shader CompileRequestRemapInvalidShader {
   compute {

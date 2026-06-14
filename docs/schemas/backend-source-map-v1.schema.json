@@ -226,8 +226,28 @@
         "startLine": {
           "$ref": "#/$defs/positiveInteger"
         },
+        "startColumn": {
+          "$ref": "#/$defs/positiveInteger",
+          "description": "1-based generated backend source column where this statement span starts. Optional for backward-compatible v1 sidecars; new compiler output emits it."
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger",
+          "description": "0-based byte offset into the generated backend source. Optional for backward-compatible v1 sidecars; new compiler output emits it."
+        },
+        "length": {
+          "$ref": "#/$defs/positiveInteger",
+          "description": "Generated backend source byte length for this statement span. Optional for backward-compatible v1 sidecars; new compiler output emits it."
+        },
         "endLine": {
           "$ref": "#/$defs/positiveInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/positiveInteger",
+          "description": "1-based exclusive generated backend source column where this statement span ends. Optional for backward-compatible v1 sidecars; new compiler output emits it."
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger",
+          "description": "0-based exclusive byte offset into the generated backend source. Optional for backward-compatible v1 sidecars; new compiler output emits it."
         }
       }
     },

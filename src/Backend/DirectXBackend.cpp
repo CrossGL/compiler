@@ -805,7 +805,12 @@ std::string emitExpression(const HIRExpression &expression,
 struct DirectXBackendSourceMapRecord {
   std::size_t index = 0;
   std::size_t backendStartLine = 1;
+  std::size_t backendStartColumn = 1;
+  std::size_t backendOffset = 0;
+  std::size_t backendLength = 0;
   std::size_t backendEndLine = 1;
+  std::size_t backendEndColumn = 1;
+  std::size_t backendEndOffset = 0;
   std::string stage;
   std::string entryPoint;
   std::string function;
@@ -822,18 +827,23 @@ std::size_t lineForOffset(std::string_view text, std::size_t offset) {
          1;
 }
 
-std::size_t emittedEndLine(std::string_view text, std::size_t beginOffset) {
-  if (beginOffset >= text.size()) {
-    return lineForOffset(text, beginOffset);
+std::size_t columnForOffset(std::string_view text, std::size_t offset) {
+  const std::size_t boundedOffset = std::min(offset, text.size());
+  const std::size_t previousNewline =
+      boundedOffset == 0 ? std::string_view::npos
+                         : text.rfind('\n', boundedOffset - 1);
+  const std::size_t lineStart =
+      previousNewline == std::string_view::npos ? 0 : previousNewline + 1;
+  return boundedOffset - lineStart + 1;
+}
+
+std::size_t emittedEndOffset(std::string_view text, std::size_t beginOffset) {
+  std::size_t endOffset = text.size();
+  while (endOffset > beginOffset &&
+         (text[endOffset - 1] == '\n' || text[endOffset - 1] == '\r')) {
+    --endOffset;
   }
-  const std::string_view emitted = text.substr(beginOffset);
-  const std::size_t startLine = lineForOffset(text, beginOffset);
-  const std::size_t newlineCount = static_cast<std::size_t>(
-      std::count(emitted.begin(), emitted.end(), '\n'));
-  if (newlineCount == 0) {
-    return startLine;
-  }
-  return startLine + newlineCount - (emitted.back() == '\n' ? 1 : 0);
+  return endOffset;
 }
 
 std::size_t backendSourceLineCount(std::string_view text) {
@@ -884,10 +894,20 @@ struct DirectXBackendSourceMapCollector {
       return;
     }
 
+    const std::size_t endOffset = emittedEndOffset(sourceText, beginOffset);
+    if (endOffset <= beginOffset) {
+      return;
+    }
+
     DirectXBackendSourceMapRecord record;
     record.index = records.size();
     record.backendStartLine = lineForOffset(sourceText, beginOffset);
-    record.backendEndLine = emittedEndLine(sourceText, beginOffset);
+    record.backendStartColumn = columnForOffset(sourceText, beginOffset);
+    record.backendOffset = beginOffset;
+    record.backendLength = endOffset - beginOffset;
+    record.backendEndLine = lineForOffset(sourceText, endOffset);
+    record.backendEndColumn = columnForOffset(sourceText, endOffset);
+    record.backendEndOffset = endOffset;
     record.stage = context.stage == nullptr ? "" : context.stage->stage;
     record.entryPoint =
         context.stage == nullptr ? "" : context.stage->entryPointName;
@@ -6138,7 +6158,12 @@ std::string directxBackendSourceMapJson(
         << "      \"name\": \"" << escapeJson(record.name) << "\",\n"
         << "      \"backend\": {\n"
         << "        \"startLine\": " << record.backendStartLine << ",\n"
-        << "        \"endLine\": " << record.backendEndLine << "\n"
+        << "        \"startColumn\": " << record.backendStartColumn << ",\n"
+        << "        \"offset\": " << record.backendOffset << ",\n"
+        << "        \"length\": " << record.backendLength << ",\n"
+        << "        \"endLine\": " << record.backendEndLine << ",\n"
+        << "        \"endColumn\": " << record.backendEndColumn << ",\n"
+        << "        \"endOffset\": " << record.backendEndOffset << "\n"
         << "      },\n"
         << "      \"location\": ";
     appendBackendSourceLocationJson(out, record.location, "      ");

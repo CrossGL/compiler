@@ -6341,7 +6341,12 @@ struct VulkanBackendSourceMapRecord {
   std::size_t instructionStartIndex = 0;
   std::size_t instructionEndIndex = 0;
   std::size_t backendStartLine = 1;
+  std::size_t backendStartColumn = 1;
+  std::size_t backendOffset = 0;
+  std::size_t backendLength = 0;
   std::size_t backendEndLine = 1;
+  std::size_t backendEndColumn = 1;
+  std::size_t backendEndOffset = 0;
   std::string stage;
   std::string entryPoint;
   std::string function;
@@ -6358,6 +6363,44 @@ std::size_t vulkanBackendSourceLineCount(std::string_view text) {
   const std::size_t newlineCount =
       static_cast<std::size_t>(std::count(text.begin(), text.end(), '\n'));
   return newlineCount + (text.back() == '\n' ? 0 : 1);
+}
+
+std::optional<std::size_t> vulkanLineStartOffset(std::string_view text,
+                                                 std::size_t line) {
+  if (line == 0) {
+    return std::nullopt;
+  }
+  if (line == 1) {
+    return 0;
+  }
+  std::size_t currentLine = 1;
+  for (std::size_t offset = 0; offset < text.size(); ++offset) {
+    if (text[offset] != '\n') {
+      continue;
+    }
+    ++currentLine;
+    if (currentLine == line) {
+      return offset + 1;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::size_t> vulkanLineEndOffset(std::string_view text,
+                                               std::size_t line) {
+  const std::optional<std::size_t> startOffset =
+      vulkanLineStartOffset(text, line);
+  if (!startOffset) {
+    return std::nullopt;
+  }
+  std::size_t endOffset = text.find('\n', *startOffset);
+  if (endOffset == std::string_view::npos) {
+    endOffset = text.size();
+  }
+  if (endOffset > *startOffset && text[endOffset - 1] == '\r') {
+    --endOffset;
+  }
+  return endOffset;
 }
 
 SourceLocation vulkanTokenSpan(const std::vector<Token> &tokens) {
@@ -6524,6 +6567,7 @@ std::optional<std::size_t> vulkanRenderedVariableLine(
 
 std::vector<VulkanBackendSourceMapRecord> resolveVulkanBackendSourceMapLines(
     const std::vector<VulkanBackendSourceMapRecord> &records,
+    std::string_view sourceText,
     const std::vector<SPIRVInstructionLineMapping> &renderedInstructionLines,
     const std::vector<SPIRVVariableLineMapping> &renderedVariableLines) {
   std::vector<VulkanBackendSourceMapRecord> resolved;
@@ -6552,8 +6596,25 @@ std::vector<VulkanBackendSourceMapRecord> resolveVulkanBackendSourceMapLines(
     if (!startLine || !endLine) {
       continue;
     }
+    const std::optional<std::size_t> startOffset =
+        vulkanLineStartOffset(sourceText, *startLine);
+    const std::optional<std::size_t> endOffset =
+        vulkanLineEndOffset(sourceText, *endLine);
+    if (!startOffset || !endOffset || *endOffset <= *startOffset) {
+      continue;
+    }
+    const std::optional<std::size_t> endLineStartOffset =
+        vulkanLineStartOffset(sourceText, *endLine);
+    if (!endLineStartOffset) {
+      continue;
+    }
     record.backendStartLine = *startLine;
+    record.backendStartColumn = 1;
+    record.backendOffset = *startOffset;
+    record.backendLength = *endOffset - *startOffset;
     record.backendEndLine = *endLine;
+    record.backendEndColumn = *endOffset - *endLineStartOffset + 1;
+    record.backendEndOffset = *endOffset;
     resolved.push_back(std::move(record));
   }
   std::sort(resolved.begin(), resolved.end(),
@@ -16262,7 +16323,12 @@ std::string vulkanBackendSourceMapJson(
         << "      \"name\": \"" << escapeJson(record.name) << "\",\n"
         << "      \"backend\": {\n"
         << "        \"startLine\": " << record.backendStartLine << ",\n"
-        << "        \"endLine\": " << record.backendEndLine << "\n"
+        << "        \"startColumn\": " << record.backendStartColumn << ",\n"
+        << "        \"offset\": " << record.backendOffset << ",\n"
+        << "        \"length\": " << record.backendLength << ",\n"
+        << "        \"endLine\": " << record.backendEndLine << ",\n"
+        << "        \"endColumn\": " << record.backendEndColumn << ",\n"
+        << "        \"endOffset\": " << record.backendEndOffset << "\n"
         << "      },\n"
         << "      \"location\": ";
     appendVulkanBackendSourceLocationJson(out, record.location, "      ");
@@ -17015,7 +17081,7 @@ std::optional<std::string> generateVulkanBackendSourceMapJson(
   const std::string assembly = sourceMapBuilder.render(
       module, stage, &renderedInstructionLines, &renderedVariableLines);
   const std::vector<VulkanBackendSourceMapRecord> resolvedRecords =
-      resolveVulkanBackendSourceMapLines(sourceMap.records,
+      resolveVulkanBackendSourceMapLines(sourceMap.records, assembly,
                                          renderedInstructionLines,
                                          renderedVariableLines);
   return vulkanBackendSourceMapJson(module, assembly, resolvedRecords,

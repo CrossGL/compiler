@@ -724,7 +724,7 @@ function(crossgl_mutate_package_manifest package_path mutation_kind)
   file(WRITE "${manifest_path}" "${mutated_manifest}")
 endfunction()
 
-function(crossgl_install_crosstl_runtime_adapter_fixture package_path fixture_path target)
+function(crossgl_install_crosstl_runtime_adapter_fixture package_path fixture_path target validation_load_ready)
   set(source_sidecar "${fixture_path}/runtime-adapters")
   if(NOT EXISTS "${source_sidecar}/runtime-adapters.json")
     message(FATAL_ERROR
@@ -819,6 +819,12 @@ function(crossgl_install_crosstl_runtime_adapter_fixture package_path fixture_pa
         string(JSON descriptor_json ERROR_VARIABLE descriptor_error
                SET "${descriptor_json}" requiredTools
                "${adapter_required_tools}")
+      endif()
+      if(descriptor_error STREQUAL "NOTFOUND"
+          AND NOT validation_load_ready STREQUAL "")
+        string(JSON descriptor_json ERROR_VARIABLE descriptor_error
+               SET "${descriptor_json}" validation loadReady
+               "${validation_load_ready}")
       endif()
       if(NOT descriptor_error STREQUAL "NOTFOUND")
         message(FATAL_ERROR
@@ -3207,7 +3213,8 @@ elseif(MODE STREQUAL "package-runtime-plan")
 
   if(DEFINED CROSSTL_RUNTIME_ADAPTER_FIXTURE)
     crossgl_install_crosstl_runtime_adapter_fixture(
-      "${OUTPUT}" "${CROSSTL_RUNTIME_ADAPTER_FIXTURE}" "${TARGET}")
+      "${OUTPUT}" "${CROSSTL_RUNTIME_ADAPTER_FIXTURE}" "${TARGET}"
+      "${CROSSTL_RUNTIME_ADAPTER_LOAD_READY}")
   endif()
 
   set(package_path "${OUTPUT}")
